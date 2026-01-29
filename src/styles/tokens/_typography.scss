@@ -1,0 +1,130 @@
+// ============================================
+// Typography Tokens (타이포그래피 토큰)
+// ============================================
+//
+// 📝 폰트 크기, 줄 높이, 폰트 패밀리 등을 정의합니다.
+
+// 폰트 로딩은 `src/styles/_fonts.scss`에서 처리합니다.
+
+:root {
+  // ============================================
+  // 1. Font Family (폰트 패밀리)
+  // ============================================
+
+  --font-family-base: 'Wanted Sans', sans-serif;
+  --font-family-heading: var(--font-family-base);
+  --font-family-mono:
+    'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  --font-family-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+
+  // ============================================
+  // 2. Font Size (폰트 크기)
+  // ============================================
+
+  --font-size-xxs: 0.625rem; // 10px
+  --font-size-xs: 0.75rem; // 12px
+  --font-size-sm: 0.875rem; // 14px
+  --font-size-base: 1rem; // 16px
+  --font-size-lg: 1.125rem; // 18px
+  --font-size-xl: 1.25rem; // 20px
+  --font-size-2xl: 1.5rem; // 24px
+  --font-size-3xl: 1.875rem; // 30px
+  --font-size-4xl: 2.25rem; // 36px
+  --font-size-5xl: 3rem; // 48px
+  --font-size-6xl: 3.75rem; // 60px
+
+  // ============================================
+  // 3. Font Weight (폰트 두께)
+  // ============================================
+
+  --font-weight-thin: 100;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  // ============================================
+  // 4. Line Height (줄 높이)
+  // ============================================
+
+  --line-height-none: 1;
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+  --line-height-loose: 2;
+
+  // ============================================
+  // 5. Letter Spacing (자간)
+  // ============================================
+
+  --letter-spacing-tighter: -0.05em;
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
+  --letter-spacing-wider: 0.05em;
+  --letter-spacing-widest: 0.1em;
+
+  // ============================================
+  // 6. Text Transform (텍스트 변환)
+  // ============================================
+
+  --text-transform-none: none;
+  --text-transform-uppercase: uppercase;
+  --text-transform-lowercase: lowercase;
+  --text-transform-capitalize: capitalize;
+
+  // ============================================
+  // 7. Heading Styles (h1~h6)
+  // ============================================
+
+  --h1-font-size: var(--font-size-5xl);
+  --h1-line-height: var(--line-height-tight);
+  --h2-font-size: var(--font-size-4xl);
+  --h2-line-height: var(--line-height-tight);
+  --h3-font-size: var(--font-size-3xl);
+  --h3-line-height: var(--line-height-snug);
+  --h4-font-size: var(--font-size-2xl);
+  --h4-line-height: var(--line-height-snug);
+  --h5-font-size: var(--font-size-xl);
+  --h5-line-height: var(--line-height-normal);
+  --h6-font-size: var(--font-size-lg);
+  --h6-line-height: var(--line-height-normal);
+
+  // ============================================
+  // 8. Body Text
+  // ============================================
+
+  --body-font-size: var(--font-size-base);
+  --body-line-height: var(--line-height-normal);
+  --body-sm-font-size: var(--font-size-sm);
+  --body-sm-line-height: var(--line-height-normal);
+  --body-lg-font-size: var(--font-size-lg);
+  --body-lg-line-height: var(--line-height-relaxed);
+
+  // ============================================
+  // 9. Code / Caption
+  // ============================================
+
+  --code-font-family: var(--font-family-mono);
+  --code-font-size: var(--font-size-sm);
+  --caption-font-size: var(--font-size-xs);
+  --caption-line-height: var(--line-height-snug);
+  --caption-color: var(--color-text-tertiary);
+}
+
+// ============================================
+// 사용 예시
+// ============================================
+//
+// ```scss
+// h1 {
+//   font-family: var(--font-family-base);
+//   font-size: var(--font-size-4xl);
+//   font-weight: var(--font-weight-bold);
+//   line-height: var(--line-height-tight);
+// }
+// ```

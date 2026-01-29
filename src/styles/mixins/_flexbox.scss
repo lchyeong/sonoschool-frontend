@@ -1,0 +1,90 @@
+// ============================================
+// Flexbox Mixins
+// ============================================
+// Provides utility mixins for common flexbox patterns.
+
+// 1. Basic Flex Mixin
+@mixin flex($justify: flex-start, $align: stretch) {
+  display: flex;
+  justify-content: $justify;
+  align-items: $align;
+}
+
+// 2. Flex Center (center both axes)
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+// 3. Flex Column (vertical layout)
+@mixin flex-column($justify: flex-start, $align: stretch) {
+  display: flex;
+  flex-direction: column;
+  justify-content: $justify;
+  align-items: $align;
+}
+
+// 4. Flex Row (horizontal layout - default)
+@mixin flex-row($justify: flex-start, $align: stretch) {
+  display: flex;
+  flex-direction: row;
+  justify-content: $justify;
+  align-items: $align;
+}
+
+// 5. Space Between
+@mixin flex-space-between($align: center) {
+  display: flex;
+  justify-content: space-between;
+  align-items: $align;
+}
+
+// 6. Space Around
+@mixin flex-space-around($align: center) {
+  display: flex;
+  justify-content: space-around;
+  align-items: $align;
+}
+
+// 7. Space Evenly
+@mixin flex-space-evenly($align: center) {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: $align;
+}
+
+// 8. Flex Wrap
+@mixin flex-wrap($justify: flex-start, $align: flex-start) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: $justify;
+  align-items: $align;
+}
+
+// 9. Inline Flex
+@mixin inline-flex($justify: flex-start, $align: stretch) {
+  display: inline-flex;
+  justify-content: $justify;
+  align-items: $align;
+}
+
+// 10. Flex Gap
+@mixin flex-gap($gap) {
+  gap: $gap;
+}
+
+// 11. Flex Item (control grow/shrink/basis)
+@mixin flex-item($grow: 0, $shrink: 1, $basis: auto) {
+  flex: $grow $shrink $basis;
+}
+
+// 12. Flex Grow
+@mixin flex-grow($grow: 1) {
+  flex-grow: $grow;
+}
+
+// 13. Flex Shrink
+@mixin flex-shrink($shrink: 1) {
+  flex-shrink: $shrink;
+}

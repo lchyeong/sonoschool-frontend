@@ -1,0 +1,39 @@
+// ============================================
+// Mixins Index
+// ============================================
+//
+// All mixins are exported from this file.
+// Usage: @use '@styles/mixins' as m;
+//
+// Example:
+// .button {
+//   @include m.flex-center;
+//   @include m.transition(all, 0.2s);
+// }
+
+// === 1. Flexbox (Layout) ===
+// Mixins: flex, flex-center, flex-column, flex-row,
+// flex-space-between, flex-space-around, flex-wrap,
+// flex-gap, flex-item, flex-grow, flex-shrink
+@forward 'flexbox';
+
+// === 2. Typography ===
+// Mixins: text-truncate, line-clamp, heading,
+// body-text, text-link, code-text, responsive-font-size
+@forward 'typography';
+
+// === 3. Animations ===
+// Mixins: transition, transitions, animation,
+// fade-in, fade-out, slide-in, spin, bounce, shake, pulse
+@forward 'animations' hide $generated-scale-keyframes, scale-keyframe-name;
+
+// === 4. Responsive ===
+// Mixins: mq, mq-max, mq-between, sm, md, lg, xl, xxl,
+// mobile-only, tablet-only, desktop-only, container
+@forward 'responsive' hide resolve-breakpoint;
+
+// === 5. Shapes ===
+// Mixins: circle, square, rectangle, triangle, arrow,
+// aspect-ratio, full-size, absolute-center, absolute-cover,
+// fixed-cover, image-cover, pill
+@forward 'shapes';

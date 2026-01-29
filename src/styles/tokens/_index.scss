@@ -1,0 +1,44 @@
+// ============================================
+// Tokens Index
+// ============================================
+//
+// 📝 모든 Design Tokens를 한 곳에서 불러옵니다.
+//
+// 사용 방법:
+// globals.scss에서 @forward 'tokens'로 불러오면
+// 모든 토큰이 전역적으로 사용 가능해집니다.
+
+@forward 'colors';
+@forward 'typography';
+@forward 'spacing';
+@forward 'shadows';
+@forward 'borders';
+@forward 'z-index';
+
+// ============================================
+// Transition Tokens (추가)
+// ============================================
+// 📝 애니메이션 속도를 정의합니다.
+
+:root {
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+  --transition-slower: 500ms ease;
+
+  --timing-ease: ease;
+  --timing-ease-in: ease-in;
+  --timing-ease-out: ease-out;
+  --timing-ease-in-out: ease-in-out;
+  --timing-linear: linear;
+}
+
+// ============================================
+// 사용 예시
+// ============================================
+//
+// ```scss
+// .button {
+//   transition: all var(--transition-base);
+// }
+// ```

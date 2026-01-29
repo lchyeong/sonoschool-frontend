@@ -1,0 +1,134 @@
+// ============================================
+// Shape Mixins
+// ============================================
+// Provides utility mixins for common shapes.
+
+// 1. Circle
+@mixin circle($size) {
+  width: $size;
+  height: $size;
+  border-radius: 50%;
+}
+
+// 2. Square
+@mixin square($size, $radius: 0) {
+  width: $size;
+  height: $size;
+
+  @if $radius != 0 {
+    border-radius: $radius;
+  }
+}
+
+// 3. Rectangle
+@mixin rectangle($width, $height, $radius: 0) {
+  width: $width;
+  height: $height;
+
+  @if $radius != 0 {
+    border-radius: $radius;
+  }
+}
+
+// 4. Triangle (using borders)
+@mixin triangle($direction, $size, $color) {
+  width: 0;
+  height: 0;
+  border-style: solid;
+
+  @if $direction == up {
+    border-width: 0 $size $size $size;
+    border-color: transparent transparent $color transparent;
+  } @else if $direction == down {
+    border-width: $size $size 0 $size;
+    border-color: $color transparent transparent transparent;
+  } @else if $direction == left {
+    border-width: $size $size $size 0;
+    border-color: transparent $color transparent transparent;
+  } @else if $direction == right {
+    border-width: $size 0 $size $size;
+    border-color: transparent transparent transparent $color;
+  }
+}
+
+// 5. Arrow (chevron style)
+@mixin arrow($direction, $size, $width: 2px, $color: currentColor) {
+  width: $size;
+  height: $size;
+  border-style: solid;
+  border-color: $color;
+
+  @if $direction == up {
+    border-width: $width $width 0 0;
+    transform: rotate(-45deg);
+  } @else if $direction == down {
+    border-width: 0 $width $width 0;
+    transform: rotate(45deg);
+  } @else if $direction == left {
+    border-width: $width 0 0 $width;
+    transform: rotate(-45deg);
+  } @else if $direction == right {
+    border-width: 0 0 $width $width;
+    transform: rotate(-45deg);
+  }
+}
+
+// 6. Aspect Ratio
+@mixin aspect-ratio($width, $height) {
+  aspect-ratio: $width / $height;
+}
+
+// 7. Full Size (100% width and height)
+@mixin full-size {
+  width: 100%;
+  height: 100%;
+}
+
+// 8. Absolute Center
+@mixin absolute-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+// 9. Absolute Cover
+@mixin absolute-cover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+// 10. Fixed Cover (full viewport)
+@mixin fixed-cover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+// 11. Image Cover
+@mixin image-cover($fit: cover, $position: center) {
+  width: 100%;
+  height: 100%;
+  object-fit: $fit;
+  object-position: $position;
+}
+
+// 12. Pill shape (rounded ends)
+@mixin pill($height, $padding: null) {
+  @if $padding == null {
+    $padding: calc($height / 2);
+  }
+
+  height: $height;
+  padding-left: $padding;
+  padding-right: $padding;
+  border-radius: calc($height / 2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

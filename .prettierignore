@@ -1,0 +1,24 @@
+node_modules
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# 빌드 결과
+dist
+dist-ssr
+build
+.vite
+coverage
+
+# 자동 생성 파일
+*.min.js
+*.min.css
+
+# 설정 파일
+.vscode
+.idea
+
+# 기타
+.DS_Store
+*.log
+

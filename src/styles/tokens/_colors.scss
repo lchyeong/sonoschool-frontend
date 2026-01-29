@@ -1,0 +1,148 @@
+// ============================================
+// Design Tokens - Colors (색상 토큰)
+// ============================================
+//
+// 📝 이 파일은 무엇인가요?
+// 프로젝트에서 사용하는 모든 색상을 CSS 변수로 정의합니다.
+//
+// 📝 왜 CSS 변수를 사용하나요?
+// - 색상을 한 곳에서 관리 → 유지보수 쉬움
+// - 다크모드 구현이 간단함
+// - 일관된 디자인 시스템 유지
+//
+// 💡 사용 방법:
+// ```css
+// .button {
+//   background: var(--color-primary-500);
+//   color: var(--color-text-primary);
+// }
+// ```
+
+:root {
+  // ============================================
+  // 1. Primary Colors (주요 색상)
+  // ============================================
+
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6; // 기본
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  --color-primary: var(--color-primary-500);
+  --color-primary-hover: var(--color-primary-600);
+  --color-primary-active: var(--color-primary-700);
+
+  // ============================================
+  // 2. Semantic Colors (의미론적 색상)
+  // ============================================
+
+  // Success
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success: var(--color-success-500);
+  --color-success-light: var(--color-success-100);
+
+  // Warning
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning: var(--color-warning-500);
+  --color-warning-light: var(--color-warning-100);
+
+  // Error
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error: var(--color-error-500);
+  --color-error-light: var(--color-error-100);
+  --color-danger: var(--color-error-500);
+
+  // Info
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+  --color-info: var(--color-info-500);
+
+  // ============================================
+  // 3. Neutral/Gray Colors
+  // ============================================
+
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+
+  // ============================================
+  // 4. Background Colors
+  // ============================================
+
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: var(--color-gray-50);
+  --color-bg-tertiary: var(--color-gray-100);
+  --color-bg-inverse: var(--color-gray-900);
+  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+
+  // ============================================
+  // 5. Text Colors
+  // ============================================
+
+  --color-text-primary: var(--color-gray-900);
+  --color-text-secondary: var(--color-gray-700);
+  --color-text-tertiary: var(--color-gray-500);
+  --color-text-disabled: var(--color-gray-400);
+  --color-text-inverse: #ffffff;
+  --color-text-link: var(--color-primary-500);
+
+  // Status colors (utilities/animations용 별칭)
+  --color-status-success: var(--color-success-500);
+  --color-status-warning: var(--color-warning-500);
+  --color-status-error: var(--color-error-500);
+  --color-status-info: var(--color-info-500);
+
+  // ============================================
+  // 6. Border Colors
+  // ============================================
+
+  --color-border: var(--color-gray-200);
+  --color-border-hover: var(--color-gray-300);
+  --color-border-focus: var(--color-primary-500);
+}
+
+// ============================================
+// Dark Mode
+// ============================================
+
+[data-theme='dark'] {
+  --color-primary: var(--color-primary-400);
+  --color-primary-hover: var(--color-primary-500);
+
+  --color-bg-primary: var(--color-gray-900);
+  --color-bg-secondary: var(--color-gray-800);
+  --color-bg-tertiary: var(--color-gray-700);
+  --color-bg-inverse: var(--color-gray-50);
+
+  --color-text-primary: var(--color-gray-50);
+  --color-text-secondary: var(--color-gray-300);
+  --color-text-tertiary: var(--color-gray-400);
+  --color-text-inverse: var(--color-gray-900);
+
+  --color-border: var(--color-gray-700);
+  --color-border-hover: var(--color-gray-600);
+}

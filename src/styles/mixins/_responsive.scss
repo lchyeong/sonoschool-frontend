@@ -1,0 +1,210 @@
+// ============================================
+// Responsive Mixins
+// ============================================
+// Provides utility mixins for responsive design.
+
+@use 'sass:map';
+@use 'sass:meta';
+
+// Breakpoint definitions
+$breakpoints: (
+  xs: 0,
+  sm: 640px,
+  md: 768px,
+  lg: 1024px,
+  xl: 1280px,
+  2xl: 1536px,
+);
+
+@function resolve-breakpoint($breakpoint) {
+  $size: map.get($breakpoints, $breakpoint);
+
+  @if $size != null {
+    @return $size;
+  }
+
+  @if meta.type-of($breakpoint) == 'number' {
+    @return $breakpoint;
+  }
+
+  @error "Unknown breakpoint `#{$breakpoint}`. Use one of: #{map.keys($breakpoints)} (or pass a length like `900px`).";
+}
+
+// 1. Media Query (min-width based - mobile first)
+@mixin mq($breakpoint) {
+  $size: resolve-breakpoint($breakpoint);
+
+  @media (width >= $size) {
+    @content;
+  }
+}
+
+// 2. Max Width Query (max-width based - desktop first)
+@mixin mq-max($breakpoint) {
+  $size: map.get($breakpoints, $breakpoint);
+
+  @if $size != null {
+    @if $size == 0 {
+      @error "mq-max(xs)은 의미가 모호합니다. 보통 `mq-max(sm)` 또는 `mobile-only`를 사용하세요.";
+    }
+
+    @media (width < $size) {
+      @content;
+    }
+  } @else if meta.type-of($breakpoint) == 'number' {
+    @media (width <= $breakpoint) {
+      @content;
+    }
+  } @else {
+    @error "Unknown breakpoint `#{$breakpoint}`. Use one of: #{map.keys($breakpoints)} (or pass a length like `900px`).";
+  }
+}
+
+// 3. Between Query (range)
+@mixin mq-between($min, $max) {
+  $min-size: map.get($breakpoints, $min);
+  $max-size: map.get($breakpoints, $max);
+
+  @if $min-size == null and meta.type-of($min) != 'number' {
+    @error "Unknown breakpoint(min) `#{$min}`. Use one of: #{map.keys($breakpoints)} (or pass a length like `900px`).";
+  }
+
+  @if $max-size == null and meta.type-of($max) != 'number' {
+    @error "Unknown breakpoint(max) `#{$max}`. Use one of: #{map.keys($breakpoints)} (or pass a length like `900px`).";
+  }
+
+  $min-value: if($min-size != null, $min-size, $min);
+  $max-value: if($max-size != null, $max-size, $max);
+
+  @if $max-value == 0 {
+    @error "mq-between의 max는 0일 수 없습니다. 예: `mq-between(xs, sm)` 또는 `mq-between(sm, md)`";
+  }
+
+  @media (width >= $min-value) and (width < $max-value) {
+    @content;
+  }
+}
+
+// 4. Shorthand mixins
+@mixin sm {
+  @include mq(sm) {
+    @content;
+  }
+}
+
+@mixin md {
+  @include mq(md) {
+    @content;
+  }
+}
+
+@mixin lg {
+  @include mq(lg) {
+    @content;
+  }
+}
+
+@mixin xl {
+  @include mq(xl) {
+    @content;
+  }
+}
+
+@mixin xxl {
+  @include mq(2xl) {
+    @content;
+  }
+}
+
+// 5. Mobile Only
+@mixin mobile-only {
+  @include mq-max(md) {
+    @content;
+  }
+}
+
+// 6. Tablet Only
+@mixin tablet-only {
+  @include mq-between(md, lg) {
+    @content;
+  }
+}
+
+// 7. Desktop Only
+@mixin desktop-only {
+  @include mq(lg) {
+    @content;
+  }
+}
+
+// 8. Container
+@mixin container($max-width: 1280px) {
+  width: 100%;
+  max-width: $max-width;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--spacing-page-padding);
+  padding-right: var(--spacing-page-padding);
+
+  @include md {
+    padding-left: var(--spacing-page-padding-md);
+    padding-right: var(--spacing-page-padding-md);
+  }
+
+  @include lg {
+    padding-left: var(--spacing-page-padding-lg);
+    padding-right: var(--spacing-page-padding-lg);
+  }
+}
+
+// 9. Hide/Show
+@mixin hide-from($breakpoint) {
+  @include mq($breakpoint) {
+    display: none !important;
+  }
+}
+
+@mixin show-from($breakpoint) {
+  display: none !important;
+
+  @include mq($breakpoint) {
+    display: block !important;
+  }
+}
+
+@mixin hide-until($breakpoint) {
+  @include mq-max($breakpoint) {
+    display: none !important;
+  }
+}
+
+// 10. Responsive Grid
+@mixin responsive-grid($mobile: 1, $tablet: 2, $desktop: 3) {
+  display: grid;
+  grid-template-columns: repeat($mobile, 1fr);
+
+  @include md {
+    grid-template-columns: repeat($tablet, 1fr);
+  }
+
+  @include lg {
+    grid-template-columns: repeat($desktop, 1fr);
+  }
+}
+
+// 11. Responsive Typography
+@mixin responsive-font($mobile, $tablet: null, $desktop: null) {
+  font-size: $mobile;
+
+  @if $tablet {
+    @include md {
+      font-size: $tablet;
+    }
+  }
+
+  @if $desktop {
+    @include lg {
+      font-size: $desktop;
+    }
+  }
+}

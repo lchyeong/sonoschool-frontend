@@ -1,0 +1,86 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* ========================================
+       타입 체크 설정 (엄격 모드)
+       ======================================== */
+
+    // TypeScript 엄격 모드 (7가지 규칙 활성화)
+    // 설정 파일도 타입 안전하게 작성
+    // 실수로 인한 빌드 오류 방지
+    "strict": true,
+
+    // 사용 안 하는 지역 변수 에러
+    // true = 불필요한 코드 제거 강제
+    // const unused = 'hello' // 에러!
+    "noUnusedLocals": true,
+
+    // 사용 안 하는 매개변수 에러
+    // true = 함수 시그니처 최적화
+    // (name, unused) => { } // 에러!
+    "noUnusedParameters": true,
+
+    // switch문 fall-through 방지
+    // true = break/return 누락 검사
+    // 의도치 않은 코드 실행 방지
+    "noFallthroughCasesInSwitch": true,
+
+    // 부작용 import 검사
+    // true = import만 하고 사용 안 하면 경고
+    // 불필요한 import 제거
+    "noUncheckedSideEffectImports": true,
+
+    // 파일명 대소문자 일관성
+    // true = 크로스 플랫폼 호환성
+    // Windows/Mac/Linux 모두 동일하게 동작
+    "forceConsistentCasingInFileNames": true,
+
+    /* ========================================
+       추가 타입 안전성 옵션
+       ======================================== */
+
+    // 모든 경로에서 반환 필수
+    // true = if/else 모든 분기 return 검사
+    // 함수 반환값 누락 방지
+    "noImplicitReturns": true,
+
+    // override 키워드 필수
+    // true = 메서드 재정의 명시적 표시
+    // 실수로 새 메서드 생성 방지
+    "noImplicitOverride": true,
+
+    // 도달 불가능 코드 금지
+    // false = return 후 코드 에러
+    // 죽은 코드 제거
+    "allowUnreachableCode": false,
+
+    // 미사용 라벨 금지
+    // false = 불필요한 라벨 에러
+    // 깔끔한 코드 유지
+    "allowUnusedLabels": false
+  },
+
+  // 이 설정이 적용될 파일 목록
+  // Vite와 관련된 모든 설정 파일 포함
+  "include": [
+    "vite.config.ts", // Vite 빌드 설정
+    "vitest.config.ts", // Vitest 테스트 설정 (있는 경우)
+    "*.config.ts", // 기타 TypeScript 설정 파일
+    "*.config.js", // JavaScript 설정 파일 (있는 경우)
+    "e2e/**/*.ts" // Playwright E2E 테스트
+  ]
+}

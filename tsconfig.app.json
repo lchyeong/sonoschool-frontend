@@ -1,0 +1,186 @@
+{
+  "compilerOptions": {
+    /* ========================================
+       빌드 및 캐싱 설정
+       ======================================== */
+
+    // TypeScript 증분 빌드 정보를 저장할 파일 경로
+    // 이전 컴파일 정보를 저장해서 다음 컴파일을 더 빠르게 만듦
+    // node_modules/.tmp/ 폴더는 git에서 무시되므로 안전함
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+
+    // TypeScript를 어떤 버전의 JavaScript로 변환할지 결정
+    // ES2022 = 2022년 표준 JavaScript (최신 브라우저 대부분 지원)
+    // 낮출수록 구형 브라우저 지원, 높일수록 최신 기능 사용 가능
+    "target": "ES2022",
+
+    // 클래스 필드를 표준 ECMAScript 방식으로 정의
+    // true = 표준 방식 (권장), false = 예전 TypeScript 방식
+    // React와 최신 라이브러리는 true 필요
+    "useDefineForClassFields": true,
+
+    // TypeScript가 인식할 수 있는 JavaScript 기능 목록
+    // ES2024 = 2024년 JavaScript 기능 (toSorted, toReversed 등)
+    // DOM = 브라우저 API (document, window, querySelector 등)
+    // DOM.Iterable = NodeList.forEach() 같은 반복 기능
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+
+    // 모듈 시스템 설정 (import/export 방식)
+    // ESNext = 최신 ES 모듈 (import, export, 동적 import() 지원)
+    // CommonJS = require/module.exports (Node.js 전통 방식)
+    "module": "ESNext",
+
+    // Vite 전용 타입 정의 파일 포함
+    // import.meta.env.VITE_* 환경변수 타입
+    // .svg, .png 등 정적 파일 import 타입 지원
+    "types": ["vite/client"],
+
+    // node_modules의 타입 정의(.d.ts) 파일 검사 건너뛰기
+    // true = 빠른 컴파일 (권장), false = 모든 타입 검사 (느림)
+    "skipLibCheck": true,
+
+    /* ========================================
+       번들러(Vite) 전용 설정
+       ======================================== */
+
+    // 모듈을 찾는 방식 설정
+    // "bundler" = Vite, Webpack 같은 번들러가 처리
+    // "node" = Node.js 방식, "classic" = 구식 방식
+    "moduleResolution": "bundler",
+
+    // .ts, .tsx 확장자를 import문에서 사용 허용
+    // true = import './App.tsx' 가능 (번들러 환경)
+    // false = import './App' 만 가능 (Node.js 환경)
+    "allowImportingTsExtensions": true,
+
+    // import/export 구문을 정확히 유지
+    // true = import type과 import를 명확히 구분
+    // 사용하지 않는 import는 자동으로 제거됨
+    "verbatimModuleSyntax": true,
+
+    // 모든 파일을 모듈로 취급
+    // "force" = export/import 없어도 모듈로 처리
+    // 전역 스크립트와 모듈 충돌 방지
+    "moduleDetection": "force",
+
+    // TypeScript가 JavaScript 파일을 생성하지 않음
+    // true = 타입 체크만 (Vite가 빌드 담당)
+    // false = .js 파일 생성 (tsc 직접 사용 시)
+    "noEmit": true,
+
+    // JSX(React 컴포넌트) 변환 방식
+    // "react-jsx" = React 17+ 자동 변환 (import React 불필요)
+    // "react" = 구버전 (import React 필수)
+    // "preserve" = JSX 그대로 유지
+    "jsx": "react-jsx",
+
+    // 각 파일을 독립적으로 컴파일
+    // true = 빠른 트랜스파일, 타입만 import 가능
+    // Vite의 HMR(핫 모듈 교체)에 필수
+    "isolatedModules": true,
+
+    // JSON 파일을 import 할 수 있게 허용
+    // true = import data from './data.json' 가능
+    // 설정 파일이나 번역 파일 import에 유용
+    "resolveJsonModule": true,
+
+    /* ========================================
+       타입 체크 - 엄격한 검사 (버그 방지)
+       ======================================== */
+
+    // TypeScript 엄격 모드 활성화 (아래 7개 옵션 한번에 켜기)
+    // - noImplicitAny: any 타입 자동 추론 금지
+    // - noImplicitThis: this 타입 명시 필수
+    // - alwaysStrict: "use strict" 자동 추가
+    // - strictBindCallApply: bind/call/apply 타입 체크
+    // - strictNullChecks: null/undefined 엄격 체크
+    // - strictFunctionTypes: 함수 매개변수 타입 엄격 체크
+    // - strictPropertyInitialization: 클래스 속성 초기화 필수
+    "strict": true,
+
+    // 사용하지 않는 지역 변수 오류로 표시
+    // true = 안 쓰는 변수 있으면 에러
+    // const name = "John" // name을 안 쓰면 에러
+    "noUnusedLocals": true,
+
+    // 사용하지 않는 함수 매개변수 오류로 표시
+    // true = 안 쓰는 매개변수 있으면 에러
+    // function greet(name, age) { } // age 안 쓰면 에러
+    "noUnusedParameters": true,
+
+    // switch문에서 break/return 없는 case 금지
+    // true = 의도치 않은 fall-through 방지
+    // case 1: console.log(); case 2: // 에러!
+    "noFallthroughCasesInSwitch": true,
+
+    // import만 하고 사용 안 하면 오류
+    // true = import './styles.css' 같은 부작용 import 체크
+    // 실수로 추가한 import 방지
+    "noUncheckedSideEffectImports": true,
+
+    // 파일명 대소문자 일관성 강제
+    // true = App.tsx와 app.tsx를 다른 파일로 인식
+    // Windows와 Mac/Linux 간 호환성 보장
+    "forceConsistentCasingInFileNames": true,
+
+    /* ========================================
+       추가 타입 안전성 옵션
+       ======================================== */
+
+    // 모든 코드 경로에서 반환값 필수
+    // true = if문의 모든 분기에서 return 필요
+    // function test(x) { if(x) return 1; } // 에러! else 필요
+    "noImplicitReturns": true,
+
+    // override 키워드 필수
+    // true = 부모 클래스 메서드 재정의 시 override 명시
+    // 오타로 인한 새 메서드 생성 방지
+    "noImplicitOverride": true,
+
+    // 도달할 수 없는 코드 금지
+    // false = return 뒤의 코드 에러
+    // return 1; console.log("안녕"); // 에러!
+    "allowUnreachableCode": false,
+
+    // 사용하지 않는 라벨 금지
+    // false = loop: for(...) 같은 미사용 라벨 에러
+    // 실수로 남긴 디버깅 코드 방지
+    "allowUnusedLabels": false,
+
+    // 선택적 속성의 정확한 타입 체크
+    // false = undefined를 명시적으로 할당 가능
+    // true일 경우 {name?: string}과 {name: string | undefined} 구분
+    "exactOptionalPropertyTypes": true, // ← 더 엄격하게
+    "noPropertyAccessFromIndexSignature": true,
+
+    /* ========================================
+       경로 별칭 설정 (import 단축)
+       ======================================== */
+
+    // 경로 별칭의 기준 디렉토리
+    // "." = 프로젝트 루트 (package.json이 있는 곳)
+    "baseUrl": ".",
+
+    // import 경로 단축 매핑
+    // "@/components/Button" → "src/components/Button"
+    // 상대 경로 ../../../ 지옥 탈출!
+    "paths": {
+      "@/*": ["src/*"], // @/ = src/ 폴더
+      "@components/*": ["src/components/*"], // React 컴포넌트
+      "@hooks/*": ["src/hooks/*"], // 커스텀 훅 (useXxx)
+      "@pages/*": ["src/pages/*"], // 페이지 컴포넌트
+      "@utils/*": ["src/utils/*"], // 유틸리티 함수
+      "@types/*": ["src/types/*"], // TypeScript 타입 정의
+      "@assets/*": ["src/assets/*"], // 이미지, 폰트 등
+      "@styles/*": ["src/styles/*"], // CSS, SCSS 파일
+      "@store/*": ["src/stores/*"], // 전역 상태 관리
+      "@constants/*": ["src/constants/*"], // 상수 정의
+      "@services/*": ["src/services/*"] // API 호출 로직
+    }
+  },
+
+  // TypeScript가 컴파일할 파일/폴더 지정
+  // "src" = src 폴더의 모든 .ts, .tsx 파일
+  // "src/**/*.d.ts" = src 내부 모든 타입 정의 파일
+  "include": ["src", "src/**/*.d.ts"]
+}

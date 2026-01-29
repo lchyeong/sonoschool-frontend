@@ -1,0 +1,126 @@
+// ============================================
+// Animation Mixins
+// ============================================
+// Provides utility mixins for CSS transitions and animations.
+
+@use 'sass:list';
+@use 'sass:math';
+@use 'sass:meta';
+
+// 1. Transition
+@mixin transition($property: all, $duration: 0.3s, $easing: ease, $delay: 0s) {
+  transition: $property $duration $easing $delay;
+}
+
+// 2. Multiple Transitions
+@mixin transitions($transitions...) {
+  transition: $transitions;
+}
+
+// 3. Animation
+@mixin animation(
+  $name,
+  $duration: 1s,
+  $timing: ease,
+  $delay: 0s,
+  $iteration: 1,
+  $direction: normal,
+  $fill-mode: forwards
+) {
+  animation: $name $duration $timing $delay $iteration $direction $fill-mode;
+}
+
+// 4. Fade In
+@mixin fade-in($duration: 0.3s, $delay: 0s) {
+  animation: fadeIn $duration ease $delay forwards;
+}
+
+// 5. Fade Out
+@mixin fade-out($duration: 0.3s, $delay: 0s) {
+  animation: fadeOut $duration ease $delay forwards;
+}
+
+// 6. Slide In
+@mixin slide-in($direction: up, $duration: 0.3s) {
+  @if $direction == up {
+    animation: slideInUp $duration ease forwards;
+  } @else if $direction == down {
+    animation: slideInDown $duration ease forwards;
+  } @else if $direction == left {
+    animation: slideInLeft $duration ease forwards;
+  } @else if $direction == right {
+    animation: slideInRight $duration ease forwards;
+  }
+}
+
+// 7. Scale Animation
+$generated-scale-keyframes: () !default;
+
+@function scale-keyframe-name($from, $to) {
+  @if meta.type-of($from) != 'number' or meta.type-of($to) != 'number' {
+    @error "scale-animation($from, $to)는 숫자 인자만 지원합니다. 예: `@include m.scale-animation(0.9, 1)`";
+  }
+
+  @if not math.is-unitless($from) or not math.is-unitless($to) {
+    @error "scale-animation($from, $to)는 단위 없는 숫자만 지원합니다. 예: `0.9`, `1`";
+  }
+
+  // 0.9 → 900, 1 → 1000 (소수 3자리 기준으로 문자열화)
+  $from-id: math.round($from * 1000);
+  $to-id: math.round($to * 1000);
+
+  @return scale-#{$from-id}-to-#{$to-id};
+}
+
+@mixin scale-animation($from: 0.9, $to: 1, $duration: 0.3s) {
+  $name: scale-keyframe-name($from, $to);
+
+  @if list.index($generated-scale-keyframes, $name) == null {
+    $generated-scale-keyframes: list.append($generated-scale-keyframes, $name) !global;
+
+    @keyframes #{$name} {
+      from {
+        transform: scale($from);
+      }
+
+      to {
+        transform: scale($to);
+      }
+    }
+  }
+
+  animation: #{$name} $duration ease forwards;
+}
+
+// 8. Spin
+@mixin spin($duration: 1s) {
+  animation: spin $duration linear infinite;
+}
+
+// 9. Bounce
+@mixin bounce($duration: 0.6s) {
+  animation: bounce $duration ease;
+}
+
+// 10. Shake
+@mixin shake($duration: 0.5s) {
+  animation: shake $duration ease;
+}
+
+// 11. Pulse
+@mixin pulse($duration: 2s) {
+  animation: pulse $duration ease-in-out infinite;
+}
+
+// 12. Hardware Acceleration (GPU optimization)
+@mixin hardware-accelerate {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+// 13. Disable Animation
+@mixin disable-animation {
+  animation: none !important;
+  transition: none !important;
+}

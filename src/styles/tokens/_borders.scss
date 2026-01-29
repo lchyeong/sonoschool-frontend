@@ -1,0 +1,50 @@
+// ============================================
+// Border Tokens (테두리 토큰)
+// ============================================
+//
+// 📝 border-radius, border-width 값을 정의합니다.
+
+:root {
+  // ============================================
+  // Border Radius (모서리 둥글기)
+  // ============================================
+
+  --radius-none: 0;
+  --radius-sm: 0.125rem; // 2px
+  --radius-base: 0.25rem; // 4px
+  --radius-md: 0.375rem; // 6px
+  --radius-lg: 0.5rem; // 8px
+  --radius-xl: 0.75rem; // 12px
+  --radius-2xl: 1rem; // 16px
+  --radius-3xl: 1.5rem; // 24px
+  --radius-4xl: 3rem; // 48px
+  --radius-full: 9999px; // 완전한 원형
+
+  // ============================================
+  // Border Width (테두리 두께)
+  // ============================================
+
+  --border-width-0: 0;
+  --border-width-1: 1px;
+  --border-width-2: 2px;
+  --border-width-4: 4px;
+  --border-width-8: 8px;
+
+  // 기본값
+  --border-width: var(--border-width-1);
+}
+
+// ============================================
+// 사용 예시
+// ============================================
+//
+// ```scss
+// .button {
+//   border-radius: var(--radius-md);
+//   border: var(--border-width-1) solid var(--color-border);
+// }
+//
+// .avatar {
+//   border-radius: var(--radius-full);
+// }
+// ```

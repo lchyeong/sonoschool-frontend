@@ -1,0 +1,78 @@
+{
+  /* ========================================
+     프로젝트 루트 TypeScript 설정 파일
+     이 파일은 "오케스트레이터" 역할
+     실제 설정은 하위 파일들을 참조
+     ======================================== */
+
+  // TypeScript가 직접 컴파일할 파일 목록
+  // 빈 배열 = 이 설정 파일이 직접 컴파일하지 않음
+  // 대신 아래 references의 파일들이 컴파일 담당
+  "files": [],
+
+  // 프로젝트 참조 (Project References) 기능
+  // 큰 프로젝트를 여러 작은 프로젝트로 분할
+  // 각각 독립적으로 빌드 가능 (빌드 속도 향상)
+  "references": [
+    // 앱 소스 코드용 설정 (src 폴더)
+    // React 컴포넌트, 비즈니스 로직 등
+    { "path": "./tsconfig.app.json" },
+
+    // Node.js 설정 파일용 (vite.config.ts 등)
+    // 빌드 도구, 설정 파일 등
+    { "path": "./tsconfig.node.json" }
+  ],
+
+  // 공통 컴파일러 옵션 (IDE 지원용)
+  // 주의: references를 사용할 때는 최소한의 공통 설정만 포함
+  "compilerOptions": {
+    /* ========================================
+       IDE(VSCode) 지원을 위한 공통 옵션
+       실제 컴파일은 하위 설정 파일이 담당
+       ======================================== */
+
+    // ES 모듈과 CommonJS 모듈 간 상호 운용성
+    // true = import * as X from 'x'와 import X from 'x' 모두 허용
+    // CommonJS 모듈을 ES6 방식으로 import 가능
+    "esModuleInterop": true,
+    "composite": true, // ← 추가!
+    // JavaScript 파일 컴파일 허용 여부
+    // false = .ts/.tsx 파일만 처리 (TypeScript 프로젝트 기본값)
+    // true = .js/.jsx 파일도 TypeScript로 검사
+    "allowJs": false,
+
+    // JavaScript 파일 타입 체크 여부
+    // false = JS 파일은 타입 체크 안 함
+    // true = JS 파일도 타입 오류 검사 (allowJs: true 필요)
+    "checkJs": false,
+
+    // default export가 없는 모듈도 default import 허용
+    // true = import React from 'react' 스타일 가능
+    // React 등 많은 라이브러리가 이 방식 사용
+    "allowSyntheticDefaultImports": true,
+
+    // JSON 파일을 모듈로 import 허용
+    // true = import config from './config.json' 가능
+    // 설정 파일, 번역 파일 등에 유용
+    "resolveJsonModule": true,
+
+    // 증분 컴파일 활성화 (빌드 속도 향상)
+    // true = 변경된 파일만 재컴파일
+    // .tsbuildinfo 파일에 이전 빌드 정보 저장
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@components/*": ["src/components/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@pages/*": ["src/pages/*"],
+      "@utils/*": ["src/utils/*"],
+      "@types/*": ["src/types/*"],
+      "@assets/*": ["src/assets/*"],
+      "@styles/*": ["src/styles/*"],
+      "@store/*": ["src/stores/*"],
+      "@constants/*": ["src/constants/*"],
+      "@services/*": ["src/services/*"]
+    }
+  }
+}
