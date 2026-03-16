@@ -1,7 +1,7 @@
 {
-  "name": "newzest-universe",
+  "name": "sono-school",
   "private": true,
-  "version": "0.0.3",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -76,5 +76,10 @@
     "typescript-eslint": "^8.46.3",
     "vitest": "^4.0.18",
     "vite": "^7.2.2"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

@@ -1,0 +1,16 @@
+.layout {
+  min-height: 100vh;
+  background: var(--color-brand-lighten-50);
+}
+
+.main {
+  width: 100%;
+  min-height: 100vh;
+  padding: var(--space-6);
+}
+
+@media (width < 640px) {
+  .main {
+    padding: var(--space-4);
+  }
+}

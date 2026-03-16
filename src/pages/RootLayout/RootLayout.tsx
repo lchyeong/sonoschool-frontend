@@ -1,50 +1,26 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
 
-import Button from '@/components/ui/Button/Button';
+import CommonFooter from '@/components/layout/CommonFooter/CommonFooter';
+import CommonHeader from '@/components/layout/CommonHeader/CommonHeader';
 import { env } from '@/config/env';
-import { routePaths } from '@/routes/routePaths';
-import { useThemeStore } from '@/stores/useThemeStore';
+import { routePaths } from '@/routes/routeRegistry';
 
 import styles from './RootLayout.module.scss';
 
 const RootLayout = () => {
-  const toggleTheme = useThemeStore((state) => state.toggleTheme);
-
   return (
     <div className={styles['layout']}>
-      <header className={styles['header']}>
-        <NavLink className={styles['brandLink']} to={routePaths.home}>
-          {env.appName}
-        </NavLink>
-
-        <nav aria-label='Primary' className={styles['nav']}>
-          <NavLink
-            className={({ isActive }) =>
-              isActive ? `${styles['navLink']} ${styles['navLinkActive']}` : styles['navLink']
-            }
-            end
-            to={routePaths.home}
-          >
-            Home
-          </NavLink>
-          <NavLink
-            className={({ isActive }) =>
-              isActive ? `${styles['navLink']} ${styles['navLinkActive']}` : styles['navLink']
-            }
-            to={routePaths.contact}
-          >
-            Contact
-          </NavLink>
-        </nav>
-
-        <Button onClick={toggleTheme} size='sm' type='button' variant='secondary'>
-          Theme
-        </Button>
-      </header>
+      <CommonHeader
+        LinkComponent={Link}
+        logo={{ imageSrc: '/SRDMS_logo_2x.png', label: env.appName, to: routePaths.home }}
+        siteKey={env.siteKey}
+      />
 
       <main className={styles['main']}>
         <Outlet />
       </main>
+
+      <CommonFooter />
     </div>
   );
 };

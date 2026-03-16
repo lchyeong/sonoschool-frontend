@@ -12,6 +12,7 @@ const envSchema = z.object({
   VITE_API_BASE_URL: z.url().optional(),
   VITE_ENABLE_MOCK: booleanString,
   VITE_ENABLE_ANALYTICS: booleanString,
+  VITE_SITE_KEY: z.string().min(1).optional(),
   VITE_SITE_URL: z.url().optional(),
   VITE_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
   VITE_GTM_CONTAINER_ID: z.string().min(1).optional(),
@@ -21,6 +22,7 @@ const envSchema = z.object({
 export type AppEnv = z.infer<typeof envSchema> & {
   apiBaseUrl: string | null;
   appName: string;
+  siteKey: string;
 };
 
 const toZodErrorMessage = (error: z.ZodError): string => {
@@ -37,7 +39,8 @@ export const env: AppEnv = (() => {
   }
 
   const apiBaseUrl = parsed.data.VITE_API_URL ?? parsed.data.VITE_API_BASE_URL ?? null;
-  const appName = parsed.data.VITE_APP_NAME ?? 'CSR Template';
+  const appName = parsed.data.VITE_APP_NAME ?? 'SONO SCHOOL';
+  const siteKey = parsed.data.VITE_SITE_KEY ?? 'sono-school-main';
 
-  return { ...parsed.data, apiBaseUrl, appName };
+  return { ...parsed.data, apiBaseUrl, appName, siteKey };
 })();

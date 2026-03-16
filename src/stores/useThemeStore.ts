@@ -12,7 +12,7 @@ const getInitialTheme = (): ThemeMode => {
   if (typeof window === 'undefined') return 'light';
 
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  return prefersDark ? 'dark' : 'light';
+  return prefersDark ? 'light' : 'light';
 };
 
 export const useThemeStore = create<ThemeState>((set) => ({

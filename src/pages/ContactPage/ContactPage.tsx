@@ -21,7 +21,6 @@ const ContactPage = () => {
       title: '',
       email: '',
       content: '',
-      product: '',
       name: '',
       jobTitle: '',
       phone: '',
@@ -37,7 +36,6 @@ const ContactPage = () => {
         email: values.email,
         content: values.content,
         turnstileToken: values.turnstileToken,
-        ...(values.product ? { product: values.product } : {}),
         ...(values.name ? { name: values.name } : {}),
         ...(values.jobTitle ? { jobTitle: values.jobTitle } : {}),
         ...(values.phone ? { phone: values.phone } : {}),
@@ -51,7 +49,6 @@ const ContactPage = () => {
         title: '',
         email: '',
         content: '',
-        product: '',
         name: '',
         jobTitle: '',
         phone: '',
@@ -73,9 +70,8 @@ const ContactPage = () => {
       <div>
         <h1 className={styles['title']}>Contact</h1>
         <p className={styles['description']}>
-          이 폼은 템플릿 기본 제공 예시입니다. 실제 Turnstile 연동은 추후 필요하며, 개발 환경에서
-          목킹이 켜져 있으면(dev) <code>turnstileToken</code>은 <code>dev-token</code> 기본값으로
-          동작합니다.
+          SONO SCHOOL 수강 문의를 접수하는 기본 폼입니다. 개발 환경에서 목킹이 켜져 있으면(dev)
+          <code>turnstileToken</code>은 <code>dev-token</code> 기본값으로 동작합니다.
         </p>
       </div>
 

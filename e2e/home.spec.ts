@@ -3,5 +3,5 @@ import { expect, test } from '@playwright/test';
 test('home page renders', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'React CSR 템플릿' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'SONO SCHOOL' })).toBeVisible();
 });

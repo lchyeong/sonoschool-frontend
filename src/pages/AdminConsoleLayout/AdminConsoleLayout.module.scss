@@ -1,0 +1,120 @@
+.layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-6);
+  min-height: calc(100vh - var(--space-12));
+}
+
+.sidebar {
+  position: sticky;
+  top: var(--space-6);
+  display: grid;
+  align-content: start;
+  gap: var(--space-6);
+  height: calc(100vh - var(--space-12));
+  padding: var(--space-6);
+  border: 1px solid var(--color-brand-lighten-30);
+  border-top: 4px solid var(--color-brand-main);
+  background: #ffffff;
+}
+
+.sidebarHeader {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-brand-lighten-35);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-brand-darken-10);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.adminName {
+  margin: 0;
+  color: var(--color-sub-brand-main);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.navigation {
+  min-width: 0;
+}
+
+.navigationList {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.navigationLink {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--color-brand-lighten-35);
+  border-left-width: 3px;
+  color: inherit;
+  background: #ffffff;
+  text-decoration: none;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.navigationLink:hover {
+  border-color: var(--color-brand-main);
+  background: var(--color-brand-lighten-50);
+}
+
+.navigationLinkActive {
+  border-color: var(--color-brand-darken-10);
+  background: var(--color-brand-lighten-50);
+}
+
+.navigationLabel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.navigationDescription {
+  color: var(--color-brand-darken-5);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+}
+
+.sidebar :global(button) {
+  width: 100%;
+  border-radius: 0;
+}
+
+.main {
+  min-width: 0;
+}
+
+@media (width < 960px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+  }
+}

@@ -1,0 +1,540 @@
+.headerOffset {
+  flex-shrink: 0;
+}
+
+.header {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: var(--z-index-fixed);
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  transition:
+    transform 220ms ease,
+    opacity 220ms ease;
+
+  &Hidden {
+    pointer-events: none;
+    opacity: 0;
+    transform: translate3d(0, calc(-100% - 1px), 0);
+  }
+}
+
+.inner {
+  @include m.container(1440px);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 72px;
+
+  @include m.lg {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+}
+
+.logo {
+  &Area {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+
+    @include m.lg {
+      justify-self: start;
+    }
+  }
+
+  &Link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    flex-shrink: 0;
+
+    &:hover {
+      color: var(--color-primary);
+    }
+  }
+
+  &Text {
+    letter-spacing: 0.06em;
+  }
+
+  &Image {
+    display: block;
+    width: auto;
+    height: 46px;
+  }
+}
+
+.desktopNav {
+  display: none;
+  min-width: 0;
+
+  @include m.lg {
+    display: flex;
+    place-self: stretch center;
+  }
+
+  &List {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: clamp(8px, 1.1vw, 24px);
+    min-width: 0;
+    width: max-content;
+    max-width: 100%;
+    height: 100%;
+  }
+
+  &Item {
+    display: inline-flex;
+    align-items: center;
+    min-height: 100%;
+  }
+
+  &Link,
+  &Trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    min-height: 40px;
+    padding: var(--space-2) var(--space-2);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+
+    &:hover {
+      color: var(--color-text-primary);
+      background: var(--color-bg-tertiary);
+      transition: all 0.3s;
+    }
+  }
+
+  &Trigger {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+
+    &Active {
+      color: var(--color-text-primary);
+      background: var(--color-bg-secondary);
+    }
+  }
+}
+
+.desktopUtility {
+  &Area {
+    display: none;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+
+    @include m.lg {
+      display: flex;
+      justify-self: end;
+    }
+  }
+}
+
+.mobileUtility {
+  &Area {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+
+    @include m.lg {
+      display: none;
+    }
+  }
+}
+
+.icon {
+  &Button,
+  &Link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+
+    &:hover {
+      color: var(--color-text-primary);
+      background: var(--color-bg-tertiary);
+      transition: all 0.3s;
+    }
+  }
+
+  &Button {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  &Link {
+    text-decoration: none;
+  }
+
+  &Image {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+  }
+}
+
+.authActionGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.textAction,
+.mobileAction {
+  &Link,
+  &Button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-3xl);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.3s;
+  }
+
+  &Button {
+    border: 1px solid transparent;
+    cursor: pointer;
+    font: inherit;
+
+    &:focus-visible {
+      outline: 2px solid var(--color-border-focus);
+      outline-offset: 2px;
+    }
+  }
+
+  &LinkPrimary,
+  &ButtonPrimary {
+    color: var(--color-text-inverse);
+    background: var(--color-primary);
+
+    &:hover {
+      background: var(--color-brand-lighten-30);
+    }
+  }
+
+  &LinkSecondary,
+  &ButtonSecondary {
+    color: var(--color-text-primary);
+    background: var(--color-brand-lighten-40);
+
+    &:hover {
+      background: var(--color-brand-lighten-30);
+    }
+  }
+}
+
+.textAction {
+  &Link,
+  &Button {
+    padding: 0 var(--space-4);
+  }
+
+  &Icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+  }
+}
+
+.dropdown {
+  &Panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: visibility 0s linear var(--transition-slower);
+
+    &Open {
+      visibility: visible;
+      pointer-events: auto;
+      transition: visibility 0s linear 0s;
+
+      .dropdownPanelViewport {
+        opacity: 1;
+        clip-path: inset(0 0 0 0);
+        transform: translateY(0);
+      }
+    }
+  }
+
+  &PanelViewport {
+    overflow: hidden;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-primary);
+    box-shadow: var(--shadow-sm);
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-12px);
+    will-change: clip-path, opacity, transform;
+    transition:
+      clip-path var(--transition-slower),
+      opacity var(--transition-slower),
+      transform var(--transition-slower);
+  }
+
+  &Inner {
+    @include m.container(1440px);
+
+    display: grid;
+    gap: var(--space-6);
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-7);
+  }
+
+  &Header {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  &TitleLink {
+    display: inline-flex;
+    width: fit-content;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.02em;
+
+    &:hover {
+      color: var(--color-primary);
+    }
+  }
+
+  &Description {
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+  }
+
+  &SectionGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+    max-height: min(60vh, 520px);
+    overflow: auto;
+    padding-right: var(--space-1);
+
+    @include m.xl {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  &Section {
+    display: grid;
+    align-content: start;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--color-brand-lighten-50);
+  }
+
+  &SectionTitle,
+  &Link {
+    &:hover {
+      color: var(--color-primary);
+    }
+  }
+
+  &SectionTitle {
+    display: inline-flex;
+    width: fit-content;
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &SectionDescription {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+  }
+
+  &LinkList {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  &LinkItem {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  &Link {
+    display: inline-flex;
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-normal);
+  }
+
+  &LinkDescription {
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+  }
+
+  &SectionHint {
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-sm);
+  }
+}
+
+.mobileDrawer {
+  width: min(420px, 100vw);
+  height: 100%;
+  display: grid;
+  align-content: start;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  overflow: auto;
+  background: var(--color-bg-primary);
+
+  &Overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-index-modal);
+    display: flex;
+    justify-content: flex-end;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  &Header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  &Brand {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+  }
+}
+
+.mobileAction {
+  &Group {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  &Link,
+  &Button {
+    justify-content: flex-start;
+    min-height: 44px;
+    padding: 0 var(--space-4);
+  }
+}
+
+.mobileErrorText {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.mobileNav {
+  min-height: 0;
+
+  &List {
+    display: grid;
+    gap: var(--space-2);
+
+    &Depth1 {
+      gap: var(--space-3);
+    }
+
+    &Depth2,
+    &Depth3 {
+      margin-top: var(--space-2);
+      margin-left: var(--space-4);
+      padding-left: var(--space-3);
+      border-left: 1px solid var(--color-border);
+    }
+  }
+
+  &Item {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  &Row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  &Link {
+    min-width: 0;
+    color: var(--color-text-secondary);
+
+    &Primary {
+      color: var(--color-text-primary);
+      font-size: 1rem;
+      font-weight: var(--font-weight-semibold);
+    }
+
+    &Secondary {
+      color: var(--color-text-primary);
+      font-size: var(--font-size-base);
+    }
+
+    &Tertiary {
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  &Toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    background: transparent;
+    cursor: pointer;
+    transition: transform 0.5s ease;
+
+    &:hover {
+      color: var(--color-text-primary);
+      background: var(--color-bg-tertiary);
+    }
+
+    &Expanded {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.srOnly {
+  @include m.visually-hidden;
+}

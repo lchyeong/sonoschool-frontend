@@ -1,0 +1,486 @@
+.workspace {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.summaryPanel,
+.treePanel,
+.detailPanel,
+.summaryCard,
+.card,
+.structureCard,
+.emptyState,
+.programRow {
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #fff;
+}
+
+.summaryPanel,
+.treePanel,
+.detailPanel,
+.card,
+.structureCard,
+.emptyState,
+.programRow {
+  padding: var(--space-5);
+}
+
+.summaryPanel {
+  display: grid;
+  gap: var(--space-5);
+  background:
+    linear-gradient(135deg, rgba(255, 248, 241, 0.95), rgba(255, 255, 255, 1) 56%), #fff;
+}
+
+.summaryHeader,
+.summaryActions,
+.treeButtonHeader,
+.treeToolbarRow,
+.treeFilterGroup,
+.treeBadgeGroup,
+.summaryMetricBadges,
+.actionRow,
+.programActions,
+.programTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.summaryHeader {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.summaryCopy,
+.panelHeader,
+.cardHeader,
+.programIdentity,
+.emptyState {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.eyebrow,
+.summaryLabel,
+.fieldLabel,
+.treeMeta dt {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title,
+.panelTitle,
+.cardTitle,
+.emptyTitle,
+.treeLabel,
+.programTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.title {
+  font-size: clamp(1.7rem, 2.8vw, 2.4rem);
+  line-height: 1.08;
+}
+
+.description,
+.panelDescription,
+.cardDescription,
+.emptyDescription,
+.treePath,
+.programMeta,
+.inlineLink {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.summaryGrid,
+.mainGrid,
+.formGrid,
+.structureGrid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.summaryGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mainGrid {
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr);
+  align-items: start;
+}
+
+.summaryCard {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.summaryValue {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.treePanel,
+.detailPanel,
+.detailStack,
+.treeToolbar,
+.treeList,
+.treeChildren,
+.card,
+.programList {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.treeList,
+.treeChildren {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.treeChildren {
+  padding-left: var(--space-4);
+  border-left: 1px dashed var(--color-brand-lighten-35);
+}
+
+.treeItem {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.treeRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.treeToggleButton,
+.treeToggleSpacer {
+  width: 40px;
+  min-width: 40px;
+}
+
+.treeToggleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #fff;
+  color: var(--color-text-secondary);
+}
+
+.treeToggleButton:hover,
+.treeToggleButton:focus-visible {
+  border-color: var(--color-brand-darken-10);
+  box-shadow: 0 0 0 1px var(--color-brand-darken-10);
+  outline: none;
+}
+
+.treeToggleButtonExpanded svg {
+  transform: rotate(180deg);
+}
+
+.treeToggleButton svg {
+  transition: transform 0.18s ease;
+}
+
+.treeToggleSpacer {
+  display: block;
+}
+
+.treeButton {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--color-brand-lighten-35);
+  background: rgba(255, 255, 255, 0.96);
+  text-align: left;
+}
+
+.treeButton:hover,
+.treeButton:focus-visible {
+  border-color: var(--color-brand-darken-10);
+  box-shadow: 0 0 0 1px var(--color-brand-darken-10);
+  outline: none;
+}
+
+.treeButtonSelected {
+  border-color: var(--color-brand-darken-10);
+  background: var(--color-brand-lighten-50);
+}
+
+.treeIdentity {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.depthBadge,
+.statusBadgePublished,
+.statusBadgeHidden,
+.menuTypeBadgeBranch,
+.menuTypeBadgeLeaf,
+.programTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-brand-lighten-30);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.depthBadge,
+.statusBadgePublished {
+  background: var(--color-brand-lighten-50);
+  color: var(--color-brand-darken-10);
+}
+
+.menuTypeBadgeLeaf {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.menuTypeBadgeBranch,
+.statusBadgeHidden,
+.programTypeBadge {
+  background: #f8fafc;
+  color: var(--color-text-secondary);
+}
+
+.treePath,
+.programMeta {
+  word-break: break-all;
+}
+
+.treeMeta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.treeMeta div {
+  display: grid;
+  gap: 4px;
+}
+
+.treeMeta dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.treeSearchField {
+  max-width: 100%;
+}
+
+.treeToolbarRow {
+  justify-content: space-between;
+  align-items: end;
+}
+
+.treeFilterChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #fff;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.treeFilterChipActive {
+  border-color: var(--color-brand-darken-10);
+  background: var(--color-brand-lighten-50);
+  color: var(--color-brand-darken-10);
+}
+
+.treeToolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.treeToolbarSummary,
+.treeNoticeText,
+.detailHint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.treeNotice {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #fffaf5;
+}
+
+.formGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field,
+.fieldInline {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.fieldInline {
+  min-width: min(100%, 280px);
+}
+
+.select {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #fff;
+  font: inherit;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--color-brand-darken-10);
+  box-shadow: 0 0 0 1px var(--color-brand-darken-10);
+}
+
+.structureGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.structureCard {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.structureValue {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.detailSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.summaryMetric {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #fffaf5;
+}
+
+.summaryMetricValue {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  word-break: break-all;
+}
+
+.summaryActionBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-brand-lighten-30);
+  background: #fff;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.inlineLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.inlineLink:hover {
+  text-decoration: underline;
+}
+
+.programList {
+  gap: var(--space-3);
+}
+
+.programRow {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.programActions {
+  justify-content: space-between;
+  align-items: end;
+}
+
+@media (width < 1180px) {
+  .mainGrid,
+  .structureGrid,
+  .detailSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width < 820px) {
+  .summaryGrid,
+  .formGrid,
+  .treeMeta {
+    grid-template-columns: 1fr;
+  }
+
+  .treeRow {
+    grid-template-columns: 1fr;
+  }
+
+  .treeToggleButton,
+  .treeToggleSpacer {
+    width: 100%;
+  }
+
+  .treeToolbarRow {
+    align-items: stretch;
+  }
+
+  .treeFilterGroup,
+  .treeToolbarActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .summaryPanel,
+  .treePanel,
+  .detailPanel,
+  .card,
+  .structureCard,
+  .programRow {
+    padding: var(--space-4);
+  }
+}

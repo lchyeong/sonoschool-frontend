@@ -6,7 +6,6 @@ export interface ContactFormData {
   title: string;
   email: string;
   content: string;
-  product?: string;
   name?: string;
   jobTitle?: string;
   phone?: string;

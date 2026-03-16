@@ -150,7 +150,7 @@
   - 개인정보 보호책임자
     - 성명: 김범조
     - 연락처: 070-8098-9532
-    - 이메일: contact@newzest.kr
+    - 이메일: contact@sono-school.example.com
 
   - 개인정보 고충처리 담당부서
     - 부서명: 운영팀

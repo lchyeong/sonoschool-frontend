@@ -1,0 +1,1386 @@
+.page {
+  display: grid;
+  gap: 16px;
+  margin-top: calc(var(--space-8) * -1);
+}
+
+.heroSection {
+  position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  overflow: hidden;
+  background: #111827;
+}
+
+.heroBackground {
+  position: absolute;
+  inset: 0;
+}
+
+.heroBackgroundImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center right;
+}
+
+.heroBackgroundOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #111827 0%, rgba(17, 24, 39, 0.9) 58%, transparent 100%);
+}
+
+.heroContent {
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  padding-top: 64px;
+  padding-bottom: 80px;
+  padding-inline: max(24px, calc((100vw - 1440px) / 2 + 24px));
+}
+
+.heroBreadcrumbNav {
+  display: flex;
+}
+
+.heroBreadcrumbList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.heroBreadcrumbItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(156, 163, 175, 0.72);
+  font-size: 14px;
+
+  &::after {
+    content: '>';
+  }
+
+  &:last-child::after {
+    display: none;
+  }
+}
+
+.heroBreadcrumbLink {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: rgba(229, 231, 235, 0.88);
+  }
+}
+
+.heroBreadcrumbCurrent {
+  color: rgba(229, 231, 235, 0.92);
+}
+
+.heroHashTagRow,
+.heroRatingRow,
+.heroInfoPillRow,
+.reviewMetaRow,
+.pricingDiscountRow,
+.pricingActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.heroHashTagRow {
+  gap: 10px;
+}
+
+.heroHashTag {
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.heroTitle,
+.sectionTitle,
+.introductionBlockTitle,
+.curriculumTrackTitle,
+.reviewSectionHeading {
+  margin: 0;
+  color: #000000;
+}
+
+.heroTitle {
+  max-width: 700px;
+  color: #ffffff;
+  font-size: clamp(28px, 3vw, 32px);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.heroRatingScore {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.heroRatingCount {
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.heroDescription,
+.reviewPreviewContent,
+.fullReviewContent,
+.introductionBlockSubtitle,
+.infoBoxItem,
+.featureCardDescription,
+.checkBlockItem,
+.targetChecklistText,
+.curriculumSummaryItem,
+.curriculumLessonTopicItem,
+.faqAnswer {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.heroDescription {
+  max-width: 700px;
+  color: #9ca3af;
+  font-size: 16px;
+}
+
+.heroInfoPillRow {
+  gap: 10px;
+}
+
+.heroInfoPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-brand-lighten-30);
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    var(--color-brand-lighten-50) 0%,
+    var(--color-brand-lighten-45) 100%
+  );
+  box-shadow: 0 10px 24px -18px rgba(15, 23, 42, 0.26);
+}
+
+.heroInfoPillLabel {
+  color: var(--color-brand-darken-10);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.heroInfoPillValue {
+  color: var(--color-brand-darken-20);
+  font-size: 14px;
+}
+
+.heroInfoDivider {
+  width: 1px;
+  height: 14px;
+  background: var(--color-brand-lighten-25);
+}
+
+.detailShell {
+  width: 100%;
+  min-width: 0;
+}
+
+.contentLayout {
+  display: grid;
+  width: 100%;
+  max-width: 100%;
+  gap: 32px;
+  align-items: flex-start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 540px);
+}
+
+.contentMain {
+  min-width: 0;
+}
+
+.sidebar {
+  display: block;
+  position: sticky;
+  top: calc(var(--common-header-sticky-top, 0px) + 24px);
+  width: 100%;
+  align-self: flex-start;
+  transition: top 220ms ease;
+}
+
+.tabBar {
+  position: sticky;
+  top: var(--common-header-sticky-top, 0px);
+  z-index: 20;
+  display: flex;
+  gap: 40px;
+  align-items: center;
+  padding: 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+  transition: top 220ms ease;
+}
+
+.tabButton {
+  position: relative;
+  padding: 12px 0;
+  border: 0;
+  color: #9ca3af;
+  font-size: 18px;
+  font-weight: 400;
+  background: transparent;
+  cursor: pointer;
+  transition: color 160ms ease;
+
+  &::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    content: '';
+    background: transparent;
+  }
+
+  &:hover {
+    color: #4b5563;
+  }
+}
+
+.tabButtonActive {
+  color: #2ea995;
+  font-weight: 700;
+
+  &::after {
+    background: #2ea995;
+  }
+}
+
+.previewReviewSection {
+  padding: 32px 0;
+}
+
+.sectionTitle {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.previewReviewCarousel {
+  position: relative;
+  margin-top: 24px;
+  padding: 12px;
+  border-radius: 30px;
+  background: #f9fafb;
+}
+
+.previewReviewTrack {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.reviewPreviewCard {
+  display: grid;
+  flex: 0 0 348px;
+  gap: 12px;
+  width: 348px;
+  min-height: 237px;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 30px;
+  background: #ffffff;
+  transition: opacity 160ms ease;
+}
+
+.reviewPreviewCardDimmed {
+  opacity: 0.2;
+}
+
+.reviewPreviewAuthor,
+.fullReviewAuthor,
+.infoBoxTitle,
+.featureCardTitle,
+.checkBlockTitle,
+.targetCardLabel,
+.selectedOptionTitle,
+.reviewSectionHeading {
+  margin: 0;
+  color: #000000;
+  font-weight: 600;
+}
+
+.reviewPreviewAuthor,
+.fullReviewAuthor {
+  font-size: 14px;
+}
+
+.reviewPreviewContent {
+  color: #000000;
+  font-size: 14px;
+  white-space: pre-line;
+}
+
+.carouselArrowButton {
+  position: absolute;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #000000;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.carouselArrowIcon {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  box-sizing: border-box;
+}
+
+.carouselArrowIconLeft {
+  transform: rotate(-135deg);
+}
+
+.carouselArrowIconRight {
+  transform: rotate(45deg);
+}
+
+.carouselArrowButtonLeft {
+  left: -20px;
+}
+
+.carouselArrowButtonRight {
+  right: -20px;
+}
+
+.contentSection {
+  padding: 32px 0 48px;
+  border-top: 1px solid #e5e7eb;
+  scroll-margin-top: 152px;
+}
+
+.introductionSectionGroup {
+  display: grid;
+  gap: 48px;
+  margin-top: 32px;
+}
+
+.introductionBlockHeader {
+  margin-bottom: 24px;
+}
+
+.introductionBlockTitle {
+  margin-bottom: 4px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.introductionBlockSubtitle {
+  color: #9ca3af;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sectionBlockBody {
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.infoBoxListGroup,
+.checkItemGroup,
+.stepCardGroup,
+.curriculumTrackGroup,
+.curriculumWeekList,
+.fullReviewList {
+  display: grid;
+  gap: 16px;
+}
+
+.curriculumTrackGroup {
+  margin-top: 24px;
+}
+
+.infoBox {
+  padding: 24px;
+  border-radius: 20px;
+  background: #f9fafb;
+}
+
+.infoBoxTitle {
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.infoBoxList,
+.checkBlockList,
+.curriculumSummaryListDisc,
+.curriculumSummaryListDecimal,
+.curriculumLessonTopicList {
+  padding-left: 24px;
+  margin: 0;
+}
+
+.infoBoxItem,
+.checkBlockItem,
+.curriculumSummaryItem,
+.curriculumLessonTopicItem {
+  color: #000000;
+  font-size: 14px;
+}
+
+.checkItemGroup {
+  gap: 20px;
+}
+
+.checkBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.checkBlockTitleRow,
+.targetChecklistItem,
+.curriculumTrackHeader,
+.selectedOptionHeader,
+.pricingSummaryLine,
+.pricingTotalRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.checkBlockTitleRow {
+  justify-content: flex-start;
+}
+
+.checkIcon,
+.featureCardIcon,
+.stepCardIcon,
+.targetChecklistIcon {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+}
+
+.checkIcon,
+.targetChecklistIcon {
+  background: #2ea995;
+
+  &::after {
+    position: absolute;
+    inset: 0;
+    color: #ffffff;
+    font-size: 12px;
+    line-height: 20px;
+    text-align: center;
+    content: '✓';
+  }
+}
+
+.checkBlockTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.targetCard {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.targetCardContent {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.targetCardLabel {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.targetCardChecklist {
+  display: grid;
+  gap: 8px;
+}
+
+.targetChecklistItem {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.targetChecklistText {
+  color: #000000;
+  font-size: 14px;
+}
+
+.featureCardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.featureCard {
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.featureCardIcon,
+.stepCardIcon {
+  background: #314dcc;
+
+  &::after {
+    position: absolute;
+    inset: 0;
+    color: #ffffff;
+    font-size: 12px;
+    line-height: 20px;
+    text-align: center;
+    content: '✓';
+  }
+}
+
+.featureCardTitle {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.featureCardDescription {
+  color: #000000;
+  font-size: 14px;
+}
+
+.stepCard {
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.stepCardHeader {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.stepCardHeaderText {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.stepCardBody {
+  display: grid;
+  gap: 4px;
+  padding: 24px;
+}
+
+.stepCardBodyItem {
+  margin: 0;
+  color: #000000;
+  font-size: 16px;
+}
+
+.curriculumTrack {
+  display: grid;
+  gap: 16px;
+}
+
+.curriculumTrackHeader {
+  justify-content: flex-start;
+}
+
+.curriculumTrackDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #000000;
+}
+
+.curriculumTrackTitle {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.curriculumSummaryPanel {
+  padding: 24px;
+  border-radius: 30px;
+  background: #f9fafb;
+}
+
+.curriculumSummaryListDecimal,
+.curriculumSummaryListDisc {
+  display: grid;
+  gap: 4px;
+}
+
+.curriculumSummaryItem {
+  color: #9ca3af;
+  font-size: 16px;
+}
+
+.curriculumWeekRow {
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.curriculumWeekButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 24px;
+  border: 0;
+  text-align: left;
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.curriculumWeekButtonLeft {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  min-width: 0;
+}
+
+.curriculumWeekLabelGroup {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  width: 160px;
+  padding-right: 16px;
+  border-right: 1px solid #e5e7eb;
+}
+
+.curriculumWeekLabel,
+.curriculumWeekHours,
+.curriculumWeekTitle {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.curriculumWeekTitle {
+  min-width: 0;
+}
+
+.curriculumWeekChevron {
+  display: block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #000000;
+  transition: transform 160ms ease;
+}
+
+.curriculumWeekChevronOpen {
+  transform: rotate(180deg);
+}
+
+.curriculumWeekContent {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+
+.curriculumWeekDescription {
+  margin: 0;
+  color: #4b5563;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.curriculumLessonBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.curriculumLessonBlockSeparated {
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.curriculumLessonHeader,
+.fullReviewHeader {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.curriculumLessonTitle,
+.curriculumLessonDuration {
+  color: #9ca3af;
+  font-size: 16px;
+}
+
+.reviewScoreSummary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 32px;
+  margin-bottom: 32px;
+}
+
+.reviewScoreStar {
+  color: #ffc32c;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.reviewScoreValue {
+  color: #000000;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.reviewScoreCount {
+  color: #9ca3af;
+  font-size: 32px;
+}
+
+.reviewSectionHeaderRow,
+.faqFilterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.reviewSectionHeading {
+  font-size: 20px;
+}
+
+.selectField {
+  display: flex;
+}
+
+.sortSelect,
+.faqSelect {
+  min-width: 160px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #6b7280;
+  font-size: 16px;
+  background: #ffffff;
+}
+
+.faqSelect {
+  width: 100%;
+  max-width: 408px;
+}
+
+.fullReviewCard {
+  padding: 24px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.fullReviewDate {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.fullReviewContent {
+  margin-top: 16px;
+  margin-bottom: 16px;
+  color: #000000;
+  font-size: 16px;
+  white-space: pre-line;
+}
+
+.reviewReply {
+  display: grid;
+  gap: 10px;
+  padding: 16px 20px;
+  border-left: 3px solid var(--color-brand-lighten-25);
+  border-radius: 16px;
+  background: var(--color-brand-lighten-50);
+}
+
+.reviewReplyHeader {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reviewReplyAuthor {
+  color: var(--color-brand-darken-15);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.reviewReplyBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--color-brand-darken-10);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-bg-primary);
+}
+
+.reviewReplyContent {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.moreReviewButton {
+  width: 100%;
+  margin-top: 24px;
+  padding: 12px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  color: #000000;
+  font-size: 16px;
+  font-weight: 600;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.faqList {
+  margin-top: 24px;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.faqItem + .faqItem {
+  border-top: 1px solid #e5e7eb;
+}
+
+.faqItemOpen {
+  background: #f9fafb;
+}
+
+.faqQuestionButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 20px 32px;
+  border: 0;
+  text-align: left;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background-color 160ms ease;
+
+  &:hover {
+    background: #f9fafb;
+  }
+}
+
+.faqQuestionButtonOpen {
+  background: #f9fafb;
+}
+
+.faqQuestionContent {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.faqCategoryBadge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  color: #6b7280;
+  font-size: 14px;
+  background: #ffffff;
+}
+
+.faqQuestionText {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.faqChevron {
+  display: block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #000000;
+  transition: transform 160ms ease;
+}
+
+.faqChevronOpen {
+  transform: rotate(180deg);
+}
+
+.faqAnswer {
+  padding: 0 32px 24px;
+  color: #000000;
+  font-size: 16px;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+.pricingCard {
+  padding: 24px;
+  border-radius: 30px;
+  background: #ffffff;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.1);
+}
+
+.pricingOriginalPrice {
+  margin: 0 0 4px;
+  color: #000000;
+  font-size: 32px;
+  text-align: right;
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.pricingDiscountRow {
+  justify-content: flex-end;
+  margin-bottom: 24px;
+}
+
+.pricingDiscountRate,
+.pricingDiscountedPrice,
+.pricingTotalValue {
+  color: #000000;
+  font-weight: 600;
+}
+
+.pricingDiscountRate {
+  color: #33bda7;
+  font-size: 36px;
+}
+
+.pricingDiscountedPrice,
+.pricingTotalValue {
+  font-size: 36px;
+}
+
+.pricingAvailabilityBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--color-brand-lighten-30);
+  border-radius: 14px;
+  background: var(--color-brand-lighten-50);
+}
+
+.pricingAvailabilityLabel {
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pricingAvailabilityValue {
+  color: var(--color-brand-darken-10);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.sidebarOptionSection {
+  margin-bottom: 16px;
+}
+
+.sidebarSectionTitle {
+  margin: 0 0 8px;
+  color: #000000;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sidebarSelectButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #9ca3af;
+  text-align: left;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.sidebarSelectButtonText {
+  font-size: 16px;
+}
+
+.sidebarSelectButtonIcon {
+  display: block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #000000;
+}
+
+.sidebarOptionList {
+  overflow: hidden;
+  margin-top: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.sidebarOptionItem {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 1px solid #f3f4f6;
+  color: #000000;
+  font-size: 14px;
+  text-align: left;
+  background: #ffffff;
+  cursor: pointer;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &:hover {
+    background: #f9fafb;
+  }
+}
+
+.selectedOptionPanel {
+  margin-bottom: 16px;
+}
+
+.selectedOptionHeader {
+  margin-bottom: 12px;
+}
+
+.selectedOptionTitle {
+  font-size: 16px;
+}
+
+.selectedOptionRemoveButton {
+  padding: 4px 8px;
+  border: 0;
+  color: #000000;
+  font-size: 24px;
+  line-height: 1;
+  background: transparent;
+  cursor: pointer;
+}
+
+.quantityControl {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.quantityButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #000000;
+  font-size: 18px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.quantityValue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: #000000;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.pricingSummaryLine {
+  padding-top: 16px;
+  margin-bottom: 16px;
+  border-top: 1px solid #000000;
+}
+
+.pricingSummaryLabel,
+.pricingSummaryValue,
+.pricingTotalLabel {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.pricingTotalRow {
+  margin-bottom: 16px;
+}
+
+.pricingActionRow {
+  gap: 8px;
+}
+
+.reserveActionLink,
+.cartActionLink,
+.applyActionLink,
+.mobileReserveActionLink,
+.mobileApplyActionLink {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 12px;
+  border-radius: 20px;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.reserveActionLink,
+.mobileReserveActionLink {
+  background: #111827;
+}
+
+.cartActionLink {
+  background: #374151;
+}
+
+.applyActionLink,
+.mobileApplyActionLink {
+  background: #33bda7;
+}
+
+.ratingStars {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.ratingStar {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.ratingStarFilled {
+  color: #ffc32c;
+}
+
+.ratingStarEmpty {
+  color: #d1d5db;
+}
+
+.ratingStarInverseEmpty {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.reviewMetaRow {
+  justify-content: flex-start;
+}
+
+.reviewMetaScore {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.reviewMetaBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  color: #6b7280;
+  font-size: 12px;
+  background: #f3f4f6;
+}
+
+.mobileBottomBar {
+  display: none;
+}
+
+.screenReaderOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip-path: inset(50%);
+}
+
+@media (width < 1200px) {
+  .sidebar {
+    width: 420px;
+  }
+}
+
+@media (width < 1024px) {
+  .page {
+    padding-bottom: 88px;
+  }
+
+  .contentLayout {
+    display: block;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .mobileBottomBar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    border-top: 1px solid #e5e7eb;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(10px);
+  }
+}
+
+@media (width < 768px) {
+  .heroContent {
+    padding: 48px 20px 56px;
+  }
+
+  .heroBackgroundImage {
+    width: 100%;
+    opacity: 0.28;
+  }
+
+  .heroBackgroundOverlay {
+    background: linear-gradient(180deg, rgba(17, 24, 39, 0.86) 0%, rgba(17, 24, 39, 0.96) 100%);
+  }
+
+  .heroInfoPillRow {
+    display: grid;
+  }
+
+  .heroInfoPill {
+    justify-content: space-between;
+  }
+
+  .tabBar {
+    gap: 24px;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .tabButton {
+    flex-shrink: 0;
+    padding: 20px 0;
+    font-size: 16px;
+  }
+
+  .reviewPreviewCard {
+    flex-basis: calc(100vw - 88px);
+    width: calc(100vw - 88px);
+  }
+
+  .carouselArrowButton {
+    display: none;
+  }
+
+  .featureCardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .targetCard {
+    grid-template-columns: 1fr;
+  }
+
+  .curriculumWeekButton,
+  .curriculumWeekLabelGroup,
+  .fullReviewHeader,
+  .reviewSectionHeaderRow,
+  .faqQuestionContent,
+  .pricingActionRow {
+    display: grid;
+  }
+
+  .curriculumWeekButton {
+    gap: 12px;
+  }
+
+  .curriculumWeekLabelGroup {
+    width: auto;
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .faqQuestionButton {
+    gap: 12px;
+    align-items: start;
+  }
+
+  .faqQuestionContent {
+    gap: 12px;
+  }
+}

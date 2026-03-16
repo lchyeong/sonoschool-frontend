@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-import { routePaths } from '@/routes/routePaths';
+import { routePaths } from '@/routes/routeRegistry';
 
 const NotFoundPage = () => {
   return (

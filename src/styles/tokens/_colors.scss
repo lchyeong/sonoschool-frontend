@@ -20,23 +20,81 @@
 
 :root {
   // ============================================
-  // 1. Primary Colors (주요 색상)
+  // 1. Brand / Primary Colors (소노스쿨 메인 색상)
   // ============================================
 
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6; // 기본
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  // Sono School main color
+  --color-brand-main: #34b29f;
+
+  // Lighten scale from the provided brand palette image
+  --color-brand-lighten-5: #3ac5b0;
+  --color-brand-lighten-10: #4ecbb8;
+  --color-brand-lighten-15: #61d1c0;
+  --color-brand-lighten-20: #75d7c8;
+  --color-brand-lighten-25: #89ddd0;
+  --color-brand-lighten-30: #9de2d8;
+  --color-brand-lighten-35: #b0e8e0;
+  --color-brand-lighten-40: #c4eee8;
+  --color-brand-lighten-45: #d8f4ef;
+  --color-brand-lighten-50: #ecf9f7;
+
+  // Darken scale from the provided brand palette image
+  --color-brand-darken-5: #2e9e8d;
+  --color-brand-darken-10: #288a7c;
+  --color-brand-darken-15: #23776a;
+  --color-brand-darken-20: #1d6358;
+  --color-brand-darken-25: #174f47;
+  --color-brand-darken-30: #113c35;
+  --color-brand-darken-35: #0c2824;
+  --color-brand-darken-40: #061412;
+  --color-brand-darken-45: #000000;
+
+  // Existing primary tokens now point to the Sono School brand scale.
+  // This keeps current components working while switching the actual main color.
+  --color-primary-50: var(--color-brand-lighten-50);
+  --color-primary-100: var(--color-brand-lighten-45);
+  --color-primary-200: var(--color-brand-lighten-35);
+  --color-primary-300: var(--color-brand-lighten-25);
+  --color-primary-400: var(--color-brand-lighten-15);
+  --color-primary-500: var(--color-brand-main); // 기본
+  --color-primary-600: var(--color-brand-darken-5);
+  --color-primary-700: var(--color-brand-darken-10);
+  --color-primary-800: var(--color-brand-darken-20);
+  --color-primary-900: var(--color-brand-darken-30);
 
   --color-primary: var(--color-primary-500);
   --color-primary-hover: var(--color-primary-600);
   --color-primary-active: var(--color-primary-700);
+
+  // ============================================
+  // 1-2. Sub Brand Colors (서브 브랜드 색상)
+  // ============================================
+
+  // Sub brand base color from the provided palette image
+  --color-sub-brand-main: #1e3386;
+
+  // Lighten scale from the provided sub brand palette image
+  --color-sub-brand-lighten-5: #233b9b;
+  --color-sub-brand-lighten-10: #2743b0;
+  --color-sub-brand-lighten-15: #2c4bc4;
+  --color-sub-brand-lighten-20: #3857d2;
+  --color-sub-brand-lighten-25: #4c68d7;
+  --color-sub-brand-lighten-30: #617adc;
+  --color-sub-brand-lighten-35: #768ce0;
+  --color-sub-brand-lighten-40: #8b9de5;
+  --color-sub-brand-lighten-45: #a0afea;
+  --color-sub-brand-lighten-50: #b5c0ee;
+  --color-sub-brand-lighten-55: #c9d2f3;
+  --color-sub-brand-lighten-60: #dee3f8;
+  --color-sub-brand-lighten-65: #f3f5fc;
+
+  // Darken scale from the provided sub brand palette image
+  --color-sub-brand-darken-5: #192b71;
+  --color-sub-brand-darken-10: #15235c;
+  --color-sub-brand-darken-15: #101b47;
+  --color-sub-brand-darken-20: #0b1333;
+  --color-sub-brand-darken-25: #070b1e;
+  --color-sub-brand-darken-30: #020309;
 
   // ============================================
   // 2. Semantic Colors (의미론적 색상)

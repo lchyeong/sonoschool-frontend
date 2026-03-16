@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router-dom';
 
 import AppErrorBoundary from '@/app/AppErrorBoundary';
 import { ToastViewport } from '@/components/feedback/Toast/ToastViewport';
+import ModalRoot from '@/components/overlay/Modal/ModalRoot';
 import { createQueryClient } from '@/query/queryClient';
 import { router } from '@/routes/router';
 import { useThemeStore } from '@/stores/useThemeStore';
@@ -22,6 +23,7 @@ const AppProviders = () => {
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
+        <ModalRoot />
         <ToastViewport />
         {__DEV__ ? <ReactQueryDevtools initialIsOpen={false} /> : null}
       </QueryClientProvider>
