@@ -30,6 +30,15 @@ import { getMockHomeHistoryTimeline } from '@/mocks/data/homeHistoryTimeline';
 import { getMockProgramPage, getMockProgramsOverview } from '@/mocks/data/programCatalog';
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import { getMockSiteNavigation } from '@/mocks/data/siteNavigation';
+import {
+  getMockRegistrationTerms,
+  loginMockStudent,
+  logoutMockStudent,
+  refreshMockStudentSession,
+  registerMockStudent,
+  sendMockSmsVerification,
+  verifyMockSmsCode,
+} from '@/mocks/data/studentAuth';
 import type {
   AdminConsoleResponse,
   AdminProgramAccessPolicy,
@@ -52,6 +61,7 @@ import type {
   UpdateAdminProgramMenuPayload,
   UpsertAdminProgramPayload,
 } from '@/types/adminConsole';
+import type { ApiEnvelope, StudentSession } from '@/types/auth';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
 import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
@@ -277,7 +287,377 @@ const isMoveAdminProgramPayload = (value: unknown): value is MoveAdminProgramPay
   );
 };
 
+const createApiEnvelope = <T>(data: T): ApiEnvelope<T> => {
+  return {
+    data,
+    timestamp: new Date().toISOString(),
+  };
+};
+
+const getStringField = (record: Record<string, unknown>, fieldName: string): string | null => {
+  const value = record[fieldName];
+  return typeof value === 'string' ? value : null;
+};
+
 export const handlers = [
+  http.get('*/api/terms/registration', () => {
+    return HttpResponse.json(createApiEnvelope(getMockRegistrationTerms()));
+  }),
+  http.post('*/api/auth/login', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (
+      !isRecord(body) ||
+      typeof body['loginId'] !== 'string' ||
+      typeof body['password'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const result = loginMockStudent({
+      loginId: body['loginId'],
+      password: body['password'],
+    });
+
+    if (!result) {
+      return HttpResponse.json(
+        { code: 'AUTH_401', message: 'Invalid username or password.' },
+        { status: 401 },
+      );
+    }
+
+    return HttpResponse.json(createApiEnvelope(result.session), {
+      headers: {
+        'Set-Cookie': `refresh_token=${result.refreshToken}; Path=/; HttpOnly; SameSite=Lax`,
+      },
+    });
+  }),
+  http.post('*/api/auth/sms/send', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (!isRecord(body) || typeof body['phoneNumber'] !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    try {
+      const response = sendMockSmsVerification(body['phoneNumber']);
+      if (!response) {
+        return HttpResponse.json({ code: 'GLOBAL_400', message: 'Bad request.' }, { status: 400 });
+      }
+
+      return HttpResponse.json(createApiEnvelope(response));
+    } catch (error: unknown) {
+      return HttpResponse.json(
+        {
+          code: 'USER_400_PHONE',
+          message: error instanceof Error ? error.message : 'Phone number is already registered.',
+        },
+        { status: 400 },
+      );
+    }
+  }),
+  http.post('*/api/auth/sms/verify', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (
+      !isRecord(body) ||
+      typeof body['phoneNumber'] !== 'string' ||
+      typeof body['code'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const response = verifyMockSmsCode({
+      phoneNumber: body['phoneNumber'],
+      code: body['code'],
+    });
+
+    if (!response) {
+      return HttpResponse.json(
+        { code: 'AUTH_400_SMS_CODE', message: 'SMS verification code is invalid.' },
+        { status: 400 },
+      );
+    }
+
+    return HttpResponse.json(createApiEnvelope(response));
+  }),
+  http.post('*/api/auth/register', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (!isRecord(body)) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const loginId = getStringField(body, 'loginId');
+    const email = getStringField(body, 'email');
+    const name = getStringField(body, 'name');
+    const nickname = getStringField(body, 'nickname');
+    const password = getStringField(body, 'password');
+    const phoneNumber = getStringField(body, 'phoneNumber');
+
+    if (
+      loginId === null ||
+      email === null ||
+      name === null ||
+      nickname === null ||
+      password === null ||
+      phoneNumber === null
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    try {
+      const result = registerMockStudent({
+        loginId,
+        email,
+        name,
+        nickname,
+        password,
+        phoneNumber,
+        acceptedTermCodes: Array.isArray(body['acceptedTermCodes'])
+          ? body['acceptedTermCodes'].filter((value): value is string => typeof value === 'string')
+          : [],
+      });
+
+      if (!result) {
+        return HttpResponse.json(
+          { code: 'AUTH_400_SMS_REQUIRED', message: 'SMS verification is required.' },
+          { status: 400 },
+        );
+      }
+
+      return HttpResponse.json(createApiEnvelope(result.session), {
+        headers: {
+          'Set-Cookie': `refresh_token=${result.refreshToken}; Path=/; HttpOnly; SameSite=Lax`,
+        },
+      });
+    } catch (error: unknown) {
+      return HttpResponse.json(
+        {
+          code: 'TERM_400_REQUIRED',
+          message: error instanceof Error ? error.message : 'Account already exists.',
+        },
+        { status: 400 },
+      );
+    }
+  }),
+  http.post('*/api/auth/refresh', () => {
+    const response: StudentSession | null = refreshMockStudentSession();
+
+    if (!response) {
+      return HttpResponse.json(
+        { code: 'AUTH_401_REFRESH', message: 'Refresh token is invalid.' },
+        { status: 401 },
+      );
+    }
+
+    return HttpResponse.json(createApiEnvelope(response));
+  }),
+  http.post('*/api/auth/logout', () => {
+    logoutMockStudent();
+    return HttpResponse.json(createApiEnvelope(null));
+  }),
+  http.get('*/api/users/me', () => {
+    return HttpResponse.json(
+      createApiEnvelope({
+        displayName: '홍길동',
+        email: 'student01@example.com',
+        loginId: 'student01',
+        name: '홍길동',
+        nickname: '길벗',
+        phoneNumber: '010-1111-2222',
+        phoneVerifiedAt: '2026-03-01T09:00:00Z',
+        role: 'ROLE_STUDENT',
+      }),
+    );
+  }),
+  http.patch('*/api/users/me', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (
+      !isRecord(body) ||
+      typeof body['name'] !== 'string' ||
+      typeof body['nickname'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        displayName: body['nickname'].trim() || body['name'],
+        email: 'student01@example.com',
+        loginId: 'student01',
+        name: body['name'],
+        nickname: body['nickname'],
+        phoneNumber: '010-1111-2222',
+        phoneVerifiedAt: '2026-03-01T09:00:00Z',
+        role: 'ROLE_STUDENT',
+      }),
+    );
+  }),
+  http.post('*/api/users/me/phone/send', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (!isRecord(body) || typeof body['phoneNumber'] !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        expiresAt: '2026-03-17T10:30:00Z',
+        phoneNumber: body['phoneNumber'],
+      }),
+    );
+  }),
+  http.post('*/api/users/me/phone/verify', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (
+      !isRecord(body) ||
+      typeof body['phoneNumber'] !== 'string' ||
+      typeof body['code'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        displayName: '홍길동',
+        email: 'student01@example.com',
+        loginId: 'student01',
+        name: '홍길동',
+        nickname: '길벗',
+        phoneNumber: body['phoneNumber'],
+        phoneVerifiedAt: '2026-03-17T10:10:00Z',
+        role: 'ROLE_STUDENT',
+      }),
+    );
+  }),
+  http.get('*/api/v1/my/enrollments', () => {
+    return HttpResponse.json(
+      createApiEnvelope([
+        {
+          active: true,
+          enrolledAt: '2026-02-01T09:00:00Z',
+          expireAt: '2026-12-31T14:59:59Z',
+          id: 101,
+          programId: 2001,
+          programThumbnailUrl: null,
+          programTitle: '복부초음파 기초',
+          status: 'ACTIVE',
+        },
+      ]),
+    );
+  }),
+  http.get('*/api/v1/my/enrollments/:enrollmentId', () => {
+    return HttpResponse.json(
+      createApiEnvelope({
+        active: true,
+        certificateEligible: false,
+        completed: false,
+        completedAt: null,
+        completedLectures: 2,
+        completionRate: 67,
+        enrolledAt: '2026-02-01T09:00:00Z',
+        expireAt: '2026-12-31T14:59:59Z',
+        id: 101,
+        programId: 2001,
+        programTitle: '복부초음파 기초',
+        progress: [
+          {
+            completed: true,
+            completedAt: '2026-02-10T10:00:00Z',
+            lastWatchedAt: '2026-02-10T10:00:00Z',
+            lectureId: 1,
+            watchedSeconds: 900,
+          },
+          {
+            completed: false,
+            completedAt: null,
+            lastWatchedAt: '2026-03-10T08:00:00Z',
+            lectureId: 2,
+            watchedSeconds: 480,
+          },
+        ],
+        status: 'ACTIVE',
+        totalLectures: 3,
+      }),
+    );
+  }),
+  http.get('*/api/v1/cart', () => {
+    return HttpResponse.json(
+      createApiEnvelope({
+        appliedCoupon: {
+          code: 'SPRING',
+          discountAmount: 5000,
+          discountType: 'FIXED_AMOUNT',
+          discountValue: 5000,
+          id: 10,
+          name: '봄맞이 할인',
+        },
+        itemCount: 1,
+        items: [
+          {
+            addedAt: '2026-03-15T08:30:00Z',
+            id: 55,
+            instructorName: '김강사',
+            originalPrice: 120000,
+            payablePrice: 99000,
+            programId: 2002,
+            programType: 'ONLINE',
+            saleEndAt: null,
+            salePrice: 99000,
+            saleStartAt: null,
+            thumbnailUrl: null,
+            title: 'POCUS 워크숍',
+          },
+        ],
+        totalDiscountAmount: 21000,
+        totalOriginalPrice: 120000,
+        totalPayablePrice: 99000,
+      }),
+    );
+  }),
+  http.get('*/api/v1/cart/application-summary', () => {
+    return HttpResponse.json(
+      createApiEnvelope({
+        appliedCoupon: null,
+        hasOfflineReservation: false,
+        hasOnlineCheckout: true,
+        offlineItemCount: 0,
+        offlineItems: [],
+        onlineItems: [
+          {
+            cartItemId: 55,
+            payablePrice: 99000,
+            programId: 2002,
+            programType: 'ONLINE',
+            title: 'POCUS 워크숍',
+          },
+        ],
+        onlinePayablePrice: 99000,
+      }),
+    );
+  }),
+  http.get('*/api/v1/reservations', () => {
+    return HttpResponse.json(
+      createApiEnvelope([
+        {
+          createdAt: '2026-03-01T09:00:00Z',
+          id: 700,
+          location: '서울 강의장',
+          note: null,
+          programId: 3001,
+          programTitle: '오프라인 핸즈온',
+          scheduleEndAt: '2026-04-10T15:00:00Z',
+          scheduleId: 901,
+          scheduleStartAt: '2026-04-10T13:00:00Z',
+          scheduleTitle: '4월 핸즈온',
+          status: 'CONFIRMED',
+        },
+      ]),
+    );
+  }),
   http.post('*/sites/:siteKey/admin/login', async ({ params, request }) => {
     const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
     const body = await request.json().catch(() => null);

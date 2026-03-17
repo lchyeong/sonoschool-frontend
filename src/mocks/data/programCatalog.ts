@@ -161,6 +161,17 @@ type ProgramCatalogNode = ProgramCatalogCollectionNode | ProgramCatalogLectureNo
 const PROGRAM_DETAIL_SLUG = 'detail';
 const PROGRAM_MENU_MAX_DEPTH = 3;
 const PROGRAM_MENU_TOP_LEVEL_LIMIT = 6;
+const PROGRAM_OVERVIEW_FEATURED_LECTURE_LIMIT = 8;
+const PROGRAM_OVERVIEW_FEATURED_LECTURE_IDS = [
+  'doctor-course-internal-medicine-abdomen-practice',
+  'doctor-course-cardiology',
+  'general-course-abdomen-basic-2026-mar-apr',
+  'general-course-thyroid-basic',
+  'general-course-fast-basic',
+  'online-course-abdominal-physics',
+  'online-course-efast-core-video',
+  'online-course-female-pelvis-theory',
+] as const;
 
 interface MockEditableProgramCatalogRecord {
   accessPolicy: AdminProgramAccessPolicy;
@@ -3134,6 +3145,59 @@ const collectVisibleLectures = (
   });
 };
 
+const selectProgramOverviewFeaturedLectures = (
+  lectures: readonly ProgramCatalogLectureNode[],
+): ProgramCatalogLectureNode[] => {
+  const lectureById = new Map(lectures.map((lecture) => [lecture.id, lecture]));
+  const selectedLectures: ProgramCatalogLectureNode[] = [];
+
+  PROGRAM_OVERVIEW_FEATURED_LECTURE_IDS.forEach((lectureId) => {
+    const lecture = lectureById.get(lectureId);
+
+    if (!lecture) {
+      return;
+    }
+
+    selectedLectures.push(lecture);
+  });
+
+  if (selectedLectures.length >= PROGRAM_OVERVIEW_FEATURED_LECTURE_LIMIT) {
+    return selectedLectures.slice(0, PROGRAM_OVERVIEW_FEATURED_LECTURE_LIMIT);
+  }
+
+  const selectedIds = new Set(selectedLectures.map((lecture) => lecture.id));
+
+  lectures
+    .filter((lecture) => lecture.featured && !selectedIds.has(lecture.id))
+    .forEach((lecture) => {
+      if (selectedLectures.length >= PROGRAM_OVERVIEW_FEATURED_LECTURE_LIMIT) {
+        return;
+      }
+
+      selectedLectures.push(lecture);
+      selectedIds.add(lecture.id);
+    });
+
+  if (selectedLectures.length >= PROGRAM_OVERVIEW_FEATURED_LECTURE_LIMIT) {
+    return selectedLectures;
+  }
+
+  lectures.forEach((lecture) => {
+    if (selectedLectures.length >= PROGRAM_OVERVIEW_FEATURED_LECTURE_LIMIT) {
+      return;
+    }
+
+    if (selectedIds.has(lecture.id)) {
+      return;
+    }
+
+    selectedLectures.push(lecture);
+    selectedIds.add(lecture.id);
+  });
+
+  return selectedLectures;
+};
+
 const collectLectures = (nodes: readonly ProgramCatalogNode[]): ProgramCatalogLectureNode[] => {
   return nodes.flatMap((node) => {
     if (node.kind === 'lecture') {
@@ -5013,10 +5077,8 @@ export const getMockProgramsOverview = (siteKey: string): ProgramsOverviewRespon
     (collection) => collection.ancestors.length === 0 && !isLeafHubCollectionNode(collection),
   );
   const allVisibleLectures = collectVisibleLectures(tree);
-  const featuredLectures = allVisibleLectures
-    .filter((lecture) => lecture.featured)
-    .slice(0, 8)
-    .map(toProgramLectureCard);
+  const featuredLectures =
+    selectProgramOverviewFeaturedLectures(allVisibleLectures).map(toProgramLectureCard);
 
   return {
     categories: topLevelCollections.map(toProgramCollectionCard),

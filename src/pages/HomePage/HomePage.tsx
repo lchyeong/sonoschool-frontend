@@ -6,7 +6,6 @@ import { useHomeHeroSlidesQuery } from '@/query/useHomeHeroSlidesQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { defaultSearchScope, type SearchScope } from '@/search/programSearchShared';
 
-import HomeFeaturedReviewsSection from './HomeFeaturedReviewsSection/HomeFeaturedReviewsSection';
 import HomeFeatureShowcaseSection from './HomeFeatureShowcaseSection/HomeFeatureShowcaseSection';
 import HomeHistoryTimelineSection from './HomeHistoryTimelineSection/HomeHistoryTimelineSection';
 import HomeNoticeSection from './HomeNoticeSection/HomeNoticeSection';
@@ -112,7 +111,6 @@ const HomePage = () => {
       {/* 아래부터는 홈 본문 섹션들입니다. */}
       <HomeFeatureShowcaseSection />
       <HomeHistoryTimelineSection siteKey={env.siteKey} />
-      <HomeFeaturedReviewsSection />
       <HomeNoticeSection />
     </div>
   );

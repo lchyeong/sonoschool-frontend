@@ -1,10 +1,28 @@
+import { Link } from 'react-router-dom';
+
 import PlaceholderPage from '@/components/layout/PlaceholderPage/PlaceholderPage';
+import { routePaths } from '@/routes/routeRegistry';
 
 const CartPage = () => {
   return (
     <PlaceholderPage
-      description='장바구니 API와 상품 데이터가 연결되면 이 페이지에서 선택한 강의와 결제 전 상태를 확인할 수 있습니다. 현재는 헤더의 장바구니 버튼 진입 확인용 페이지입니다.'
-      eyebrow='Cart'
+      actions={
+        <>
+          <Link to={routePaths.programs}>강의 둘러보기</Link>
+          <Link to={routePaths.login}>로그인</Link>
+        </>
+      }
+      description='담아둔 강의를 확인하고 결제로 이어지는 흐름을 이곳에서 정리하게 됩니다.'
+      sections={[
+        {
+          title: '현재 상태',
+          items: ['아직 담아둔 강의가 없습니다.'],
+        },
+        {
+          title: '다음 단계',
+          items: ['교육과정을 둘러보고 필요한 강의를 장바구니에 담아 주세요.'],
+        },
+      ]}
       title='장바구니'
     />
   );

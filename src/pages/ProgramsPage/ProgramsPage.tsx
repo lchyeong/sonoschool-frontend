@@ -44,7 +44,7 @@ const ProgramsPage = () => {
       {/* 최상단 허브 영역은 "소노스쿨 교육과정 전체 구조"를 한 번에 설명하는 역할을 합니다. */}
       <section className={styles['heroSection']}>
         <div className={styles['heroCopy']}>
-          <p className={styles['eyebrow']}>Program Hub</p>
+          <p className={styles['eyebrow']}>교육과정 안내</p>
           <h1 className={styles['title']}>{data.title}</h1>
           <p className={styles['description']}>{data.description}</p>
 
@@ -74,7 +74,7 @@ const ProgramsPage = () => {
       {/* 1뎁스 과정군 카드는 헤더 상위 메뉴를 클릭했을 때 어디로 갈지 미리 보여 주는 영역입니다. */}
       <section className={styles['section']}>
         <div className={styles['sectionHeader']}>
-          <p className={styles['sectionEyebrow']}>Top Categories</p>
+          <p className={styles['sectionEyebrow']}>과정군 안내</p>
           <h2 className={styles['sectionTitle']}>과정군별로 빠르게 살펴보기</h2>
           <p className={styles['sectionDescription']}>
             의사과정, 일반과정, 온라인과정 중 현재 필요한 학습 방식에 맞는 범위를 먼저 선택해
@@ -92,7 +92,7 @@ const ProgramsPage = () => {
       {/* 대표 강의 섹션은 전체 과정 허브에서도 바로 강의 상세로 들어갈 수 있게 도와줍니다. */}
       <section className={styles['section']}>
         <div className={styles['sectionHeader']}>
-          <p className={styles['sectionEyebrow']}>Featured Courses</p>
+          <p className={styles['sectionEyebrow']}>대표 강의</p>
           <h2 className={styles['sectionTitle']}>대표 강의 먼저 보기</h2>
           <p className={styles['sectionDescription']}>
             소노스쿨의 전체 커리큘럼 중 문의가 잦거나 흐름을 이해하기 좋은 대표 강의를 먼저
@@ -111,7 +111,7 @@ const ProgramsPage = () => {
         <ProgramEducatorCard instructor={data.instructor} />
 
         <article className={styles['brandNoteCard']}>
-          <p className={styles['sectionEyebrow']}>How Sono School Works</p>
+          <p className={styles['sectionEyebrow']}>운영 방식</p>
           <h2 className={styles['brandNoteTitle']}>소노스쿨은 한 명의 강사 기준으로 운영됩니다.</h2>
           <p className={styles['brandNoteDescription']}>
             인프런처럼 여러 강사가 각자 다른 포맷으로 강의를 올리는 구조가 아니라, 장은희 강사가
