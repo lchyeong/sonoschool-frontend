@@ -4,9 +4,8 @@ import { Link, MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import CommonHeader from '@/components/layout/CommonHeader/CommonHeader';
-import ModalRoot from '@/components/overlay/Modal/ModalRoot';
+import styles from '@/components/layout/CommonHeader/CommonHeader.module.scss';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useModalStore } from '@/stores/useModalStore';
 
 const createTestQueryClient = () => {
   return new QueryClient({
@@ -32,7 +31,6 @@ const renderCommonHeader = () => {
           logo={{ label: 'SONO SCHOOL', to: '/' }}
           siteKey='sono-school-main'
         />
-        <ModalRoot />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -48,65 +46,73 @@ const setWindowScrollY = (value: number) => {
 
 afterEach(() => {
   cleanup();
-  useModalStore.getState().closeModal();
-  useAuthStore.setState({ isAuthenticated: false });
+  useAuthStore.setState({
+    accessToken: '',
+    tokenType: '',
+    expiresAt: '',
+    loginId: '',
+    displayName: '',
+    role: '',
+    isAuthenticated: false,
+  });
   window.localStorage.clear();
 });
 
 describe('CommonHeader', () => {
-  it('removes signup action and restores focus after closing the desktop login modal', async () => {
+  it('renders the desktop login action as a link to the login page', () => {
     renderCommonHeader();
 
     expect(screen.queryByRole('link', { name: '회원가입' })).not.toBeInTheDocument();
 
-    const desktopLoginButton = screen.getByRole('button', { name: '로그인' });
-
-    fireEvent.click(desktopLoginButton);
-
-    const loginDialog = screen.getByRole('dialog', { name: '로그인' });
-
-    expect(loginDialog).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('이메일 또는 아이디')).toHaveFocus();
-    });
-
-    fireEvent.keyDown(screen.getByLabelText('이메일 또는 아이디'), { key: 'Escape' });
-
-    expect(screen.queryByRole('dialog', { name: '로그인' })).not.toBeInTheDocument();
-    expect(desktopLoginButton).toHaveFocus();
+    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute('href', '/login');
   });
 
-  it('shows validation messages and switches the header to mypage after a successful login', () => {
+  it('switches the header action to mypage when authenticated', () => {
+    useAuthStore.setState({
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresAt: '2026-03-17T00:00:00Z',
+      loginId: 'student01',
+      displayName: '길동',
+      role: 'ROLE_STUDENT',
+      isAuthenticated: true,
+    });
+
     renderCommonHeader();
 
-    fireEvent.click(screen.getByRole('button', { name: '로그인' }));
+    fireEvent.click(screen.getByRole('button', { name: '계정 메뉴' }));
 
-    const loginDialog = screen.getByRole('dialog', { name: '로그인' });
+    const myPageLink = screen.getByRole('link', { name: '마이페이지' });
+    const logoutButton = screen.getByRole('button', { name: '로그아웃' });
 
-    fireEvent.click(within(loginDialog).getByRole('button', { name: '로그인' }));
-
-    expect(screen.getByText('이메일 또는 아이디를 입력해 주세요.')).toBeInTheDocument();
-    expect(screen.getByText('비밀번호를 입력해 주세요.')).toBeInTheDocument();
-    expect(screen.getByLabelText('이메일 또는 아이디')).toHaveFocus();
-
-    fireEvent.change(screen.getByLabelText('이메일 또는 아이디'), {
-      target: { value: 'tester@example.com' },
-    });
-    fireEvent.change(screen.getByLabelText('비밀번호'), {
-      target: { value: 'password123' },
-    });
-    fireEvent.click(
-      within(screen.getByRole('dialog', { name: '로그인' })).getByRole('button', {
-        name: '로그인',
-      }),
-    );
-
-    expect(screen.queryByRole('dialog', { name: '로그인' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '마이페이지' })).toBeInTheDocument();
+    expect(myPageLink).toBeInTheDocument();
+    expect(logoutButton).toBeInTheDocument();
+    expect(getComputedStyle(myPageLink).fontSize).toBe(getComputedStyle(logoutButton).fontSize);
+    expect(getComputedStyle(myPageLink).fontWeight).toBe(getComputedStyle(logoutButton).fontWeight);
+    expect(screen.queryByRole('link', { name: '로그인' })).not.toBeInTheDocument();
   });
 
-  it('closes the mobile drawer before opening the login modal', () => {
+  it('applies separate icon size modifiers to cart and account actions', () => {
+    useAuthStore.setState({
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresAt: '2026-03-17T00:00:00Z',
+      loginId: 'student01',
+      displayName: '길동',
+      role: 'ROLE_STUDENT',
+      isAuthenticated: true,
+    });
+
+    renderCommonHeader();
+
+    const cartIcon = screen.getAllByRole('link', { name: '장바구니' })[0]?.querySelector('img');
+    const accountIcon = screen.getByRole('button', { name: '계정 메뉴' }).querySelector('img');
+
+    expect(cartIcon).toHaveClass(styles['iconImage'], styles['iconImageCart']);
+    expect(accountIcon).toHaveClass(styles['iconImage'], styles['iconImageMy']);
+  });
+
+  it('closes the mobile drawer when navigating to the login page', () => {
     renderCommonHeader();
 
     const mobileMenuButton = screen.getByRole('button', { name: '모바일 메뉴 열기' });
@@ -115,15 +121,10 @@ describe('CommonHeader', () => {
 
     const mobileDrawer = screen.getByRole('dialog', { name: '모바일 메뉴' });
 
-    fireEvent.click(within(mobileDrawer).getByRole('button', { name: '로그인' }));
+    fireEvent.click(within(mobileDrawer).getByRole('link', { name: '로그인' }));
 
     expect(screen.queryByRole('dialog', { name: '모바일 메뉴' })).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: '로그인' })).toBeInTheDocument();
-
-    fireEvent.keyDown(screen.getByLabelText('이메일 또는 아이디'), { key: 'Escape' });
-
-    expect(screen.queryByRole('dialog', { name: '로그인' })).not.toBeInTheDocument();
-    expect(mobileMenuButton).toHaveFocus();
+    expect(screen.getAllByRole('link', { name: '로그인' })[0]).toHaveAttribute('href', '/login');
   });
 
   it('renders menu descriptions from navigation data in the desktop dropdown', async () => {

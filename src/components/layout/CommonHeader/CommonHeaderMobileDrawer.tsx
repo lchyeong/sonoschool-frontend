@@ -21,7 +21,6 @@ interface CommonHeaderMobileDrawerProps {
   expandedMobileItemIds: string[];
   onCloseMenu: () => void;
   onCloseMenuAndRestoreFocus: () => void;
-  onOpenLoginModal: () => void;
   onToggleMobileItem: (itemId: string) => void;
 }
 
@@ -45,7 +44,6 @@ const CommonHeaderMobileDrawer = ({
   navigationItems,
   onCloseMenu,
   onCloseMenuAndRestoreFocus,
-  onOpenLoginModal,
   onToggleMobileItem,
 }: CommonHeaderMobileDrawerProps) => {
   const renderMobileNavigation = (items: HeaderNavigationItem[], depth: number): ReactNode => {
@@ -140,17 +138,16 @@ const CommonHeaderMobileDrawer = ({
               <span>마이페이지</span>
             </LinkComponent>
           ) : (
-            <button
-              aria-haspopup='dialog'
+            <LinkComponent
               className={classNames(
-                styles['mobileActionButton'],
+                styles['mobileActionLink'],
                 styles['mobileActionButtonSecondary'],
               )}
-              onClick={onOpenLoginModal}
-              type='button'
+              onClick={onCloseMenu}
+              to={routePaths.login}
             >
               로그인
-            </button>
+            </LinkComponent>
           )}
           <LinkComponent
             className={classNames(styles['mobileActionLink'], styles['mobileActionLinkSecondary'])}

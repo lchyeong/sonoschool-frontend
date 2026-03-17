@@ -1,5 +1,9 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+
+import { logoutStudent } from '@/api/auth';
 import cartIconSrc from '@/assets/icons/icon_cart.svg';
 import myPageIconSrc from '@/assets/icons/icon_my.svg';
 import CloseIcon from '@/components/ui/icons/CloseIcon';
@@ -7,7 +11,7 @@ import MenuIcon from '@/components/ui/icons/MenuIcon';
 import { useSiteNavigationQuery } from '@/query/useSiteNavigationQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useModalStore } from '@/stores/useModalStore';
+import { useToastStore } from '@/stores/useToastStore';
 import { buildHeaderNavigation } from '@/utils/buildHeaderNavigation';
 import { classNames } from '@/utils/classNames';
 
@@ -24,19 +28,18 @@ import { useCommonHeaderAutoHide } from './useCommonHeaderAutoHide';
 import { useCommonHeaderDesktopDropdown } from './useCommonHeaderDesktopDropdown';
 
 export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps) => {
+  const navigate = useNavigate();
   // 실제 `<header>` DOM 요소를 가리키는 ref입니다.
   // 헤더 높이를 측정하거나, 헤더 바깥 클릭 여부를 판단할 때 사용됩니다.
   const headerRef = useRef<HTMLElement | null>(null);
-  // 데스크톱 로그인 버튼 DOM을 기억해 두었다가,
-  // 로그인 모달이 닫힌 뒤 다시 이 버튼으로 포커스를 돌립니다.
-  const desktopLoginButtonRef = useRef<HTMLButtonElement | null>(null);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
   // 모바일 메뉴 버튼도 같은 이유로 ref를 따로 보관합니다.
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // 현재 사용자가 로그인 상태인지 전역 스토어에서 읽습니다.
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  // 로그인 모달을 열기 위한 전역 함수입니다.
-  const openLoginModal = useModalStore((state) => state.openLoginModal);
+  const logout = useAuthStore((state) => state.logout);
+  const showToast = useToastStore((state) => state.showToast);
   // 현재 siteKey에 맞는 헤더 메뉴 데이터를 가져옵니다.
   // `isError`는 메뉴 조회 실패 여부를 뜻합니다.
   const { data, isError } = useSiteNavigationQuery(siteKey);
@@ -48,6 +51,7 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
 
   // 모바일 드로어가 현재 열려 있는지 여부입니다.
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   // 모바일에서 펼쳐 둔 메뉴 id 목록입니다.
   // 여러 항목을 동시에 열 수 있으므로 배열로 관리합니다.
   const [expandedMobileItemIds, setExpandedMobileItemIds] = useState<string[]>([]);
@@ -138,6 +142,7 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
   // `useEffectEvent`를 쓰면 effect 안에서도 최신 상태/함수를 안전하게 참조할 수 있습니다.
   const handleEscapeKeyDown = useEffectEvent(() => {
     closeDesktopMenu();
+    setIsAccountMenuOpen(false);
     setIsMobileMenuOpen(false);
     setExpandedMobileItemIds([]);
   });
@@ -180,25 +185,15 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
     setExpandedMobileItemIds([]);
   };
 
+  const closeAccountMenu = () => {
+    setIsAccountMenuOpen(false);
+  };
+
   // 모바일 메뉴를 닫고 다시 "메뉴 열기 버튼"으로 포커스를 돌립니다.
   // 키보드 사용자 접근성을 보완하기 위한 함수입니다.
   const closeMobileMenuAndRestoreFocus = () => {
     closeMobileMenu();
     mobileMenuButtonRef.current?.focus();
-  };
-
-  // 데스크톱 로그인 버튼에서 로그인 모달을 여는 함수입니다.
-  // 모달이 닫힌 뒤에는 원래 버튼으로 포커스를 돌릴 수 있게 ref를 전달합니다.
-  const handleOpenDesktopLoginModal = () => {
-    closeDesktopMenu();
-    openLoginModal({ restoreFocusElement: desktopLoginButtonRef.current });
-  };
-
-  // 모바일에서도 같은 로그인 모달을 열지만,
-  // 포커스 복귀 지점은 모바일 메뉴 버튼이 되도록 별도로 처리합니다.
-  const handleOpenMobileLoginModal = () => {
-    closeMobileMenu();
-    openLoginModal({ restoreFocusElement: mobileMenuButtonRef.current });
   };
 
   // 모바일 트리 메뉴에서 특정 항목을 펼치거나 접는 토글 함수입니다.
@@ -216,6 +211,7 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
   // 모바일 메뉴를 열기 전에 데스크톱 상태를 먼저 정리해 두면 상태 충돌을 줄일 수 있습니다.
   const handleToggleMobileMenu = () => {
     closeDesktopMenu();
+    closeAccountMenu();
     setIsMobileMenuOpen((current) => {
       // 닫는 동작일 때는 하위 메뉴 펼침 상태도 함께 정리합니다.
       if (current) {
@@ -226,6 +222,45 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
     });
   };
 
+  const logoutMutation = useMutation({
+    mutationFn: logoutStudent,
+    onError: (error: unknown) => {
+      showToast({
+        message:
+          error instanceof Error ? error.message : '로그아웃에 실패했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    },
+    onSuccess: () => {
+      closeAccountMenu();
+      logout();
+      showToast({
+        message: '로그아웃되었습니다.',
+        variant: 'success',
+      });
+      void navigate(routePaths.home);
+    },
+  });
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (!(target instanceof Node)) return;
+      if (accountMenuRef.current?.contains(target)) return;
+
+      setIsAccountMenuOpen(false);
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isAccountMenuOpen]);
+
   return (
     <>
       {/* 실제 고정 헤더 영역입니다. */}
@@ -233,7 +268,9 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
         // 스크롤 상태에 따라 헤더 숨김 클래스를 조건부로 붙입니다.
         className={classNames(styles['header'], shouldHideHeader && styles['headerHidden'])}
         // 마우스가 헤더를 벗어나면 데스크톱 드롭다운을 닫습니다.
-        onMouseLeave={closeDesktopMenu}
+        onMouseLeave={() => {
+          closeDesktopMenu();
+        }}
         ref={headerRef}
       >
         {/* 헤더 내부 최대 너비 래퍼입니다. */}
@@ -269,10 +306,12 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
                       // 기존에 열려 있던 다른 드롭다운만 닫고 끝냅니다.
                       if (!isExpandable) {
                         closeDesktopMenu();
+                        closeAccountMenu();
                         return;
                       }
 
                       // 하위 메뉴가 있으면 해당 메뉴를 엽니다.
+                      closeAccountMenu();
                       openDesktopMenu(item);
                     }}
                   >
@@ -318,48 +357,84 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
           <div className={styles['desktopUtilityArea']}>
             <LinkComponent
               className={styles['iconLink']}
-              onClick={closeDesktopMenu}
+              onClick={() => {
+                closeDesktopMenu();
+                closeAccountMenu();
+              }}
               to={routePaths.cart}
             >
               {/* 시각적으로는 아이콘만 보여도,
               스크린 리더를 위해 텍스트를 숨겨 둡니다. */}
               <span className={styles['srOnly']}>장바구니</span>
-              <img alt='' aria-hidden='true' className={styles['iconImage']} src={cartIconSrc} />
+              <img
+                alt=''
+                aria-hidden='true'
+                className={classNames(styles['iconImage'], styles['iconImageCart'])}
+                src={cartIconSrc}
+              />
             </LinkComponent>
 
             <div className={styles['authActionGroup']}>
               {/* 로그인 여부에 따라 마이페이지 링크 또는 로그인 버튼을 분기합니다. */}
               {isAuthenticated ? (
+                <div className={styles['accountMenu']} ref={accountMenuRef}>
+                  <button
+                    aria-expanded={isAccountMenuOpen}
+                    aria-haspopup='menu'
+                    aria-label='계정 메뉴'
+                    className={styles['iconButton']}
+                    onClick={() => {
+                      closeDesktopMenu();
+                      setIsAccountMenuOpen((current) => !current);
+                    }}
+                    type='button'
+                  >
+                    <img
+                      alt=''
+                      aria-hidden='true'
+                      className={classNames(styles['iconImage'], styles['iconImageMy'])}
+                      src={myPageIconSrc}
+                    />
+                  </button>
+
+                  {isAccountMenuOpen ? (
+                    <div className={styles['accountMenuPanel']} role='menu'>
+                      <LinkComponent
+                        className={styles['accountMenuLink']}
+                        onClick={() => {
+                          closeAccountMenu();
+                        }}
+                        to={routePaths.mypage}
+                      >
+                        마이페이지
+                      </LinkComponent>
+                      <button
+                        className={styles['accountMenuButton']}
+                        disabled={logoutMutation.isPending}
+                        onClick={() => {
+                          logoutMutation.mutate();
+                        }}
+                        type='button'
+                      >
+                        {logoutMutation.isPending ? '로그아웃 중...' : '로그아웃'}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
                 <LinkComponent
                   className={classNames(
                     styles['textActionLink'],
-                    styles['textActionLinkSecondary'],
-                  )}
-                  onClick={closeDesktopMenu}
-                  to={routePaths.mypage}
-                >
-                  <img
-                    alt=''
-                    aria-hidden='true'
-                    className={styles['textActionIcon']}
-                    src={myPageIconSrc}
-                  />
-                  <span>마이페이지</span>
-                </LinkComponent>
-              ) : (
-                <button
-                  // 이 버튼이 다이얼로그(로그인 모달)를 연다는 뜻입니다.
-                  aria-haspopup='dialog'
-                  className={classNames(
-                    styles['textActionButton'],
                     styles['textActionButtonSecondary'],
                   )}
-                  onClick={handleOpenDesktopLoginModal}
-                  ref={desktopLoginButtonRef}
-                  type='button'
+                  onClick={() => {
+                    closeDesktopMenu();
+                    closeAccountMenu();
+                  }}
+                  to={routePaths.login}
                 >
                   로그인
-                </button>
+                </LinkComponent>
               )}
             </div>
           </div>
@@ -369,7 +444,10 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
           <div className={styles['mobileUtilityArea']}>
             <LinkComponent
               className={styles['iconLink']}
-              onClick={closeMobileMenu}
+              onClick={() => {
+                closeMobileMenu();
+                closeAccountMenu();
+              }}
               to={routePaths.cart}
             >
               {/* 모바일 아이콘 링크도 동일하게 접근성 텍스트를 제공합니다. */}
@@ -419,7 +497,6 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
             navigationItems={navigationItems}
             onCloseMenu={closeMobileMenu}
             onCloseMenuAndRestoreFocus={closeMobileMenuAndRestoreFocus}
-            onOpenLoginModal={handleOpenMobileLoginModal}
             onToggleMobileItem={handleToggleMobileItem}
           />
         ) : null}
