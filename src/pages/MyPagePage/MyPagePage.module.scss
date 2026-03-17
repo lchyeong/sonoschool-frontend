@@ -1,0 +1,358 @@
+.surface {
+  gap: var(--space-7);
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.layout {
+  display: grid;
+  gap: clamp(28px, 4vw, 52px);
+  grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.sidebar {
+  display: grid;
+  gap: var(--space-5);
+  padding-right: clamp(20px, 3vw, 28px);
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.sidebarHeader {
+  display: grid;
+  gap: 0;
+}
+
+.sidebarTitle {
+  color: var(--color-text-primary);
+  font-size: clamp(1.1rem, 2vw, 1.25rem);
+  font-weight: var(--font-weight-bold);
+}
+
+.menuGroups {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.menuGroup {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.menuGroupLabel {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+}
+
+.menuList {
+  display: grid;
+  gap: 6px;
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-left: 2px solid transparent;
+  text-align: left;
+  color: var(--color-text-secondary);
+  background: transparent;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.menuButton:hover {
+  color: var(--color-text-primary);
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.menuButtonActive {
+  border-left-color: var(--color-sub-brand-main);
+  color: var(--color-text-primary);
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.menuLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.sidebarFooter {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+
+.logoutButton {
+  width: 100%;
+}
+
+.panel {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.contentSection {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.contentTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.detailColumn {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.detailSplit {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.recordList {
+  display: grid;
+}
+
+.recordButton {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 16px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  text-align: left;
+  color: var(--color-text-secondary);
+  background: transparent;
+}
+
+.recordButton:hover {
+  color: var(--color-text-primary);
+}
+
+.recordButtonActive {
+  color: var(--color-text-primary);
+}
+
+.recordTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.recordMeta {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.detailBody {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.summaryGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.summaryItem {
+  display: grid;
+  gap: 8px;
+}
+
+.summaryLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.summaryValue {
+  color: var(--color-text-primary);
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  font-weight: var(--font-weight-bold);
+}
+
+.stackList {
+  display: grid;
+  gap: 0;
+}
+
+.stackItem {
+  display: grid;
+  gap: 6px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.stackItemHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stackItemTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.stackItemText {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.supportBlock {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.phoneMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.phoneValueGroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.verifiedBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-sub-brand-main);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.metaActionButton {
+  padding: 0;
+  border: 0;
+  color: var(--color-sub-brand-main);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  background: transparent;
+}
+
+.metaActionButton:hover {
+  text-decoration: underline;
+}
+
+.inlineEditor {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.inlineFieldRow {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.codeField {
+  width: 100%;
+}
+
+.inlineActionButton {
+  min-width: 144px;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.errorText {
+  margin: 0;
+  color: var(--color-status-error);
+  line-height: var(--line-height-relaxed);
+}
+
+@media (width < 1024px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    padding-right: 0;
+    padding-bottom: var(--space-5);
+    border-right: 0;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .menuList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detailSplit {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width < 768px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .menuList {
+    grid-template-columns: 1fr;
+  }
+
+  .inlineFieldRow {
+    grid-template-columns: 1fr;
+  }
+
+  .inlineActionButton {
+    width: 100%;
+  }
+}

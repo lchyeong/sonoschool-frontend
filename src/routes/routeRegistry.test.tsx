@@ -39,6 +39,7 @@ describe('appRouteRegistry', () => {
     );
     expect(routePaths.adminSales).toBe(appRouteRegistry.routes.adminSales.absolutePath);
     expect(routePaths.signup).toBe(appRouteRegistry.routes.signup.absolutePath);
+    expect(routePaths.accountRecovery).toBe(appRouteRegistry.routes.accountRecovery.absolutePath);
     expect(routePaths.reviews).toBe(appRouteRegistry.routes.reviews.absolutePath);
     expect(routePaths.resources).toBe(appRouteRegistry.routes.resources.absolutePath);
     expect(routePaths.programCatalog()).toBe('/programs');
@@ -64,6 +65,7 @@ describe('appRouteRegistry', () => {
     expect(appRouteAccessByKey.adminProgramDuplicate).toBe('public');
     expect(appRouteAccessByKey.adminProgramMenus).toBe('public');
     expect(appRouteAccessByKey.adminSales).toBe('public');
+    expect(appRouteAccessByKey.accountRecovery).toBe('guest-only');
     expect(appRouteAccessByKey.mypage).toBe('authenticated');
     expect(getRouteHandle('mypage')).toEqual({
       routeKey: 'mypage',
@@ -71,6 +73,10 @@ describe('appRouteRegistry', () => {
     });
     expect(getRouteHandle('login')).toEqual({
       routeKey: 'login',
+      access: 'guest-only',
+    });
+    expect(getRouteHandle('account/recovery')).toEqual({
+      routeKey: 'accountRecovery',
       access: 'guest-only',
     });
     expect(getRouteHandle('admin/login')).toEqual({

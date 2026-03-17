@@ -1,8 +1,10 @@
 import type { ReactElement } from 'react';
 
 import { createBrowserRouter } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
 
+import AccountRecoveryPage from '@/pages/AccountRecoveryPage/AccountRecoveryPage';
 import AdminConsoleLayout from '@/pages/AdminConsoleLayout/AdminConsoleLayout';
 import AdminConsolePage from '@/pages/AdminConsolePage/AdminConsolePage';
 import AdminProgramEditorSection from '@/pages/AdminConsolePage/AdminProgramEditorSection';
@@ -24,7 +26,13 @@ import RootLayout from '@/pages/RootLayout/RootLayout';
 import RouteErrorPage from '@/pages/RouteErrorPage/RouteErrorPage';
 import SearchPage from '@/pages/SearchPage/SearchPage';
 import SignupPage from '@/pages/SignupPage/SignupPage';
-import { appRouteRegistry, createAppRouteHandle, type AppRouteKey } from '@/routes/routeRegistry';
+import {
+  appRouteRegistry,
+  createAppRouteHandle,
+  routePaths,
+  type AppRouteKey,
+} from '@/routes/routeRegistry';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 const appRouteElements: Record<AppRouteKey, ReactElement> = {
   home: <HomePage />,
@@ -42,6 +50,7 @@ const appRouteElements: Record<AppRouteKey, ReactElement> = {
   adminProgramMenus: <AdminConsolePage section='programMenus' />,
   adminSales: <AdminConsolePage section='sales' />,
   signup: <SignupPage />,
+  accountRecovery: <AccountRecoveryPage />,
   mypage: <MyPagePage />,
   cart: <CartPage />,
   notices: <NoticesPage />,
@@ -73,14 +82,40 @@ const adminConsoleRouteKeys = [
 ] as const satisfies readonly AppRouteKey[];
 const adminRouteKeySet = new Set<AppRouteKey>([...adminAuthRouteKeys, ...adminConsoleRouteKeys]);
 
+const RouteAccessBoundary = ({
+  access,
+  children,
+}: {
+  access: 'authenticated' | 'guest-only' | 'public';
+  children: ReactElement;
+}) => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const location = useLocation();
+
+  if (access === 'authenticated' && !isAuthenticated) {
+    return <Navigate replace state={{ from: location }} to={routePaths.login} />;
+  }
+
+  if (access === 'guest-only' && isAuthenticated) {
+    return <Navigate replace to={routePaths.mypage} />;
+  }
+
+  return children;
+};
+
 const createAppRouteObject = (routeKey: AppRouteKey): RouteObject => {
   const definition = appRouteRegistry.routes[routeKey];
+  const element = (
+    <RouteAccessBoundary access={definition.access}>
+      {appRouteElements[routeKey]}
+    </RouteAccessBoundary>
+  );
 
   switch (definition.kind) {
     case 'index':
       return {
         index: true,
-        element: appRouteElements[routeKey],
+        element,
         handle: createAppRouteHandle(routeKey),
       };
     case 'static':
@@ -88,7 +123,7 @@ const createAppRouteObject = (routeKey: AppRouteKey): RouteObject => {
     case 'catch-all':
       return {
         path: definition.routePath,
-        element: appRouteElements[routeKey],
+        element,
         handle: createAppRouteHandle(routeKey),
       };
   }

@@ -1,0 +1,25 @@
+.form {
+  display: grid;
+  gap: 20px;
+}
+
+.supportText {
+  margin: 0;
+  color: rgb(86 90 102);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.fieldGroup {
+  display: grid;
+  gap: 14px;
+}
+
+.actionGroup {
+  display: grid;
+  gap: 12px;
+}
+
+.submitButton {
+  width: 100%;
+}

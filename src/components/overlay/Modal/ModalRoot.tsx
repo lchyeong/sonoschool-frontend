@@ -16,11 +16,11 @@ const ModalRoot = () => {
 
   return (
     <Modal
-      description='이 모달은 현재 목 인증 상태를 검증하기 위한 공통 로그인 UI입니다.'
+      description='학생 계정 아이디와 비밀번호로 로그인할 수 있는 공통 인증 UI입니다.'
       initialFocusRef={identifierInputRef}
       onClose={closeModal}
       restoreFocusElement={restoreFocusElement}
-      title='로그인'
+      title='학생 로그인'
     >
       <LoginModalContent identifierInputRef={identifierInputRef} />
     </Modal>

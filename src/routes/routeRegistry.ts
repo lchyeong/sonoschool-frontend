@@ -167,6 +167,12 @@ const appLeafRouteDefinitions = {
     routePath: 'signup',
     absolutePath: '/signup',
   }),
+  accountRecovery: defineStaticRoute({
+    key: 'accountRecovery',
+    access: 'guest-only',
+    routePath: 'account/recovery',
+    absolutePath: '/account/recovery',
+  }),
   mypage: defineStaticRoute({
     key: 'mypage',
     access: 'authenticated',
@@ -270,6 +276,7 @@ const appChildRouteKeys = [
   'adminProgramMenus',
   'adminSales',
   'signup',
+  'accountRecovery',
   'mypage',
   'cart',
   'notices',
@@ -321,6 +328,7 @@ export const routePaths = {
   adminProgramMenus: routes.adminProgramMenus.absolutePath,
   adminSales: routes.adminSales.absolutePath,
   signup: routes.signup.absolutePath,
+  accountRecovery: routes.accountRecovery.absolutePath,
   mypage: routes.mypage.absolutePath,
   cart: routes.cart.absolutePath,
   notices: routes.notices.absolutePath,

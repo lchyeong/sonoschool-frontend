@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { env } from '@/config/env';
 import { adminAuthRouteTree, adminConsoleRouteTree, appRouteTree } from '@/routes/router';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 const createTestQueryClient = () => {
   return new QueryClient({
@@ -24,6 +25,15 @@ afterEach(() => {
   cleanup();
   useAdminAuthStore.setState({
     adminDisplayName: null,
+    isAuthenticated: false,
+  });
+  useAuthStore.setState({
+    accessToken: '',
+    tokenType: '',
+    expiresAt: '',
+    loginId: '',
+    displayName: '',
+    role: '',
     isAuthenticated: false,
   });
   window.localStorage.clear();
@@ -100,5 +110,64 @@ describe('router layouts', () => {
       'aria-current',
       'page',
     );
+  });
+
+  it('redirects guest users from mypage to the login page', async () => {
+    const queryClient = createTestQueryClient();
+    const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
+      initialEntries: ['/mypage'],
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('heading', { level: 1, name: '로그인' })).toBeInTheDocument();
+  });
+
+  it('redirects authenticated users away from guest-only login routes', async () => {
+    useAuthStore.setState({
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresAt: '2026-03-17T00:00:00Z',
+      loginId: 'student01',
+      displayName: '길동',
+      role: 'ROLE_STUDENT',
+      isAuthenticated: true,
+    });
+
+    const queryClient = createTestQueryClient();
+    const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
+      initialEntries: ['/login'],
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '마이페이지' }),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the account recovery page for guest users', async () => {
+    const queryClient = createTestQueryClient();
+    const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
+      initialEntries: ['/account/recovery'],
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '아이디/비밀번호 찾기' }),
+    ).toBeInTheDocument();
   });
 });

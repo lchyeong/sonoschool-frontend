@@ -11,6 +11,8 @@ import { env } from '@/config/env';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
+import sharedStyles from '@/styles/accountPage.module.scss';
+import { classNames } from '@/utils/classNames';
 
 import styles from './AdminLoginPage.module.scss';
 
@@ -113,43 +115,43 @@ const AdminLoginPage = () => {
   }
 
   return (
-    <section className={styles['page']}>
-      <div className={styles['shell']}>
-        <div className={styles['introBlock']}>
-          <p className={styles['eyebrow']}>Admin Access</p>
-          <h1 className={styles['title']}>관리자 로그인</h1>
-        </div>
+    <section className={sharedStyles['page']}>
+      <div className={classNames(sharedStyles['shell'], sharedStyles['shellNarrow'])}>
+        <div className={classNames(sharedStyles['surface'], styles['surface'])}>
+          <header className={sharedStyles['header']}>
+            <h1 className={sharedStyles['title']}>관리자 로그인</h1>
+          </header>
 
-        <div className={styles['card']}>
           <form className={styles['form']} noValidate onSubmit={handleSubmit}>
-            <div className={styles['cardHeader']}>
-              <p className={styles['cardEyebrow']}>Hidden Admin Route</p>
-              <h2 className={styles['cardTitle']}>관리자 인증</h2>
-            </div>
+            <div className={sharedStyles['section']}>
+              <div className={sharedStyles['sectionHeader']}>
+                <h2 className={sharedStyles['sectionTitle']}>관리자 인증</h2>
+              </div>
 
-            <div className={styles['fieldGroup']}>
-              <TextField
-                autoComplete='username'
-                errorMessage={formErrors.identifier}
-                label='관리자 아이디'
-                name='identifier'
-                onChange={handleFieldChange('identifier')}
-                placeholder='admin_id'
-                ref={identifierInputRef}
-                value={formValues.identifier}
-              />
+              <div className={styles['fieldGroup']}>
+                <TextField
+                  autoComplete='username'
+                  errorMessage={formErrors.identifier}
+                  label='관리자 아이디'
+                  name='identifier'
+                  onChange={handleFieldChange('identifier')}
+                  placeholder='admin_id'
+                  ref={identifierInputRef}
+                  value={formValues.identifier}
+                />
 
-              <TextField
-                autoComplete='current-password'
-                errorMessage={formErrors.password}
-                label='비밀번호'
-                name='password'
-                onChange={handleFieldChange('password')}
-                placeholder='비밀번호를 입력해 주세요'
-                ref={passwordInputRef}
-                type='password'
-                value={formValues.password}
-              />
+                <TextField
+                  autoComplete='current-password'
+                  errorMessage={formErrors.password}
+                  label='비밀번호'
+                  name='password'
+                  onChange={handleFieldChange('password')}
+                  placeholder='비밀번호를 입력해 주세요'
+                  ref={passwordInputRef}
+                  type='password'
+                  value={formValues.password}
+                />
+              </div>
             </div>
 
             <div className={styles['actionRow']}>
@@ -161,7 +163,7 @@ const AdminLoginPage = () => {
                 {loginMutation.isPending ? '로그인 중...' : '관리자 로그인'}
               </Button>
 
-              <Link className={styles['secondaryLink']} to={routePaths.home}>
+              <Link className={sharedStyles['textLink']} to={routePaths.home}>
                 메인 페이지로 돌아가기
               </Link>
             </div>

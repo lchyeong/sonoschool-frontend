@@ -1,22 +1,6 @@
-.form {
+.shell {
   display: grid;
   gap: var(--space-5);
-}
-
-.supportText {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-relaxed);
-}
-
-.fieldGroup {
-  display: grid;
-  gap: var(--space-4);
-}
-
-.actionGroup {
-  display: grid;
-  gap: var(--space-3);
 }
 
 .actionButton {
