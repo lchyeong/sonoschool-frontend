@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { shouldUseMockFallback } from '@/api/fallback';
 import { http } from '@/api/http';
+import { getMockProgramPage, getMockProgramsOverview } from '@/mocks/data/programCatalog';
 import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
 
 const toZodErrorMessage = (error: z.ZodError): string => {
@@ -175,34 +177,56 @@ const programPageResponseSchema = z.union([
 ]);
 
 export const fetchProgramsOverview = async (siteKey: string): Promise<ProgramsOverviewResponse> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-  const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/programs/overview`);
+  try {
+    const encodedSiteKey = encodeURIComponent(siteKey);
+    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/programs/overview`);
 
-  const parsed = programsOverviewResponseSchema.safeParse(responseData);
+    const parsed = programsOverviewResponseSchema.safeParse(responseData);
 
-  if (!parsed.success) {
-    throw new Error(
-      `[programCatalog] Invalid overview response.${toZodErrorMessage(parsed.error)}`,
-    );
+    if (!parsed.success) {
+      throw new Error(
+        `[programCatalog] Invalid overview response.${toZodErrorMessage(parsed.error)}`,
+      );
+    }
+
+    return parsed.data;
+  } catch (error) {
+    if (!shouldUseMockFallback(error)) {
+      throw error;
+    }
+
+    return getMockProgramsOverview(siteKey);
   }
-
-  return parsed.data;
 };
 
 export const fetchProgramPage = async (
   siteKey: string,
   path: string,
 ): Promise<ProgramPageResponse> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-  const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/programs/page`, {
-    params: { path },
-  });
+  try {
+    const encodedSiteKey = encodeURIComponent(siteKey);
+    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/programs/page`, {
+      params: { path },
+    });
 
-  const parsed = programPageResponseSchema.safeParse(responseData);
+    const parsed = programPageResponseSchema.safeParse(responseData);
 
-  if (!parsed.success) {
-    throw new Error(`[programCatalog] Invalid page response.${toZodErrorMessage(parsed.error)}`);
+    if (!parsed.success) {
+      throw new Error(`[programCatalog] Invalid page response.${toZodErrorMessage(parsed.error)}`);
+    }
+
+    return parsed.data;
+  } catch (error) {
+    if (!shouldUseMockFallback(error)) {
+      throw error;
+    }
+
+    const fallbackData = getMockProgramPage(siteKey, path);
+
+    if (fallbackData) {
+      return fallbackData;
+    }
+
+    throw error;
   }
-
-  return parsed.data;
 };

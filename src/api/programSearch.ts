@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { shouldUseMockFallback } from '@/api/fallback';
 import { http } from '@/api/http';
+import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import { searchScopeValues } from '@/search/programSearchShared';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
 
@@ -30,14 +32,22 @@ const programSearchIndexResponseSchema = z.object({
 export const fetchProgramSearchIndex = async (
   siteKey: string,
 ): Promise<ProgramSearchIndexResponse> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-  const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/program-search-index`);
+  try {
+    const encodedSiteKey = encodeURIComponent(siteKey);
+    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/program-search-index`);
 
-  const parsed = programSearchIndexResponseSchema.safeParse(responseData);
+    const parsed = programSearchIndexResponseSchema.safeParse(responseData);
 
-  if (!parsed.success) {
-    throw new Error(`[programSearch] Invalid response.${toZodErrorMessage(parsed.error)}`);
+    if (!parsed.success) {
+      throw new Error(`[programSearch] Invalid response.${toZodErrorMessage(parsed.error)}`);
+    }
+
+    return parsed.data;
+  } catch (error) {
+    if (!shouldUseMockFallback(error)) {
+      throw error;
+    }
+
+    return getMockProgramSearchIndex(siteKey);
   }
-
-  return parsed.data;
 };

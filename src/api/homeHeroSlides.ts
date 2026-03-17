@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { shouldUseMockFallback } from '@/api/fallback';
 import { http } from '@/api/http';
+import { getMockHomeHeroSlides } from '@/mocks/data/homeHeroSlides';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 
 const toZodErrorMessage = (error: z.ZodError): string => {
@@ -36,14 +38,22 @@ const homeHeroSlidesResponseSchema = z.object({
 });
 
 export const fetchHomeHeroSlides = async (siteKey: string): Promise<HomeHeroSlidesResponse> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-  const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/home-hero-slides`);
+  try {
+    const encodedSiteKey = encodeURIComponent(siteKey);
+    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/home-hero-slides`);
 
-  const parsed = homeHeroSlidesResponseSchema.safeParse(responseData);
+    const parsed = homeHeroSlidesResponseSchema.safeParse(responseData);
 
-  if (!parsed.success) {
-    throw new Error(`[homeHeroSlides] Invalid response.${toZodErrorMessage(parsed.error)}`);
+    if (!parsed.success) {
+      throw new Error(`[homeHeroSlides] Invalid response.${toZodErrorMessage(parsed.error)}`);
+    }
+
+    return parsed.data;
+  } catch (error) {
+    if (!shouldUseMockFallback(error)) {
+      throw error;
+    }
+
+    return getMockHomeHeroSlides(siteKey);
   }
-
-  return parsed.data;
 };

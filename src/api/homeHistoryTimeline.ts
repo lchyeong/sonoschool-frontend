@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { shouldUseMockFallback } from '@/api/fallback';
 import { http } from '@/api/http';
+import { getMockHomeHistoryTimeline } from '@/mocks/data/homeHistoryTimeline';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
 
 const toZodErrorMessage = (error: z.ZodError): string => {
@@ -24,14 +26,22 @@ const homeHistoryTimelineResponseSchema = z.object({
 export const fetchHomeHistoryTimeline = async (
   siteKey: string,
 ): Promise<HomeHistoryTimelineResponse> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-  const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/home-history-timeline`);
+  try {
+    const encodedSiteKey = encodeURIComponent(siteKey);
+    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/home-history-timeline`);
 
-  const parsed = homeHistoryTimelineResponseSchema.safeParse(responseData);
+    const parsed = homeHistoryTimelineResponseSchema.safeParse(responseData);
 
-  if (!parsed.success) {
-    throw new Error(`[homeHistoryTimeline] Invalid response.${toZodErrorMessage(parsed.error)}`);
+    if (!parsed.success) {
+      throw new Error(`[homeHistoryTimeline] Invalid response.${toZodErrorMessage(parsed.error)}`);
+    }
+
+    return parsed.data;
+  } catch (error) {
+    if (!shouldUseMockFallback(error)) {
+      throw error;
+    }
+
+    return getMockHomeHistoryTimeline(siteKey);
   }
-
-  return parsed.data;
 };

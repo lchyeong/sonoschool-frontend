@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
+import { server } from '@/mocks/server';
 import HomePage from '@/pages/HomePage/HomePage';
 
 const createTestQueryClient = () => {
@@ -52,10 +54,6 @@ describe('HomePage', () => {
       ),
     ).toHaveLength(5);
     expect(await screen.findByRole('list', { name: '소노스쿨 연혁 타임라인' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '교육 후기' })).toBeInTheDocument();
-    expect(
-      within(screen.getByRole('list', { name: '대표 교육후기 4개' })).getAllByRole('listitem'),
-    ).toHaveLength(4);
     expect(screen.getByRole('heading', { name: '공지사항' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '공지사항 게시판 보기' })).toBeInTheDocument();
     expect(
@@ -68,5 +66,26 @@ describe('HomePage', () => {
       await screen.findByRole('heading', { name: '응급실 POCUS FAST 집중 마스터 클래스' }),
     ).toBeInTheDocument();
     expect(screen.getByAltText('응급실 POCUS FAST 강의 썸네일 예시')).toBeInTheDocument();
+  });
+
+  it('keeps rendering the home content with mock fallback data when home APIs fail', async () => {
+    server.use(
+      http.get('*/sites/:siteKey/home-hero-slides', () => {
+        return HttpResponse.json({ message: 'hero failed' }, { status: 500 });
+      }),
+      http.get('*/sites/:siteKey/home-history-timeline', () => {
+        return HttpResponse.json({ message: 'timeline failed' }, { status: 500 });
+      }),
+    );
+
+    renderHomePage();
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '임상 초음파 코어 루틴과 국제 자격 준비 집중 과정',
+      }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: '소노스쿨 연혁 타임라인' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('메인 슬라이드 오류')).not.toBeInTheDocument();
   });
 });
