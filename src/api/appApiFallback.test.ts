@@ -1,7 +1,8 @@
 /* eslint-disable import/order */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMockAdminConsole, resetMockAdminConsoleData } from '@/mocks/data/adminConsole';
-import { resetMockMyPageData } from '@/mocks/data/mypage';
+import { getMockMyCart, resetMockMyPageData } from '@/mocks/data/mypage';
+import { getMockPaymentResult, getMockPaymentResultByToken } from '@/mocks/data/payments';
 import { getMockRegistrationTerms, resetMockStudentAuthState } from '@/mocks/data/studentAuth';
 const { httpGetMock, axiosGetMock, axiosPostMock, axiosPatchMock, axiosDeleteMock } = vi.hoisted(
   () => {
@@ -36,7 +37,8 @@ vi.mock('@/api/axiosInstance', () => {
 
 import { fetchRegistrationTerms, loginStudent } from '@/api/auth';
 import { createAdminNotice, fetchAdminConsole } from '@/api/adminConsole';
-import { fetchMyProfile, updateMyProfile } from '@/api/mypage';
+import { addMyCartItem, fetchMyProfile, removeMyCartItem, updateMyProfile } from '@/api/mypage';
+import { fetchPaymentResult, fetchPaymentResultByToken } from '@/api/payments';
 
 const siteKey = 'sono-school-main';
 
@@ -92,6 +94,8 @@ describe('app API fallback', () => {
   it('falls back to mock mypage data when mypage APIs are unavailable', async () => {
     axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
     axiosPatchMock.mockRejectedValueOnce(createAxiosFailure(404));
+    axiosPostMock.mockRejectedValueOnce(createAxiosFailure(404));
+    axiosDeleteMock.mockRejectedValueOnce(createAxiosFailure(404));
 
     await expect(fetchMyProfile()).resolves.toMatchObject({
       displayName: '홍길동',
@@ -100,13 +104,39 @@ describe('app API fallback', () => {
 
     await expect(
       updateMyProfile({
+        email: 'kim@example.com',
+        marketingEmailOptIn: true,
+        marketingSmsOptIn: false,
         name: '김학생',
         nickname: '학생',
       }),
     ).resolves.toMatchObject({
       displayName: '학생',
+      email: 'kim@example.com',
       name: '김학생',
       nickname: '학생',
+    });
+
+    const previousCount = getMockMyCart().itemCount;
+
+    await expect(
+      addMyCartItem({
+        instructorName: '테스트 강사',
+        originalPrice: 100000,
+        payablePrice: 90000,
+        programId: 999001,
+        programType: 'ONLINE',
+        salePrice: 90000,
+        sourcePath: '/programs/test-course/detail',
+        thumbnailUrl: null,
+        title: '테스트 코스',
+      }),
+    ).resolves.toMatchObject({
+      itemCount: previousCount + 1,
+    });
+
+    await expect(removeMyCartItem(55)).resolves.toMatchObject({
+      itemCount: previousCount,
     });
   });
 
@@ -114,6 +144,16 @@ describe('app API fallback', () => {
     httpGetMock.mockRejectedValueOnce(createAxiosFailure(404));
 
     await expect(fetchAdminConsole(siteKey)).resolves.toEqual(getMockAdminConsole(siteKey));
+  });
+
+  it('falls back to mock payment data when payment APIs are unavailable', async () => {
+    axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
+    axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
+
+    await expect(fetchPaymentResult(501)).resolves.toEqual(getMockPaymentResult(501));
+    await expect(fetchPaymentResultByToken('mock-card-completed')).resolves.toEqual(
+      getMockPaymentResultByToken('mock-card-completed'),
+    );
   });
 
   it('falls back to mock admin mutations when admin write APIs are unavailable', async () => {

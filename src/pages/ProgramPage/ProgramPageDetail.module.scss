@@ -1123,37 +1123,6 @@
   cursor: pointer;
 }
 
-.quantityControl {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.quantityButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  color: #000000;
-  font-size: 18px;
-  background: #ffffff;
-  cursor: pointer;
-}
-
-.quantityValue {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  color: #000000;
-  font-size: 16px;
-  font-weight: 600;
-}
-
 .pricingSummaryLine {
   padding-top: 16px;
   margin-bottom: 16px;

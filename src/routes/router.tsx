@@ -11,12 +11,14 @@ import AdminProgramEditorSection from '@/pages/AdminConsolePage/AdminProgramEdit
 import AdminLayout from '@/pages/AdminLayout/AdminLayout';
 import AdminLoginPage from '@/pages/AdminLoginPage/AdminLoginPage';
 import CartPage from '@/pages/CartPage/CartPage';
+import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
 import ContactPage from '@/pages/ContactPage/ContactPage';
 import HomePage from '@/pages/HomePage/HomePage';
 import LoginPage from '@/pages/LoginPage/LoginPage';
 import MyPagePage from '@/pages/MyPagePage/MyPagePage';
 import NotFoundPage from '@/pages/NotFoundPage/NotFoundPage';
 import NoticesPage from '@/pages/NoticesPage/NoticesPage';
+import PaymentResultPage from '@/pages/PaymentResultPage/PaymentResultPage';
 import ProgramPage from '@/pages/ProgramPage/ProgramPage';
 import ProgramsPage from '@/pages/ProgramsPage/ProgramsPage';
 import QnaPage from '@/pages/QnaPage/QnaPage';
@@ -53,6 +55,8 @@ const appRouteElements: Record<AppRouteKey, ReactElement> = {
   accountRecovery: <AccountRecoveryPage />,
   mypage: <MyPagePage />,
   cart: <CartPage />,
+  checkout: <CheckoutPage />,
+  paymentResult: <PaymentResultPage />,
   notices: <NoticesPage />,
   reviews: <ReviewsPage />,
   qna: <QnaPage />,

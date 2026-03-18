@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import CartPage from '@/pages/CartPage/CartPage';
 import ProgramPage from '@/pages/ProgramPage/ProgramPage';
 
 const createTestQueryClient = () => {
@@ -25,6 +26,21 @@ const renderProgramPage = (initialEntry: string) => {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <ProgramPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+};
+
+const renderProgramAndCartRoutes = (initialEntry: string) => {
+  const queryClient = createTestQueryClient();
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path='/programs/*' element={<ProgramPage />} />
+          <Route path='/cart' element={<CartPage />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -159,5 +175,20 @@ describe('ProgramPage', () => {
     expect(screen.getByRole('heading', { name: '커리큘럼' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '강의 소개' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '수강 신청 하기' })).toBeInTheDocument();
+  });
+
+  it('adds the selected lecture to the cart and redirects to the cart page', async () => {
+    renderProgramAndCartRoutes(
+      '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '장바구니' }));
+
+    expect(await screen.findByRole('heading', { name: '장바구니' })).toBeInTheDocument();
+    expect(await screen.findByText('산과 1삼분기 스캔 4주')).toBeInTheDocument();
   });
 });

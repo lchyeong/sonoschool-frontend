@@ -1,0 +1,122 @@
+.surface {
+  gap: var(--space-7);
+}
+
+.hero {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.statusBadge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.statusSuccess {
+  color: var(--color-success-600);
+  background: color-mix(in srgb, var(--color-success-100) 88%, white);
+}
+
+.statusDanger {
+  color: var(--color-error-600, #b42318);
+  background: rgb(254 242 242);
+}
+
+.statusNeutral {
+  color: var(--color-text-secondary);
+  background: rgb(241 245 249);
+}
+
+.detailGrid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.detailItem {
+  display: grid;
+  gap: 6px;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid rgb(15 23 42 / 8%);
+}
+
+.detailItem:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.detailLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.detailValue {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-relaxed);
+}
+
+.detailValueMuted {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.actions :global(a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  background: rgb(15 23 42 / 4%);
+}
+
+.actions :global(a:hover) {
+  background: rgb(15 23 42 / 8%);
+}
+
+.actions :global(a[href^='http']) {
+  color: #ffffff;
+  background: var(--color-sub-brand-main);
+}
+
+.actions :global(a[href^='http']:hover) {
+  background: color-mix(in srgb, var(--color-sub-brand-main) 88%, black);
+}
+
+.helperText {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+@media (width < 768px) {
+  .actions {
+    display: grid;
+  }
+
+  .actions :global(a) {
+    width: 100%;
+  }
+}

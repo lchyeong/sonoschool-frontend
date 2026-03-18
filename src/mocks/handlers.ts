@@ -27,6 +27,18 @@ import {
 } from '@/mocks/data/adminConsole';
 import { getMockHomeHeroSlides } from '@/mocks/data/homeHeroSlides';
 import { getMockHomeHistoryTimeline } from '@/mocks/data/homeHistoryTimeline';
+import {
+  addMockMyCartItem,
+  getMockMyApplicationSummary,
+  getMockMyCart,
+  getMockMyProfile,
+  getMockMyRefunds,
+  getMockMyReservations,
+  removeMockMyCartItem,
+  sendMockMyPhoneVerification as sendMockMyPagePhoneVerification,
+  updateMockMyProfile,
+  verifyMockMyPhoneChange as verifyMockMyPagePhoneChange,
+} from '@/mocks/data/mypage';
 import { getMockProgramPage, getMockProgramsOverview } from '@/mocks/data/programCatalog';
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import { getMockSiteNavigation } from '@/mocks/data/siteNavigation';
@@ -64,6 +76,7 @@ import type {
 import type { ApiEnvelope, StudentSession } from '@/types/auth';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
+import type { AddToCartPayload } from '@/types/mypage';
 import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
 import type { SiteNavigationResponse } from '@/types/siteNavigation';
@@ -458,41 +471,32 @@ export const handlers = [
     return HttpResponse.json(createApiEnvelope(null));
   }),
   http.get('*/api/users/me', () => {
-    return HttpResponse.json(
-      createApiEnvelope({
-        displayName: '홍길동',
-        email: 'student01@example.com',
-        loginId: 'student01',
-        name: '홍길동',
-        nickname: '길벗',
-        phoneNumber: '010-1111-2222',
-        phoneVerifiedAt: '2026-03-01T09:00:00Z',
-        role: 'ROLE_STUDENT',
-      }),
-    );
+    return HttpResponse.json(createApiEnvelope(getMockMyProfile()));
   }),
   http.patch('*/api/users/me', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (
       !isRecord(body) ||
+      typeof body['email'] !== 'string' ||
       typeof body['name'] !== 'string' ||
-      typeof body['nickname'] !== 'string'
+      typeof body['nickname'] !== 'string' ||
+      typeof body['marketingEmailOptIn'] !== 'boolean' ||
+      typeof body['marketingSmsOptIn'] !== 'boolean'
     ) {
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
     return HttpResponse.json(
-      createApiEnvelope({
-        displayName: body['nickname'].trim() || body['name'],
-        email: 'student01@example.com',
-        loginId: 'student01',
-        name: body['name'],
-        nickname: body['nickname'],
-        phoneNumber: '010-1111-2222',
-        phoneVerifiedAt: '2026-03-01T09:00:00Z',
-        role: 'ROLE_STUDENT',
-      }),
+      createApiEnvelope(
+        updateMockMyProfile({
+          email: body['email'],
+          marketingEmailOptIn: body['marketingEmailOptIn'],
+          marketingSmsOptIn: body['marketingSmsOptIn'],
+          name: body['name'],
+          nickname: body['nickname'],
+        }),
+      ),
     );
   }),
   http.post('*/api/users/me/phone/send', async ({ request }) => {
@@ -502,12 +506,13 @@ export const handlers = [
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
-    return HttpResponse.json(
-      createApiEnvelope({
-        expiresAt: '2026-03-17T10:30:00Z',
-        phoneNumber: body['phoneNumber'],
-      }),
-    );
+    const response = sendMockMyPagePhoneVerification({ phoneNumber: body['phoneNumber'] });
+
+    if (!response) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(response));
   }),
   http.post('*/api/users/me/phone/verify', async ({ request }) => {
     const body = await request.json().catch(() => null);
@@ -520,18 +525,16 @@ export const handlers = [
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
-    return HttpResponse.json(
-      createApiEnvelope({
-        displayName: '홍길동',
-        email: 'student01@example.com',
-        loginId: 'student01',
-        name: '홍길동',
-        nickname: '길벗',
-        phoneNumber: body['phoneNumber'],
-        phoneVerifiedAt: '2026-03-17T10:10:00Z',
-        role: 'ROLE_STUDENT',
-      }),
-    );
+    const response = verifyMockMyPagePhoneChange({
+      code: body['code'],
+      phoneNumber: body['phoneNumber'],
+    });
+
+    if (!response) {
+      return HttpResponse.json({ message: '인증번호가 올바르지 않습니다.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(response));
   }),
   http.get('*/api/v1/my/enrollments', () => {
     return HttpResponse.json(
@@ -585,78 +588,86 @@ export const handlers = [
     );
   }),
   http.get('*/api/v1/cart', () => {
-    return HttpResponse.json(
-      createApiEnvelope({
-        appliedCoupon: {
-          code: 'SPRING',
-          discountAmount: 5000,
-          discountType: 'FIXED_AMOUNT',
-          discountValue: 5000,
-          id: 10,
-          name: '봄맞이 할인',
-        },
-        itemCount: 1,
-        items: [
-          {
-            addedAt: '2026-03-15T08:30:00Z',
-            id: 55,
-            instructorName: '김강사',
-            originalPrice: 120000,
-            payablePrice: 99000,
-            programId: 2002,
-            programType: 'ONLINE',
-            saleEndAt: null,
-            salePrice: 99000,
-            saleStartAt: null,
-            thumbnailUrl: null,
-            title: 'POCUS 워크숍',
-          },
-        ],
-        totalDiscountAmount: 21000,
-        totalOriginalPrice: 120000,
-        totalPayablePrice: 99000,
-      }),
-    );
+    return HttpResponse.json(createApiEnvelope(getMockMyCart()));
   }),
   http.get('*/api/v1/cart/application-summary', () => {
-    return HttpResponse.json(
-      createApiEnvelope({
-        appliedCoupon: null,
-        hasOfflineReservation: false,
-        hasOnlineCheckout: true,
-        offlineItemCount: 0,
-        offlineItems: [],
-        onlineItems: [
-          {
-            cartItemId: 55,
-            payablePrice: 99000,
-            programId: 2002,
-            programType: 'ONLINE',
-            title: 'POCUS 워크숍',
-          },
-        ],
-        onlinePayablePrice: 99000,
-      }),
-    );
+    return HttpResponse.json(createApiEnvelope(getMockMyApplicationSummary()));
+  }),
+  http.post('*/api/v1/cart', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (!isRecord(body)) {
+      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
+    }
+
+    const {
+      instructorName,
+      originalPrice,
+      payablePrice,
+      programId,
+      programType,
+      salePrice,
+      sourcePath,
+      thumbnailUrl,
+      title,
+    } = body;
+
+    if (
+      (instructorName !== null && typeof instructorName !== 'string') ||
+      typeof originalPrice !== 'number' ||
+      typeof payablePrice !== 'number' ||
+      typeof programId !== 'number' ||
+      (programType !== 'ONLINE' && programType !== 'OFFLINE') ||
+      (salePrice !== null && typeof salePrice !== 'number') ||
+      typeof sourcePath !== 'string' ||
+      (thumbnailUrl !== null && typeof thumbnailUrl !== 'string') ||
+      typeof title !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
+    }
+
+    const payload: AddToCartPayload = {
+      instructorName,
+      originalPrice,
+      payablePrice,
+      programId,
+      programType,
+      salePrice,
+      sourcePath,
+      thumbnailUrl,
+      title,
+    };
+
+    try {
+      return HttpResponse.json(createApiEnvelope(addMockMyCartItem(payload)));
+    } catch (error) {
+      return HttpResponse.json(
+        { message: error instanceof Error ? error.message : 'Cart item already exists' },
+        { status: 409 },
+      );
+    }
+  }),
+  http.delete('*/api/v1/cart/:cartItemId', ({ params }) => {
+    const cartItemId = Number(params['cartItemId']);
+
+    if (!Number.isInteger(cartItemId) || cartItemId <= 0) {
+      return HttpResponse.json({ message: 'Invalid cart item id' }, { status: 400 });
+    }
+
+    try {
+      return HttpResponse.json(createApiEnvelope(removeMockMyCartItem(cartItemId)));
+    } catch (error) {
+      return HttpResponse.json(
+        { message: error instanceof Error ? error.message : 'Cart item not found' },
+        { status: 404 },
+      );
+    }
   }),
   http.get('*/api/v1/reservations', () => {
-    return HttpResponse.json(
-      createApiEnvelope([
-        {
-          createdAt: '2026-03-01T09:00:00Z',
-          id: 700,
-          location: '서울 강의장',
-          note: null,
-          programId: 3001,
-          programTitle: '오프라인 핸즈온',
-          scheduleEndAt: '2026-04-10T15:00:00Z',
-          scheduleId: 901,
-          scheduleStartAt: '2026-04-10T13:00:00Z',
-          scheduleTitle: '4월 핸즈온',
-          status: 'CONFIRMED',
-        },
-      ]),
-    );
+    return HttpResponse.json(createApiEnvelope(getMockMyReservations()));
+  }),
+  http.get('*/api/v1/refunds', () => {
+    return HttpResponse.json(createApiEnvelope(getMockMyRefunds()));
   }),
   http.post('*/sites/:siteKey/admin/login', async ({ params, request }) => {
     const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';

@@ -15,6 +15,7 @@ import {
   useMyEnrollmentDetailQuery,
   useMyEnrollmentsQuery,
   useMyProfileQuery,
+  useMyRefundsQuery,
   useMyReservationsQuery,
 } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
@@ -33,7 +34,6 @@ type MyPageViewKey =
   | 'orders-checkout'
   | 'orders-refunds'
   | 'profile-basic'
-  | 'profile-consents'
   | 'support-inquiry';
 
 interface SidebarItem {
@@ -44,6 +44,16 @@ interface SidebarItem {
 interface SidebarGroup {
   label: string;
   items: SidebarItem[];
+}
+
+interface OrderMediaCardProps {
+  chipLabel: string;
+  detailPath: string;
+  metaText: string;
+  note?: string | null;
+  thumbnailUrl: string | null;
+  title: string;
+  trailingValue?: string | null;
 }
 
 const DEFAULT_VIEW: MyPageViewKey = 'learning-courses';
@@ -57,16 +67,13 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     label: '주문/결제',
     items: [
       { key: 'orders-reservations', label: '신청 내역' },
-      { key: 'orders-checkout', label: '결제 예정' },
+      { key: 'orders-checkout', label: '장바구니' },
       { key: 'orders-refunds', label: '취소/환불 내역' },
     ],
   },
   {
     label: '내 정보',
-    items: [
-      { key: 'profile-basic', label: '기본 정보' },
-      { key: 'profile-consents', label: '선택정보 동의' },
-    ],
+    items: [{ key: 'profile-basic', label: '기본 정보' }],
   },
   {
     label: '고객지원',
@@ -84,8 +91,14 @@ const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
 
 const RESERVATION_STATUS_LABELS: Record<string, string> = {
   REQUESTED: '신청 완료',
-  CONFIRMED: '예약 확정',
+  CONFIRMED: '신청 확정',
   CANCELLED: '취소됨',
+};
+
+const REFUND_STATUS_LABELS: Record<string, string> = {
+  REFUND_REQUESTED: '환불 진행 중',
+  REFUNDED: '환불 완료',
+  CANCELLED: '취소 완료',
 };
 
 const PROGRAM_TYPE_LABELS: Record<string, string> = {
@@ -122,7 +135,62 @@ const formatDateTime = (value?: string | null) => {
   return date.toLocaleString('ko-KR');
 };
 
+const formatDateRange = (startValue?: string | null, endValue?: string | null) => {
+  const startDate = formatDate(startValue);
+  const endDate = formatDate(endValue);
+
+  if (startDate === '-' && endDate === '-') {
+    return '-';
+  }
+
+  return `${startDate} ~ ${endDate === '-' ? '기간 제한 없음' : endDate}`;
+};
+
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
+
+const OrderMediaCard = ({
+  chipLabel,
+  detailPath,
+  metaText,
+  note,
+  thumbnailUrl,
+  title,
+  trailingValue,
+}: OrderMediaCardProps) => {
+  return (
+    <article className={styles['orderCard']}>
+      <Link className={styles['orderCardThumbnailLink']} to={detailPath}>
+        {thumbnailUrl ? (
+          <img
+            alt={`${title} 대표 이미지`}
+            className={styles['orderCardThumbnailImage']}
+            loading='lazy'
+            src={thumbnailUrl}
+          />
+        ) : (
+          <div aria-hidden='true' className={styles['orderCardThumbnailFallback']}>
+            <span>SS</span>
+          </div>
+        )}
+      </Link>
+      <div className={styles['orderCardBody']}>
+        <div className={styles['orderCardHeader']}>
+          <Link className={styles['orderCardTitleLink']} to={detailPath}>
+            <strong className={styles['orderCardTitle']}>{title}</strong>
+          </Link>
+          <span className={styles['statusChip']}>{chipLabel}</span>
+        </div>
+        <div className={styles['orderCardFooter']}>
+          <div className={styles['orderCardMetaGroup']}>
+            <p className={styles['orderCardMeta']}>{metaText}</p>
+            {note ? <p className={styles['orderCardSubMeta']}>{note}</p> : null}
+          </div>
+          {trailingValue ? <p className={styles['orderCardAmount']}>{trailingValue}</p> : null}
+        </div>
+      </div>
+    </article>
+  );
+};
 
 const formatStatusLabel = (value: string, labels: Record<string, string>) => {
   return labels[value] ?? '상태 확인 필요';
@@ -153,9 +221,109 @@ const getLastLearningAt = (detail?: EnrollmentDetail) => {
   }, null);
 };
 
+const MY_COURSE_PAGE_SIZE = 5;
+const ORDER_LIST_PAGE_SIZE = 4;
+const CART_LIST_PAGE_SIZE = 4;
+
+type EnrollmentFilterValue = 'ALL' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+type ReservationFilterValue = 'ALL' | 'REQUESTED' | 'CONFIRMED' | 'CANCELLED';
+type RefundFilterValue = 'ALL' | 'REFUND_REQUESTED' | 'REFUNDED' | 'CANCELLED';
+type CartFilterValue = 'ALL' | 'ONLINE' | 'OFFLINE';
+
+interface SegmentOption<TValue extends string> {
+  label: string;
+  value: TValue;
+}
+
+const paginateItems = <T,>(items: T[], page: number, pageSize: number): T[] => {
+  const safePage = Math.max(1, page);
+  const startIndex = (safePage - 1) * pageSize;
+
+  return items.slice(startIndex, startIndex + pageSize);
+};
+
+const getPageCount = (itemCount: number, pageSize: number): number => {
+  return Math.max(1, Math.ceil(itemCount / pageSize));
+};
+
+const SegmentFilter = <TValue extends string>({
+  onChange,
+  options,
+  value,
+}: {
+  onChange: (nextValue: TValue) => void;
+  options: SegmentOption<TValue>[];
+  value: TValue;
+}) => {
+  return (
+    <div className={sharedStyles['segmentRow']}>
+      {options.map((option) => {
+        const isActive = option.value === value;
+
+        return (
+          <button
+            className={classNames(
+              sharedStyles['segmentButton'],
+              isActive && sharedStyles['segmentButtonActive'],
+            )}
+            key={option.value}
+            onClick={() => {
+              onChange(option.value);
+            }}
+            type='button'
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const PaginationControls = ({
+  currentPage,
+  onChange,
+  totalPages,
+}: {
+  currentPage: number;
+  onChange: (nextPage: number) => void;
+  totalPages: number;
+}) => {
+  if (totalPages <= 1) {
+    return null;
+  }
+
+  return (
+    <div className={sharedStyles['segmentRow']}>
+      {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => {
+        const isActive = currentPage === page;
+
+        return (
+          <button
+            className={classNames(
+              sharedStyles['segmentButton'],
+              isActive && sharedStyles['segmentButtonActive'],
+            )}
+            key={page}
+            onClick={() => {
+              onChange(page);
+            }}
+            type='button'
+          >
+            {page}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 interface ProfileFormValues {
+  email: string;
   name: string;
   nickname: string;
+  marketingEmailOptIn: boolean;
+  marketingSmsOptIn: boolean;
 }
 
 const MyPagePage = () => {
@@ -167,10 +335,17 @@ const MyPagePage = () => {
   const syncProfileSnapshot = useAuthStore((state) => state.syncProfileSnapshot);
   const showToast = useToastStore((state) => state.showToast);
 
-  const activeView = isMyPageViewKey(searchParams.get('view'))
-    ? (searchParams.get('view') as MyPageViewKey)
-    : DEFAULT_VIEW;
+  const activeViewParam = searchParams.get('view');
+  const activeView = isMyPageViewKey(activeViewParam) ? activeViewParam : DEFAULT_VIEW;
 
+  const [enrollmentFilter, setEnrollmentFilter] = useState<EnrollmentFilterValue>('ALL');
+  const [reservationFilter, setReservationFilter] = useState<ReservationFilterValue>('ALL');
+  const [refundFilter, setRefundFilter] = useState<RefundFilterValue>('ALL');
+  const [cartFilter, setCartFilter] = useState<CartFilterValue>('ALL');
+  const [enrollmentPage, setEnrollmentPage] = useState(1);
+  const [reservationPage, setReservationPage] = useState(1);
+  const [refundPage, setRefundPage] = useState(1);
+  const [cartPage, setCartPage] = useState(1);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
   const [profileFormValues, setProfileFormValues] = useState<ProfileFormValues | null>(null);
   const [phoneFormValues, setPhoneFormValues] = useState({
@@ -182,22 +357,56 @@ const MyPagePage = () => {
 
   const profileQuery = useMyProfileQuery();
   const enrollmentsQuery = useMyEnrollmentsQuery();
+  const filteredEnrollments = (enrollmentsQuery.data ?? []).filter((enrollment) => {
+    return enrollmentFilter === 'ALL' || enrollment.status === enrollmentFilter;
+  });
+  const enrollmentPageCount = getPageCount(filteredEnrollments.length, MY_COURSE_PAGE_SIZE);
+  const paginatedEnrollments = paginateItems(
+    filteredEnrollments,
+    enrollmentPage,
+    MY_COURSE_PAGE_SIZE,
+  );
   const resolvedSelectedEnrollmentId =
     selectedEnrollmentId !== null &&
-    (enrollmentsQuery.data?.some((enrollment) => enrollment.id === selectedEnrollmentId) ?? false)
+    paginatedEnrollments.some((enrollment) => enrollment.id === selectedEnrollmentId)
       ? selectedEnrollmentId
-      : (enrollmentsQuery.data?.[0]?.id ?? null);
+      : (paginatedEnrollments[0]?.id ?? null);
   const enrollmentDetailQuery = useMyEnrollmentDetailQuery(
     resolvedSelectedEnrollmentId,
-    activeView === 'learning-courses' && resolvedSelectedEnrollmentId !== null,
+    activeView === 'learning-courses',
   );
   const reservationsQuery = useMyReservationsQuery(activeView === 'orders-reservations');
+  const refundsQuery = useMyRefundsQuery(activeView === 'orders-refunds');
   const cartQuery = useMyCartQuery(activeView === 'orders-checkout');
   const applicationSummaryQuery = useMyApplicationSummaryQuery(activeView === 'orders-checkout');
+  const filteredReservations = (reservationsQuery.data ?? []).filter((reservation) => {
+    return reservationFilter === 'ALL' || reservation.status === reservationFilter;
+  });
+  const reservationPageCount = getPageCount(filteredReservations.length, ORDER_LIST_PAGE_SIZE);
+  const paginatedReservations = paginateItems(
+    filteredReservations,
+    reservationPage,
+    ORDER_LIST_PAGE_SIZE,
+  );
+  const filteredRefunds = (refundsQuery.data ?? []).filter((refund) => {
+    return refundFilter === 'ALL' || refund.status === refundFilter;
+  });
+  const refundPageCount = getPageCount(filteredRefunds.length, ORDER_LIST_PAGE_SIZE);
+  const paginatedRefunds = paginateItems(filteredRefunds, refundPage, ORDER_LIST_PAGE_SIZE);
+  const filteredCartItems = (cartQuery.data?.items ?? []).filter((item) => {
+    return cartFilter === 'ALL' || item.programType === cartFilter;
+  });
+  const cartPageCount = getPageCount(filteredCartItems.length, CART_LIST_PAGE_SIZE);
+  const paginatedCartItems = paginateItems(filteredCartItems, cartPage, CART_LIST_PAGE_SIZE);
 
   const accountName = profileQuery.data?.displayName || storeDisplayName || '회원';
   const lastLearningAt = getLastLearningAt(enrollmentDetailQuery.data);
   const resolvedProfileFormValues: ProfileFormValues = {
+    email: profileFormValues?.email ?? profileQuery.data?.email ?? '',
+    marketingEmailOptIn:
+      profileFormValues?.marketingEmailOptIn ?? profileQuery.data?.marketingEmailOptIn ?? false,
+    marketingSmsOptIn:
+      profileFormValues?.marketingSmsOptIn ?? profileQuery.data?.marketingSmsOptIn ?? false,
     name: profileFormValues?.name ?? profileQuery.data?.name ?? '',
     nickname: profileFormValues?.nickname ?? profileQuery.data?.nickname ?? '',
   };
@@ -212,6 +421,32 @@ const MyPagePage = () => {
     });
   }, [profileQuery.data, syncProfileSnapshot]);
 
+  const handleEnrollmentFilterChange = (nextFilter: EnrollmentFilterValue) => {
+    setEnrollmentFilter(nextFilter);
+    setEnrollmentPage(1);
+    setSelectedEnrollmentId(null);
+  };
+
+  const handleReservationFilterChange = (nextFilter: ReservationFilterValue) => {
+    setReservationFilter(nextFilter);
+    setReservationPage(1);
+  };
+
+  const handleRefundFilterChange = (nextFilter: RefundFilterValue) => {
+    setRefundFilter(nextFilter);
+    setRefundPage(1);
+  };
+
+  const handleCartFilterChange = (nextFilter: CartFilterValue) => {
+    setCartFilter(nextFilter);
+    setCartPage(1);
+  };
+
+  const handleEnrollmentPageChange = (nextPage: number) => {
+    setEnrollmentPage(nextPage);
+    setSelectedEnrollmentId(null);
+  };
+
   const handleViewChange = (viewKey: MyPageViewKey) => {
     const nextParams = new URLSearchParams(searchParams);
 
@@ -225,16 +460,46 @@ const MyPagePage = () => {
   };
 
   const handleProfileFieldChange =
-    (fieldName: 'name' | 'nickname') => (event: ChangeEvent<HTMLInputElement>) => {
+    (fieldName: 'email' | 'name' | 'nickname') => (event: ChangeEvent<HTMLInputElement>) => {
       const nextValue = event.target.value;
 
       setProfileFormValues((currentValues) => ({
+        email:
+          fieldName === 'email'
+            ? nextValue
+            : (currentValues?.email ?? profileQuery.data?.email ?? ''),
+        marketingEmailOptIn:
+          currentValues?.marketingEmailOptIn ?? profileQuery.data?.marketingEmailOptIn ?? false,
+        marketingSmsOptIn:
+          currentValues?.marketingSmsOptIn ?? profileQuery.data?.marketingSmsOptIn ?? false,
         name:
           fieldName === 'name' ? nextValue : (currentValues?.name ?? profileQuery.data?.name ?? ''),
         nickname:
           fieldName === 'nickname'
             ? nextValue
             : (currentValues?.nickname ?? profileQuery.data?.nickname ?? ''),
+      }));
+    };
+
+  const handleConsentChange =
+    (fieldName: 'marketingEmailOptIn' | 'marketingSmsOptIn') =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const nextValue = event.target.checked;
+
+      setProfileFormValues((currentValues) => ({
+        email: currentValues?.email ?? profileQuery.data?.email ?? '',
+        marketingEmailOptIn:
+          fieldName === 'marketingEmailOptIn'
+            ? nextValue
+            : (currentValues?.marketingEmailOptIn ??
+              profileQuery.data?.marketingEmailOptIn ??
+              false),
+        marketingSmsOptIn:
+          fieldName === 'marketingSmsOptIn'
+            ? nextValue
+            : (currentValues?.marketingSmsOptIn ?? profileQuery.data?.marketingSmsOptIn ?? false),
+        name: currentValues?.name ?? profileQuery.data?.name ?? '',
+        nickname: currentValues?.nickname ?? profileQuery.data?.nickname ?? '',
       }));
     };
 
@@ -286,6 +551,9 @@ const MyPagePage = () => {
         role: updatedProfile.role,
       });
       setProfileFormValues({
+        email: updatedProfile.email,
+        marketingEmailOptIn: updatedProfile.marketingEmailOptIn,
+        marketingSmsOptIn: updatedProfile.marketingSmsOptIn,
         name: updatedProfile.name,
         nickname: updatedProfile.nickname ?? '',
       });
@@ -348,6 +616,8 @@ const MyPagePage = () => {
   });
 
   const renderLearningCourses = () => {
+    const totalEnrollmentCount = enrollmentsQuery.data?.length ?? 0;
+
     if (enrollmentsQuery.isLoading) {
       return <p className={sharedStyles['mutedText']}>수강 내역을 불러오는 중입니다.</p>;
     }
@@ -362,124 +632,149 @@ const MyPagePage = () => {
       );
     }
 
-    if (!enrollmentsQuery.data?.length) {
+    if (!totalEnrollmentCount) {
       return <p className={sharedStyles['mutedText']}>수강 중인 강의가 없습니다.</p>;
     }
 
     return (
       <section className={styles['contentSection']}>
-        <h2 className={sharedStyles['sectionTitle']}>내 강의</h2>
-        <div className={styles['detailSplit']}>
-          <div className={styles['recordList']} role='list'>
-            {enrollmentsQuery.data.map((enrollment) => {
-              const isActive = enrollment.id === resolvedSelectedEnrollmentId;
-
-              return (
-                <button
-                  aria-pressed={isActive}
-                  className={classNames(
-                    styles['recordButton'],
-                    isActive && styles['recordButtonActive'],
-                  )}
-                  key={enrollment.id}
-                  onClick={() => {
-                    setSelectedEnrollmentId(enrollment.id);
-                  }}
-                  type='button'
-                >
-                  <span className={styles['recordTitle']}>{enrollment.programTitle}</span>
-                  <span className={styles['recordMeta']}>
-                    {formatStatusLabel(enrollment.status, ENROLLMENT_STATUS_LABELS)} ·{' '}
-                    {formatDate(enrollment.enrolledAt)}
-                  </span>
-                  <span className={styles['recordMeta']}>
-                    수강 종료 {formatDate(enrollment.expireAt)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className={styles['detailBody']}>
-            {enrollmentDetailQuery.isLoading ? (
-              <p className={sharedStyles['mutedText']}>강의 상세를 불러오는 중입니다.</p>
-            ) : null}
-
-            {enrollmentDetailQuery.isError ? (
-              <p className={styles['errorText']}>
-                {enrollmentDetailQuery.error instanceof Error
-                  ? enrollmentDetailQuery.error.message
-                  : '강의 상세를 불러오지 못했습니다.'}
-              </p>
-            ) : null}
-
-            {enrollmentDetailQuery.data ? (
-              <>
-                <h3 className={styles['contentTitle']}>
-                  {enrollmentDetailQuery.data.programTitle}
-                </h3>
-
-                <div className={styles['summaryGrid']}>
-                  <div className={styles['summaryItem']}>
-                    <span className={styles['summaryLabel']}>수강 상태</span>
-                    <strong className={styles['summaryValue']}>
-                      {formatStatusLabel(
-                        enrollmentDetailQuery.data.status,
-                        ENROLLMENT_STATUS_LABELS,
-                      )}
-                    </strong>
-                  </div>
-                  <div className={styles['summaryItem']}>
-                    <span className={styles['summaryLabel']}>진도율</span>
-                    <strong className={styles['summaryValue']}>
-                      {enrollmentDetailQuery.data.completionRate}%
-                    </strong>
-                  </div>
-                  <div className={styles['summaryItem']}>
-                    <span className={styles['summaryLabel']}>완료 강의</span>
-                    <strong className={styles['summaryValue']}>
-                      {enrollmentDetailQuery.data.completedLectures} /{' '}
-                      {enrollmentDetailQuery.data.totalLectures}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className={sharedStyles['metaList']}>
-                  <div className={sharedStyles['metaItem']}>
-                    <span className={sharedStyles['metaLabel']}>최근 학습</span>
-                    <span className={sharedStyles['metaValue']}>
-                      {formatDateTime(lastLearningAt)}
-                    </span>
-                  </div>
-                  <div className={sharedStyles['metaItem']}>
-                    <span className={sharedStyles['metaLabel']}>수강 시작일</span>
-                    <span className={sharedStyles['metaValue']}>
-                      {formatDate(enrollmentDetailQuery.data.enrolledAt)}
-                    </span>
-                  </div>
-                  <div className={sharedStyles['metaItem']}>
-                    <span className={sharedStyles['metaLabel']}>수강 종료일</span>
-                    <span className={sharedStyles['metaValue']}>
-                      {formatDate(enrollmentDetailQuery.data.expireAt)}
-                    </span>
-                  </div>
-                  <div className={sharedStyles['metaItem']}>
-                    <span className={sharedStyles['metaLabel']}>수료 여부</span>
-                    <span className={sharedStyles['metaValue']}>
-                      {enrollmentDetailQuery.data.completed ? '수료 완료' : '수강 중'}
-                    </span>
-                  </div>
-                  <div className={sharedStyles['metaItem']}>
-                    <span className={sharedStyles['metaLabel']}>수료증 발급</span>
-                    <span className={sharedStyles['metaValue']}>
-                      {enrollmentDetailQuery.data.certificateEligible ? '가능' : '미대상'}
-                    </span>
-                  </div>
-                </div>
-              </>
-            ) : null}
-          </div>
+        <div className={sharedStyles['sectionHeader']}>
+          <h2 className={sharedStyles['sectionTitle']}>내 강의</h2>
+          <p className={sharedStyles['sectionDescription']}>
+            전체 {totalEnrollmentCount}개 강의 중 {filteredEnrollments.length}개를 보고 있습니다.
+          </p>
         </div>
+
+        <SegmentFilter
+          onChange={handleEnrollmentFilterChange}
+          options={[
+            { label: '전체', value: 'ALL' },
+            { label: '수강 중', value: 'ACTIVE' },
+            { label: '수강 종료', value: 'EXPIRED' },
+            { label: '취소/환불', value: 'CANCELLED' },
+          ]}
+          value={enrollmentFilter}
+        />
+
+        {!filteredEnrollments.length ? (
+          <p className={sharedStyles['mutedText']}>선택한 상태의 강의가 없습니다.</p>
+        ) : null}
+
+        {filteredEnrollments.length ? (
+          <div className={styles['detailSplit']}>
+            <div className={styles['recordColumn']}>
+              <div className={styles['recordList']} role='list'>
+                {paginatedEnrollments.map((enrollment) => {
+                  const isActive = enrollment.id === resolvedSelectedEnrollmentId;
+
+                  return (
+                    <button
+                      aria-pressed={isActive}
+                      className={classNames(
+                        styles['recordButton'],
+                        isActive && styles['recordButtonActive'],
+                      )}
+                      key={enrollment.id}
+                      onClick={() => {
+                        setSelectedEnrollmentId(enrollment.id);
+                      }}
+                      type='button'
+                    >
+                      <span className={styles['recordTitle']}>{enrollment.programTitle}</span>
+                      <span className={styles['recordMeta']}>
+                        {formatStatusLabel(enrollment.status, ENROLLMENT_STATUS_LABELS)} · 수강 기간{' '}
+                        {formatDateRange(enrollment.enrolledAt, enrollment.expireAt)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <PaginationControls
+                currentPage={enrollmentPage}
+                onChange={handleEnrollmentPageChange}
+                totalPages={enrollmentPageCount}
+              />
+            </div>
+
+            <div className={styles['detailBody']}>
+              {enrollmentDetailQuery.isLoading ? (
+                <p className={sharedStyles['mutedText']}>강의 상세를 불러오는 중입니다.</p>
+              ) : null}
+
+              {enrollmentDetailQuery.isError ? (
+                <p className={styles['errorText']}>
+                  {enrollmentDetailQuery.error instanceof Error
+                    ? enrollmentDetailQuery.error.message
+                    : '강의 상세를 불러오지 못했습니다.'}
+                </p>
+              ) : null}
+
+              {enrollmentDetailQuery.data ? (
+                <>
+                  <h3 className={styles['contentTitle']}>
+                    {enrollmentDetailQuery.data.programTitle}
+                  </h3>
+
+                  <div className={styles['summaryGrid']}>
+                    <div className={styles['summaryItem']}>
+                      <span className={styles['summaryLabel']}>수강 기간</span>
+                      <strong className={styles['summaryValue']}>
+                        {formatDateRange(
+                          enrollmentDetailQuery.data.enrolledAt,
+                          enrollmentDetailQuery.data.expireAt,
+                        )}
+                      </strong>
+                    </div>
+                    <div className={styles['summaryItem']}>
+                      <span className={styles['summaryLabel']}>진도율</span>
+                      <strong className={styles['summaryValue']}>
+                        {enrollmentDetailQuery.data.completionRate}%
+                      </strong>
+                    </div>
+                    <div className={styles['summaryItem']}>
+                      <span className={styles['summaryLabel']}>완료 강의</span>
+                      <strong className={styles['summaryValue']}>
+                        {enrollmentDetailQuery.data.completedLectures} /{' '}
+                        {enrollmentDetailQuery.data.totalLectures}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className={sharedStyles['metaList']}>
+                    <div className={sharedStyles['metaItem']}>
+                      <span className={sharedStyles['metaLabel']}>최근 학습</span>
+                      <span className={sharedStyles['metaValue']}>
+                        {formatDateTime(lastLearningAt)}
+                      </span>
+                    </div>
+                    <div className={sharedStyles['metaItem']}>
+                      <span className={sharedStyles['metaLabel']}>현재 상태</span>
+                      <span className={sharedStyles['metaValue']}>
+                        {formatStatusLabel(
+                          enrollmentDetailQuery.data.status,
+                          ENROLLMENT_STATUS_LABELS,
+                        )}
+                      </span>
+                    </div>
+                    <div className={sharedStyles['metaItem']}>
+                      <span className={sharedStyles['metaLabel']}>수료 여부</span>
+                      <span className={sharedStyles['metaValue']}>
+                        {enrollmentDetailQuery.data.completed ? '수료 완료' : '수강 중'}
+                      </span>
+                    </div>
+                    <div className={sharedStyles['metaItem']}>
+                      <span className={sharedStyles['metaLabel']}>수료증 발급</span>
+                      <span className={sharedStyles['metaValue']}>
+                        {enrollmentDetailQuery.data.certificateEligible ? '가능' : '미대상'}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </section>
     );
   };
@@ -489,7 +784,23 @@ const MyPagePage = () => {
 
     return (
       <section className={styles['contentSection']}>
-        <h2 className={sharedStyles['sectionTitle']}>신청 내역</h2>
+        <div className={sharedStyles['sectionHeader']}>
+          <h2 className={sharedStyles['sectionTitle']}>신청 내역</h2>
+          <p className={sharedStyles['sectionDescription']}>
+            전체 {reservationCount}건 중 {filteredReservations.length}건을 보고 있습니다.
+          </p>
+        </div>
+
+        <SegmentFilter
+          onChange={handleReservationFilterChange}
+          options={[
+            { label: '전체', value: 'ALL' },
+            { label: '신청 완료', value: 'REQUESTED' },
+            { label: '신청 확정', value: 'CONFIRMED' },
+            { label: '취소됨', value: 'CANCELLED' },
+          ]}
+          value={reservationFilter}
+        />
 
         {reservationsQuery.isLoading ? (
           <p className={sharedStyles['mutedText']}>신청 내역을 불러오는 중입니다.</p>
@@ -505,25 +816,39 @@ const MyPagePage = () => {
 
         {!reservationsQuery.isLoading &&
         !reservationsQuery.isError &&
-        reservationsQuery.data?.length ? (
+        filteredReservations.length ? (
           <div className={styles['stackList']}>
-            {reservationsQuery.data.map((reservation) => (
-              <div className={styles['stackItem']} key={reservation.id}>
-                <div className={styles['stackItemHeader']}>
-                  <strong className={styles['stackItemTitle']}>{reservation.programTitle}</strong>
-                  <span className={styles['statusChip']}>
-                    {formatStatusLabel(reservation.status, RESERVATION_STATUS_LABELS)}
-                  </span>
-                </div>
-                <p className={styles['stackItemText']}>
-                  {reservation.scheduleTitle} · {formatDateTime(reservation.scheduleStartAt)}
-                </p>
-                <p className={styles['stackItemText']}>
-                  장소 {reservation.location || '-'} · 신청일 {formatDate(reservation.createdAt)}
-                </p>
-              </div>
+            {paginatedReservations.map((reservation) => (
+              <OrderMediaCard
+                chipLabel={formatStatusLabel(reservation.status, RESERVATION_STATUS_LABELS)}
+                detailPath={reservation.detailPath}
+                key={reservation.id}
+                metaText={`${reservation.scheduleTitle} · ${formatDateTime(
+                  reservation.scheduleStartAt,
+                )} · ${reservation.location || '-'} · 신청일 ${formatDate(reservation.createdAt)}`}
+                note={reservation.note}
+                thumbnailUrl={reservation.thumbnailUrl}
+                title={reservation.programTitle}
+              />
             ))}
           </div>
+        ) : null}
+
+        {!reservationsQuery.isLoading &&
+        !reservationsQuery.isError &&
+        reservationCount > 0 &&
+        filteredReservations.length === 0 ? (
+          <p className={sharedStyles['mutedText']}>선택한 상태의 신청 내역이 없습니다.</p>
+        ) : null}
+
+        {!reservationsQuery.isLoading &&
+        !reservationsQuery.isError &&
+        filteredReservations.length ? (
+          <PaginationControls
+            currentPage={reservationPage}
+            onChange={setReservationPage}
+            totalPages={reservationPageCount}
+          />
         ) : null}
 
         {!reservationsQuery.isLoading && !reservationsQuery.isError && reservationCount === 0 ? (
@@ -534,72 +859,99 @@ const MyPagePage = () => {
   };
 
   const renderOrderCheckout = () => {
+    const totalCartItemCount = cartQuery.data?.items.length ?? 0;
+
     return (
       <div className={styles['detailColumn']}>
         <section className={styles['contentSection']}>
-          <h2 className={sharedStyles['sectionTitle']}>결제 예정</h2>
+          <div className={sharedStyles['sectionHeader']}>
+            <h2 className={sharedStyles['sectionTitle']}>장바구니</h2>
+            <p className={sharedStyles['sectionDescription']}>
+              전체 {totalCartItemCount}개 상품 중 {filteredCartItems.length}개를 보고 있습니다.
+            </p>
+          </div>
+
+          <SegmentFilter
+            onChange={handleCartFilterChange}
+            options={[
+              { label: '전체', value: 'ALL' },
+              { label: '온라인', value: 'ONLINE' },
+              { label: '오프라인', value: 'OFFLINE' },
+            ]}
+            value={cartFilter}
+          />
 
           {cartQuery.isLoading ? (
-            <p className={sharedStyles['mutedText']}>결제 예정 항목을 불러오는 중입니다.</p>
+            <p className={sharedStyles['mutedText']}>장바구니 항목을 불러오는 중입니다.</p>
           ) : null}
 
           {cartQuery.isError ? (
             <p className={styles['errorText']}>
               {cartQuery.error instanceof Error
                 ? cartQuery.error.message
-                : '결제 예정 항목을 불러오지 못했습니다.'}
+                : '장바구니 항목을 불러오지 못했습니다.'}
             </p>
           ) : null}
 
-          {!cartQuery.isLoading && !cartQuery.isError && cartQuery.data?.items.length ? (
+          {!cartQuery.isLoading && !cartQuery.isError && filteredCartItems.length ? (
             <div className={styles['stackList']}>
-              {cartQuery.data.items.map((item) => (
-                <div className={styles['stackItem']} key={item.id}>
-                  <div className={styles['stackItemHeader']}>
-                    <strong className={styles['stackItemTitle']}>{item.title}</strong>
-                    <span className={styles['statusChip']}>
-                      {PROGRAM_TYPE_LABELS[item.programType] ?? '과정'}
-                    </span>
-                  </div>
-                  <p className={styles['stackItemText']}>
-                    강사 {item.instructorName || '-'} · 담은 날짜 {formatDate(item.addedAt)}
-                  </p>
-                  <p className={styles['stackItemText']}>
-                    결제 예정 금액 {formatCurrency(item.payablePrice)}
-                  </p>
-                </div>
+              {paginatedCartItems.map((item) => (
+                <OrderMediaCard
+                  chipLabel={PROGRAM_TYPE_LABELS[item.programType] ?? '과정'}
+                  detailPath={item.detailPath}
+                  key={item.id}
+                  metaText={`강사 ${item.instructorName || '-'}`}
+                  thumbnailUrl={item.thumbnailUrl}
+                  title={item.title}
+                  trailingValue={formatCurrency(item.payablePrice)}
+                />
               ))}
             </div>
           ) : null}
 
-          {!cartQuery.isLoading && !cartQuery.isError && !cartQuery.data?.items.length ? (
-            <p className={sharedStyles['mutedText']}>결제 예정 항목이 없습니다.</p>
+          {!cartQuery.isLoading &&
+          !cartQuery.isError &&
+          totalCartItemCount > 0 &&
+          filteredCartItems.length === 0 ? (
+            <p className={sharedStyles['mutedText']}>선택한 유형의 상품이 없습니다.</p>
+          ) : null}
+
+          {!cartQuery.isLoading && !cartQuery.isError && filteredCartItems.length ? (
+            <PaginationControls
+              currentPage={cartPage}
+              onChange={setCartPage}
+              totalPages={cartPageCount}
+            />
+          ) : null}
+
+          {!cartQuery.isLoading && !cartQuery.isError && !totalCartItemCount ? (
+            <p className={sharedStyles['mutedText']}>장바구니에 담긴 항목이 없습니다.</p>
           ) : null}
         </section>
 
         <section className={styles['contentSection']}>
-          <h3 className={styles['contentTitle']}>금액 요약</h3>
+          <h3 className={styles['contentTitle']}>합계</h3>
 
           {cartQuery.data ? (
             <div className={sharedStyles['metaList']}>
               <div className={sharedStyles['metaItem']}>
-                <span className={sharedStyles['metaLabel']}>상품 수</span>
+                <span className={sharedStyles['metaLabel']}>총 상품 수</span>
                 <span className={sharedStyles['metaValue']}>{cartQuery.data.itemCount}개</span>
               </div>
               <div className={sharedStyles['metaItem']}>
-                <span className={sharedStyles['metaLabel']}>정가 합계</span>
+                <span className={sharedStyles['metaLabel']}>총 상품 금액</span>
                 <span className={sharedStyles['metaValue']}>
                   {formatCurrency(cartQuery.data.totalOriginalPrice)}
                 </span>
               </div>
               <div className={sharedStyles['metaItem']}>
-                <span className={sharedStyles['metaLabel']}>할인 금액</span>
+                <span className={sharedStyles['metaLabel']}>총 할인 금액</span>
                 <span className={sharedStyles['metaValue']}>
                   {formatCurrency(cartQuery.data.totalDiscountAmount)}
                 </span>
               </div>
               <div className={sharedStyles['metaItem']}>
-                <span className={sharedStyles['metaLabel']}>결제 예정 금액</span>
+                <span className={sharedStyles['metaLabel']}>총 결제 예상 금액</span>
                 <span className={sharedStyles['metaValue']}>
                   {formatCurrency(cartQuery.data.totalPayablePrice)}
                 </span>
@@ -621,19 +973,19 @@ const MyPagePage = () => {
           {applicationSummaryQuery.data ? (
             <div className={styles['summaryGrid']}>
               <div className={styles['summaryItem']}>
-                <span className={styles['summaryLabel']}>온라인 결제 예정</span>
+                <span className={styles['summaryLabel']}>온라인 장바구니</span>
                 <strong className={styles['summaryValue']}>
                   {applicationSummaryQuery.data.onlineItems.length}건
                 </strong>
               </div>
               <div className={styles['summaryItem']}>
-                <span className={styles['summaryLabel']}>오프라인 신청 예정</span>
+                <span className={styles['summaryLabel']}>오프라인 신청 대기</span>
                 <strong className={styles['summaryValue']}>
                   {applicationSummaryQuery.data.offlineItemCount}건
                 </strong>
               </div>
               <div className={styles['summaryItem']}>
-                <span className={styles['summaryLabel']}>온라인 결제 금액</span>
+                <span className={styles['summaryLabel']}>온라인 결제 합계</span>
                 <strong className={styles['summaryValue']}>
                   {formatCurrency(applicationSummaryQuery.data.onlinePayablePrice)}
                 </strong>
@@ -646,10 +998,78 @@ const MyPagePage = () => {
   };
 
   const renderOrderRefunds = () => {
+    const refundCount = refundsQuery.data?.length ?? 0;
+
     return (
       <section className={styles['contentSection']}>
-        <h2 className={sharedStyles['sectionTitle']}>취소/환불 내역</h2>
-        <p className={sharedStyles['mutedText']}>준비 중입니다.</p>
+        <div className={sharedStyles['sectionHeader']}>
+          <h2 className={sharedStyles['sectionTitle']}>취소/환불 내역</h2>
+          <p className={sharedStyles['sectionDescription']}>
+            전체 {refundCount}건 중 {filteredRefunds.length}건을 보고 있습니다.
+          </p>
+        </div>
+
+        <SegmentFilter
+          onChange={handleRefundFilterChange}
+          options={[
+            { label: '전체', value: 'ALL' },
+            { label: '환불 진행 중', value: 'REFUND_REQUESTED' },
+            { label: '환불 완료', value: 'REFUNDED' },
+            { label: '취소 완료', value: 'CANCELLED' },
+          ]}
+          value={refundFilter}
+        />
+
+        {refundsQuery.isLoading ? (
+          <p className={sharedStyles['mutedText']}>취소/환불 내역을 불러오는 중입니다.</p>
+        ) : null}
+
+        {refundsQuery.isError ? (
+          <p className={styles['errorText']}>
+            {refundsQuery.error instanceof Error
+              ? refundsQuery.error.message
+              : '취소/환불 내역을 불러오지 못했습니다.'}
+          </p>
+        ) : null}
+
+        {!refundsQuery.isLoading && !refundsQuery.isError && filteredRefunds.length ? (
+          <div className={styles['stackList']}>
+            {paginatedRefunds.map((refund) => (
+              <div className={styles['stackItem']} key={refund.id}>
+                <div className={styles['stackItemHeader']}>
+                  <strong className={styles['stackItemTitle']}>{refund.programTitle}</strong>
+                  <span className={styles['statusChip']}>
+                    {formatStatusLabel(refund.status, REFUND_STATUS_LABELS)}
+                  </span>
+                </div>
+                <p className={styles['stackItemText']}>
+                  환불 금액 {formatCurrency(refund.refundAmount)} · 요청일{' '}
+                  {formatDateTime(refund.requestedAt)} · 처리일 {formatDateTime(refund.processedAt)}{' '}
+                  · {refund.paymentMethod || '-'} · {refund.reason || '사유 없음'}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {!refundsQuery.isLoading &&
+        !refundsQuery.isError &&
+        refundCount > 0 &&
+        filteredRefunds.length === 0 ? (
+          <p className={sharedStyles['mutedText']}>선택한 상태의 취소/환불 내역이 없습니다.</p>
+        ) : null}
+
+        {!refundsQuery.isLoading && !refundsQuery.isError && filteredRefunds.length ? (
+          <PaginationControls
+            currentPage={refundPage}
+            onChange={setRefundPage}
+            totalPages={refundPageCount}
+          />
+        ) : null}
+
+        {!refundsQuery.isLoading && !refundsQuery.isError && refundCount === 0 ? (
+          <p className={sharedStyles['mutedText']}>취소/환불 내역이 없습니다.</p>
+        ) : null}
       </section>
     );
   };
@@ -673,55 +1093,96 @@ const MyPagePage = () => {
       <div className={styles['detailColumn']}>
         <section className={styles['contentSection']}>
           <h2 className={sharedStyles['sectionTitle']}>기본 정보</h2>
-          <div className={sharedStyles['metaList']}>
-            <div className={sharedStyles['metaItem']}>
-              <span className={sharedStyles['metaLabel']}>아이디</span>
-              <span className={sharedStyles['metaValue']}>{profileQuery.data.loginId}</span>
-            </div>
-            <div className={sharedStyles['metaItem']}>
-              <span className={sharedStyles['metaLabel']}>이메일</span>
-              <span className={sharedStyles['metaValue']}>{profileQuery.data.email}</span>
-            </div>
-            <div className={sharedStyles['metaItem']}>
-              <span className={sharedStyles['metaLabel']}>휴대폰 번호</span>
-              <div className={styles['phoneMetaRow']}>
-                <div className={styles['phoneValueGroup']}>
-                  <span className={sharedStyles['metaValue']}>
-                    {profileQuery.data.phoneNumber || '-'}
-                  </span>
-                  {profileQuery.data.phoneVerifiedAt ? (
-                    <span aria-label='휴대폰 인증 완료' className={styles['verifiedBadge']}>
-                      ✓
-                    </span>
-                  ) : null}
-                  <button
-                    className={styles['metaActionButton']}
-                    onClick={() => {
-                      setIsPhoneEditorOpen((current) => {
-                        const nextValue = !current;
+          <div className={sharedStyles['fieldGrid']}>
+            <TextField label='아이디' name='loginId' readOnly value={profileQuery.data.loginId} />
+            <TextField
+              label='이메일'
+              name='email'
+              onChange={handleProfileFieldChange('email')}
+              placeholder='name@example.com'
+              type='email'
+              value={resolvedProfileFormValues.email}
+            />
+            <TextField
+              label='이름'
+              name='name'
+              onChange={handleProfileFieldChange('name')}
+              placeholder='이름'
+              value={resolvedProfileFormValues.name}
+            />
+            <TextField
+              label='닉네임'
+              name='nickname'
+              onChange={handleProfileFieldChange('nickname')}
+              placeholder='닉네임'
+              value={resolvedProfileFormValues.nickname}
+            />
+            <TextField
+              label='휴대폰 번호'
+              name='currentPhoneNumber'
+              readOnly
+              value={profileQuery.data.phoneNumber || '-'}
+            />
+          </div>
 
-                        if (nextValue) {
-                          setPhoneFormValues({
-                            code: '',
-                            phoneNumber: '',
-                          });
-                          setSentVerification(null);
-                        }
+          <div className={styles['phoneMetaRow']}>
+            <div className={styles['phoneValueGroup']}>
+              {profileQuery.data.phoneVerifiedAt ? (
+                <span aria-label='휴대폰 인증 완료' className={styles['verifiedBadge']}>
+                  인증 완료
+                </span>
+              ) : (
+                <span className={sharedStyles['mutedText']}>휴대폰 인증 필요</span>
+              )}
+              <button
+                className={styles['metaActionButton']}
+                onClick={() => {
+                  setIsPhoneEditorOpen((current) => {
+                    const nextValue = !current;
 
-                        return nextValue;
+                    if (nextValue) {
+                      setPhoneFormValues({
+                        code: '',
+                        phoneNumber: '',
                       });
-                    }}
-                    type='button'
-                  >
-                    {isPhoneEditorOpen ? '닫기' : '변경'}
-                  </button>
-                </div>
-              </div>
+                      setSentVerification(null);
+                    }
+
+                    return nextValue;
+                  });
+                }}
+                type='button'
+              >
+                {isPhoneEditorOpen ? '닫기' : '휴대폰 번호 변경'}
+              </button>
             </div>
+          </div>
+
+          <div className={styles['consentGroup']}>
+            <p className={styles['consentTitle']}>선택정보 동의</p>
+            <label className={styles['checkboxRow']}>
+              <input
+                checked={resolvedProfileFormValues.marketingEmailOptIn}
+                name='marketingEmailOptIn'
+                onChange={handleConsentChange('marketingEmailOptIn')}
+                type='checkbox'
+              />
+              <span>이메일로 이벤트/강의 소식을 받겠습니다.</span>
+            </label>
+            <label className={styles['checkboxRow']}>
+              <input
+                checked={resolvedProfileFormValues.marketingSmsOptIn}
+                name='marketingSmsOptIn'
+                onChange={handleConsentChange('marketingSmsOptIn')}
+                type='checkbox'
+              />
+              <span>문자로 일정/혜택 안내를 받겠습니다.</span>
+            </label>
           </div>
 
           {isPhoneEditorOpen ? (
             <div className={styles['inlineEditor']}>
+              <h3 className={styles['contentTitle']}>휴대폰 번호 변경</h3>
               <div className={sharedStyles['fieldGrid']}>
                 <TextField
                   label='새 휴대폰 번호'
@@ -784,35 +1245,19 @@ const MyPagePage = () => {
               </div>
             </div>
           ) : null}
-        </section>
-
-        <section className={styles['contentSection']}>
-          <h3 className={styles['contentTitle']}>정보 수정</h3>
-          <div className={sharedStyles['fieldGrid']}>
-            <TextField
-              label='이름'
-              name='name'
-              onChange={handleProfileFieldChange('name')}
-              placeholder='이름'
-              value={resolvedProfileFormValues.name}
-            />
-            <TextField
-              label='닉네임'
-              name='nickname'
-              onChange={handleProfileFieldChange('nickname')}
-              placeholder='닉네임'
-              value={resolvedProfileFormValues.nickname}
-            />
-          </div>
 
           <div className={styles['actionRow']}>
             <Button
               disabled={
                 updateProfileMutation.isPending ||
+                resolvedProfileFormValues.email.trim().length === 0 ||
                 resolvedProfileFormValues.name.trim().length === 0
               }
               onClick={() => {
                 updateProfileMutation.mutate({
+                  email: resolvedProfileFormValues.email.trim(),
+                  marketingEmailOptIn: resolvedProfileFormValues.marketingEmailOptIn,
+                  marketingSmsOptIn: resolvedProfileFormValues.marketingSmsOptIn,
                   name: resolvedProfileFormValues.name.trim(),
                   nickname: resolvedProfileFormValues.nickname.trim(),
                 });
@@ -824,15 +1269,6 @@ const MyPagePage = () => {
           </div>
         </section>
       </div>
-    );
-  };
-
-  const renderProfileConsents = () => {
-    return (
-      <section className={styles['contentSection']}>
-        <h2 className={sharedStyles['sectionTitle']}>선택정보 동의</h2>
-        <p className={sharedStyles['mutedText']}>준비 중입니다.</p>
-      </section>
     );
   };
 
@@ -864,8 +1300,6 @@ const MyPagePage = () => {
         return renderOrderRefunds();
       case 'profile-basic':
         return renderProfileBasic();
-      case 'profile-consents':
-        return renderProfileConsents();
       case 'support-inquiry':
         return renderSupportInquiry();
       default:

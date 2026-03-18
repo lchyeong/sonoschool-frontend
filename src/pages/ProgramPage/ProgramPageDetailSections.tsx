@@ -81,11 +81,11 @@ interface ProgramPageDetailMainContentProps {
 interface ProgramPageDetailSidebarProps {
   data: ProgramDetailPageResponse;
   discountedPriceAmount: ProgramPageDetailViewModel['discountedPriceAmount'];
+  handleAddToCart: () => void;
+  isAddingToCart: boolean;
   optionList: ProgramPageDetailViewModel['optionList'];
   originalPriceAmount: ProgramPageDetailViewModel['originalPriceAmount'];
-  quantity: ProgramPageDetailViewModel['quantity'];
   selectedOption: ProgramPageDetailViewModel['selectedOption'];
-  setQuantity: ProgramPageDetailViewModel['setQuantity'];
   setSelectedOption: ProgramPageDetailViewModel['setSelectedOption'];
   setShowOptionList: ProgramPageDetailViewModel['setShowOptionList'];
   showOptionList: ProgramPageDetailViewModel['showOptionList'];
@@ -674,11 +674,11 @@ export const ProgramPageDetailMainContent = ({
 export const ProgramPageDetailSidebar = ({
   data,
   discountedPriceAmount,
+  handleAddToCart,
+  isAddingToCart,
   optionList,
   originalPriceAmount,
-  quantity,
   selectedOption,
-  setQuantity,
   setSelectedOption,
   setShowOptionList,
   showOptionList,
@@ -731,7 +731,6 @@ export const ProgramPageDetailSidebar = ({
                     onClick={() => {
                       setSelectedOption(optionItem);
                       setShowOptionList(false);
-                      setQuantity(1);
                     }}
                     type='button'
                   >
@@ -752,33 +751,10 @@ export const ProgramPageDetailSidebar = ({
                 className={styles['selectedOptionRemoveButton']}
                 onClick={() => {
                   setSelectedOption('');
-                  setQuantity(1);
                 }}
                 type='button'
               >
                 ×
-              </button>
-            </div>
-
-            <div className={styles['quantityControl']}>
-              <button
-                className={styles['quantityButton']}
-                onClick={() => {
-                  setQuantity((currentQuantity) => currentQuantity + 1);
-                }}
-                type='button'
-              >
-                +
-              </button>
-              <span className={styles['quantityValue']}>{String(quantity)}</span>
-              <button
-                className={styles['quantityButton']}
-                onClick={() => {
-                  setQuantity((currentQuantity) => Math.max(1, currentQuantity - 1));
-                }}
-                type='button'
-              >
-                -
               </button>
             </div>
           </div>
@@ -798,9 +774,14 @@ export const ProgramPageDetailSidebar = ({
           <Link className={styles['reserveActionLink']} to={routePaths.contact}>
             예약하기
           </Link>
-          <Link className={styles['cartActionLink']} to={routePaths.cart}>
-            장바구니
-          </Link>
+          <button
+            className={styles['cartActionLink']}
+            disabled={isAddingToCart}
+            onClick={handleAddToCart}
+            type='button'
+          >
+            {isAddingToCart ? '담는 중...' : '장바구니'}
+          </button>
           <Link className={styles['applyActionLink']} to={routePaths.contact}>
             수강 신청 하기
           </Link>

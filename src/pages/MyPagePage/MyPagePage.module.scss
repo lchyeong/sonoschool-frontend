@@ -195,7 +195,105 @@
 
 .stackList {
   display: grid;
-  gap: 0;
+  gap: 12px;
+}
+
+.orderCard {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 112px minmax(0, 1fr);
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.orderCardThumbnailLink {
+  display: block;
+  text-decoration: none;
+}
+
+.orderCardThumbnailImage,
+.orderCardThumbnailFallback {
+  display: block;
+  width: 100%;
+  min-height: 96px;
+  height: 100%;
+  border-radius: 12px;
+}
+
+.orderCardThumbnailImage {
+  object-fit: cover;
+}
+
+.orderCardThumbnailFallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(32, 96, 180, 0.92)), #111827;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.2rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.12em;
+}
+
+.orderCardBody {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.orderCardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.orderCardTitleLink {
+  min-width: 0;
+  text-decoration: none;
+}
+
+.orderCardTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.orderCardFooter {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.orderCardMetaGroup {
+  display: grid;
+  gap: 4px;
+}
+
+.orderCardMeta,
+.orderCardSubMeta,
+.orderCardAmount {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.orderCardMeta,
+.orderCardSubMeta {
+  color: var(--color-text-secondary);
+}
+
+.orderCardSubMeta {
+  font-size: var(--font-size-xs);
+}
+
+.orderCardAmount {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  text-align: right;
 }
 
 .stackItem {
@@ -263,10 +361,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
   color: var(--color-sub-brand-main);
-  font-size: 15px;
-  font-weight: 800;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   line-height: 1;
+  background: rgb(20 184 166 / 10%);
 }
 
 .metaActionButton {
@@ -288,6 +390,30 @@
   gap: var(--space-4);
   padding-top: var(--space-4);
   border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.consentGroup {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.consentTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.checkboxRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed);
+}
+
+.checkboxRow input {
+  margin-top: 2px;
 }
 
 .inlineFieldRow {
@@ -354,5 +480,23 @@
 
   .inlineActionButton {
     width: 100%;
+  }
+
+  .orderCard {
+    grid-template-columns: 1fr;
+  }
+
+  .orderCardThumbnailImage,
+  .orderCardThumbnailFallback {
+    min-height: 168px;
+  }
+
+  .orderCardFooter {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .orderCardAmount {
+    text-align: left;
   }
 }

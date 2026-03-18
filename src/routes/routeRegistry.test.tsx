@@ -40,6 +40,8 @@ describe('appRouteRegistry', () => {
     expect(routePaths.adminSales).toBe(appRouteRegistry.routes.adminSales.absolutePath);
     expect(routePaths.signup).toBe(appRouteRegistry.routes.signup.absolutePath);
     expect(routePaths.accountRecovery).toBe(appRouteRegistry.routes.accountRecovery.absolutePath);
+    expect(routePaths.checkout).toBe(appRouteRegistry.routes.checkout.absolutePath);
+    expect(routePaths.paymentResult).toBe(appRouteRegistry.routes.paymentResult.absolutePath);
     expect(routePaths.reviews).toBe(appRouteRegistry.routes.reviews.absolutePath);
     expect(routePaths.resources).toBe(appRouteRegistry.routes.resources.absolutePath);
     expect(routePaths.programCatalog()).toBe('/programs');
@@ -67,6 +69,8 @@ describe('appRouteRegistry', () => {
     expect(appRouteAccessByKey.adminSales).toBe('public');
     expect(appRouteAccessByKey.accountRecovery).toBe('guest-only');
     expect(appRouteAccessByKey.mypage).toBe('authenticated');
+    expect(appRouteAccessByKey.checkout).toBe('authenticated');
+    expect(appRouteAccessByKey.paymentResult).toBe('public');
     expect(getRouteHandle('mypage')).toEqual({
       routeKey: 'mypage',
       access: 'authenticated',
@@ -125,6 +129,14 @@ describe('appRouteRegistry', () => {
     });
     expect(getRouteHandle('admin/sales')).toEqual({
       routeKey: 'adminSales',
+      access: 'public',
+    });
+    expect(getRouteHandle('payments/checkout')).toEqual({
+      routeKey: 'checkout',
+      access: 'authenticated',
+    });
+    expect(getRouteHandle('payments/result')).toEqual({
+      routeKey: 'paymentResult',
       access: 'public',
     });
   });

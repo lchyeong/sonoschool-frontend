@@ -27,13 +27,11 @@ export interface ProgramPageDetailViewModel {
   openFaqId: string | null;
   optionList: string[];
   originalPriceAmount: number;
-  quantity: number;
   reviewCarouselRef: RefObject<HTMLDivElement | null>;
   reviewSortOrder: ReviewSortOrder;
   selectedOption: string;
   sectionRefHandlers: Record<DetailSectionId, RefCallback<HTMLElement>>;
   setOpenFaqId: Dispatch<SetStateAction<string | null>>;
-  setQuantity: Dispatch<SetStateAction<number>>;
   setReviewSortOrder: Dispatch<SetStateAction<ReviewSortOrder>>;
   setSelectedOption: Dispatch<SetStateAction<string>>;
   setShowOptionList: Dispatch<SetStateAction<boolean>>;
@@ -72,7 +70,6 @@ export const useProgramPageDetailViewModel = (
   const [visiblePreviewReviewIds, setVisiblePreviewReviewIds] = useState<string[]>([]);
   const [selectedOption, setSelectedOption] = useState('');
   const [showOptionList, setShowOptionList] = useState(false);
-  const [quantity, setQuantity] = useState(1);
   const [openCurriculumRows, setOpenCurriculumRows] = useState<Record<string, boolean>>(() =>
     createInitialOpenCurriculumRows(data),
   );
@@ -87,8 +84,8 @@ export const useProgramPageDetailViewModel = (
   const originalPriceAmount = useMemo(() => parsePriceAmount(data.originalPriceLabel), [data]);
   const discountedPriceAmount = useMemo(() => parsePriceAmount(data.discountedPriceLabel), [data]);
   const totalPriceLabel = useMemo(
-    () => formatPriceLabel(discountedPriceAmount * quantity),
-    [discountedPriceAmount, quantity],
+    () => formatPriceLabel(discountedPriceAmount),
+    [discountedPriceAmount],
   );
   const sortedReviews = useMemo(
     () => sortProgramReviews(data.reviews, reviewSortOrder),
@@ -102,7 +99,6 @@ export const useProgramPageDetailViewModel = (
       setOpenFaqId(data.faqItems[0]?.id ?? null);
       setSelectedOption('');
       setShowOptionList(false);
-      setQuantity(1);
       setReviewSortOrder('recommended');
     });
   }, [data]);
@@ -262,13 +258,11 @@ export const useProgramPageDetailViewModel = (
     openFaqId,
     optionList,
     originalPriceAmount,
-    quantity,
     reviewCarouselRef,
     reviewSortOrder,
     sectionRefHandlers,
     selectedOption,
     setOpenFaqId,
-    setQuantity,
     setReviewSortOrder,
     setSelectedOption,
     setShowOptionList,

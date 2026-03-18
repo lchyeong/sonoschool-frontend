@@ -2,23 +2,28 @@ import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
 import { shouldUseMockFallback } from '@/api/fallback';
 import {
+  addMockMyCartItem,
   getMockMyApplicationSummary,
   getMockMyCart,
   getMockMyEnrollmentDetail,
   getMockMyEnrollments,
   getMockMyProfile,
+  getMockMyRefunds,
   getMockMyReservations,
+  removeMockMyCartItem,
   sendMockMyPhoneVerification,
   updateMockMyProfile,
   verifyMockMyPhoneChange,
 } from '@/mocks/data/mypage';
 import type { ApiEnvelope, SmsSendPayload, SmsSendResponse, SmsVerifyPayload } from '@/types/auth';
 import type {
+  AddToCartPayload,
   ApplicationSummary,
   CartSummary,
   EnrollmentDetail,
   EnrollmentSummary,
   OfflineReservation,
+  RefundHistory,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
@@ -156,6 +161,34 @@ export const fetchMyApplicationSummary = async (): Promise<ApplicationSummary> =
   }
 };
 
+export const addMyCartItem = async (payload: AddToCartPayload): Promise<CartSummary> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<CartSummary>>('/api/v1/cart', payload);
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    if (shouldUseMockFallback(error)) {
+      return addMockMyCartItem(payload);
+    }
+
+    throw toApiError(error, '장바구니에 담지 못했습니다.');
+  }
+};
+
+export const removeMyCartItem = async (cartItemId: number): Promise<CartSummary> => {
+  try {
+    const response = await axiosInstance.delete<ApiEnvelope<CartSummary>>(
+      `/api/v1/cart/${String(cartItemId)}`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    if (shouldUseMockFallback(error)) {
+      return removeMockMyCartItem(cartItemId);
+    }
+
+    throw toApiError(error, '장바구니에서 제거하지 못했습니다.');
+  }
+};
+
 export const fetchMyReservations = async (): Promise<OfflineReservation[]> => {
   try {
     const response =
@@ -167,5 +200,18 @@ export const fetchMyReservations = async (): Promise<OfflineReservation[]> => {
     }
 
     throw toApiError(error, '신청 내역을 불러오지 못했습니다.');
+  }
+};
+
+export const fetchMyRefunds = async (): Promise<RefundHistory[]> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<RefundHistory[]>>('/api/v1/refunds');
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    if (shouldUseMockFallback(error)) {
+      return getMockMyRefunds();
+    }
+
+    throw toApiError(error, '취소/환불 내역을 불러오지 못했습니다.');
   }
 };

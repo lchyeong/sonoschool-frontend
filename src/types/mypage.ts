@@ -1,3 +1,23 @@
+import type { ProgramCurriculumTrack } from '@/types/programCatalog';
+
+export type EnrollmentStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+export type ReservationStatus = 'REQUESTED' | 'CONFIRMED' | 'CANCELLED';
+export type RefundStatus = 'REFUND_REQUESTED' | 'REFUNDED' | 'CANCELLED';
+export type ProgramType = 'ONLINE' | 'OFFLINE';
+export type CouponDiscountType = 'FIXED_AMOUNT' | 'PERCENTAGE';
+
+export interface AddToCartPayload {
+  instructorName: string | null;
+  originalPrice: number;
+  payablePrice: number;
+  programId: number;
+  programType: ProgramType;
+  salePrice: number | null;
+  sourcePath: string;
+  thumbnailUrl: string | null;
+  title: string;
+}
+
 export interface UserProfile {
   loginId: string;
   email: string;
@@ -6,12 +26,18 @@ export interface UserProfile {
   displayName: string;
   phoneNumber: string | null;
   phoneVerifiedAt: string | null;
+  marketingEmailOptIn: boolean;
+  marketingSmsOptIn: boolean;
+  marketingOptInUpdatedAt: string | null;
   role: string;
 }
 
 export interface UserProfileUpdatePayload {
+  email: string;
   name: string;
   nickname: string;
+  marketingEmailOptIn: boolean;
+  marketingSmsOptIn: boolean;
 }
 
 export interface EnrollmentSummary {
@@ -19,7 +45,7 @@ export interface EnrollmentSummary {
   programId: number;
   programTitle: string;
   programThumbnailUrl: string | null;
-  status: string;
+  status: EnrollmentStatus;
   active: boolean;
   enrolledAt: string;
   expireAt: string | null;
@@ -37,7 +63,7 @@ export interface EnrollmentDetail {
   id: number;
   programId: number;
   programTitle: string;
-  status: string;
+  status: EnrollmentStatus;
   active: boolean;
   enrolledAt: string;
   expireAt: string | null;
@@ -50,11 +76,20 @@ export interface EnrollmentDetail {
   progress: LectureProgress[];
 }
 
+export interface LearningPlayerSnapshot {
+  curriculumTrack: ProgramCurriculumTrack;
+  currentLessonId: string | null;
+  nextLessonId: string | null;
+  completedLessonIds: string[];
+  lastPlaybackAt: string | null;
+  resumeAtSeconds: number;
+}
+
 export interface AppliedCoupon {
   id: number;
   code: string;
   name: string;
-  discountType: string;
+  discountType: CouponDiscountType;
   discountValue: number;
   discountAmount: number;
 }
@@ -63,8 +98,9 @@ export interface CartItem {
   id: number;
   programId: number;
   title: string;
+  detailPath: string;
   thumbnailUrl: string | null;
-  programType: string;
+  programType: ProgramType;
   instructorName: string | null;
   originalPrice: number;
   salePrice: number | null;
@@ -87,7 +123,7 @@ export interface ApplicationSummaryItem {
   cartItemId: number;
   programId: number;
   title: string;
-  programType: string;
+  programType: ProgramType;
   payablePrice: number;
 }
 
@@ -105,12 +141,27 @@ export interface OfflineReservation {
   id: number;
   programId: number;
   programTitle: string;
+  detailPath: string;
+  thumbnailUrl: string | null;
   scheduleId: number;
   scheduleTitle: string;
   scheduleStartAt: string;
   scheduleEndAt: string;
   location: string | null;
-  status: string;
+  status: ReservationStatus;
   note: string | null;
   createdAt: string;
+}
+
+export interface RefundHistory {
+  id: number;
+  programId: number;
+  programTitle: string;
+  orderName: string;
+  status: RefundStatus;
+  refundAmount: number;
+  requestedAt: string;
+  processedAt: string | null;
+  paymentMethod: string | null;
+  reason: string | null;
 }

@@ -6,6 +6,7 @@ import {
   fetchMyEnrollmentDetail,
   fetchMyEnrollments,
   fetchMyProfile,
+  fetchMyRefunds,
   fetchMyReservations,
 } from '@/api/mypage';
 
@@ -16,6 +17,7 @@ export const myEnrollmentDetailQueryKey = (enrollmentId: number | null) =>
 export const myCartQueryKey = ['mypage', 'cart'] as const;
 export const myApplicationSummaryQueryKey = ['mypage', 'applicationSummary'] as const;
 export const myReservationsQueryKey = ['mypage', 'reservations'] as const;
+export const myRefundsQueryKey = ['mypage', 'refunds'] as const;
 
 export const useMyProfileQuery = () => {
   return useQuery({
@@ -71,6 +73,16 @@ export const useMyReservationsQuery = (enabled = true) => {
     gcTime: 10 * 60 * 1000,
     queryFn: fetchMyReservations,
     queryKey: myReservationsQueryKey,
+    staleTime: 60 * 1000,
+  });
+};
+
+export const useMyRefundsQuery = (enabled = true) => {
+  return useQuery({
+    enabled,
+    gcTime: 10 * 60 * 1000,
+    queryFn: fetchMyRefunds,
+    queryKey: myRefundsQueryKey,
     staleTime: 60 * 1000,
   });
 };
