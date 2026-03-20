@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -11,8 +11,8 @@ import {
   reorderAdminProgramMenu,
   updateAdminProgramMenu,
 } from '@/api/adminConsole';
+import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import Button from '@/components/ui/Button/Button';
-import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { env } from '@/config/env';
 import { adminConsoleQueryKey } from '@/query/useAdminConsoleQuery';
@@ -102,24 +102,8 @@ const countTreeItems = (branches: readonly MenuTreeBranch[]): number => {
   return branches.reduce((total, branch) => total + 1 + countTreeItems(branch.children), 0);
 };
 
-const collectExpandableMenuIds = (branches: readonly MenuTreeBranch[]): string[] => {
-  return branches.flatMap((branch) => {
-    const childIds = collectExpandableMenuIds(branch.children);
-
-    if (branch.children.length === 0) {
-      return childIds;
-    }
-
-    return [branch.id, ...childIds];
-  });
-};
-
 const collectVisibleMenuIds = (branches: readonly MenuTreeBranch[]): string[] => {
   return branches.flatMap((branch) => [branch.id, ...collectVisibleMenuIds(branch.children)]);
-};
-
-const mergeUniqueIds = (current: readonly string[], next: readonly string[]): string[] => {
-  return Array.from(new Set([...current, ...next]));
 };
 
 const matchesMenuKeyword = (item: AdminProgramMenuTreeItem, keyword: string): boolean => {
@@ -165,7 +149,11 @@ const filterMenuTree = (
   return visit(branches);
 };
 
-const buildExpandedIdsForSelection = (
+const flattenMenuTree = (branches: readonly MenuTreeBranch[]): AdminProgramMenuTreeItem[] => {
+  return branches.flatMap((branch) => [branch, ...flattenMenuTree(branch.children)]);
+};
+
+const buildMenuPathIds = (
   selectedMenuId: string | null,
   itemMap: ReadonlyMap<string, AdminProgramMenuTreeItem>,
 ): string[] => {
@@ -177,14 +165,167 @@ const buildExpandedIdsForSelection = (
   let current: AdminProgramMenuTreeItem | undefined = itemMap.get(selectedMenuId);
 
   while (current) {
-    if (!current.isLeafMenu) {
-      pathIds.unshift(current.id);
-    }
-
+    pathIds.unshift(current.id);
     current = current.parentId ? itemMap.get(current.parentId) : undefined;
   }
 
   return pathIds;
+};
+
+const buildMenuColumns = (
+  items: readonly AdminProgramMenuTreeItem[],
+  activePathIds: readonly string[],
+  maxDepth: number,
+): AdminProgramMenuTreeItem[][] => {
+  const itemsByParentId = new Map<string | null, AdminProgramMenuTreeItem[]>();
+
+  items.forEach((item) => {
+    const parentItems = itemsByParentId.get(item.parentId) ?? [];
+    parentItems.push(item);
+    itemsByParentId.set(item.parentId, parentItems);
+  });
+
+  const columns: AdminProgramMenuTreeItem[][] = [];
+  let parentId: string | null = null;
+  let depthIndex = 0;
+
+  while (depthIndex < maxDepth) {
+    const nextColumn: AdminProgramMenuTreeItem[] = itemsByParentId.get(parentId) ?? [];
+    columns.push(nextColumn);
+
+    const activeItemId = activePathIds[depthIndex];
+    const activeItem: AdminProgramMenuTreeItem | undefined = nextColumn.find(
+      (item: AdminProgramMenuTreeItem) => item.id === activeItemId,
+    );
+
+    if (!nextColumn.length || !activeItem || activeItem.isLeafMenu) {
+      while (columns.length < maxDepth) {
+        columns.push([]);
+      }
+
+      break;
+    }
+
+    parentId = activeItem.id;
+    depthIndex += 1;
+  }
+
+  return columns;
+};
+
+const findPreferredBrowserMenuId = (branches: readonly MenuTreeBranch[]): string | null => {
+  for (const branch of branches) {
+    const childPreferredId = findPreferredBrowserMenuId(branch.children);
+
+    if (childPreferredId) {
+      return childPreferredId;
+    }
+
+    return branch.id;
+  }
+
+  return null;
+};
+
+const ProgramMenuBrowser = ({
+  items,
+  maxDepth,
+  focusedMenuId,
+  selectedMenuId,
+  onSelect,
+}: {
+  items: readonly AdminProgramMenuTreeItem[];
+  maxDepth: number;
+  focusedMenuId: string | null;
+  selectedMenuId: string | null;
+  onSelect: (menuId: string) => void;
+}) => {
+  const visibleItemMap = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const fallbackMenuId = items[0]?.id ?? null;
+  const effectiveMenuId =
+    focusedMenuId && visibleItemMap.has(focusedMenuId)
+      ? focusedMenuId
+      : selectedMenuId && visibleItemMap.has(selectedMenuId)
+        ? selectedMenuId
+        : fallbackMenuId;
+  const selectedPathIds = useMemo(
+    () => buildMenuPathIds(effectiveMenuId, visibleItemMap),
+    [effectiveMenuId, visibleItemMap],
+  );
+  const [activePathIds, setActivePathIds] = useState<string[]>(selectedPathIds);
+  const columns = useMemo(
+    () => buildMenuColumns(items, activePathIds, Math.max(maxDepth, 1)),
+    [activePathIds, items, maxDepth],
+  );
+  const arrowStyle = useMemo(
+    () =>
+      ({
+        ['--program-menu-arrow-icon' as string]: `url(${rightArrowIconSrc})`,
+      }) as CSSProperties,
+    [],
+  );
+
+  useEffect(() => {
+    setActivePathIds(selectedPathIds);
+  }, [selectedPathIds]);
+
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <div className={styles['menuBrowser']}>
+      {columns.map((columnItems, columnIndex) => (
+        <div
+          className={styles['menuBrowserColumn']}
+          key={`menu-browser-column-${String(columnIndex)}`}
+        >
+          <div className={styles['menuBrowserColumnList']} role='list'>
+            {columnItems.map((item) => {
+              const isActive = activePathIds[columnIndex] === item.id;
+              const isSelected = effectiveMenuId === item.id;
+
+              return (
+                <button
+                  aria-label={`${item.label} 메뉴 선택`}
+                  className={classNames(
+                    styles['menuBrowserOption'],
+                    isActive && styles['menuBrowserOptionActive'],
+                    isSelected && styles['menuBrowserOptionSelected'],
+                  )}
+                  key={item.id}
+                  onClick={() => {
+                    onSelect(item.id);
+                    setActivePathIds((current) => [...current.slice(0, columnIndex), item.id]);
+                  }}
+                  onMouseEnter={() => {
+                    if (item.isLeafMenu) {
+                      return;
+                    }
+
+                    setActivePathIds((current) => [...current.slice(0, columnIndex), item.id]);
+                  }}
+                  title={item.labelPath}
+                  type='button'
+                >
+                  <span className={styles['menuBrowserOptionContent']}>
+                    <span className={styles['menuBrowserOptionLabel']}>{item.label}</span>
+                    {!item.isLeafMenu ? (
+                      <span
+                        aria-hidden='true'
+                        className={styles['menuBrowserOptionArrow']}
+                        style={arrowStyle}
+                      />
+                    ) : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 const formatMenuStatus = (status: AdminProgramMenuStatus | AdminProgramStatus): string => {
@@ -213,7 +354,6 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
   const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('edit');
   const [createParentId, setCreateParentId] = useState<string | null>(null);
-  const [expandedMenuIds, setExpandedMenuIds] = useState<string[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [publishedOnly, setPublishedOnly] = useState(false);
   const [leafOnly, setLeafOnly] = useState(false);
@@ -222,7 +362,6 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
   const [programMoveTargets, setProgramMoveTargets] = useState<Record<string, string>>({});
   const treeQuery = useAdminProgramMenuTreeQuery(env.siteKey);
   const menuItems = useMemo(() => treeQuery.data?.items ?? [], [treeQuery.data?.items]);
-  const menuItemMap = useMemo(() => new Map(menuItems.map((item) => [item.id, item])), [menuItems]);
   const activeMenuId =
     selectedMenuId && menuItems.some((item) => item.id === selectedMenuId)
       ? selectedMenuId
@@ -242,6 +381,18 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
 
     return filterMenuTree(menuTree, normalizedSearchKeyword, publishedOnly, leafOnly);
   }, [isTreeFilterActive, leafOnly, menuTree, normalizedSearchKeyword, publishedOnly]);
+  const filteredMenuItems = useMemo(() => flattenMenuTree(filteredMenuTree), [filteredMenuTree]);
+  const focusedBrowserMenuId = useMemo(() => {
+    if (!filteredMenuTree.length) {
+      return activeMenuId;
+    }
+
+    if (isTreeFilterActive) {
+      return findPreferredBrowserMenuId(filteredMenuTree);
+    }
+
+    return activeMenuId;
+  }, [activeMenuId, filteredMenuTree, isTreeFilterActive]);
   const visibleMenuIds = useMemo(() => collectVisibleMenuIds(filteredMenuTree), [filteredMenuTree]);
   const visibleMenuCount = useMemo(() => countTreeItems(filteredMenuTree), [filteredMenuTree]);
   const activeMenuHiddenByFilters =
@@ -249,42 +400,6 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
   const leafCollectionOptions = programCollectionOptions.filter(
     (option) => option.path !== detailQuery.data?.menu.path,
   );
-
-  useEffect(() => {
-    queueMicrotask(() => {
-      setExpandedMenuIds((current) =>
-        current.filter((menuId) => menuItems.some((item) => item.id === menuId)),
-      );
-    });
-  }, [menuItems]);
-
-  useEffect(() => {
-    const selectionExpandedIds = buildExpandedIdsForSelection(activeMenuId, menuItemMap);
-
-    if (!selectionExpandedIds.length) {
-      return;
-    }
-
-    queueMicrotask(() => {
-      setExpandedMenuIds((current) => mergeUniqueIds(current, selectionExpandedIds));
-    });
-  }, [activeMenuId, menuItemMap]);
-
-  useEffect(() => {
-    if (!isTreeFilterActive) {
-      return;
-    }
-
-    const nextExpandedIds = collectExpandableMenuIds(filteredMenuTree);
-
-    if (!nextExpandedIds.length) {
-      return;
-    }
-
-    queueMicrotask(() => {
-      setExpandedMenuIds((current) => mergeUniqueIds(current, nextExpandedIds));
-    });
-  }, [filteredMenuTree, isTreeFilterActive]);
 
   useEffect(() => {
     if (effectiveEditorMode !== 'edit' || !detailQuery.data) {
@@ -528,109 +643,6 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
     setSearchKeyword('');
     setPublishedOnly(false);
     setLeafOnly(false);
-    setExpandedMenuIds(buildExpandedIdsForSelection(activeMenuId, menuItemMap));
-  };
-
-  const handleToggleMenuExpansion = (menuId: string) => {
-    setExpandedMenuIds((current) => {
-      return current.includes(menuId)
-        ? current.filter((currentMenuId) => currentMenuId !== menuId)
-        : [...current, menuId];
-    });
-  };
-
-  const renderTreeBranch = (branch: MenuTreeBranch) => {
-    const isSelected = branch.id === activeMenuId && effectiveEditorMode === 'edit';
-    const isExpanded = expandedMenuIds.includes(branch.id);
-    const isExpandable = branch.children.length > 0;
-    const isSearchMatch =
-      normalizedSearchKeyword.length > 0 && matchesMenuKeyword(branch, normalizedSearchKeyword);
-    const shouldShowPath = isSelected || isSearchMatch;
-    const childGroupId = `program-menu-children-${branch.id}`;
-
-    return (
-      <li className={styles['treeItem']} key={branch.id}>
-        <div className={styles['treeRow']}>
-          {isExpandable ? (
-            <button
-              aria-controls={childGroupId}
-              aria-expanded={isExpanded}
-              aria-label={`${branch.label} 하위 메뉴 ${isExpanded ? '닫기' : '열기'}`}
-              className={classNames(
-                styles['treeToggleButton'],
-                isExpanded && styles['treeToggleButtonExpanded'],
-              )}
-              onClick={() => {
-                handleToggleMenuExpansion(branch.id);
-              }}
-              type='button'
-            >
-              <ChevronDownIcon aria-hidden='true' />
-            </button>
-          ) : (
-            <span aria-hidden='true' className={styles['treeToggleSpacer']} />
-          )}
-
-          <button
-            aria-label={`${branch.label} 메뉴 선택`}
-            className={classNames(styles['treeButton'], isSelected && styles['treeButtonSelected'])}
-            onClick={() => {
-              setSelectedMenuId(branch.id);
-              setEditorMode('edit');
-            }}
-            type='button'
-          >
-            <div className={styles['treeButtonHeader']}>
-              <div className={styles['treeIdentity']}>
-                <strong className={styles['treeLabel']}>{branch.label}</strong>
-                <div className={styles['treeBadgeGroup']}>
-                  <span className={styles['depthBadge']}>{`${String(branch.depth)}D`}</span>
-                  <span
-                    className={
-                      branch.isLeafMenu
-                        ? styles['menuTypeBadgeLeaf']
-                        : styles['menuTypeBadgeBranch']
-                    }
-                  >
-                    {branch.isLeafMenu ? '강의 허브' : '브랜치'}
-                  </span>
-                  <span
-                    className={
-                      branch.effectiveStatus === 'published'
-                        ? styles['statusBadgePublished']
-                        : styles['statusBadgeHidden']
-                    }
-                  >
-                    {formatEffectiveMenuStatus(branch.effectiveStatus)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {shouldShowPath ? (
-              <p className={styles['treePath']}>{isSelected ? branch.path : branch.labelPath}</p>
-            ) : null}
-
-            <dl className={styles['treeMeta']}>
-              <div>
-                <dt>하위 메뉴</dt>
-                <dd>{String(branch.childCollectionCount)}개</dd>
-              </div>
-              <div>
-                <dt>총 강의</dt>
-                <dd>{String(branch.totalProgramCount)}개</dd>
-              </div>
-            </dl>
-          </button>
-        </div>
-
-        {isExpandable && isExpanded ? (
-          <ul className={styles['treeChildren']} id={childGroupId}>
-            {branch.children.map(renderTreeBranch)}
-          </ul>
-        ) : null}
-      </li>
-    );
   };
 
   const selectedParentLabel =
@@ -642,7 +654,6 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
 
   const totalLeafMenus = menuItems.filter((item) => item.isLeafMenu).length;
   const publishedMenus = menuItems.filter((item) => item.effectiveStatus === 'published').length;
-  const treeExpandAllIds = useMemo(() => collectExpandableMenuIds(menuTree), [menuTree]);
   const detailSummaryActionLabels = detailQuery.data
     ? [
         detailQuery.data.canCreateChildMenu ? '하위 메뉴 추가 가능' : null,
@@ -701,8 +712,8 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
             <h3 className={styles['panelTitle']}>현재 강의 메뉴 구조</h3>
             <p className={styles['panelDescription']}>
               최상위는 최대 {String(treeQuery.data?.topLevelLimit ?? 6)}개, 전체 깊이는 최대{' '}
-              {String(treeQuery.data?.maxDepth ?? 3)}뎁스입니다. 트리의 강의 수는 하위 메뉴 포함
-              총합 기준으로 표시합니다.
+              {String(treeQuery.data?.maxDepth ?? 3)}뎁스입니다. 단계별 컬럼에서 메뉴를 바로 고르고
+              우측에서 수정할 수 있습니다.
             </p>
           </div>
 
@@ -751,26 +762,6 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
 
               <div className={styles['treeToolbarActions']}>
                 <Button
-                  onClick={() => {
-                    setExpandedMenuIds(treeExpandAllIds);
-                  }}
-                  size='sm'
-                  type='button'
-                  variant='secondary'
-                >
-                  전체 펼치기
-                </Button>
-                <Button
-                  onClick={() => {
-                    setExpandedMenuIds([]);
-                  }}
-                  size='sm'
-                  type='button'
-                  variant='secondary'
-                >
-                  전체 접기
-                </Button>
-                <Button
                   onClick={handleResetTreeFilters}
                   size='sm'
                   type='button'
@@ -806,8 +797,38 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
             <div className={styles['emptyState']}>
               <p className={styles['emptyTitle']}>강의 메뉴 구조를 불러오는 중입니다.</p>
             </div>
-          ) : filteredMenuTree.length ? (
-            <ul className={styles['treeList']}>{filteredMenuTree.map(renderTreeBranch)}</ul>
+          ) : filteredMenuItems.length ? (
+            <div className={styles['browserPanel']}>
+              <div className={styles['browserSummary']}>
+                <div className={styles['browserSummaryGroup']}>
+                  <span className={styles['fieldLabel']}>현재 선택</span>
+                  <strong className={styles['browserSummaryValue']}>
+                    {detailQuery.data?.menu.labelPath ?? selectedParentLabel}
+                  </strong>
+                </div>
+                {detailQuery.data ? (
+                  <div className={styles['browserSummaryStats']}>
+                    <span className={styles['browserSummaryStat']}>
+                      {`하위 메뉴 ${String(detailQuery.data.menu.childCollectionCount)}개`}
+                    </span>
+                    <span className={styles['browserSummaryStat']}>
+                      {`총 강의 ${String(detailQuery.data.menu.totalProgramCount)}개`}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              <ProgramMenuBrowser
+                focusedMenuId={focusedBrowserMenuId}
+                items={filteredMenuItems}
+                maxDepth={treeQuery.data?.maxDepth ?? 3}
+                onSelect={(menuId) => {
+                  setSelectedMenuId(menuId);
+                  setEditorMode('edit');
+                }}
+                selectedMenuId={activeMenuId}
+              />
+            </div>
           ) : (
             <div className={styles['emptyState']}>
               <p className={styles['emptyTitle']}>
@@ -932,19 +953,21 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
 
                 <label className={styles['field']}>
                   <span className={styles['fieldLabel']}>공개 상태</span>
-                  <select
-                    className={styles['select']}
-                    onChange={(event) => {
-                      setFormState((current) => ({
-                        ...current,
-                        status: event.target.value as AdminProgramMenuStatus,
-                      }));
-                    }}
-                    value={formState.status}
-                  >
-                    <option value='published'>즉시 공개</option>
-                    <option value='hidden'>숨김 저장</option>
-                  </select>
+                  <div className={styles['selectWrap']}>
+                    <select
+                      className={styles['select']}
+                      onChange={(event) => {
+                        setFormState((current) => ({
+                          ...current,
+                          status: event.target.value as AdminProgramMenuStatus,
+                        }));
+                      }}
+                      value={formState.status}
+                    >
+                      <option value='published'>즉시 공개</option>
+                      <option value='hidden'>숨김 저장</option>
+                    </select>
+                  </div>
                 </label>
               </div>
 
@@ -1010,20 +1033,22 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
                     <div className={styles['structureCard']}>
                       <label className={styles['field']}>
                         <span className={styles['fieldLabel']}>상위 메뉴 변경</span>
-                        <select
-                          className={styles['select']}
-                          value={detailQuery.data.menu.parentId ?? ''}
-                          onChange={(event) => {
-                            moveMenuMutation.mutate(event.target.value || null);
-                          }}
-                        >
-                          <option value=''>최상위 메뉴</option>
-                          {detailQuery.data.allowedParentOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.labelPath}
-                            </option>
-                          ))}
-                        </select>
+                        <div className={styles['selectWrap']}>
+                          <select
+                            className={styles['select']}
+                            value={detailQuery.data.menu.parentId ?? ''}
+                            onChange={(event) => {
+                              moveMenuMutation.mutate(event.target.value || null);
+                            }}
+                          >
+                            <option value=''>최상위 메뉴</option>
+                            {detailQuery.data.allowedParentOptions.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.labelPath}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </label>
                       <div className={styles['actionRow']}>
                         <Button
@@ -1106,25 +1131,27 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
                           <div className={styles['programActions']}>
                             <label className={styles['fieldInline']}>
                               <span className={styles['fieldLabel']}>이동 대상</span>
-                              <select
-                                className={styles['select']}
-                                onChange={(event) => {
-                                  const nextValue = event.target.value;
+                              <div className={styles['selectWrap']}>
+                                <select
+                                  className={styles['select']}
+                                  onChange={(event) => {
+                                    const nextValue = event.target.value;
 
-                                  setProgramMoveTargets((current) => ({
-                                    ...current,
-                                    [program.id]: nextValue,
-                                  }));
-                                }}
-                                value={programMoveTargets[program.id] ?? ''}
-                              >
-                                <option value=''>이동할 메뉴 선택</option>
-                                {leafCollectionOptions.map((option) => (
-                                  <option key={option.id} value={option.path}>
-                                    {option.labelPath}
-                                  </option>
-                                ))}
-                              </select>
+                                    setProgramMoveTargets((current) => ({
+                                      ...current,
+                                      [program.id]: nextValue,
+                                    }));
+                                  }}
+                                  value={programMoveTargets[program.id] ?? ''}
+                                >
+                                  <option value=''>이동할 메뉴 선택</option>
+                                  {leafCollectionOptions.map((option) => (
+                                    <option key={option.id} value={option.path}>
+                                      {option.labelPath}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </label>
 
                             <div className={styles['actionRow']}>

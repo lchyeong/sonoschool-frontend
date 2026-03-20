@@ -1,5 +1,9 @@
 .surface {
+  display: grid;
   gap: var(--space-6);
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
 .layout {
@@ -31,16 +35,40 @@
 }
 
 .itemCard {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
   padding: 18px 20px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: #ffffff;
 }
 
+.itemInline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .itemTitle {
+  min-width: 0;
   color: var(--color-text-primary);
   font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.itemTypeChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -52,9 +80,42 @@
   line-height: var(--line-height-relaxed);
 }
 
+.itemPrice {
+  flex: 0 0 auto;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  text-align: right;
+  white-space: nowrap;
+}
+
 .summaryPanel {
   position: sticky;
   top: 112px;
+}
+
+.couponSummaryItem {
+  gap: 10px;
+}
+
+.couponDiscountRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.couponSummaryBox {
+  display: flex;
+  align-items: center;
+  width: min(100%, 240px);
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
 }
 
 .actionRow {
@@ -97,6 +158,32 @@
 }
 
 @media (width < 720px) {
+  .itemCard {
+    align-items: flex-start;
+  }
+
+  .itemInline {
+    gap: var(--space-2);
+  }
+
+  .itemPrice {
+    width: 100%;
+    text-align: left;
+  }
+
+  .couponSummaryItem {
+    gap: var(--space-2);
+  }
+
+  .couponDiscountRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .couponSummaryBox {
+    width: 100%;
+  }
+
   .primaryActionLink,
   .secondaryActionLink {
     width: 100%;

@@ -1,0 +1,452 @@
+.shell {
+  width: min(100%, 1320px);
+}
+
+.surface,
+.hero,
+.heroCopy,
+.heroCard,
+.heroMain,
+.heroMainCopy,
+.heroMeta,
+.heroMetaItem,
+.overviewGrid,
+.overviewCard,
+.contentGrid,
+.focusCard,
+.focusHeader,
+.focusCopy,
+.focusFooter,
+.sideCard,
+.sideStack,
+.sideItem,
+.curriculumCard,
+.curriculumHeader,
+.curriculumCopy,
+.sectionList,
+.sectionCard,
+.sectionHeader,
+.lessonList,
+.lessonRow,
+.lessonRowMain,
+.lessonRowMeta,
+.lessonBadgeRow,
+.blockedCard {
+  display: grid;
+}
+
+.surface {
+  gap: 24px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.heroCopy {
+  gap: 8px;
+}
+
+.eyebrow,
+.focusEyebrow,
+.curriculumEyebrow {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title,
+.programTitle,
+.focusTitle,
+.sideTitle,
+.curriculumTitle,
+.blockedTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.title {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+}
+
+.programTitle {
+  font-size: clamp(1.5rem, 2.8vw, 2.2rem);
+}
+
+.focusTitle,
+.curriculumTitle {
+  font-size: clamp(1.2rem, 2.2vw, 1.55rem);
+}
+
+.description,
+.programSummary,
+.focusDescription,
+.sectionDescription,
+.blockedDescription {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.75;
+}
+
+.backLink,
+.primaryAction,
+.secondaryAction,
+.lessonRow {
+  text-decoration: none;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.heroCard,
+.overviewCard,
+.focusCard,
+.sideCard,
+.curriculumCard,
+.blockedCard {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 20px 52px rgb(15 23 42 / 6%);
+}
+
+.heroCard {
+  gap: 18px;
+  padding: clamp(24px, 4vw, 38px);
+  background:
+    radial-gradient(circle at top right, rgb(157 226 216 / 24%), transparent 28%),
+    linear-gradient(180deg, rgb(247 252 250) 0%, rgb(255 255 255) 44%);
+}
+
+.heroMain {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.heroMainCopy,
+.focusCopy,
+.sideStack,
+.sectionCard,
+.blockedCard {
+  gap: 12px;
+}
+
+.statusChip,
+.summaryChip,
+.focusChip,
+.lessonBadgeCurrent,
+.lessonBadgeCompleted,
+.lessonBadgeUpcoming {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.statusChip,
+.lessonBadgeCurrent {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.primaryAction {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.secondaryAction {
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--color-text-primary);
+}
+
+.heroMeta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.heroMetaItem,
+.overviewCard {
+  gap: 8px;
+}
+
+.heroMetaLabel,
+.overviewLabel,
+.sideItemLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.heroMetaValue,
+.overviewValue,
+.overviewValueText,
+.sideItemValue {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.heroMetaValue,
+.overviewValueText,
+.sideItemValue {
+  font-size: var(--font-size-md);
+}
+
+.overviewGrid,
+.contentGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.overviewCard {
+  padding: 22px;
+}
+
+.overviewValue {
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+}
+
+.focusCard {
+  grid-column: span 3;
+  gap: 18px;
+  padding: 24px;
+}
+
+.focusHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.focusMeta,
+.focusBadgeRow,
+.lessonBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.focusChip,
+.summaryChip {
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--color-text-secondary);
+}
+
+.focusFooter {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.sideCard,
+.curriculumCard {
+  gap: 20px;
+  padding: 24px;
+}
+
+.sideItem {
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.curriculumHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.curriculumSummary {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.sectionList,
+.lessonList {
+  gap: 14px;
+}
+
+.sectionCard {
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.025);
+}
+
+.sectionHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+}
+
+.sectionMeta,
+.lessonDuration {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.lessonRow {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  background: #ffffff;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.lessonRow:hover,
+.lessonRow:focus-visible {
+  border-color: rgba(15, 23, 42, 0.16);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgb(15 23 42 / 8%);
+  outline: none;
+}
+
+.lessonRowCurrent {
+  border-color: rgb(157 226 216 / 92%);
+  background: rgb(157 226 216 / 9%);
+}
+
+.lessonRowMain {
+  gap: 10px;
+}
+
+.lessonRowMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.lessonTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.6;
+}
+
+.lessonAction {
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.lessonBadgeCompleted {
+  background: rgba(15, 23, 42, 0.07);
+  color: var(--color-text-primary);
+}
+
+.lessonBadgeUpcoming {
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+}
+
+.blockedCard {
+  gap: 8px;
+  padding: 24px;
+}
+
+.errorText {
+  margin: 0;
+  color: #dc2626;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+@media (width < 1100px) {
+  .contentGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .focusCard {
+    grid-column: auto;
+  }
+}
+
+@media (width < 900px) {
+  .overviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .heroMain,
+  .focusHeader,
+  .focusFooter,
+  .curriculumHeader,
+  .lessonRow,
+  .sectionHeader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lessonRowMeta {
+    align-items: flex-start;
+  }
+}
+
+@media (width < 768px) {
+  .hero,
+  .heroMeta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .overviewGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .heroCard,
+  .overviewCard,
+  .focusCard,
+  .sideCard,
+  .curriculumCard,
+  .blockedCard {
+    padding: 20px;
+  }
+}

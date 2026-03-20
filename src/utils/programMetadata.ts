@@ -124,7 +124,7 @@ const getFormatLabel = (
   }
 
   if (format === 'hybrid') {
-    return '하이브리드 운영';
+    return '온라인 과정 · 실습 포함';
   }
 
   return '오프라인 정규';

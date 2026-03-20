@@ -178,13 +178,15 @@ export const CurriculumSectionEditor = ({
               {selectedFormat === 'hybrid' ? (
                 <label className={styles['field']}>
                   <span className={styles['fieldLabel']}>강의 유형</span>
-                  <select
-                    className={styles['select']}
-                    {...form.register(`${lessonBase}.deliveryType`)}
-                  >
-                    <option value='online'>온라인</option>
-                    <option value='offline'>오프라인</option>
-                  </select>
+                  <div className={styles['selectWrap']}>
+                    <select
+                      className={styles['select']}
+                      {...form.register(`${lessonBase}.deliveryType`)}
+                    >
+                      <option value='online'>온라인</option>
+                      <option value='offline'>오프라인</option>
+                    </select>
+                  </div>
                 </label>
               ) : null}
 

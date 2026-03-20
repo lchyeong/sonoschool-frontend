@@ -1,10 +1,12 @@
-import { getMockMyCart, getMockMyProfile } from '@/mocks/data/mypage';
+import { getMockMyCart, getMockMyCoupons, getMockMyProfile } from '@/mocks/data/mypage';
+import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import type {
   MockCheckoutRedirectPayload,
   PaymentMethod,
   PaymentResult,
   PaymentStatus,
 } from '@/types/payment';
+import { calculateSelectedCartPricing } from '@/utils/cartPricing';
 
 interface PaymentScenarioSeed {
   code: string | null;
@@ -24,26 +26,50 @@ const cloneData = <T>(value: T): T => {
 
 const createOrderName = (): string => {
   const cart = getMockMyCart();
+  const coupons = getMockMyCoupons();
+  const selection = useCartSelectionStore.getState();
+  const selectedItemIds = selection.selectedItemIds.length
+    ? selection.selectedItemIds
+    : cart.items.map((item) => item.id);
+  const pricing = calculateSelectedCartPricing(
+    cart,
+    selectedItemIds,
+    coupons,
+    selection.selectedCouponId ?? cart.appliedCoupon?.id ?? null,
+  );
 
-  if (!cart.items.length) {
+  if (!pricing.selectedItems.length) {
     return '손오스쿨 결제';
   }
 
-  if (cart.items.length === 1) {
-    return cart.items[0]?.title ?? '손오스쿨 결제';
+  if (pricing.selectedItems.length === 1) {
+    return pricing.selectedItems[0]?.title ?? '손오스쿨 결제';
   }
 
-  return `${cart.items[0]?.title ?? '손오스쿨 결제'} 외 ${String(cart.items.length - 1)}건`;
+  return `${pricing.selectedItems[0]?.title ?? '손오스쿨 결제'} 외 ${String(
+    pricing.selectedItems.length - 1,
+  )}건`;
 };
 
 const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
   const cart = getMockMyCart();
+  const coupons = getMockMyCoupons();
   const profile = getMockMyProfile();
+  const selection = useCartSelectionStore.getState();
+  const selectedItemIds = selection.selectedItemIds.length
+    ? selection.selectedItemIds
+    : cart.items.map((item) => item.id);
+  const pricing = calculateSelectedCartPricing(
+    cart,
+    selectedItemIds,
+    coupons,
+    selection.selectedCouponId ?? cart.appliedCoupon?.id ?? null,
+  );
 
   return {
-    amount: cart.totalPayablePrice,
+    amount: pricing.totalPayablePrice,
     approvedAmount:
-      seed.status === 'COMPLETED' ? cart.totalPayablePrice : seed.status === 'FAILED' ? 0 : null,
+      seed.status === 'COMPLETED' ? pricing.totalPayablePrice : seed.status === 'FAILED' ? 0 : null,
     buyerKey: profile.loginId,
     cancelReason: seed.status === 'CANCELLED' ? '사용자 요청 취소' : null,
     cancelledAt: seed.status === 'CANCELLED' ? '2026-03-18T10:20:00Z' : null,

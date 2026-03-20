@@ -3,8 +3,9 @@ import type { ProgramCurriculumTrack } from '@/types/programCatalog';
 export type EnrollmentStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
 export type ReservationStatus = 'REQUESTED' | 'CONFIRMED' | 'CANCELLED';
 export type RefundStatus = 'REFUND_REQUESTED' | 'REFUNDED' | 'CANCELLED';
-export type ProgramType = 'ONLINE' | 'OFFLINE';
+export type ProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID';
 export type CouponDiscountType = 'FIXED_AMOUNT' | 'PERCENTAGE';
+export type CouponAppliesTo = 'ALL' | 'ONLINE' | 'OFFLINE';
 
 export interface AddToCartPayload {
   instructorName: string | null;
@@ -81,8 +82,22 @@ export interface LearningPlayerSnapshot {
   currentLessonId: string | null;
   nextLessonId: string | null;
   completedLessonIds: string[];
+  lessonPlaybackById: Record<string, LearningPlayerSource>;
   lastPlaybackAt: string | null;
   resumeAtSeconds: number;
+}
+
+export interface LearningPlayerSource {
+  lectureId: number;
+  mimeType: 'application/x-mpegURL';
+  posterUrl: string | null;
+}
+
+export interface ProtectedLectureStream {
+  expiresAt: number;
+  hlsKeyUrl: string;
+  hlsUrl: string;
+  playbackSessionToken: string;
 }
 
 export interface AppliedCoupon {
@@ -92,6 +107,21 @@ export interface AppliedCoupon {
   discountType: CouponDiscountType;
   discountValue: number;
   discountAmount: number;
+}
+
+export interface UserCoupon {
+  id: number;
+  code: string;
+  name: string;
+  description: string;
+  discountType: CouponDiscountType;
+  discountValue: number;
+  minimumOrderAmount: number;
+  appliesTo: CouponAppliesTo;
+  validFromAt: string | null;
+  expiresAt: string;
+  issuedAt: string;
+  usable: boolean;
 }
 
 export interface CartItem {

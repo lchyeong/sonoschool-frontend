@@ -73,6 +73,10 @@ export interface ProgramCurriculumLesson {
   durationMinutes: number | null;
   endDate: string | null;
   id: string;
+  practiceDescription?: string | null | undefined;
+  practiceDurationMinutes?: number | null | undefined;
+  practiceEnabled?: boolean | undefined;
+  practiceTitle?: string | null | undefined;
   startDate: string | null;
   title: string;
 }

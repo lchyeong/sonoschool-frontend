@@ -1,7 +1,7 @@
 /* eslint-disable import/order */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMockAdminConsole, resetMockAdminConsoleData } from '@/mocks/data/adminConsole';
-import { getMockMyCart, resetMockMyPageData } from '@/mocks/data/mypage';
+import { getMockMyCart, getMockMyCoupons, resetMockMyPageData } from '@/mocks/data/mypage';
 import { getMockPaymentResult, getMockPaymentResultByToken } from '@/mocks/data/payments';
 import { getMockRegistrationTerms, resetMockStudentAuthState } from '@/mocks/data/studentAuth';
 const { httpGetMock, axiosGetMock, axiosPostMock, axiosPatchMock, axiosDeleteMock } = vi.hoisted(
@@ -37,7 +37,13 @@ vi.mock('@/api/axiosInstance', () => {
 
 import { fetchRegistrationTerms, loginStudent } from '@/api/auth';
 import { createAdminNotice, fetchAdminConsole } from '@/api/adminConsole';
-import { addMyCartItem, fetchMyProfile, removeMyCartItem, updateMyProfile } from '@/api/mypage';
+import {
+  addMyCartItem,
+  fetchMyCoupons,
+  fetchMyProfile,
+  removeMyCartItem,
+  updateMyProfile,
+} from '@/api/mypage';
 import { fetchPaymentResult, fetchPaymentResultByToken } from '@/api/payments';
 
 const siteKey = 'sono-school-main';
@@ -138,6 +144,8 @@ describe('app API fallback', () => {
     await expect(removeMyCartItem(55)).resolves.toMatchObject({
       itemCount: previousCount,
     });
+
+    await expect(fetchMyCoupons()).resolves.toEqual(getMockMyCoupons());
   });
 
   it('falls back to mock admin data when admin APIs are unavailable', async () => {

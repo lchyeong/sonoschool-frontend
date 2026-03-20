@@ -3,8 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import {
   fetchMyApplicationSummary,
   fetchMyCart,
+  fetchMyCoupons,
   fetchMyEnrollmentDetail,
   fetchMyEnrollments,
+  fetchMyLearningPlayerSnapshot,
   fetchMyProfile,
   fetchMyRefunds,
   fetchMyReservations,
@@ -14,7 +16,10 @@ export const myProfileQueryKey = ['mypage', 'profile'] as const;
 export const myEnrollmentsQueryKey = ['mypage', 'enrollments'] as const;
 export const myEnrollmentDetailQueryKey = (enrollmentId: number | null) =>
   ['mypage', 'enrollmentDetail', enrollmentId] as const;
+export const myLearningPlayerQueryKey = (enrollmentId: number | null) =>
+  ['mypage', 'learningPlayer', enrollmentId] as const;
 export const myCartQueryKey = ['mypage', 'cart'] as const;
+export const myCouponsQueryKey = ['mypage', 'coupons'] as const;
 export const myApplicationSummaryQueryKey = ['mypage', 'applicationSummary'] as const;
 export const myReservationsQueryKey = ['mypage', 'reservations'] as const;
 export const myRefundsQueryKey = ['mypage', 'refunds'] as const;
@@ -47,12 +52,32 @@ export const useMyEnrollmentDetailQuery = (enrollmentId: number | null, enabled 
   });
 };
 
+export const useMyLearningPlayerSnapshotQuery = (enrollmentId: number | null, enabled = true) => {
+  return useQuery({
+    enabled: enabled && enrollmentId !== null,
+    gcTime: 10 * 60 * 1000,
+    queryFn: () => fetchMyLearningPlayerSnapshot(enrollmentId as number),
+    queryKey: myLearningPlayerQueryKey(enrollmentId),
+    staleTime: 60 * 1000,
+  });
+};
+
 export const useMyCartQuery = (enabled = true) => {
   return useQuery({
     enabled,
     gcTime: 10 * 60 * 1000,
     queryFn: fetchMyCart,
     queryKey: myCartQueryKey,
+    staleTime: 60 * 1000,
+  });
+};
+
+export const useMyCouponsQuery = (enabled = true) => {
+  return useQuery({
+    enabled,
+    gcTime: 10 * 60 * 1000,
+    queryFn: fetchMyCoupons,
+    queryKey: myCouponsQueryKey,
     staleTime: 60 * 1000,
   });
 };

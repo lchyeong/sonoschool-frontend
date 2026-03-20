@@ -89,6 +89,10 @@ const curriculumLessonSchema = z.object({
   durationMinutes: z.number().int().nonnegative().nullable(),
   endDate: z.string().min(1).nullable(),
   id: z.string().min(1),
+  practiceDescription: z.string().trim().nullable().optional(),
+  practiceDurationMinutes: z.number().int().nonnegative().nullable().optional(),
+  practiceEnabled: z.boolean().optional(),
+  practiceTitle: z.string().trim().nullable().optional(),
   startDate: z.string().min(1).nullable(),
   title: z.string().min(1),
 });

@@ -40,6 +40,10 @@ describe('appRouteRegistry', () => {
     expect(routePaths.adminSales).toBe(appRouteRegistry.routes.adminSales.absolutePath);
     expect(routePaths.signup).toBe(appRouteRegistry.routes.signup.absolutePath);
     expect(routePaths.accountRecovery).toBe(appRouteRegistry.routes.accountRecovery.absolutePath);
+    expect(routePaths.learningPlayer('101')).toBe('/mypage/learning/101');
+    expect(routePaths.learningLesson('101', 'lesson-2')).toBe(
+      '/mypage/learning/101/lesson/lesson-2',
+    );
     expect(routePaths.checkout).toBe(appRouteRegistry.routes.checkout.absolutePath);
     expect(routePaths.paymentResult).toBe(appRouteRegistry.routes.paymentResult.absolutePath);
     expect(routePaths.reviews).toBe(appRouteRegistry.routes.reviews.absolutePath);
@@ -69,10 +73,20 @@ describe('appRouteRegistry', () => {
     expect(appRouteAccessByKey.adminSales).toBe('public');
     expect(appRouteAccessByKey.accountRecovery).toBe('guest-only');
     expect(appRouteAccessByKey.mypage).toBe('authenticated');
+    expect(appRouteAccessByKey.learningPlayer).toBe('authenticated');
+    expect(appRouteAccessByKey.learningLesson).toBe('authenticated');
     expect(appRouteAccessByKey.checkout).toBe('authenticated');
     expect(appRouteAccessByKey.paymentResult).toBe('public');
     expect(getRouteHandle('mypage')).toEqual({
       routeKey: 'mypage',
+      access: 'authenticated',
+    });
+    expect(getRouteHandle('mypage/learning/:enrollmentId')).toEqual({
+      routeKey: 'learningPlayer',
+      access: 'authenticated',
+    });
+    expect(getRouteHandle('mypage/learning/:enrollmentId/lesson/:lessonId')).toEqual({
+      routeKey: 'learningLesson',
       access: 'authenticated',
     });
     expect(getRouteHandle('login')).toEqual({

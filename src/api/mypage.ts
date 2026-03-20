@@ -1,12 +1,16 @@
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
 import { shouldUseMockFallback } from '@/api/fallback';
+import { env } from '@/config/env';
 import {
   addMockMyCartItem,
   getMockMyApplicationSummary,
   getMockMyCart,
+  getMockMyCoupons,
   getMockMyEnrollmentDetail,
   getMockMyEnrollments,
+  getMockLectureStream,
+  getMockLearningPlayerSnapshot,
   getMockMyProfile,
   getMockMyRefunds,
   getMockMyReservations,
@@ -22,8 +26,11 @@ import type {
   CartSummary,
   EnrollmentDetail,
   EnrollmentSummary,
+  LearningPlayerSnapshot,
   OfflineReservation,
+  ProtectedLectureStream,
   RefundHistory,
+  UserCoupon,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
@@ -32,7 +39,13 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const shouldPreferMockMyPage = env.VITE_ENABLE_MOCK;
+
 export const fetchMyProfile = async (): Promise<UserProfile> => {
+  if (shouldPreferMockMyPage) {
+    return getMockMyProfile();
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<UserProfile>>('/api/users/me');
     return unwrapApiEnvelope(response.data);
@@ -46,6 +59,10 @@ export const fetchMyProfile = async (): Promise<UserProfile> => {
 };
 
 export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promise<UserProfile> => {
+  if (shouldPreferMockMyPage) {
+    return updateMockMyProfile(payload);
+  }
+
   try {
     const response = await axiosInstance.patch<ApiEnvelope<UserProfile>>('/api/users/me', payload);
     return unwrapApiEnvelope(response.data);
@@ -61,6 +78,14 @@ export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promis
 export const sendMyPhoneVerification = async (
   payload: SmsSendPayload,
 ): Promise<SmsSendResponse> => {
+  if (shouldPreferMockMyPage) {
+    const mockResponse = sendMockMyPhoneVerification(payload);
+
+    if (mockResponse) {
+      return mockResponse;
+    }
+  }
+
   try {
     const response = await axiosInstance.post<ApiEnvelope<SmsSendResponse>>(
       '/api/users/me/phone/send',
@@ -81,6 +106,14 @@ export const sendMyPhoneVerification = async (
 };
 
 export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<UserProfile> => {
+  if (shouldPreferMockMyPage) {
+    const mockResponse = verifyMockMyPhoneChange(payload);
+
+    if (mockResponse) {
+      return mockResponse;
+    }
+  }
+
   try {
     const response = await axiosInstance.post<ApiEnvelope<UserProfile>>(
       '/api/users/me/phone/verify',
@@ -101,6 +134,10 @@ export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<Us
 };
 
 export const fetchMyEnrollments = async (): Promise<EnrollmentSummary[]> => {
+  if (shouldPreferMockMyPage) {
+    return getMockMyEnrollments();
+  }
+
   try {
     const response =
       await axiosInstance.get<ApiEnvelope<EnrollmentSummary[]>>('/api/v1/my/enrollments');
@@ -115,6 +152,14 @@ export const fetchMyEnrollments = async (): Promise<EnrollmentSummary[]> => {
 };
 
 export const fetchMyEnrollmentDetail = async (enrollmentId: number): Promise<EnrollmentDetail> => {
+  if (shouldPreferMockMyPage) {
+    const mockDetail = getMockMyEnrollmentDetail(enrollmentId);
+
+    if (mockDetail) {
+      return mockDetail;
+    }
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<EnrollmentDetail>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}`,
@@ -133,7 +178,73 @@ export const fetchMyEnrollmentDetail = async (enrollmentId: number): Promise<Enr
   }
 };
 
+export const fetchMyLearningPlayerSnapshot = async (
+  enrollmentId: number,
+): Promise<LearningPlayerSnapshot> => {
+  if (shouldPreferMockMyPage) {
+    const mockSnapshot = getMockLearningPlayerSnapshot(enrollmentId);
+
+    if (mockSnapshot) {
+      return mockSnapshot;
+    }
+  }
+
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<LearningPlayerSnapshot>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/player`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    if (shouldUseMockFallback(error)) {
+      const mockSnapshot = getMockLearningPlayerSnapshot(enrollmentId);
+
+      if (mockSnapshot) {
+        return mockSnapshot;
+      }
+    }
+
+    throw toApiError(error, '온라인 수강 정보를 불러오지 못했습니다.');
+  }
+};
+
+export const fetchLectureStream = async (
+  lectureId: number,
+  deviceId: string,
+): Promise<ProtectedLectureStream> => {
+  if (shouldPreferMockMyPage) {
+    const mockStream = getMockLectureStream(lectureId, deviceId);
+    if (mockStream) {
+      return mockStream;
+    }
+  }
+
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<ProtectedLectureStream>>(
+      `/api/v1/lectures/${String(lectureId)}/stream`,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+        },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    if (shouldUseMockFallback(error)) {
+      const mockStream = getMockLectureStream(lectureId, deviceId);
+      if (mockStream) {
+        return mockStream;
+      }
+    }
+
+    throw toApiError(error, '보호된 스트리밍 주소를 불러오지 못했습니다.');
+  }
+};
+
 export const fetchMyCart = async (): Promise<CartSummary> => {
+  if (shouldPreferMockMyPage) {
+    return getMockMyCart();
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<CartSummary>>('/api/v1/cart');
     return unwrapApiEnvelope(response.data);
@@ -146,7 +257,28 @@ export const fetchMyCart = async (): Promise<CartSummary> => {
   }
 };
 
+export const fetchMyCoupons = async (): Promise<UserCoupon[]> => {
+  if (shouldPreferMockMyPage) {
+    return getMockMyCoupons();
+  }
+
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<UserCoupon[]>>('/api/v1/my/coupons');
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    if (shouldUseMockFallback(error)) {
+      return getMockMyCoupons();
+    }
+
+    throw toApiError(error, '쿠폰 목록을 불러오지 못했습니다.');
+  }
+};
+
 export const fetchMyApplicationSummary = async (): Promise<ApplicationSummary> => {
+  if (shouldPreferMockMyPage) {
+    return getMockMyApplicationSummary();
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<ApplicationSummary>>(
       '/api/v1/cart/application-summary',
@@ -162,6 +294,10 @@ export const fetchMyApplicationSummary = async (): Promise<ApplicationSummary> =
 };
 
 export const addMyCartItem = async (payload: AddToCartPayload): Promise<CartSummary> => {
+  if (shouldPreferMockMyPage) {
+    return addMockMyCartItem(payload);
+  }
+
   try {
     const response = await axiosInstance.post<ApiEnvelope<CartSummary>>('/api/v1/cart', payload);
     return unwrapApiEnvelope(response.data);
@@ -175,6 +311,10 @@ export const addMyCartItem = async (payload: AddToCartPayload): Promise<CartSumm
 };
 
 export const removeMyCartItem = async (cartItemId: number): Promise<CartSummary> => {
+  if (shouldPreferMockMyPage) {
+    return removeMockMyCartItem(cartItemId);
+  }
+
   try {
     const response = await axiosInstance.delete<ApiEnvelope<CartSummary>>(
       `/api/v1/cart/${String(cartItemId)}`,
@@ -190,6 +330,10 @@ export const removeMyCartItem = async (cartItemId: number): Promise<CartSummary>
 };
 
 export const fetchMyReservations = async (): Promise<OfflineReservation[]> => {
+  if (shouldPreferMockMyPage) {
+    return getMockMyReservations();
+  }
+
   try {
     const response =
       await axiosInstance.get<ApiEnvelope<OfflineReservation[]>>('/api/v1/reservations');
@@ -204,6 +348,10 @@ export const fetchMyReservations = async (): Promise<OfflineReservation[]> => {
 };
 
 export const fetchMyRefunds = async (): Promise<RefundHistory[]> => {
+  if (shouldPreferMockMyPage) {
+    return getMockMyRefunds();
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<RefundHistory[]>>('/api/v1/refunds');
     return unwrapApiEnvelope(response.data);

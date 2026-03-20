@@ -31,6 +31,8 @@ import {
   addMockMyCartItem,
   getMockMyApplicationSummary,
   getMockMyCart,
+  getMockMyCoupons,
+  getMockLectureStream,
   getMockMyProfile,
   getMockMyRefunds,
   getMockMyReservations,
@@ -587,8 +589,22 @@ export const handlers = [
       }),
     );
   }),
+  http.get('*/api/v1/lectures/:lectureId/stream', ({ params, request }) => {
+    const lectureId = Number(params['lectureId']);
+    const deviceId = request.headers.get('X-Playback-Device-Id');
+    const response = getMockLectureStream(lectureId, deviceId);
+
+    if (!response) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(response));
+  }),
   http.get('*/api/v1/cart', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyCart()));
+  }),
+  http.get('*/api/v1/my/coupons', () => {
+    return HttpResponse.json(createApiEnvelope(getMockMyCoupons()));
   }),
   http.get('*/api/v1/cart/application-summary', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyApplicationSummary()));
@@ -617,7 +633,7 @@ export const handlers = [
       typeof originalPrice !== 'number' ||
       typeof payablePrice !== 'number' ||
       typeof programId !== 'number' ||
-      (programType !== 'ONLINE' && programType !== 'OFFLINE') ||
+      (programType !== 'ONLINE' && programType !== 'OFFLINE' && programType !== 'HYBRID') ||
       (salePrice !== null && typeof salePrice !== 'number') ||
       typeof sourcePath !== 'string' ||
       (thumbnailUrl !== null && typeof thumbnailUrl !== 'string') ||

@@ -17,7 +17,6 @@ interface FooterInfoItem {
   label: string;
   value: string;
   href?: string;
-  isAdminTrigger?: boolean;
 }
 
 const ADMIN_LOGIN_TRIGGER_CLICK_COUNT = 5;
@@ -37,7 +36,7 @@ const footerInformationLines: readonly (readonly FooterInfoItem[])[] = [
   [
     { label: '상호명', value: '소노스쿨 국제초음파연수원' },
     { label: '대표자', value: '장은희' },
-    { label: '사업자 등록번호', value: '139-17-02906', isAdminTrigger: true },
+    { label: '사업자 등록번호', value: '139-17-02906' },
   ],
   [
     { label: '통신판매업', value: '2018-성남분당B-0062' },
@@ -124,17 +123,7 @@ const CommonFooter = () => {
                           className={styles['informationItem']}
                           key={`${item.label}-${String(itemIndex)}`}
                         >
-                          {item.isAdminTrigger ? (
-                            <button
-                              className={styles['informationLabelButton']}
-                              onClick={handleAdminTriggerClick}
-                              type='button'
-                            >
-                              {item.label}:
-                            </button>
-                          ) : (
-                            <span className={styles['informationLabel']}>{item.label}: </span>
-                          )}{' '}
+                          <span className={styles['informationLabel']}>{item.label}: </span>{' '}
                           {item.href ? (
                             <a className={styles['informationLink']} href={item.href}>
                               {item.value}
@@ -159,9 +148,15 @@ const CommonFooter = () => {
                 </span>
               );
             })}
-            <p className={styles['copyright']}>
-              Copyright © {currentYearText} {env.appName} All rights reserved.
-            </p>
+            <button
+              className={styles['copyrightButton']}
+              onClick={handleAdminTriggerClick}
+              type='button'
+            >
+              <span className={styles['copyright']}>
+                Copyright © {currentYearText} {env.appName} All rights reserved.
+              </span>
+            </button>
           </div>
         </div>
 

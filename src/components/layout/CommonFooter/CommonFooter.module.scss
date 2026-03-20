@@ -84,21 +84,6 @@
   color: rgba(90, 95, 98, 0.94);
 }
 
-.informationLabelButton {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: rgba(90, 95, 98, 0.94);
-  font: inherit;
-  line-height: inherit;
-}
-
-.informationLabelButton:focus-visible {
-  outline: 2px solid rgba(52, 178, 159, 0.5);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
-
 .informationValue {
   color: rgba(87, 92, 95, 0.94);
 }
@@ -128,6 +113,22 @@
 .legalText,
 .copyright {
   margin: 0;
+}
+
+.copyrightButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.copyrightButton:focus-visible {
+  outline: 2px solid rgba(52, 178, 159, 0.5);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .brandColumn {

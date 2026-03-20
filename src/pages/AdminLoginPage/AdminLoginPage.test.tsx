@@ -49,14 +49,25 @@ describe('AdminLoginPage', () => {
     renderAdminLoginPage();
 
     expect(screen.getByRole('heading', { level: 1, name: '관리자 로그인' })).toBeInTheDocument();
-    expect(screen.getByLabelText('관리자 아이디')).toBeInTheDocument();
-    expect(screen.getByLabelText('비밀번호')).toBeInTheDocument();
+
+    const identifierInput = screen.getByLabelText('관리자 아이디');
+    const passwordInput = screen.getByLabelText('비밀번호');
+
+    expect(identifierInput).toHaveValue('admin');
+    expect(passwordInput).toHaveValue('1234');
+
+    fireEvent.change(identifierInput, {
+      target: { value: '' },
+    });
+    fireEvent.change(passwordInput, {
+      target: { value: '' },
+    });
 
     fireEvent.click(screen.getByRole('button', { name: '관리자 로그인' }));
 
     expect(screen.getByText('관리자 아이디를 입력해 주세요.')).toBeInTheDocument();
     expect(screen.getByText('비밀번호를 입력해 주세요.')).toBeInTheDocument();
-    expect(screen.getByLabelText('관리자 아이디')).toHaveFocus();
+    expect(identifierInput).toHaveFocus();
   });
 
   it('navigates to the admin page when the correct credentials are submitted', async () => {

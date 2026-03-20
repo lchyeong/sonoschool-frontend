@@ -179,6 +179,27 @@ const appLeafRouteDefinitions = {
     routePath: 'mypage',
     absolutePath: '/mypage',
   }),
+  learningPlayer: defineDynamicRoute({
+    key: 'learningPlayer',
+    access: 'authenticated',
+    routePath: 'mypage/learning/:enrollmentId',
+    absolutePathPattern: '/mypage/learning/:enrollmentId',
+    buildPath: ({ enrollmentId }: { enrollmentId: string }) => {
+      return generatePath('/mypage/learning/:enrollmentId', { enrollmentId });
+    },
+  }),
+  learningLesson: defineDynamicRoute({
+    key: 'learningLesson',
+    access: 'authenticated',
+    routePath: 'mypage/learning/:enrollmentId/lesson/:lessonId',
+    absolutePathPattern: '/mypage/learning/:enrollmentId/lesson/:lessonId',
+    buildPath: ({ enrollmentId, lessonId }: { enrollmentId: string; lessonId: string }) => {
+      return generatePath('/mypage/learning/:enrollmentId/lesson/:lessonId', {
+        enrollmentId,
+        lessonId,
+      });
+    },
+  }),
   cart: defineStaticRoute({
     key: 'cart',
     access: 'public',
@@ -290,6 +311,8 @@ const appChildRouteKeys = [
   'signup',
   'accountRecovery',
   'mypage',
+  'learningPlayer',
+  'learningLesson',
   'cart',
   'checkout',
   'paymentResult',
@@ -344,6 +367,9 @@ export const routePaths = {
   signup: routes.signup.absolutePath,
   accountRecovery: routes.accountRecovery.absolutePath,
   mypage: routes.mypage.absolutePath,
+  learningPlayer: (enrollmentId: string) => routes.learningPlayer.buildPath({ enrollmentId }),
+  learningLesson: (enrollmentId: string, lessonId: string) =>
+    routes.learningLesson.buildPath({ enrollmentId, lessonId }),
   cart: routes.cart.absolutePath,
   checkout: routes.checkout.absolutePath,
   paymentResult: routes.paymentResult.absolutePath,

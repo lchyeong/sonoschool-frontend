@@ -45,7 +45,7 @@ describe('CommonFooter', () => {
     expect(screen.getByAltText('SONO SCHOOL 로고')).toBeInTheDocument();
   });
 
-  it('navigates to the admin login page after five rapid clicks on the business registration label', () => {
+  it('navigates to the admin login page after five rapid clicks on the copyright text', () => {
     render(
       <MemoryRouter initialEntries={[routePaths.home]}>
         <CommonFooter />
@@ -53,7 +53,9 @@ describe('CommonFooter', () => {
       </MemoryRouter>,
     );
 
-    const adminTriggerButton = screen.getByRole('button', { name: /사업자 등록번호/ });
+    const adminTriggerButton = screen.getByRole('button', {
+      name: /Copyright © .* All rights reserved\./,
+    });
 
     fireEvent.click(adminTriggerButton);
     fireEvent.click(adminTriggerButton);

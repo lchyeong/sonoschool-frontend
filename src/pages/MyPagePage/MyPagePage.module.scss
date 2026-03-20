@@ -127,6 +127,11 @@
   align-items: start;
 }
 
+.recordColumn {
+  display: grid;
+  gap: var(--space-5);
+}
+
 .recordList {
   display: grid;
 }
@@ -168,6 +173,37 @@
   min-width: 0;
 }
 
+.detailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.learningActionLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  color: #ffffff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  background: var(--color-primary);
+}
+
+.learningActionLink:hover {
+  background: var(--color-primary-hover);
+}
+
+.learningBlockedHint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
 .summaryGrid {
   display: grid;
   gap: var(--space-3);
@@ -196,6 +232,63 @@
 .stackList {
   display: grid;
   gap: 12px;
+}
+
+.couponList {
+  display: grid;
+  gap: 14px;
+}
+
+.couponCard {
+  display: grid;
+  gap: var(--space-4);
+  padding: 18px 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+}
+
+.couponCardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.couponCardTitleGroup {
+  display: grid;
+  gap: 4px;
+}
+
+.couponCardTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.couponCardDescription {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.couponCardMetaGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.couponCardMetaItem {
+  display: grid;
+  gap: 8px;
+}
+
+.couponCardMetaValue {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-relaxed);
 }
 
 .orderCard {
@@ -467,6 +560,10 @@
 
 @media (width < 768px) {
   .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .couponCardMetaGrid {
     grid-template-columns: 1fr;
   }
 

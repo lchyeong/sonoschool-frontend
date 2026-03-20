@@ -12,11 +12,14 @@ import type {
   EnrollmentSummary,
   LearningPlayerSnapshot,
   OfflineReservation,
+  ProtectedLectureStream,
   RefundHistory,
+  UserCoupon,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
 import type { ProgramCurriculumTrack } from '@/types/programCatalog';
+import { isOnlineProgramType } from '@/utils/programType';
 
 interface PendingPhoneVerification {
   code: string;
@@ -27,6 +30,8 @@ interface PendingPhoneVerification {
 const cloneData = <T>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T;
 };
+
+const demoStreamUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
 
 const createInitialProfile = (): UserProfile => {
   return {
@@ -439,6 +444,79 @@ const mockCart: CartSummary = {
   totalPayablePrice: 562000,
 };
 
+const mockCoupons: UserCoupon[] = [
+  {
+    appliesTo: 'ALL',
+    code: 'SPRING',
+    description: '장바구니 전체 결제에 바로 적용할 수 있는 시즌 쿠폰입니다.',
+    discountType: 'FIXED_AMOUNT',
+    discountValue: 25000,
+    expiresAt: '2026-04-05T14:59:59Z',
+    id: 10,
+    issuedAt: '2026-03-12T09:00:00Z',
+    minimumOrderAmount: 150000,
+    name: '봄맞이 할인',
+    usable: true,
+    validFromAt: '2026-03-12T09:00:00Z',
+  },
+  {
+    appliesTo: 'ONLINE',
+    code: 'ONLINE10',
+    description: '온라인 강의 20만원 이상 선택 시 10% 할인을 제공합니다.',
+    discountType: 'PERCENTAGE',
+    discountValue: 10,
+    expiresAt: '2026-03-31T14:59:59Z',
+    id: 11,
+    issuedAt: '2026-03-10T09:00:00Z',
+    minimumOrderAmount: 200000,
+    name: '온라인 집중 10%',
+    usable: true,
+    validFromAt: '2026-03-10T09:00:00Z',
+  },
+  {
+    appliesTo: 'OFFLINE',
+    code: 'HANDSON30',
+    description: '오프라인 실습 과정 전용 정액 할인 쿠폰입니다.',
+    discountType: 'FIXED_AMOUNT',
+    discountValue: 30000,
+    expiresAt: '2026-04-12T14:59:59Z',
+    id: 12,
+    issuedAt: '2026-03-14T09:00:00Z',
+    minimumOrderAmount: 180000,
+    name: '핸즈온 3만원 할인',
+    usable: true,
+    validFromAt: '2026-03-14T09:00:00Z',
+  },
+  {
+    appliesTo: 'ALL',
+    code: 'WELCOME7',
+    description: '첫 결제 고객 대상 7% 할인 쿠폰입니다.',
+    discountType: 'PERCENTAGE',
+    discountValue: 7,
+    expiresAt: '2026-04-30T14:59:59Z',
+    id: 13,
+    issuedAt: '2026-03-01T09:00:00Z',
+    minimumOrderAmount: 100000,
+    name: '웰컴 7%',
+    usable: true,
+    validFromAt: '2026-03-01T09:00:00Z',
+  },
+  {
+    appliesTo: 'ONLINE',
+    code: 'VIP50000',
+    description: '고액 온라인 결제 전용 VIP 쿠폰입니다.',
+    discountType: 'FIXED_AMOUNT',
+    discountValue: 50000,
+    expiresAt: '2026-03-24T14:59:59Z',
+    id: 14,
+    issuedAt: '2026-03-18T09:00:00Z',
+    minimumOrderAmount: 500000,
+    name: 'VIP 5만원',
+    usable: true,
+    validFromAt: '2026-03-18T09:00:00Z',
+  },
+];
+
 const mockApplicationSummary: ApplicationSummary = {
   appliedCoupon: mockCart.appliedCoupon,
   hasOfflineReservation: true,
@@ -700,6 +778,66 @@ const extendMockMyPageData = (): void => {
       programTitle: '유방초음파 임상 케이스',
       status: 'CANCELLED',
     },
+    {
+      active: true,
+      enrolledAt: '2026-03-12T09:00:00Z',
+      expireAt: '2026-12-20T14:59:59Z',
+      id: 113,
+      programId: 2018,
+      programThumbnailUrl: null,
+      programTitle: '간초음파 패턴 분석 코스',
+      status: 'ACTIVE',
+    },
+    {
+      active: true,
+      enrolledAt: '2026-03-14T09:00:00Z',
+      expireAt: '2026-09-30T14:59:59Z',
+      id: 114,
+      programId: 2019,
+      programThumbnailUrl: null,
+      programTitle: '도플러 측정 워크플로 실전',
+      status: 'ACTIVE',
+    },
+    {
+      active: false,
+      enrolledAt: '2025-07-18T09:00:00Z',
+      expireAt: '2025-10-31T14:59:59Z',
+      id: 115,
+      programId: 2020,
+      programThumbnailUrl: null,
+      programTitle: '상복부 케이스 리뷰 아카이브',
+      status: 'EXPIRED',
+    },
+    {
+      active: false,
+      enrolledAt: '2025-12-01T09:00:00Z',
+      expireAt: '2026-02-14T14:59:59Z',
+      id: 116,
+      programId: 2021,
+      programThumbnailUrl: null,
+      programTitle: '산부인과 초음파 판독 심화',
+      status: 'EXPIRED',
+    },
+    {
+      active: false,
+      enrolledAt: '2026-02-18T09:00:00Z',
+      expireAt: '2026-08-18T14:59:59Z',
+      id: 117,
+      programId: 2022,
+      programThumbnailUrl: null,
+      programTitle: '혈류 도플러 핸즈온 특강',
+      status: 'CANCELLED',
+    },
+    {
+      active: false,
+      enrolledAt: '2026-03-01T09:00:00Z',
+      expireAt: '2026-09-01T14:59:59Z',
+      id: 118,
+      programId: 2023,
+      programThumbnailUrl: null,
+      programTitle: '외래초음파 실전 템플릿',
+      status: 'CANCELLED',
+    },
   ];
 
   mockEnrollments.push(...extraEnrollments);
@@ -768,6 +906,72 @@ const extendMockMyPageData = (): void => {
       '2026-02-03T09:00:00Z',
       '2026-08-03T14:59:59Z',
       8,
+      0,
+      null,
+    ),
+    createGeneratedEnrollmentDetail(
+      113,
+      2018,
+      '간초음파 패턴 분석 코스',
+      'ACTIVE',
+      '2026-03-12T09:00:00Z',
+      '2026-12-20T14:59:59Z',
+      10,
+      6,
+      '2026-03-18T08:10:00Z',
+    ),
+    createGeneratedEnrollmentDetail(
+      114,
+      2019,
+      '도플러 측정 워크플로 실전',
+      'ACTIVE',
+      '2026-03-14T09:00:00Z',
+      '2026-09-30T14:59:59Z',
+      8,
+      3,
+      '2026-03-18T12:40:00Z',
+    ),
+    createGeneratedEnrollmentDetail(
+      115,
+      2020,
+      '상복부 케이스 리뷰 아카이브',
+      'EXPIRED',
+      '2025-07-18T09:00:00Z',
+      '2025-10-31T14:59:59Z',
+      6,
+      6,
+      '2025-10-28T11:15:00Z',
+    ),
+    createGeneratedEnrollmentDetail(
+      116,
+      2021,
+      '산부인과 초음파 판독 심화',
+      'EXPIRED',
+      '2025-12-01T09:00:00Z',
+      '2026-02-14T14:59:59Z',
+      7,
+      4,
+      '2026-02-10T06:55:00Z',
+    ),
+    createGeneratedEnrollmentDetail(
+      117,
+      2022,
+      '혈류 도플러 핸즈온 특강',
+      'CANCELLED',
+      '2026-02-18T09:00:00Z',
+      '2026-08-18T14:59:59Z',
+      5,
+      1,
+      '2026-02-20T07:45:00Z',
+    ),
+    createGeneratedEnrollmentDetail(
+      118,
+      2023,
+      '외래초음파 실전 템플릿',
+      'CANCELLED',
+      '2026-03-01T09:00:00Z',
+      '2026-09-01T14:59:59Z',
+      9,
       0,
       null,
     ),
@@ -1019,6 +1223,7 @@ const initialEnrollmentDetailsSnapshot = Array.from(mockEnrollmentDetails.entrie
   },
 );
 const initialCartSnapshot = cloneData(mockCart);
+const initialCouponsSnapshot = cloneData(mockCoupons);
 const initialApplicationSummarySnapshot = cloneData(mockApplicationSummary);
 const initialReservationsSnapshot = cloneData(mockReservations);
 const initialRefundsSnapshot = cloneData(mockRefunds);
@@ -1054,7 +1259,7 @@ const recalculateCartDerivedState = (): void => {
   mockCart.totalDiscountAmount = mockCart.totalOriginalPrice - mockCart.totalPayablePrice;
 
   mockApplicationSummary.onlineItems = mockCart.items
-    .filter((item) => item.programType === 'ONLINE')
+    .filter((item) => isOnlineProgramType(item.programType))
     .map((item) => ({
       cartItemId: item.id,
       payablePrice: item.payablePrice,
@@ -1141,6 +1346,18 @@ const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerS
       .filter((item): item is string => Boolean(item)),
     currentLessonId: lessonIds[resolvedCurrentLessonIndex] ?? null,
     curriculumTrack,
+    lessonPlaybackById: Object.fromEntries(
+      lessonIds.map((lessonId, lessonIndex) => {
+        return [
+          lessonId,
+          {
+            lectureId: lessonIndex + 1,
+            mimeType: 'application/x-mpegURL',
+            posterUrl: null,
+          },
+        ];
+      }),
+    ),
     lastPlaybackAt: detail.progress.reduce<string | null>((latest, item) => {
       if (!item.lastWatchedAt) {
         return latest;
@@ -1157,6 +1374,25 @@ const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerS
   };
 };
 
+export const getMockLectureStream = (
+  lectureId: number,
+  deviceId?: string | null,
+): ProtectedLectureStream | null => {
+  if (!Number.isInteger(lectureId) || lectureId <= 0) {
+    return null;
+  }
+
+  const resolvedDeviceId = deviceId?.trim() ? deviceId.trim() : 'mock-device';
+  const playbackSessionToken = `mock-playback-${String(lectureId)}-${resolvedDeviceId}`;
+
+  return {
+    expiresAt: Math.floor(Date.now() / 1000) + 300,
+    hlsKeyUrl: `/api/v1/lectures/${String(lectureId)}/hls-key`,
+    hlsUrl: `${demoStreamUrl}?lectureId=${String(lectureId)}`,
+    playbackSessionToken,
+  };
+};
+
 export const resetMockMyPageData = (): void => {
   mockEnrollments.splice(0, mockEnrollments.length, ...cloneData(initialEnrollmentsSnapshot));
   mockEnrollmentDetails.clear();
@@ -1169,6 +1405,7 @@ export const resetMockMyPageData = (): void => {
   mockCart.totalDiscountAmount = initialCartSnapshot.totalDiscountAmount;
   mockCart.totalPayablePrice = initialCartSnapshot.totalPayablePrice;
   mockCart.appliedCoupon = cloneData(initialCartSnapshot.appliedCoupon);
+  mockCoupons.splice(0, mockCoupons.length, ...cloneData(initialCouponsSnapshot));
   mockApplicationSummary.onlineItems.splice(
     0,
     mockApplicationSummary.onlineItems.length,
@@ -1276,6 +1513,10 @@ export const getMockLearningPlayerSnapshot = (
 
 export const getMockMyCart = (): CartSummary => {
   return cloneData(mockCart);
+};
+
+export const getMockMyCoupons = (): UserCoupon[] => {
+  return cloneData(mockCoupons);
 };
 
 export const getMockMyApplicationSummary = (): ApplicationSummary => {

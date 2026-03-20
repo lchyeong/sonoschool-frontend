@@ -7,8 +7,6 @@ import { classNames } from '@/utils/classNames';
 
 import styles from './LoginPage.module.scss';
 
-const isDevelopment = import.meta.env.DEV;
-
 const LoginPage = () => {
   return (
     <section className={sharedStyles['page']}>
@@ -19,14 +17,10 @@ const LoginPage = () => {
           </header>
 
           <StudentLoginForm
-            initialValues={
-              isDevelopment
-                ? {
-                    loginId: 'student01',
-                    password: 'password123',
-                  }
-                : undefined
-            }
+            initialValues={{
+              loginId: 'student01',
+              password: 'password123',
+            }}
             secondaryAction={
               <div className={styles['actionLinks']}>
                 <Link className={sharedStyles['textLink']} to={routePaths.signup}>

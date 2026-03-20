@@ -141,20 +141,22 @@ export const AdminNoticesSection = ({ actions, data }: AdminConsoleManagedSectio
         <div className={styles['inlineFieldGrid']}>
           <label className={styles['field']}>
             <span className={styles['fieldLabel']}>카테고리</span>
-            <select
-              className={styles['select']}
-              onChange={(event) => {
-                actions.setNoticeForm((current) => ({
-                  ...current,
-                  category: event.target.value as typeof current.category,
-                }));
-              }}
-              value={actions.noticeForm.category}
-            >
-              <option value='운영'>운영</option>
-              <option value='학사'>학사</option>
-              <option value='이벤트'>이벤트</option>
-            </select>
+            <div className={styles['selectWrap']}>
+              <select
+                className={styles['select']}
+                onChange={(event) => {
+                  actions.setNoticeForm((current) => ({
+                    ...current,
+                    category: event.target.value as typeof current.category,
+                  }));
+                }}
+                value={actions.noticeForm.category}
+              >
+                <option value='운영'>운영</option>
+                <option value='학사'>학사</option>
+                <option value='이벤트'>이벤트</option>
+              </select>
+            </div>
           </label>
 
           <label className={styles['checkboxRow']}>
@@ -287,19 +289,21 @@ export const AdminResourcesSection = ({ actions, data }: AdminConsoleManagedSect
 
         <label className={styles['field']}>
           <span className={styles['fieldLabel']}>공개 범위</span>
-          <select
-            className={styles['select']}
-            onChange={(event) => {
-              actions.setResourceForm((current) => ({
-                ...current,
-                visibility: event.target.value as typeof current.visibility,
-              }));
-            }}
-            value={actions.resourceForm.visibility}
-          >
-            <option value='public'>전체 공개</option>
-            <option value='students-only'>수강생 전용</option>
-          </select>
+          <div className={styles['selectWrap']}>
+            <select
+              className={styles['select']}
+              onChange={(event) => {
+                actions.setResourceForm((current) => ({
+                  ...current,
+                  visibility: event.target.value as typeof current.visibility,
+                }));
+              }}
+              value={actions.resourceForm.visibility}
+            >
+              <option value='public'>전체 공개</option>
+              <option value='students-only'>수강생 전용</option>
+            </select>
+          </div>
         </label>
 
         <label className={styles['field']}>

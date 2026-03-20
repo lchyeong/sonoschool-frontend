@@ -1,18 +1,24 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { removeMyCartItem } from '@/api/mypage';
+import downIconSrc from '@/assets/icons/icons_down.png';
 import {
-  myApplicationSummaryQueryKey,
   myCartQueryKey,
-  useMyApplicationSummaryQuery,
+  myCouponsQueryKey,
   useMyCartQuery,
+  useMyCouponsQuery,
 } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
+import { calculateSelectedCartPricing, evaluateCouponForItems } from '@/utils/cartPricing';
 import { classNames } from '@/utils/classNames';
+import { getProgramTypeLabel } from '@/utils/programType';
 
 import styles from './CartPage.module.scss';
 
@@ -21,14 +27,81 @@ const currencyFormatter = new Intl.NumberFormat('ko-KR');
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
 
 const CartPage = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const couponDropdownRef = useRef<HTMLDivElement | null>(null);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const showToast = useToastStore((state) => state.showToast);
+  const [isCouponDropdownOpen, setIsCouponDropdownOpen] = useState(false);
+  const selectedItemIds = useCartSelectionStore((state) => state.selectedItemIds);
+  const selectedCouponId = useCartSelectionStore((state) => state.selectedCouponId);
+  const hydrateSelection = useCartSelectionStore((state) => state.hydrate);
+  const setSelectedCouponId = useCartSelectionStore((state) => state.setSelectedCouponId);
+  const toggleAllItems = useCartSelectionStore((state) => state.toggleAllItems);
+  const toggleItem = useCartSelectionStore((state) => state.toggleItem);
   const cartQuery = useMyCartQuery();
-  const applicationSummaryQuery = useMyApplicationSummaryQuery();
+  const couponsQuery = useMyCouponsQuery();
 
   const cart = cartQuery.data;
+  const coupons = couponsQuery.data;
   const isEmpty = !cart?.items.length;
+  const pricing = calculateSelectedCartPricing(
+    cart,
+    selectedItemIds,
+    coupons ?? [],
+    selectedCouponId,
+  );
+  const couponOptions = useMemo(() => {
+    return (coupons ?? []).map((coupon) => {
+      const evaluation = evaluateCouponForItems(coupon, pricing.selectedItems);
+      const discountText =
+        coupon.discountType === 'PERCENTAGE'
+          ? `${String(coupon.discountValue)}%`
+          : formatCurrency(coupon.discountValue);
+
+      return {
+        coupon,
+        discountText,
+        evaluation,
+      };
+    });
+  }, [coupons, pricing.selectedItems]);
+  const selectedCouponOption =
+    couponOptions.find((option) => option.coupon.id === selectedCouponId) ?? null;
+  const areAllItemsSelected =
+    (cart?.items.length ?? 0) > 0 &&
+    (cart?.items ?? []).every((item) => selectedItemIds.includes(item.id));
+
+  useEffect(() => {
+    if (!cart) {
+      return;
+    }
+
+    hydrateSelection(cart, coupons ?? []);
+  }, [cart, coupons, hydrateSelection]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!couponDropdownRef.current?.contains(event.target as Node)) {
+        setIsCouponDropdownOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsCouponDropdownOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
   const removeCartItemMutation = useMutation({
     mutationFn: removeMyCartItem,
     onError: (error: unknown) => {
@@ -43,7 +116,7 @@ const CartPage = () => {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: myCartQueryKey }),
-        queryClient.invalidateQueries({ queryKey: myApplicationSummaryQueryKey }),
+        queryClient.invalidateQueries({ queryKey: myCouponsQueryKey }),
       ]);
       showToast({
         message: '장바구니에서 제거했습니다.',
@@ -59,7 +132,7 @@ const CartPage = () => {
           <header className={sharedStyles['header']}>
             <h1 className={sharedStyles['title']}>장바구니</h1>
             <p className={sharedStyles['description']}>
-              담아둔 강의를 비교하고, 결제 전 옵션과 금액을 마지막으로 확인합니다.
+              담은 항목을 선택하고 쿠폰을 적용해 결제 금액을 바로 확인합니다.
             </p>
           </header>
 
@@ -79,10 +152,6 @@ const CartPage = () => {
             <section className={sharedStyles['section']}>
               <div className={sharedStyles['sectionHeader']}>
                 <h2 className={sharedStyles['sectionTitle']}>담긴 강의가 없습니다.</h2>
-                <p className={sharedStyles['sectionDescription']}>
-                  현재 `CartPage`는 플레이스홀더가 아니라 실제 목데이터 장바구니와 연결되어
-                  있습니다.
-                </p>
               </div>
               <div className={styles['actionRow']}>
                 <Link className={styles['secondaryActionLink']} to={routePaths.programs}>
@@ -97,123 +166,254 @@ const CartPage = () => {
               <section className={sharedStyles['section']}>
                 <div className={sharedStyles['sectionHeader']}>
                   <h2 className={sharedStyles['sectionTitle']}>담은 강의</h2>
-                  <p className={sharedStyles['sectionDescription']}>
-                    장바구니에 담긴 강의와 실습 과정을 한 번에 확인할 수 있습니다.
-                  </p>
                 </div>
 
+                <label className={styles['selectAllRow']}>
+                  <input
+                    checked={areAllItemsSelected}
+                    onChange={() => {
+                      toggleAllItems(cart.items.map((item) => item.id));
+                    }}
+                    type='checkbox'
+                  />
+                  <span>전체 선택</span>
+                </label>
+
                 <div className={styles['itemList']}>
-                  {cart.items.map((item) => (
-                    <article className={styles['itemCard']} key={item.id}>
-                      <Link className={styles['itemThumbnailLink']} to={item.detailPath}>
-                        {item.thumbnailUrl ? (
-                          <img
-                            alt={`${item.title} 대표 이미지`}
-                            className={styles['itemThumbnailImage']}
-                            loading='lazy'
-                            src={item.thumbnailUrl}
+                  {cart.items.map((item) => {
+                    const isSelected = selectedItemIds.includes(item.id);
+
+                    return (
+                      <article className={styles['itemCard']} key={item.id}>
+                        <label className={styles['itemCheckboxLabel']}>
+                          <input
+                            aria-label={`${item.title} 선택`}
+                            checked={isSelected}
+                            onChange={() => {
+                              toggleItem(item.id);
+                            }}
+                            type='checkbox'
                           />
-                        ) : (
-                          <div aria-hidden='true' className={styles['itemThumbnailFallback']}>
-                            <span>SS</span>
+                        </label>
+                        <Link className={styles['itemThumbnailLink']} to={item.detailPath}>
+                          {item.thumbnailUrl ? (
+                            <img
+                              alt={`${item.title} 대표 이미지`}
+                              className={styles['itemThumbnailImage']}
+                              loading='lazy'
+                              src={item.thumbnailUrl}
+                            />
+                          ) : (
+                            <div aria-hidden='true' className={styles['itemThumbnailFallback']}>
+                              <span>SS</span>
+                            </div>
+                          )}
+                        </Link>
+                        <div className={styles['itemBody']}>
+                          <div className={styles['itemHeader']}>
+                            <Link className={styles['itemTitleLink']} to={item.detailPath}>
+                              <strong className={styles['itemTitle']}>{item.title}</strong>
+                            </Link>
+                            <div className={styles['itemHeaderActions']}>
+                              <span className={styles['itemTypeChip']}>
+                                {getProgramTypeLabel(item.programType)}
+                              </span>
+                              <button
+                                className={styles['removeButton']}
+                                disabled={removeCartItemMutation.isPending}
+                                onClick={() => {
+                                  removeCartItemMutation.mutate(item.id);
+                                }}
+                                type='button'
+                              >
+                                삭제
+                              </button>
+                            </div>
                           </div>
-                        )}
-                      </Link>
-                      <div className={styles['itemBody']}>
-                        <div className={styles['itemHeader']}>
-                          <Link className={styles['itemTitleLink']} to={item.detailPath}>
-                            <strong className={styles['itemTitle']}>{item.title}</strong>
-                          </Link>
-                          <div className={styles['itemHeaderActions']}>
-                            <span className={styles['itemTypeChip']}>
-                              {item.programType === 'ONLINE' ? '온라인' : '오프라인'}
-                            </span>
-                            <button
-                              className={styles['removeButton']}
-                              disabled={removeCartItemMutation.isPending}
-                              onClick={() => {
-                                removeCartItemMutation.mutate(item.id);
-                              }}
-                              type='button'
-                            >
-                              삭제
-                            </button>
+                          <div className={styles['itemFooter']}>
+                            <p className={styles['itemMeta']}>강사 {item.instructorName || '-'}</p>
+                            <p className={styles['itemPrice']}>
+                              {formatCurrency(item.payablePrice)}
+                            </p>
                           </div>
                         </div>
-                        <div className={styles['itemFooter']}>
-                          <p className={styles['itemMeta']}>강사 {item.instructorName || '-'}</p>
-                          <p className={styles['itemPrice']}>{formatCurrency(item.payablePrice)}</p>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
+                      </article>
+                    );
+                  })}
                 </div>
               </section>
 
               <aside className={styles['summaryPanel']}>
                 <section className={sharedStyles['section']}>
                   <div className={sharedStyles['sectionHeader']}>
-                    <h2 className={sharedStyles['sectionTitle']}>합계</h2>
+                    <h2 className={sharedStyles['sectionTitle']}>선택 합계</h2>
                   </div>
                   <div className={sharedStyles['metaList']}>
                     <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>총 상품 수</span>
-                      <span className={sharedStyles['metaValue']}>{cart.itemCount}개</span>
+                      <span className={sharedStyles['metaLabel']}>선택 상품 수</span>
+                      <span className={sharedStyles['metaValue']}>{pricing.itemCount}개</span>
                     </div>
                     <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>총 상품 금액</span>
+                      <span className={sharedStyles['metaLabel']}>상품 금액</span>
                       <span className={sharedStyles['metaValue']}>
-                        {formatCurrency(cart.totalOriginalPrice)}
+                        {formatCurrency(pricing.totalOriginalPrice)}
                       </span>
                     </div>
                     <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>총 할인 금액</span>
+                      <span className={sharedStyles['metaLabel']}>강의 할인</span>
                       <span className={sharedStyles['metaValue']}>
-                        {formatCurrency(cart.totalDiscountAmount)}
+                        {formatCurrency(pricing.itemDiscountAmount)}
                       </span>
                     </div>
                     <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>총 결제 예상 금액</span>
+                      <span className={sharedStyles['metaLabel']}>쿠폰 할인</span>
+                      <div className={styles['couponDiscountRow']}>
+                        <span className={sharedStyles['metaValue']}>
+                          {formatCurrency(pricing.couponDiscountAmount)}
+                        </span>
+                        {!couponsQuery.isLoading && !couponsQuery.isError ? (
+                          <div className={styles['couponDropdown']} ref={couponDropdownRef}>
+                            <button
+                              aria-label='쿠폰 선택'
+                              aria-expanded={isCouponDropdownOpen}
+                              aria-haspopup='listbox'
+                              className={styles['couponDropdownTrigger']}
+                              onClick={() => {
+                                setIsCouponDropdownOpen((current) => !current);
+                              }}
+                              type='button'
+                            >
+                              <span className={styles['couponDropdownLabel']}>
+                                {selectedCouponOption?.coupon.name ?? '쿠폰 선택'}
+                              </span>
+                              <span className={styles['couponDropdownCaret']}>
+                                <img
+                                  alt=''
+                                  aria-hidden='true'
+                                  className={styles['couponDropdownCaretIcon']}
+                                  src={downIconSrc}
+                                />
+                              </span>
+                            </button>
+
+                            {isCouponDropdownOpen ? (
+                              <div
+                                aria-label='쿠폰 목록'
+                                className={styles['couponDropdownMenu']}
+                                role='listbox'
+                              >
+                                <button
+                                  aria-selected={selectedCouponId === null}
+                                  className={classNames(
+                                    styles['couponDropdownOption'],
+                                    selectedCouponId === null &&
+                                      styles['couponDropdownOptionSelected'],
+                                  )}
+                                  onClick={() => {
+                                    setSelectedCouponId(null);
+                                    setIsCouponDropdownOpen(false);
+                                  }}
+                                  role='option'
+                                  type='button'
+                                >
+                                  <span className={styles['couponDropdownOptionTitle']}>
+                                    쿠폰 적용 안 함
+                                  </span>
+                                </button>
+
+                                {couponOptions.map((option) => (
+                                  <button
+                                    aria-selected={selectedCouponId === option.coupon.id}
+                                    className={classNames(
+                                      styles['couponDropdownOption'],
+                                      selectedCouponId === option.coupon.id &&
+                                        styles['couponDropdownOptionSelected'],
+                                      !option.evaluation.isApplicable &&
+                                        styles['couponDropdownOptionDisabled'],
+                                    )}
+                                    disabled={!option.evaluation.isApplicable}
+                                    key={option.coupon.id}
+                                    onClick={() => {
+                                      setSelectedCouponId(option.coupon.id);
+                                      setIsCouponDropdownOpen(false);
+                                    }}
+                                    role='option'
+                                    type='button'
+                                  >
+                                    <div className={styles['couponDropdownOptionHeader']}>
+                                      <span className={styles['couponDropdownOptionTitle']}>
+                                        {option.coupon.name}
+                                      </span>
+                                      <span className={styles['couponDropdownOptionValue']}>
+                                        {option.discountText}
+                                      </span>
+                                    </div>
+                                    {option.evaluation.reason ? (
+                                      <span className={styles['couponDropdownOptionMeta']}>
+                                        {option.evaluation.reason}
+                                      </span>
+                                    ) : null}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className={styles['couponHintRow']}>
+                        {couponsQuery.isLoading ? (
+                          <p className={styles['couponInlineText']}>
+                            쿠폰 목록을 불러오는 중입니다.
+                          </p>
+                        ) : null}
+
+                        {couponsQuery.isError ? (
+                          <p className={styles['couponInlineText']}>
+                            {couponsQuery.error instanceof Error
+                              ? couponsQuery.error.message
+                              : '쿠폰 목록을 불러오지 못했습니다.'}
+                          </p>
+                        ) : null}
+
+                        {!couponsQuery.isLoading && !couponsQuery.isError ? (
+                          <p className={styles['couponInlineText']}>
+                            선택한 항목에 적용 가능한 쿠폰만 고를 수 있습니다.
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className={sharedStyles['metaItem']}>
+                      <span className={sharedStyles['metaLabel']}>총 결제 금액</span>
                       <span className={sharedStyles['metaValue']}>
-                        {formatCurrency(cart.totalPayablePrice)}
+                        {formatCurrency(pricing.totalPayablePrice)}
                       </span>
                     </div>
                   </div>
-
-                  {cart.appliedCoupon ? (
-                    <p className={sharedStyles['mutedText']}>
-                      적용 쿠폰 {cart.appliedCoupon.name} (
-                      {formatCurrency(cart.appliedCoupon.discountAmount)})
-                    </p>
-                  ) : (
-                    <p className={sharedStyles['mutedText']}>적용된 쿠폰이 없습니다.</p>
-                  )}
-
-                  {applicationSummaryQuery.data ? (
-                    <div className={styles['summaryGrid']}>
-                      <div className={styles['summaryItem']}>
-                        <span className={styles['summaryLabel']}>결제 가능 항목</span>
-                        <strong className={styles['summaryValue']}>
-                          {applicationSummaryQuery.data.onlineItems.length}건
-                        </strong>
-                      </div>
-                      <div className={styles['summaryItem']}>
-                        <span className={styles['summaryLabel']}>별도 확인 항목</span>
-                        <strong className={styles['summaryValue']}>
-                          {applicationSummaryQuery.data.offlineItemCount}건
-                        </strong>
-                      </div>
-                    </div>
-                  ) : null}
 
                   <div className={styles['actionRow']}>
                     <Link className={styles['secondaryActionLink']} to={routePaths.programs}>
                       강의 더 담기
                     </Link>
-                    <Link className={styles['primaryActionLink']} to={routePaths.checkout}>
+                    <button
+                      className={styles['primaryActionButton']}
+                      disabled={pricing.itemCount === 0}
+                      onClick={() => {
+                        if (!pricing.itemCount) {
+                          return;
+                        }
+
+                        void navigate(routePaths.checkout);
+                      }}
+                      type='button'
+                    >
                       결제하기
-                    </Link>
+                    </button>
                   </div>
+
+                  {!pricing.itemCount ? (
+                    <p className={sharedStyles['mutedText']}>결제할 항목을 먼저 선택해 주세요.</p>
+                  ) : null}
 
                   {!isAuthenticated ? (
                     <p className={sharedStyles['mutedText']}>

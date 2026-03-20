@@ -4,6 +4,7 @@ import {
   addMockMyCartItem,
   getMockMyApplicationSummary,
   getMockMyCart,
+  getMockMyCoupons,
   getMockMyEnrollmentDetail,
   getMockMyEnrollments,
   getMockLearningPlayerSnapshot,
@@ -17,21 +18,10 @@ describe('mypage mock data', () => {
   it('provides expanded enrollment fixtures with matching detail data', () => {
     const enrollments = getMockMyEnrollments();
 
-    expect(enrollments).toHaveLength(12);
-    expect(enrollments.map((item) => item.status)).toEqual([
-      'ACTIVE',
-      'ACTIVE',
-      'EXPIRED',
-      'ACTIVE',
-      'EXPIRED',
-      'CANCELLED',
-      'ACTIVE',
-      'ACTIVE',
-      'EXPIRED',
-      'ACTIVE',
-      'EXPIRED',
-      'CANCELLED',
-    ]);
+    expect(enrollments).toHaveLength(18);
+    expect(enrollments.filter((item) => item.status === 'ACTIVE')).toHaveLength(8);
+    expect(enrollments.filter((item) => item.status === 'EXPIRED')).toHaveLength(6);
+    expect(enrollments.filter((item) => item.status === 'CANCELLED')).toHaveLength(4);
 
     expect(getMockMyEnrollmentDetail(104)?.programTitle).toBe('갑상선 초음파 판독 입문');
     expect(getMockMyEnrollmentDetail(105)?.completionRate).toBe(67);
@@ -61,7 +51,7 @@ describe('mypage mock data', () => {
       originalPrice: 88000,
       payablePrice: 77000,
       programId: 8080,
-      programType: 'ONLINE',
+      programType: 'HYBRID',
       salePrice: 77000,
       sourcePath: '/programs/test/detail',
       thumbnailUrl: null,
@@ -118,11 +108,14 @@ describe('mypage mock data', () => {
 
   it('provides editable profile fields and refund fixtures', () => {
     const profile = getMockMyProfile();
+    const coupons = getMockMyCoupons();
     const refunds = getMockMyRefunds();
 
     expect(profile.email).toBe('student01@example.com');
     expect(profile.marketingEmailOptIn).toBe(true);
     expect(profile.marketingSmsOptIn).toBe(false);
+    expect(coupons).toHaveLength(5);
+    expect(coupons[0]?.name).toBe('봄맞이 할인');
 
     expect(refunds).toHaveLength(6);
     expect(refunds.map((item) => item.status)).toEqual([
@@ -142,6 +135,9 @@ describe('mypage mock data', () => {
     expect(activePlayerSnapshot?.curriculumTrack.sections.length).toBeGreaterThan(0);
     expect(activePlayerSnapshot?.currentLessonId).toBe('enrollment-101-lesson-2');
     expect(activePlayerSnapshot?.completedLessonIds).toContain('enrollment-101-lesson-1');
+    expect(activePlayerSnapshot?.lessonPlaybackById['enrollment-101-lesson-2']?.mimeType).toBe(
+      'application/x-mpegURL',
+    );
     expect(cancelledPlayerSnapshot).toBeNull();
   });
 });

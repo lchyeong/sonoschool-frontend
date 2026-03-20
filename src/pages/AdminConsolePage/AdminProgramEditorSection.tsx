@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,6 +11,8 @@ import {
   publishAdminProgram,
   updateAdminProgram,
 } from '@/api/adminConsole';
+import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
+import downIconSrc from '@/assets/icons/icons_down.png';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { env } from '@/config/env';
@@ -29,6 +31,8 @@ import { programsOverviewQueryKey } from '@/query/useProgramsOverviewQuery';
 import { siteNavigationQueryKey } from '@/query/useSiteNavigationQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
+import type { AdminProgramMenuTreeItem } from '@/types/adminConsole';
+import { classNames } from '@/utils/classNames';
 
 import { CurriculumSectionEditor, StructuredListEditor } from './AdminProgramEditorFields';
 import styles from './AdminProgramEditorSection.module.scss';
@@ -63,6 +67,208 @@ interface AdminProgramEditorSectionProps {
 interface AdminProgramEditorRouteState {
   returnTo?: string;
 }
+
+const buildCollectionPathIds = (
+  items: readonly AdminProgramMenuTreeItem[],
+  targetPath: string,
+): string[] => {
+  if (!targetPath) {
+    return [];
+  }
+
+  const itemMap = new Map(items.map((item) => [item.id, item] as const));
+  const targetItem = items.find((item) => item.path === targetPath);
+
+  if (!targetItem) {
+    return [];
+  }
+
+  const pathIds: string[] = [];
+  let current: AdminProgramMenuTreeItem | undefined = targetItem;
+
+  while (current) {
+    pathIds.unshift(current.id);
+    current = current.parentId ? itemMap.get(current.parentId) : undefined;
+  }
+
+  return pathIds;
+};
+
+const buildCollectionColumns = (
+  items: readonly AdminProgramMenuTreeItem[],
+  activePathIds: readonly string[],
+): AdminProgramMenuTreeItem[][] => {
+  const itemsByParentId = new Map<string | null, AdminProgramMenuTreeItem[]>();
+
+  items.forEach((item) => {
+    const parentItems = itemsByParentId.get(item.parentId) ?? [];
+    parentItems.push(item);
+    itemsByParentId.set(item.parentId, parentItems);
+  });
+
+  const columns: AdminProgramMenuTreeItem[][] = [];
+  let parentId: string | null = null;
+  let depthIndex = 0;
+
+  for (;;) {
+    const nextColumn: AdminProgramMenuTreeItem[] = itemsByParentId.get(parentId) ?? [];
+
+    if (!nextColumn.length) {
+      break;
+    }
+
+    columns.push(nextColumn);
+
+    const activeItemId = activePathIds[depthIndex];
+    const activeItem: AdminProgramMenuTreeItem | undefined = nextColumn.find(
+      (menuItem: AdminProgramMenuTreeItem) => menuItem.id === activeItemId,
+    );
+
+    if (!activeItem || activeItem.isLeafMenu) {
+      break;
+    }
+
+    parentId = activeItem.id;
+    depthIndex += 1;
+  }
+
+  return columns;
+};
+
+const CollectionPathPicker = ({
+  items,
+  value,
+  onChange,
+}: {
+  items: readonly AdminProgramMenuTreeItem[];
+  value: string | undefined;
+  onChange: (nextValue: string) => void;
+}) => {
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedItem = useMemo(() => {
+    return items.find((item) => item.path === value) ?? null;
+  }, [items, value]);
+  const collectionArrowStyle = useMemo(
+    () =>
+      ({
+        ['--collection-arrow-icon' as string]: `url(${rightArrowIconSrc})`,
+      }) as CSSProperties,
+    [],
+  );
+  const selectedPathIds = useMemo(() => buildCollectionPathIds(items, value ?? ''), [items, value]);
+  const [activePathIds, setActivePathIds] = useState<string[]>(selectedPathIds);
+  const columns = useMemo(
+    () => buildCollectionColumns(items, activePathIds),
+    [activePathIds, items],
+  );
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
+  return (
+    <div className={styles['collectionPicker']} ref={pickerRef}>
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup='dialog'
+        className={styles['collectionTrigger']}
+        onClick={() => {
+          setActivePathIds(selectedPathIds);
+          setIsOpen((current) => !current);
+        }}
+        type='button'
+      >
+        <span className={styles['collectionTriggerText']}>
+          {selectedItem?.labelPath ?? '등록 위치를 선택해 주세요.'}
+        </span>
+        <span className={styles['collectionTriggerCaret']}>
+          <img
+            alt=''
+            aria-hidden='true'
+            className={styles['collectionTriggerCaretIcon']}
+            src={downIconSrc}
+          />
+        </span>
+      </button>
+
+      {isOpen ? (
+        <div className={styles['collectionPanel']} role='dialog'>
+          {columns.map((columnItems, columnIndex) => (
+            <div
+              className={styles['collectionColumn']}
+              key={`collection-column-${String(columnIndex + 1)}`}
+            >
+              <div className={styles['collectionColumnList']} role='list'>
+                {columnItems.map((item) => {
+                  const isActive = activePathIds[columnIndex] === item.id;
+
+                  return (
+                    <button
+                      className={classNames(
+                        styles['collectionOption'],
+                        isActive && styles['collectionOptionActive'],
+                        item.isLeafMenu && styles['collectionOptionLeaf'],
+                      )}
+                      key={item.id}
+                      onClick={() => {
+                        if (item.isLeafMenu) {
+                          onChange(item.path);
+                          setIsOpen(false);
+                          return;
+                        }
+
+                        setActivePathIds((current) => [...current.slice(0, columnIndex), item.id]);
+                      }}
+                      onMouseEnter={() => {
+                        if (item.isLeafMenu) {
+                          return;
+                        }
+
+                        setActivePathIds((current) => [...current.slice(0, columnIndex), item.id]);
+                      }}
+                      title={item.label}
+                      type='button'
+                    >
+                      <span className={styles['collectionOptionContent']}>
+                        <span className={styles['collectionOptionLabel']}>{item.label}</span>
+                        {!item.isLeafMenu ? (
+                          <span
+                            aria-hidden='true'
+                            className={styles['collectionOptionArrow']}
+                            style={collectionArrowStyle}
+                          />
+                        ) : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+};
 
 const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => {
   const location = useLocation();
@@ -126,6 +332,10 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
   const watchedSlug = useWatch({
     control: form.control,
     name: 'slug',
+  });
+  const watchedParentCollectionPath = useWatch({
+    control: form.control,
+    name: 'parentCollectionPath',
   });
   const watchedCurriculumSections = useWatch({
     control: form.control,
@@ -592,14 +802,18 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
 
                   <label className={styles['field']}>
                     <span className={styles['fieldLabel']}>등록 메뉴</span>
-                    <select className={styles['select']} {...form.register('parentCollectionPath')}>
-                      {leafCollectionOptions.map((option) => (
-                        <option key={option.path} value={option.path}>
-                          {'ㄴ '.repeat(option.depth - 1)}
-                          {option.labelPath}
-                        </option>
-                      ))}
-                    </select>
+                    <input type='hidden' {...form.register('parentCollectionPath')} />
+                    <CollectionPathPicker
+                      items={menuItems}
+                      onChange={(nextValue) => {
+                        form.setValue('parentCollectionPath', nextValue, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                          shouldValidate: true,
+                        });
+                      }}
+                      value={watchedParentCollectionPath}
+                    />
                   </label>
 
                   <div className={styles['gridCols2']}>
@@ -661,20 +875,24 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
                   <div className={styles['gridCols3']}>
                     <label className={styles['field']}>
                       <span className={styles['fieldLabel']}>운영 형식</span>
-                      <select className={styles['select']} {...form.register('format')}>
-                        <option value='offline'>오프라인</option>
-                        <option value='hybrid'>하이브리드</option>
-                        <option value='online'>온라인</option>
-                      </select>
+                      <div className={styles['selectWrap']}>
+                        <select className={styles['select']} {...form.register('format')}>
+                          <option value='offline'>오프라인</option>
+                          <option value='hybrid'>하이브리드</option>
+                          <option value='online'>온라인</option>
+                        </select>
+                      </div>
                     </label>
 
                     <label className={styles['field']}>
                       <span className={styles['fieldLabel']}>수강 정책</span>
-                      <select className={styles['select']} {...form.register('accessPolicy')}>
-                        <option value='cohort'>기수형 운영</option>
-                        <option value='limited-window'>기간제 수강</option>
-                        <option value='unlimited'>무제한 수강</option>
-                      </select>
+                      <div className={styles['selectWrap']}>
+                        <select className={styles['select']} {...form.register('accessPolicy')}>
+                          <option value='cohort'>기수형 운영</option>
+                          <option value='limited-window'>기간제 수강</option>
+                          <option value='unlimited'>무제한 수강</option>
+                        </select>
+                      </div>
                     </label>
 
                     <TextField
@@ -903,13 +1121,15 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
 
                     <label className={styles['field']}>
                       <span className={styles['fieldLabel']}>요약 리스트 타입</span>
-                      <select
-                        className={styles['select']}
-                        {...form.register('curriculumSummaryKind')}
-                      >
-                        <option value='disc'>불릿 리스트</option>
-                        <option value='decimal'>숫자 리스트</option>
-                      </select>
+                      <div className={styles['selectWrap']}>
+                        <select
+                          className={styles['select']}
+                          {...form.register('curriculumSummaryKind')}
+                        >
+                          <option value='disc'>불릿 리스트</option>
+                          <option value='decimal'>숫자 리스트</option>
+                        </select>
+                      </div>
                     </label>
                   </div>
 

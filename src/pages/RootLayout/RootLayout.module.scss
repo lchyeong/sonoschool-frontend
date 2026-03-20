@@ -12,3 +12,9 @@
   margin: 0 auto;
   padding: var(--space-8) var(--space-6);
 }
+
+.mainFullBleed {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}

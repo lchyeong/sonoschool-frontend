@@ -250,22 +250,16 @@ describe('AdminConsolePage', () => {
     expect(await screen.findByRole('link', { name: '일반과정 실습' })).toBeInTheDocument();
   });
 
-  it('lets admins collapse and expand the tree, then narrow it down with search', async () => {
+  it('lets admins browse menu columns and narrow them down with search', async () => {
     renderAdminConsolePage('programMenus');
 
     expect(await screen.findByDisplayValue('doctor-course')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '복부과정 메뉴 선택' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '일반과정 하위 메뉴 열기' }));
+    fireEvent.click(screen.getByRole('button', { name: '일반과정 메뉴 선택' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '복부과정 메뉴 선택' })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: '일반과정 하위 메뉴 닫기' }));
-
-    await waitFor(() => {
-      expect(screen.queryByRole('button', { name: '복부과정 메뉴 선택' })).not.toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText('메뉴 검색'), {
@@ -283,7 +277,7 @@ describe('AdminConsolePage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: '응급/POCUS과정 메뉴 선택' }).length).toBe(2);
+      expect(screen.getByRole('button', { name: '응급/POCUS과정 메뉴 선택' })).toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText('메뉴 검색'), {
@@ -304,15 +298,11 @@ describe('AdminConsolePage', () => {
       target: { value: 'FAST 집중과정' },
     });
 
-    const branchButton = await screen.findByRole('button', { name: '응급/POCUS과정 메뉴 선택' });
-    const totalProgramMeta = within(branchButton).getByText('총 강의').closest('div');
+    fireEvent.click(await screen.findByRole('button', { name: '응급/POCUS과정 메뉴 선택' }));
 
-    if (!totalProgramMeta) {
-      throw new Error('총 강의 메타 정보를 찾지 못했습니다.');
-    }
-
-    expect(within(totalProgramMeta).getByText('총 강의')).toBeInTheDocument();
-    expect(within(totalProgramMeta).getByText('3개')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('총 강의 3개')).toBeInTheDocument();
+    });
   });
 
   it('shows linked lectures and a direct create entry when a leaf menu is selected', async () => {

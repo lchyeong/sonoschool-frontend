@@ -1,37 +1,22 @@
 .surface {
+  display: grid;
   gap: var(--space-7);
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
 .hero {
   display: grid;
   gap: var(--space-4);
+  justify-items: center;
+  text-align: center;
 }
 
-.statusBadge {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  padding: 8px 14px;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.statusSuccess {
-  color: var(--color-success-600);
-  background: color-mix(in srgb, var(--color-success-100) 88%, white);
-}
-
-.statusDanger {
-  color: var(--color-error-600, #b42318);
-  background: rgb(254 242 242);
-}
-
-.statusNeutral {
-  color: var(--color-text-secondary);
-  background: rgb(241 245 249);
+.heroIcon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
 }
 
 .detailGrid {

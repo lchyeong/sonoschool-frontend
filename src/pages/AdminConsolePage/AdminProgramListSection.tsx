@@ -442,34 +442,38 @@ const AdminProgramListSection = () => {
 
             <label className={styles['field']}>
               <span className={styles['fieldLabel']}>상태</span>
-              <select
-                className={styles['select']}
-                onChange={(event) => {
-                  updateSearchState({ status: event.target.value });
-                }}
-                value={statusFilter}
-              >
-                <option value='all'>전체</option>
-                <option value='draft'>초안</option>
-                <option value='published'>게시중</option>
-                <option value='hidden'>숨김</option>
-              </select>
+              <div className={styles['selectWrap']}>
+                <select
+                  className={styles['select']}
+                  onChange={(event) => {
+                    updateSearchState({ status: event.target.value });
+                  }}
+                  value={statusFilter}
+                >
+                  <option value='all'>전체</option>
+                  <option value='draft'>초안</option>
+                  <option value='published'>게시중</option>
+                  <option value='hidden'>숨김</option>
+                </select>
+              </div>
             </label>
 
             <label className={styles['field']}>
               <span className={styles['fieldLabel']}>운영 형식</span>
-              <select
-                className={styles['select']}
-                onChange={(event) => {
-                  updateSearchState({ format: event.target.value });
-                }}
-                value={formatFilter}
-              >
-                <option value='all'>전체</option>
-                <option value='offline'>오프라인</option>
-                <option value='hybrid'>하이브리드</option>
-                <option value='online'>온라인</option>
-              </select>
+              <div className={styles['selectWrap']}>
+                <select
+                  className={styles['select']}
+                  onChange={(event) => {
+                    updateSearchState({ format: event.target.value });
+                  }}
+                  value={formatFilter}
+                >
+                  <option value='all'>전체</option>
+                  <option value='offline'>오프라인</option>
+                  <option value='hybrid'>하이브리드</option>
+                  <option value='online'>온라인</option>
+                </select>
+              </div>
             </label>
           </div>
 

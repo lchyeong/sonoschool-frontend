@@ -287,6 +287,43 @@
   font-weight: var(--font-weight-medium);
 }
 
+.selectWrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.selectWrap::before {
+  content: '';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  width: 40px;
+  background: var(--color-primary);
+  pointer-events: none;
+}
+
+.selectWrap::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  width: 14px;
+  height: 14px;
+  background-color: #ffffff;
+  mask-image: url('../../assets/icons/icons_down.png');
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: 14px 14px;
+  -webkit-mask-image: url('../../assets/icons/icons_down.png');
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 14px 14px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
 .select,
 .fileInput,
 .textarea {
@@ -295,6 +332,13 @@
   border: 1px solid var(--admin-border);
   background: var(--admin-surface);
   font: inherit;
+}
+
+.select {
+  min-height: 42px;
+  padding: 0 52px 0 12px;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .select:focus,

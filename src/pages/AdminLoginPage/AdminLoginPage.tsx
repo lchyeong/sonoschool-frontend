@@ -27,8 +27,8 @@ interface AdminLoginFormErrors {
 }
 
 const INITIAL_FORM_VALUES: AdminLoginFormValues = {
-  identifier: '',
-  password: '',
+  identifier: 'admin',
+  password: '1234',
 };
 
 const AdminLoginPage = () => {

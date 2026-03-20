@@ -671,7 +671,7 @@ const createDefaultStats = (
 };
 
 const getCurriculumSeedMode = (formatLabel: string): 'hybrid' | 'offline' | 'online' => {
-  if (formatLabel.includes('패키지') || formatLabel.includes('하이브리드')) {
+  if (formatLabel.includes('패키지') || formatLabel.includes('실습 포함')) {
     return 'hybrid';
   }
 
@@ -1834,7 +1834,7 @@ function buildInitialManagedPrograms(): MockManagedProgramCatalogRecord[] {
       accessPolicy: 'cohort',
       capacity: 18,
       description:
-        'FAST 증례를 반복 검토하고 응급실 적용 포인트를 피드백하는 하이브리드 부트캠프입니다.',
+        'FAST 증례를 반복 검토하고 응급실 적용 포인트를 피드백하는 실습 포함 온라인 부트캠프입니다.',
       difficultyLabel: '중급',
       format: 'hybrid',
       imageIndex: 3,
@@ -2586,7 +2586,7 @@ const parsePriceLabelAmount = (label: string | undefined, fallback: number): num
 };
 
 const inferAdminProgramFormatFromLabel = (formatLabel: string): AdminProgramFormat => {
-  if (formatLabel.includes('하이브리드')) {
+  if (formatLabel.includes('실습 포함')) {
     return 'hybrid';
   }
 
@@ -4246,7 +4246,7 @@ const toAdminProgramListItem = (
     canDelete: false,
     canDuplicate: true,
     canEdit: false,
-    format: lecture.formatLabel.includes('하이브리드')
+    format: lecture.formatLabel.includes('실습 포함')
       ? 'hybrid'
       : lecture.formatLabel.includes('온라인')
         ? 'online'

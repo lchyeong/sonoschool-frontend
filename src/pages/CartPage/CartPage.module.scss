@@ -1,5 +1,9 @@
 .surface {
+  display: grid;
   gap: var(--space-6);
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
 .layout {
@@ -14,13 +18,73 @@
   gap: var(--space-3);
 }
 
+.selectAllRow {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.selectAllRow input,
+.itemCheckboxLabel input {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid rgba(52, 178, 159, 0.35);
+  border-radius: 5px;
+  background: #ffffff;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.selectAllRow input:checked,
+.itemCheckboxLabel input:checked {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+}
+
+.selectAllRow input::after,
+.itemCheckboxLabel input::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-image: url('../../assets/icons/icon_check.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 14px 14px;
+  filter: brightness(0) invert(1);
+}
+
+.selectAllRow input:checked::after,
+.itemCheckboxLabel input:checked::after {
+  opacity: 1;
+}
+
+.selectAllRow input:focus-visible,
+.itemCheckboxLabel input:focus-visible,
+.couponDropdownTrigger:focus-visible {
+  outline: 2px solid rgba(20, 184, 166, 0.28);
+  outline-offset: 2px;
+}
+
 .itemCard {
   display: grid;
   gap: 16px;
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: auto 120px minmax(0, 1fr);
   padding: 18px 20px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: #ffffff;
+}
+
+.itemCheckboxLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .itemThumbnailLink {
@@ -135,29 +199,117 @@
   top: 112px;
 }
 
-.summaryGrid {
-  display: grid;
+.couponDiscountRow {
+  display: flex;
   gap: var(--space-3);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  justify-content: space-between;
 }
 
-.summaryItem {
+.couponDropdown {
+  position: relative;
+  width: min(100%, 240px);
+}
+
+.couponDropdownTrigger {
   display: grid;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  overflow: hidden;
 }
 
-.summaryLabel {
+.couponDropdownLabel {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 12px;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.couponDropdownCaret {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+}
+
+.couponDropdownCaretIcon {
+  width: 15px;
+  height: 15px;
+  filter: brightness(0) invert(1);
+}
+
+.couponDropdownMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  z-index: 3;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
+}
+
+.couponDropdownOption {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  text-align: left;
+  background: rgba(248, 251, 250, 0.9);
+}
+
+.couponDropdownOptionSelected {
+  border-color: rgba(52, 178, 159, 0.28);
+  background: rgba(236, 249, 247, 1);
+}
+
+.couponDropdownOptionDisabled {
+  opacity: 0.52;
+}
+
+.couponDropdownOptionHeader {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.couponDropdownOptionTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.couponDropdownOptionValue,
+.couponDropdownOptionMeta {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  line-height: var(--line-height-relaxed);
 }
 
-.summaryValue {
-  color: var(--color-text-primary);
-  font-size: clamp(1rem, 2vw, 1.2rem);
-  font-weight: var(--font-weight-bold);
+.couponHintRow {
+  display: grid;
+  margin-top: 8px;
+}
+
+.couponInlineText {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
 }
 
 .actionRow {
@@ -167,20 +319,25 @@
   align-items: center;
 }
 
-.primaryActionLink,
+.primaryActionButton,
 .secondaryActionLink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 44px;
   padding: 0 16px;
+  border: 0;
   text-decoration: none;
   font-weight: var(--font-weight-semibold);
 }
 
-.primaryActionLink {
+.primaryActionButton {
   color: #ffffff;
   background: var(--color-primary);
+}
+
+.primaryActionButton:disabled {
+  opacity: 0.48;
 }
 
 .secondaryActionLink {
@@ -209,11 +366,16 @@
 }
 
 @media (width < 720px) {
-  .summaryGrid {
-    grid-template-columns: 1fr;
+  .couponDiscountRow {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .primaryActionLink,
+  .couponDropdown {
+    width: 100%;
+  }
+
+  .primaryActionButton,
   .secondaryActionLink {
     width: 100%;
   }

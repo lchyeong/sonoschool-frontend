@@ -12,8 +12,10 @@ import type {
   CartSummary,
   EnrollmentDetail,
   EnrollmentSummary,
+  LearningPlayerSnapshot,
   OfflineReservation,
   RefundHistory,
+  UserCoupon,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
@@ -24,7 +26,10 @@ const sendMyPhoneVerificationMock = vi.fn<(payload: SmsSendPayload) => Promise<S
 const verifyMyPhoneChangeMock = vi.fn<(payload: SmsVerifyPayload) => Promise<UserProfile>>();
 const fetchMyEnrollmentsMock = vi.fn<() => Promise<EnrollmentSummary[]>>();
 const fetchMyEnrollmentDetailMock = vi.fn<(enrollmentId: number) => Promise<EnrollmentDetail>>();
+const fetchMyLearningPlayerSnapshotMock =
+  vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>();
 const fetchMyCartMock = vi.fn<() => Promise<CartSummary>>();
+const fetchMyCouponsMock = vi.fn<() => Promise<UserCoupon[]>>();
 const fetchMyApplicationSummaryMock = vi.fn<() => Promise<ApplicationSummary>>();
 const fetchMyReservationsMock = vi.fn<() => Promise<OfflineReservation[]>>();
 const fetchMyRefundsMock = vi.fn<() => Promise<RefundHistory[]>>();
@@ -33,8 +38,11 @@ const logoutStudentMock = vi.fn<() => Promise<void>>();
 vi.mock('@/api/mypage', () => ({
   fetchMyApplicationSummary: () => fetchMyApplicationSummaryMock(),
   fetchMyCart: () => fetchMyCartMock(),
+  fetchMyCoupons: () => fetchMyCouponsMock(),
   fetchMyEnrollmentDetail: (enrollmentId: number) => fetchMyEnrollmentDetailMock(enrollmentId),
   fetchMyEnrollments: () => fetchMyEnrollmentsMock(),
+  fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
+    fetchMyLearningPlayerSnapshotMock(enrollmentId),
   fetchMyProfile: () => fetchMyProfileMock(),
   fetchMyRefunds: () => fetchMyRefundsMock(),
   fetchMyReservations: () => fetchMyReservationsMock(),
@@ -357,6 +365,37 @@ const testApplicationSummary: ApplicationSummary = {
   onlinePayablePrice: 377000,
 };
 
+const testCoupons: UserCoupon[] = [
+  {
+    appliesTo: 'ALL',
+    code: 'SPRING',
+    description: '장바구니 전체 결제에 바로 적용할 수 있는 시즌 쿠폰입니다.',
+    discountType: 'FIXED_AMOUNT',
+    discountValue: 25000,
+    expiresAt: '2026-04-05T14:59:59Z',
+    id: 10,
+    issuedAt: '2026-03-12T09:00:00Z',
+    minimumOrderAmount: 150000,
+    name: '봄맞이 할인',
+    usable: true,
+    validFromAt: '2026-03-12T09:00:00Z',
+  },
+  {
+    appliesTo: 'ONLINE',
+    code: 'ONLINE10',
+    description: '온라인 강의 20만원 이상 선택 시 10% 할인을 제공합니다.',
+    discountType: 'PERCENTAGE',
+    discountValue: 10,
+    expiresAt: '2026-03-31T14:59:59Z',
+    id: 11,
+    issuedAt: '2026-03-10T09:00:00Z',
+    minimumOrderAmount: 200000,
+    name: '온라인 집중 10%',
+    usable: true,
+    validFromAt: '2026-03-10T09:00:00Z',
+  },
+];
+
 const testReservations: OfflineReservation[] = [
   {
     createdAt: '2026-03-01T09:00:00Z',
@@ -513,6 +552,7 @@ beforeEach(() => {
     return Promise.resolve(detail);
   });
   fetchMyCartMock.mockResolvedValue(testCart);
+  fetchMyCouponsMock.mockResolvedValue(testCoupons);
   fetchMyApplicationSummaryMock.mockResolvedValue(testApplicationSummary);
   fetchMyReservationsMock.mockResolvedValue(testReservations);
   fetchMyRefundsMock.mockResolvedValue(testRefunds);
@@ -553,6 +593,7 @@ describe('MyPagePage', () => {
     expect(screen.getByText('내 정보')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '내 강의' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '신청 내역' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '나의 쿠폰' })).toBeInTheDocument();
 
     expect(await screen.findByText('복부초음파 기초')).toBeInTheDocument();
     expect(screen.getByText('심장초음파 실전')).toBeInTheDocument();
@@ -561,6 +602,10 @@ describe('MyPagePage', () => {
     expect(screen.getByRole('button', { name: /복부초음파 기초/ })).toHaveTextContent('~');
     expect(await screen.findByText('67%')).toBeInTheDocument();
     expect(screen.getByText('2 / 3')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '수강하기' })).toHaveAttribute(
+      'href',
+      '/mypage/learning/101',
+    );
   });
 
   it('updates the lecture detail when another enrolled lecture is selected', async () => {
@@ -694,6 +739,17 @@ describe('MyPagePage', () => {
     expect(screen.getAllByText('환불 진행 중').length).toBeGreaterThan(0);
     expect(screen.getAllByText('취소 완료').length).toBeGreaterThan(0);
     expect(screen.getByText(/환불 금액 99,000원/)).toBeInTheDocument();
+  });
+
+  it('shows coupon cards when the coupons item is selected', async () => {
+    renderMyPage();
+
+    fireEvent.click(screen.getByRole('button', { name: '나의 쿠폰' }));
+
+    expect(await screen.findByText('봄맞이 할인')).toBeInTheDocument();
+    expect(screen.getByText('온라인 집중 10%')).toBeInTheDocument();
+    expect(screen.getAllByText('사용 가능').length).toBeGreaterThan(0);
+    expect(screen.getByText(/전체 과정 · 최소 150,000원/)).toBeInTheDocument();
   });
 
   it('shows the support entry without lecture browse links', async () => {

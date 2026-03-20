@@ -21,9 +21,16 @@ interface ProgramPageDetailProps {
 }
 
 const inferProgramType = (data: ProgramDetailPageResponse): ProgramType => {
+  const hasOnlineLesson = data.curriculumTrack.sections.some((section) => {
+    return section.lessons.some((lesson) => lesson.deliveryType === 'online');
+  });
   const hasOfflineLesson = data.curriculumTrack.sections.some((section) => {
     return section.lessons.some((lesson) => lesson.deliveryType === 'offline');
   });
+
+  if (hasOnlineLesson && hasOfflineLesson) {
+    return 'HYBRID';
+  }
 
   return hasOfflineLesson ? 'OFFLINE' : 'ONLINE';
 };

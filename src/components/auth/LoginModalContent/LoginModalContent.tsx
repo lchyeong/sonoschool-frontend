@@ -16,6 +16,10 @@ const LoginModalContent = ({ identifierInputRef }: LoginModalContentProps) => {
   return (
     <div className={styles['shell']}>
       <StudentLoginForm
+        initialValues={{
+          loginId: 'student01',
+          password: 'password123',
+        }}
         loginIdInputRef={identifierInputRef}
         onSuccess={closeModal}
         secondaryAction={

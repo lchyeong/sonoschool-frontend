@@ -1,0 +1,358 @@
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgb(17 126 110 / 22%), transparent 28%),
+    linear-gradient(180deg, rgb(8 16 24) 0%, rgb(10 15 23) 100%);
+}
+
+.shell,
+.topBar,
+.topBarCopy,
+.topBarMeta,
+.layout,
+.viewerColumn,
+.lessonPanel,
+.lessonHeader,
+.lessonCopy,
+.lessonMeta,
+.actionRow,
+.sequenceGroup,
+.curriculumPanel,
+.curriculumHeader,
+.summaryList,
+.sectionList,
+.sectionBlock,
+.sectionHeader,
+.lessonList,
+.badgeRow,
+.blockedCard {
+  display: grid;
+}
+
+.shell {
+  min-height: 100vh;
+  gap: 24px;
+  padding: 20px 24px 24px;
+}
+
+.topBar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.topBarCopy,
+.topBarMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.backLink,
+.dashboardLink {
+  color: rgb(168 196 214);
+  font-size: 0.92rem;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.backLink:hover,
+.dashboardLink:hover {
+  color: #ffffff;
+}
+
+.programTitle,
+.lessonTitle,
+.curriculumTitle,
+.blockedTitle {
+  margin: 0;
+  color: #ffffff;
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.programTitle {
+  font-size: 0.98rem;
+}
+
+.topBarChip,
+.metaChip,
+.summaryChip,
+.badgeCurrent,
+.badgeCompleted,
+.badgeUpcoming {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.topBarChip,
+.badgeCurrent {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.topBarText {
+  color: rgb(168 196 214);
+  font-size: 0.88rem;
+}
+
+.layout {
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 380px);
+  gap: 20px;
+  align-items: start;
+}
+
+.viewerColumn,
+.curriculumPanel,
+.blockedCard {
+  gap: 18px;
+}
+
+.playerFrame,
+.lessonPanel,
+.curriculumPanel,
+.blockedCard {
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 24px;
+  background: rgb(12 20 28 / 88%);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 22%);
+}
+
+.playerFrame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background:
+    radial-gradient(circle at top, rgb(157 226 216 / 20%), transparent 32%),
+    linear-gradient(180deg, rgb(3 9 14) 0%, rgb(6 12 18) 100%);
+}
+
+.playerElement {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.playerOverlay,
+.playerErrorBanner {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+}
+
+.playerOverlay {
+  top: 16px;
+  bottom: 16px;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 42%);
+}
+
+.overlayTitle,
+.playerErrorText,
+.lessonDescription,
+.blockedDescription,
+.message {
+  margin: 0;
+}
+
+.overlayTitle,
+.playerErrorText {
+  color: #ffffff;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.playerErrorBanner {
+  bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgb(239 68 68 / 84%);
+}
+
+.lessonPanel,
+.curriculumPanel,
+.blockedCard {
+  padding: 22px;
+}
+
+.lessonHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.lessonCopy,
+.lessonMeta,
+.blockedCard {
+  gap: 10px;
+}
+
+.sectionLabel {
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lessonTitle {
+  font-size: clamp(1.6rem, 2vw, 2.1rem);
+}
+
+.lessonDescription,
+.blockedDescription {
+  color: rgb(200 216 226);
+  font-size: var(--font-size-sm);
+  line-height: 1.75;
+}
+
+.lessonMeta,
+.summaryList,
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.metaChip,
+.summaryChip {
+  background: rgb(255 255 255 / 8%);
+  color: rgb(219 231 239);
+}
+
+.actionRow {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.sequenceGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.curriculumHeader,
+.sectionBlock {
+  gap: 14px;
+}
+
+.curriculumTitle {
+  font-size: 1.1rem;
+}
+
+.sectionHeader,
+.lessonLinkHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.96rem;
+  font-weight: var(--font-weight-bold);
+}
+
+.sectionMeta,
+.lessonLinkDuration {
+  color: rgb(168 196 214);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.lessonList {
+  gap: 10px;
+}
+
+.lessonLink {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 2%);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.lessonLink:hover,
+.lessonLink:focus-visible {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 5%);
+  outline: none;
+}
+
+.lessonLinkCurrent {
+  border-color: rgb(157 226 216 / 58%);
+  background: rgb(157 226 216 / 12%);
+}
+
+.lessonLinkTitle {
+  color: #ffffff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.55;
+}
+
+.badgeCompleted {
+  background: rgb(255 255 255 / 12%);
+  color: #ffffff;
+}
+
+.badgeUpcoming {
+  background: rgb(157 226 216 / 18%);
+  color: var(--color-primary);
+}
+
+.blockedCard {
+  max-width: 720px;
+}
+
+.message {
+  color: rgb(219 231 239);
+  font-size: var(--font-size-sm);
+}
+
+.errorText {
+  margin: 0;
+  color: rgb(252 165 165);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+@media (width < 1100px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (width < 768px) {
+  .shell {
+    padding: 16px;
+  }
+
+  .topBar,
+  .lessonHeader,
+  .actionRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lessonPanel,
+  .curriculumPanel,
+  .blockedCard {
+    padding: 18px;
+  }
+}

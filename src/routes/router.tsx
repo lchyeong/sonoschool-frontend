@@ -14,11 +14,13 @@ import CartPage from '@/pages/CartPage/CartPage';
 import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
 import ContactPage from '@/pages/ContactPage/ContactPage';
 import HomePage from '@/pages/HomePage/HomePage';
+import LearningPage from '@/pages/LearningPage/LearningPage';
 import LoginPage from '@/pages/LoginPage/LoginPage';
 import MyPagePage from '@/pages/MyPagePage/MyPagePage';
 import NotFoundPage from '@/pages/NotFoundPage/NotFoundPage';
 import NoticesPage from '@/pages/NoticesPage/NoticesPage';
 import PaymentResultPage from '@/pages/PaymentResultPage/PaymentResultPage';
+import PlayerPage from '@/pages/PlayerPage/PlayerPage';
 import ProgramPage from '@/pages/ProgramPage/ProgramPage';
 import ProgramsPage from '@/pages/ProgramsPage/ProgramsPage';
 import QnaPage from '@/pages/QnaPage/QnaPage';
@@ -54,6 +56,8 @@ const appRouteElements: Record<AppRouteKey, ReactElement> = {
   signup: <SignupPage />,
   accountRecovery: <AccountRecoveryPage />,
   mypage: <MyPagePage />,
+  learningPlayer: <LearningPage />,
+  learningLesson: <PlayerPage />,
   cart: <CartPage />,
   checkout: <CheckoutPage />,
   paymentResult: <PaymentResultPage />,
