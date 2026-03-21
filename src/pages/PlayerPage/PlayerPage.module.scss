@@ -1,8 +1,8 @@
 .page {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgb(17 126 110 / 22%), transparent 28%),
-    linear-gradient(180deg, rgb(8 16 24) 0%, rgb(10 15 23) 100%);
+    radial-gradient(circle at top left, rgb(17 126 110 / 20%), transparent 24%),
+    linear-gradient(180deg, rgb(8 13 20) 0%, rgb(11 17 25) 100%);
 }
 
 .shell,
@@ -11,19 +11,53 @@
 .topBarMeta,
 .layout,
 .viewerColumn,
+.stageCard,
+.stageHeader,
+.stageCopy,
+.stageMeta,
+.playerShell,
+.playerFrame,
+.playerOverlayCopy,
+.playerToolbar,
+.settingsWrap,
+.settingsPanel,
+.settingsSection,
+.settingsSectionHeader,
+.settingsOptionList,
+.playerControlPanel,
+.playerControlHeader,
+.playerStatusGroup,
+.playerSeekRow,
+.playerActionRow,
+.playerPrimaryControls,
+.playerSecondaryControls,
+.volumeControl,
+.speedControlGroup,
+.transportBar,
+.transportMeta,
+.workspaceGrid,
 .lessonPanel,
 .lessonHeader,
 .lessonCopy,
 .lessonMeta,
 .actionRow,
 .sequenceGroup,
+.notesPanel,
+.notesHeader,
+.notesList,
 .curriculumPanel,
 .curriculumHeader,
-.summaryList,
+.curriculumHeaderCopy,
+.progressPanel,
+.progressSummary,
+.curriculumBody,
 .sectionList,
 .sectionBlock,
 .sectionHeader,
 .lessonList,
+.lessonLink,
+.lessonLinkHeader,
+.lessonLinkMeta,
 .badgeRow,
 .blockedCard {
   display: grid;
@@ -31,8 +65,8 @@
 
 .shell {
   min-height: 100vh;
-  gap: 24px;
-  padding: 20px 24px 24px;
+  gap: 20px;
+  padding: 18px 20px 20px;
 }
 
 .topBar {
@@ -51,10 +85,20 @@
 
 .backLink,
 .dashboardLink {
-  color: rgb(168 196 214);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: rgb(177 198 211);
   font-size: 0.92rem;
   font-weight: var(--font-weight-semibold);
   text-decoration: none;
+}
+
+.backLinkIcon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 
 .backLink:hover,
@@ -64,24 +108,39 @@
 
 .programTitle,
 .lessonTitle,
+.workspaceTitle,
 .curriculumTitle,
 .blockedTitle {
   margin: 0;
-  color: #ffffff;
-  font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-bold);
+}
+
+.programTitle,
+.lessonTitle,
+.workspaceTitle,
+.blockedTitle {
+  color: #ffffff;
 }
 
 .programTitle {
   font-size: 0.98rem;
 }
 
+.lessonTitle {
+  font-size: clamp(1.55rem, 2vw, 2.05rem);
+}
+
+.workspaceTitle {
+  font-size: clamp(1.05rem, 1.4vw, 1.2rem);
+}
+
 .topBarChip,
 .metaChip,
-.summaryChip,
+.transportChip,
 .badgeCurrent,
-.badgeCompleted,
-.badgeUpcoming {
+.badgeUpcoming,
+.summaryChip {
   display: inline-flex;
   align-items: center;
   min-height: 30px;
@@ -92,51 +151,127 @@
 }
 
 .topBarChip,
-.badgeCurrent {
+.badgeCurrent,
+.transportChip {
   background: var(--color-primary);
   color: #ffffff;
 }
 
-.topBarText {
-  color: rgb(168 196 214);
-  font-size: 0.88rem;
+.metaChip,
+.summaryChip {
+  background: rgb(255 255 255 / 8%);
+  color: rgb(219 231 239);
+}
+
+.badgeUpcoming {
+  background: rgb(157 226 216 / 16%);
+  color: var(--color-primary);
+}
+
+.topBarText,
+.transportText,
+.notesHint,
+.curriculumDescription,
+.progressText,
+.sectionMeta,
+.lessonLinkDuration {
+  color: rgb(133 150 165);
+  font-size: var(--font-size-xs);
 }
 
 .layout {
-  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 380px);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.7fr) minmax(340px, 390px);
+  gap: 18px;
   align-items: start;
 }
 
-.viewerColumn,
-.curriculumPanel,
-.blockedCard {
+.viewerColumn {
   gap: 18px;
 }
 
-.playerFrame,
+.stageCard,
 .lessonPanel,
-.curriculumPanel,
+.notesPanel,
 .blockedCard {
   border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: 24px;
-  background: rgb(12 20 28 / 88%);
-  box-shadow: 0 24px 64px rgb(0 0 0 / 22%);
+  border-radius: 26px;
+  background: rgb(11 18 27 / 86%);
+  box-shadow: 0 26px 60px rgb(0 0 0 / 22%);
+}
+
+.stageCard {
+  gap: 16px;
+  padding: 18px;
+}
+
+.stageHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.stageCopy,
+.stageMeta,
+.lessonCopy,
+.lessonMeta,
+.notesPanel,
+.blockedCard {
+  gap: 10px;
+}
+
+.stageEyebrow,
+.sectionLabel {
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lessonDescription,
+.blockedDescription {
+  margin: 0;
+  color: rgb(204 217 227);
+  font-size: var(--font-size-sm);
+  line-height: 1.72;
+}
+
+.stageProgressText,
+.stageProgressWarning {
+  margin: 0;
+  font-size: var(--font-size-xs);
+}
+
+.stageProgressText {
+  color: rgb(191 209 220);
+}
+
+.stageProgressWarning {
+  color: rgb(248 113 113);
+}
+
+.playerShell {
+  gap: 14px;
+  padding: 12px;
+  border-radius: 22px;
+  background: rgb(0 0 0 / 32%);
 }
 
 .playerFrame {
   position: relative;
-  overflow: hidden;
   aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 18px;
   background:
-    radial-gradient(circle at top, rgb(157 226 216 / 20%), transparent 32%),
-    linear-gradient(180deg, rgb(3 9 14) 0%, rgb(6 12 18) 100%);
+    radial-gradient(circle at top, rgb(157 226 216 / 12%), transparent 34%),
+    linear-gradient(180deg, rgb(4 8 13) 0%, rgb(5 9 13) 100%);
 }
 
 .playerElement {
   width: 100%;
   height: 100%;
   display: block;
+  background: transparent;
 }
 
 .playerOverlay,
@@ -151,13 +286,19 @@
   bottom: 16px;
   display: grid;
   place-items: center;
+  border-radius: 16px;
   background: rgb(0 0 0 / 42%);
+}
+
+.playerOverlayCopy {
+  gap: 10px;
+  max-width: 420px;
+  padding: 0 20px;
+  text-align: center;
 }
 
 .overlayTitle,
 .playerErrorText,
-.lessonDescription,
-.blockedDescription,
 .message {
   margin: 0;
 }
@@ -169,6 +310,17 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.overlayDescription,
+.playerHint,
+.playerStatusText,
+.playerSeekValue,
+.compatibilityNotice,
+.settingsCurrentValue {
+  margin: 0;
+  color: rgb(191 209 220);
+  font-size: var(--font-size-xs);
+}
+
 .playerErrorBanner {
   bottom: 16px;
   padding: 12px 14px;
@@ -176,9 +328,193 @@
   background: rgb(239 68 68 / 84%);
 }
 
+.playerLessonActions {
+  position: absolute;
+  right: 20px;
+  bottom: 24px;
+  left: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.playerLessonButton {
+  min-width: 0;
+  padding-inline: 16px !important;
+  border-radius: 999px !important;
+  border-color: rgb(255 255 255 / 14%) !important;
+  background: rgb(33 38 46 / 92%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 24%);
+  pointer-events: auto;
+}
+
+.playerLessonButton:hover {
+  background: rgb(46 52 61 / 96%) !important;
+}
+
+.playerToolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.settingsWrap {
+  position: relative;
+}
+
+.settingsButton {
+  min-width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  background: rgb(33 38 46 / 92%);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 24%);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.settingsButtonLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: rgb(219 231 239);
+  white-space: nowrap;
+}
+
+.settingsButton:hover {
+  background: rgb(46 52 61 / 96%);
+}
+
+.settingsIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.settingsPanel {
+  position: absolute;
+  right: 0;
+  z-index: 2;
+  width: min(300px, calc(100vw - 56px));
+  gap: 14px;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 18px;
+  background: rgb(24 28 35 / 98%);
+  box-shadow: 0 24px 48px rgb(0 0 0 / 32%);
+}
+
+.settingsSection {
+  gap: 10px;
+}
+
+.settingsSectionHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.settingsTitle {
+  color: #ffffff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.settingsOptionList {
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+  gap: 8px;
+}
+
+.settingsOption {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 4%);
+  color: rgb(219 231 239);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.settingsOption:hover {
+  background: rgb(255 255 255 / 9%);
+}
+
+.settingsOptionActive {
+  border-color: rgb(157 226 216 / 72%);
+  background: rgb(157 226 216 / 16%);
+  color: #ffffff;
+}
+
+.transportMeta,
+.sequenceGroup,
+.actionRow,
+.summaryList,
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.transportButton {
+  min-width: 0;
+  padding-inline: 12px !important;
+  border-radius: 999px !important;
+  border-color: rgb(255 255 255 / 12%) !important;
+  color: #ffffff !important;
+  background: rgb(255 255 255 / 6%) !important;
+  font-size: var(--font-size-sm) !important;
+}
+
+.transportButton:hover {
+  background: rgb(255 255 255 / 10%) !important;
+}
+
+.transportButtonInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.transportIcon {
+  width: 10px;
+  height: 10px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  filter: brightness(0) invert(1);
+}
+
+.transportIconPrevious {
+  transform: scaleX(-1);
+}
+
+.workspaceGrid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 18px;
+  align-items: start;
+}
+
 .lessonPanel,
-.curriculumPanel,
+.notesPanel,
 .blockedCard {
+  gap: 16px;
   padding: 22px;
 }
 
@@ -188,64 +524,121 @@
   align-items: start;
 }
 
-.lessonCopy,
-.lessonMeta,
-.blockedCard {
-  gap: 10px;
-}
-
-.sectionLabel {
-  color: var(--color-primary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.lessonTitle {
-  font-size: clamp(1.6rem, 2vw, 2.1rem);
-}
-
-.lessonDescription,
-.blockedDescription {
-  color: rgb(200 216 226);
-  font-size: var(--font-size-sm);
-  line-height: 1.75;
-}
-
-.lessonMeta,
-.summaryList,
-.badgeRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.metaChip,
-.summaryChip {
-  background: rgb(255 255 255 / 8%);
-  color: rgb(219 231 239);
-}
-
 .actionRow {
+  justify-content: space-between;
+}
+
+.dashboardLink {
+  white-space: nowrap;
+}
+
+.notesHeader {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
 }
 
-.sequenceGroup {
-  display: flex;
-  flex-wrap: wrap;
+.notesList {
   gap: 12px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
 }
 
-.curriculumHeader,
-.sectionBlock {
+.noteItem {
+  position: relative;
+  padding-left: 18px;
+  color: rgb(220 231 237);
+  font-size: var(--font-size-sm);
+  line-height: 1.68;
+}
+
+.noteItem::before {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  content: '';
+}
+
+.curriculumPanel {
+  position: sticky;
+  top: 18px;
+  gap: 18px;
+  max-height: calc(100vh - 36px);
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgb(15 23 42 / 8%);
+  border-radius: 26px;
+  background: rgb(250 252 253 / 98%);
+  box-shadow: 0 20px 54px rgb(15 23 42 / 12%);
+}
+
+.curriculumHeader {
   gap: 14px;
 }
 
+.curriculumHeaderCopy,
+.progressPanel,
+.sectionBlock {
+  gap: 10px;
+}
+
+.curriculumTitle,
+.sectionTitle,
+.lessonLinkTitle {
+  color: rgb(17 24 39);
+}
+
 .curriculumTitle {
-  font-size: 1.1rem;
+  font-size: 1.18rem;
+}
+
+.curriculumDescription {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.progressSummary {
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: end;
+}
+
+.progressValue {
+  color: rgb(17 24 39);
+  font-size: 1.35rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.progressTrack {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(226 232 240);
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary) 0%, rgb(17 126 110) 100%);
+}
+
+.curriculumBody {
+  gap: 14px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: var(--font-weight-bold);
 }
 
 .sectionHeader,
@@ -256,65 +649,88 @@
   align-items: flex-start;
 }
 
-.sectionTitle {
-  margin: 0;
-  color: #ffffff;
-  font-size: 0.96rem;
-  font-weight: var(--font-weight-bold);
-}
-
-.sectionMeta,
-.lessonLinkDuration {
-  color: rgb(168 196 214);
-  font-size: var(--font-size-xs);
-  white-space: nowrap;
-}
-
 .lessonList {
-  gap: 10px;
+  gap: 8px;
 }
 
 .lessonLink {
-  display: grid;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid rgb(255 255 255 / 8%);
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px 14px 14px 12px;
+  border: 1px solid transparent;
   border-radius: 18px;
-  background: rgb(255 255 255 / 2%);
+  background: #ffffff;
   color: inherit;
   text-decoration: none;
   transition:
     border-color 160ms ease,
-    background-color 160ms ease;
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .lessonLink:hover,
 .lessonLink:focus-visible {
-  border-color: rgb(255 255 255 / 18%);
-  background: rgb(255 255 255 / 5%);
+  border-color: rgb(203 213 225);
+  background: rgb(248 250 252);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 8%);
   outline: none;
 }
 
 .lessonLinkCurrent {
-  border-color: rgb(157 226 216 / 58%);
-  background: rgb(157 226 216 / 12%);
+  border-color: rgb(157 226 216 / 92%);
+  background: rgb(231 248 244);
+}
+
+.lessonStatusIcon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border: 1.5px solid rgb(203 213 225);
+  border-radius: 999px;
+  background-color: #ffffff;
+}
+
+.lessonStatusIconCurrent {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 4px var(--color-primary);
+}
+
+.lessonStatusIconCompleted {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  position: relative;
+}
+
+.lessonStatusIconCompleted::after {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  content: '';
+  mask-image: var(--lesson-check-icon);
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: 10px 10px;
+  -webkit-mask-image: var(--lesson-check-icon);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: 10px 10px;
+}
+
+.lessonLinkHeader {
+  min-width: 0;
 }
 
 .lessonLinkTitle {
-  color: #ffffff;
+  min-width: 0;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   line-height: 1.55;
 }
 
-.badgeCompleted {
-  background: rgb(255 255 255 / 12%);
-  color: #ffffff;
-}
-
-.badgeUpcoming {
-  background: rgb(157 226 216 / 18%);
-  color: var(--color-primary);
+.lessonLinkMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .blockedCard {
@@ -333,26 +749,51 @@
   font-weight: var(--font-weight-semibold);
 }
 
-@media (width < 1100px) {
-  .layout {
+@media (width < 1180px) {
+  .layout,
+  .workspaceGrid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .curriculumPanel {
+    position: static;
+    max-height: none;
   }
 }
 
 @media (width < 768px) {
   .shell {
-    padding: 16px;
+    padding: 14px;
   }
 
   .topBar,
+  .stageHeader,
+  .playerControlHeader,
+  .transportBar,
   .lessonHeader,
-  .actionRow {
+  .notesHeader {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .stageCard,
   .lessonPanel,
+  .notesPanel,
   .curriculumPanel,
   .blockedCard {
-    padding: 18px;
+    padding: 16px;
+  }
+
+  .playerLessonActions {
+    gap: 8px;
+    bottom: 18px;
+  }
+
+  .playerToolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settingsPanel {
+    left: 0;
+    right: auto;
   }
 }

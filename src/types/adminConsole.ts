@@ -286,8 +286,12 @@ export interface AdminLoginRequest {
 }
 
 export interface AdminLoginResponse {
-  ok: true;
+  accessToken: string;
+  tokenType: string;
+  expiresAt: string;
+  loginId: string;
   adminDisplayName: string;
+  role: string;
 }
 
 export interface CreateAdminNoticePayload {

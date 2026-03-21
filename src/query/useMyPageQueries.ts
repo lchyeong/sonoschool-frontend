@@ -9,8 +9,8 @@ import {
   fetchMyLearningPlayerSnapshot,
   fetchMyProfile,
   fetchMyRefunds,
-  fetchMyReservations,
 } from '@/api/mypage';
+import { fetchPaymentHistory } from '@/api/payments';
 
 export const myProfileQueryKey = ['mypage', 'profile'] as const;
 export const myEnrollmentsQueryKey = ['mypage', 'enrollments'] as const;
@@ -21,7 +21,7 @@ export const myLearningPlayerQueryKey = (enrollmentId: number | null) =>
 export const myCartQueryKey = ['mypage', 'cart'] as const;
 export const myCouponsQueryKey = ['mypage', 'coupons'] as const;
 export const myApplicationSummaryQueryKey = ['mypage', 'applicationSummary'] as const;
-export const myReservationsQueryKey = ['mypage', 'reservations'] as const;
+export const myPaymentHistoryQueryKey = ['mypage', 'paymentHistory'] as const;
 export const myRefundsQueryKey = ['mypage', 'refunds'] as const;
 
 export const useMyProfileQuery = () => {
@@ -92,12 +92,12 @@ export const useMyApplicationSummaryQuery = (enabled = true) => {
   });
 };
 
-export const useMyReservationsQuery = (enabled = true) => {
+export const useMyPaymentHistoryQuery = (enabled = true) => {
   return useQuery({
     enabled,
     gcTime: 10 * 60 * 1000,
-    queryFn: fetchMyReservations,
-    queryKey: myReservationsQueryKey,
+    queryFn: fetchPaymentHistory,
+    queryKey: myPaymentHistoryQueryKey,
     staleTime: 60 * 1000,
   });
 };

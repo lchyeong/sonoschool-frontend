@@ -5,7 +5,6 @@ import axiosInstance from '@/api/axiosInstance';
 import { shouldUseMockFallback } from '@/api/fallback';
 import { http } from '@/api/http';
 import {
-  attemptMockAdminLogin,
   createMockAdminNotice,
   createMockAdminProgram,
   createMockAdminProgramDraftItem,
@@ -387,8 +386,12 @@ const adminConsoleResponseSchema = z.object({
 });
 
 const adminLoginResponseSchema = z.object({
-  adminDisplayName: z.string().min(1),
-  ok: z.literal(true),
+  accessToken: z.string().min(1),
+  tokenType: z.string().min(1),
+  expiresAt: z.string().min(1),
+  loginId: z.string().min(1),
+  displayName: z.string().min(1),
+  role: z.string().min(1),
 });
 
 const mutationSuccessSchema = z.object({
@@ -408,6 +411,7 @@ const getBackendMessage = (data: unknown): string | null => {
 const toAdminUserMessage = (backendMessage: string | null): string => {
   switch (backendMessage) {
     case 'Invalid admin credentials':
+    case 'Invalid username or password.':
       return '아이디 또는 비밀번호를 확인해 주세요.';
     case 'Q&A thread not found':
       return '답변할 문의를 찾을 수 없습니다.';
@@ -674,26 +678,32 @@ export const loginAdmin = async (
   siteKey: string,
   payload: AdminLoginRequest,
 ): Promise<AdminLoginResponse> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
+  void siteKey;
 
   try {
-    const response = await axiosInstance.post(`/sites/${encodedSiteKey}/admin/login`, payload);
-    const parsed = adminLoginResponseSchema.safeParse(response.data);
+    const response = await axiosInstance.post<{ data: unknown }>(`/api/auth/login`, {
+      loginId: payload.identifier,
+      password: payload.password,
+    });
+    const parsed = adminLoginResponseSchema.safeParse(response.data.data);
 
     if (!parsed.success) {
       throw new Error(`[adminConsole] Invalid login response.${toZodErrorMessage(parsed.error)}`);
     }
 
-    return parsed.data;
-  } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = attemptMockAdminLogin(siteKey, payload.identifier, payload.password);
-
-      if (mockResponse) {
-        return mockResponse;
-      }
+    if (parsed.data.role !== 'ROLE_ADMIN') {
+      throw new Error('관리자 권한 계정으로 로그인해 주세요.');
     }
 
+    return {
+      accessToken: parsed.data.accessToken,
+      tokenType: parsed.data.tokenType,
+      expiresAt: parsed.data.expiresAt,
+      loginId: parsed.data.loginId,
+      adminDisplayName: parsed.data.displayName,
+      role: parsed.data.role,
+    };
+  } catch (error: unknown) {
     return handleAxiosAdminError(error);
   }
 };

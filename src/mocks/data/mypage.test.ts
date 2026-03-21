@@ -10,7 +10,6 @@ import {
   getMockLearningPlayerSnapshot,
   getMockMyProfile,
   getMockMyRefunds,
-  getMockMyReservations,
   removeMockMyCartItem,
 } from '@/mocks/data/mypage';
 
@@ -95,15 +94,6 @@ describe('mypage mock data', () => {
     expect(updatedCart.items.some((item) => item.id === 55)).toBe(false);
     expect(updatedSummary.onlineItems.some((item) => item.cartItemId === 55)).toBe(false);
     expect(updatedSummary.onlinePayablePrice).toBe(665000);
-  });
-
-  it('provides a richer reservations list across statuses', () => {
-    const reservations = getMockMyReservations();
-
-    expect(reservations).toHaveLength(9);
-    expect(reservations.filter((item) => item.status === 'CONFIRMED')).toHaveLength(4);
-    expect(reservations.filter((item) => item.status === 'REQUESTED')).toHaveLength(3);
-    expect(reservations.filter((item) => item.status === 'CANCELLED')).toHaveLength(2);
   });
 
   it('provides editable profile fields and refund fixtures', () => {

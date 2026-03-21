@@ -11,7 +11,6 @@ import type {
   EnrollmentDetail,
   EnrollmentSummary,
   LearningPlayerSnapshot,
-  OfflineReservation,
   ProtectedLectureStream,
   RefundHistory,
   UserCoupon,
@@ -29,6 +28,64 @@ interface PendingPhoneVerification {
 
 const cloneData = <T>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T;
+};
+
+const enrollmentThumbnailByProgramId: Record<number, string> = {
+  2001: homeLecture1Src,
+  2003: homeLecture2Src,
+  2004: homeLecture3Src,
+  2005: homeLecture4Src,
+  2006: homeLecture5Src,
+  2007: homeLecture1Src,
+  2009: homeLecture2Src,
+  2010: homeLecture3Src,
+  2011: homeLecture4Src,
+  2012: homeLecture5Src,
+  2013: homeLecture1Src,
+  2014: homeLecture2Src,
+  2018: homeLecture3Src,
+  2019: homeLecture4Src,
+  2020: homeLecture5Src,
+  2021: homeLecture1Src,
+  2022: homeLecture2Src,
+  2023: homeLecture3Src,
+};
+
+const getLastLearningAtFromDetail = (detail: EnrollmentDetail): string | null => {
+  return detail.progress.reduce<string | null>((latest, progressItem) => {
+    if (!progressItem.lastWatchedAt) {
+      return latest;
+    }
+
+    if (!latest) {
+      return progressItem.lastWatchedAt;
+    }
+
+    return new Date(progressItem.lastWatchedAt) > new Date(latest)
+      ? progressItem.lastWatchedAt
+      : latest;
+  }, null);
+};
+
+const enrichEnrollmentSummary = (enrollment: EnrollmentSummary): EnrollmentSummary => {
+  const detail = mockEnrollmentDetails.get(enrollment.id);
+
+  if (!detail) {
+    return enrollment;
+  }
+
+  return {
+    ...enrollment,
+    certificateEligible: detail.certificateEligible,
+    completed: detail.completed,
+    completedAt: detail.completedAt,
+    completedLectures: detail.completedLectures,
+    completionRate: detail.completionRate,
+    lastLearningAt: getLastLearningAtFromDetail(detail),
+    programThumbnailUrl:
+      enrollmentThumbnailByProgramId[enrollment.programId] ?? enrollment.programThumbnailUrl,
+    totalLectures: detail.totalLectures,
+  };
 };
 
 const demoStreamUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
@@ -52,63 +109,105 @@ const createInitialProfile = (): UserProfile => {
 const mockEnrollments: EnrollmentSummary[] = [
   {
     active: true,
+    certificateEligible: false,
+    completed: false,
+    completedAt: null,
+    completedLectures: 0,
+    completionRate: 0,
     enrolledAt: '2026-02-01T09:00:00Z',
     expireAt: '2026-12-31T14:59:59Z',
     id: 101,
+    lastLearningAt: null,
     programId: 2001,
     programThumbnailUrl: null,
     programTitle: '복부초음파 기초',
     status: 'ACTIVE',
+    totalLectures: 0,
   },
   {
     active: true,
+    certificateEligible: false,
+    completed: false,
+    completedAt: null,
+    completedLectures: 0,
+    completionRate: 0,
     enrolledAt: '2026-02-20T09:00:00Z',
     expireAt: '2026-08-31T14:59:59Z',
     id: 102,
+    lastLearningAt: null,
     programId: 2003,
     programThumbnailUrl: null,
     programTitle: '심장초음파 실전',
     status: 'ACTIVE',
+    totalLectures: 0,
   },
   {
     active: false,
+    certificateEligible: false,
+    completed: false,
+    completedAt: null,
+    completedLectures: 0,
+    completionRate: 0,
     enrolledAt: '2025-11-05T09:00:00Z',
     expireAt: '2026-02-28T14:59:59Z',
     id: 103,
+    lastLearningAt: null,
     programId: 2004,
     programThumbnailUrl: null,
     programTitle: 'POCUS 응급 핸즈온',
     status: 'EXPIRED',
+    totalLectures: 0,
   },
   {
     active: true,
+    certificateEligible: false,
+    completed: false,
+    completedAt: null,
+    completedLectures: 0,
+    completionRate: 0,
     enrolledAt: '2026-03-03T09:00:00Z',
     expireAt: '2026-09-30T14:59:59Z',
     id: 104,
+    lastLearningAt: null,
     programId: 2005,
     programThumbnailUrl: null,
     programTitle: '갑상선 초음파 판독 입문',
     status: 'ACTIVE',
+    totalLectures: 0,
   },
   {
     active: false,
+    certificateEligible: false,
+    completed: false,
+    completedAt: null,
+    completedLectures: 0,
+    completionRate: 0,
     enrolledAt: '2025-10-12T09:00:00Z',
     expireAt: '2026-01-31T14:59:59Z',
     id: 105,
+    lastLearningAt: null,
     programId: 2006,
     programThumbnailUrl: null,
     programTitle: '산과 초음파 핵심 포인트',
     status: 'EXPIRED',
+    totalLectures: 0,
   },
   {
     active: false,
+    certificateEligible: false,
+    completed: false,
+    completedAt: null,
+    completedLectures: 0,
+    completionRate: 0,
     enrolledAt: '2026-01-20T09:00:00Z',
     expireAt: '2026-07-31T14:59:59Z',
     id: 106,
+    lastLearningAt: null,
     programId: 2007,
     programThumbnailUrl: null,
     programTitle: '혈관초음파 실전 케이스 리뷰',
     status: 'CANCELLED',
+    totalLectures: 0,
   },
 ];
 
@@ -519,7 +618,6 @@ const mockCoupons: UserCoupon[] = [
 
 const mockApplicationSummary: ApplicationSummary = {
   appliedCoupon: mockCart.appliedCoupon,
-  hasOfflineReservation: true,
   hasOnlineCheckout: true,
   offlineItemCount: 1,
   offlineItems: [
@@ -556,84 +654,6 @@ const mockApplicationSummary: ApplicationSummary = {
   ],
   onlinePayablePrice: 377000,
 };
-
-const mockReservations: OfflineReservation[] = [
-  {
-    createdAt: '2026-03-01T09:00:00Z',
-    detailPath: '/programs/general-course/abdomen/abdomen-basic-6-weeks/2026-mar-apr',
-    id: 700,
-    location: '서울 강의장',
-    note: null,
-    programId: 3001,
-    programTitle: '오프라인 핸즈온',
-    scheduleEndAt: '2026-04-10T15:00:00Z',
-    scheduleId: 901,
-    scheduleStartAt: '2026-04-10T13:00:00Z',
-    scheduleTitle: '4월 핸즈온',
-    status: 'CONFIRMED',
-    thumbnailUrl: homeLecture3Src,
-  },
-  {
-    createdAt: '2026-03-07T06:30:00Z',
-    detailPath: '/programs/general-course/msk/workshop/detail',
-    id: 701,
-    location: '부산 세미나룸',
-    note: '준비물 안내 문자 발송 예정',
-    programId: 3002,
-    programTitle: '근골격계 초음파 워크숍',
-    scheduleEndAt: '2026-04-24T12:30:00Z',
-    scheduleId: 902,
-    scheduleStartAt: '2026-04-24T09:30:00Z',
-    scheduleTitle: '4월 실습반',
-    status: 'REQUESTED',
-    thumbnailUrl: homeLecture5Src,
-  },
-  {
-    createdAt: '2026-02-15T05:15:00Z',
-    detailPath: '/programs/doctor-course/pocus/emergency-intensive/detail',
-    id: 702,
-    location: '대구 강의장',
-    note: '취소 요청 완료',
-    programId: 3003,
-    programTitle: '응급 초음파 집중 코스',
-    scheduleEndAt: '2026-03-20T17:00:00Z',
-    scheduleId: 903,
-    scheduleStartAt: '2026-03-20T13:00:00Z',
-    scheduleTitle: '3월 집중반',
-    status: 'CANCELLED',
-    thumbnailUrl: homeLecture1Src,
-  },
-  {
-    createdAt: '2026-03-12T04:20:00Z',
-    detailPath: '/programs/general-course/breast/reporting-workshop/detail',
-    id: 703,
-    location: '광주 실습센터',
-    note: '사전 문진표 제출 완료',
-    programId: 3004,
-    programTitle: '유방초음파 판독 워크숍',
-    scheduleEndAt: '2026-04-30T12:00:00Z',
-    scheduleId: 904,
-    scheduleStartAt: '2026-04-30T09:00:00Z',
-    scheduleTitle: '4월 판독반',
-    status: 'CONFIRMED',
-    thumbnailUrl: homeLecture2Src,
-  },
-  {
-    createdAt: '2026-03-14T08:45:00Z',
-    detailPath: '/programs/doctor-course/pocus/fast/2026-sep-oct',
-    id: 704,
-    location: '온라인 사전 OT 후 서울 실습',
-    note: '대기 등록 상태',
-    programId: 3005,
-    programTitle: 'FAST 집중 실습 코스',
-    scheduleEndAt: '2026-05-08T16:00:00Z',
-    scheduleId: 905,
-    scheduleStartAt: '2026-05-08T13:00:00Z',
-    scheduleTitle: '5월 주말반',
-    status: 'REQUESTED',
-    thumbnailUrl: homeLecture4Src,
-  },
-];
 
 const mockRefunds: RefundHistory[] = [
   {
@@ -720,123 +740,207 @@ const extendMockMyPageData = (): void => {
   const extraEnrollments: EnrollmentSummary[] = [
     {
       active: true,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2026-03-05T09:00:00Z',
       expireAt: '2026-10-05T14:59:59Z',
       id: 107,
+      lastLearningAt: null,
       programId: 2009,
       programThumbnailUrl: null,
       programTitle: '근골격 초음파 실습 베이직',
       status: 'ACTIVE',
+      totalLectures: 0,
     },
     {
       active: true,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2026-03-09T09:00:00Z',
       expireAt: '2026-09-15T14:59:59Z',
       id: 108,
+      lastLearningAt: null,
       programId: 2010,
       programThumbnailUrl: null,
       programTitle: '여성초음파 리포트 워크숍',
       status: 'ACTIVE',
+      totalLectures: 0,
     },
     {
       active: false,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2025-09-10T09:00:00Z',
       expireAt: '2025-12-31T14:59:59Z',
       id: 109,
+      lastLearningAt: null,
       programId: 2011,
       programThumbnailUrl: null,
       programTitle: '흉부초음파 판독 집중',
       status: 'EXPIRED',
+      totalLectures: 0,
     },
     {
       active: true,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2026-03-11T09:00:00Z',
       expireAt: '2026-11-30T14:59:59Z',
       id: 110,
+      lastLearningAt: null,
       programId: 2012,
       programThumbnailUrl: null,
       programTitle: '소아 초음파 스캔 루틴',
       status: 'ACTIVE',
+      totalLectures: 0,
     },
     {
       active: false,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2025-08-22T09:00:00Z',
       expireAt: '2025-11-30T14:59:59Z',
       id: 111,
+      lastLearningAt: null,
       programId: 2013,
       programThumbnailUrl: null,
       programTitle: '응급 POCUS 야간 케이스',
       status: 'EXPIRED',
+      totalLectures: 0,
     },
     {
       active: false,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2026-02-03T09:00:00Z',
       expireAt: '2026-08-03T14:59:59Z',
       id: 112,
+      lastLearningAt: null,
       programId: 2014,
       programThumbnailUrl: null,
       programTitle: '유방초음파 임상 케이스',
       status: 'CANCELLED',
+      totalLectures: 0,
     },
     {
       active: true,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2026-03-12T09:00:00Z',
       expireAt: '2026-12-20T14:59:59Z',
       id: 113,
+      lastLearningAt: null,
       programId: 2018,
       programThumbnailUrl: null,
       programTitle: '간초음파 패턴 분석 코스',
       status: 'ACTIVE',
+      totalLectures: 0,
     },
     {
       active: true,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2026-03-14T09:00:00Z',
       expireAt: '2026-09-30T14:59:59Z',
       id: 114,
+      lastLearningAt: null,
       programId: 2019,
       programThumbnailUrl: null,
       programTitle: '도플러 측정 워크플로 실전',
       status: 'ACTIVE',
+      totalLectures: 0,
     },
     {
       active: false,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2025-07-18T09:00:00Z',
       expireAt: '2025-10-31T14:59:59Z',
       id: 115,
+      lastLearningAt: null,
       programId: 2020,
       programThumbnailUrl: null,
       programTitle: '상복부 케이스 리뷰 아카이브',
       status: 'EXPIRED',
+      totalLectures: 0,
     },
     {
       active: false,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2025-12-01T09:00:00Z',
       expireAt: '2026-02-14T14:59:59Z',
       id: 116,
+      lastLearningAt: null,
       programId: 2021,
       programThumbnailUrl: null,
       programTitle: '산부인과 초음파 판독 심화',
       status: 'EXPIRED',
+      totalLectures: 0,
     },
     {
       active: false,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2026-02-18T09:00:00Z',
       expireAt: '2026-08-18T14:59:59Z',
       id: 117,
+      lastLearningAt: null,
       programId: 2022,
       programThumbnailUrl: null,
       programTitle: '혈류 도플러 핸즈온 특강',
       status: 'CANCELLED',
+      totalLectures: 0,
     },
     {
       active: false,
+      certificateEligible: false,
+      completed: false,
+      completedAt: null,
+      completedLectures: 0,
+      completionRate: 0,
       enrolledAt: '2026-03-01T09:00:00Z',
       expireAt: '2026-09-01T14:59:59Z',
       id: 118,
+      lastLearningAt: null,
       programId: 2023,
       programThumbnailUrl: null,
       programTitle: '외래초음파 실전 템플릿',
       status: 'CANCELLED',
+      totalLectures: 0,
     },
   ];
 
@@ -1097,69 +1201,6 @@ const extendMockMyPageData = (): void => {
     },
   );
 
-  mockReservations.push(
-    {
-      createdAt: '2026-03-15T05:35:00Z',
-      detailPath: '/programs/general-course/pediatrics/live-practice/detail',
-      id: 705,
-      location: '서울 강남 실습실',
-      note: null,
-      programId: 3012,
-      programTitle: '소아초음파 라이브 실습',
-      scheduleEndAt: '2026-05-15T17:00:00Z',
-      scheduleId: 906,
-      scheduleStartAt: '2026-05-15T13:00:00Z',
-      scheduleTitle: '5월 평일반',
-      status: 'CONFIRMED',
-      thumbnailUrl: homeLecture2Src,
-    },
-    {
-      createdAt: '2026-03-16T01:20:00Z',
-      detailPath: '/programs/general-course/chest/case-practice/detail',
-      id: 706,
-      location: '대전 교육센터',
-      note: '인원 확인 후 확정 예정',
-      programId: 3013,
-      programTitle: '흉부초음파 케이스 실습',
-      scheduleEndAt: '2026-05-22T18:00:00Z',
-      scheduleId: 907,
-      scheduleStartAt: '2026-05-22T14:00:00Z',
-      scheduleTitle: '5월 금요반',
-      status: 'REQUESTED',
-      thumbnailUrl: homeLecture1Src,
-    },
-    {
-      createdAt: '2026-03-16T03:10:00Z',
-      detailPath: '/programs/general-course/msk/oneday-practice/detail',
-      id: 707,
-      location: '서울 본관',
-      note: '강사 일정 변경으로 취소',
-      programId: 3014,
-      programTitle: '근골격 초음파 원데이 실습',
-      scheduleEndAt: '2026-04-18T17:30:00Z',
-      scheduleId: 908,
-      scheduleStartAt: '2026-04-18T10:00:00Z',
-      scheduleTitle: '4월 원데이',
-      status: 'CANCELLED',
-      thumbnailUrl: homeLecture5Src,
-    },
-    {
-      createdAt: '2026-03-17T02:40:00Z',
-      detailPath: '/programs/doctor-course/pocus/field-training/detail',
-      id: 708,
-      location: '부산 해운대 교육장',
-      note: null,
-      programId: 3015,
-      programTitle: '응급초음파 현장 트레이닝',
-      scheduleEndAt: '2026-05-29T16:30:00Z',
-      scheduleId: 909,
-      scheduleStartAt: '2026-05-29T13:30:00Z',
-      scheduleTitle: '5월 실습 세션',
-      status: 'CONFIRMED',
-      thumbnailUrl: homeLecture4Src,
-    },
-  );
-
   mockRefunds.push(
     {
       id: 883,
@@ -1225,7 +1266,6 @@ const initialEnrollmentDetailsSnapshot = Array.from(mockEnrollmentDetails.entrie
 const initialCartSnapshot = cloneData(mockCart);
 const initialCouponsSnapshot = cloneData(mockCoupons);
 const initialApplicationSummarySnapshot = cloneData(mockApplicationSummary);
-const initialReservationsSnapshot = cloneData(mockReservations);
 const initialRefundsSnapshot = cloneData(mockRefunds);
 
 let profileState = createInitialProfile();
@@ -1282,7 +1322,6 @@ const recalculateCartDerivedState = (): void => {
     0,
   );
   mockApplicationSummary.hasOnlineCheckout = mockApplicationSummary.onlineItems.length > 0;
-  mockApplicationSummary.hasOfflineReservation = mockApplicationSummary.offlineItems.length > 0;
 };
 
 const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerSnapshot => {
@@ -1340,6 +1379,18 @@ const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerS
   };
 
   return {
+    enrollment: {
+      active: detail.active,
+      completedLessons: detail.completedLectures,
+      completionRate: detail.completionRate,
+      enrolledAt: detail.enrolledAt,
+      expireAt: detail.expireAt,
+      id: detail.id,
+      programId: detail.programId,
+      programTitle: detail.programTitle,
+      status: detail.status,
+      totalLessons: detail.totalLectures,
+    },
     completedLessonIds: detail.progress
       .filter((item) => item.completed)
       .map((item) => lessonIds[item.lectureId - 1])
@@ -1354,6 +1405,27 @@ const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerS
             lectureId: lessonIndex + 1,
             mimeType: 'application/x-mpegURL',
             posterUrl: null,
+          },
+        ];
+      }),
+    ),
+    lessonProgressByLessonId: Object.fromEntries(
+      lessonIds.map((lessonId, lessonIndex) => {
+        const progress = progressByLectureId.get(lessonIndex + 1);
+        const watchedSeconds = progress?.watchedSeconds ?? 0;
+        const durationSeconds = (25 + (lessonIndex + 1) * 5) * 60;
+
+        return [
+          lessonId,
+          {
+            completed: progress?.completed ?? false,
+            completedAt: progress?.completedAt ?? null,
+            lastWatchedAt: progress?.lastWatchedAt ?? null,
+            lectureId: lessonIndex + 1,
+            progressPercent: progress?.completed
+              ? 100
+              : Math.min(100, Math.round((watchedSeconds / durationSeconds) * 100)),
+            watchedSeconds,
           },
         ];
       }),
@@ -1419,10 +1491,7 @@ export const resetMockMyPageData = (): void => {
   mockApplicationSummary.onlinePayablePrice = initialApplicationSummarySnapshot.onlinePayablePrice;
   mockApplicationSummary.offlineItemCount = initialApplicationSummarySnapshot.offlineItemCount;
   mockApplicationSummary.hasOnlineCheckout = initialApplicationSummarySnapshot.hasOnlineCheckout;
-  mockApplicationSummary.hasOfflineReservation =
-    initialApplicationSummarySnapshot.hasOfflineReservation;
   mockApplicationSummary.appliedCoupon = cloneData(initialApplicationSummarySnapshot.appliedCoupon);
-  mockReservations.splice(0, mockReservations.length, ...cloneData(initialReservationsSnapshot));
   mockRefunds.splice(0, mockRefunds.length, ...cloneData(initialRefundsSnapshot));
   profileState = createInitialProfile();
   pendingPhoneVerification = null;
@@ -1490,7 +1559,7 @@ export const verifyMockMyPhoneChange = (payload: SmsVerifyPayload): UserProfile 
 };
 
 export const getMockMyEnrollments = (): EnrollmentSummary[] => {
-  return cloneData(mockEnrollments);
+  return cloneData(mockEnrollments.map(enrichEnrollmentSummary));
 };
 
 export const getMockMyEnrollmentDetail = (enrollmentId: number): EnrollmentDetail | null => {
@@ -1562,10 +1631,6 @@ export const removeMockMyCartItem = (cartItemId: number): CartSummary => {
   recalculateCartDerivedState();
 
   return cloneData(mockCart);
-};
-
-export const getMockMyReservations = (): OfflineReservation[] => {
-  return cloneData(mockReservations);
 };
 
 export const getMockMyRefunds = (): RefundHistory[] => {

@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-import { addMyCartItem } from '@/api/mypage';
-import { myApplicationSummaryQueryKey, myCartQueryKey } from '@/query/useMyPageQueries';
+import { addMyCartItem, fetchMyCart } from '@/api/mypage';
+import { myCartQueryKey } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
+import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type { AddToCartPayload, ProgramType } from '@/types/mypage';
+import type { AddToCartPayload, CartSummary, ProgramType } from '@/types/mypage';
 import type { ProgramDetailPageResponse } from '@/types/programCatalog';
 
 import styles from './ProgramPageDetail.module.scss';
@@ -64,9 +65,14 @@ const buildAddToCartPayload = (
   };
 };
 
+const findCartItemByPayload = (cart: CartSummary, payload: AddToCartPayload) => {
+  return [...cart.items].reverse().find((item) => item.programId === payload.programId) ?? null;
+};
+
 const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const selectSingleCartItem = useCartSelectionStore((state) => state.selectSingleItem);
   const showToast = useToastStore((state) => state.showToast);
   const viewModel = useProgramPageDetailViewModel(data);
   const {
@@ -97,34 +103,104 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
 
   const addToCartMutation = useMutation({
     mutationFn: addMyCartItem,
-    onError: (error: unknown) => {
-      const message =
-        error instanceof Error ? error.message : '장바구니에 담지 못했습니다. 다시 시도해 주세요.';
-
-      showToast({
-        message,
-        variant: message.includes('이미 장바구니에 담긴 강의') ? 'info' : 'error',
-      });
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: myCartQueryKey }),
-        queryClient.invalidateQueries({ queryKey: myApplicationSummaryQueryKey }),
-      ]);
-
-      showToast({
-        message: '장바구니에 담았습니다.',
-        variant: 'success',
-      });
-
-      await navigate(routePaths.cart);
-    },
   });
 
   const handleAddToCart = () => {
-    addToCartMutation.mutate(
-      buildAddToCartPayload(data, selectedOption, discountedPriceAmount, originalPriceAmount),
+    const payload = buildAddToCartPayload(
+      data,
+      selectedOption,
+      discountedPriceAmount,
+      originalPriceAmount,
     );
+
+    void addToCartMutation.mutateAsync(payload).then(
+      async (cart) => {
+        queryClient.setQueryData(myCartQueryKey, cart);
+
+        showToast({
+          message: '장바구니에 담았습니다.',
+          variant: 'success',
+        });
+
+        await navigate(routePaths.cart);
+      },
+      (error: unknown) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : '장바구니에 담지 못했습니다. 다시 시도해 주세요.';
+
+        showToast({
+          message,
+          variant: message.includes('이미 장바구니에 담긴 강의') ? 'info' : 'error',
+        });
+      },
+    );
+  };
+
+  const handleEnrollNow = async () => {
+    const payload = buildAddToCartPayload(
+      data,
+      selectedOption,
+      discountedPriceAmount,
+      originalPriceAmount,
+    );
+
+    try {
+      const cart = await addToCartMutation.mutateAsync(payload);
+      const targetCartItem = findCartItemByPayload(cart, payload);
+
+      queryClient.setQueryData(myCartQueryKey, cart);
+
+      if (!targetCartItem) {
+        throw new Error('결제할 강의 정보를 찾지 못했습니다.');
+      }
+
+      selectSingleCartItem(targetCartItem.id);
+      await navigate(routePaths.checkout);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : '결제 페이지로 이동하지 못했습니다. 다시 시도해 주세요.';
+
+      if (message.includes('이미 장바구니에 담긴 강의')) {
+        try {
+          const cart = await queryClient.fetchQuery({
+            queryFn: fetchMyCart,
+            queryKey: myCartQueryKey,
+          });
+          const targetCartItem = findCartItemByPayload(cart, payload);
+
+          if (!targetCartItem) {
+            showToast({
+              message: '이미 담긴 강의를 찾지 못했습니다. 장바구니에서 다시 확인해 주세요.',
+              variant: 'error',
+            });
+            return;
+          }
+
+          selectSingleCartItem(targetCartItem.id);
+          await navigate(routePaths.checkout);
+          return;
+        } catch {
+          showToast({
+            message: '장바구니 정보를 불러오지 못했습니다. 다시 시도해 주세요.',
+            variant: 'error',
+          });
+          return;
+        }
+      }
+
+      showToast({
+        message,
+        variant: 'error',
+      });
+    }
+  };
+
+  const handleEnrollNowClick = () => {
+    void handleEnrollNow();
   };
 
   return (
@@ -160,18 +236,22 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
             showOptionList={showOptionList}
             totalPriceLabel={totalPriceLabel}
             handleAddToCart={handleAddToCart}
+            handleEnrollNow={handleEnrollNowClick}
+            isEnrollingNow={addToCartMutation.isPending}
             isAddingToCart={addToCartMutation.isPending}
           />
         </div>
       </div>
 
       <div className={styles['mobileBottomBar']}>
-        <Link className={styles['mobileReserveActionLink']} to={routePaths.contact}>
-          예약하기
-        </Link>
-        <Link className={styles['mobileApplyActionLink']} to={routePaths.contact}>
-          수강 신청
-        </Link>
+        <button
+          className={styles['mobileApplyActionLink']}
+          disabled={addToCartMutation.isPending}
+          onClick={handleEnrollNowClick}
+          type='button'
+        >
+          {addToCartMutation.isPending ? '이동 중...' : '수강 신청'}
+        </button>
       </div>
     </div>
   );

@@ -429,8 +429,12 @@ export const attemptMockAdminLogin = (
   }
 
   return {
+    accessToken: 'mock-admin-access-token',
+    tokenType: 'Bearer',
+    expiresAt: new Date('2026-12-31T00:00:00.000Z').toISOString(),
+    loginId: identifier,
     adminDisplayName: ADMIN_DISPLAY_NAME,
-    ok: true,
+    role: 'ROLE_ADMIN',
   };
 };
 

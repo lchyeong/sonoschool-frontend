@@ -155,6 +155,12 @@ const appLeafRouteDefinitions = {
     routePath: 'admin/program-menus',
     absolutePath: '/admin/program-menus',
   }),
+  adminVideos: defineStaticRoute({
+    key: 'adminVideos',
+    access: 'public',
+    routePath: 'admin/videos',
+    absolutePath: '/admin/videos',
+  }),
   adminSales: defineStaticRoute({
     key: 'adminSales',
     access: 'public',
@@ -363,6 +369,7 @@ export const routePaths = {
   adminProgramDuplicate: (sourceProgramId: string) =>
     routes.adminProgramDuplicate.buildPath({ sourceProgramId }),
   adminProgramMenus: routes.adminProgramMenus.absolutePath,
+  adminVideos: routes.adminVideos.absolutePath,
   adminSales: routes.adminSales.absolutePath,
   signup: routes.signup.absolutePath,
   accountRecovery: routes.accountRecovery.absolutePath,

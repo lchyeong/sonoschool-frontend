@@ -13,7 +13,6 @@ import {
   getMockLearningPlayerSnapshot,
   getMockMyProfile,
   getMockMyRefunds,
-  getMockMyReservations,
   removeMockMyCartItem,
   sendMockMyPhoneVerification,
   updateMockMyProfile,
@@ -26,8 +25,8 @@ import type {
   CartSummary,
   EnrollmentDetail,
   EnrollmentSummary,
+  LectureProgressSaveResponse,
   LearningPlayerSnapshot,
-  OfflineReservation,
   ProtectedLectureStream,
   RefundHistory,
   UserCoupon,
@@ -240,6 +239,47 @@ export const fetchLectureStream = async (
   }
 };
 
+export const saveLectureProgress = async (
+  enrollmentId: number,
+  lectureId: number,
+  watchedSeconds: number,
+): Promise<LectureProgressSaveResponse> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<LectureProgressSaveResponse>>(
+      `/api/v1/lectures/${String(lectureId)}/progress`,
+      {
+        enrollmentId,
+        watchedSeconds,
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '학습 진도를 저장하지 못했습니다.');
+  }
+};
+
+export const sendLectureProgressBeacon = (
+  enrollmentId: number,
+  lectureId: number,
+  watchedSeconds: number,
+) => {
+  if (
+    shouldPreferMockMyPage ||
+    typeof navigator === 'undefined' ||
+    typeof navigator.sendBeacon !== 'function'
+  ) {
+    return false;
+  }
+
+  const payload = JSON.stringify({
+    enrollmentId,
+    watchedSeconds,
+  });
+  const body = new Blob([payload], { type: 'application/json' });
+
+  return navigator.sendBeacon(`/api/v1/lectures/${String(lectureId)}/progress`, body);
+};
+
 export const fetchMyCart = async (): Promise<CartSummary> => {
   if (shouldPreferMockMyPage) {
     return getMockMyCart();
@@ -326,24 +366,6 @@ export const removeMyCartItem = async (cartItemId: number): Promise<CartSummary>
     }
 
     throw toApiError(error, '장바구니에서 제거하지 못했습니다.');
-  }
-};
-
-export const fetchMyReservations = async (): Promise<OfflineReservation[]> => {
-  if (shouldPreferMockMyPage) {
-    return getMockMyReservations();
-  }
-
-  try {
-    const response =
-      await axiosInstance.get<ApiEnvelope<OfflineReservation[]>>('/api/v1/reservations');
-    return unwrapApiEnvelope(response.data);
-  } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      return getMockMyReservations();
-    }
-
-    throw toApiError(error, '신청 내역을 불러오지 못했습니다.');
   }
 };
 

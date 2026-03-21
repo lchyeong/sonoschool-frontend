@@ -10,6 +10,7 @@ import { TextField } from '@/components/ui/TextField/TextField';
 import { env } from '@/config/env';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
+import { setStudentSession } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import { classNames } from '@/utils/classNames';
@@ -28,7 +29,7 @@ interface AdminLoginFormErrors {
 
 const INITIAL_FORM_VALUES: AdminLoginFormValues = {
   identifier: 'admin',
-  password: '1234',
+  password: 'password123',
 };
 
 const AdminLoginPage = () => {
@@ -58,12 +59,20 @@ const AdminLoginPage = () => {
       });
     },
     onSuccess: (response) => {
+      setStudentSession({
+        accessToken: response.accessToken,
+        tokenType: response.tokenType,
+        expiresAt: response.expiresAt,
+        loginId: response.loginId,
+        displayName: response.adminDisplayName,
+        role: response.role,
+      });
       login(response.adminDisplayName);
       showToast({
         message: `${response.adminDisplayName} 계정으로 로그인했습니다.`,
         variant: 'success',
       });
-      void navigate(routePaths.admin);
+      void navigate(routePaths.adminVideos);
     },
   });
 

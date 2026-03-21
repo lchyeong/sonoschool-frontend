@@ -3,6 +3,7 @@ import { NavLink, Navigate, Outlet } from 'react-router-dom';
 import Button from '@/components/ui/Button/Button';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
+import { clearStudentSession } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 
 import styles from './AdminConsoleLayout.module.scss';
@@ -44,6 +45,11 @@ const adminNavigationItems = [
     to: routePaths.adminProgramMenus,
   },
   {
+    description: '실제 영상 업로드와 인코딩 시작 테스트',
+    label: '영상 업로드',
+    to: routePaths.adminVideos,
+  },
+  {
     description: '판매량, 재고, 매출 확인',
     label: '매출 관리',
     to: routePaths.adminSales,
@@ -61,6 +67,7 @@ const AdminConsoleLayout = () => {
   }
 
   const handleLogout = () => {
+    clearStudentSession();
     logout();
     showToast({
       message: '관리자 세션을 종료했습니다.',

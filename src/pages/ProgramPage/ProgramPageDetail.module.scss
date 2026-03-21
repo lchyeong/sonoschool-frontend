@@ -1145,10 +1145,8 @@
   gap: 8px;
 }
 
-.reserveActionLink,
 .cartActionLink,
 .applyActionLink,
-.mobileReserveActionLink,
 .mobileApplyActionLink {
   display: inline-flex;
   flex: 1;
@@ -1157,15 +1155,19 @@
   min-height: 52px;
   padding: 0 12px;
   border-radius: 20px;
+  border: 0;
   color: #ffffff;
+  cursor: pointer;
   font-size: 18px;
   font-weight: 600;
   text-decoration: none;
 }
 
-.reserveActionLink,
-.mobileReserveActionLink {
-  background: #111827;
+.cartActionLink:disabled,
+.applyActionLink:disabled,
+.mobileApplyActionLink:disabled {
+  cursor: default;
+  opacity: 0.72;
 }
 
 .cartActionLink {

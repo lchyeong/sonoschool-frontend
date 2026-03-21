@@ -4,14 +4,12 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import LearningPage from '@/pages/LearningPage/LearningPage';
-import type { EnrollmentDetail, LearningPlayerSnapshot } from '@/types/mypage';
+import type { LearningPlayerSnapshot } from '@/types/mypage';
 
-const fetchMyEnrollmentDetailMock = vi.fn<(enrollmentId: number) => Promise<EnrollmentDetail>>();
 const fetchMyLearningPlayerSnapshotMock =
   vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>();
 
 vi.mock('@/api/mypage', () => ({
-  fetchMyEnrollmentDetail: (enrollmentId: number) => fetchMyEnrollmentDetailMock(enrollmentId),
   fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
     fetchMyLearningPlayerSnapshotMock(enrollmentId),
 }));
@@ -27,45 +25,6 @@ const createTestQueryClient = () => {
       },
     },
   });
-};
-
-const testEnrollmentDetail: EnrollmentDetail = {
-  active: true,
-  certificateEligible: false,
-  completed: false,
-  completedAt: null,
-  completedLectures: 1,
-  completionRate: 33,
-  enrolledAt: '2026-03-01T09:00:00Z',
-  expireAt: '2026-09-30T14:59:59Z',
-  id: 101,
-  programId: 2001,
-  programTitle: '복부초음파 기초',
-  progress: [
-    {
-      completed: true,
-      completedAt: '2026-03-03T10:00:00Z',
-      lastWatchedAt: '2026-03-03T10:00:00Z',
-      lectureId: 1,
-      watchedSeconds: 1260,
-    },
-    {
-      completed: false,
-      completedAt: null,
-      lastWatchedAt: '2026-03-10T11:00:00Z',
-      lectureId: 2,
-      watchedSeconds: 540,
-    },
-    {
-      completed: false,
-      completedAt: null,
-      lastWatchedAt: null,
-      lectureId: 3,
-      watchedSeconds: 0,
-    },
-  ],
-  status: 'ACTIVE',
-  totalLectures: 3,
 };
 
 const testSnapshot: LearningPlayerSnapshot = {
@@ -125,6 +84,18 @@ const testSnapshot: LearningPlayerSnapshot = {
     summaryKind: 'decimal',
     title: '복부초음파 기초 플레이어',
   },
+  enrollment: {
+    active: true,
+    completedLessons: 1,
+    completionRate: 33,
+    enrolledAt: '2026-03-01T09:00:00Z',
+    expireAt: '2026-09-30T14:59:59Z',
+    id: 101,
+    programId: 2001,
+    programTitle: '복부초음파 기초',
+    status: 'ACTIVE',
+    totalLessons: 3,
+  },
   lastPlaybackAt: '2026-03-10T11:00:00Z',
   lessonPlaybackById: {
     'enrollment-101-lesson-1': {
@@ -155,6 +126,10 @@ const renderLearningPage = (initialEntry = '/mypage/learning/101') => {
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route element={<LearningPage />} path='/mypage/learning/:enrollmentId' />
+          <Route
+            element={<p>플레이어 화면</p>}
+            path='/mypage/learning/:enrollmentId/lesson/:lessonId'
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -167,43 +142,39 @@ afterEach(() => {
 });
 
 describe('LearningPage', () => {
-  it('renders the learning dashboard and continue action', async () => {
-    fetchMyEnrollmentDetailMock.mockResolvedValue(testEnrollmentDetail);
+  it('redirects directly to the current lesson route', async () => {
     fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
 
     renderLearningPage();
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: '온라인 수강 대시보드' }),
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByRole('heading', { level: 2, name: '복부초음파 기초' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { level: 2, name: '복부초음파 기초 2강' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('진도율')).toBeInTheDocument();
-    expect(screen.getByText('33%')).toBeInTheDocument();
-    expect(screen.getByText('총 3개 강의')).toBeInTheDocument();
-    expect(screen.getAllByText('현재 강의').length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: '이어보기' })).toHaveAttribute(
-      'href',
-      '/mypage/learning/101/lesson/enrollment-101-lesson-2',
-    );
+    expect(await screen.findByText('플레이어 화면')).toBeInTheDocument();
   });
 
-  it('links curriculum rows to the full player route', async () => {
-    fetchMyEnrollmentDetailMock.mockResolvedValue(testEnrollmentDetail);
-    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
+  it('shows a fallback message when playback is unavailable', async () => {
+    const enrollment = testSnapshot.enrollment;
+    if (!enrollment) {
+      throw new Error('Expected enrollment test data.');
+    }
+
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
+      ...testSnapshot,
+      currentLessonId: null,
+      enrollment: {
+        ...enrollment,
+        active: false,
+        status: 'EXPIRED',
+      },
+      nextLessonId: null,
+    });
 
     renderLearningPage();
 
     expect(
-      await screen.findByRole('link', { name: /복부초음파 기초 3강.*학습하기/ }),
+      await screen.findByText('재생 가능한 강의가 없거나 수강 기간이 종료되었습니다.'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /복부초음파 기초 3강.*학습하기/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '내 강의로 돌아가기' })).toHaveAttribute(
       'href',
-      '/mypage/learning/101/lesson/enrollment-101-lesson-3',
+      '/mypage',
     );
   });
 });

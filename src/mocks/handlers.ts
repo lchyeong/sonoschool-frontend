@@ -35,7 +35,6 @@ import {
   getMockLectureStream,
   getMockMyProfile,
   getMockMyRefunds,
-  getMockMyReservations,
   removeMockMyCartItem,
   sendMockMyPhoneVerification as sendMockMyPagePhoneVerification,
   updateMockMyProfile,
@@ -341,11 +340,26 @@ export const handlers = [
       );
     }
 
-    return HttpResponse.json(createApiEnvelope(result.session), {
-      headers: {
-        'Set-Cookie': `refresh_token=${result.refreshToken}; Path=/; HttpOnly; SameSite=Lax`,
+    return HttpResponse.json(
+      createApiEnvelope({
+        ...result.session,
+        challengeExpiresAt: null,
+        challengeToken: null,
+        maskedPhoneNumber: null,
+        status: 'COMPLETED' as const,
+      }),
+      {
+        headers: {
+          'Set-Cookie': `refresh_token=${result.refreshToken}; Path=/; HttpOnly; SameSite=Lax`,
+        },
       },
-    });
+    );
+  }),
+  http.post('*/api/auth/login/verify-sms', () => {
+    return HttpResponse.json(
+      { code: 'AUTH_400_LOGIN_CHALLENGE', message: 'Login verification challenge is invalid.' },
+      { status: 400 },
+    );
   }),
   http.post('*/api/auth/sms/send', async ({ request }) => {
     const body = await request.json().catch(() => null);
@@ -543,13 +557,20 @@ export const handlers = [
       createApiEnvelope([
         {
           active: true,
+          certificateEligible: false,
+          completed: false,
+          completedAt: null,
+          completedLectures: 2,
+          completionRate: 67,
           enrolledAt: '2026-02-01T09:00:00Z',
           expireAt: '2026-12-31T14:59:59Z',
           id: 101,
+          lastLearningAt: '2026-03-10T08:00:00Z',
           programId: 2001,
           programThumbnailUrl: null,
           programTitle: '복부초음파 기초',
           status: 'ACTIVE',
+          totalLectures: 3,
         },
       ]),
     );
@@ -678,9 +699,6 @@ export const handlers = [
         { status: 404 },
       );
     }
-  }),
-  http.get('*/api/v1/reservations', () => {
-    return HttpResponse.json(createApiEnvelope(getMockMyReservations()));
   }),
   http.get('*/api/v1/refunds', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyRefunds()));

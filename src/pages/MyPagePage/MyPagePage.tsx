@@ -10,30 +10,26 @@ import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 import {
   myProfileQueryKey,
-  useMyApplicationSummaryQuery,
-  useMyCartQuery,
   useMyCouponsQuery,
-  useMyEnrollmentDetailQuery,
   useMyEnrollmentsQuery,
+  useMyPaymentHistoryQuery,
   useMyProfileQuery,
   useMyRefundsQuery,
-  useMyReservationsQuery,
 } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import type { SmsSendResponse } from '@/types/auth';
-import type { EnrollmentDetail, UserCoupon } from '@/types/mypage';
+import type { UserCoupon } from '@/types/mypage';
+import { formatPaymentMethodLabel, paymentStatusLabels, type PaymentStatus } from '@/types/payment';
 import { classNames } from '@/utils/classNames';
-import { matchesProgramTypeFilter } from '@/utils/programType';
 
 import styles from './MyPagePage.module.scss';
 
 type MyPageViewKey =
   | 'learning-courses'
-  | 'orders-reservations'
-  | 'orders-checkout'
+  | 'orders-history'
   | 'orders-coupons'
   | 'orders-refunds'
   | 'profile-basic'
@@ -49,16 +45,6 @@ interface SidebarGroup {
   items: SidebarItem[];
 }
 
-interface OrderMediaCardProps {
-  chipLabel: string;
-  detailPath: string;
-  metaText: string;
-  note?: string | null;
-  thumbnailUrl: string | null;
-  title: string;
-  trailingValue?: string | null;
-}
-
 const DEFAULT_VIEW: MyPageViewKey = 'learning-courses';
 
 const SIDEBAR_GROUPS: SidebarGroup[] = [
@@ -69,8 +55,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     label: '주문/결제',
     items: [
-      { key: 'orders-reservations', label: '신청 내역' },
-      { key: 'orders-checkout', label: '장바구니' },
+      { key: 'orders-history', label: '결제 내역' },
       { key: 'orders-coupons', label: '나의 쿠폰' },
       { key: 'orders-refunds', label: '취소/환불 내역' },
     ],
@@ -90,25 +75,12 @@ const ALL_ITEMS = SIDEBAR_GROUPS.flatMap((group) => group.items);
 const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: '수강 중',
   EXPIRED: '수강 종료',
-  CANCELLED: '취소/환불',
-};
-
-const RESERVATION_STATUS_LABELS: Record<string, string> = {
-  REQUESTED: '신청 완료',
-  CONFIRMED: '신청 확정',
-  CANCELLED: '취소됨',
 };
 
 const REFUND_STATUS_LABELS: Record<string, string> = {
   REFUND_REQUESTED: '환불 진행 중',
   REFUNDED: '환불 완료',
   CANCELLED: '취소 완료',
-};
-
-const PROGRAM_TYPE_LABELS: Record<string, string> = {
-  ONLINE: '온라인',
-  OFFLINE: '오프라인',
-  HYBRID: '온라인',
 };
 
 const DISCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -153,50 +125,6 @@ const formatDateRange = (startValue?: string | null, endValue?: string | null) =
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
 
-const OrderMediaCard = ({
-  chipLabel,
-  detailPath,
-  metaText,
-  note,
-  thumbnailUrl,
-  title,
-  trailingValue,
-}: OrderMediaCardProps) => {
-  return (
-    <article className={styles['orderCard']}>
-      <Link className={styles['orderCardThumbnailLink']} to={detailPath}>
-        {thumbnailUrl ? (
-          <img
-            alt={`${title} 대표 이미지`}
-            className={styles['orderCardThumbnailImage']}
-            loading='lazy'
-            src={thumbnailUrl}
-          />
-        ) : (
-          <div aria-hidden='true' className={styles['orderCardThumbnailFallback']}>
-            <span>SS</span>
-          </div>
-        )}
-      </Link>
-      <div className={styles['orderCardBody']}>
-        <div className={styles['orderCardHeader']}>
-          <Link className={styles['orderCardTitleLink']} to={detailPath}>
-            <strong className={styles['orderCardTitle']}>{title}</strong>
-          </Link>
-          <span className={styles['statusChip']}>{chipLabel}</span>
-        </div>
-        <div className={styles['orderCardFooter']}>
-          <div className={styles['orderCardMetaGroup']}>
-            <p className={styles['orderCardMeta']}>{metaText}</p>
-            {note ? <p className={styles['orderCardSubMeta']}>{note}</p> : null}
-          </div>
-          {trailingValue ? <p className={styles['orderCardAmount']}>{trailingValue}</p> : null}
-        </div>
-      </div>
-    </article>
-  );
-};
-
 const formatStatusLabel = (value: string, labels: Record<string, string>) => {
   return labels[value] ?? '상태 확인 필요';
 };
@@ -221,32 +149,21 @@ const formatCouponAppliesTo = (coupon: UserCoupon) => {
   return coupon.appliesTo === 'ONLINE' ? '온라인 전용' : '오프라인 전용';
 };
 
-const getLastLearningAt = (detail?: EnrollmentDetail) => {
-  if (!detail) return null;
-
-  return detail.progress.reduce<string | null>((latest, progressItem) => {
-    if (!progressItem.lastWatchedAt) return latest;
-    if (!latest) return progressItem.lastWatchedAt;
-
-    return new Date(progressItem.lastWatchedAt) > new Date(latest)
-      ? progressItem.lastWatchedAt
-      : latest;
-  }, null);
-};
-
-const MY_COURSE_PAGE_SIZE = 5;
+const MY_COURSE_PAGE_SIZE = 6;
 const ORDER_LIST_PAGE_SIZE = 4;
-const CART_LIST_PAGE_SIZE = 4;
 
-type EnrollmentFilterValue = 'ALL' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
-type ReservationFilterValue = 'ALL' | 'REQUESTED' | 'CONFIRMED' | 'CANCELLED';
+type EnrollmentCourseTabValue = 'ACTIVE' | 'EXPIRED' | 'CERTIFICATE';
+type PaymentStatusFilterValue = 'ALL' | PaymentStatus;
 type RefundFilterValue = 'ALL' | 'REFUND_REQUESTED' | 'REFUNDED' | 'CANCELLED';
-type CartFilterValue = 'ALL' | 'ONLINE' | 'OFFLINE';
 
 interface SegmentOption<TValue extends string> {
   label: string;
   value: TValue;
 }
+
+const getCertificateFileName = (programTitle: string) => {
+  return `${programTitle.replace(/[\\/:*?"<>|]/g, '_')}_수료증.txt`;
+};
 
 const paginateItems = <T,>(items: T[], page: number, pageSize: number): T[] => {
   const safePage = Math.max(1, page);
@@ -351,15 +268,12 @@ const MyPagePage = () => {
   const activeViewParam = searchParams.get('view');
   const activeView = isMyPageViewKey(activeViewParam) ? activeViewParam : DEFAULT_VIEW;
 
-  const [enrollmentFilter, setEnrollmentFilter] = useState<EnrollmentFilterValue>('ALL');
-  const [reservationFilter, setReservationFilter] = useState<ReservationFilterValue>('ALL');
+  const [courseTab, setCourseTab] = useState<EnrollmentCourseTabValue>('ACTIVE');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilterValue>('ALL');
   const [refundFilter, setRefundFilter] = useState<RefundFilterValue>('ALL');
-  const [cartFilter, setCartFilter] = useState<CartFilterValue>('ALL');
-  const [enrollmentPage, setEnrollmentPage] = useState(1);
-  const [reservationPage, setReservationPage] = useState(1);
+  const [coursePage, setCoursePage] = useState(1);
+  const [paymentPage, setPaymentPage] = useState(1);
   const [refundPage, setRefundPage] = useState(1);
-  const [cartPage, setCartPage] = useState(1);
-  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
   const [profileFormValues, setProfileFormValues] = useState<ProfileFormValues | null>(null);
   const [phoneFormValues, setPhoneFormValues] = useState({
     phoneNumber: '',
@@ -370,51 +284,38 @@ const MyPagePage = () => {
 
   const profileQuery = useMyProfileQuery();
   const enrollmentsQuery = useMyEnrollmentsQuery();
-  const filteredEnrollments = (enrollmentsQuery.data ?? []).filter((enrollment) => {
-    return enrollmentFilter === 'ALL' || enrollment.status === enrollmentFilter;
-  });
-  const enrollmentPageCount = getPageCount(filteredEnrollments.length, MY_COURSE_PAGE_SIZE);
-  const paginatedEnrollments = paginateItems(
-    filteredEnrollments,
-    enrollmentPage,
-    MY_COURSE_PAGE_SIZE,
+  const allEnrollments = enrollmentsQuery.data ?? [];
+  const activeEnrollments = allEnrollments.filter((enrollment) => enrollment.status === 'ACTIVE');
+  const expiredEnrollments = allEnrollments.filter((enrollment) => enrollment.status === 'EXPIRED');
+  const certificateEnrollments = allEnrollments.filter(
+    (enrollment) => enrollment.certificateEligible,
   );
-  const resolvedSelectedEnrollmentId =
-    selectedEnrollmentId !== null &&
-    paginatedEnrollments.some((enrollment) => enrollment.id === selectedEnrollmentId)
-      ? selectedEnrollmentId
-      : (paginatedEnrollments[0]?.id ?? null);
-  const enrollmentDetailQuery = useMyEnrollmentDetailQuery(
-    resolvedSelectedEnrollmentId,
-    activeView === 'learning-courses',
-  );
-  const reservationsQuery = useMyReservationsQuery(activeView === 'orders-reservations');
+  const filteredEnrollments =
+    courseTab === 'ACTIVE'
+      ? activeEnrollments
+      : courseTab === 'EXPIRED'
+        ? expiredEnrollments
+        : certificateEnrollments;
+  const coursePageCount = getPageCount(filteredEnrollments.length, MY_COURSE_PAGE_SIZE);
+  const paginatedEnrollments = paginateItems(filteredEnrollments, coursePage, MY_COURSE_PAGE_SIZE);
+  const paymentHistoryQuery = useMyPaymentHistoryQuery(activeView === 'orders-history');
   const refundsQuery = useMyRefundsQuery(activeView === 'orders-refunds');
-  const cartQuery = useMyCartQuery(activeView === 'orders-checkout');
-  const applicationSummaryQuery = useMyApplicationSummaryQuery(activeView === 'orders-checkout');
   const couponsQuery = useMyCouponsQuery(activeView === 'orders-coupons');
-  const filteredReservations = (reservationsQuery.data ?? []).filter((reservation) => {
-    return reservationFilter === 'ALL' || reservation.status === reservationFilter;
+  const visiblePayments = (paymentHistoryQuery.data ?? []).filter((payment) => {
+    return payment.status === 'COMPLETED' || payment.status === 'CANCELLED';
   });
-  const reservationPageCount = getPageCount(filteredReservations.length, ORDER_LIST_PAGE_SIZE);
-  const paginatedReservations = paginateItems(
-    filteredReservations,
-    reservationPage,
-    ORDER_LIST_PAGE_SIZE,
-  );
+  const filteredPayments = visiblePayments.filter((payment) => {
+    return paymentStatusFilter === 'ALL' || payment.status === paymentStatusFilter;
+  });
+  const paymentPageCount = getPageCount(filteredPayments.length, ORDER_LIST_PAGE_SIZE);
+  const paginatedPayments = paginateItems(filteredPayments, paymentPage, ORDER_LIST_PAGE_SIZE);
   const filteredRefunds = (refundsQuery.data ?? []).filter((refund) => {
     return refundFilter === 'ALL' || refund.status === refundFilter;
   });
   const refundPageCount = getPageCount(filteredRefunds.length, ORDER_LIST_PAGE_SIZE);
   const paginatedRefunds = paginateItems(filteredRefunds, refundPage, ORDER_LIST_PAGE_SIZE);
-  const filteredCartItems = (cartQuery.data?.items ?? []).filter((item) => {
-    return cartFilter === 'ALL' || matchesProgramTypeFilter(item.programType, cartFilter);
-  });
-  const cartPageCount = getPageCount(filteredCartItems.length, CART_LIST_PAGE_SIZE);
-  const paginatedCartItems = paginateItems(filteredCartItems, cartPage, CART_LIST_PAGE_SIZE);
 
   const accountName = profileQuery.data?.displayName || storeDisplayName || '회원';
-  const lastLearningAt = getLastLearningAt(enrollmentDetailQuery.data);
   const resolvedProfileFormValues: ProfileFormValues = {
     email: profileFormValues?.email ?? profileQuery.data?.email ?? '',
     marketingEmailOptIn:
@@ -435,30 +336,19 @@ const MyPagePage = () => {
     });
   }, [profileQuery.data, syncProfileSnapshot]);
 
-  const handleEnrollmentFilterChange = (nextFilter: EnrollmentFilterValue) => {
-    setEnrollmentFilter(nextFilter);
-    setEnrollmentPage(1);
-    setSelectedEnrollmentId(null);
+  const handleCourseTabChange = (nextTab: EnrollmentCourseTabValue) => {
+    setCourseTab(nextTab);
+    setCoursePage(1);
   };
 
-  const handleReservationFilterChange = (nextFilter: ReservationFilterValue) => {
-    setReservationFilter(nextFilter);
-    setReservationPage(1);
+  const handlePaymentFilterChange = (nextFilter: PaymentStatusFilterValue) => {
+    setPaymentStatusFilter(nextFilter);
+    setPaymentPage(1);
   };
 
   const handleRefundFilterChange = (nextFilter: RefundFilterValue) => {
     setRefundFilter(nextFilter);
     setRefundPage(1);
-  };
-
-  const handleCartFilterChange = (nextFilter: CartFilterValue) => {
-    setCartFilter(nextFilter);
-    setCartPage(1);
-  };
-
-  const handleEnrollmentPageChange = (nextPage: number) => {
-    setEnrollmentPage(nextPage);
-    setSelectedEnrollmentId(null);
   };
 
   const handleViewChange = (viewKey: MyPageViewKey) => {
@@ -471,6 +361,49 @@ const MyPagePage = () => {
     }
 
     setSearchParams(nextParams);
+  };
+
+  const handleCertificateDownload = (programTitle: string, completedAt?: string | null) => {
+    const certificateContent = [
+      'SONO SCHOOL 수료증',
+      '',
+      `수강생: ${profileQuery.data?.displayName || accountName}`,
+      `강의명: ${programTitle}`,
+      `발급일: ${formatDate(new Date().toISOString())}`,
+      `수료일: ${formatDate(completedAt)}`,
+    ].join('\n');
+
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      showToast({
+        message: '수료증 다운로드를 지원하지 않는 환경입니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    if (typeof URL.createObjectURL !== 'function') {
+      showToast({
+        message: '현재 브라우저에서 수료증 다운로드를 지원하지 않습니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const blob = new Blob([certificateContent], { type: 'text/plain;charset=utf-8' });
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    anchor.href = objectUrl;
+    anchor.download = getCertificateFileName(programTitle);
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
+
+    showToast({
+      message: '수료증 다운로드를 시작했습니다.',
+      variant: 'success',
+    });
   };
 
   const handleProfileFieldChange =
@@ -630,7 +563,25 @@ const MyPagePage = () => {
   });
 
   const renderLearningCourses = () => {
-    const totalEnrollmentCount = enrollmentsQuery.data?.length ?? 0;
+    const activeCount = activeEnrollments.length;
+    const expiredCount = expiredEnrollments.length;
+    const certificateCount = certificateEnrollments.length;
+    const courseOverviewItems: Array<{
+      count: number;
+      key: EnrollmentCourseTabValue;
+      label: string;
+    }> = [
+      { count: activeCount, key: 'ACTIVE', label: '수강 중' },
+      { count: expiredCount, key: 'EXPIRED', label: '수강 종료' },
+      { count: certificateCount, key: 'CERTIFICATE', label: '수료증' },
+    ];
+
+    const tabDescription =
+      courseTab === 'ACTIVE'
+        ? `수강 중인 ${String(filteredEnrollments.length)}개 강의를 보고 있습니다.`
+        : courseTab === 'EXPIRED'
+          ? `수강 종료된 ${String(filteredEnrollments.length)}개 강의를 보고 있습니다.`
+          : `다운로드 가능한 수료증 ${String(filteredEnrollments.length)}개를 보고 있습니다.`;
 
     if (enrollmentsQuery.isLoading) {
       return <p className={sharedStyles['mutedText']}>수강 내역을 불러오는 중입니다.</p>;
@@ -646,7 +597,7 @@ const MyPagePage = () => {
       );
     }
 
-    if (!totalEnrollmentCount) {
+    if (!allEnrollments.length) {
       return <p className={sharedStyles['mutedText']}>수강 중인 강의가 없습니다.</p>;
     }
 
@@ -654,375 +605,284 @@ const MyPagePage = () => {
       <section className={styles['contentSection']}>
         <div className={sharedStyles['sectionHeader']}>
           <h2 className={sharedStyles['sectionTitle']}>내 강의</h2>
-          <p className={sharedStyles['sectionDescription']}>
-            전체 {totalEnrollmentCount}개 강의 중 {filteredEnrollments.length}개를 보고 있습니다.
-          </p>
+          <p className={sharedStyles['sectionDescription']}>{tabDescription}</p>
         </div>
 
-        <SegmentFilter
-          onChange={handleEnrollmentFilterChange}
-          options={[
-            { label: '전체', value: 'ALL' },
-            { label: '수강 중', value: 'ACTIVE' },
-            { label: '수강 종료', value: 'EXPIRED' },
-            { label: '취소/환불', value: 'CANCELLED' },
-          ]}
-          value={enrollmentFilter}
-        />
+        <div className={styles['courseOverviewGrid']}>
+          {courseOverviewItems.map((item) => {
+            const isActive = courseTab === item.key;
+
+            return (
+              <button
+                aria-pressed={isActive}
+                className={classNames(
+                  styles['courseOverviewButton'],
+                  isActive && styles['courseOverviewButtonActive'],
+                )}
+                key={item.key}
+                onClick={() => {
+                  handleCourseTabChange(item.key);
+                }}
+                type='button'
+              >
+                <span className={styles['summaryLabel']}>{item.label}</span>
+                <strong className={styles['courseOverviewValue']}>{item.count}</strong>
+              </button>
+            );
+          })}
+        </div>
 
         {!filteredEnrollments.length ? (
-          <p className={sharedStyles['mutedText']}>선택한 상태의 강의가 없습니다.</p>
-        ) : null}
-
-        {filteredEnrollments.length ? (
-          <div className={styles['detailSplit']}>
-            <div className={styles['recordColumn']}>
-              <div className={styles['recordList']} role='list'>
-                {paginatedEnrollments.map((enrollment) => {
-                  const isActive = enrollment.id === resolvedSelectedEnrollmentId;
-
-                  return (
-                    <button
-                      aria-pressed={isActive}
-                      className={classNames(
-                        styles['recordButton'],
-                        isActive && styles['recordButtonActive'],
-                      )}
-                      key={enrollment.id}
-                      onClick={() => {
-                        setSelectedEnrollmentId(enrollment.id);
-                      }}
-                      type='button'
-                    >
-                      <span className={styles['recordTitle']}>{enrollment.programTitle}</span>
-                      <span className={styles['recordMeta']}>
-                        {formatStatusLabel(enrollment.status, ENROLLMENT_STATUS_LABELS)} · 수강 기간{' '}
-                        {formatDateRange(enrollment.enrolledAt, enrollment.expireAt)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <PaginationControls
-                currentPage={enrollmentPage}
-                onChange={handleEnrollmentPageChange}
-                totalPages={enrollmentPageCount}
-              />
-            </div>
-
-            <div className={styles['detailBody']}>
-              {enrollmentDetailQuery.isLoading ? (
-                <p className={sharedStyles['mutedText']}>강의 상세를 불러오는 중입니다.</p>
-              ) : null}
-
-              {enrollmentDetailQuery.isError ? (
-                <p className={styles['errorText']}>
-                  {enrollmentDetailQuery.error instanceof Error
-                    ? enrollmentDetailQuery.error.message
-                    : '강의 상세를 불러오지 못했습니다.'}
-                </p>
-              ) : null}
-
-              {enrollmentDetailQuery.data ? (
+          <p className={sharedStyles['mutedText']}>
+            {courseTab === 'CERTIFICATE'
+              ? '다운로드 가능한 수료증이 없습니다.'
+              : '선택한 탭에 표시할 강의가 없습니다.'}
+          </p>
+        ) : (
+          <div className={styles['courseGrid']}>
+            {paginatedEnrollments.map((enrollment) => {
+              const cardBody = (
                 <>
-                  <h3 className={styles['contentTitle']}>
-                    {enrollmentDetailQuery.data.programTitle}
-                  </h3>
-
-                  <div className={styles['summaryGrid']}>
-                    <div className={styles['summaryItem']}>
-                      <span className={styles['summaryLabel']}>수강 기간</span>
-                      <strong className={styles['summaryValue']}>
-                        {formatDateRange(
-                          enrollmentDetailQuery.data.enrolledAt,
-                          enrollmentDetailQuery.data.expireAt,
-                        )}
-                      </strong>
-                    </div>
-                    <div className={styles['summaryItem']}>
-                      <span className={styles['summaryLabel']}>진도율</span>
-                      <strong className={styles['summaryValue']}>
-                        {enrollmentDetailQuery.data.completionRate}%
-                      </strong>
-                    </div>
-                    <div className={styles['summaryItem']}>
-                      <span className={styles['summaryLabel']}>완료 강의</span>
-                      <strong className={styles['summaryValue']}>
-                        {enrollmentDetailQuery.data.completedLectures} /{' '}
-                        {enrollmentDetailQuery.data.totalLectures}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className={sharedStyles['metaList']}>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>최근 학습</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {formatDateTime(lastLearningAt)}
-                      </span>
-                    </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>현재 상태</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {formatStatusLabel(
-                          enrollmentDetailQuery.data.status,
-                          ENROLLMENT_STATUS_LABELS,
-                        )}
-                      </span>
-                    </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>수료 여부</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {enrollmentDetailQuery.data.completed ? '수료 완료' : '수강 중'}
-                      </span>
-                    </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>수료증 발급</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {enrollmentDetailQuery.data.certificateEligible ? '가능' : '미대상'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className={styles['detailActions']}>
-                    {enrollmentDetailQuery.data.status === 'ACTIVE' ? (
-                      <Link
-                        className={styles['learningActionLink']}
-                        to={routePaths.learningPlayer(String(enrollmentDetailQuery.data.id))}
-                      >
-                        수강하기
-                      </Link>
+                  <div className={styles['courseCardMedia']}>
+                    {enrollment.programThumbnailUrl ? (
+                      <img
+                        alt={`${enrollment.programTitle} 대표 이미지`}
+                        className={styles['courseCardImage']}
+                        loading='lazy'
+                        src={enrollment.programThumbnailUrl}
+                      />
                     ) : (
-                      <p className={styles['learningBlockedHint']}>
-                        수강 기간이 종료되었거나 취소된 강의는 재생할 수 없습니다.
+                      <div aria-hidden='true' className={styles['courseCardFallback']}>
+                        <span>SS</span>
+                      </div>
+                    )}
+                    {courseTab !== 'CERTIFICATE' ? (
+                      <span className={styles['courseCardBadge']}>
+                        {formatStatusLabel(enrollment.status, ENROLLMENT_STATUS_LABELS)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className={styles['courseCardBody']}>
+                    <div className={styles['courseCardHeader']}>
+                      <strong className={styles['courseCardTitle']}>
+                        {enrollment.programTitle}
+                      </strong>
+                      {courseTab === 'CERTIFICATE' ? (
+                        <span className={styles['statusChip']}>다운로드 가능</span>
+                      ) : null}
+                    </div>
+
+                    <div className={styles['courseProgressMeta']}>
+                      <span>
+                        {enrollment.completedLectures} / {enrollment.totalLectures}강
+                      </span>
+                      <span>{enrollment.completionRate}%</span>
+                    </div>
+                    <div aria-hidden='true' className={styles['courseProgressTrack']}>
+                      <span
+                        className={styles['courseProgressFill']}
+                        style={{ width: `${String(enrollment.completionRate)}%` }}
+                      />
+                    </div>
+
+                    <div className={styles['courseMetaList']}>
+                      <p className={styles['courseMetaText']}>
+                        수강 기간 {formatDateRange(enrollment.enrolledAt, enrollment.expireAt)}
                       </p>
+                      <p className={styles['courseMetaText']}>
+                        {courseTab === 'CERTIFICATE'
+                          ? `수료일 ${formatDate(enrollment.completedAt)}`
+                          : `최근 학습 ${formatDate(enrollment.lastLearningAt)}`}
+                      </p>
+                    </div>
+
+                    {courseTab === 'CERTIFICATE' ? (
+                      <div className={styles['courseCardFooter']}>
+                        <Button
+                          onClick={() => {
+                            handleCertificateDownload(
+                              enrollment.programTitle,
+                              enrollment.completedAt ?? enrollment.lastLearningAt,
+                            );
+                          }}
+                          size='sm'
+                          type='button'
+                          variant='secondary'
+                        >
+                          수료증 다운로드
+                        </Button>
+                      </div>
+                    ) : courseTab === 'EXPIRED' ? (
+                      <div className={styles['courseCardFooter']}>
+                        <p className={styles['courseMetaText']}>수강 종료된 강의입니다.</p>
+                      </div>
+                    ) : (
+                      <div className={styles['courseCardFooter']}>
+                        <span className={styles['courseCta']}>이어보기</span>
+                      </div>
                     )}
                   </div>
                 </>
-              ) : null}
-            </div>
+              );
+
+              if (courseTab === 'ACTIVE') {
+                return (
+                  <Link
+                    className={styles['courseCardLink']}
+                    key={enrollment.id}
+                    to={routePaths.learningPlayer(String(enrollment.id))}
+                  >
+                    {cardBody}
+                  </Link>
+                );
+              }
+
+              return (
+                <article className={styles['courseCard']} key={enrollment.id}>
+                  {cardBody}
+                </article>
+              );
+            })}
           </div>
+        )}
+
+        {filteredEnrollments.length ? (
+          <PaginationControls
+            currentPage={coursePage}
+            onChange={setCoursePage}
+            totalPages={coursePageCount}
+          />
         ) : null}
       </section>
     );
   };
 
-  const renderOrderReservations = () => {
-    const reservationCount = reservationsQuery.data?.length ?? 0;
+  const renderOrderHistory = () => {
+    const paymentCount = visiblePayments.length;
 
     return (
       <section className={styles['contentSection']}>
         <div className={sharedStyles['sectionHeader']}>
-          <h2 className={sharedStyles['sectionTitle']}>신청 내역</h2>
+          <h2 className={sharedStyles['sectionTitle']}>결제 내역</h2>
           <p className={sharedStyles['sectionDescription']}>
-            전체 {reservationCount}건 중 {filteredReservations.length}건을 보고 있습니다.
+            전체 {paymentCount}건 중 {filteredPayments.length}건을 보고 있습니다.
           </p>
         </div>
 
         <SegmentFilter
-          onChange={handleReservationFilterChange}
+          onChange={handlePaymentFilterChange}
           options={[
             { label: '전체', value: 'ALL' },
-            { label: '신청 완료', value: 'REQUESTED' },
-            { label: '신청 확정', value: 'CONFIRMED' },
-            { label: '취소됨', value: 'CANCELLED' },
+            { label: '결제 완료', value: 'COMPLETED' },
+            { label: '결제 취소', value: 'CANCELLED' },
           ]}
-          value={reservationFilter}
+          value={paymentStatusFilter}
         />
 
-        {reservationsQuery.isLoading ? (
-          <p className={sharedStyles['mutedText']}>신청 내역을 불러오는 중입니다.</p>
+        {paymentHistoryQuery.isLoading ? (
+          <p className={sharedStyles['mutedText']}>결제 내역을 불러오는 중입니다.</p>
         ) : null}
 
-        {reservationsQuery.isError ? (
+        {paymentHistoryQuery.isError ? (
           <p className={styles['errorText']}>
-            {reservationsQuery.error instanceof Error
-              ? reservationsQuery.error.message
-              : '신청 내역을 불러오지 못했습니다.'}
+            {paymentHistoryQuery.error instanceof Error
+              ? paymentHistoryQuery.error.message
+              : '결제 내역을 불러오지 못했습니다.'}
           </p>
         ) : null}
 
-        {!reservationsQuery.isLoading &&
-        !reservationsQuery.isError &&
-        filteredReservations.length ? (
+        {!paymentHistoryQuery.isLoading &&
+        !paymentHistoryQuery.isError &&
+        filteredPayments.length ? (
           <div className={styles['stackList']}>
-            {paginatedReservations.map((reservation) => (
-              <OrderMediaCard
-                chipLabel={formatStatusLabel(reservation.status, RESERVATION_STATUS_LABELS)}
-                detailPath={reservation.detailPath}
-                key={reservation.id}
-                metaText={`${reservation.scheduleTitle} · ${formatDateTime(
-                  reservation.scheduleStartAt,
-                )} · ${reservation.location || '-'} · 신청일 ${formatDate(reservation.createdAt)}`}
-                note={reservation.note}
-                thumbnailUrl={reservation.thumbnailUrl}
-                title={reservation.programTitle}
-              />
+            {paginatedPayments.map((payment) => (
+              <article className={styles['paymentCard']} key={payment.id}>
+                <div className={styles['paymentCardHeader']}>
+                  <div className={styles['paymentCardTitleGroup']}>
+                    <strong className={styles['stackItemTitle']}>{payment.orderName}</strong>
+                    <p className={styles['stackItemText']}>
+                      주문번호 {payment.gatewayOrderId} ·{' '}
+                      {formatPaymentMethodLabel(payment.paymentMethod)}
+                    </p>
+                  </div>
+                  <span className={styles['statusChip']}>
+                    {paymentStatusLabels[payment.status]}
+                  </span>
+                </div>
+
+                <div className={styles['paymentMetaGrid']}>
+                  <div className={styles['paymentMetaItem']}>
+                    <span className={styles['summaryLabel']}>결제일</span>
+                    <strong className={styles['couponCardMetaValue']}>
+                      {formatDateTime(
+                        payment.paidAt ||
+                          payment.cancelledAt ||
+                          payment.registeredAt ||
+                          payment.requestedAt,
+                      )}
+                    </strong>
+                  </div>
+                  <div className={styles['paymentMetaItem']}>
+                    <span className={styles['summaryLabel']}>결제 수단</span>
+                    <strong className={styles['couponCardMetaValue']}>
+                      {formatPaymentMethodLabel(payment.paymentMethod)}
+                    </strong>
+                  </div>
+                  <div className={styles['paymentMetaItem']}>
+                    <span className={styles['summaryLabel']}>결제 금액</span>
+                    <strong className={styles['couponCardMetaValue']}>
+                      {formatCurrency(payment.amount)}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className={styles['paymentActionRow']}>
+                  <Link
+                    className={styles['paymentActionLink']}
+                    to={`${routePaths.paymentResult}?paymentId=${String(payment.id)}&status=${payment.status}`}
+                  >
+                    결제 상세 보기
+                  </Link>
+                  {payment.receiptUrl ? (
+                    <a
+                      className={styles['paymentActionLink']}
+                      href={payment.receiptUrl}
+                      rel='noreferrer'
+                      target='_blank'
+                    >
+                      영수증 보기
+                    </a>
+                  ) : (
+                    <span className={sharedStyles['mutedText']}>영수증 없음</span>
+                  )}
+                </div>
+              </article>
             ))}
           </div>
         ) : null}
 
-        {!reservationsQuery.isLoading &&
-        !reservationsQuery.isError &&
-        reservationCount > 0 &&
-        filteredReservations.length === 0 ? (
-          <p className={sharedStyles['mutedText']}>선택한 상태의 신청 내역이 없습니다.</p>
+        {!paymentHistoryQuery.isLoading &&
+        !paymentHistoryQuery.isError &&
+        paymentCount > 0 &&
+        filteredPayments.length === 0 ? (
+          <p className={sharedStyles['mutedText']}>선택한 상태의 결제 내역이 없습니다.</p>
         ) : null}
 
-        {!reservationsQuery.isLoading &&
-        !reservationsQuery.isError &&
-        filteredReservations.length ? (
+        {!paymentHistoryQuery.isLoading &&
+        !paymentHistoryQuery.isError &&
+        filteredPayments.length ? (
           <PaginationControls
-            currentPage={reservationPage}
-            onChange={setReservationPage}
-            totalPages={reservationPageCount}
+            currentPage={paymentPage}
+            onChange={setPaymentPage}
+            totalPages={paymentPageCount}
           />
         ) : null}
 
-        {!reservationsQuery.isLoading && !reservationsQuery.isError && reservationCount === 0 ? (
-          <p className={sharedStyles['mutedText']}>오프라인 신청 내역이 없습니다.</p>
+        {!paymentHistoryQuery.isLoading && !paymentHistoryQuery.isError && paymentCount === 0 ? (
+          <p className={sharedStyles['mutedText']}>결제 내역이 없습니다.</p>
         ) : null}
       </section>
-    );
-  };
-
-  const renderOrderCheckout = () => {
-    const totalCartItemCount = cartQuery.data?.items.length ?? 0;
-
-    return (
-      <div className={styles['detailColumn']}>
-        <section className={styles['contentSection']}>
-          <div className={sharedStyles['sectionHeader']}>
-            <h2 className={sharedStyles['sectionTitle']}>장바구니</h2>
-            <p className={sharedStyles['sectionDescription']}>
-              전체 {totalCartItemCount}개 상품 중 {filteredCartItems.length}개를 보고 있습니다.
-            </p>
-          </div>
-
-          <SegmentFilter
-            onChange={handleCartFilterChange}
-            options={[
-              { label: '전체', value: 'ALL' },
-              { label: '온라인', value: 'ONLINE' },
-              { label: '오프라인', value: 'OFFLINE' },
-            ]}
-            value={cartFilter}
-          />
-
-          {cartQuery.isLoading ? (
-            <p className={sharedStyles['mutedText']}>장바구니 항목을 불러오는 중입니다.</p>
-          ) : null}
-
-          {cartQuery.isError ? (
-            <p className={styles['errorText']}>
-              {cartQuery.error instanceof Error
-                ? cartQuery.error.message
-                : '장바구니 항목을 불러오지 못했습니다.'}
-            </p>
-          ) : null}
-
-          {!cartQuery.isLoading && !cartQuery.isError && filteredCartItems.length ? (
-            <div className={styles['stackList']}>
-              {paginatedCartItems.map((item) => (
-                <OrderMediaCard
-                  chipLabel={PROGRAM_TYPE_LABELS[item.programType] ?? '과정'}
-                  detailPath={item.detailPath}
-                  key={item.id}
-                  metaText={`강사 ${item.instructorName || '-'}`}
-                  thumbnailUrl={item.thumbnailUrl}
-                  title={item.title}
-                  trailingValue={formatCurrency(item.payablePrice)}
-                />
-              ))}
-            </div>
-          ) : null}
-
-          {!cartQuery.isLoading &&
-          !cartQuery.isError &&
-          totalCartItemCount > 0 &&
-          filteredCartItems.length === 0 ? (
-            <p className={sharedStyles['mutedText']}>선택한 유형의 상품이 없습니다.</p>
-          ) : null}
-
-          {!cartQuery.isLoading && !cartQuery.isError && filteredCartItems.length ? (
-            <PaginationControls
-              currentPage={cartPage}
-              onChange={setCartPage}
-              totalPages={cartPageCount}
-            />
-          ) : null}
-
-          {!cartQuery.isLoading && !cartQuery.isError && !totalCartItemCount ? (
-            <p className={sharedStyles['mutedText']}>장바구니에 담긴 항목이 없습니다.</p>
-          ) : null}
-        </section>
-
-        <section className={styles['contentSection']}>
-          <h3 className={styles['contentTitle']}>합계</h3>
-
-          {cartQuery.data ? (
-            <div className={sharedStyles['metaList']}>
-              <div className={sharedStyles['metaItem']}>
-                <span className={sharedStyles['metaLabel']}>총 상품 수</span>
-                <span className={sharedStyles['metaValue']}>{cartQuery.data.itemCount}개</span>
-              </div>
-              <div className={sharedStyles['metaItem']}>
-                <span className={sharedStyles['metaLabel']}>총 상품 금액</span>
-                <span className={sharedStyles['metaValue']}>
-                  {formatCurrency(cartQuery.data.totalOriginalPrice)}
-                </span>
-              </div>
-              <div className={sharedStyles['metaItem']}>
-                <span className={sharedStyles['metaLabel']}>총 할인 금액</span>
-                <span className={sharedStyles['metaValue']}>
-                  {formatCurrency(cartQuery.data.totalDiscountAmount)}
-                </span>
-              </div>
-              <div className={sharedStyles['metaItem']}>
-                <span className={sharedStyles['metaLabel']}>총 결제 예상 금액</span>
-                <span className={sharedStyles['metaValue']}>
-                  {formatCurrency(cartQuery.data.totalPayablePrice)}
-                </span>
-              </div>
-            </div>
-          ) : null}
-
-          {cartQuery.data?.appliedCoupon ? (
-            <p className={sharedStyles['mutedText']}>
-              쿠폰 {cartQuery.data.appliedCoupon.name} (
-              {formatDiscountLabel(
-                cartQuery.data.appliedCoupon.discountType,
-                cartQuery.data.appliedCoupon.discountValue,
-              )}
-              )
-            </p>
-          ) : null}
-
-          {applicationSummaryQuery.data ? (
-            <div className={styles['summaryGrid']}>
-              <div className={styles['summaryItem']}>
-                <span className={styles['summaryLabel']}>온라인 장바구니</span>
-                <strong className={styles['summaryValue']}>
-                  {applicationSummaryQuery.data.onlineItems.length}건
-                </strong>
-              </div>
-              <div className={styles['summaryItem']}>
-                <span className={styles['summaryLabel']}>오프라인 신청 대기</span>
-                <strong className={styles['summaryValue']}>
-                  {applicationSummaryQuery.data.offlineItemCount}건
-                </strong>
-              </div>
-              <div className={styles['summaryItem']}>
-                <span className={styles['summaryLabel']}>온라인 결제 합계</span>
-                <strong className={styles['summaryValue']}>
-                  {formatCurrency(applicationSummaryQuery.data.onlinePayablePrice)}
-                </strong>
-              </div>
-            </div>
-          ) : null}
-        </section>
-      </div>
     );
   };
 
@@ -1414,10 +1274,8 @@ const MyPagePage = () => {
     switch (activeView) {
       case 'learning-courses':
         return renderLearningCourses();
-      case 'orders-reservations':
-        return renderOrderReservations();
-      case 'orders-checkout':
-        return renderOrderCheckout();
+      case 'orders-history':
+        return renderOrderHistory();
       case 'orders-coupons':
         return renderOrderCoupons();
       case 'orders-refunds':

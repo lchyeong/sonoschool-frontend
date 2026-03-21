@@ -4,7 +4,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import CartPage from '@/pages/CartPage/CartPage';
+import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
 import ProgramPage from '@/pages/ProgramPage/ProgramPage';
+import { resetCartSelectionState } from '@/stores/useCartSelectionStore';
 
 const createTestQueryClient = () => {
   return new QueryClient({
@@ -40,6 +42,7 @@ const renderProgramAndCartRoutes = (initialEntry: string) => {
         <Routes>
           <Route path='/programs/*' element={<ProgramPage />} />
           <Route path='/cart' element={<CartPage />} />
+          <Route path='/payments/checkout' element={<CheckoutPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -48,6 +51,8 @@ const renderProgramAndCartRoutes = (initialEntry: string) => {
 
 afterEach(() => {
   cleanup();
+  resetCartSelectionState();
+  window.localStorage.clear();
 });
 
 describe('ProgramPage', () => {
@@ -174,7 +179,8 @@ describe('ProgramPage', () => {
     expect(screen.getByRole('heading', { name: '먼저 경험한 수강생들 후기' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '커리큘럼' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '강의 소개' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '수강 신청 하기' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '예약하기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '수강 신청 하기' })).toBeInTheDocument();
   });
 
   it('adds the selected lecture to the cart and redirects to the cart page', async () => {
@@ -190,5 +196,21 @@ describe('ProgramPage', () => {
 
     expect(await screen.findByRole('heading', { name: '장바구니' })).toBeInTheDocument();
     expect(await screen.findByText('산과 1삼분기 스캔 4주')).toBeInTheDocument();
+  });
+
+  it('moves directly to checkout when the apply action is clicked', async () => {
+    renderProgramAndCartRoutes(
+      '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '수강 신청 하기' }));
+
+    expect(await screen.findByRole('heading', { name: '결제하기' })).toBeInTheDocument();
+    expect(await screen.findByText('산과 1삼분기 스캔 4주')).toBeInTheDocument();
+    expect(screen.getByText('1개')).toBeInTheDocument();
   });
 });

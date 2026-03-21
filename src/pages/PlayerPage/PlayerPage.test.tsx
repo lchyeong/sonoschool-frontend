@@ -1,20 +1,20 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as MyPageApi from '@/api/mypage';
 import PlayerPage from '@/pages/PlayerPage/PlayerPage';
-import type {
-  EnrollmentDetail,
-  LearningPlayerSnapshot,
-  ProtectedLectureStream,
-} from '@/types/mypage';
+import type { LearningPlayerSnapshot, ProtectedLectureStream } from '@/types/mypage';
 
-const fetchMyEnrollmentDetailMock = vi.fn<(enrollmentId: number) => Promise<EnrollmentDetail>>();
 const fetchMyLearningPlayerSnapshotMock =
   vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>();
 const fetchLectureStreamMock =
   vi.fn<(lectureId: number, deviceId: string) => Promise<ProtectedLectureStream>>();
+const saveLectureProgressMock = vi.fn();
+const sendLectureProgressBeaconMock = vi.fn();
+let isHlsSupportedMock = true;
+const createdHlsConfigs: Array<Record<string, unknown>> = [];
 
 vi.mock('hls.js', () => {
   class LoaderMock {
@@ -22,8 +22,11 @@ vi.mock('hls.js', () => {
   }
 
   class HlsMock {
+    levels = [{ height: 720 }, { height: 1080 }];
+
     static Events = {
       ERROR: 'error',
+      MANIFEST_PARSED: 'manifestParsed',
     };
 
     static DefaultConfig = {
@@ -31,7 +34,11 @@ vi.mock('hls.js', () => {
     };
 
     static isSupported() {
-      return true;
+      return isHlsSupportedMock;
+    }
+
+    constructor(config?: Record<string, unknown>) {
+      createdHlsConfigs.push(config ?? {});
     }
 
     attachMedia() {}
@@ -40,7 +47,11 @@ vi.mock('hls.js', () => {
 
     loadSource() {}
 
-    on() {}
+    on(event: string, callback: (eventName: string, data?: unknown) => void) {
+      if (event === HlsMock.Events.MANIFEST_PARSED) {
+        callback(event, {});
+      }
+    }
   }
 
   return {
@@ -48,13 +59,26 @@ vi.mock('hls.js', () => {
   };
 });
 
-vi.mock('@/api/mypage', () => ({
-  fetchMyEnrollmentDetail: (enrollmentId: number) => fetchMyEnrollmentDetailMock(enrollmentId),
-  fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
-    fetchMyLearningPlayerSnapshotMock(enrollmentId),
-  fetchLectureStream: (lectureId: number, deviceId: string) =>
-    fetchLectureStreamMock(lectureId, deviceId),
-}));
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+const myPageApiMock: Pick<
+  typeof MyPageApi,
+  | 'fetchMyLearningPlayerSnapshot'
+  | 'fetchLectureStream'
+  | 'saveLectureProgress'
+  | 'sendLectureProgressBeacon'
+> = {
+  fetchMyLearningPlayerSnapshot: (enrollmentId) => {
+    return fetchMyLearningPlayerSnapshotMock(enrollmentId);
+  },
+  fetchLectureStream: (lectureId, deviceId) => {
+    return fetchLectureStreamMock(lectureId, deviceId);
+  },
+  saveLectureProgress: (...args) => saveLectureProgressMock(...args),
+  sendLectureProgressBeacon: (...args) => sendLectureProgressBeaconMock(...args),
+};
+/* eslint-enable @typescript-eslint/no-unsafe-return */
+
+vi.mock('@/api/mypage', () => myPageApiMock);
 
 vi.mock('@/utils/playbackDeviceId', () => ({
   getOrCreatePlaybackDeviceId: () => 'test-device-id',
@@ -71,45 +95,6 @@ const createTestQueryClient = () => {
       },
     },
   });
-};
-
-const testEnrollmentDetail: EnrollmentDetail = {
-  active: true,
-  certificateEligible: false,
-  completed: false,
-  completedAt: null,
-  completedLectures: 1,
-  completionRate: 33,
-  enrolledAt: '2026-03-01T09:00:00Z',
-  expireAt: '2026-09-30T14:59:59Z',
-  id: 101,
-  programId: 2001,
-  programTitle: '복부초음파 기초',
-  progress: [
-    {
-      completed: true,
-      completedAt: '2026-03-03T10:00:00Z',
-      lastWatchedAt: '2026-03-03T10:00:00Z',
-      lectureId: 1,
-      watchedSeconds: 1260,
-    },
-    {
-      completed: false,
-      completedAt: null,
-      lastWatchedAt: '2026-03-10T11:00:00Z',
-      lectureId: 2,
-      watchedSeconds: 540,
-    },
-    {
-      completed: false,
-      completedAt: null,
-      lastWatchedAt: null,
-      lectureId: 3,
-      watchedSeconds: 0,
-    },
-  ],
-  status: 'ACTIVE',
-  totalLectures: 3,
 };
 
 const testSnapshot: LearningPlayerSnapshot = {
@@ -169,6 +154,18 @@ const testSnapshot: LearningPlayerSnapshot = {
     summaryKind: 'decimal',
     title: '복부초음파 기초 플레이어',
   },
+  enrollment: {
+    active: true,
+    completedLessons: 1,
+    completionRate: 33,
+    enrolledAt: '2026-03-01T09:00:00Z',
+    expireAt: '2026-09-30T14:59:59Z',
+    id: 101,
+    programId: 2001,
+    programTitle: '복부초음파 기초',
+    status: 'ACTIVE',
+    totalLessons: 3,
+  },
   lastPlaybackAt: '2026-03-10T11:00:00Z',
   lessonPlaybackById: {
     'enrollment-101-lesson-1': {
@@ -185,6 +182,32 @@ const testSnapshot: LearningPlayerSnapshot = {
       lectureId: 3,
       mimeType: 'application/x-mpegURL',
       posterUrl: null,
+    },
+  },
+  lessonProgressByLessonId: {
+    'enrollment-101-lesson-1': {
+      completed: true,
+      completedAt: '2026-03-03T10:00:00Z',
+      lastWatchedAt: '2026-03-03T10:00:00Z',
+      lectureId: 1,
+      progressPercent: 100,
+      watchedSeconds: 1260,
+    },
+    'enrollment-101-lesson-2': {
+      completed: false,
+      completedAt: null,
+      lastWatchedAt: '2026-03-10T11:00:00Z',
+      lectureId: 2,
+      progressPercent: 28,
+      watchedSeconds: 540,
+    },
+    'enrollment-101-lesson-3': {
+      completed: false,
+      completedAt: null,
+      lastWatchedAt: null,
+      lectureId: 3,
+      progressPercent: 0,
+      watchedSeconds: 0,
     },
   },
   nextLessonId: 'enrollment-101-lesson-3',
@@ -212,14 +235,28 @@ const renderPlayerPage = (initialEntry = '/mypage/learning/101/lesson/enrollment
   );
 };
 
+const originalCanPlayType = Object.getOwnPropertyDescriptor(
+  HTMLMediaElement.prototype,
+  'canPlayType',
+)?.value as HTMLMediaElement['canPlayType'];
+const originalPlay = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'play')
+  ?.value as HTMLMediaElement['play'];
+
+beforeEach(() => {
+  HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve(undefined));
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  isHlsSupportedMock = true;
+  createdHlsConfigs.length = 0;
+  HTMLMediaElement.prototype.canPlayType = originalCanPlayType;
+  HTMLMediaElement.prototype.play = originalPlay;
 });
 
 describe('PlayerPage', () => {
   it('renders the full player view and requests a protected stream', async () => {
-    fetchMyEnrollmentDetailMock.mockResolvedValue(testEnrollmentDetail);
     fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
     fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
 
@@ -233,12 +270,37 @@ describe('PlayerPage', () => {
       expect(fetchLectureStreamMock).toHaveBeenCalledWith(2, 'test-device-id');
     });
 
-    expect(screen.getByText('강의 대시보드')).toBeInTheDocument();
-    expect(screen.getByText('현재 강의')).toBeInTheDocument();
+    const latestConfig = createdHlsConfigs.at(-1);
+    expect(latestConfig?.['loader']).toBeTypeOf('function');
+    expect(latestConfig?.['xhrSetup']).toBeTypeOf('function');
+
+    const xhrMock = {
+      setRequestHeader: vi.fn(),
+      withCredentials: false,
+    };
+
+    (latestConfig?.['xhrSetup'] as ((xhr: typeof xhrMock, url: string) => void) | undefined)?.(
+      xhrMock,
+      testStreamResponse.hlsKeyUrl,
+    );
+
+    expect(xhrMock.withCredentials).toBe(true);
+    expect(xhrMock.setRequestHeader).toHaveBeenCalledWith(
+      'X-Playback-Session-Token',
+      'test-session',
+    );
+    expect(xhrMock.setRequestHeader).toHaveBeenCalledWith('X-Playback-Device-Id', 'test-device-id');
+
+    expect(screen.getByText('내 강의')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: '커리큘럼' })).toBeInTheDocument();
+    expect(screen.getAllByText('1단계 학습')).toHaveLength(1);
+    expect(screen.queryByText(/강의 완료/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /이전/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /다음/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '재생 설정' })).toBeInTheDocument();
   });
 
   it('moves to the next lesson from the player controls', async () => {
-    fetchMyEnrollmentDetailMock.mockResolvedValue(testEnrollmentDetail);
     fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
     fetchLectureStreamMock.mockImplementation((lectureId) =>
       Promise.resolve({
@@ -254,7 +316,7 @@ describe('PlayerPage', () => {
       await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '다음 강의' }));
+    fireEvent.click(await screen.findByRole('button', { name: /다음/ }));
 
     await waitFor(() => {
       expect(
@@ -264,6 +326,36 @@ describe('PlayerPage', () => {
 
     await waitFor(() => {
       expect(fetchLectureStreamMock).toHaveBeenCalledWith(3, 'test-device-id');
+    });
+  });
+
+  it('opens the settings panel with speed and quality options', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
+    fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
+
+    renderPlayerPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: '재생 설정' }));
+
+    expect(await screen.findByRole('dialog', { name: '재생 설정 패널' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1.25x' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '720p' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1080p' })).toBeInTheDocument();
+  });
+
+  it('shows an unsupported browser notice when HLS playback is unavailable', async () => {
+    isHlsSupportedMock = false;
+    HTMLMediaElement.prototype.canPlayType = vi.fn(() => '' as CanPlayTypeResult);
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
+
+    renderPlayerPage();
+
+    expect(
+      await screen.findByText('현재 브라우저에서는 스트리밍을 재생할 수 없습니다.'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchLectureStreamMock).not.toHaveBeenCalled();
     });
   });
 });

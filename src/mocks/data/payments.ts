@@ -152,6 +152,10 @@ const getPaymentScenarios = (): PaymentResult[] => {
   return paymentScenarioSeeds.map(createPaymentScenario);
 };
 
+export const getMockPaymentHistory = (): PaymentResult[] => {
+  return cloneData(getPaymentScenarios());
+};
+
 const getScenarioByPaymentId = (paymentId: number): PaymentResult | null => {
   return getPaymentScenarios().find((payment) => payment.id === paymentId) ?? null;
 };

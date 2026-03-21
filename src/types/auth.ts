@@ -21,6 +21,30 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface LoginSmsVerifyPayload {
+  challengeToken: string;
+  code: string;
+}
+
+export interface StudentLoginChallenge {
+  challengeExpiresAt: string;
+  challengeToken: string;
+  displayName: string;
+  loginId: string;
+  maskedPhoneNumber: string;
+  role: string;
+  status: 'SMS_REQUIRED';
+}
+
+export interface StudentLoginCompleted extends StudentSession {
+  challengeExpiresAt: null;
+  challengeToken: null;
+  maskedPhoneNumber: null;
+  status: 'COMPLETED';
+}
+
+export type StudentLoginResult = StudentLoginCompleted | StudentLoginChallenge;
+
 export interface RegisterPayload {
   loginId: string;
   email: string;

@@ -15,6 +15,20 @@
   gap: 14px;
 }
 
+.challengeSummary {
+  margin: 0;
+  color: rgb(64 69 82);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.challengeHint {
+  margin: -6px 0 0;
+  color: rgb(104 111 124);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
 .actionGroup {
   display: grid;
   gap: 12px;

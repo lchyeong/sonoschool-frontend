@@ -10,6 +10,7 @@ import AdminConsolePage from '@/pages/AdminConsolePage/AdminConsolePage';
 import AdminProgramEditorSection from '@/pages/AdminConsolePage/AdminProgramEditorSection';
 import AdminLayout from '@/pages/AdminLayout/AdminLayout';
 import AdminLoginPage from '@/pages/AdminLoginPage/AdminLoginPage';
+import AdminVideoUploadPage from '@/pages/AdminVideoUploadPage/AdminVideoUploadPage';
 import CartPage from '@/pages/CartPage/CartPage';
 import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
 import ContactPage from '@/pages/ContactPage/ContactPage';
@@ -42,7 +43,7 @@ const appRouteElements: Record<AppRouteKey, ReactElement> = {
   home: <HomePage />,
   login: <LoginPage />,
   adminLogin: <AdminLoginPage />,
-  admin: <AdminConsolePage section='dashboard' />,
+  admin: <Navigate replace to={routePaths.adminVideos} />,
   adminNotices: <AdminConsolePage section='notices' />,
   adminQna: <AdminConsolePage section='qna' />,
   adminResources: <AdminConsolePage section='resources' />,
@@ -52,6 +53,7 @@ const appRouteElements: Record<AppRouteKey, ReactElement> = {
   adminProgramEdit: <AdminProgramEditorSection mode='edit' />,
   adminProgramDuplicate: <AdminProgramEditorSection mode='duplicate' />,
   adminProgramMenus: <AdminConsolePage section='programMenus' />,
+  adminVideos: <AdminVideoUploadPage />,
   adminSales: <AdminConsolePage section='sales' />,
   signup: <SignupPage />,
   accountRecovery: <AccountRecoveryPage />,
@@ -86,6 +88,7 @@ const adminConsoleRouteKeys = [
   'adminProgramEdit',
   'adminProgramDuplicate',
   'adminProgramMenus',
+  'adminVideos',
   'adminSales',
 ] as const satisfies readonly AppRouteKey[];
 const adminRouteKeySet = new Set<AppRouteKey>([...adminAuthRouteKeys, ...adminConsoleRouteKeys]);

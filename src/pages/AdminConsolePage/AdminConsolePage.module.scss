@@ -291,15 +291,18 @@
   position: relative;
   display: block;
   width: 100%;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  overflow: hidden;
 }
 
 .selectWrap::before {
   content: '';
   position: absolute;
-  top: 1px;
-  right: 1px;
-  bottom: 1px;
-  width: 40px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 44px;
   background: var(--color-primary);
   pointer-events: none;
 }
@@ -308,18 +311,18 @@
   content: '';
   position: absolute;
   top: 50%;
-  right: 13px;
-  width: 14px;
-  height: 14px;
+  right: 15px;
+  width: 15px;
+  height: 15px;
   background-color: #ffffff;
   mask-image: url('../../assets/icons/icons_down.png');
   mask-position: center;
   mask-repeat: no-repeat;
-  mask-size: 14px 14px;
+  mask-size: 15px 15px;
   -webkit-mask-image: url('../../assets/icons/icons_down.png');
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: 14px 14px;
+  -webkit-mask-size: 15px 15px;
   transform: translateY(-50%);
   pointer-events: none;
 }
@@ -336,17 +339,39 @@
 
 .select {
   min-height: 42px;
-  padding: 0 52px 0 12px;
+  padding: 0 56px 0 12px;
+  border: 0;
+  background: transparent;
   appearance: none;
   -webkit-appearance: none;
+}
+
+.fileInput {
+  min-height: 42px;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.fileInput::file-selector-button {
+  height: 40px;
+  margin: -12px 12px -12px -12px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--color-primary);
+  color: #ffffff;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+}
+
+.selectWrap:focus-within {
+  border-color: var(--admin-border-strong);
+  box-shadow: 0 0 0 1px var(--admin-border-strong);
 }
 
 .select:focus,
 .fileInput:focus,
 .textarea:focus {
   outline: none;
-  border-color: var(--admin-border-strong);
-  box-shadow: 0 0 0 1px var(--admin-border-strong);
 }
 
 .checkboxRow {

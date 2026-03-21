@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
-import { routePaths } from '@/routes/routeRegistry';
 import type {
   ProgramCurriculumSection,
   ProgramDetailPageResponse,
@@ -82,6 +81,8 @@ interface ProgramPageDetailSidebarProps {
   data: ProgramDetailPageResponse;
   discountedPriceAmount: ProgramPageDetailViewModel['discountedPriceAmount'];
   handleAddToCart: () => void;
+  handleEnrollNow: () => void;
+  isEnrollingNow: boolean;
   isAddingToCart: boolean;
   optionList: ProgramPageDetailViewModel['optionList'];
   originalPriceAmount: ProgramPageDetailViewModel['originalPriceAmount'];
@@ -675,6 +676,8 @@ export const ProgramPageDetailSidebar = ({
   data,
   discountedPriceAmount,
   handleAddToCart,
+  handleEnrollNow,
+  isEnrollingNow,
   isAddingToCart,
   optionList,
   originalPriceAmount,
@@ -771,9 +774,6 @@ export const ProgramPageDetailSidebar = ({
         </div>
 
         <div className={styles['pricingActionRow']}>
-          <Link className={styles['reserveActionLink']} to={routePaths.contact}>
-            예약하기
-          </Link>
           <button
             className={styles['cartActionLink']}
             disabled={isAddingToCart}
@@ -782,9 +782,14 @@ export const ProgramPageDetailSidebar = ({
           >
             {isAddingToCart ? '담는 중...' : '장바구니'}
           </button>
-          <Link className={styles['applyActionLink']} to={routePaths.contact}>
-            수강 신청 하기
-          </Link>
+          <button
+            className={styles['applyActionLink']}
+            disabled={isEnrollingNow}
+            onClick={handleEnrollNow}
+            type='button'
+          >
+            {isEnrollingNow ? '이동 중...' : '수강 신청 하기'}
+          </button>
         </div>
       </div>
     </aside>

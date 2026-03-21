@@ -1,7 +1,6 @@
 import type { ProgramCurriculumTrack } from '@/types/programCatalog';
 
 export type EnrollmentStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
-export type ReservationStatus = 'REQUESTED' | 'CONFIRMED' | 'CANCELLED';
 export type RefundStatus = 'REFUND_REQUESTED' | 'REFUNDED' | 'CANCELLED';
 export type ProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID';
 export type CouponDiscountType = 'FIXED_AMOUNT' | 'PERCENTAGE';
@@ -50,12 +49,49 @@ export interface EnrollmentSummary {
   active: boolean;
   enrolledAt: string;
   expireAt: string | null;
+  totalLectures: number;
+  completedLectures: number;
+  completionRate: number;
+  completed: boolean;
+  completedAt: string | null;
+  certificateEligible: boolean;
+  lastLearningAt: string | null;
 }
 
 export interface LectureProgress {
   lectureId: number;
   watchedSeconds: number;
   completed: boolean;
+  lastWatchedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface LectureProgressSaveResponse {
+  lectureId: number;
+  watchedSeconds: number;
+  completed: boolean;
+  lastWatchedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface LearningPlayerEnrollmentState {
+  id: number;
+  programId: number;
+  programTitle: string;
+  status: EnrollmentStatus;
+  active: boolean;
+  enrolledAt: string;
+  expireAt: string | null;
+  totalLessons: number;
+  completedLessons: number;
+  completionRate: number;
+}
+
+export interface LearningPlayerLessonProgress {
+  lectureId: number;
+  watchedSeconds: number;
+  completed: boolean;
+  progressPercent: number;
   lastWatchedAt: string | null;
   completedAt: string | null;
 }
@@ -78,11 +114,13 @@ export interface EnrollmentDetail {
 }
 
 export interface LearningPlayerSnapshot {
+  enrollment?: LearningPlayerEnrollmentState;
   curriculumTrack: ProgramCurriculumTrack;
   currentLessonId: string | null;
   nextLessonId: string | null;
   completedLessonIds: string[];
   lessonPlaybackById: Record<string, LearningPlayerSource>;
+  lessonProgressByLessonId?: Record<string, LearningPlayerLessonProgress>;
   lastPlaybackAt: string | null;
   resumeAtSeconds: number;
 }
@@ -163,24 +201,7 @@ export interface ApplicationSummary {
   onlinePayablePrice: number;
   offlineItemCount: number;
   hasOnlineCheckout: boolean;
-  hasOfflineReservation: boolean;
   appliedCoupon: AppliedCoupon | null;
-}
-
-export interface OfflineReservation {
-  id: number;
-  programId: number;
-  programTitle: string;
-  detailPath: string;
-  thumbnailUrl: string | null;
-  scheduleId: number;
-  scheduleTitle: string;
-  scheduleStartAt: string;
-  scheduleEndAt: string;
-  location: string | null;
-  status: ReservationStatus;
-  note: string | null;
-  createdAt: string;
 }
 
 export interface RefundHistory {

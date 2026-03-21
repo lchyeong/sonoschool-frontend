@@ -76,9 +76,13 @@
 }
 
 .menuButtonActive {
-  border-left-color: var(--color-sub-brand-main);
-  color: var(--color-text-primary);
-  background: rgba(15, 23, 42, 0.04);
+  border-left-color: var(--color-primary);
+  color: #ffffff;
+  background: var(--color-primary);
+}
+
+.menuButtonActive .menuLabel {
+  color: #ffffff;
 }
 
 .menuLabel {
@@ -105,6 +109,208 @@
 .contentSection {
   display: grid;
   gap: var(--space-5);
+}
+
+.courseOverviewGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.courseOverviewCard {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.courseOverviewButton {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  text-align: left;
+  background: #ffffff;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.courseOverviewButton:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.courseOverviewButtonActive {
+  border-color: var(--color-primary);
+  color: #ffffff;
+  background: var(--color-primary);
+  box-shadow: 0 18px 44px rgba(52, 178, 159, 0.24);
+}
+
+.courseOverviewButtonActive .summaryLabel,
+.courseOverviewButtonActive .courseOverviewValue {
+  color: #ffffff;
+}
+
+.courseOverviewValue {
+  color: var(--color-text-primary);
+  font-size: clamp(1.3rem, 2vw, 1.65rem);
+  font-weight: var(--font-weight-bold);
+}
+
+.courseGrid {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.courseCard,
+.courseCardLink {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.06);
+}
+
+.courseCardLink {
+  text-decoration: none;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.courseCardLink:hover {
+  border-color: rgba(15, 23, 42, 0.16);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.1);
+  transform: translateY(-2px);
+}
+
+.courseCardMedia {
+  position: relative;
+  min-height: 168px;
+  background: rgb(248 250 252);
+}
+
+.courseCardImage,
+.courseCardFallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.courseCardImage {
+  object-fit: cover;
+}
+
+.courseCardFallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(32, 96, 180, 0.92)), #111827;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.2rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.12em;
+}
+
+.courseCardBadge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  color: #ffffff;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.courseCardBody {
+  display: grid;
+  gap: 14px;
+  padding: 18px 18px 20px;
+}
+
+.courseCardHeader {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.courseCardTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.courseProgressMeta {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.courseProgressTrack {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.24);
+}
+
+.courseProgressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #14b8a6, #34d399);
+}
+
+.courseMetaList {
+  display: grid;
+  gap: 6px;
+}
+
+.courseMetaText {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.courseCardFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.courseCta {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 .contentTitle {
@@ -418,6 +624,57 @@
   line-height: var(--line-height-relaxed);
 }
 
+.paymentCard {
+  display: grid;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  background: #ffffff;
+}
+
+.paymentCardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.paymentCardTitleGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.paymentMetaGrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.paymentMetaItem {
+  display: grid;
+  gap: 8px;
+}
+
+.paymentActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.paymentActionLink {
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.paymentActionLink:hover {
+  text-decoration: underline;
+}
+
 .statusChip {
   display: inline-flex;
   align-items: center;
@@ -556,14 +813,26 @@
   .detailSplit {
     grid-template-columns: 1fr;
   }
+
+  .courseOverviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (width < 768px) {
+  .courseOverviewGrid {
+    grid-template-columns: 1fr;
+  }
+
   .summaryGrid {
     grid-template-columns: 1fr;
   }
 
   .couponCardMetaGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .paymentMetaGrid {
     grid-template-columns: 1fr;
   }
 
@@ -595,5 +864,9 @@
 
   .orderCardAmount {
     text-align: left;
+  }
+
+  .courseGrid {
+    grid-template-columns: 1fr;
   }
 }

@@ -8,47 +8,36 @@ import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { SmsSendPayload, SmsSendResponse, SmsVerifyPayload } from '@/types/auth';
 import type {
-  ApplicationSummary,
-  CartSummary,
-  EnrollmentDetail,
   EnrollmentSummary,
-  LearningPlayerSnapshot,
-  OfflineReservation,
   RefundHistory,
   UserCoupon,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
+import type { PaymentResult } from '@/types/payment';
 
 const fetchMyProfileMock = vi.fn<() => Promise<UserProfile>>();
 const updateMyProfileMock = vi.fn<(payload: UserProfileUpdatePayload) => Promise<UserProfile>>();
 const sendMyPhoneVerificationMock = vi.fn<(payload: SmsSendPayload) => Promise<SmsSendResponse>>();
 const verifyMyPhoneChangeMock = vi.fn<(payload: SmsVerifyPayload) => Promise<UserProfile>>();
 const fetchMyEnrollmentsMock = vi.fn<() => Promise<EnrollmentSummary[]>>();
-const fetchMyEnrollmentDetailMock = vi.fn<(enrollmentId: number) => Promise<EnrollmentDetail>>();
-const fetchMyLearningPlayerSnapshotMock =
-  vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>();
-const fetchMyCartMock = vi.fn<() => Promise<CartSummary>>();
 const fetchMyCouponsMock = vi.fn<() => Promise<UserCoupon[]>>();
-const fetchMyApplicationSummaryMock = vi.fn<() => Promise<ApplicationSummary>>();
-const fetchMyReservationsMock = vi.fn<() => Promise<OfflineReservation[]>>();
+const fetchPaymentHistoryMock = vi.fn<() => Promise<PaymentResult[]>>();
 const fetchMyRefundsMock = vi.fn<() => Promise<RefundHistory[]>>();
 const logoutStudentMock = vi.fn<() => Promise<void>>();
 
 vi.mock('@/api/mypage', () => ({
-  fetchMyApplicationSummary: () => fetchMyApplicationSummaryMock(),
-  fetchMyCart: () => fetchMyCartMock(),
   fetchMyCoupons: () => fetchMyCouponsMock(),
-  fetchMyEnrollmentDetail: (enrollmentId: number) => fetchMyEnrollmentDetailMock(enrollmentId),
   fetchMyEnrollments: () => fetchMyEnrollmentsMock(),
-  fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
-    fetchMyLearningPlayerSnapshotMock(enrollmentId),
   fetchMyProfile: () => fetchMyProfileMock(),
   fetchMyRefunds: () => fetchMyRefundsMock(),
-  fetchMyReservations: () => fetchMyReservationsMock(),
   sendMyPhoneVerification: (payload: SmsSendPayload) => sendMyPhoneVerificationMock(payload),
   updateMyProfile: (payload: UserProfileUpdatePayload) => updateMyProfileMock(payload),
   verifyMyPhoneChange: (payload: SmsVerifyPayload) => verifyMyPhoneChangeMock(payload),
+}));
+
+vi.mock('@/api/payments', () => ({
+  fetchPaymentHistory: () => fetchPaymentHistoryMock(),
 }));
 
 vi.mock('@/api/auth', () => ({
@@ -71,299 +60,56 @@ const createTestQueryClient = () => {
 const testEnrollments: EnrollmentSummary[] = [
   {
     active: true,
+    certificateEligible: false,
+    completed: false,
+    completedAt: null,
+    completedLectures: 2,
+    completionRate: 67,
     enrolledAt: '2026-02-01T09:00:00Z',
     expireAt: '2026-12-31T14:59:59Z',
     id: 101,
+    lastLearningAt: '2026-03-10T08:00:00Z',
     programId: 2001,
     programThumbnailUrl: null,
     programTitle: '복부초음파 기초',
     status: 'ACTIVE',
+    totalLectures: 3,
   },
   {
     active: true,
+    certificateEligible: true,
+    completed: false,
+    completedAt: null,
+    completedLectures: 5,
+    completionRate: 83,
     enrolledAt: '2026-02-20T09:00:00Z',
     expireAt: '2026-08-31T14:59:59Z',
     id: 102,
+    lastLearningAt: '2026-03-16T06:45:00Z',
     programId: 2003,
     programThumbnailUrl: null,
     programTitle: '심장초음파 실전',
     status: 'ACTIVE',
+    totalLectures: 6,
   },
   {
     active: false,
+    certificateEligible: false,
+    completed: true,
+    completedAt: '2026-02-18T09:00:00Z',
+    completedLectures: 4,
+    completionRate: 100,
     enrolledAt: '2025-11-05T09:00:00Z',
     expireAt: '2026-02-28T14:59:59Z',
     id: 103,
+    lastLearningAt: '2026-02-18T09:00:00Z',
     programId: 2004,
     programThumbnailUrl: null,
     programTitle: 'POCUS 응급 핸즈온',
     status: 'EXPIRED',
+    totalLectures: 4,
   },
 ];
-
-const testEnrollmentDetails = new Map<number, EnrollmentDetail>([
-  [
-    101,
-    {
-      active: true,
-      certificateEligible: false,
-      completed: false,
-      completedAt: null,
-      completedLectures: 2,
-      completionRate: 67,
-      enrolledAt: '2026-02-01T09:00:00Z',
-      expireAt: '2026-12-31T14:59:59Z',
-      id: 101,
-      programId: 2001,
-      programTitle: '복부초음파 기초',
-      progress: [
-        {
-          completed: true,
-          completedAt: '2026-02-10T10:00:00Z',
-          lastWatchedAt: '2026-02-10T10:00:00Z',
-          lectureId: 1,
-          watchedSeconds: 900,
-        },
-        {
-          completed: false,
-          completedAt: null,
-          lastWatchedAt: '2026-03-10T08:00:00Z',
-          lectureId: 2,
-          watchedSeconds: 480,
-        },
-      ],
-      status: 'ACTIVE',
-      totalLectures: 3,
-    },
-  ],
-  [
-    102,
-    {
-      active: true,
-      certificateEligible: true,
-      completed: false,
-      completedAt: null,
-      completedLectures: 5,
-      completionRate: 83,
-      enrolledAt: '2026-02-20T09:00:00Z',
-      expireAt: '2026-08-31T14:59:59Z',
-      id: 102,
-      programId: 2003,
-      programTitle: '심장초음파 실전',
-      progress: [
-        {
-          completed: true,
-          completedAt: '2026-02-25T11:00:00Z',
-          lastWatchedAt: '2026-02-25T11:00:00Z',
-          lectureId: 1,
-          watchedSeconds: 1200,
-        },
-        {
-          completed: true,
-          completedAt: '2026-03-02T10:20:00Z',
-          lastWatchedAt: '2026-03-02T10:20:00Z',
-          lectureId: 2,
-          watchedSeconds: 1440,
-        },
-        {
-          completed: true,
-          completedAt: '2026-03-09T09:40:00Z',
-          lastWatchedAt: '2026-03-09T09:40:00Z',
-          lectureId: 3,
-          watchedSeconds: 1380,
-        },
-        {
-          completed: true,
-          completedAt: '2026-03-12T08:30:00Z',
-          lastWatchedAt: '2026-03-12T08:30:00Z',
-          lectureId: 4,
-          watchedSeconds: 960,
-        },
-        {
-          completed: true,
-          completedAt: '2026-03-15T07:50:00Z',
-          lastWatchedAt: '2026-03-15T07:50:00Z',
-          lectureId: 5,
-          watchedSeconds: 1020,
-        },
-        {
-          completed: false,
-          completedAt: null,
-          lastWatchedAt: '2026-03-16T06:45:00Z',
-          lectureId: 6,
-          watchedSeconds: 420,
-        },
-      ],
-      status: 'ACTIVE',
-      totalLectures: 6,
-    },
-  ],
-  [
-    103,
-    {
-      active: false,
-      certificateEligible: false,
-      completed: true,
-      completedAt: '2026-02-18T09:00:00Z',
-      completedLectures: 4,
-      completionRate: 100,
-      enrolledAt: '2025-11-05T09:00:00Z',
-      expireAt: '2026-02-28T14:59:59Z',
-      id: 103,
-      programId: 2004,
-      programTitle: 'POCUS 응급 핸즈온',
-      progress: [
-        {
-          completed: true,
-          completedAt: '2025-11-08T10:00:00Z',
-          lastWatchedAt: '2025-11-08T10:00:00Z',
-          lectureId: 1,
-          watchedSeconds: 780,
-        },
-        {
-          completed: true,
-          completedAt: '2025-11-15T10:30:00Z',
-          lastWatchedAt: '2025-11-15T10:30:00Z',
-          lectureId: 2,
-          watchedSeconds: 840,
-        },
-        {
-          completed: true,
-          completedAt: '2025-11-22T11:10:00Z',
-          lastWatchedAt: '2025-11-22T11:10:00Z',
-          lectureId: 3,
-          watchedSeconds: 910,
-        },
-        {
-          completed: true,
-          completedAt: '2026-02-18T09:00:00Z',
-          lastWatchedAt: '2026-02-18T09:00:00Z',
-          lectureId: 4,
-          watchedSeconds: 1260,
-        },
-      ],
-      status: 'EXPIRED',
-      totalLectures: 4,
-    },
-  ],
-]);
-
-const testCart: CartSummary = {
-  appliedCoupon: {
-    code: 'SPRING',
-    discountAmount: 25000,
-    discountType: 'FIXED_AMOUNT',
-    discountValue: 25000,
-    id: 10,
-    name: '봄맞이 할인',
-  },
-  itemCount: 4,
-  items: [
-    {
-      addedAt: '2026-03-15T08:30:00Z',
-      detailPath: '/programs/doctor-course/pocus/fast/2026-mar-apr',
-      id: 55,
-      instructorName: '김강사',
-      originalPrice: 120000,
-      payablePrice: 99000,
-      programId: 2002,
-      programType: 'ONLINE',
-      saleEndAt: null,
-      salePrice: 99000,
-      saleStartAt: null,
-      thumbnailUrl: '/test-cart-pocus.jpg',
-      title: 'POCUS 워크숍',
-    },
-    {
-      addedAt: '2026-03-16T11:10:00Z',
-      detailPath: '/programs/general-course/cardiology/cardiac-master/detail',
-      id: 56,
-      instructorName: '이소노',
-      originalPrice: 180000,
-      payablePrice: 149000,
-      programId: 2003,
-      programType: 'ONLINE',
-      saleEndAt: '2026-03-31T14:59:59Z',
-      salePrice: 149000,
-      saleStartAt: '2026-03-01T00:00:00Z',
-      thumbnailUrl: '/test-cart-cardiology.jpg',
-      title: '심장초음파 실전 마스터 클래스',
-    },
-    {
-      addedAt: '2026-03-16T14:40:00Z',
-      detailPath: '/programs/general-course/abdomen/abdomen-basic-6-weeks/2026-mar-apr',
-      id: 57,
-      instructorName: '박핸즈온',
-      originalPrice: 220000,
-      payablePrice: 185000,
-      programId: 3001,
-      programType: 'OFFLINE',
-      saleEndAt: null,
-      salePrice: 185000,
-      saleStartAt: null,
-      thumbnailUrl: '/test-cart-offline.jpg',
-      title: '복부초음파 오프라인 핸즈온',
-    },
-    {
-      addedAt: '2026-03-17T02:15:00Z',
-      detailPath: '/programs/general-course/abdomen/abdomen-basic-6-weeks/2026-may-jun',
-      id: 58,
-      instructorName: '최케이스',
-      originalPrice: 150000,
-      payablePrice: 129000,
-      programId: 2008,
-      programType: 'ONLINE',
-      saleEndAt: '2026-03-25T14:59:59Z',
-      salePrice: 129000,
-      saleStartAt: '2026-03-10T00:00:00Z',
-      thumbnailUrl: '/test-cart-report.jpg',
-      title: '복부초음파 증례 해설 세션',
-    },
-  ],
-  totalDiscountAmount: 108000,
-  totalOriginalPrice: 670000,
-  totalPayablePrice: 562000,
-};
-
-const testApplicationSummary: ApplicationSummary = {
-  appliedCoupon: testCart.appliedCoupon,
-  hasOfflineReservation: true,
-  hasOnlineCheckout: true,
-  offlineItemCount: 1,
-  offlineItems: [
-    {
-      cartItemId: 57,
-      payablePrice: 185000,
-      programId: 3001,
-      programType: 'OFFLINE',
-      title: '복부초음파 오프라인 핸즈온',
-    },
-  ],
-  onlineItems: [
-    {
-      cartItemId: 55,
-      payablePrice: 99000,
-      programId: 2002,
-      programType: 'ONLINE',
-      title: 'POCUS 워크숍',
-    },
-    {
-      cartItemId: 56,
-      payablePrice: 149000,
-      programId: 2003,
-      programType: 'ONLINE',
-      title: '심장초음파 실전 마스터 클래스',
-    },
-    {
-      cartItemId: 58,
-      payablePrice: 129000,
-      programId: 2008,
-      programType: 'ONLINE',
-      title: '복부초음파 증례 해설 세션',
-    },
-  ],
-  onlinePayablePrice: 377000,
-};
 
 const testCoupons: UserCoupon[] = [
   {
@@ -393,54 +139,6 @@ const testCoupons: UserCoupon[] = [
     name: '온라인 집중 10%',
     usable: true,
     validFromAt: '2026-03-10T09:00:00Z',
-  },
-];
-
-const testReservations: OfflineReservation[] = [
-  {
-    createdAt: '2026-03-01T09:00:00Z',
-    detailPath: '/programs/general-course/abdomen/abdomen-basic-6-weeks/2026-mar-apr',
-    id: 700,
-    location: '서울 강의장',
-    note: null,
-    programId: 3001,
-    programTitle: '오프라인 핸즈온',
-    scheduleEndAt: '2026-04-10T15:00:00Z',
-    scheduleId: 901,
-    scheduleStartAt: '2026-04-10T13:00:00Z',
-    scheduleTitle: '4월 핸즈온',
-    status: 'CONFIRMED',
-    thumbnailUrl: '/test-reservation-offline.jpg',
-  },
-  {
-    createdAt: '2026-03-07T06:30:00Z',
-    detailPath: '/programs/general-course/msk/workshop/detail',
-    id: 701,
-    location: '부산 세미나룸',
-    note: '준비물 안내 문자 발송 예정',
-    programId: 3002,
-    programTitle: '근골격계 초음파 워크숍',
-    scheduleEndAt: '2026-04-24T12:30:00Z',
-    scheduleId: 902,
-    scheduleStartAt: '2026-04-24T09:30:00Z',
-    scheduleTitle: '4월 실습반',
-    status: 'REQUESTED',
-    thumbnailUrl: '/test-reservation-msk.jpg',
-  },
-  {
-    createdAt: '2026-02-15T05:15:00Z',
-    detailPath: '/programs/doctor-course/pocus/emergency-intensive/detail',
-    id: 702,
-    location: '대구 강의장',
-    note: '취소 요청 완료',
-    programId: 3003,
-    programTitle: '응급 초음파 집중 코스',
-    scheduleEndAt: '2026-03-20T17:00:00Z',
-    scheduleId: 903,
-    scheduleStartAt: '2026-03-20T13:00:00Z',
-    scheduleTitle: '3월 집중반',
-    status: 'CANCELLED',
-    thumbnailUrl: '/test-reservation-emergency.jpg',
   },
 ];
 
@@ -479,6 +177,69 @@ const testRefunds: RefundHistory[] = [
     reason: '오프라인 일정 취소',
     refundAmount: 185000,
     requestedAt: '2026-02-24T12:10:00Z',
+    status: 'CANCELLED',
+  },
+];
+
+const testPaymentHistory: PaymentResult[] = [
+  {
+    amount: 149000,
+    approvedAmount: 149000,
+    buyerKey: 'student01',
+    cancelReason: null,
+    cancelledAt: null,
+    cashReceiptIssued: null,
+    easyPayKind: null,
+    easyPayProvider: null,
+    failedAt: null,
+    gateway: 'KCP',
+    gatewayCardOtherPayType: null,
+    gatewayOrderId: 'MOCK-CARD-COMPLETED',
+    gatewayPayType: 'PACA',
+    gatewayResponseCode: '0000',
+    gatewayResponseMessage: '카드 결제가 승인되었습니다.',
+    gatewayServiceCorpId: null,
+    gatewayTid: 'TID-000501',
+    gatewayTraceNo: 'TRACE-000501',
+    id: 501,
+    orderName: '심장초음파 실전 마스터 클래스',
+    orderReference: 'CART-501',
+    orderType: 'CART_CHECKOUT',
+    paidAt: '2026-03-18T10:05:00Z',
+    paymentMethod: 'CARD',
+    receiptUrl: 'https://example.com/receipt/501',
+    registeredAt: '2026-03-18T10:04:00Z',
+    requestedAt: '2026-03-18T10:00:00Z',
+    status: 'COMPLETED',
+  },
+  {
+    amount: 99000,
+    approvedAmount: null,
+    buyerKey: 'student01',
+    cancelReason: '사용자 요청 취소',
+    cancelledAt: '2026-03-18T10:20:00Z',
+    cashReceiptIssued: null,
+    easyPayKind: null,
+    easyPayProvider: null,
+    failedAt: null,
+    gateway: 'KCP',
+    gatewayCardOtherPayType: null,
+    gatewayOrderId: 'MOCK-CARD-CANCELLED',
+    gatewayPayType: 'PACA',
+    gatewayResponseCode: 'C001',
+    gatewayResponseMessage: '결제가 취소되었습니다.',
+    gatewayServiceCorpId: null,
+    gatewayTid: 'TID-000504',
+    gatewayTraceNo: 'TRACE-000504',
+    id: 504,
+    orderName: '복부초음파 기초',
+    orderReference: 'CART-504',
+    orderType: 'CART_CHECKOUT',
+    paidAt: null,
+    paymentMethod: 'CARD',
+    receiptUrl: null,
+    registeredAt: '2026-03-18T10:01:00Z',
+    requestedAt: '2026-03-18T10:00:00Z',
     status: 'CANCELLED',
   },
 ];
@@ -542,19 +303,8 @@ beforeEach(() => {
     role: 'STUDENT',
   });
   fetchMyEnrollmentsMock.mockResolvedValue(testEnrollments);
-  fetchMyEnrollmentDetailMock.mockImplementation((enrollmentId: number) => {
-    const detail = testEnrollmentDetails.get(enrollmentId);
-
-    if (!detail) {
-      throw new Error(`Enrollment detail not found for ${String(enrollmentId)}`);
-    }
-
-    return Promise.resolve(detail);
-  });
-  fetchMyCartMock.mockResolvedValue(testCart);
   fetchMyCouponsMock.mockResolvedValue(testCoupons);
-  fetchMyApplicationSummaryMock.mockResolvedValue(testApplicationSummary);
-  fetchMyReservationsMock.mockResolvedValue(testReservations);
+  fetchPaymentHistoryMock.mockResolvedValue(testPaymentHistory);
   fetchMyRefundsMock.mockResolvedValue(testRefunds);
   logoutStudentMock.mockResolvedValue(undefined);
   useAuthStore.setState({
@@ -584,7 +334,7 @@ afterEach(() => {
 });
 
 describe('MyPagePage', () => {
-  it('renders grouped sidebar categories and the default lecture detail', async () => {
+  it('renders grouped sidebar categories and active course cards by default', async () => {
     renderMyPage();
 
     expect(screen.getByRole('heading', { level: 1, name: '마이페이지' })).toBeInTheDocument();
@@ -592,83 +342,56 @@ describe('MyPagePage', () => {
     expect(screen.getByText('주문/결제')).toBeInTheDocument();
     expect(screen.getByText('내 정보')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '내 강의' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '신청 내역' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '결제 내역' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '나의 쿠폰' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '장바구니' })).not.toBeInTheDocument();
 
     expect(await screen.findByText('복부초음파 기초')).toBeInTheDocument();
     expect(screen.getByText('심장초음파 실전')).toBeInTheDocument();
-    expect(screen.getByText('POCUS 응급 핸즈온')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /복부초음파 기초/ })).toHaveTextContent('수강 기간');
-    expect(screen.getByRole('button', { name: /복부초음파 기초/ })).toHaveTextContent('~');
+    expect(screen.queryByText('POCUS 응급 핸즈온')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /수료증/ })).toBeInTheDocument();
     expect(await screen.findByText('67%')).toBeInTheDocument();
-    expect(screen.getByText('2 / 3')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '수강하기' })).toHaveAttribute(
+    expect(screen.getByText('2 / 3강')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /복부초음파 기초/ })).toHaveAttribute(
       'href',
       '/mypage/learning/101',
     );
   });
 
-  it('updates the lecture detail when another enrolled lecture is selected', async () => {
+  it('switches between 수강 종료 and 수료증 tabs', async () => {
     renderMyPage();
 
-    expect(
-      await screen.findByRole('heading', { level: 3, name: '복부초음파 기초' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('복부초음파 기초')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /심장초음파 실전/ }));
+    fireEvent.click(screen.getByRole('button', { name: /수강 종료/ }));
 
-    expect(
-      await screen.findByRole('heading', { level: 3, name: '심장초음파 실전' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('83%')).toBeInTheDocument();
-    expect(screen.getByText('5 / 6')).toBeInTheDocument();
-    expect(screen.getByText('가능')).toBeInTheDocument();
+    expect(await screen.findByText('POCUS 응급 핸즈온')).toBeInTheDocument();
+    expect(screen.queryByText('복부초음파 기초')).not.toBeInTheDocument();
+    expect(screen.getByText('수강 종료된 강의입니다.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /수료증/ }));
+
+    expect(await screen.findByText('심장초음파 실전')).toBeInTheDocument();
+    expect(screen.queryByText('복부초음파 기초')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '수료증 다운로드' })).toBeInTheDocument();
   });
 
-  it('shows multiple reservation items when the orders reservations item is selected', async () => {
+  it('shows payment history with receipt actions', async () => {
     renderMyPage();
 
-    fireEvent.click(screen.getByRole('button', { name: '신청 내역' }));
+    fireEvent.click(screen.getByRole('button', { name: '결제 내역' }));
 
-    expect(await screen.findByText('오프라인 핸즈온')).toBeInTheDocument();
-    expect(screen.getByText('근골격계 초음파 워크숍')).toBeInTheDocument();
-    expect(screen.getByText('응급 초음파 집중 코스')).toBeInTheDocument();
-    expect(screen.getAllByText('신청 확정').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('신청 완료').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('취소됨').length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: '오프라인 핸즈온' })).toHaveAttribute(
+    expect(await screen.findByText('심장초음파 실전 마스터 클래스')).toBeInTheDocument();
+    expect(screen.getByText('복부초음파 기초')).toBeInTheDocument();
+    expect(screen.getAllByText('결제 완료').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('결제 취소').length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: '영수증 보기' })).toHaveAttribute(
       'href',
-      '/programs/general-course/abdomen/abdomen-basic-6-weeks/2026-mar-apr',
+      'https://example.com/receipt/501',
     );
-    expect(screen.getByRole('img', { name: '오프라인 핸즈온 대표 이미지' })).toHaveAttribute(
-      'src',
-      '/test-reservation-offline.jpg',
-    );
-  });
-
-  it('shows checkout data when the orders checkout item is selected', async () => {
-    renderMyPage();
-
-    fireEvent.click(screen.getByRole('button', { name: '장바구니' }));
-
-    expect(await screen.findByText('POCUS 워크숍')).toBeInTheDocument();
-    expect(screen.getByText('심장초음파 실전 마스터 클래스')).toBeInTheDocument();
-    expect(screen.getByText('복부초음파 오프라인 핸즈온')).toBeInTheDocument();
-    expect(screen.getByText('복부초음파 증례 해설 세션')).toBeInTheDocument();
-    expect(screen.getByText('4개')).toBeInTheDocument();
-    expect(screen.getByText('3건')).toBeInTheDocument();
-    expect(screen.getByText('1건')).toBeInTheDocument();
-    expect(screen.getByText('562,000원')).toBeInTheDocument();
-    expect(screen.getByText('670,000원')).toBeInTheDocument();
-    expect(screen.getByText('108,000원')).toBeInTheDocument();
-    expect(screen.getByText('쿠폰 봄맞이 할인 (25,000원)')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'POCUS 워크숍' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: '결제 상세 보기' })[0]).toHaveAttribute(
       'href',
-      '/programs/doctor-course/pocus/fast/2026-mar-apr',
-    );
-    expect(screen.getByRole('img', { name: 'POCUS 워크숍 대표 이미지' })).toHaveAttribute(
-      'src',
-      '/test-cart-pocus.jpg',
+      '/payments/result?paymentId=501&status=COMPLETED',
     );
   });
 
