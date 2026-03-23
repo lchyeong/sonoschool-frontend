@@ -2,17 +2,11 @@ import { StrictMode } from 'react';
 
 import { createRoot } from 'react-dom/client';
 
-import { env } from '@/config/env';
 import '@/styles/globals.scss';
 
 import App from './App.tsx';
 
-const bootstrap = async (): Promise<void> => {
-  if (__DEV__ && env.VITE_ENABLE_MOCK) {
-    const { worker } = await import('@/mocks/browser');
-    await worker.start({ onUnhandledRequest: 'bypass' });
-  }
-
+const bootstrap = (): void => {
   const rootElement = document.getElementById('root');
   if (!rootElement) throw new Error('Root element (#root) not found');
 
@@ -23,4 +17,4 @@ const bootstrap = async (): Promise<void> => {
   );
 };
 
-void bootstrap();
+bootstrap();

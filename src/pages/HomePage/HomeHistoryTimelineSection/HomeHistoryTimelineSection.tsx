@@ -1,13 +1,10 @@
-import { getMockHomeHistoryTimeline } from '@/mocks/data/homeHistoryTimeline';
 import { useHomeHistoryTimelineQuery } from '@/query/useHomeHistoryTimelineQuery';
 
 import styles from './HomeHistoryTimelineSection.module.scss';
 
 const HomeHistoryTimelineSection = () => {
-  const { data, isError, isPending } = useHomeHistoryTimelineQuery();
+  const { data, error, isError, isPending } = useHomeHistoryTimelineQuery();
   const timelineItems = data?.items ?? [];
-  const fallbackTimelineItems = getMockHomeHistoryTimeline().items;
-  const effectiveTimelineItems = timelineItems.length > 0 ? timelineItems : fallbackTimelineItems;
 
   if (isPending) {
     return (
@@ -32,6 +29,27 @@ const HomeHistoryTimelineSection = () => {
     );
   }
 
+  if (isError || timelineItems.length === 0) {
+    return (
+      <section aria-labelledby='home-history-timeline-heading' className={styles['section']}>
+        <div className={styles['inner']}>
+          <h2 className={styles['srOnly']} id='home-history-timeline-heading'>
+            소노스쿨 연혁
+          </h2>
+
+          <div className={styles['statusPanel']}>
+            <p className={styles['statusTitle']}>연혁을 불러오지 못했습니다.</p>
+            <p className={styles['statusDescription']}>
+              {isError && error instanceof Error
+                ? error.message
+                : '등록된 연혁 데이터가 없습니다.'}
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section aria-labelledby='home-history-timeline-heading' className={styles['section']}>
       <div className={styles['inner']}>
@@ -40,9 +58,9 @@ const HomeHistoryTimelineSection = () => {
         </h2>
 
         <ol aria-label='소노스쿨 연혁 타임라인' className={styles['timelineList']}>
-          {effectiveTimelineItems.map((item, itemIndex) => {
+          {timelineItems.map((item, itemIndex) => {
             const isTimelineStartItem = itemIndex === 0;
-            const itemKey = `${item.year}-${item.title}-${isError ? 'fallback' : 'live'}`;
+            const itemKey = `${item.year}-${item.title}`;
 
             return (
               <li

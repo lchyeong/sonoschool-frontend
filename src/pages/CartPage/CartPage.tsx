@@ -5,7 +5,6 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { applyMyCartCoupon, clearMyCartCoupon, removeMyCartItem } from '@/api/mypage';
 import downIconSrc from '@/assets/icons/icons_down.png';
-import { env } from '@/config/env';
 import {
   myCartQueryKey,
   myCouponsQueryKey,
@@ -25,7 +24,6 @@ import { getProgramTypeLabel } from '@/utils/programType';
 import styles from './CartPage.module.scss';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
-const shouldPreferMockMyPage = env.VITE_ENABLE_MOCK;
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
 
@@ -161,7 +159,7 @@ const CartPage = () => {
   });
 
   const handleSelectCoupon = (couponCode: string | null, couponId: number | null) => {
-    if (shouldPreferMockMyPage) {
+    if (!isAuthenticated) {
       setSelectedCouponId(couponId);
       setIsCouponDropdownOpen(false);
       return;
@@ -422,9 +420,9 @@ const CartPage = () => {
 
                         {!couponsQuery.isLoading && !couponsQuery.isError ? (
                           <p className={styles['couponInlineText']}>
-                            {shouldPreferMockMyPage
-                              ? '선택한 항목에 적용 가능한 쿠폰만 고를 수 있습니다.'
-                              : '쿠폰 선택 시 서버 장바구니에 실제로 적용됩니다.'}
+                            {isAuthenticated
+                              ? '쿠폰 선택 시 서버 장바구니에 실제로 적용됩니다.'
+                              : '쿠폰은 로그인 후 서버 장바구니에서 적용할 수 있습니다.'}
                           </p>
                         ) : null}
                       </div>

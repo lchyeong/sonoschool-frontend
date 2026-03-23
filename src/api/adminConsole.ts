@@ -2,32 +2,7 @@ import axios from 'axios';
 import { z } from 'zod';
 
 import axiosInstance from '@/api/axiosInstance';
-import { shouldUseMockFallback } from '@/api/fallback';
 import { http } from '@/api/http';
-import {
-  createMockAdminNotice,
-  createMockAdminProgram,
-  createMockAdminProgramDraftItem,
-  createMockAdminProgramMenuItem,
-  createMockAdminResource,
-  createMockAdminReview,
-  deleteMockAdminProgram,
-  deleteMockAdminProgramMenuItem,
-  getMockAdminConsole,
-  getMockAdminProgramDetailResponse,
-  getMockAdminProgramMenuDetailResponse,
-  getMockAdminProgramMenuTreeResponse,
-  getMockAdminProgramsResponse,
-  hideMockAdminProgramItem,
-  moveMockAdminProgramItem,
-  moveMockAdminProgramMenuItem,
-  publishMockAdminProgramItem,
-  reorderMockAdminProgramMenuItem,
-  replyMockAdminQna,
-  toggleMockAdminProgramVisibility,
-  updateMockAdminProgram,
-  updateMockAdminProgramMenuItem,
-} from '@/mocks/data/adminConsole';
 import type {
   AdminConsoleResponse,
   AdminLoginRequest,
@@ -49,6 +24,7 @@ import type {
   UpdateAdminProgramMenuPayload,
   UpsertAdminProgramPayload,
 } from '@/types/adminConsole';
+import { getOrCreateAuthDeviceId } from '@/utils/authDeviceId';
 
 const toZodErrorMessage = (error: z.ZodError): string => {
   const issues = error.issues
@@ -469,47 +445,6 @@ const handleAxiosAdminError = (error: unknown): never => {
   throw error;
 };
 
-const throwAdminFallbackMessage = (backendMessage: string | null): never => {
-  throw new Error(toAdminUserMessage(backendMessage));
-};
-
-const getProgramMenuMutationBackendMessage = (reason: string): string => {
-  switch (reason) {
-    case 'parent-not-found':
-      return 'Program menu parent not found';
-    case 'parent-has-linked-programs':
-      return 'Program menu parent has linked programs';
-    case 'top-level-limit-exceeded':
-      return 'Program menu top level limit exceeded';
-    case 'unsupported-depth':
-      return 'Program menu depth exceeded';
-    case 'duplicate-slug':
-      return 'Program menu slug duplicated';
-    case 'has-child-menus':
-      return 'Program menu has child menus';
-    case 'has-linked-programs':
-      return 'Program menu has linked programs';
-    case 'cannot-move-to-descendant':
-      return 'Program menu cannot move to descendant';
-    case 'reorder-limit':
-      return 'Program menu reorder limit reached';
-    default:
-      return 'Program menu not found';
-  }
-};
-
-const getProgramMoveBackendMessage = (reason: string): string => {
-  switch (reason) {
-    case 'target-collection-not-found':
-      return 'Program target collection not found';
-    case 'target-collection-cannot-contain-programs':
-      return 'Program target collection cannot contain programs';
-    default:
-      return 'Program not found';
-  }
-};
-
-const DEFAULT_ADMIN_SITE_KEY = 'sono-school-main';
 const ADMIN_API_PREFIX = '/api/v1/admin';
 
 export const fetchAdminConsole = async (): Promise<AdminConsoleResponse> => {
@@ -523,11 +458,7 @@ export const fetchAdminConsole = async (): Promise<AdminConsoleResponse> => {
 
     return parsed.data;
   } catch (error) {
-    if (!shouldUseMockFallback(error)) {
-      throw error;
-    }
-
-    return getMockAdminConsole(DEFAULT_ADMIN_SITE_KEY);
+    return handleAxiosAdminError(error);
   }
 };
 
@@ -544,11 +475,7 @@ export const fetchAdminProgramMenuTree = async (): Promise<AdminProgramMenuTreeR
 
     return parsed.data;
   } catch (error) {
-    if (!shouldUseMockFallback(error)) {
-      throw error;
-    }
-
-    return getMockAdminProgramMenuTreeResponse(DEFAULT_ADMIN_SITE_KEY);
+    return handleAxiosAdminError(error);
   }
 };
 
@@ -570,17 +497,7 @@ export const fetchAdminProgramMenuDetail = async (
 
     return parsed.data;
   } catch (error) {
-    if (!shouldUseMockFallback(error)) {
-      throw error;
-    }
-
-    const mockResponse = getMockAdminProgramMenuDetailResponse(DEFAULT_ADMIN_SITE_KEY, menuId);
-
-    if (mockResponse) {
-      return mockResponse;
-    }
-
-    throw error;
+    return handleAxiosAdminError(error);
   }
 };
 
@@ -623,11 +540,7 @@ export const fetchAdminPrograms = async (options?: {
 
     return parsed.data;
   } catch (error) {
-    if (!shouldUseMockFallback(error)) {
-      throw error;
-    }
-
-    return getMockAdminProgramsResponse(DEFAULT_ADMIN_SITE_KEY, options);
+    return handleAxiosAdminError(error);
   }
 };
 
@@ -649,26 +562,25 @@ export const fetchAdminProgramDetail = async (
 
     return parsed.data;
   } catch (error) {
-    if (!shouldUseMockFallback(error)) {
-      throw error;
-    }
-
-    const mockResponse = getMockAdminProgramDetailResponse(DEFAULT_ADMIN_SITE_KEY, programId);
-
-    if (mockResponse) {
-      return mockResponse;
-    }
-
-    throw error;
+    return handleAxiosAdminError(error);
   }
 };
 
 export const loginAdmin = async (payload: AdminLoginRequest): Promise<AdminLoginResponse> => {
+  const authDeviceId = getOrCreateAuthDeviceId();
   try {
-    const response = await axiosInstance.post<{ data: unknown }>(`/api/auth/login`, {
-      loginId: payload.identifier,
-      password: payload.password,
-    });
+    const response = await axiosInstance.post<{ data: unknown }>(
+      `/api/auth/login`,
+      {
+        loginId: payload.identifier,
+        password: payload.password,
+      },
+      {
+        headers: {
+          'X-Auth-Device-Id': authDeviceId,
+        },
+      },
+    );
     const parsed = adminLoginResponseSchema.safeParse(response.data.data);
 
     if (!parsed.success) {
@@ -697,11 +609,6 @@ export const createAdminNotice = async (payload: CreateAdminNoticePayload): Prom
     const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/notices`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      createMockAdminNotice(DEFAULT_ADMIN_SITE_KEY, payload);
-      return;
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -719,16 +626,6 @@ export const replyAdminQna = async (
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = replyMockAdminQna(DEFAULT_ADMIN_SITE_KEY, threadId, payload);
-
-      if (mockResponse) {
-        return;
-      }
-
-      return throwAdminFallbackMessage('Q&A thread not found');
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -738,11 +635,6 @@ export const createAdminResource = async (payload: CreateAdminResourcePayload): 
     const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/resources`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      createMockAdminResource(DEFAULT_ADMIN_SITE_KEY, payload);
-      return;
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -752,11 +644,6 @@ export const createAdminReview = async (payload: CreateAdminReviewPayload): Prom
     const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/reviews`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      createMockAdminReview(DEFAULT_ADMIN_SITE_KEY, payload);
-      return;
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -784,16 +671,6 @@ export const createAdminProgramDraft = async (
 
     return parsed.data;
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = createMockAdminProgramDraftItem(DEFAULT_ADMIN_SITE_KEY, payload);
-
-      if (mockResponse) {
-        return mockResponse;
-      }
-
-      return throwAdminFallbackMessage('Program collection not found');
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -803,16 +680,6 @@ export const createAdminProgram = async (payload: UpsertAdminProgramPayload): Pr
     const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/programs`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = createMockAdminProgram(DEFAULT_ADMIN_SITE_KEY, payload);
-
-      if (mockResponse) {
-        return;
-      }
-
-      return throwAdminFallbackMessage('Program collection not found');
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -830,16 +697,6 @@ export const updateAdminProgram = async (
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = updateMockAdminProgram(DEFAULT_ADMIN_SITE_KEY, programId, payload);
-
-      if (mockResponse) {
-        return;
-      }
-
-      return throwAdminFallbackMessage('Program not found');
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -853,16 +710,6 @@ export const toggleAdminProgramVisibility = async (programId: string): Promise<v
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = toggleMockAdminProgramVisibility(DEFAULT_ADMIN_SITE_KEY, programId);
-
-      if (mockResponse) {
-        return;
-      }
-
-      return throwAdminFallbackMessage('Program not found');
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -874,14 +721,6 @@ export const deleteAdminProgram = async (programId: string): Promise<void> => {
     const response = await axiosInstance.delete(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}`);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      if (deleteMockAdminProgram(DEFAULT_ADMIN_SITE_KEY, programId)) {
-        return;
-      }
-
-      return throwAdminFallbackMessage('Program not found');
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -895,16 +734,6 @@ export const publishAdminProgram = async (programId: string): Promise<void> => {
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = publishMockAdminProgramItem(DEFAULT_ADMIN_SITE_KEY, programId);
-
-      if (mockResponse) {
-        return;
-      }
-
-      return throwAdminFallbackMessage('Program not publishable');
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -918,16 +747,6 @@ export const hideAdminProgram = async (programId: string): Promise<void> => {
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = hideMockAdminProgramItem(DEFAULT_ADMIN_SITE_KEY, programId);
-
-      if (mockResponse) {
-        return;
-      }
-
-      return throwAdminFallbackMessage('Program not found');
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -939,16 +758,6 @@ export const createAdminProgramMenu = async (
     const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/program-menus`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const result = createMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, payload);
-
-      if (result.ok) {
-        return;
-      }
-
-      return throwAdminFallbackMessage(getProgramMenuMutationBackendMessage(result.reason));
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -966,16 +775,6 @@ export const updateAdminProgramMenu = async (
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const result = updateMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, menuId, payload);
-
-      if (result.ok) {
-        return;
-      }
-
-      return throwAdminFallbackMessage(getProgramMenuMutationBackendMessage(result.reason));
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -989,16 +788,6 @@ export const deleteAdminProgramMenu = async (menuId: string): Promise<void> => {
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const result = deleteMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, menuId);
-
-      if (result.ok) {
-        return;
-      }
-
-      return throwAdminFallbackMessage(getProgramMenuMutationBackendMessage(result.reason));
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -1016,16 +805,6 @@ export const moveAdminProgramMenu = async (
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const result = moveMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, menuId, payload);
-
-      if (result.ok) {
-        return;
-      }
-
-      return throwAdminFallbackMessage(getProgramMenuMutationBackendMessage(result.reason));
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -1043,16 +822,6 @@ export const reorderAdminProgramMenu = async (
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const result = reorderMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, menuId, payload);
-
-      if (result.ok) {
-        return;
-      }
-
-      return throwAdminFallbackMessage(getProgramMenuMutationBackendMessage(result.reason));
-    }
-
     return handleAxiosAdminError(error);
   }
 };
@@ -1070,16 +839,6 @@ export const moveAdminProgram = async (
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const result = moveMockAdminProgramItem(DEFAULT_ADMIN_SITE_KEY, programId, payload);
-
-      if (result.ok) {
-        return;
-      }
-
-      return throwAdminFallbackMessage(getProgramMoveBackendMessage(result.reason));
-    }
-
     return handleAxiosAdminError(error);
   }
 };

@@ -2,6 +2,12 @@ import axios, { AxiosHeaders } from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 
 import { env } from '@/config/env';
+import { routePaths } from '@/routes/routeRegistry';
+import {
+  clearAdminSession,
+  getAdminAccessToken,
+  isAdminAuthenticated,
+} from '@/stores/useAdminAuthStore';
 import {
   clearStudentSession,
   getStudentAccessToken,
@@ -34,6 +40,10 @@ interface RetriableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
+const isAdminApiRequest = (url?: string): boolean => {
+  return Boolean(url?.includes('/api/v1/admin/'));
+};
+
 const shouldSkipRefresh = (url?: string): boolean => {
   if (!url) return false;
 
@@ -46,8 +56,22 @@ const shouldSkipRefresh = (url?: string): boolean => {
   );
 };
 
+const redirectToLogin = (targetPath: string) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (window.location.pathname === targetPath) {
+    return;
+  }
+
+  window.location.replace(targetPath);
+};
+
 axiosInstance.interceptors.request.use((config) => {
-  const accessToken = getStudentAccessToken();
+  const accessToken = isAdminApiRequest(config.url)
+    ? getAdminAccessToken()
+    : getStudentAccessToken();
 
   if (accessToken) {
     config.headers = AxiosHeaders.from(config.headers);
@@ -72,6 +96,16 @@ axiosInstance.interceptors.response.use(
     if (
       statusCode === 401 &&
       requestConfig &&
+      isAdminApiRequest(requestConfig.url) &&
+      isAdminAuthenticated()
+    ) {
+      clearAdminSession();
+      redirectToLogin(routePaths.adminLogin);
+    }
+
+    if (
+      statusCode === 401 &&
+      requestConfig &&
       requestConfig._retry !== true &&
       !shouldSkipRefresh(requestConfig.url) &&
       isStudentAuthenticated()
@@ -88,6 +122,7 @@ axiosInstance.interceptors.response.use(
         return await axiosInstance(requestConfig);
       } catch (refreshError: unknown) {
         clearStudentSession();
+        redirectToLogin(routePaths.login);
         const normalizedRefreshError =
           refreshError instanceof Error
             ? refreshError

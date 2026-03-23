@@ -1,7 +1,6 @@
 import { http, HttpResponse } from 'msw';
 
 import {
-  attemptMockAdminLogin,
   createMockAdminNotice,
   createMockAdminProgram,
   createMockAdminProgramDraftItem,
@@ -25,8 +24,28 @@ import {
   updateMockAdminProgramMenuItem,
   updateMockAdminProgram,
 } from '@/mocks/data/adminConsole';
+import {
+  cancelMockAdminPayment,
+  getMockAdminPaymentDetail,
+  getMockAdminPayments,
+} from '@/mocks/data/adminPayments';
+import {
+  createMockAdminProgramLive,
+  deleteMockAdminProgramLive,
+  getMockAdminProgramCategories,
+  getMockAdminProgramDetailLive,
+  getMockAdminProgramsLive,
+  hideMockAdminProgramLive,
+  publishMockAdminProgramLive,
+  updateMockAdminProgramLive,
+} from '@/mocks/data/adminProgramsLive';
 import { getMockHomeHeroSlides } from '@/mocks/data/homeHeroSlides';
 import { getMockHomeHistoryTimeline } from '@/mocks/data/homeHistoryTimeline';
+import {
+  getMockPaymentHistory,
+  getMockPaymentResult,
+  getMockPaymentResultByToken,
+} from '@/mocks/data/payments';
 import {
   addMockMyCartItem,
   getMockMyApplicationSummary,
@@ -40,11 +59,7 @@ import {
   updateMockMyProfile,
   verifyMockMyPhoneChange as verifyMockMyPagePhoneChange,
 } from '@/mocks/data/mypage';
-import {
-  getMockProgramPage,
-  getMockProgramSearchLectureItems,
-  getMockProgramsOverview,
-} from '@/mocks/data/programCatalog';
+import { getMockProgramPage, getMockProgramSearchLectureItems, getMockProgramsOverview } from '@/mocks/data/programCatalog';
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import { getMockSiteNavigation } from '@/mocks/data/siteNavigation';
 import {
@@ -59,7 +74,6 @@ import {
 import type {
   AdminConsoleResponse,
   AdminProgramAccessPolicy,
-  AdminLoginResponse,
   AdminNoticeCategory,
   AdminProgramFormat,
   AdminProgramMenuDetailResponse,
@@ -86,11 +100,26 @@ import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/prog
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
 import type { SiteNavigationResponse } from '@/types/siteNavigation';
 
+const unusedAdminProgramMocks = [
+  createMockAdminProgram,
+  createMockAdminProgramDraftItem,
+  deleteMockAdminProgram,
+  getMockAdminProgramDetailResponse,
+  getMockAdminProgramsResponse,
+  hideMockAdminProgramItem,
+  moveMockAdminProgramItem,
+  publishMockAdminProgramItem,
+  toggleMockAdminProgramVisibility,
+  updateMockAdminProgram,
+];
+void unusedAdminProgramMocks;
+
+const unusedAdminProgramStatus: AdminProgramStatus | null = null;
+void unusedAdminProgramStatus;
+
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === 'object';
 };
-
-const DEFAULT_SITE_KEY = 'sono-school-main';
 
 const deriveMockProgramId = (sourcePath: string): number => {
   const normalizedPath = sourcePath.trim() || '/programs/detail';
@@ -125,11 +154,8 @@ const inferProgramTypeFromPage = (page: ProgramPageResponse): AddToCartPayload['
   return hasOfflineLesson ? 'OFFLINE' : 'ONLINE';
 };
 
-const resolveMockCartPayloadByProgramId = (
-  siteKey: string,
-  programId: number,
-): AddToCartPayload | null => {
-  const lectureItems = getMockProgramSearchLectureItems(siteKey);
+const resolveMockCartPayloadByProgramId = (programId: number): AddToCartPayload | null => {
+  const lectureItems = getMockProgramSearchLectureItems();
 
   for (const lectureItem of lectureItems) {
     const candidatePaths = Array.from(
@@ -146,7 +172,7 @@ const resolveMockCartPayloadByProgramId = (
         continue;
       }
 
-      const programPage = getMockProgramPage(siteKey, candidatePath);
+      const programPage = getMockProgramPage(candidatePath);
 
       if (!programPage || programPage.pageKind !== 'detail') {
         continue;
@@ -390,6 +416,10 @@ const isMoveAdminProgramPayload = (value: unknown): value is MoveAdminProgramPay
   );
 };
 
+void isUpsertAdminProgramPayload;
+void isCreateAdminProgramDraftPayload;
+void isMoveAdminProgramPayload;
+
 const createApiEnvelope = <T>(data: T): ApiEnvelope<T> => {
   return {
     data,
@@ -400,6 +430,30 @@ const createApiEnvelope = <T>(data: T): ApiEnvelope<T> => {
 const getStringField = (record: Record<string, unknown>, fieldName: string): string | null => {
   const value = record[fieldName];
   return typeof value === 'string' ? value : null;
+};
+
+const adminRoutePatterns = (path: string) => {
+  return [`*/api/v1/admin${path}`] as const;
+};
+
+const createAdminGetHandlers = (path: string, resolver: Parameters<typeof http.get>[1]) => {
+  return adminRoutePatterns(path).map((pattern) => http.get(pattern, resolver));
+};
+
+const createAdminPostHandlers = (path: string, resolver: Parameters<typeof http.post>[1]) => {
+  return adminRoutePatterns(path).map((pattern) => http.post(pattern, resolver));
+};
+
+const createAdminPatchHandlers = (path: string, resolver: Parameters<typeof http.patch>[1]) => {
+  return adminRoutePatterns(path).map((pattern) => http.patch(pattern, resolver));
+};
+
+const createAdminPutHandlers = (path: string, resolver: Parameters<typeof http.put>[1]) => {
+  return adminRoutePatterns(path).map((pattern) => http.put(pattern, resolver));
+};
+
+const createAdminDeleteHandlers = (path: string, resolver: Parameters<typeof http.delete>[1]) => {
+  return adminRoutePatterns(path).map((pattern) => http.delete(pattern, resolver));
 };
 
 export const handlers = [
@@ -757,7 +811,7 @@ export const handlers = [
         title,
       };
     } else if (typeof programId === 'number') {
-      const resolvedPayload = resolveMockCartPayloadByProgramId(DEFAULT_SITE_KEY, programId);
+      const resolvedPayload = resolveMockCartPayloadByProgramId(programId);
 
       if (!resolvedPayload) {
         return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
@@ -796,41 +850,88 @@ export const handlers = [
   http.get('*/api/v1/refunds', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyRefunds()));
   }),
-  http.post('*/sites/:siteKey/admin/login', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  http.get('*/api/v1/payments', () => {
+    return HttpResponse.json(createApiEnvelope(getMockPaymentHistory()));
+  }),
+  http.get('*/api/v1/payments/result', ({ request }) => {
+    const token = new URL(request.url).searchParams.get('token');
+
+    if (!token) {
+      return HttpResponse.json({ message: 'Token is required' }, { status: 400 });
+    }
+
+    const payment = getMockPaymentResultByToken(token);
+
+    if (!payment) {
+      return HttpResponse.json({ message: 'Payment not found' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(payment));
+  }),
+  http.get('*/api/v1/payments/:paymentId', ({ params }) => {
+    const paymentId = Number(params['paymentId']);
+
+    if (!Number.isInteger(paymentId) || paymentId <= 0) {
+      return HttpResponse.json({ message: 'Invalid payment id' }, { status: 400 });
+    }
+
+    const payment = getMockPaymentResult(paymentId);
+
+    if (!payment) {
+      return HttpResponse.json({ message: 'Payment not found' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(payment));
+  }),
+  ...createAdminGetHandlers('/console', () => {
+    const response: AdminConsoleResponse = getMockAdminConsole();
+
+    return HttpResponse.json(response);
+  }),
+  ...createAdminGetHandlers('/payments', () => {
+    return HttpResponse.json(createApiEnvelope(getMockAdminPayments()));
+  }),
+  ...createAdminGetHandlers('/payments/:paymentId', ({ params }) => {
+    const paymentId = Number(params['paymentId']);
+
+    if (!Number.isInteger(paymentId) || paymentId <= 0) {
+      return HttpResponse.json({ message: 'Invalid payment id' }, { status: 400 });
+    }
+
+    const payment = getMockAdminPaymentDetail(paymentId);
+
+    if (!payment) {
+      return HttpResponse.json({ message: 'Payment not found' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(payment));
+  }),
+  ...createAdminGetHandlers('/categories/tree', () => {
+    return HttpResponse.json(createApiEnvelope(getMockAdminProgramCategories()));
+  }),
+  ...createAdminPostHandlers('/payments/:paymentId/cancel', async ({ params, request }) => {
+    const paymentId = Number(params['paymentId']);
     const body = await request.json().catch(() => null);
 
-    if (!isRecord(body)) {
+    if (!Number.isInteger(paymentId) || paymentId <= 0 || !isRecord(body)) {
       return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
     }
 
-    const identifier = body['identifier'];
-    const password = body['password'];
+    const reason = body['reason'];
 
-    if (typeof identifier !== 'string' || typeof password !== 'string') {
+    if (typeof reason !== 'string' || !reason.trim()) {
       return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
     }
 
-    const response: AdminLoginResponse | null = attemptMockAdminLogin(
-      siteKey,
-      identifier,
-      password,
-    );
+    const payment = cancelMockAdminPayment(paymentId, reason.trim());
 
-    if (!response) {
-      return HttpResponse.json({ message: 'Invalid admin credentials' }, { status: 401 });
+    if (!payment) {
+      return HttpResponse.json({ message: 'Payment cannot be cancelled' }, { status: 400 });
     }
 
-    return HttpResponse.json(response);
+    return HttpResponse.json(createApiEnvelope(payment));
   }),
-  http.get('*/sites/:siteKey/admin/console', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const response: AdminConsoleResponse = getMockAdminConsole(siteKey);
-
-    return HttpResponse.json(response);
-  }),
-  http.post('*/sites/:siteKey/admin/notices', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPostHandlers('/notices', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (!isRecord(body)) {
@@ -851,11 +952,10 @@ export const handlers = [
 
     const payload: CreateAdminNoticePayload = { category, isPinned, title };
 
-    createMockAdminNotice(siteKey, payload);
+    createMockAdminNotice(payload);
     return HttpResponse.json({ ok: true });
   }),
-  http.post('*/sites/:siteKey/admin/qna/:threadId/replies', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPostHandlers('/qna/:threadId/replies', async ({ params, request }) => {
     const threadId = typeof params['threadId'] === 'string' ? params['threadId'] : '';
     const body = await request.json().catch(() => null);
 
@@ -869,7 +969,7 @@ export const handlers = [
     }
 
     const payload: ReplyAdminQnaPayload = { content };
-    const updatedThread = replyMockAdminQna(siteKey, threadId, payload);
+    const updatedThread = replyMockAdminQna(threadId, payload);
 
     if (!updatedThread) {
       return HttpResponse.json({ message: 'Q&A thread not found' }, { status: 404 });
@@ -877,8 +977,7 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  http.post('*/sites/:siteKey/admin/resources', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPostHandlers('/resources', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (!isRecord(body)) {
@@ -909,11 +1008,10 @@ export const handlers = [
       visibility: visibility,
     };
 
-    createMockAdminResource(siteKey, payload);
+    createMockAdminResource(payload);
     return HttpResponse.json({ ok: true });
   }),
-  http.post('*/sites/:siteKey/admin/reviews', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPostHandlers('/reviews', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (!isRecord(body)) {
@@ -929,139 +1027,66 @@ export const handlers = [
 
     const payload: CreateAdminReviewPayload = { summary, title };
 
-    createMockAdminReview(siteKey, payload);
+    createMockAdminReview(payload);
     return HttpResponse.json({ ok: true });
   }),
-  http.get('*/sites/:siteKey/admin/programs', ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const requestUrl = new URL(request.url);
-    const response = getMockAdminProgramsResponse(siteKey, {
-      collectionPath: requestUrl.searchParams.get('collectionPath'),
-      format: (requestUrl.searchParams.get('format') as AdminProgramFormat | 'all' | null) ?? 'all',
-      query: requestUrl.searchParams.get('q') ?? '',
-      status: (requestUrl.searchParams.get('status') as AdminProgramStatus | 'all' | null) ?? 'all',
-    });
-
-    return HttpResponse.json(response);
+  ...createAdminGetHandlers('/programs', () => {
+    return HttpResponse.json(
+      createApiEnvelope({
+        content: getMockAdminProgramsLive(),
+      }),
+    );
   }),
-  http.get('*/sites/:siteKey/admin/programs/:programId', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const programId = typeof params['programId'] === 'string' ? params['programId'] : '';
+  ...createAdminGetHandlers('/programs/:programId', ({ params }) => {
+    const programId = Number(params['programId']);
 
-    if (!programId) {
+    if (!Number.isInteger(programId) || programId <= 0) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
     }
 
-    const response = getMockAdminProgramDetailResponse(siteKey, programId);
+    const response = getMockAdminProgramDetailLive(programId);
 
     if (!response) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
     }
 
-    return HttpResponse.json(response);
+    return HttpResponse.json(createApiEnvelope(response));
   }),
-  http.post('*/sites/:siteKey/admin/program-drafts', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPostHandlers('/programs', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
-    if (!isCreateAdminProgramDraftPayload(body)) {
+    if (!isRecord(body)) {
       return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
     }
 
-    const payload: CreateAdminProgramDraftPayload = {
-      accessPolicy: body.accessPolicy,
-      capacity: body.capacity ?? null,
-      format: body.format,
-      learningEndDate: body.learningEndDate ?? null,
-      learningStartDate: body.learningStartDate ?? null,
-      originalPrice: body.originalPrice,
-      parentCollectionPath: body.parentCollectionPath,
-      price: body.price,
-      registrationEndDate: body.registrationEndDate ?? null,
-      registrationStartDate: body.registrationStartDate ?? null,
-      slug: body.slug,
-      sourceProgramId: body.sourceProgramId ?? null,
-      title: body.title,
-    };
-    const createdDraft = createMockAdminProgramDraftItem(siteKey, payload);
+    const createdProgram = createMockAdminProgramLive(body as never);
 
-    if (!createdDraft) {
-      return HttpResponse.json(
-        { message: 'Program target collection cannot contain programs' },
-        { status: 400 },
-      );
-    }
-
-    return HttpResponse.json(createdDraft);
+    return HttpResponse.json(createApiEnvelope(createdProgram), { status: 201 });
   }),
-  http.post('*/sites/:siteKey/admin/programs', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPutHandlers('/programs/:programId', async ({ params, request }) => {
+    const programId = Number(params['programId']);
     const body = await request.json().catch(() => null);
 
-    if (!isUpsertAdminProgramPayload(body)) {
+    if (!Number.isInteger(programId) || programId <= 0 || !isRecord(body)) {
       return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
     }
 
-    const payload: UpsertAdminProgramPayload = body;
-
-    const createdProgram = createMockAdminProgram(siteKey, payload);
-
-    if (!createdProgram) {
-      return HttpResponse.json(
-        { message: 'Program target collection cannot contain programs' },
-        { status: 400 },
-      );
-    }
-
-    return HttpResponse.json({ ok: true });
-  }),
-  http.patch('*/sites/:siteKey/admin/programs/:programId', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const programId = typeof params['programId'] === 'string' ? params['programId'] : '';
-    const body = await request.json().catch(() => null);
-
-    if (!isUpsertAdminProgramPayload(body) || !programId) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: UpsertAdminProgramPayload = body;
-
-    const updatedProgram = updateMockAdminProgram(siteKey, programId, payload);
+    const updatedProgram = updateMockAdminProgramLive(programId, body as never);
 
     if (!updatedProgram) {
-      return HttpResponse.json(
-        { message: 'Program target collection cannot contain programs' },
-        { status: 400 },
-      );
-    }
-
-    return HttpResponse.json({ ok: true });
-  }),
-  http.post('*/sites/:siteKey/admin/programs/:programId/publish', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const programId = typeof params['programId'] === 'string' ? params['programId'] : '';
-
-    if (!programId) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
     }
 
-    const updatedProgram = publishMockAdminProgramItem(siteKey, programId);
-
-    if (!updatedProgram) {
-      return HttpResponse.json({ message: 'Program not publishable' }, { status: 400 });
-    }
-
-    return HttpResponse.json({ ok: true });
+    return HttpResponse.json(createApiEnvelope(updatedProgram));
   }),
-  http.post('*/sites/:siteKey/admin/programs/:programId/hide', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const programId = typeof params['programId'] === 'string' ? params['programId'] : '';
+  ...createAdminPostHandlers('/programs/:programId/publish', ({ params }) => {
+    const programId = Number(params['programId']);
 
-    if (!programId) {
+    if (!Number.isInteger(programId) || programId <= 0) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
     }
 
-    const updatedProgram = hideMockAdminProgramItem(siteKey, programId);
+    const updatedProgram = publishMockAdminProgramLive(programId);
 
     if (!updatedProgram) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
@@ -1069,45 +1094,14 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  http.post('*/sites/:siteKey/admin/programs/:programId/move', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const programId = typeof params['programId'] === 'string' ? params['programId'] : '';
-    const body = await request.json().catch(() => null);
+  ...createAdminPostHandlers('/programs/:programId/hide', ({ params }) => {
+    const programId = Number(params['programId']);
 
-    if (!programId || !isMoveAdminProgramPayload(body)) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: MoveAdminProgramPayload = {
-      targetCollectionPath: body.targetCollectionPath,
-    };
-    const result = moveMockAdminProgramItem(siteKey, programId, payload);
-
-    if (!result.ok) {
-      const message =
-        result.reason === 'target-collection-not-found'
-          ? 'Program target collection not found'
-          : result.reason === 'target-collection-cannot-contain-programs'
-            ? 'Program target collection cannot contain programs'
-            : 'Program not found';
-
-      return HttpResponse.json(
-        { message },
-        { status: result.reason === 'program-not-found' ? 404 : 400 },
-      );
-    }
-
-    return HttpResponse.json({ ok: true });
-  }),
-  http.post('*/sites/:siteKey/admin/programs/:programId/toggle-visibility', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const programId = typeof params['programId'] === 'string' ? params['programId'] : '';
-
-    if (!programId) {
+    if (!Number.isInteger(programId) || programId <= 0) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
     }
 
-    const updatedProgram = toggleMockAdminProgramVisibility(siteKey, programId);
+    const updatedProgram = hideMockAdminProgramLive(programId);
 
     if (!updatedProgram) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
@@ -1115,15 +1109,14 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  http.delete('*/sites/:siteKey/admin/programs/:programId', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const programId = typeof params['programId'] === 'string' ? params['programId'] : '';
+  ...createAdminDeleteHandlers('/programs/:programId', ({ params }) => {
+    const programId = Number(params['programId']);
 
-    if (!programId) {
+    if (!Number.isInteger(programId) || programId <= 0) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
     }
 
-    const isDeleted = deleteMockAdminProgram(siteKey, programId);
+    const isDeleted = deleteMockAdminProgramLive(programId);
 
     if (!isDeleted) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
@@ -1131,8 +1124,7 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  http.post('*/sites/:siteKey/admin/program-menus', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPostHandlers('/program-menus', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (!isCreateAdminProgramMenuPayload(body)) {
@@ -1146,7 +1138,7 @@ export const handlers = [
       slug: body.slug,
       status: body.status,
     };
-    const result = createMockAdminProgramMenuItem(siteKey, payload);
+    const result = createMockAdminProgramMenuItem(payload);
 
     if (!result.ok) {
       const message =
@@ -1167,24 +1159,20 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  http.get('*/sites/:siteKey/admin/program-menu-tree', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const response: AdminProgramMenuTreeResponse = getMockAdminProgramMenuTreeResponse(siteKey);
+  ...createAdminGetHandlers('/program-menu-tree', () => {
+    const response: AdminProgramMenuTreeResponse = getMockAdminProgramMenuTreeResponse();
 
     return HttpResponse.json(response);
   }),
-  http.get('*/sites/:siteKey/admin/program-menus/:menuId', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminGetHandlers('/program-menus/:menuId', ({ params }) => {
     const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
 
     if (!menuId) {
       return HttpResponse.json({ message: 'Program menu not found' }, { status: 404 });
     }
 
-    const response: AdminProgramMenuDetailResponse | null = getMockAdminProgramMenuDetailResponse(
-      siteKey,
-      menuId,
-    );
+    const response: AdminProgramMenuDetailResponse | null =
+      getMockAdminProgramMenuDetailResponse(menuId);
 
     if (!response) {
       return HttpResponse.json({ message: 'Program menu not found' }, { status: 404 });
@@ -1192,8 +1180,7 @@ export const handlers = [
 
     return HttpResponse.json(response);
   }),
-  http.patch('*/sites/:siteKey/admin/program-menus/:menuId', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPatchHandlers('/program-menus/:menuId', async ({ params, request }) => {
     const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
     const body = await request.json().catch(() => null);
 
@@ -1207,7 +1194,7 @@ export const handlers = [
       slug: body.slug,
       status: body.status,
     };
-    const result = updateMockAdminProgramMenuItem(siteKey, menuId, payload);
+    const result = updateMockAdminProgramMenuItem(menuId, payload);
 
     if (!result.ok) {
       const message =
@@ -1220,15 +1207,14 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  http.delete('*/sites/:siteKey/admin/program-menus/:menuId', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminDeleteHandlers('/program-menus/:menuId', ({ params }) => {
     const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
 
     if (!menuId) {
       return HttpResponse.json({ message: 'Program menu not found' }, { status: 404 });
     }
 
-    const result = deleteMockAdminProgramMenuItem(siteKey, menuId);
+    const result = deleteMockAdminProgramMenuItem(menuId);
 
     if (!result.ok) {
       const message =
@@ -1246,8 +1232,7 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  http.post('*/sites/:siteKey/admin/program-menus/:menuId/move', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPostHandlers('/program-menus/:menuId/move', async ({ params, request }) => {
     const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
     const body = await request.json().catch(() => null);
 
@@ -1258,7 +1243,7 @@ export const handlers = [
     const payload: MoveAdminProgramMenuPayload = {
       parentId: body.parentId ?? null,
     };
-    const result = moveMockAdminProgramMenuItem(siteKey, menuId, payload);
+    const result = moveMockAdminProgramMenuItem(menuId, payload);
 
     if (!result.ok) {
       const message =
@@ -1284,8 +1269,7 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  http.post('*/sites/:siteKey/admin/program-menus/:menuId/reorder', async ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  ...createAdminPostHandlers('/program-menus/:menuId/reorder', async ({ params, request }) => {
     const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
     const body = await request.json().catch(() => null);
 
@@ -1296,7 +1280,7 @@ export const handlers = [
     const payload: ReorderAdminProgramMenuPayload = {
       direction: body.direction,
     };
-    const result = reorderMockAdminProgramMenuItem(siteKey, menuId, payload);
+    const result = reorderMockAdminProgramMenuItem(menuId, payload);
 
     if (!result.ok) {
       const message =
@@ -1322,31 +1306,13 @@ export const handlers = [
 
     return HttpResponse.json(response);
   }),
-  http.get('*/sites/:siteKey/home-hero-slides', ({ params }) => {
-    void params;
-    const response: HomeHeroSlidesResponse = getMockHomeHeroSlides();
-
-    return HttpResponse.json(response);
-  }),
   http.get('*/api/v1/home/hero-slides', () => {
     const response: HomeHeroSlidesResponse = getMockHomeHeroSlides();
 
     return HttpResponse.json(response);
   }),
-  http.get('*/sites/:siteKey/home-history-timeline', ({ params }) => {
-    void params;
-    const response: HomeHistoryTimelineResponse = getMockHomeHistoryTimeline();
-
-    return HttpResponse.json(response);
-  }),
   http.get('*/api/v1/home/history-timeline', () => {
     const response: HomeHistoryTimelineResponse = getMockHomeHistoryTimeline();
-
-    return HttpResponse.json(response);
-  }),
-  http.get('*/sites/:siteKey/program-search-index', ({ params }) => {
-    void params;
-    const response: ProgramSearchIndexResponse = getMockProgramSearchIndex();
 
     return HttpResponse.json(response);
   }),
@@ -1356,14 +1322,14 @@ export const handlers = [
     return HttpResponse.json(response);
   }),
   http.get('*/api/v1/program-pages/overview', () => {
-    const response: ProgramsOverviewResponse = getMockProgramsOverview('sono-school-main');
+    const response: ProgramsOverviewResponse = getMockProgramsOverview();
 
     return HttpResponse.json(response);
   }),
   http.get('*/api/v1/program-pages/page', ({ request }) => {
     const requestUrl = new URL(request.url);
     const path = requestUrl.searchParams.get('path') ?? '/programs';
-    const response: ProgramPageResponse | null = getMockProgramPage('sono-school-main', path);
+    const response: ProgramPageResponse | null = getMockProgramPage(path);
 
     if (!response) {
       return HttpResponse.json({ message: 'Program page not found' }, { status: 404 });

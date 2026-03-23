@@ -1,1380 +1,1152 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useFieldArray, useForm, useWatch } from 'react-hook-form';
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import {
-  createAdminProgramDraft,
-  hideAdminProgram,
-  publishAdminProgram,
-  updateAdminProgram,
-} from '@/api/adminConsole';
-import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
-import downIconSrc from '@/assets/icons/icons_down.png';
+  createAdminProgramLive,
+  deleteAdminProgramLive,
+  hideAdminProgramLive,
+  publishAdminProgramLive,
+  updateAdminProgramLive,
+} from '@/api/adminProgramsLive';
+import AdminCategoryPicker from '@/components/admin/AdminCategoryPicker/AdminCategoryPicker';
+import AdminFieldArray from '@/components/admin/AdminFieldArray/AdminFieldArray';
+import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import { adminCategoriesTreeQueryKey, useAdminCategoriesTreeQuery } from '@/query/useAdminCategoriesQuery';
 import {
-  adminProgramSchema,
-  type AdminProgramFormValues,
-} from '@/forms/schemas/adminProgramSchema';
-import { adminConsoleQueryKey } from '@/query/useAdminConsoleQuery';
-import {
-  adminProgramMenuTreeQueryKey,
-  useAdminProgramMenuTreeQuery,
-} from '@/query/useAdminProgramMenuQuery';
-import { useAdminProgramDetailQuery } from '@/query/useAdminProgramsQuery';
-import { programSearchIndexQueryKey } from '@/query/useProgramSearchIndexQuery';
-import { programsOverviewQueryKey } from '@/query/useProgramsOverviewQuery';
-import { siteNavigationQueryKey } from '@/query/useSiteNavigationQuery';
+  adminProgramDetailLiveQueryKey,
+  adminProgramsLiveQueryKey,
+  useAdminProgramDetailLiveQuery,
+} from '@/query/useAdminProgramsLiveQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
-import type { AdminProgramMenuTreeItem } from '@/types/adminConsole';
-import { classNames } from '@/utils/classNames';
+import type {
+  AdminProgramAccessPolicy,
+  AdminProgramDetail,
+  AdminProgramLevel,
+  AdminProgramType,
+  AdminProgramUpsertPayload,
+} from '@/types/adminProgramsLive';
 
-import { CurriculumSectionEditor, StructuredListEditor } from './AdminProgramEditorFields';
-import styles from './AdminProgramEditorSection.module.scss';
-import {
-  appendCurriculumSection,
-  buildEditorPageMeta,
-  buildFallbackProgramListPath,
-  getLeafCollectionOptions,
-  getPreviewStatusLabel,
-  programFormatLabel,
-  programStatusLabel,
-  resolveInitialParentCollectionPath,
-  toFieldIndex,
-} from './adminProgramEditorShared';
-import {
-  buildAdminProgramPreviewData,
-  createDefaultAdminProgramFormValues,
-  deriveProgramText,
-  deriveLearningDatesFromCurriculumSections,
-  slugifyAdminProgram,
-  syncCurriculumSectionsForFormat,
-  toAdminProgramDraftPayloadFromFormValues,
-  toAdminProgramFormValues,
-  toAdminProgramPayload,
-  toDuplicateAdminProgramFormValues,
-} from './adminProgramFormShared';
+import styles from './AdminConsolePage.module.scss';
 
 interface AdminProgramEditorSectionProps {
   mode: 'create' | 'duplicate' | 'edit';
 }
 
-interface AdminProgramEditorRouteState {
-  returnTo?: string;
+interface AdminProgramSummaryFormItem {
+  label: string;
+  value: string;
 }
 
-const buildCollectionPathIds = (
-  items: readonly AdminProgramMenuTreeItem[],
-  targetPath: string,
-): string[] => {
-  if (!targetPath) {
-    return [];
-  }
+interface AdminProgramFaqFormItem {
+  answer: string;
+  question: string;
+}
 
-  const itemMap = new Map(items.map((item) => [item.id, item] as const));
-  const targetItem = items.find((item) => item.path === targetPath);
+interface AdminProgramFormState {
+  accessDays: string;
+  accessPolicy: AdminProgramAccessPolicy;
+  categoryId: string;
+  checklists: string[];
+  description: string;
+  faqs: AdminProgramFaqFormItem[];
+  instructorBio: string;
+  instructorName: string;
+  learningEndAt: string;
+  learningPoints: string[];
+  learningStartAt: string;
+  level: '' | AdminProgramLevel;
+  maxStudents: string;
+  price: string;
+  programType: AdminProgramType;
+  recommendedFor: string[];
+  saleEndAt: string;
+  salePrice: string;
+  saleStartAt: string;
+  slug: string;
+  summaryItems: AdminProgramSummaryFormItem[];
+  thumbnailUrl: string;
+  title: string;
+}
 
-  if (!targetItem) {
-    return [];
-  }
-
-  const pathIds: string[] = [];
-  let current: AdminProgramMenuTreeItem | undefined = targetItem;
-
-  while (current) {
-    pathIds.unshift(current.id);
-    current = current.parentId ? itemMap.get(current.parentId) : undefined;
-  }
-
-  return pathIds;
+const INITIAL_FORM_STATE: AdminProgramFormState = {
+  accessDays: '',
+  accessPolicy: 'UNLIMITED',
+  categoryId: '',
+  checklists: [],
+  description: '',
+  faqs: [],
+  instructorBio: '',
+  instructorName: '',
+  learningEndAt: '',
+  learningPoints: [],
+  learningStartAt: '',
+  level: '',
+  maxStudents: '',
+  price: '',
+  programType: 'ONLINE',
+  recommendedFor: [],
+  saleEndAt: '',
+  salePrice: '',
+  saleStartAt: '',
+  slug: '',
+  summaryItems: [],
+  thumbnailUrl: '',
+  title: '',
 };
 
-const buildCollectionColumns = (
-  items: readonly AdminProgramMenuTreeItem[],
-  activePathIds: readonly string[],
-): AdminProgramMenuTreeItem[][] => {
-  const itemsByParentId = new Map<string | null, AdminProgramMenuTreeItem[]>();
-
-  items.forEach((item) => {
-    const parentItems = itemsByParentId.get(item.parentId) ?? [];
-    parentItems.push(item);
-    itemsByParentId.set(item.parentId, parentItems);
-  });
-
-  const columns: AdminProgramMenuTreeItem[][] = [];
-  let parentId: string | null = null;
-  let depthIndex = 0;
-
-  for (;;) {
-    const nextColumn: AdminProgramMenuTreeItem[] = itemsByParentId.get(parentId) ?? [];
-
-    if (!nextColumn.length) {
-      break;
-    }
-
-    columns.push(nextColumn);
-
-    const activeItemId = activePathIds[depthIndex];
-    const activeItem: AdminProgramMenuTreeItem | undefined = nextColumn.find(
-      (menuItem: AdminProgramMenuTreeItem) => menuItem.id === activeItemId,
-    );
-
-    if (!activeItem || activeItem.isLeafMenu) {
-      break;
-    }
-
-    parentId = activeItem.id;
-    depthIndex += 1;
-  }
-
-  return columns;
+const confirmProgramDelete = (): boolean => {
+  return window.confirm(
+    '강의를 삭제하면 되돌릴 수 없습니다.\n커리큘럼이나 수강 이력이 있는 강의는 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
+  );
 };
 
-const CollectionPathPicker = ({
-  items,
-  value,
-  onChange,
-}: {
-  items: readonly AdminProgramMenuTreeItem[];
-  value: string | undefined;
-  onChange: (nextValue: string) => void;
-}) => {
-  const pickerRef = useRef<HTMLDivElement | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedItem = useMemo(() => {
-    return items.find((item) => item.path === value) ?? null;
-  }, [items, value]);
-  const collectionArrowStyle = useMemo(
-    () =>
-      ({
-        ['--collection-arrow-icon' as string]: `url(${rightArrowIconSrc})`,
-      }) as CSSProperties,
-    [],
-  );
-  const selectedPathIds = useMemo(() => buildCollectionPathIds(items, value ?? ''), [items, value]);
-  const [activePathIds, setActivePathIds] = useState<string[]>(selectedPathIds);
-  const columns = useMemo(
-    () => buildCollectionColumns(items, activePathIds),
-    [activePathIds, items],
-  );
+const toDateTimeLocal = (value: string | null): string => {
+  if (!value) {
+    return '';
+  }
 
-  useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
 
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
+  return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
+};
 
-    window.addEventListener('mousedown', handlePointerDown);
-    window.addEventListener('keydown', handleEscape);
+const extractDatePart = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
 
-    return () => {
-      window.removeEventListener('mousedown', handlePointerDown);
-      window.removeEventListener('keydown', handleEscape);
-    };
-  }, []);
+  const [datePart] = trimmed.split('T');
+  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : '';
+};
+
+const extractTimePart = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed || !trimmed.includes('T')) {
+    return '';
+  }
+
+  const [, timePart = ''] = trimmed.split('T');
+  return /^\d{2}:\d{2}$/.test(timePart) ? timePart : '';
+};
+
+const combineDateTimeParts = (dateValue: string, timeValue: string): string => {
+  const normalizedDate = dateValue.trim();
+  const normalizedTime = timeValue.trim();
+
+  if (!normalizedDate) {
+    return '';
+  }
+  if (!normalizedTime) {
+    return `${normalizedDate}T`;
+  }
+
+  return `${normalizedDate}T${normalizedTime}`;
+};
+
+const toIsoStringOrNull = (value: string): string | null => {
+  const trimmed = value.trim();
+
+  if (!trimmed || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
+    return null;
+  }
+
+  return new Date(trimmed).toISOString();
+};
+
+const hasPartialDateTime = (value: string): boolean => {
+  const trimmed = value.trim();
+  return trimmed.length > 0 && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed);
+};
+
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hours = String(Math.floor(index / 2)).padStart(2, '0');
+  const minutes = index % 2 === 0 ? '00' : '30';
+  const value = `${hours}:${minutes}`;
+
+  return {
+    label: value,
+    value,
+  };
+});
+
+interface DateTimeSplitFieldProps {
+  dateLabel: string;
+  timeLabel: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+interface DatePickerFieldProps {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+const DatePickerField = ({ label, name, value, onChange }: DatePickerFieldProps) => {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const openPicker = () => {
+    const input = inputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+    input?.showPicker?.();
+  };
 
   return (
-    <div className={styles['collectionPicker']} ref={pickerRef}>
-      <button
-        aria-expanded={isOpen}
-        aria-haspopup='dialog'
-        className={styles['collectionTrigger']}
-        onClick={() => {
-          setActivePathIds(selectedPathIds);
-          setIsOpen((current) => !current);
+    <div
+      className={styles['datePickerShell']}
+      onClick={() => {
+        openPicker();
+        inputRef.current?.focus();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openPicker();
+          inputRef.current?.focus();
+        }
+      }}
+      role='button'
+      tabIndex={0}
+    >
+      <TextField
+        className={styles['dateInput']}
+        label={label}
+        name={name}
+        onChange={(event) => {
+          onChange(event.target.value);
         }}
-        type='button'
-      >
-        <span className={styles['collectionTriggerText']}>
-          {selectedItem?.labelPath ?? '등록 위치를 선택해 주세요.'}
-        </span>
-        <span className={styles['collectionTriggerCaret']}>
-          <img
-            alt=''
-            aria-hidden='true'
-            className={styles['collectionTriggerCaretIcon']}
-            src={downIconSrc}
-          />
-        </span>
-      </button>
-
-      {isOpen ? (
-        <div className={styles['collectionPanel']} role='dialog'>
-          {columns.map((columnItems, columnIndex) => (
-            <div
-              className={styles['collectionColumn']}
-              key={`collection-column-${String(columnIndex + 1)}`}
-            >
-              <div className={styles['collectionColumnList']} role='list'>
-                {columnItems.map((item) => {
-                  const isActive = activePathIds[columnIndex] === item.id;
-
-                  return (
-                    <button
-                      className={classNames(
-                        styles['collectionOption'],
-                        isActive && styles['collectionOptionActive'],
-                        item.isLeafMenu && styles['collectionOptionLeaf'],
-                      )}
-                      key={item.id}
-                      onClick={() => {
-                        if (item.isLeafMenu) {
-                          onChange(item.path);
-                          setIsOpen(false);
-                          return;
-                        }
-
-                        setActivePathIds((current) => [...current.slice(0, columnIndex), item.id]);
-                      }}
-                      onMouseEnter={() => {
-                        if (item.isLeafMenu) {
-                          return;
-                        }
-
-                        setActivePathIds((current) => [...current.slice(0, columnIndex), item.id]);
-                      }}
-                      title={item.label}
-                      type='button'
-                    >
-                      <span className={styles['collectionOptionContent']}>
-                        <span className={styles['collectionOptionLabel']}>{item.label}</span>
-                        {!item.isLeafMenu ? (
-                          <span
-                            aria-hidden='true'
-                            className={styles['collectionOptionArrow']}
-                            style={collectionArrowStyle}
-                          />
-                        ) : null}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
+        onClick={() => {
+          openPicker();
+        }}
+        ref={inputRef}
+        type='date'
+        value={value}
+      />
     </div>
   );
 };
 
+const DateTimeSplitField = ({
+  dateLabel,
+  timeLabel,
+  value,
+  onChange,
+}: DateTimeSplitFieldProps) => {
+  const dateValue = extractDatePart(value);
+  const timeValue = extractTimePart(value);
+
+  return (
+    <div className={styles['dateTimeFieldRow']}>
+      <div className={styles['dateTimeDateField']}>
+        <DatePickerField
+          label={dateLabel}
+          name={`${dateLabel}-date`}
+          onChange={(nextDateValue) => {
+            onChange(combineDateTimeParts(nextDateValue, timeValue));
+          }}
+          value={dateValue}
+        />
+      </div>
+
+      <div className={styles['dateTimeTimeField']}>
+        <AdminDropdownField
+          compact
+          disabled={!dateValue}
+          label={timeLabel}
+          onChange={(nextValue) => {
+            onChange(combineDateTimeParts(dateValue, nextValue));
+          }}
+          options={[{ label: '시간 선택', value: '' }, ...TIME_OPTIONS]}
+          value={timeValue}
+        />
+      </div>
+    </div>
+  );
+};
+
+const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormState => {
+  return {
+    accessDays: detail.accessDays === null ? '' : String(detail.accessDays),
+    accessPolicy: detail.accessPolicy ?? 'UNLIMITED',
+    categoryId: String(detail.categoryId),
+    checklists: [...detail.checklists],
+    description: detail.description ?? '',
+    faqs: detail.faqs.map((item) => ({
+      answer: item.answer,
+      question: item.question,
+    })),
+    instructorBio: detail.instructorBio ?? '',
+    instructorName: detail.instructorName ?? '',
+    learningEndAt: toDateTimeLocal(detail.learningEndAt),
+    learningPoints: [...detail.learningPoints],
+    learningStartAt: toDateTimeLocal(detail.learningStartAt),
+    level: detail.level ?? '',
+    maxStudents: detail.maxStudents === null ? '' : String(detail.maxStudents),
+    price: String(detail.price),
+    programType: detail.programType,
+    recommendedFor: [...detail.recommendedFor],
+    saleEndAt: toDateTimeLocal(detail.saleEndAt),
+    salePrice: detail.salePrice === null ? '' : String(detail.salePrice),
+    saleStartAt: toDateTimeLocal(detail.saleStartAt),
+    slug: detail.slug,
+    summaryItems: detail.summaryItems.map((item) => ({
+      label: item.label,
+      value: item.value,
+    })),
+    thumbnailUrl: detail.thumbnailUrl ?? '',
+    title: detail.title,
+  };
+};
+
+const sanitizeStringList = (items: readonly string[]): string[] => {
+  return items.map((item) => item.trim()).filter((item) => item.length > 0);
+};
+
+const sanitizeSummaryItems = (
+  items: readonly AdminProgramSummaryFormItem[],
+): AdminProgramSummaryFormItem[] => {
+  return items
+    .map((item) => ({
+      label: item.label.trim(),
+      value: item.value.trim(),
+    }))
+    .filter((item) => item.label.length > 0 && item.value.length > 0);
+};
+
+const sanitizeFaqs = (items: readonly AdminProgramFaqFormItem[]): AdminProgramFaqFormItem[] => {
+  return items
+    .map((item) => ({
+      answer: item.answer.trim(),
+      question: item.question.trim(),
+    }))
+    .filter((item) => item.question.length > 0 && item.answer.length > 0);
+};
+
+const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertPayload => {
+  const resolvedAccessDays =
+    formState.accessPolicy === 'FIXED_DURATION' && formState.accessDays.trim()
+      ? Number(formState.accessDays)
+      : null;
+  const resolvedLearningStartAt =
+    formState.accessPolicy === 'COHORT' ? toIsoStringOrNull(formState.learningStartAt) : null;
+  const resolvedLearningEndAt =
+    formState.accessPolicy === 'COHORT' ? toIsoStringOrNull(formState.learningEndAt) : null;
+
+  return {
+    accessDays: resolvedAccessDays,
+    accessPolicy: formState.accessPolicy,
+    categoryId: Number(formState.categoryId),
+    checklists: sanitizeStringList(formState.checklists),
+    description: formState.description.trim() || null,
+    faqs: sanitizeFaqs(formState.faqs),
+    instructorBio: formState.instructorBio.trim() || null,
+    instructorName: formState.instructorName.trim() || null,
+    learningEndAt: resolvedLearningEndAt,
+    learningPoints: sanitizeStringList(formState.learningPoints),
+    learningStartAt: resolvedLearningStartAt,
+    level: formState.level || null,
+    maxStudents: formState.maxStudents.trim() ? Number(formState.maxStudents) : null,
+    price: Number(formState.price),
+    programType: formState.programType,
+    recommendedFor: sanitizeStringList(formState.recommendedFor),
+    saleEndAt: toIsoStringOrNull(formState.saleEndAt),
+    salePrice: formState.salePrice.trim() ? Number(formState.salePrice) : null,
+    saleStartAt: toIsoStringOrNull(formState.saleStartAt),
+    slug: formState.slug.trim(),
+    summaryItems: sanitizeSummaryItems(formState.summaryItems),
+    thumbnailUrl: formState.thumbnailUrl.trim() || null,
+    title: formState.title.trim(),
+  };
+};
+
+const validateFormState = (formState: AdminProgramFormState): string | null => {
+  if (!formState.categoryId.trim()) {
+    return '카테고리를 선택해 주세요.';
+  }
+  if (!formState.title.trim()) {
+    return '강의명을 입력해 주세요.';
+  }
+  if (!formState.price.trim() || Number(formState.price) < 0) {
+    return '가격을 올바르게 입력해 주세요.';
+  }
+  if (formState.salePrice.trim() && Number(formState.salePrice) < 0) {
+    return '할인가를 올바르게 입력해 주세요.';
+  }
+  if (formState.maxStudents.trim() && Number(formState.maxStudents) < 1) {
+    return '정원은 1 이상이어야 합니다.';
+  }
+  if (formState.accessDays.trim() && Number(formState.accessDays) < 1) {
+    return '수강일수는 1 이상이어야 합니다.';
+  }
+  if (hasPartialDateTime(formState.saleStartAt) || hasPartialDateTime(formState.saleEndAt)) {
+    return '판매 시작일과 종료일의 날짜와 시간을 모두 선택해 주세요.';
+  }
+  if (hasPartialDateTime(formState.learningStartAt) || hasPartialDateTime(formState.learningEndAt)) {
+    return '수강 시작일과 종료일의 날짜와 시간을 모두 선택해 주세요.';
+  }
+  if (formState.accessPolicy === 'FIXED_DURATION' && !formState.accessDays.trim()) {
+    return '고정 기간 수강은 수강일수를 입력해 주세요.';
+  }
+  if (
+    formState.accessPolicy === 'COHORT' &&
+    (!formState.learningStartAt.trim() || !formState.learningEndAt.trim())
+  ) {
+    return '기수형 수강은 수강 시작일과 종료일을 모두 입력해 주세요.';
+  }
+  if (
+    formState.accessPolicy === 'COHORT' &&
+    formState.learningStartAt.trim() &&
+    formState.learningEndAt.trim() &&
+    new Date(formState.learningStartAt).getTime() > new Date(formState.learningEndAt).getTime()
+  ) {
+    return '수강 시작일은 종료일보다 늦을 수 없습니다.';
+  }
+
+  const faqErrors = formState.faqs.some((item) => {
+    const hasQuestion = item.question.trim().length > 0;
+    const hasAnswer = item.answer.trim().length > 0;
+    return hasQuestion !== hasAnswer;
+  });
+
+  if (faqErrors) {
+    return 'FAQ 질문과 답변을 모두 입력해 주세요.';
+  }
+
+  const summaryErrors = formState.summaryItems.some((item) => {
+    const hasLabel = item.label.trim().length > 0;
+    const hasValue = item.value.trim().length > 0;
+    return hasLabel !== hasValue;
+  });
+
+  if (summaryErrors) {
+    return '요약 항목명과 내용을 모두 입력해 주세요.';
+  }
+
+  return null;
+};
+
+const buildEditorTitle = (
+  mode: AdminProgramEditorSectionProps['mode'],
+  detail: AdminProgramDetail | null,
+): string => {
+  if (mode === 'create') {
+    return '새 강의 등록';
+  }
+  if (mode === 'duplicate') {
+    return detail ? `${detail.title} 복제` : '강의 복제';
+  }
+  return detail ? `${detail.title} 수정` : '강의 수정';
+};
+
+const programTypeOptions = [
+  { value: 'ONLINE', label: '온라인' },
+  { value: 'OFFLINE', label: '오프라인' },
+  { value: 'HYBRID', label: '하이브리드' },
+] as const;
+
+const levelOptions = [
+  { value: '', label: '선택 안 함' },
+  { value: 'BEGINNER', label: '입문' },
+  { value: 'INTERMEDIATE', label: '중급' },
+  { value: 'ADVANCED', label: '심화' },
+] as const;
+
+const accessPolicyOptions = [
+  { value: 'UNLIMITED', label: '무제한' },
+  { value: 'FIXED_DURATION', label: '고정 기간' },
+  { value: 'COHORT', label: '기수형' },
+] as const;
+
 const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => {
-  const location = useLocation();
+  const params = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
-  const params = useParams<{ programId?: string; sourceProgramId?: string }>();
-  const [searchParams] = useSearchParams();
-  const [isEditorSlugDirty, setIsEditorSlugDirty] = useState(mode !== 'create');
-  const [creationAction, setCreationAction] = useState<'publish' | 'save' | null>(null);
-  const appliedSeedRef = useRef<string | null>(null);
+  const editingProgramId = mode === 'edit' ? Number(params['programId']) : null;
+  const duplicateSourceProgramId = mode === 'duplicate' ? Number(params['sourceProgramId']) : null;
+  const targetProgramId = mode === 'edit' ? editingProgramId : duplicateSourceProgramId;
+  const categoriesTreeQuery = useAdminCategoriesTreeQuery();
+  const detailQuery = useAdminProgramDetailLiveQuery(
+    Number.isFinite(targetProgramId) ? targetProgramId : null,
+    mode !== 'create',
+  );
+  const [formState, setFormState] = useState<AdminProgramFormState>(INITIAL_FORM_STATE);
 
-  const requestedParentCollectionPath = searchParams.get('parentCollectionPath')?.trim() ?? '';
-  const routeState = (location.state as AdminProgramEditorRouteState | null) ?? null;
-  const editingProgramId = mode === 'edit' ? (params.programId ?? null) : null;
-  const duplicateSourceProgramId = mode === 'duplicate' ? (params.sourceProgramId ?? null) : null;
-  const isInvalidRoute =
-    (mode === 'edit' && !editingProgramId) || (mode === 'duplicate' && !duplicateSourceProgramId);
+  useEffect(() => {
+    if (!detailQuery.data) {
+      return;
+    }
 
-  const menuTreeQuery = useAdminProgramMenuTreeQuery();
-  const menuItems = useMemo(() => menuTreeQuery.data?.items ?? [], [menuTreeQuery.data?.items]);
-  const leafCollectionOptions = useMemo(() => getLeafCollectionOptions(menuItems), [menuItems]);
+    const nextState = buildFormStateFromDetail(detailQuery.data);
 
-  const detailQuery = useAdminProgramDetailQuery(editingProgramId);
-  const duplicateSourceQuery = useAdminProgramDetailQuery(duplicateSourceProgramId);
+    const duplicatedState =
+      mode === 'duplicate'
+        ? {
+            ...nextState,
+            slug: '',
+            title: `${nextState.title} 복제본`,
+          }
+        : nextState;
 
-  const form = useForm<AdminProgramFormValues>({
-    defaultValues: createDefaultAdminProgramFormValues(),
-    mode: 'onBlur',
-    resolver: zodResolver(adminProgramSchema),
-  });
+    setFormState(duplicatedState);
+  }, [detailQuery.data, mode]);
 
-  const statsFieldArray = useFieldArray({
-    control: form.control,
-    name: 'stats',
-  });
-  const faqFieldArray = useFieldArray({
-    control: form.control,
-    name: 'faqItems',
-  });
-  const curriculumFieldArray = useFieldArray({
-    control: form.control,
-    name: 'curriculumSections',
-  });
-
-  const currentValues = useWatch({
-    control: form.control,
-  }) as AdminProgramFormValues;
-  const selectedFormat = useWatch({
-    control: form.control,
-    name: 'format',
-  });
-  const selectedAccessPolicy = useWatch({
-    control: form.control,
-    name: 'accessPolicy',
-  });
-  const watchedTitle = useWatch({
-    control: form.control,
-    name: 'title',
-  });
-  const watchedSlug = useWatch({
-    control: form.control,
-    name: 'slug',
-  });
-  const watchedParentCollectionPath = useWatch({
-    control: form.control,
-    name: 'parentCollectionPath',
-  });
-  const watchedCurriculumSections = useWatch({
-    control: form.control,
-    name: 'curriculumSections',
-  });
-
-  const currentProgram = detailQuery.data?.program ?? null;
-  const sourceProgram = duplicateSourceQuery.data?.program ?? null;
-  const pageMeta = buildEditorPageMeta(mode, currentProgram, sourceProgram);
-
-  const invalidateProgramQueries = async () => {
+  const invalidateProgramQueries = async (programId?: number) => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: adminConsoleQueryKey() }),
-      queryClient.invalidateQueries({ queryKey: adminProgramMenuTreeQueryKey() }),
-      queryClient.invalidateQueries({ queryKey: ['adminProgramMenuDetail'] }),
-      queryClient.invalidateQueries({ queryKey: ['adminPrograms'] }),
-      queryClient.invalidateQueries({ queryKey: ['adminProgramDetail'] }),
-      queryClient.invalidateQueries({ queryKey: programsOverviewQueryKey() }),
-      queryClient.invalidateQueries({ queryKey: ['programPage'] }),
-      queryClient.invalidateQueries({ queryKey: siteNavigationQueryKey() }),
-      queryClient.invalidateQueries({ queryKey: programSearchIndexQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: adminProgramsLiveQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: adminCategoriesTreeQueryKey() }),
+      programId !== undefined
+        ? queryClient.invalidateQueries({ queryKey: adminProgramDetailLiveQueryKey(programId) })
+        : Promise.resolve(),
     ]);
   };
 
-  useEffect(() => {
-    const defaultPath = resolveInitialParentCollectionPath(
-      requestedParentCollectionPath,
-      leafCollectionOptions,
-      sourceProgram?.parentCollectionPath ?? '',
-    );
-
-    let nextSeed: string | null = null;
-    let nextValues: AdminProgramFormValues | null = null;
-
-    if (mode === 'create') {
-      nextSeed = `create:${defaultPath}`;
-      nextValues = createDefaultAdminProgramFormValues(defaultPath);
-    }
-
-    if (mode === 'duplicate' && sourceProgram) {
-      nextSeed = `duplicate:${sourceProgram.id}:${defaultPath}`;
-      nextValues = toDuplicateAdminProgramFormValues(sourceProgram, defaultPath);
-    }
-
-    if (mode === 'edit' && currentProgram) {
-      nextSeed = `edit:${currentProgram.id}`;
-      nextValues = toAdminProgramFormValues(currentProgram);
-    }
-
-    if (!nextSeed || !nextValues || appliedSeedRef.current === nextSeed) {
-      return;
-    }
-
-    form.reset(nextValues);
-    setIsEditorSlugDirty(mode !== 'create');
-    appliedSeedRef.current = nextSeed;
-  }, [
-    currentProgram,
-    form,
-    leafCollectionOptions,
-    mode,
-    requestedParentCollectionPath,
-    sourceProgram,
-  ]);
-
-  useEffect(() => {
-    if (!watchedTitle || isEditorSlugDirty) {
-      return;
-    }
-
-    form.setValue('slug', slugifyAdminProgram(watchedTitle), {
-      shouldDirty: false,
-      shouldTouch: false,
-      shouldValidate: true,
-    });
-  }, [form, isEditorSlugDirty, watchedTitle]);
-
-  useEffect(() => {
-    if (selectedFormat !== 'online') {
-      return;
-    }
-
-    form.setValue('capacity', '', {
-      shouldDirty: true,
-      shouldTouch: false,
-      shouldValidate: true,
-    });
-  }, [form, selectedFormat]);
-
-  useEffect(() => {
-    if (
-      (selectedFormat === 'offline' || selectedFormat === 'hybrid') &&
-      selectedAccessPolicy !== 'cohort'
-    ) {
-      form.setValue('accessPolicy', 'cohort', {
-        shouldDirty: true,
-        shouldTouch: false,
-        shouldValidate: true,
-      });
-    }
-  }, [form, selectedAccessPolicy, selectedFormat]);
-
-  useEffect(() => {
-    const currentSections = form.getValues('curriculumSections');
-    const nextSections = syncCurriculumSectionsForFormat(currentSections, selectedFormat);
-
-    if (JSON.stringify(currentSections) === JSON.stringify(nextSections)) {
-      return;
-    }
-
-    form.setValue('curriculumSections', nextSections, {
-      shouldDirty: true,
-      shouldTouch: false,
-      shouldValidate: true,
-    });
-  }, [form, selectedFormat]);
-
-  useEffect(() => {
-    if (selectedFormat === 'online') {
-      return;
-    }
-
-    const currentValuesSnapshot = form.getValues();
-    const derivedLearningDates = deriveLearningDatesFromCurriculumSections(currentValuesSnapshot);
-
-    if (currentValuesSnapshot.learningStartDate !== derivedLearningDates.learningStartDate) {
-      form.setValue('learningStartDate', derivedLearningDates.learningStartDate, {
-        shouldDirty: true,
-        shouldTouch: false,
-        shouldValidate: true,
-      });
-    }
-
-    if (currentValuesSnapshot.learningEndDate !== derivedLearningDates.learningEndDate) {
-      form.setValue('learningEndDate', derivedLearningDates.learningEndDate, {
-        shouldDirty: true,
-        shouldTouch: false,
-        shouldValidate: true,
-      });
-    }
-  }, [
-    form,
-    selectedFormat,
-    selectedAccessPolicy,
-    watchedCurriculumSections,
-    watchedSlug,
-    watchedTitle,
-  ]);
-
   const saveMutation = useMutation({
-    mutationFn: ({ programId, values }: { programId: string; values: AdminProgramFormValues }) =>
-      updateAdminProgram(programId, toAdminProgramPayload(values)),
+    mutationFn: (payload: AdminProgramUpsertPayload) => {
+      if (mode === 'edit' && editingProgramId !== null && Number.isFinite(editingProgramId)) {
+        return updateAdminProgramLive(editingProgramId, payload);
+      }
+
+      return createAdminProgramLive(payload);
+    },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '강의 초안 저장에 실패했습니다.',
+        message: error instanceof Error ? error.message : '강의 저장에 실패했습니다.',
         variant: 'error',
       });
+    },
+    onSuccess: async (response) => {
+      await invalidateProgramQueries(response.id);
+      showToast({
+        message: mode === 'edit' ? '강의를 수정했습니다.' : '강의를 등록했습니다.',
+        variant: 'success',
+      });
+      void navigate(routePaths.adminProgramEdit(String(response.id)));
     },
   });
 
   const publishMutation = useMutation({
-    mutationFn: (programId: string) => publishAdminProgram(programId),
+    mutationFn: (programId: number) => publishAdminProgramLive(programId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '강의 게시에 실패했습니다.',
+        message: error instanceof Error ? error.message : '강의 공개 처리에 실패했습니다.',
         variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await invalidateProgramQueries(editingProgramId ?? undefined);
+      showToast({
+        message: '강의를 공개했습니다.',
+        variant: 'success',
       });
     },
   });
 
   const hideMutation = useMutation({
-    mutationFn: (programId: string) => hideAdminProgram(programId),
+    mutationFn: (programId: number) => hideAdminProgramLive(programId),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '강의 숨김 처리에 실패했습니다.',
         variant: 'error',
       });
     },
-  });
-
-  const handleBackToList = () => {
-    if (typeof routeState?.returnTo === 'string' && routeState.returnTo.trim()) {
-      void navigate(routeState.returnTo);
-      return;
-    }
-
-    const fallbackParentCollectionPath =
-      currentProgram?.parentCollectionPath ??
-      sourceProgram?.parentCollectionPath ??
-      requestedParentCollectionPath;
-
-    void navigate(buildFallbackProgramListPath(fallbackParentCollectionPath));
-  };
-
-  const handleSave = form.handleSubmit(async (values) => {
-    if (!editingProgramId) {
-      return;
-    }
-
-    await saveMutation.mutateAsync({
-      programId: editingProgramId,
-      values,
-    });
-    await invalidateProgramQueries();
-    showToast({
-      message: '강의 초안을 저장했습니다.',
-      variant: 'success',
-    });
-  });
-
-  const handlePublish = form.handleSubmit(async (values) => {
-    if (!editingProgramId) {
-      return;
-    }
-
-    await saveMutation.mutateAsync({
-      programId: editingProgramId,
-      values,
-    });
-    await publishMutation.mutateAsync(editingProgramId);
-    await invalidateProgramQueries();
-    showToast({
-      message: '강의를 게시했습니다.',
-      variant: 'success',
-    });
-  });
-
-  const handleHide = async () => {
-    if (!currentProgram) {
-      return;
-    }
-
-    await hideMutation.mutateAsync(currentProgram.id);
-    await invalidateProgramQueries();
-    showToast({
-      message: '강의를 숨김 처리했습니다.',
-      variant: 'success',
-    });
-  };
-
-  const persistNewProgram = async (values: AdminProgramFormValues, action: 'publish' | 'save') => {
-    const successMessage =
-      action === 'publish' ? '강의를 게시했습니다.' : '강의 초안을 저장했습니다.';
-    const fallbackErrorMessage =
-      action === 'publish' ? '강의 게시에 실패했습니다.' : '강의 초안 저장에 실패했습니다.';
-    const partialSuccessMessage =
-      action === 'publish'
-        ? '강의 초안은 생성되었지만 게시 전에 오류가 발생했습니다. 편집 페이지에서 이어서 처리해 주세요.'
-        : '강의 초안은 생성되었지만 첫 저장 중 오류가 발생했습니다. 편집 페이지에서 이어서 처리해 주세요.';
-
-    setCreationAction(action);
-
-    let createdProgramId: string | null = null;
-
-    try {
-      const response = await createAdminProgramDraft(
-        toAdminProgramDraftPayloadFromFormValues(values, duplicateSourceProgramId),
-      );
-
-      createdProgramId = response.id;
-      await updateAdminProgram(response.id, toAdminProgramPayload(values));
-
-      if (action === 'publish') {
-        await publishAdminProgram(response.id);
-      }
-
-      await invalidateProgramQueries();
-      void navigate(routePaths.adminProgramEdit(response.id), {
-        replace: true,
-        state: routeState ?? undefined,
-      });
+    onSuccess: async () => {
+      await invalidateProgramQueries(editingProgramId ?? undefined);
       showToast({
-        message: successMessage,
+        message: '강의를 숨김 처리했습니다.',
         variant: 'success',
       });
-    } catch (error: unknown) {
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (programId: number) => deleteAdminProgramLive(programId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '강의 삭제에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
       await invalidateProgramQueries();
+      showToast({
+        message: '강의를 삭제했습니다.',
+        variant: 'success',
+      });
+      void navigate(routePaths.adminPrograms);
+    },
+  });
 
-      if (createdProgramId) {
-        void navigate(routePaths.adminProgramEdit(createdProgramId), {
-          replace: true,
-          state: routeState ?? undefined,
-        });
-        showToast({
-          message: partialSuccessMessage,
-          variant: 'error',
-        });
-      } else {
-        showToast({
-          message: error instanceof Error ? error.message : fallbackErrorMessage,
-          variant: 'error',
-        });
-      }
-    } finally {
-      setCreationAction(null);
-    }
-  };
-
-  const handleCreateSave = async () => {
-    await form.handleSubmit(async (values) => {
-      await persistNewProgram(values, 'save');
-    })();
-  };
-
-  const handleCreatePublish = async () => {
-    await form.handleSubmit(async (values) => {
-      await persistNewProgram(values, 'publish');
-    })();
-  };
-
-  const previewStatus = currentProgram?.status ?? 'draft';
-  const preview = buildAdminProgramPreviewData(
-    currentValues,
-    leafCollectionOptions,
-    getPreviewStatusLabel(previewStatus),
+  const editorTitle = useMemo(
+    () => buildEditorTitle(mode, detailQuery.data ?? null),
+    [detailQuery.data, mode],
   );
-  const currentProgramMissingFieldLabels = detailQuery.data?.missingFieldLabels ?? [];
-  const editorSlugField = form.register('slug');
-  const isEditorLoading =
-    menuTreeQuery.isPending ||
-    (mode === 'edit' && detailQuery.isPending) ||
-    (mode === 'duplicate' && duplicateSourceQuery.isPending);
-  const hasEditorError =
-    isInvalidRoute ||
-    menuTreeQuery.isError ||
-    (mode === 'edit' && detailQuery.isError) ||
-    (mode === 'duplicate' && duplicateSourceQuery.isError);
-  const formatSummary = deriveProgramText(currentValues);
-  const saveButtonLabel =
-    mode === 'edit'
-      ? saveMutation.isPending
-        ? '저장 중...'
-        : '초안 저장'
-      : creationAction === 'save'
-        ? '저장 중...'
-        : '초안 저장';
-  const publishButtonLabel =
-    mode === 'edit'
-      ? publishMutation.isPending
-        ? '게시 중...'
-        : '게시'
-      : creationAction === 'publish'
-        ? '게시 중...'
-        : '게시';
+
+  const isLoading = categoriesTreeQuery.isPending || (mode !== 'create' && detailQuery.isPending);
+  const hasError = categoriesTreeQuery.isError || (mode !== 'create' && detailQuery.isError);
+  const errorMessage =
+    categoriesTreeQuery.error instanceof Error
+      ? categoriesTreeQuery.error.message
+      : detailQuery.error instanceof Error
+        ? detailQuery.error.message
+        : '강의 편집 화면을 준비하지 못했습니다.';
+
+  const isEditMode = mode === 'edit' && editingProgramId !== null && Number.isFinite(editingProgramId);
+  const currentDetail = detailQuery.data ?? null;
+  const deleteBlockedReason = currentDetail?.deleteBlockedReason ?? null;
+  const deletable = currentDetail?.deletable !== false;
+
+  const updateField = <T extends keyof AdminProgramFormState>(field: T, value: AdminProgramFormState[T]) => {
+    setFormState((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const updateStringListItem = (
+    field: 'learningPoints' | 'recommendedFor' | 'checklists',
+    index: number,
+    value: string,
+  ) => {
+    setFormState((current) => ({
+      ...current,
+      [field]: current[field].map((item, itemIndex) => (itemIndex === index ? value : item)),
+    }));
+  };
+
+  const addStringListItem = (field: 'learningPoints' | 'recommendedFor' | 'checklists') => {
+    setFormState((current) => ({
+      ...current,
+      [field]: [...current[field], ''],
+    }));
+  };
+
+  const removeStringListItem = (
+    field: 'learningPoints' | 'recommendedFor' | 'checklists',
+    index: number,
+  ) => {
+    setFormState((current) => ({
+      ...current,
+      [field]: current[field].filter((_, itemIndex) => itemIndex !== index),
+    }));
+  };
+
+  const updateSummaryItem = (
+    index: number,
+    key: keyof AdminProgramSummaryFormItem,
+    value: string,
+  ) => {
+    setFormState((current) => ({
+      ...current,
+      summaryItems: current.summaryItems.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [key]: value } : item,
+      ),
+    }));
+  };
+
+  const addSummaryItem = () => {
+    setFormState((current) => ({
+      ...current,
+      summaryItems: [...current.summaryItems, { label: '', value: '' }],
+    }));
+  };
+
+  const removeSummaryItem = (index: number) => {
+    setFormState((current) => ({
+      ...current,
+      summaryItems: current.summaryItems.filter((_, itemIndex) => itemIndex !== index),
+    }));
+  };
+
+  const updateFaqItem = (index: number, key: keyof AdminProgramFaqFormItem, value: string) => {
+    setFormState((current) => ({
+      ...current,
+      faqs: current.faqs.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [key]: value } : item,
+      ),
+    }));
+  };
+
+  const addFaqItem = () => {
+    setFormState((current) => ({
+      ...current,
+      faqs: [...current.faqs, { answer: '', question: '' }],
+    }));
+  };
+
+  const removeFaqItem = (index: number) => {
+    setFormState((current) => ({
+      ...current,
+      faqs: current.faqs.filter((_, itemIndex) => itemIndex !== index),
+    }));
+  };
+
+  const handleSubmit = () => {
+    const validationMessage = validateFormState(formState);
+
+    if (validationMessage) {
+      showToast({
+        message: validationMessage,
+        variant: 'error',
+      });
+      return;
+    }
+
+    saveMutation.mutate(toProgramPayload(formState));
+  };
+
+  if (isLoading) {
+    return (
+      <section aria-busy='true' className={styles['stateSection']}>
+        <h1 className={styles['stateTitle']}>강의 편집 화면을 준비하는 중입니다.</h1>
+        <p className={styles['stateDescription']}>카테고리와 강의 상세를 불러오고 있습니다.</p>
+      </section>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <section className={styles['stateSection']}>
+        <h1 className={styles['stateTitle']}>강의 편집 화면을 불러오지 못했습니다.</h1>
+        <p className={styles['stateDescription']}>{errorMessage}</p>
+      </section>
+    );
+  }
 
   return (
-    <div className={styles['workspace']}>
-      <section className={styles['editorWorkspace']}>
-        <div className={styles['panelHeaderRow']}>
-          <div className={styles['sectionHeader']}>
-            <p className={styles['eyebrow']}>{pageMeta.eyebrow}</p>
-            <h1 className={styles['sectionTitle']}>{pageMeta.title}</h1>
-            <p className={styles['sectionDescription']}>{pageMeta.description}</p>
+    <section className={styles['workspace']}>
+      <div className={styles['pageHeader']}>
+        <h1 className={styles['pageTitle']}>{editorTitle}</h1>
+      </div>
+
+      <div className={styles['actionRow']}>
+        <Link className={styles['tableActionButton']} to={routePaths.adminPrograms}>
+          목록으로 돌아가기
+        </Link>
+        {isEditMode && currentDetail ? (
+          <>
+            {currentDetail.published ? (
+              <Button
+                disabled={hideMutation.isPending}
+                onClick={() => {
+                  hideMutation.mutate(currentDetail.id);
+                }}
+                type='button'
+                variant='secondary'
+              >
+                숨김 처리
+              </Button>
+            ) : (
+              <Button
+                disabled={publishMutation.isPending}
+                onClick={() => {
+                  publishMutation.mutate(currentDetail.id);
+                }}
+                type='button'
+              >
+                공개 처리
+              </Button>
+            )}
+            <Button
+              disabled={deleteMutation.isPending || !deletable}
+              onClick={() => {
+                if (!confirmProgramDelete()) {
+                  return;
+                }
+                deleteMutation.mutate(currentDetail.id);
+              }}
+              title={deleteBlockedReason ?? undefined}
+              type='button'
+              variant='secondary'
+            >
+              삭제
+            </Button>
+          </>
+        ) : null}
+      </div>
+
+      {isEditMode && currentDetail && !deletable && deleteBlockedReason ? (
+        <p className={styles['helperText']}>{deleteBlockedReason}</p>
+      ) : null}
+
+      <div className={styles['formShell']}>
+        <div className={styles['form']}>
+          <AdminCategoryPicker
+            helperText='카테고리 관리와 같은 3단 구조에서 가장 하위 카테고리를 선택해 주세요.'
+            label='카테고리'
+            onChange={(nextValue) => {
+              updateField('categoryId', nextValue);
+            }}
+            tree={categoriesTreeQuery.data ?? []}
+            value={formState.categoryId}
+          />
+
+          <div className={styles['inlineFieldGrid']}>
+            <TextField
+              label='강의명'
+              name='title'
+              onChange={(event) => {
+                updateField('title', event.target.value);
+              }}
+              value={formState.title}
+            />
+            <div className={styles['metaNotice']}>
+              <p className={styles['metaNoticeLabel']}>주소 식별자</p>
+              <p className={styles['metaNoticeText']}>
+                강의 저장 시 서버에서 자동으로 관리합니다.
+              </p>
+            </div>
           </div>
 
-          <div className={styles['headerActions']}>
-            {currentProgram ? (
-              <Link className={styles['inlineLink']} target='_blank' to={currentProgram.publicPath}>
-                공개 페이지
-              </Link>
+          <div className={styles['compactFieldRow']}>
+            <AdminDropdownField
+              compact
+              label='강의 형태'
+              onChange={(nextValue) => {
+                updateField('programType', nextValue as AdminProgramType);
+              }}
+              options={programTypeOptions}
+              value={formState.programType}
+            />
+            <AdminDropdownField
+              compact
+              label='난이도'
+              onChange={(nextValue) => {
+                updateField('level', nextValue as AdminProgramFormState['level']);
+              }}
+              options={levelOptions}
+              value={formState.level}
+            />
+            <AdminDropdownField
+              compact
+              label='수강 정책'
+              onChange={(nextValue) => {
+                const policy = nextValue as AdminProgramAccessPolicy;
+                setFormState((current) => ({
+                  ...current,
+                  accessDays: policy === 'FIXED_DURATION' ? current.accessDays : '',
+                  accessPolicy: policy,
+                  learningEndAt: policy === 'COHORT' ? current.learningEndAt : '',
+                  learningStartAt: policy === 'COHORT' ? current.learningStartAt : '',
+                }));
+              }}
+              options={accessPolicyOptions}
+              value={formState.accessPolicy}
+            />
+          </div>
+
+          <TextAreaField
+            label='강의 소개'
+            name='description'
+            onChange={(event) => {
+              updateField('description', event.target.value);
+            }}
+            value={formState.description}
+          />
+
+          <div className={styles['mediaField']}>
+            <div className={styles['mediaFieldHeader']}>
+              <div className={styles['mediaFieldCopy']}>
+                <p className={styles['fieldLabel']}>대표 이미지</p>
+                <p className={styles['mediaFieldHint']}>
+                  운영 화면에는 이미지 주소를 노출하지 않고 현재 연결된 이미지만 보여줍니다.
+                </p>
+              </div>
+              {formState.thumbnailUrl ? (
+                <button
+                  className={styles['tableActionButton']}
+                  onClick={() => {
+                    updateField('thumbnailUrl', '');
+                  }}
+                  type='button'
+                >
+                  이미지 제거
+                </button>
+              ) : null}
+            </div>
+
+            {formState.thumbnailUrl ? (
+              <div className={styles['thumbnailPreview']}>
+                <img
+                  alt={formState.title ? `${formState.title} 대표 이미지` : '강의 대표 이미지'}
+                  className={styles['thumbnailPreviewImage']}
+                  src={formState.thumbnailUrl}
+                />
+              </div>
+            ) : (
+              <div className={styles['thumbnailEmptyState']}>등록된 대표 이미지가 없습니다.</div>
+            )}
+          </div>
+
+          <div className={styles['inlineFieldGrid']}>
+            <TextField
+              label='강사명'
+              name='instructorName'
+              onChange={(event) => {
+                updateField('instructorName', event.target.value);
+              }}
+              value={formState.instructorName}
+            />
+          </div>
+
+          <TextAreaField
+            label='강사 소개'
+            name='instructorBio'
+            onChange={(event) => {
+              updateField('instructorBio', event.target.value);
+            }}
+            value={formState.instructorBio}
+          />
+
+          <div className={styles['inlineFieldGrid']}>
+            <TextField
+              label='정가'
+              name='price'
+              onChange={(event) => {
+                updateField('price', event.target.value);
+              }}
+              value={formState.price}
+            />
+            <TextField
+              label='할인가'
+              name='salePrice'
+              onChange={(event) => {
+                updateField('salePrice', event.target.value);
+              }}
+              value={formState.salePrice}
+            />
+          </div>
+
+          <div className={styles['compactFieldRow']}>
+            <div className={styles['compactTextField']}>
+              <TextField
+                label='정원'
+                name='maxStudents'
+                onChange={(event) => {
+                  updateField('maxStudents', event.target.value);
+                }}
+                value={formState.maxStudents}
+              />
+            </div>
+            {formState.accessPolicy === 'FIXED_DURATION' ? (
+              <div className={styles['compactTextField']}>
+                <TextField
+                  label='수강일수'
+                  name='accessDays'
+                  onChange={(event) => {
+                    updateField('accessDays', event.target.value);
+                  }}
+                  value={formState.accessDays}
+                />
+              </div>
             ) : null}
-            <Button onClick={handleBackToList} type='button' variant='secondary'>
-              목록으로 돌아가기
+          </div>
+
+          <div className={styles['dateTimeRow']}>
+            <div className={styles['dateTimeGroup']}>
+              <p className={styles['dateTimeGroupTitle']}>판매 기간</p>
+              <DateTimeSplitField
+                dateLabel='판매 시작일'
+                onChange={(nextValue) => {
+                  updateField('saleStartAt', nextValue);
+                }}
+                timeLabel='시작 시간'
+                value={formState.saleStartAt}
+              />
+              <DateTimeSplitField
+                dateLabel='판매 종료일'
+                onChange={(nextValue) => {
+                  updateField('saleEndAt', nextValue);
+                }}
+                timeLabel='종료 시간'
+                value={formState.saleEndAt}
+              />
+            </div>
+
+            {formState.accessPolicy === 'COHORT' ? (
+              <div className={styles['dateTimeGroup']}>
+                <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
+                <DateTimeSplitField
+                  dateLabel='수강 시작일'
+                  onChange={(nextValue) => {
+                    updateField('learningStartAt', nextValue);
+                  }}
+                  timeLabel='시작 시간'
+                  value={formState.learningStartAt}
+                />
+                <DateTimeSplitField
+                  dateLabel='수강 종료일'
+                  onChange={(nextValue) => {
+                    updateField('learningEndAt', nextValue);
+                  }}
+                  timeLabel='종료 시간'
+                  value={formState.learningEndAt}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          {formState.accessPolicy === 'UNLIMITED' ? (
+            <p className={styles['policyHint']}>무제한 수강은 수강일수와 수강 기간을 따로 입력하지 않습니다.</p>
+          ) : null}
+          {formState.accessPolicy === 'FIXED_DURATION' ? (
+            <p className={styles['policyHint']}>고정 기간 수강은 수강일수만 입력합니다.</p>
+          ) : null}
+          {formState.accessPolicy === 'COHORT' ? (
+            <p className={styles['policyHint']}>기수형 수강은 시작일과 종료일을 함께 지정합니다.</p>
+          ) : null}
+
+          <AdminFieldArray
+            addLabel='학습 포인트 추가'
+            emptyMessage='등록된 학습 포인트가 없습니다.'
+            helperText='사용자에게 보여줄 핵심 학습 포인트를 항목별로 추가합니다.'
+            items={formState.learningPoints}
+            label='학습 포인트'
+            onAdd={() => {
+              addStringListItem('learningPoints');
+            }}
+            onRemove={(index) => {
+              removeStringListItem('learningPoints', index);
+            }}
+            renderItem={(item, index) => (
+              <TextField
+                label={`학습 포인트 ${index + 1}`}
+                name={`learning-point-${index}`}
+                onChange={(event) => {
+                  updateStringListItem('learningPoints', index, event.target.value);
+                }}
+                value={item}
+              />
+            )}
+          />
+
+          <AdminFieldArray
+            addLabel='추천 대상 추가'
+            emptyMessage='등록된 추천 대상이 없습니다.'
+            helperText='이 강의를 추천할 대상 유형을 하나씩 정리합니다.'
+            items={formState.recommendedFor}
+            label='추천 대상'
+            onAdd={() => {
+              addStringListItem('recommendedFor');
+            }}
+            onRemove={(index) => {
+              removeStringListItem('recommendedFor', index);
+            }}
+            renderItem={(item, index) => (
+              <TextField
+                label={`추천 대상 ${index + 1}`}
+                name={`recommended-for-${index}`}
+                onChange={(event) => {
+                  updateStringListItem('recommendedFor', index, event.target.value);
+                }}
+                value={item}
+              />
+            )}
+          />
+
+          <AdminFieldArray
+            addLabel='체크리스트 추가'
+            emptyMessage='등록된 체크리스트가 없습니다.'
+            helperText='수강 전 준비사항을 체크리스트로 추가합니다.'
+            items={formState.checklists}
+            label='수강 체크리스트'
+            onAdd={() => {
+              addStringListItem('checklists');
+            }}
+            onRemove={(index) => {
+              removeStringListItem('checklists', index);
+            }}
+            renderItem={(item, index) => (
+              <TextField
+                label={`체크리스트 ${index + 1}`}
+                name={`checklist-${index}`}
+                onChange={(event) => {
+                  updateStringListItem('checklists', index, event.target.value);
+                }}
+                value={item}
+              />
+            )}
+          />
+
+          <AdminFieldArray
+            addLabel='요약 항목 추가'
+            emptyMessage='등록된 요약 항목이 없습니다.'
+            helperText='항목명과 내용을 각각 입력해 카드 형태 요약 정보를 구성합니다.'
+            items={formState.summaryItems}
+            label='요약 항목'
+            onAdd={addSummaryItem}
+            onRemove={removeSummaryItem}
+            renderItem={(item, index) => (
+              <div className={styles['inlineFieldGrid']}>
+                <TextField
+                  label='항목명'
+                  name={`summary-label-${index}`}
+                  onChange={(event) => {
+                    updateSummaryItem(index, 'label', event.target.value);
+                  }}
+                  value={item.label}
+                />
+                <TextField
+                  label='내용'
+                  name={`summary-value-${index}`}
+                  onChange={(event) => {
+                    updateSummaryItem(index, 'value', event.target.value);
+                  }}
+                  value={item.value}
+                />
+              </div>
+            )}
+          />
+
+          <AdminFieldArray
+            addLabel='FAQ 추가'
+            emptyMessage='등록된 FAQ가 없습니다.'
+            helperText='질문과 답변을 각각 입력해 자주 묻는 질문 영역을 구성합니다.'
+            items={formState.faqs}
+            label='FAQ'
+            onAdd={addFaqItem}
+            onRemove={removeFaqItem}
+            renderItem={(item, index) => (
+              <div className={styles['faqFieldGrid']}>
+                <TextField
+                  label='질문'
+                  name={`faq-question-${index}`}
+                  onChange={(event) => {
+                    updateFaqItem(index, 'question', event.target.value);
+                  }}
+                  value={item.question}
+                />
+                <TextAreaField
+                  label='답변'
+                  name={`faq-answer-${index}`}
+                  onChange={(event) => {
+                    updateFaqItem(index, 'answer', event.target.value);
+                  }}
+                  value={item.answer}
+                />
+              </div>
+            )}
+          />
+
+          <div className={styles['actionRow']}>
+            <Button disabled={saveMutation.isPending} onClick={handleSubmit} type='button'>
+              {saveMutation.isPending ? '저장 중...' : mode === 'edit' ? '강의 저장' : '강의 등록'}
             </Button>
           </div>
         </div>
-
-        {mode === 'duplicate' && sourceProgram ? (
-          <div className={styles['selectionHint']}>
-            <strong>복제 원본: {sourceProgram.title}</strong>
-            <span>
-              {sourceProgram.parentCollectionLabel} · {sourceProgram.formatLabel} ·{' '}
-              {sourceProgram.scheduleLabel}
-            </span>
-          </div>
-        ) : null}
-
-        {isEditorLoading ? (
-          <div className={styles['inlineState']}>강의 편집 정보를 불러오는 중입니다.</div>
-        ) : hasEditorError ? (
-          <div className={styles['inlineState']}>
-            불러올 강의 정보를 찾지 못했습니다. 목록으로 돌아가 다시 선택해 주세요.
-          </div>
-        ) : (
-          <>
-            <section className={styles['editorSummary']}>
-              <article className={styles['summaryCard']}>
-                <span className={styles['summaryLabel']}>현재 상태</span>
-                <strong className={styles['summaryValue']}>
-                  {currentProgram ? programStatusLabel[currentProgram.status] : '새 초안'}
-                </strong>
-              </article>
-              <article className={styles['summaryCard']}>
-                <span className={styles['summaryLabel']}>운영 형식</span>
-                <strong className={styles['summaryValue']}>
-                  {programFormatLabel[currentValues.format]} · {formatSummary.formatLabel}
-                </strong>
-              </article>
-              <article className={styles['summaryCard']}>
-                <span className={styles['summaryLabel']}>게시 준비</span>
-                <strong className={styles['summaryValue']}>
-                  {mode === 'edit'
-                    ? detailQuery.data?.isPublishReady
-                      ? '게시 가능'
-                      : '추가 입력 필요'
-                    : '첫 저장 후 확인'}
-                </strong>
-              </article>
-              <article className={styles['summaryCard']}>
-                <span className={styles['summaryLabel']}>공개 경로</span>
-                <strong className={styles['summaryValue']}>
-                  {preview.publicPath || '/programs/.../lecture-slug'}
-                </strong>
-              </article>
-            </section>
-
-            <section className={styles['checklistPanel']}>
-              <div className={styles['sectionHeader']}>
-                <h2 className={styles['subsectionTitle']}>완성 체크리스트</h2>
-                <p className={styles['sectionDescription']}>
-                  게시 전 확인이 필요한 항목만 모아 보여줍니다.
-                </p>
-              </div>
-
-              {mode === 'edit' ? (
-                currentProgramMissingFieldLabels.length ? (
-                  <ul className={styles['checklist']}>
-                    {currentProgramMissingFieldLabels.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className={styles['inlineState']}>지금 상태로 바로 게시할 수 있습니다.</div>
-                )
-              ) : (
-                <div className={styles['inlineState']}>
-                  첫 저장 후 게시 가능 여부와 누락 항목을 같은 화면에서 계속 확인할 수 있습니다.
-                </div>
-              )}
-            </section>
-
-            <div className={styles['editorLayout']}>
-              <form
-                className={styles['formPanel']}
-                onSubmit={(event) => {
-                  event.preventDefault();
-
-                  if (mode === 'edit') {
-                    void handleSave();
-                    return;
-                  }
-
-                  void handleCreateSave();
-                }}
-              >
-                <section className={styles['formSection']}>
-                  <div className={styles['sectionHeader']}>
-                    <h2 className={styles['subsectionTitle']}>기본 정보</h2>
-                    <p className={styles['sectionDescription']}>
-                      등록 메뉴, 제목, 공개 경로와 대표 이미지를 정리합니다.
-                    </p>
-                  </div>
-
-                  <label className={styles['field']}>
-                    <span className={styles['fieldLabel']}>등록 메뉴</span>
-                    <input type='hidden' {...form.register('parentCollectionPath')} />
-                    <CollectionPathPicker
-                      items={menuItems}
-                      onChange={(nextValue) => {
-                        form.setValue('parentCollectionPath', nextValue, {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        });
-                      }}
-                      value={watchedParentCollectionPath}
-                    />
-                  </label>
-
-                  <div className={styles['gridCols2']}>
-                    <TextField
-                      errorMessage={form.formState.errors.title?.message}
-                      label='강의명'
-                      {...form.register('title')}
-                    />
-                    <TextField
-                      {...editorSlugField}
-                      errorMessage={form.formState.errors.slug?.message}
-                      label='공개 URL 슬러그'
-                      onBlur={(event) => {
-                        void editorSlugField.onBlur(event);
-                      }}
-                      onChange={(event) => {
-                        setIsEditorSlugDirty(true);
-                        void editorSlugField.onChange(event);
-                        form.setValue('slug', event.target.value, {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        });
-                      }}
-                      value={watchedSlug}
-                    />
-                  </div>
-
-                  <TextAreaField
-                    errorMessage={form.formState.errors.description?.message}
-                    label='소개 문구'
-                    placeholder='상세페이지 히어로에 노출할 소개 문구를 입력해 주세요.'
-                    {...form.register('description')}
-                  />
-
-                  <div className={styles['gridCols2']}>
-                    <TextField
-                      errorMessage={form.formState.errors.heroImageSrc?.message}
-                      label='대표 이미지 경로'
-                      {...form.register('heroImageSrc')}
-                    />
-                    <TextField
-                      errorMessage={form.formState.errors.heroImageAlt?.message}
-                      label='대표 이미지 설명'
-                      placeholder='대표 이미지 설명은 초안 상태에서도 비워둘 수 있습니다.'
-                      {...form.register('heroImageAlt')}
-                    />
-                  </div>
-                </section>
-
-                <section className={styles['formSection']}>
-                  <div className={styles['sectionHeader']}>
-                    <h2 className={styles['subsectionTitle']}>운영 / 판매</h2>
-                    <p className={styles['sectionDescription']}>
-                      오프라인 기수, 온라인 기간제, 온라인 무제한 수강을 구조화 필드로 등록합니다.
-                    </p>
-                  </div>
-
-                  <div className={styles['gridCols3']}>
-                    <label className={styles['field']}>
-                      <span className={styles['fieldLabel']}>운영 형식</span>
-                      <div className={styles['selectWrap']}>
-                        <select className={styles['select']} {...form.register('format')}>
-                          <option value='offline'>오프라인</option>
-                          <option value='hybrid'>하이브리드</option>
-                          <option value='online'>온라인</option>
-                        </select>
-                      </div>
-                    </label>
-
-                    <label className={styles['field']}>
-                      <span className={styles['fieldLabel']}>수강 정책</span>
-                      <div className={styles['selectWrap']}>
-                        <select className={styles['select']} {...form.register('accessPolicy')}>
-                          <option value='cohort'>기수형 운영</option>
-                          <option value='limited-window'>기간제 수강</option>
-                          <option value='unlimited'>무제한 수강</option>
-                        </select>
-                      </div>
-                    </label>
-
-                    <TextField
-                      disabled={selectedFormat === 'online'}
-                      errorMessage={form.formState.errors.capacity?.message}
-                      label='정원'
-                      placeholder={selectedFormat === 'online' ? '온라인은 비워둡니다.' : '24'}
-                      type='number'
-                      {...form.register('capacity')}
-                    />
-                  </div>
-
-                  <div className={styles['gridCols2']}>
-                    <TextField
-                      label='모집 시작일'
-                      type='date'
-                      {...form.register('registrationStartDate')}
-                    />
-                    <TextField
-                      errorMessage={form.formState.errors.registrationEndDate?.message}
-                      label='모집 종료일'
-                      type='date'
-                      {...form.register('registrationEndDate')}
-                    />
-                  </div>
-
-                  <div className={styles['gridCols2']}>
-                    {selectedFormat === 'online' ? (
-                      <>
-                        <TextField
-                          label={
-                            selectedAccessPolicy === 'unlimited' ? '수강 시작일' : '운영 시작일'
-                          }
-                          type='date'
-                          {...form.register('learningStartDate')}
-                        />
-                        <TextField
-                          errorMessage={form.formState.errors.learningEndDate?.message}
-                          label={
-                            selectedAccessPolicy === 'unlimited' ? '수강 종료일' : '운영 종료일'
-                          }
-                          type='date'
-                          {...form.register('learningEndDate')}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <TextField
-                          label='운영 시작일(자동)'
-                          readOnly
-                          type='date'
-                          value={currentValues.learningStartDate}
-                        />
-                        <TextField
-                          label='운영 종료일(자동)'
-                          readOnly
-                          type='date'
-                          value={currentValues.learningEndDate}
-                        />
-                      </>
-                    )}
-                  </div>
-
-                  <div className={styles['gridCols3']}>
-                    <TextField
-                      errorMessage={form.formState.errors.originalPrice?.message}
-                      label='정가'
-                      min='0'
-                      type='number'
-                      {...form.register('originalPrice')}
-                    />
-                    <TextField
-                      errorMessage={form.formState.errors.price?.message}
-                      label='판매가'
-                      min='0'
-                      type='number'
-                      {...form.register('price')}
-                    />
-                    <TextField
-                      errorMessage={form.formState.errors.difficultyLabel?.message}
-                      label='난이도'
-                      {...form.register('difficultyLabel')}
-                    />
-                  </div>
-
-                  {currentProgram ? (
-                    <div className={styles['readOnlyInfo']}>
-                      <span>누적 판매 수량</span>
-                      <strong>{String(currentProgram.soldCount)}건</strong>
-                    </div>
-                  ) : null}
-                </section>
-
-                <section className={styles['formSection']}>
-                  <div className={styles['sectionHeader']}>
-                    <h2 className={styles['subsectionTitle']}>노출 태그와 학습 포인트</h2>
-                  </div>
-
-                  <div className={styles['gridCols2']}>
-                    <TextAreaField
-                      errorMessage={form.formState.errors.tagsInput?.message}
-                      label='분류 태그'
-                      {...form.register('tagsInput')}
-                    />
-                    <TextAreaField
-                      errorMessage={form.formState.errors.hashtagLabelsInput?.message}
-                      label='히어로 해시태그'
-                      {...form.register('hashtagLabelsInput')}
-                    />
-                  </div>
-
-                  <div className={styles['structuredGroup']}>
-                    <div className={styles['sectionHeader']}>
-                      <h3 className={styles['stackCardTitle']}>핵심 학습 포인트</h3>
-                      <p className={styles['metaText']}>
-                        줄바꿈 대신 항목을 하나씩 추가해 관리합니다.
-                      </p>
-                    </div>
-                    <StructuredListEditor
-                      addLabel='학습 포인트 추가'
-                      canRemoveMinCount={1}
-                      emptyValue={{ value: '' }}
-                      form={form}
-                      name='learningPoints'
-                      title='학습 포인트'
-                    />
-                  </div>
-
-                  <div className={styles['structuredGroup']}>
-                    <div className={styles['sectionHeader']}>
-                      <h3 className={styles['stackCardTitle']}>추천 대상</h3>
-                    </div>
-                    <StructuredListEditor
-                      addLabel='추천 대상 추가'
-                      canRemoveMinCount={1}
-                      emptyValue={{ value: '' }}
-                      form={form}
-                      name='recommendedFor'
-                      title='추천 대상'
-                    />
-                  </div>
-
-                  <div className={styles['structuredGroup']}>
-                    <div className={styles['sectionHeader']}>
-                      <h3 className={styles['stackCardTitle']}>수강 전 체크리스트</h3>
-                    </div>
-                    <StructuredListEditor
-                      addLabel='체크리스트 추가'
-                      canRemoveMinCount={1}
-                      emptyValue={{ value: '' }}
-                      form={form}
-                      name='preparationChecklist'
-                      title='체크리스트'
-                    />
-                  </div>
-                </section>
-
-                <section className={styles['formSection']}>
-                  <div className={styles['sectionHeader']}>
-                    <h2 className={styles['subsectionTitle']}>요약 정보</h2>
-                  </div>
-
-                  <div className={styles['stackList']}>
-                    {statsFieldArray.fields.map((field, index) => {
-                      const fieldIndex = toFieldIndex(index);
-                      const labelFieldName = `stats.${fieldIndex}.label` as const;
-                      const valueFieldName = `stats.${fieldIndex}.value` as const;
-
-                      return (
-                        <div className={styles['stackCard']} key={field.id}>
-                          <div className={styles['stackCardHeader']}>
-                            <strong className={styles['stackCardTitle']}>
-                              요약 항목 {String(index + 1)}
-                            </strong>
-                            <button
-                              className={styles['ghostButton']}
-                              disabled={statsFieldArray.fields.length <= 2}
-                              onClick={() => {
-                                statsFieldArray.remove(index);
-                              }}
-                              type='button'
-                            >
-                              삭제
-                            </button>
-                          </div>
-
-                          <div className={styles['gridCols2']}>
-                            <TextField
-                              errorMessage={form.formState.errors.stats?.[index]?.label?.message}
-                              label='항목명'
-                              {...form.register(labelFieldName)}
-                            />
-                            <TextField
-                              errorMessage={form.formState.errors.stats?.[index]?.value?.message}
-                              label='내용'
-                              {...form.register(valueFieldName)}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <Button
-                    onClick={() => {
-                      statsFieldArray.append({ label: '', value: '' });
-                    }}
-                    type='button'
-                    variant='secondary'
-                  >
-                    요약 항목 추가
-                  </Button>
-                </section>
-
-                <section className={styles['formSection']}>
-                  <div className={styles['sectionHeader']}>
-                    <h2 className={styles['subsectionTitle']}>커리큘럼 / FAQ</h2>
-                  </div>
-
-                  <div className={styles['gridCols2']}>
-                    <TextField
-                      errorMessage={form.formState.errors.curriculumTitle?.message}
-                      label='커리큘럼 제목'
-                      {...form.register('curriculumTitle')}
-                    />
-
-                    <label className={styles['field']}>
-                      <span className={styles['fieldLabel']}>요약 리스트 타입</span>
-                      <div className={styles['selectWrap']}>
-                        <select
-                          className={styles['select']}
-                          {...form.register('curriculumSummaryKind')}
-                        >
-                          <option value='disc'>불릿 리스트</option>
-                          <option value='decimal'>숫자 리스트</option>
-                        </select>
-                      </div>
-                    </label>
-                  </div>
-
-                  <TextAreaField
-                    errorMessage={form.formState.errors.curriculumSummaryItemsInput?.message}
-                    label='커리큘럼 요약 항목'
-                    {...form.register('curriculumSummaryItemsInput')}
-                  />
-
-                  <div className={styles['stackList']}>
-                    {curriculumFieldArray.fields.map((field, index) => {
-                      return (
-                        <CurriculumSectionEditor
-                          canRemove={curriculumFieldArray.fields.length > 1}
-                          form={form}
-                          index={index}
-                          key={field.id}
-                          onRemove={() => {
-                            curriculumFieldArray.remove(index);
-                          }}
-                          selectedFormat={selectedFormat}
-                        />
-                      );
-                    })}
-                  </div>
-
-                  <Button
-                    onClick={() => {
-                      appendCurriculumSection(
-                        curriculumFieldArray.append,
-                        selectedFormat,
-                        curriculumFieldArray.fields.length,
-                      );
-                    }}
-                    type='button'
-                    variant='secondary'
-                  >
-                    커리큘럼 섹션 추가
-                  </Button>
-
-                  <div className={styles['stackList']}>
-                    {faqFieldArray.fields.map((field, index) => {
-                      const fieldIndex = toFieldIndex(index);
-                      const questionFieldName = `faqItems.${fieldIndex}.question` as const;
-                      const answerFieldName = `faqItems.${fieldIndex}.answer` as const;
-
-                      return (
-                        <div className={styles['stackCard']} key={field.id}>
-                          <div className={styles['stackCardHeader']}>
-                            <strong className={styles['stackCardTitle']}>
-                              FAQ {String(index + 1)}
-                            </strong>
-                            <button
-                              className={styles['ghostButton']}
-                              disabled={faqFieldArray.fields.length <= 2}
-                              onClick={() => {
-                                faqFieldArray.remove(index);
-                              }}
-                              type='button'
-                            >
-                              삭제
-                            </button>
-                          </div>
-
-                          <TextField
-                            errorMessage={
-                              form.formState.errors.faqItems?.[index]?.question?.message
-                            }
-                            label='질문'
-                            {...form.register(questionFieldName)}
-                          />
-                          <TextAreaField
-                            errorMessage={form.formState.errors.faqItems?.[index]?.answer?.message}
-                            label='답변'
-                            {...form.register(answerFieldName)}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <Button
-                    onClick={() => {
-                      faqFieldArray.append({ answer: '', question: '' });
-                    }}
-                    type='button'
-                    variant='secondary'
-                  >
-                    FAQ 추가
-                  </Button>
-                </section>
-
-                <div className={styles['actionRow']}>
-                  <Button
-                    disabled={
-                      creationAction !== null ||
-                      saveMutation.isPending ||
-                      publishMutation.isPending ||
-                      hideMutation.isPending
-                    }
-                    type='submit'
-                  >
-                    {saveButtonLabel}
-                  </Button>
-                  <Button
-                    disabled={
-                      creationAction !== null ||
-                      saveMutation.isPending ||
-                      publishMutation.isPending ||
-                      hideMutation.isPending
-                    }
-                    onClick={() => {
-                      if (mode === 'edit') {
-                        void handlePublish();
-                        return;
-                      }
-
-                      void handleCreatePublish();
-                    }}
-                    type='button'
-                  >
-                    {publishButtonLabel}
-                  </Button>
-                  {currentProgram?.status === 'published' ? (
-                    <Button
-                      disabled={hideMutation.isPending}
-                      onClick={() => {
-                        void handleHide();
-                      }}
-                      type='button'
-                      variant='secondary'
-                    >
-                      숨김
-                    </Button>
-                  ) : null}
-                </div>
-              </form>
-
-              <aside className={styles['previewPanel']}>
-                <div className={styles['sectionHeader']}>
-                  <p className={styles['eyebrow']}>Preview</p>
-                  <h2 className={styles['subsectionTitle']}>공개 페이지 미리보기</h2>
-                  <p className={styles['sectionDescription']}>
-                    구조화 필드로 입력한 일정과 수강 정책이 공개 페이지 문구로 어떻게 보일지
-                    확인합니다.
-                  </p>
-                </div>
-
-                <section className={styles['previewHero']}>
-                  <div className={styles['previewMetaRow']}>
-                    <span className={styles['statusBadge']} data-status={previewStatus}>
-                      {preview.statusLabel}
-                    </span>
-                    <span className={styles['metaText']}>{preview.collectionLabelPath}</span>
-                  </div>
-                  <h3 className={styles['previewProgramTitle']}>
-                    {preview.title || '강의명을 입력하면 여기에 반영됩니다.'}
-                  </h3>
-                  <p className={styles['previewProgramDescription']}>
-                    {preview.description || '소개 문구를 입력하면 공개 페이지 요약이 반영됩니다.'}
-                  </p>
-                  <div className={styles['previewHashTags']}>
-                    {preview.hashtags.length ? (
-                      preview.hashtags.slice(0, 4).map((item) => (
-                        <span className={styles['previewHashTag']} key={item}>
-                          #{item}
-                        </span>
-                      ))
-                    ) : (
-                      <span className={styles['metaText']}>
-                        태그를 입력하면 히어로에 반영됩니다.
-                      </span>
-                    )}
-                  </div>
-                  <div className={styles['previewPillRow']}>
-                    {preview.heroInfoPills.map((item) => (
-                      <div className={styles['previewPill']} key={`${item.label}-${item.value}`}>
-                        <span className={styles['previewPillLabel']}>{item.label}</span>
-                        <span className={styles['previewPillValue']}>{item.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <section className={styles['previewPricePanel']}>
-                  <div className={styles['previewPriceRow']}>
-                    <span>정가</span>
-                    <span>{preview.originalPriceLabel}</span>
-                  </div>
-                  <div className={styles['previewPriceRowStrong']}>
-                    <span>{preview.discountRateLabel}</span>
-                    <strong>{preview.priceLabel}</strong>
-                  </div>
-                  <div className={styles['previewInlineList']}>
-                    <span>{preview.formatLabel}</span>
-                    <span>{preview.difficultyLabel}</span>
-                    <span>{preview.durationLabel}</span>
-                  </div>
-                  <p className={styles['metaText']}>모집 기간: {preview.registrationPeriodLabel}</p>
-                  {preview.operationPeriodLabel ? (
-                    <p className={styles['metaText']}>운영 기간: {preview.operationPeriodLabel}</p>
-                  ) : null}
-                  <p className={styles['metaText']}>{preview.scheduleLabel}</p>
-                  <p className={styles['metaText']}>{preview.tuitionLabel}</p>
-                  <p className={styles['metaText']}>
-                    공개 경로:{' '}
-                    <code className={styles['code']}>
-                      {preview.publicPath || '/programs/.../lecture-slug'}
-                    </code>
-                  </p>
-                </section>
-
-                <section className={styles['previewSection']}>
-                  <h2 className={styles['subsectionTitle']}>요약 미리보기</h2>
-                  <div className={styles['summaryGrid']}>
-                    <article className={styles['summaryCard']}>
-                      <span className={styles['summaryLabel']}>학습 포인트</span>
-                      <strong className={styles['summaryValue']}>
-                        {String(preview.learningPoints.length)}개
-                      </strong>
-                    </article>
-                    <article className={styles['summaryCard']}>
-                      <span className={styles['summaryLabel']}>커리큘럼</span>
-                      <strong className={styles['summaryValue']}>
-                        {String(preview.curriculumSectionCount)}개
-                      </strong>
-                    </article>
-                    <article className={styles['summaryCard']}>
-                      <span className={styles['summaryLabel']}>FAQ</span>
-                      <strong className={styles['summaryValue']}>
-                        {String(preview.faqCount)}개
-                      </strong>
-                    </article>
-                  </div>
-
-                  <ul className={styles['previewList']}>
-                    {preview.curriculumSummaryItems.slice(0, 4).map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </section>
-              </aside>
-            </div>
-          </>
-        )}
-      </section>
-    </div>
+      </div>
+    </section>
   );
 };
 

@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-import { shouldUseMockFallback } from '@/api/fallback';
 import { http } from '@/api/http';
 import { searchScopeValues } from '@/search/programSearchShared';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
@@ -48,38 +47,31 @@ const backendProgramSearchIndexResponseSchema = z.object({
 });
 
 export const fetchProgramSearchIndex = async (): Promise<ProgramSearchIndexResponse> => {
-  try {
-    const responseData = await http.get<unknown>('/api/v1/catalog/search-index');
+  const responseData = await http.get<unknown>('/api/v1/catalog/search-index');
 
-    const parsed = programSearchIndexResponseSchema.safeParse(responseData);
+  const parsed = programSearchIndexResponseSchema.safeParse(responseData);
 
-    if (parsed.success) {
-      return parsed.data;
-    }
-
-    const backendParsed = backendProgramSearchIndexResponseSchema.safeParse(responseData);
-
-    if (!backendParsed.success) {
-      throw new Error(`[programSearch] Invalid response.${toZodErrorMessage(backendParsed.error)}`);
-    }
-
-    return {
-      items: backendParsed.data.items.map((item) => ({
-        id: `lecture-${String(item.programId)}`,
-        scope: 'lecture',
-        to: item.detailPath,
-        title: item.title,
-        description: item.description?.trim() || `${item.categoryName} 강의`,
-        categoryLabel: item.categoryName,
-        tags: item.tagNames,
-        thumbnailSrc: item.thumbnailUrl || '/SRDMS_OG.png',
-        thumbnailAlt: `${item.title} 썸네일`,
-      })),
-    };
-  } catch (error) {
-    if (!shouldUseMockFallback(error)) {
-      throw error;
-    }
-    throw error;
+  if (parsed.success) {
+    return parsed.data;
   }
+
+  const backendParsed = backendProgramSearchIndexResponseSchema.safeParse(responseData);
+
+  if (!backendParsed.success) {
+    throw new Error(`[programSearch] Invalid response.${toZodErrorMessage(backendParsed.error)}`);
+  }
+
+  return {
+    items: backendParsed.data.items.map((item) => ({
+      id: `lecture-${String(item.programId)}`,
+      scope: 'lecture',
+      to: item.detailPath,
+      title: item.title,
+      description: item.description?.trim() || `${item.categoryName} 강의`,
+      categoryLabel: item.categoryName,
+      tags: item.tagNames,
+      thumbnailSrc: item.thumbnailUrl || '/SRDMS_OG.png',
+      thumbnailAlt: `${item.title} 썸네일`,
+    })),
+  };
 };

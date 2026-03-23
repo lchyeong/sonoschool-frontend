@@ -95,7 +95,7 @@ const SearchPage = () => {
       {isError ? (
         <section className={styles['stateSection']}>
           <p className={styles['stateTitle']}>검색 데이터를 불러오지 못했습니다.</p>
-          <p className={styles['stateDescription']}>API 또는 MSW 설정을 확인해 주세요.</p>
+          <p className={styles['stateDescription']}>검색 API와 서버 상태를 확인해 주세요.</p>
         </section>
       ) : null}
 

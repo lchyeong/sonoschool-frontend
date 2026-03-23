@@ -2,37 +2,35 @@ import { create } from 'zustand';
 
 import type { StudentSession, StudentSessionSnapshot } from '@/types/auth';
 
+import { isExpiredSession } from './sessionExpiry';
+
 const AUTH_STORAGE_KEY = 'student_auth_session';
+
+const createEmptyStudentSessionSnapshot = (): StudentSessionSnapshot => {
+  return {
+    accessToken: '',
+    tokenType: '',
+    expiresAt: '',
+    loginId: '',
+    displayName: '',
+    role: '',
+    isAuthenticated: false,
+  };
+};
 
 const parsePersistedSnapshot = (): StudentSessionSnapshot => {
   if (typeof window === 'undefined') {
-    return {
-      accessToken: '',
-      tokenType: '',
-      expiresAt: '',
-      loginId: '',
-      displayName: '',
-      role: '',
-      isAuthenticated: false,
-    };
+    return createEmptyStudentSessionSnapshot();
   }
 
   const storedValue = window.localStorage.getItem(AUTH_STORAGE_KEY);
   if (!storedValue) {
-    return {
-      accessToken: '',
-      tokenType: '',
-      expiresAt: '',
-      loginId: '',
-      displayName: '',
-      role: '',
-      isAuthenticated: false,
-    };
+    return createEmptyStudentSessionSnapshot();
   }
 
   try {
     const parsed = JSON.parse(storedValue) as Partial<StudentSessionSnapshot>;
-    return {
+    const nextSnapshot: StudentSessionSnapshot = {
       accessToken: typeof parsed.accessToken === 'string' ? parsed.accessToken : '',
       tokenType: typeof parsed.tokenType === 'string' ? parsed.tokenType : '',
       expiresAt: typeof parsed.expiresAt === 'string' ? parsed.expiresAt : '',
@@ -41,16 +39,12 @@ const parsePersistedSnapshot = (): StudentSessionSnapshot => {
       role: typeof parsed.role === 'string' ? parsed.role : '',
       isAuthenticated: parsed.isAuthenticated === true,
     };
+
+    return nextSnapshot.isAuthenticated && isExpiredSession(nextSnapshot.expiresAt)
+      ? createEmptyStudentSessionSnapshot()
+      : nextSnapshot;
   } catch {
-    return {
-      accessToken: '',
-      tokenType: '',
-      expiresAt: '',
-      loginId: '',
-      displayName: '',
-      role: '',
-      isAuthenticated: false,
-    };
+    return createEmptyStudentSessionSnapshot();
   }
 };
 
@@ -110,15 +104,7 @@ export const useAuthStore = create<AuthState>((set) => {
       });
     },
     logout: () => {
-      const resetState: StudentSessionSnapshot = {
-        accessToken: '',
-        tokenType: '',
-        expiresAt: '',
-        loginId: '',
-        displayName: '',
-        role: '',
-        isAuthenticated: false,
-      };
+      const resetState = createEmptyStudentSessionSnapshot();
       persistSnapshot(resetState);
       set(resetState);
     },
@@ -126,7 +112,14 @@ export const useAuthStore = create<AuthState>((set) => {
 });
 
 export const getStudentAccessToken = (): string => {
-  return useAuthStore.getState().accessToken;
+  const currentState = useAuthStore.getState();
+
+  if (!currentState.isAuthenticated || isExpiredSession(currentState.expiresAt)) {
+    useAuthStore.getState().logout();
+    return '';
+  }
+
+  return currentState.accessToken;
 };
 
 export const setStudentSession = (session: StudentSession) => {
@@ -144,5 +137,12 @@ export const clearStudentSession = () => {
 };
 
 export const isStudentAuthenticated = (): boolean => {
-  return useAuthStore.getState().isAuthenticated;
+  const currentState = useAuthStore.getState();
+
+  if (!currentState.isAuthenticated || isExpiredSession(currentState.expiresAt)) {
+    useAuthStore.getState().logout();
+    return false;
+  }
+
+  return true;
 };

@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { type ReactElement, useEffect } from 'react';
 
 import { createBrowserRouter } from 'react-router-dom';
 import { Navigate, useLocation } from 'react-router-dom';
@@ -37,13 +37,14 @@ import {
   routePaths,
   type AppRouteKey,
 } from '@/routes/routeRegistry';
+import { isExpiredSession } from '@/stores/sessionExpiry';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 const appRouteElements: Record<AppRouteKey, ReactElement> = {
   home: <HomePage />,
   login: <LoginPage />,
   adminLogin: <AdminLoginPage />,
-  admin: <Navigate replace to={routePaths.adminVideos} />,
+  admin: <Navigate replace to={routePaths.adminPrograms} />,
   adminNotices: <AdminConsolePage section='notices' />,
   adminQna: <AdminConsolePage section='qna' />,
   adminResources: <AdminConsolePage section='resources' />,
@@ -54,7 +55,7 @@ const appRouteElements: Record<AppRouteKey, ReactElement> = {
   adminProgramDuplicate: <AdminProgramEditorSection mode='duplicate' />,
   adminProgramMenus: <AdminConsolePage section='programMenus' />,
   adminVideos: <AdminVideoUploadPage />,
-  adminSales: <AdminConsolePage section='sales' />,
+  adminPayments: <AdminConsolePage section='payments' />,
   signup: <SignupPage />,
   accountRecovery: <AccountRecoveryPage />,
   mypage: <MyPagePage />,
@@ -89,7 +90,7 @@ const adminConsoleRouteKeys = [
   'adminProgramDuplicate',
   'adminProgramMenus',
   'adminVideos',
-  'adminSales',
+  'adminPayments',
 ] as const satisfies readonly AppRouteKey[];
 const adminRouteKeySet = new Set<AppRouteKey>([...adminAuthRouteKeys, ...adminConsoleRouteKeys]);
 
@@ -100,14 +101,25 @@ const RouteAccessBoundary = ({
   access: 'authenticated' | 'guest-only' | 'public';
   children: ReactElement;
 }) => {
+  const expiresAt = useAuthStore((state) => state.expiresAt);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const logout = useAuthStore((state) => state.logout);
   const location = useLocation();
+  const isSessionExpired = isAuthenticated && isExpiredSession(expiresAt);
 
-  if (access === 'authenticated' && !isAuthenticated) {
+  useEffect(() => {
+    if (!isSessionExpired) {
+      return;
+    }
+
+    logout();
+  }, [isSessionExpired, logout]);
+
+  if (access === 'authenticated' && (!isAuthenticated || isSessionExpired)) {
     return <Navigate replace state={{ from: location }} to={routePaths.login} />;
   }
 
-  if (access === 'guest-only' && isAuthenticated) {
+  if (access === 'guest-only' && isAuthenticated && !isSessionExpired) {
     return <Navigate replace to={routePaths.mypage} />;
   }
 

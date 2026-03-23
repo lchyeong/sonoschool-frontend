@@ -9,6 +9,7 @@ import {
   fetchAdminVideoStatus,
   startAdminVideoEncoding,
 } from '@/api/adminVideos';
+import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
 import { useToastStore } from '@/stores/useToastStore';
 import type {
@@ -67,11 +68,8 @@ const stripETagQuotes = (value: string): string => {
 };
 
 const uploadPart = async (uploadUrl: string, chunk: Blob, contentType: string): Promise<string> => {
-  if (uploadUrl.startsWith('mock://')) {
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 120);
-    });
-    return `mock-etag-${String(chunk.size)}`;
+  if (!/^https?:\/\//.test(uploadUrl)) {
+    throw new Error('유효한 업로드 URL이 아닙니다. 업로드 세션을 다시 생성해 주세요.');
   }
 
   const response = await fetch(uploadUrl, {
@@ -399,69 +397,65 @@ const AdminVideoUploadPage = () => {
           <h2 className={styles['panelTitle']}>1. 강의 선택</h2>
 
           <div className={styles['fieldGroup']}>
-            <label className={styles['selectField']}>
-              <span className={styles['fieldLabel']}>과정 선택</span>
-              <div className={styles['selectWrap']}>
-                <select
-                  className={styles['select']}
-                  disabled={isLoadingPrograms || !programs.length}
-                  onChange={(event) => {
-                    const nextValue = event.target.value.trim();
-                    setSelectedProgramId(nextValue || null);
-                  }}
-                  value={selectedProgramId ?? ''}
-                >
-                  <option value=''>
-                    {isLoadingPrograms ? '과정 불러오는 중...' : '과정을 선택해 주세요'}
-                  </option>
-                  {programs.map((program) => (
-                    <option key={program.id} value={program.id}>
-                      [{program.categoryName}] {program.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className={styles['selectField']}>
+              <AdminDropdownField
+                label='과정 선택'
+                disabled={isLoadingPrograms || !programs.length}
+                onChange={(nextValue) => {
+                  const normalizedValue = nextValue.trim();
+                  setSelectedProgramId(normalizedValue || null);
+                }}
+                options={[
+                  {
+                    value: '',
+                    label: isLoadingPrograms ? '과정 불러오는 중...' : '과정을 선택해 주세요',
+                  },
+                  ...programs.map((program) => ({
+                    value: program.id,
+                    label: `[${program.categoryName}] ${program.title}`,
+                  })),
+                ]}
+                value={selectedProgramId ?? ''}
+              />
               {!isLoadingPrograms && programs.length === 0 ? (
                 <p className={styles['helperText']}>
                   현재 등록된 과정이 없습니다. 실데이터 기준으로 과정/강의 시드가 먼저 필요합니다.
                 </p>
               ) : null}
-            </label>
+            </div>
 
-            <label className={styles['selectField']}>
-              <span className={styles['fieldLabel']}>강의 선택</span>
-              <div className={styles['selectWrap']}>
-                <select
-                  className={styles['select']}
-                  disabled={!selectedProgramId || isLoadingLectures || !lectureOptions.length}
-                  onChange={(event) => {
-                    const nextValue = event.target.value.trim();
-                    setSelectedLectureId(nextValue || null);
-                  }}
-                  value={selectedLectureId ?? ''}
-                >
-                  <option value=''>
-                    {!selectedProgramId
+            <div className={styles['selectField']}>
+              <AdminDropdownField
+                label='강의 선택'
+                disabled={!selectedProgramId || isLoadingLectures || !lectureOptions.length}
+                onChange={(nextValue) => {
+                  const normalizedValue = nextValue.trim();
+                  setSelectedLectureId(normalizedValue || null);
+                }}
+                options={[
+                  {
+                    value: '',
+                    label: !selectedProgramId
                       ? '먼저 과정을 선택해 주세요'
                       : isLoadingLectures
                         ? '강의 불러오는 중...'
                         : lectureOptions.length
                           ? '강의를 선택해 주세요'
-                          : '등록된 강의가 없습니다'}
-                  </option>
-                  {lectureOptions.map((lecture) => (
-                    <option key={lecture.id} value={lecture.id}>
-                      [{lecture.sectionTitle}] {lecture.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                          : '등록된 강의가 없습니다',
+                  },
+                  ...lectureOptions.map((lecture) => ({
+                    value: lecture.id,
+                    label: `[${lecture.sectionTitle}] ${lecture.title}`,
+                  })),
+                ]}
+                value={selectedLectureId ?? ''}
+              />
               {selectedProgramId && !isLoadingLectures && lectureOptions.length === 0 ? (
                 <p className={styles['helperText']}>
                   선택한 과정에 등록된 강의가 없습니다. 강의를 먼저 생성해야 영상 등록이 가능합니다.
                 </p>
               ) : null}
-            </label>
+            </div>
           </div>
 
           <div className={styles['metaGrid']}>

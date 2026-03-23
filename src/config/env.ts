@@ -10,7 +10,6 @@ const envSchema = z.object({
   VITE_APP_NAME: z.string().min(1).optional(),
   VITE_API_URL: z.url().optional(),
   VITE_API_BASE_URL: z.url().optional(),
-  VITE_ENABLE_MOCK: booleanString,
   VITE_ENABLE_ANALYTICS: booleanString,
   VITE_SITE_URL: z.url().optional(),
   VITE_TURNSTILE_SITE_KEY: z.string().min(1).optional(),

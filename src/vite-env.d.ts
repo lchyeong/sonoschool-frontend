@@ -27,7 +27,6 @@ interface ImportMetaEnv {
   readonly VITE_GTM_CONTAINER_ID?: string; // Google Tag Manager Container ID (GTM-XXXXXXX)
   readonly VITE_SENTRY_DSN?: string; // Sentry DSN
   readonly VITE_WS_URL?: string; // WebSocket URL
-  readonly VITE_ENABLE_MOCK?: string; // Mock API 활성화 ('true' | 'false')
   readonly VITE_TURNSTILE_SITE_KEY?: string; // Cloudflare Turnstile Site Key
   readonly VITE_CONTACT_PHONE_NUMBER?: string; // (선택) CALL US 전화번호
   readonly VITE_SITE_URL?: string; // 사이트 URL (SEO/OG)

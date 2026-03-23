@@ -1,20 +1,8 @@
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import { shouldUseMockFallback } from '@/api/fallback';
 import { addGuestCartItem, getGuestCart, removeGuestCartItem } from '@/api/guestCart';
 import { fetchPaymentHistory } from '@/api/payments';
 import { env } from '@/config/env';
-import {
-  addMockMyCartItem,
-  getMockMyCart,
-  getMockMyCoupons,
-  getMockMyProfile,
-  getMockMyRefunds,
-  removeMockMyCartItem,
-  sendMockMyPhoneVerification,
-  updateMockMyProfile,
-  verifyMockMyPhoneChange,
-} from '@/mocks/data/mypage';
 import { getStudentAccessToken, isStudentAuthenticated } from '@/stores/useAuthStore';
 import type { ApiEnvelope, SmsSendPayload, SmsSendResponse, SmsVerifyPayload } from '@/types/auth';
 import type {
@@ -36,8 +24,6 @@ import { formatPaymentMethodLabel, type PaymentResult } from '@/types/payment';
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
-
-const shouldPreferMockMyPage = env.VITE_ENABLE_MOCK;
 
 interface BackendUserProfile {
   loginId: string;
@@ -86,27 +72,15 @@ const toRefundHistory = (payment: PaymentResult): RefundHistory | null => {
 };
 
 export const fetchMyProfile = async (): Promise<UserProfile> => {
-  if (shouldPreferMockMyPage) {
-    return getMockMyProfile();
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<BackendUserProfile>>('/api/users/me');
     return toUserProfile(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      return getMockMyProfile();
-    }
-
     throw toApiError(error, '내 정보를 불러오지 못했습니다.');
   }
 };
 
 export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promise<UserProfile> => {
-  if (shouldPreferMockMyPage) {
-    return updateMockMyProfile(payload);
-  }
-
   try {
     const response = await axiosInstance.patch<ApiEnvelope<BackendUserProfile>>('/api/users/me', {
       name: payload.name,
@@ -114,10 +88,6 @@ export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promis
     });
     return toUserProfile(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      return updateMockMyProfile(payload);
-    }
-
     throw toApiError(error, '회원 정보를 수정하지 못했습니다.');
   }
 };
@@ -125,14 +95,6 @@ export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promis
 export const sendMyPhoneVerification = async (
   payload: SmsSendPayload,
 ): Promise<SmsSendResponse> => {
-  if (shouldPreferMockMyPage) {
-    const mockResponse = sendMockMyPhoneVerification(payload);
-
-    if (mockResponse) {
-      return mockResponse;
-    }
-  }
-
   try {
     const response = await axiosInstance.post<ApiEnvelope<SmsSendResponse>>(
       '/api/users/me/phone/send',
@@ -140,27 +102,11 @@ export const sendMyPhoneVerification = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = sendMockMyPhoneVerification(payload);
-
-      if (mockResponse) {
-        return mockResponse;
-      }
-    }
-
     throw toApiError(error, '인증번호 발송에 실패했습니다.');
   }
 };
 
 export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<UserProfile> => {
-  if (shouldPreferMockMyPage) {
-    const mockResponse = verifyMockMyPhoneChange(payload);
-
-    if (mockResponse) {
-      return mockResponse;
-    }
-  }
-
   try {
     const response = await axiosInstance.post<ApiEnvelope<BackendUserProfile>>(
       '/api/users/me/phone/verify',
@@ -168,14 +114,6 @@ export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<Us
     );
     return toUserProfile(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockResponse = verifyMockMyPhoneChange(payload);
-
-      if (mockResponse) {
-        return mockResponse;
-      }
-    }
-
     throw toApiError(error, '휴대폰 번호를 변경하지 못했습니다.');
   }
 };
@@ -257,7 +195,7 @@ export const sendLectureProgressBeacon = (
   lectureId: number,
   watchedSeconds: number,
 ) => {
-  if (shouldPreferMockMyPage || typeof fetch !== 'function') {
+  if (typeof fetch !== 'function') {
     return false;
   }
 
@@ -295,18 +233,10 @@ export const fetchMyCart = async (): Promise<CartSummary> => {
     return getGuestCart();
   }
 
-  if (shouldPreferMockMyPage) {
-    return getMockMyCart();
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<CartSummary>>('/api/v1/cart');
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      return getMockMyCart();
-    }
-
     throw toApiError(error, '장바구니를 불러오지 못했습니다.');
   }
 };
@@ -316,18 +246,10 @@ export const fetchMyCoupons = async (): Promise<UserCoupon[]> => {
     return [];
   }
 
-  if (shouldPreferMockMyPage) {
-    return getMockMyCoupons();
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<UserCoupon[]>>('/api/v1/my/coupons');
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      return getMockMyCoupons();
-    }
-
     throw toApiError(error, '쿠폰 목록을 불러오지 못했습니다.');
   }
 };
@@ -348,29 +270,17 @@ export const addMyCartItem = async (payload: AddToCartPayload): Promise<CartSumm
     return addGuestCartItem(payload);
   }
 
-  if (shouldPreferMockMyPage) {
-    return addMockMyCartItem(payload);
-  }
-
   try {
     const response = await axiosInstance.post<ApiEnvelope<CartSummary>>('/api/v1/cart/items', {
       programId: payload.programId,
     });
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      return addMockMyCartItem(payload);
-    }
-
     throw toApiError(error, '장바구니에 담지 못했습니다.');
   }
 };
 
 export const applyMyCartCoupon = async (couponCode: string): Promise<CartSummary> => {
-  if (shouldPreferMockMyPage) {
-    return getMockMyCart();
-  }
-
   try {
     const response = await axiosInstance.post<ApiEnvelope<CartSummary>>('/api/v1/cart/coupon', {
       code: couponCode,
@@ -382,10 +292,6 @@ export const applyMyCartCoupon = async (couponCode: string): Promise<CartSummary
 };
 
 export const clearMyCartCoupon = async (): Promise<CartSummary> => {
-  if (shouldPreferMockMyPage) {
-    return getMockMyCart();
-  }
-
   try {
     const response = await axiosInstance.delete<ApiEnvelope<CartSummary>>('/api/v1/cart/coupon');
     return unwrapApiEnvelope(response.data);
@@ -399,39 +305,23 @@ export const removeMyCartItem = async (cartItemId: number): Promise<CartSummary>
     return removeGuestCartItem(cartItemId);
   }
 
-  if (shouldPreferMockMyPage) {
-    return removeMockMyCartItem(cartItemId);
-  }
-
   try {
     const response = await axiosInstance.delete<ApiEnvelope<CartSummary>>(
       `/api/v1/cart/items/${String(cartItemId)}`,
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      return removeMockMyCartItem(cartItemId);
-    }
-
     throw toApiError(error, '장바구니에서 제거하지 못했습니다.');
   }
 };
 
 export const fetchMyRefunds = async (): Promise<RefundHistory[]> => {
-  if (shouldPreferMockMyPage) {
-    return getMockMyRefunds();
-  }
-
   try {
     const payments = await fetchPaymentHistory();
     return payments
       .map(toRefundHistory)
       .filter((refund): refund is RefundHistory => refund !== null);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      return getMockMyRefunds();
-    }
-
     throw toApiError(error, '취소/환불 내역을 불러오지 못했습니다.');
   }
 };

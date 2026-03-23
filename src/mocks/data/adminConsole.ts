@@ -70,12 +70,12 @@ interface MockAdminConsoleState {
 }
 
 const ADMIN_IDENTIFIER = 'admin';
-const ADMIN_PASSWORD = '1234';
+const ADMIN_PASSWORD = 'password123';
 const ADMIN_DISPLAY_NAME = '소노스쿨 운영 관리자';
+const MOCK_PROGRAM_SCOPE = 'default';
 
 let mockIdCounter = 1;
-
-const adminConsoleStateBySite = new Map<string, MockAdminConsoleState>();
+let adminConsoleState: MockAdminConsoleState | null = null;
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR', {
   currency: 'KRW',
@@ -267,20 +267,20 @@ const buildInitialState = (): MockAdminConsoleState => {
   };
 };
 
-const getState = (siteKey: string): MockAdminConsoleState => {
-  const existingState = adminConsoleStateBySite.get(siteKey);
-  if (existingState) return existingState;
+const getState = (): MockAdminConsoleState => {
+  if (adminConsoleState) {
+    return adminConsoleState;
+  }
 
-  const nextState = buildInitialState();
-  adminConsoleStateBySite.set(siteKey, nextState);
-  return nextState;
+  adminConsoleState = buildInitialState();
+  return adminConsoleState;
 };
 
-const buildAdminConsoleResponse = (siteKey: string): AdminConsoleResponse => {
-  const state = getState(siteKey);
+const buildAdminConsoleResponse = (): AdminConsoleResponse => {
+  const state = getState();
   const basePrograms = state.programs.map(toProgramItem);
-  const managedPrograms = getMockAdminManagedPrograms(siteKey);
-  const programs = [...getMockAdminManagedProgramSummaries(siteKey), ...basePrograms];
+  const managedPrograms = getMockAdminManagedPrograms(MOCK_PROGRAM_SCOPE);
+  const programs = [...getMockAdminManagedProgramSummaries(MOCK_PROGRAM_SCOPE), ...basePrograms];
 
   const totalRevenue = programs.reduce(
     (sum, program) => sum + program.price * program.soldCount,
@@ -305,8 +305,8 @@ const buildAdminConsoleResponse = (siteKey: string): AdminConsoleResponse => {
     notices: cloneData(
       [...state.notices].sort((left, right) => right.publishedAt.localeCompare(left.publishedAt)),
     ),
-    programMenus: cloneData(getMockAdminProgramMenus(siteKey)),
-    programCollectionOptions: cloneData(getMockAdminProgramCollectionOptions(siteKey)),
+    programMenus: cloneData(getMockAdminProgramMenus(MOCK_PROGRAM_SCOPE)),
+    programCollectionOptions: cloneData(getMockAdminProgramCollectionOptions(MOCK_PROGRAM_SCOPE)),
     programs: cloneData(
       [...programs].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
     ),
@@ -377,52 +377,44 @@ const buildAdminConsoleResponse = (siteKey: string): AdminConsoleResponse => {
   };
 };
 
-export const getMockAdminConsole = (siteKey: string): AdminConsoleResponse => {
-  return buildAdminConsoleResponse(siteKey);
+export const getMockAdminConsole = (): AdminConsoleResponse => {
+  return buildAdminConsoleResponse();
 };
 
-export const getMockAdminProgramMenuTreeResponse = (
-  siteKey: string,
-): AdminProgramMenuTreeResponse => {
-  return cloneData(getMockAdminProgramMenuTree(siteKey));
+export const getMockAdminProgramMenuTreeResponse = (): AdminProgramMenuTreeResponse => {
+  return cloneData(getMockAdminProgramMenuTree(MOCK_PROGRAM_SCOPE));
 };
 
 export const getMockAdminProgramMenuDetailResponse = (
-  siteKey: string,
   menuId: string,
 ): AdminProgramMenuDetailResponse | null => {
-  const detail = getMockAdminProgramMenuDetail(siteKey, menuId);
+  const detail = getMockAdminProgramMenuDetail(MOCK_PROGRAM_SCOPE, menuId);
 
   return detail ? cloneData(detail) : null;
 };
 
-export const getMockAdminProgramsResponse = (
-  siteKey: string,
-  options?: {
-    collectionPath?: string | null;
-    format?: AdminProgramFormat | 'all';
-    query?: string;
-    status?: AdminProgramStatus | 'all';
-  },
-): AdminProgramsResponse => {
-  return cloneData(getMockAdminPrograms(siteKey, options));
+export const getMockAdminProgramsResponse = (options?: {
+  collectionPath?: string | null;
+  format?: AdminProgramFormat | 'all';
+  query?: string;
+  status?: AdminProgramStatus | 'all';
+}): AdminProgramsResponse => {
+  return cloneData(getMockAdminPrograms(MOCK_PROGRAM_SCOPE, options));
 };
 
 export const getMockAdminProgramDetailResponse = (
-  siteKey: string,
   programId: string,
 ): AdminProgramDetailResponse | null => {
-  const detail = getMockAdminProgramDetail(siteKey, programId);
+  const detail = getMockAdminProgramDetail(MOCK_PROGRAM_SCOPE, programId);
 
   return detail ? cloneData(detail) : null;
 };
 
 export const attemptMockAdminLogin = (
-  siteKey: string,
   identifier: string,
   password: string,
 ): AdminLoginResponse | null => {
-  getState(siteKey);
+  getState();
 
   if (identifier !== ADMIN_IDENTIFIER || password !== ADMIN_PASSWORD) {
     return null;
@@ -438,11 +430,8 @@ export const attemptMockAdminLogin = (
   };
 };
 
-export const createMockAdminNotice = (
-  siteKey: string,
-  payload: CreateAdminNoticePayload,
-): AdminNoticeItem => {
-  const state = getState(siteKey);
+export const createMockAdminNotice = (payload: CreateAdminNoticePayload): AdminNoticeItem => {
+  const state = getState();
   const nextNotice: AdminNoticeItem = {
     category: payload.category,
     id: createMockId('notice'),
@@ -458,11 +447,10 @@ export const createMockAdminNotice = (
 };
 
 export const replyMockAdminQna = (
-  siteKey: string,
   threadId: string,
   payload: ReplyAdminQnaPayload,
 ): AdminQnaThread | null => {
-  const state = getState(siteKey);
+  const state = getState();
   const thread = state.qnaThreads.find((item) => item.id === threadId);
   if (!thread) return null;
 
@@ -476,11 +464,8 @@ export const replyMockAdminQna = (
   return cloneData(thread);
 };
 
-export const createMockAdminResource = (
-  siteKey: string,
-  payload: CreateAdminResourcePayload,
-): AdminResourceItem => {
-  const state = getState(siteKey);
+export const createMockAdminResource = (payload: CreateAdminResourcePayload): AdminResourceItem => {
+  const state = getState();
   const nextResource: AdminResourceItem = {
     attachmentName: payload.attachmentName,
     attachmentSizeLabel: payload.attachmentSizeLabel,
@@ -496,11 +481,8 @@ export const createMockAdminResource = (
   return cloneData(nextResource);
 };
 
-export const createMockAdminReview = (
-  siteKey: string,
-  payload: CreateAdminReviewPayload,
-): AdminReviewItem => {
-  const state = getState(siteKey);
+export const createMockAdminReview = (payload: CreateAdminReviewPayload): AdminReviewItem => {
+  const state = getState();
   const nextReviewPost: AdminReviewItem = {
     educatorName: '소노스쿨 교육팀',
     id: createMockId('review-post'),
@@ -516,10 +498,9 @@ export const createMockAdminReview = (
 };
 
 export const createMockAdminProgram = (
-  siteKey: string,
   payload: UpsertAdminProgramPayload,
 ): AdminProgramItem | null => {
-  const createdProgram = createMockAdminManagedProgram(siteKey, payload);
+  const createdProgram = createMockAdminManagedProgram(MOCK_PROGRAM_SCOPE, payload);
 
   if (!createdProgram) {
     return null;
@@ -546,20 +527,18 @@ export const createMockAdminProgram = (
 };
 
 export const createMockAdminProgramDraftItem = (
-  siteKey: string,
   payload: CreateAdminProgramDraftPayload,
 ): { id: string } | null => {
-  const programId = createMockAdminProgramDraft(siteKey, payload);
+  const programId = createMockAdminProgramDraft(MOCK_PROGRAM_SCOPE, payload);
 
   return programId ? { id: programId } : null;
 };
 
 export const updateMockAdminProgram = (
-  siteKey: string,
   programId: string,
   payload: UpsertAdminProgramPayload,
 ): AdminProgramItem | null => {
-  const updatedProgram = updateMockAdminManagedProgram(siteKey, programId, payload);
+  const updatedProgram = updateMockAdminManagedProgram(MOCK_PROGRAM_SCOPE, programId, payload);
 
   if (!updatedProgram) {
     return null;
@@ -585,11 +564,8 @@ export const updateMockAdminProgram = (
   };
 };
 
-export const toggleMockAdminProgramVisibility = (
-  siteKey: string,
-  programId: string,
-): AdminProgramItem | null => {
-  const updatedProgram = toggleMockAdminManagedProgramVisibility(siteKey, programId);
+export const toggleMockAdminProgramVisibility = (programId: string): AdminProgramItem | null => {
+  const updatedProgram = toggleMockAdminManagedProgramVisibility(MOCK_PROGRAM_SCOPE, programId);
 
   if (!updatedProgram) {
     return null;
@@ -615,11 +591,8 @@ export const toggleMockAdminProgramVisibility = (
   };
 };
 
-export const publishMockAdminProgramItem = (
-  siteKey: string,
-  programId: string,
-): AdminProgramItem | null => {
-  const updatedProgram = publishMockAdminManagedProgram(siteKey, programId);
+export const publishMockAdminProgramItem = (programId: string): AdminProgramItem | null => {
+  const updatedProgram = publishMockAdminManagedProgram(MOCK_PROGRAM_SCOPE, programId);
 
   if (!updatedProgram) {
     return null;
@@ -645,11 +618,8 @@ export const publishMockAdminProgramItem = (
   };
 };
 
-export const hideMockAdminProgramItem = (
-  siteKey: string,
-  programId: string,
-): AdminProgramItem | null => {
-  const updatedProgram = hideMockAdminManagedProgram(siteKey, programId);
+export const hideMockAdminProgramItem = (programId: string): AdminProgramItem | null => {
+  const updatedProgram = hideMockAdminManagedProgram(MOCK_PROGRAM_SCOPE, programId);
 
   if (!updatedProgram) {
     return null;
@@ -675,54 +645,44 @@ export const hideMockAdminProgramItem = (
   };
 };
 
-export const deleteMockAdminProgram = (siteKey: string, programId: string): boolean => {
-  return deleteMockAdminManagedProgram(siteKey, programId);
+export const deleteMockAdminProgram = (programId: string): boolean => {
+  return deleteMockAdminManagedProgram(MOCK_PROGRAM_SCOPE, programId);
 };
 
-export const createMockAdminProgramMenuItem = (
-  siteKey: string,
-  payload: CreateAdminProgramMenuPayload,
-) => {
-  return createMockAdminProgramMenu(siteKey, payload);
+export const createMockAdminProgramMenuItem = (payload: CreateAdminProgramMenuPayload) => {
+  return createMockAdminProgramMenu(MOCK_PROGRAM_SCOPE, payload);
 };
 
 export const updateMockAdminProgramMenuItem = (
-  siteKey: string,
   menuId: string,
   payload: UpdateAdminProgramMenuPayload,
 ) => {
-  return updateMockAdminProgramMenu(siteKey, menuId, payload);
+  return updateMockAdminProgramMenu(MOCK_PROGRAM_SCOPE, menuId, payload);
 };
 
-export const deleteMockAdminProgramMenuItem = (siteKey: string, menuId: string) => {
-  return deleteMockAdminProgramMenu(siteKey, menuId);
+export const deleteMockAdminProgramMenuItem = (menuId: string) => {
+  return deleteMockAdminProgramMenu(MOCK_PROGRAM_SCOPE, menuId);
 };
 
 export const moveMockAdminProgramMenuItem = (
-  siteKey: string,
   menuId: string,
   payload: MoveAdminProgramMenuPayload,
 ) => {
-  return moveMockAdminProgramMenu(siteKey, menuId, payload);
+  return moveMockAdminProgramMenu(MOCK_PROGRAM_SCOPE, menuId, payload);
 };
 
 export const reorderMockAdminProgramMenuItem = (
-  siteKey: string,
   menuId: string,
   payload: ReorderAdminProgramMenuPayload,
 ) => {
-  return reorderMockAdminProgramMenu(siteKey, menuId, payload);
+  return reorderMockAdminProgramMenu(MOCK_PROGRAM_SCOPE, menuId, payload);
 };
 
-export const moveMockAdminProgramItem = (
-  siteKey: string,
-  programId: string,
-  payload: MoveAdminProgramPayload,
-) => {
-  return moveMockAdminProgram(siteKey, programId, payload);
+export const moveMockAdminProgramItem = (programId: string, payload: MoveAdminProgramPayload) => {
+  return moveMockAdminProgram(MOCK_PROGRAM_SCOPE, programId, payload);
 };
 
 export const resetMockAdminConsoleData = (): void => {
   mockIdCounter = 1;
-  adminConsoleStateBySite.clear();
+  adminConsoleState = null;
 };

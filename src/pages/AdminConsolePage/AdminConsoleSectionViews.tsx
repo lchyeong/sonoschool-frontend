@@ -1,83 +1,163 @@
+import { useEffect, useMemo, useState } from 'react';
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
+import { cancelAdminPayment } from '@/api/adminPayments';
 import Button from '@/components/ui/Button/Button';
-import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import { TextAreaField } from '@/components/ui/TextField/TextField';
+import {
+  adminPaymentDetailQueryKey,
+  adminPaymentsQueryKey,
+  useAdminPaymentDetailQuery,
+  useAdminPaymentsQuery,
+} from '@/query/useAdminPaymentsQuery';
+import { useAdminProgramsLiveQuery } from '@/query/useAdminProgramsLiveQuery';
 import { routePaths } from '@/routes/routeRegistry';
-import type { AdminConsoleResponse } from '@/types/adminConsole';
+import { useToastStore } from '@/stores/useToastStore';
+import { formatPaymentMethodLabel, paymentStatusLabels } from '@/types/payment';
 
 import styles from './AdminConsolePage.module.scss';
-import {
-  programFormatLabel,
-  programStatusLabel,
-  resourceVisibilityLabel,
-  sectionContent,
-  type AdminConsoleSection,
-  formatFileSizeLabel,
-} from './adminConsolePageShared';
-import type { AdminConsolePageActions } from './useAdminConsolePageActions';
+import { sectionContent, type AdminConsoleSection } from './adminConsolePageShared';
 
 interface AdminConsolePageHeaderProps {
   section: AdminConsoleSection;
 }
 
-interface AdminDashboardSectionProps {
-  data: AdminConsoleResponse;
+interface DeferredSectionProps {
+  section: Extract<AdminConsoleSection, 'notices' | 'qna' | 'resources' | 'reviews'>;
 }
 
-interface AdminConsoleManagedSectionProps {
-  actions: AdminConsolePageActions;
-  data: AdminConsoleResponse;
-}
+const formatDateTime = (value: string | null): string => {
+  if (!value) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+};
+
+const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('ko-KR', {
+    currency: 'KRW',
+    maximumFractionDigits: 0,
+    style: 'currency',
+  }).format(value);
+};
+
+const formatOrderTypeLabel = (value: string): string => {
+  switch (value) {
+    case 'PROGRAM':
+      return '단일 강의';
+    case 'CART_CHECKOUT':
+      return '장바구니 결제';
+    default:
+      return value;
+  }
+};
+
+const getDeferredDescription = (section: DeferredSectionProps['section']): string => {
+  switch (section) {
+    case 'notices':
+      return '공지사항은 공개 범위와 게시 정책을 운영 기준으로 다시 정리한 뒤 2차로 연결합니다.';
+    case 'qna':
+      return '문의 답변은 공개 페이지 정책과 관리자 응답 흐름을 확정한 뒤 실제 API를 추가합니다.';
+    case 'resources':
+      return '자료실은 파일 업로드 정책과 다운로드 권한 구조를 정리한 뒤 연결합니다.';
+    case 'reviews':
+      return '교육후기 운영 화면은 게시 정책과 공개 구조를 정리한 뒤 후속 연동합니다.';
+    default:
+      return '후속 구현 예정 메뉴입니다.';
+  }
+};
 
 export const AdminConsolePageHeader = ({ section }: AdminConsolePageHeaderProps) => {
   const sectionMeta = sectionContent[section];
 
   return (
     <header className={styles['pageHeader']}>
-      <p className={styles['pageEyebrow']}>{sectionMeta.eyebrow}</p>
+      {sectionMeta.eyebrow ? <p className={styles['pageEyebrow']}>{sectionMeta.eyebrow}</p> : null}
       <h1 className={styles['pageTitle']}>{sectionMeta.title}</h1>
-      <p className={styles['pageDescription']}>{sectionMeta.description}</p>
+      {sectionMeta.description ? (
+        <p className={styles['pageDescription']}>{sectionMeta.description}</p>
+      ) : null}
     </header>
   );
 };
 
-export const AdminDashboardSection = ({ data }: AdminDashboardSectionProps) => {
+export const AdminDashboardSection = () => {
+  const programsQuery = useAdminProgramsLiveQuery();
+  const paymentsQuery = useAdminPaymentsQuery();
+
+  const summaryCards = [
+    {
+      description: '실제 관리자 강의 목록과 편집 화면을 기준으로 운영합니다.',
+      id: 'programs',
+      label: '강의 관리',
+      tone: 'brand',
+      value: programsQuery.data ? `${String(programsQuery.data.length)}개` : '확인 중',
+    },
+    {
+      description: '결제 상태, 취소 이력, 영수증 확인에 필요한 최소 정보만 노출합니다.',
+      id: 'payments',
+      label: '결제 관리',
+      tone: 'accent',
+      value: paymentsQuery.data ? `${String(paymentsQuery.data.length)}건` : '확인 중',
+    },
+    {
+      description: 'S3 업로드와 인코딩 시작, 강의 연결 작업을 실제 흐름으로 점검합니다.',
+      id: 'videos',
+      label: '영상 업로드',
+      tone: 'brand',
+      value: '실연동',
+    },
+    {
+      description: '공지사항, Q&A, 자료실은 보안과 운영 정책을 정리한 뒤 이어서 구현합니다.',
+      id: 'deferred',
+      label: '후속 구현',
+      tone: 'neutral',
+      value: '3개 메뉴',
+    },
+  ] as const;
+
   const dashboardShortcutItems = [
     {
-      countLabel: `${String(data.notices.length)}건`,
-      description: '운영 공지와 학사 공지를 등록하고 상태를 확인합니다.',
-      title: '공지사항 관리',
-      to: routePaths.adminNotices,
-    },
-    {
-      countLabel: `${String(data.qnaThreads.filter((thread) => thread.status === 'waiting').length)}건 대기`,
-      description: '답변 대기 문의에 빠르게 답변을 등록합니다.',
-      title: 'Q&A 관리',
-      to: routePaths.adminQna,
-    },
-    {
-      countLabel: `${String(data.resources.length)}개`,
-      description: '파일 첨부형 자료 게시글을 업로드합니다.',
-      title: '자료실 관리',
-      to: routePaths.adminResources,
-    },
-    {
-      countLabel: `${String(data.reviewPosts.length)}개`,
-      description: '교육자가 직접 남기는 홍보형 후기를 운영합니다.',
-      title: '교육후기 관리',
-      to: routePaths.adminReviews,
-    },
-    {
-      countLabel: `${String(data.programs.length)}개`,
-      description: '강의 등록, 수정, 삭제, 숨김 처리를 진행합니다.',
+      countLabel: programsQuery.data ? `${String(programsQuery.data.length)}개 강의` : '확인 중',
+      description: '강의 등록, 수정, 공개 상태를 실제 데이터로 관리합니다.',
       title: '강의 관리',
       to: routePaths.adminPrograms,
     },
     {
-      countLabel: data.salesOverview.monthlyRevenueLabel,
-      description: '누적 판매, 잔여 좌석, 매출 현황을 확인합니다.',
-      title: '매출 관리',
-      to: routePaths.adminSales,
+      countLabel: '구조 관리',
+      description: '공개 카테고리 구조와 강의 배치를 같은 데이터로 관리합니다.',
+      title: '강의 카테고리 관리',
+      to: routePaths.adminProgramMenus,
+    },
+    {
+      countLabel: '업로드 가능',
+      description: '실제 영상 업로드 세션 생성과 인코딩 상태를 확인합니다.',
+      title: '영상 업로드',
+      to: routePaths.adminVideos,
+    },
+    {
+      countLabel: paymentsQuery.data ? `${String(paymentsQuery.data.length)}건` : '확인 중',
+      description: '결제 상태와 취소 처리 내역을 운영자 기준으로 확인합니다.',
+      title: '결제 관리',
+      to: routePaths.adminPayments,
+    },
+    {
+      countLabel: '후속 구현',
+      description: '공지사항 등록과 공지 공개 정책을 실제 운영 흐름에 맞춰 후속 구현합니다.',
+      title: '공지사항 관리',
+      to: routePaths.adminNotices,
+    },
+    {
+      countLabel: '후속 구현',
+      description: '문의 응답과 자료실은 운영 정책을 정리한 뒤 실제 연동합니다.',
+      title: 'Q&A / 자료실',
+      to: routePaths.adminQna,
     },
   ] as const;
 
@@ -85,17 +165,15 @@ export const AdminDashboardSection = ({ data }: AdminDashboardSectionProps) => {
     <>
       <header className={styles['hero']}>
         <div className={styles['heroCopy']}>
-          <p className={styles['eyebrow']}>Admin Dashboard</p>
           <h1 className={styles['title']}>운영 개요</h1>
           <p className={styles['description']}>
-            {data.adminDisplayName} 계정으로 현재 운영 상태를 확인하고 필요한 관리 메뉴로 바로
-            이동합니다.
+            실제 연동된 강의, 영상, 결제 관리 흐름을 기준으로 운영 상태를 확인합니다.
           </p>
         </div>
       </header>
 
       <section className={styles['summaryGrid']}>
-        {data.summaryCards.map((card) => {
+        {summaryCards.map((card) => {
           return (
             <article className={styles['summaryCard']} data-tone={card.tone} key={card.id}>
               <p className={styles['summaryLabel']}>{card.label}</p>
@@ -121,327 +199,143 @@ export const AdminDashboardSection = ({ data }: AdminDashboardSectionProps) => {
   );
 };
 
-export const AdminNoticesSection = ({ actions, data }: AdminConsoleManagedSectionProps) => {
+export const AdminDeferredSection = ({ section }: DeferredSectionProps) => {
+  const sectionMeta = sectionContent[section];
+
   return (
-    <section className={styles['panel']}>
-      <form className={styles['form']} onSubmit={actions.handleNoticeSubmit}>
-        <TextField
-          label='공지 제목'
-          name='noticeTitle'
-          onChange={(event) => {
-            actions.setNoticeForm((current) => ({
-              ...current,
-              title: event.target.value,
-            }));
-          }}
-          placeholder='예: 4월 신규 과정 오픈 안내'
-          value={actions.noticeForm.title}
-        />
-
-        <div className={styles['inlineFieldGrid']}>
-          <label className={styles['field']}>
-            <span className={styles['fieldLabel']}>카테고리</span>
-            <div className={styles['selectWrap']}>
-              <select
-                className={styles['select']}
-                onChange={(event) => {
-                  actions.setNoticeForm((current) => ({
-                    ...current,
-                    category: event.target.value as typeof current.category,
-                  }));
-                }}
-                value={actions.noticeForm.category}
-              >
-                <option value='운영'>운영</option>
-                <option value='학사'>학사</option>
-                <option value='이벤트'>이벤트</option>
-              </select>
-            </div>
-          </label>
-
-          <label className={styles['checkboxRow']}>
-            <input
-              checked={actions.noticeForm.isPinned}
-              onChange={(event) => {
-                actions.setNoticeForm((current) => ({
-                  ...current,
-                  isPinned: event.target.checked,
-                }));
-              }}
-              type='checkbox'
-            />
-            <span>상단 고정</span>
-          </label>
-        </div>
-
-        <Button disabled={actions.noticeMutation.isPending} type='submit'>
-          {actions.noticeMutation.isPending ? '등록 중...' : '공지사항 등록'}
-        </Button>
-      </form>
-
-      <ul className={styles['stackList']}>
-        {data.notices.map((notice) => {
-          return (
-            <li className={styles['stackItem']} key={notice.id}>
-              <div className={styles['metaRow']}>
-                <span className={styles['badge']}>{notice.category}</span>
-                {notice.isPinned ? <span className={styles['badgeAccent']}>고정</span> : null}
-                <span className={styles['metaText']}>{notice.publishedAt}</span>
-              </div>
-              <p className={styles['itemTitle']}>{notice.title}</p>
-            </li>
-          );
-        })}
-      </ul>
+    <section className={styles['stateSection']}>
+      <h2 className={styles['stateTitle']}>{sectionMeta.title} 준비 중</h2>
+      <p className={styles['stateDescription']}>{getDeferredDescription(section)}</p>
     </section>
   );
 };
 
-export const AdminQnaSection = ({ actions, data }: AdminConsoleManagedSectionProps) => {
-  return (
-    <section className={styles['panel']}>
-      <ul className={styles['stackList']}>
-        {data.qnaThreads.map((thread) => {
-          return (
-            <li className={styles['stackItem']} key={thread.id}>
-              <div className={styles['metaRow']}>
-                <span className={styles['badge']}>{thread.category}</span>
-                <span
-                  className={
-                    thread.status === 'answered' ? styles['badgeSuccess'] : styles['badgeDanger']
-                  }
-                >
-                  {thread.status === 'answered' ? '답변 완료' : '답변 대기'}
-                </span>
-                <span className={styles['metaText']}>
-                  {thread.authorName} · {thread.submittedAt}
-                </span>
-              </div>
-              <p className={styles['itemTitle']}>{thread.question}</p>
+export const AdminPaymentsSection = () => {
+  const queryClient = useQueryClient();
+  const showToast = useToastStore((state) => state.showToast);
+  const paymentsQuery = useAdminPaymentsQuery();
+  const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
 
-              {thread.reply ? (
-                <div className={styles['replyCard']}>
-                  <p className={styles['replyLabel']}>관리자 답변</p>
-                  <p className={styles['replyContent']}>{thread.reply.content}</p>
-                  <p className={styles['replyMeta']}>{thread.reply.repliedAt}</p>
-                </div>
-              ) : (
-                <div className={styles['replyComposer']}>
-                  <textarea
-                    className={styles['textarea']}
-                    onChange={(event) => {
-                      actions.setQnaReplyDrafts((current) => ({
-                        ...current,
-                        [thread.id]: event.target.value,
-                      }));
-                    }}
-                    placeholder='문의 작성자에게 보낼 답변을 입력해 주세요.'
-                    value={actions.qnaReplyDrafts[thread.id] ?? ''}
-                  />
-                  <Button
-                    disabled={actions.qnaReplyMutation.isPending}
-                    onClick={() => {
-                      actions.handleQnaReplySubmit(thread.id);
-                    }}
-                    type='button'
-                  >
-                    답변 등록
-                  </Button>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-};
+  useEffect(() => {
+    const nextPaymentId = paymentsQuery.data?.[0]?.paymentId ?? null;
 
-export const AdminResourcesSection = ({ actions, data }: AdminConsoleManagedSectionProps) => {
-  return (
-    <section className={styles['panel']}>
-      <form className={styles['form']} onSubmit={actions.handleResourceSubmit}>
-        <TextField
-          label='게시글 제목'
-          name='resourceTitle'
-          onChange={(event) => {
-            actions.setResourceForm((current) => ({
-              ...current,
-              title: event.target.value,
-            }));
-          }}
-          placeholder='예: 4월 핸즈온 실습 자료집'
-          value={actions.resourceForm.title}
-        />
+    if (selectedPaymentId !== null && paymentsQuery.data?.some((item) => item.paymentId === selectedPaymentId)) {
+      return;
+    }
 
-        <TextAreaField
-          label='자료 설명'
-          name='resourceDescription'
-          onChange={(event) => {
-            actions.setResourceForm((current) => ({
-              ...current,
-              description: event.target.value,
-            }));
-          }}
-          placeholder='다운로드 자료의 용도와 사용 시점을 적어 주세요.'
-          value={actions.resourceForm.description}
-        />
+    setSelectedPaymentId(nextPaymentId);
+  }, [paymentsQuery.data, selectedPaymentId]);
 
-        <label className={styles['field']}>
-          <span className={styles['fieldLabel']}>공개 범위</span>
-          <div className={styles['selectWrap']}>
-            <select
-              className={styles['select']}
-              onChange={(event) => {
-                actions.setResourceForm((current) => ({
-                  ...current,
-                  visibility: event.target.value as typeof current.visibility,
-                }));
-              }}
-              value={actions.resourceForm.visibility}
-            >
-              <option value='public'>전체 공개</option>
-              <option value='students-only'>수강생 전용</option>
-            </select>
-          </div>
-        </label>
+  const detailQuery = useAdminPaymentDetailQuery(selectedPaymentId);
 
-        <label className={styles['field']}>
-          <span className={styles['fieldLabel']}>첨부 파일</span>
-          <input
-            className={styles['fileInput']}
-            onChange={(event) => {
-              actions.setResourceForm((current) => ({
-                ...current,
-                attachmentFile: event.target.files?.[0] ?? null,
-              }));
-            }}
-            type='file'
-          />
-          <span className={styles['helperText']}>
-            {actions.resourceForm.attachmentFile
-              ? `${actions.resourceForm.attachmentFile.name} · ${formatFileSizeLabel(actions.resourceForm.attachmentFile.size)}`
-              : 'PDF, 문서, 스프레드시트 등 자료 파일을 선택해 주세요.'}
-          </span>
-        </label>
+  const paymentSummary = useMemo(() => {
+    const items = paymentsQuery.data ?? [];
 
-        <Button disabled={actions.resourceMutation.isPending} type='submit'>
-          {actions.resourceMutation.isPending ? '업로드 중...' : '자료실 게시글 등록'}
-        </Button>
-      </form>
+    return {
+      cancelledCount: items.filter((item) => item.status === 'CANCELLED').length,
+      completedCount: items.filter((item) => item.status === 'COMPLETED').length,
+      failedCount: items.filter((item) => item.status === 'FAILED').length,
+      totalCount: items.length,
+    };
+  }, [paymentsQuery.data]);
 
-      <ul className={styles['stackList']}>
-        {data.resources.map((resource) => {
-          return (
-            <li className={styles['stackItem']} key={resource.id}>
-              <div className={styles['metaRow']}>
-                <span className={styles['badge']}>
-                  {resourceVisibilityLabel[resource.visibility]}
-                </span>
-                <span className={styles['metaText']}>{resource.publishedAt}</span>
-              </div>
-              <p className={styles['itemTitle']}>{resource.title}</p>
-              <p className={styles['itemDescription']}>{resource.description}</p>
-              <p className={styles['helperText']}>
-                첨부 파일: {resource.attachmentName} · {resource.attachmentSizeLabel}
-              </p>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-};
+  const cancelMutation = useMutation({
+    mutationFn: ({ paymentId, reason }: { paymentId: number; reason: string }) =>
+      cancelAdminPayment(paymentId, { reason }),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '결제 취소 처리에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, variables) => {
+      setCancelReason('');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminPaymentsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: adminPaymentDetailQueryKey(variables.paymentId) }),
+      ]);
+      showToast({
+        message: '결제 취소 처리를 반영했습니다.',
+        variant: 'success',
+      });
+    },
+  });
 
-export const AdminReviewsSection = ({ actions, data }: AdminConsoleManagedSectionProps) => {
-  return (
-    <section className={styles['panel']}>
-      <form className={styles['form']} onSubmit={actions.handleReviewSubmit}>
-        <TextField
-          label='홍보글 제목'
-          name='reviewTitle'
-          onChange={(event) => {
-            actions.setReviewForm((current) => ({
-              ...current,
-              title: event.target.value,
-            }));
-          }}
-          placeholder='예: 초음파 교육자가 직접 추천하는 학습 순서'
-          value={actions.reviewForm.title}
-        />
+  const handleCancel = () => {
+    if (selectedPaymentId === null) {
+      return;
+    }
 
-        <TextAreaField
-          label='홍보 문구'
-          name='reviewSummary'
-          onChange={(event) => {
-            actions.setReviewForm((current) => ({
-              ...current,
-              summary: event.target.value,
-            }));
-          }}
-          placeholder='사이트와 교육 방향을 홍보할 내용을 입력해 주세요.'
-          value={actions.reviewForm.summary}
-        />
+    if (!cancelReason.trim()) {
+      showToast({
+        message: '취소 사유를 입력해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
 
-        <Button disabled={actions.reviewMutation.isPending} type='submit'>
-          {actions.reviewMutation.isPending ? '등록 중...' : '교육후기 글 등록'}
-        </Button>
-      </form>
+    cancelMutation.mutate({
+      paymentId: selectedPaymentId,
+      reason: cancelReason.trim(),
+    });
+  };
 
-      <ul className={styles['stackList']}>
-        {data.reviewPosts.map((reviewPost) => {
-          return (
-            <li className={styles['stackItem']} key={reviewPost.id}>
-              <div className={styles['metaRow']}>
-                <span className={styles['badge']}>{reviewPost.educatorName}</span>
-                <span
-                  className={
-                    reviewPost.status === 'published'
-                      ? styles['badgeSuccess']
-                      : styles['badgeAccent']
-                  }
-                >
-                  {reviewPost.status === 'published' ? '게시중' : '초안'}
-                </span>
-                <span className={styles['metaText']}>{reviewPost.publishedAt}</span>
-              </div>
-              <p className={styles['itemTitle']}>{reviewPost.title}</p>
-              <p className={styles['itemDescription']}>{reviewPost.summary}</p>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-};
+  if (paymentsQuery.isPending) {
+    return (
+      <section aria-busy='true' className={styles['stateSection']}>
+        <h2 className={styles['stateTitle']}>결제 목록을 불러오는 중입니다.</h2>
+        <p className={styles['stateDescription']}>
+          운영에 필요한 최소 결제 정보만 정리해서 가져오고 있습니다.
+        </p>
+      </section>
+    );
+  }
 
-export const AdminSalesSection = ({ data }: AdminDashboardSectionProps) => {
+  if (paymentsQuery.isError) {
+    return (
+      <section className={styles['stateSection']}>
+        <h2 className={styles['stateTitle']}>결제 관리 화면을 불러오지 못했습니다.</h2>
+        <p className={styles['stateDescription']}>
+          {paymentsQuery.error instanceof Error
+            ? paymentsQuery.error.message
+            : '관리자 결제 API 상태를 확인해 주세요.'}
+        </p>
+      </section>
+    );
+  }
+
+  if (!paymentsQuery.data?.length) {
+    return (
+      <section className={styles['stateSection']}>
+        <h2 className={styles['stateTitle']}>표시할 결제 내역이 없습니다.</h2>
+        <p className={styles['stateDescription']}>
+          실제 결제가 생성되면 완료, 취소, 실패 상태를 여기서 관리할 수 있습니다.
+        </p>
+      </section>
+    );
+  }
+
+  const selectedPayment = detailQuery.data ?? null;
+
   return (
     <section className={styles['panel']}>
       <div className={styles['salesSummaryGrid']}>
         <article className={styles['salesMetricCard']}>
-          <p className={styles['salesMetricLabel']}>누적 매출</p>
-          <strong className={styles['salesMetricValue']}>
-            {data.salesOverview.grossRevenueLabel}
-          </strong>
+          <p className={styles['salesMetricLabel']}>전체 결제</p>
+          <strong className={styles['salesMetricValue']}>{paymentSummary.totalCount}건</strong>
         </article>
         <article className={styles['salesMetricCard']}>
-          <p className={styles['salesMetricLabel']}>당월 매출</p>
-          <strong className={styles['salesMetricValue']}>
-            {data.salesOverview.monthlyRevenueLabel}
-          </strong>
+          <p className={styles['salesMetricLabel']}>결제 완료</p>
+          <strong className={styles['salesMetricValue']}>{paymentSummary.completedCount}건</strong>
         </article>
         <article className={styles['salesMetricCard']}>
-          <p className={styles['salesMetricLabel']}>누적 주문</p>
-          <strong className={styles['salesMetricValue']}>
-            {data.salesOverview.totalOrdersLabel}
-          </strong>
+          <p className={styles['salesMetricLabel']}>결제 취소</p>
+          <strong className={styles['salesMetricValue']}>{paymentSummary.cancelledCount}건</strong>
         </article>
         <article className={styles['salesMetricCard']}>
-          <p className={styles['salesMetricLabel']}>베스트셀러</p>
-          <strong className={styles['salesMetricValueSmall']}>
-            {data.salesOverview.bestSellerTitle}
-          </strong>
+          <p className={styles['salesMetricLabel']}>결제 실패</p>
+          <strong className={styles['salesMetricValue']}>{paymentSummary.failedCount}건</strong>
         </article>
       </div>
 
@@ -449,34 +343,129 @@ export const AdminSalesSection = ({ data }: AdminDashboardSectionProps) => {
         <table className={styles['table']}>
           <thead>
             <tr>
-              <th scope='col'>강의</th>
-              <th scope='col'>형태</th>
+              <th scope='col'>주문명</th>
+              <th scope='col'>구매자</th>
+              <th scope='col'>결제 수단</th>
               <th scope='col'>상태</th>
-              <th scope='col'>누적 판매</th>
-              <th scope='col'>당월 판매</th>
-              <th scope='col'>누적 매출</th>
-              <th scope='col'>당월 매출</th>
-              <th scope='col'>잔여 좌석 / 재고</th>
+              <th scope='col'>결제 금액</th>
+              <th scope='col'>요청일</th>
+              <th scope='col'>처리일</th>
+              <th scope='col'>관리</th>
             </tr>
           </thead>
           <tbody>
-            {data.salesRows.map((row) => {
+            {paymentsQuery.data.map((payment) => {
+              const processedAt = payment.cancelledAt ?? payment.paidAt ?? null;
+
               return (
-                <tr key={row.id}>
-                  <td>{row.programTitle}</td>
-                  <td>{programFormatLabel[row.format]}</td>
-                  <td>{programStatusLabel[row.status]}</td>
-                  <td>{row.soldCount}건</td>
-                  <td>{row.monthlySoldCount}건</td>
-                  <td>{row.totalRevenueLabel}</td>
-                  <td>{row.monthlyRevenueLabel}</td>
-                  <td>{row.remainingSeatsLabel}</td>
+                <tr key={payment.paymentId}>
+                  <td>{payment.orderName}</td>
+                  <td>
+                    {payment.buyerDisplayName}
+                    <br />
+                    <span className={styles['helperText']}>{payment.buyerLoginId}</span>
+                  </td>
+                  <td>{formatPaymentMethodLabel(payment.paymentMethod)}</td>
+                  <td>{paymentStatusLabels[payment.status]}</td>
+                  <td>{formatCurrency(payment.approvedAmount ?? payment.amount)}</td>
+                  <td>{formatDateTime(payment.requestedAt)}</td>
+                  <td>{formatDateTime(processedAt)}</td>
+                  <td>
+                    <div className={styles['tableActionGroup']}>
+                      <button
+                        className={styles['tableActionButton']}
+                        onClick={() => {
+                          setSelectedPaymentId(payment.paymentId);
+                        }}
+                        type='button'
+                      >
+                        상세 보기
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      {selectedPaymentId !== null ? (
+        <div className={styles['replyCard']}>
+          <p className={styles['replyLabel']}>결제 상세</p>
+
+          {detailQuery.isPending ? (
+            <p className={styles['itemDescription']}>결제 상세를 불러오는 중입니다.</p>
+          ) : null}
+
+          {detailQuery.isError ? (
+            <p className={styles['itemDescription']}>
+              {detailQuery.error instanceof Error
+                ? detailQuery.error.message
+                : '결제 상세를 불러오지 못했습니다.'}
+            </p>
+          ) : null}
+
+          {selectedPayment ? (
+            <>
+              <p className={styles['itemTitle']}>{selectedPayment.orderName}</p>
+              <div className={styles['metaRow']}>
+                <span className={styles['badge']}>{formatOrderTypeLabel(selectedPayment.orderType)}</span>
+                <span className={styles['badgeAccent']}>
+                  {paymentStatusLabels[selectedPayment.status]}
+                </span>
+                <span className={styles['metaText']}>
+                  {selectedPayment.buyerDisplayName} · {selectedPayment.buyerLoginId}
+                </span>
+              </div>
+              <p className={styles['itemDescription']}>
+                결제 수단 {formatPaymentMethodLabel(selectedPayment.paymentMethod)} · 결제 금액{' '}
+                {formatCurrency(selectedPayment.approvedAmount ?? selectedPayment.amount)}
+              </p>
+              <p className={styles['itemDescription']}>
+                요청일 {formatDateTime(selectedPayment.requestedAt)} · 완료일{' '}
+                {formatDateTime(selectedPayment.paidAt)} · 취소일{' '}
+                {formatDateTime(selectedPayment.cancelledAt)}
+              </p>
+              {selectedPayment.cancelReason ? (
+                <p className={styles['itemDescription']}>
+                  취소 사유: {selectedPayment.cancelReason}
+                </p>
+              ) : null}
+
+              <div className={styles['actionRow']}>
+                {selectedPayment.receiptUrl ? (
+                  <a
+                    className={styles['tableActionButton']}
+                    href={selectedPayment.receiptUrl}
+                    rel='noreferrer'
+                    target='_blank'
+                  >
+                    영수증 보기
+                  </a>
+                ) : null}
+              </div>
+
+              {selectedPayment.canCancel ? (
+                <div className={styles['replyComposer']}>
+                  <TextAreaField
+                    label='취소 사유'
+                    name='cancelReason'
+                    onChange={(event) => {
+                      setCancelReason(event.target.value);
+                    }}
+                    placeholder='예: 사용자 요청 취소'
+                    value={cancelReason}
+                  />
+                  <Button disabled={cancelMutation.isPending} onClick={handleCancel} type='button'>
+                    {cancelMutation.isPending ? '취소 처리 중...' : '결제 취소 처리'}
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 };

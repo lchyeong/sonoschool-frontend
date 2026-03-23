@@ -6,7 +6,6 @@ import type { ContactFormData } from '@/api/contact';
 import { submitContactForm } from '@/api/contact';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
-import { env } from '@/config/env';
 import { contactSchema, type ContactFormValues } from '@/forms/schemas/contactSchema';
 import { useToastStore } from '@/stores/useToastStore';
 
@@ -24,7 +23,7 @@ const ContactPage = () => {
       name: '',
       jobTitle: '',
       phone: '',
-      turnstileToken: env.VITE_ENABLE_MOCK ? 'dev-token' : '',
+      turnstileToken: '',
     },
     mode: 'onBlur',
   });
@@ -52,7 +51,7 @@ const ContactPage = () => {
         name: '',
         jobTitle: '',
         phone: '',
-        turnstileToken: env.VITE_ENABLE_MOCK ? 'dev-token' : '',
+        turnstileToken: '',
       });
     },
     onError: (error: unknown) => {
@@ -70,8 +69,8 @@ const ContactPage = () => {
       <div>
         <h1 className={styles['title']}>Contact</h1>
         <p className={styles['description']}>
-          SONO SCHOOL 수강 문의를 접수하는 기본 폼입니다. 개발 환경에서 목킹이 켜져 있으면(dev)
-          <code>turnstileToken</code>은 <code>dev-token</code> 기본값으로 동작합니다.
+          SONO SCHOOL 수강 문의를 접수하는 기본 폼입니다. 개발 환경에서는 서버 설정에 따라 스팸 방지
+          검증이 완화될 수 있고, 운영 환경에서는 인증 토큰이 필요합니다.
         </p>
       </div>
 

@@ -1,72 +1,62 @@
 .layout {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: var(--space-6);
-  min-height: calc(100vh - var(--space-12));
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 100vh;
+  background: #f6f8f9;
 }
 
 .sidebar {
   position: sticky;
-  top: var(--space-6);
+  top: 0;
   display: grid;
-  align-content: start;
-  gap: var(--space-6);
-  height: calc(100vh - var(--space-12));
-  padding: var(--space-6);
-  border: 1px solid var(--color-brand-lighten-30);
-  border-top: 4px solid var(--color-brand-main);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 100vh;
+  max-height: 100vh;
+  border-right: 1px solid var(--color-brand-lighten-35);
   background: #ffffff;
+  overflow: hidden;
 }
 
 .sidebarHeader {
   display: grid;
-  gap: var(--space-2);
-  padding-bottom: var(--space-5);
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-4);
   border-bottom: 1px solid var(--color-brand-lighten-35);
-}
-
-.eyebrow {
-  margin: 0;
-  color: var(--color-brand-darken-10);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .title {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-size: 1.125rem;
   font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-tight);
+  line-height: 1.2;
 }
 
 .adminName {
   margin: 0;
-  color: var(--color-sub-brand-main);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
 }
 
 .navigation {
-  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .navigationList {
   display: grid;
-  gap: var(--space-2);
+  gap: 0;
   padding: 0;
   margin: 0;
   list-style: none;
 }
 
 .navigationLink {
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-4);
-  border: 1px solid var(--color-brand-lighten-35);
-  border-left-width: 3px;
+  display: block;
+  padding: var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--color-brand-lighten-45);
+  border-left: 3px solid transparent;
   color: inherit;
   background: #ffffff;
   text-decoration: none;
@@ -77,35 +67,36 @@
 }
 
 .navigationLink:hover {
-  border-color: var(--color-brand-main);
   background: var(--color-brand-lighten-50);
 }
 
 .navigationLinkActive {
-  border-color: var(--color-brand-darken-10);
+  border-left-color: var(--color-brand-main);
   background: var(--color-brand-lighten-50);
 }
 
 .navigationLabel {
+  display: block;
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-normal);
+  line-height: 1.4;
 }
 
-.navigationDescription {
-  color: var(--color-brand-darken-5);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-relaxed);
+.sidebarFooter {
+  padding: var(--space-4);
+  border-top: 1px solid var(--color-brand-lighten-35);
+  background: #ffffff;
 }
 
-.sidebar :global(button) {
+.sidebarFooter :global(button) {
   width: 100%;
   border-radius: 0;
 }
 
 .main {
   min-width: 0;
+  padding: var(--space-5) var(--space-6) var(--space-6);
 }
 
 @media (width < 960px) {
@@ -115,6 +106,17 @@
 
   .sidebar {
     position: static;
-    height: auto;
+    min-height: auto;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-brand-lighten-35);
+  }
+
+  .navigation {
+    overflow: visible;
+  }
+
+  .main {
+    padding: var(--space-4);
   }
 }

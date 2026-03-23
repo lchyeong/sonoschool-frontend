@@ -9,7 +9,6 @@ import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
-import { setStudentSession } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import { classNames } from '@/utils/classNames';
@@ -58,15 +57,7 @@ const AdminLoginPage = () => {
       });
     },
     onSuccess: (response) => {
-      setStudentSession({
-        accessToken: response.accessToken,
-        tokenType: response.tokenType,
-        expiresAt: response.expiresAt,
-        loginId: response.loginId,
-        displayName: response.adminDisplayName,
-        role: response.role,
-      });
-      login(response.adminDisplayName);
+      login(response);
       showToast({
         message: `${response.adminDisplayName} 계정으로 로그인했습니다.`,
         variant: 'success',

@@ -1,604 +1,459 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
+import {
+  deleteAdminProgramLive,
+  hideAdminProgramLive,
+  publishAdminProgramLive,
+} from '@/api/adminProgramsLive';
+import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
+import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
-import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import { TextField } from '@/components/ui/TextField/TextField';
-import { useAdminProgramMenuTreeQuery } from '@/query/useAdminProgramMenuQuery';
-import { useAdminProgramsQuery } from '@/query/useAdminProgramsQuery';
+import { adminProgramsLiveQueryKey, useAdminProgramsLiveQuery } from '@/query/useAdminProgramsLiveQuery';
 import { routePaths } from '@/routes/routeRegistry';
+import { useToastStore } from '@/stores/useToastStore';
 import type {
-  AdminProgramFormat,
-  AdminProgramMenuTreeItem,
-  AdminProgramStatus,
-} from '@/types/adminConsole';
-import { classNames } from '@/utils/classNames';
+  AdminProgramCatalogStatus,
+  AdminProgramListItem,
+  AdminProgramType,
+} from '@/types/adminProgramsLive';
 
-import styles from './AdminProgramEditorSection.module.scss';
+import styles from './AdminConsolePage.module.scss';
 
-interface MenuTreeBranch extends AdminProgramMenuTreeItem {
-  children: MenuTreeBranch[];
-}
+type ProgramVisibilityFilter = 'all' | 'hidden' | 'published';
+type ProgramTypeFilter = 'all' | AdminProgramType;
+const PROGRAMS_PAGE_SIZE = 12;
 
-interface AdminProgramEditorRouteState {
-  returnTo?: string;
-}
-
-const DEFAULT_STATUS_FILTER = 'all';
-const DEFAULT_FORMAT_FILTER = 'all';
-
-const programStatusLabel: Record<AdminProgramStatus, string> = {
-  draft: '초안',
-  hidden: '숨김',
-  published: '게시중',
+const programTypeLabel: Record<AdminProgramType, string> = {
+  HYBRID: '하이브리드',
+  OFFLINE: '오프라인',
+  ONLINE: '온라인',
 };
 
-const programOriginLabel = {
-  managed: '관리 강의',
-  site: '사이트 연동 강의',
-} as const;
-
-const isStatusFilter = (value: string | null): value is 'all' | AdminProgramStatus => {
-  return value === 'all' || value === 'draft' || value === 'hidden' || value === 'published';
+const catalogStatusLabel: Record<AdminProgramCatalogStatus, string> = {
+  CLOSED: '판매 종료',
+  FULL: '정원 마감',
+  OPEN: '판매중',
+  SCHEDULED: '판매 예정',
 };
 
-const isFormatFilter = (value: string | null): value is 'all' | AdminProgramFormat => {
-  return value === 'all' || value === 'offline' || value === 'hybrid' || value === 'online';
+const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('ko-KR', {
+    currency: 'KRW',
+    maximumFractionDigits: 0,
+    style: 'currency',
+  }).format(value);
 };
 
-const buildMenuTree = (items: AdminProgramMenuTreeItem[]): MenuTreeBranch[] => {
-  const itemMap = new Map<string, MenuTreeBranch>();
-
-  items.forEach((item) => {
-    itemMap.set(item.id, {
-      ...item,
-      children: [],
-    });
-  });
-
-  const roots: MenuTreeBranch[] = [];
-
-  itemMap.forEach((item) => {
-    if (!item.parentId) {
-      roots.push(item);
-      return;
-    }
-
-    const parent = itemMap.get(item.parentId);
-
-    if (!parent) {
-      roots.push(item);
-      return;
-    }
-
-    parent.children.push(item);
-  });
-
-  return roots;
-};
-
-const collectExpandableMenuIds = (branches: readonly MenuTreeBranch[]): string[] => {
-  return branches.flatMap((branch) => {
-    const childIds = collectExpandableMenuIds(branch.children);
-
-    if (branch.children.length === 0) {
-      return childIds;
-    }
-
-    return [branch.id, ...childIds];
-  });
-};
-
-const mergeUniqueIds = (current: readonly string[], next: readonly string[]): string[] => {
-  return Array.from(new Set([...current, ...next]));
-};
-
-const buildExpandedIdsForSelection = (
-  selectedMenuId: string | null,
-  itemMap: ReadonlyMap<string, AdminProgramMenuTreeItem>,
-): string[] => {
-  if (!selectedMenuId) {
-    return [];
+const formatDate = (value: string | null): string => {
+  if (!value) {
+    return '-';
   }
 
-  const pathIds: string[] = [];
-  let current: AdminProgramMenuTreeItem | undefined = itemMap.get(selectedMenuId);
-
-  while (current) {
-    if (!current.isLeafMenu) {
-      pathIds.unshift(current.id);
-    }
-
-    current = current.parentId ? itemMap.get(current.parentId) : undefined;
-  }
-
-  return pathIds;
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'medium',
+  }).format(new Date(value));
 };
 
-const filterMenuTreeByKeyword = (
-  branches: readonly MenuTreeBranch[],
-  keyword: string,
-): MenuTreeBranch[] => {
-  const normalizedKeyword = keyword.trim().toLowerCase();
-
-  if (!normalizedKeyword) {
-    return [...branches];
-  }
-
-  const visit = (nodes: readonly MenuTreeBranch[]): MenuTreeBranch[] => {
-    return nodes.flatMap((node) => {
-      const filteredChildren = visit(node.children);
-      const isMatched = [node.label, node.labelPath, node.path]
-        .join(' ')
-        .toLowerCase()
-        .includes(normalizedKeyword);
-
-      if (!isMatched && filteredChildren.length === 0) {
-        return [];
-      }
-
-      return [
-        {
-          ...node,
-          children: filteredChildren,
-        },
-      ];
-    });
-  };
-
-  return visit(branches);
+const buildProgramVisibilityLabel = (item: AdminProgramListItem): string => {
+  return item.published ? '공개중' : '숨김';
 };
+
+const visibilityOptions = [
+  { value: 'all', label: '전체' },
+  { value: 'published', label: '공개중' },
+  { value: 'hidden', label: '숨김' },
+] as const;
+
+const typeOptions = [
+  { value: 'all', label: '전체' },
+  { value: 'ONLINE', label: '온라인' },
+  { value: 'OFFLINE', label: '오프라인' },
+  { value: 'HYBRID', label: '하이브리드' },
+] as const;
+
+const confirmProgramDelete = (): boolean => {
+  return window.confirm(
+    '강의를 삭제하면 되돌릴 수 없습니다.\n커리큘럼이나 수강 이력이 있는 강의는 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
+  );
+};
+
+const isProgramDeletable = (item: AdminProgramListItem): boolean => item.deletable !== false;
 
 const AdminProgramListSection = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [expandedMenuIds, setExpandedMenuIds] = useState<string[]>([]);
+  const queryClient = useQueryClient();
+  const showToast = useToastStore((state) => state.showToast);
+  const programsQuery = useAdminProgramsLiveQuery();
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [visibilityFilter, setVisibilityFilter] = useState<ProgramVisibilityFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<ProgramTypeFilter>('all');
+  const [currentPage, setCurrentPage] = useState(0);
 
-  const menuTreeQuery = useAdminProgramMenuTreeQuery();
-  const menuItems = useMemo(() => menuTreeQuery.data?.items ?? [], [menuTreeQuery.data?.items]);
-  const menuItemMap = useMemo(() => new Map(menuItems.map((item) => [item.id, item])), [menuItems]);
-  const menuTree = useMemo(() => buildMenuTree(menuItems), [menuItems]);
+  const refreshPrograms = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: adminProgramsLiveQueryKey(),
+    });
+  };
 
-  const rawMenuPath = searchParams.get('menuPath');
-  const rawMenuSearch = searchParams.get('menuSearch') ?? '';
-  const rawProgramQuery = searchParams.get('programQuery') ?? '';
-  const rawStatusFilter = searchParams.get('status');
-  const rawFormatFilter = searchParams.get('format');
-
-  const statusFilter = isStatusFilter(rawStatusFilter) ? rawStatusFilter : DEFAULT_STATUS_FILTER;
-  const formatFilter = isFormatFilter(rawFormatFilter) ? rawFormatFilter : DEFAULT_FORMAT_FILTER;
-  const deferredProgramSearchKeyword = useDeferredValue(rawProgramQuery.trim());
-  const filteredMenuTree = useMemo(
-    () => filterMenuTreeByKeyword(menuTree, rawMenuSearch),
-    [menuTree, rawMenuSearch],
-  );
-  const activeMenu = useMemo<AdminProgramMenuTreeItem | null>(() => {
-    const matchedMenu = rawMenuPath
-      ? menuItems.find((item) => item.path === rawMenuPath)
-      : undefined;
-    const defaultLeafMenu = menuItems.find((item) => item.isLeafMenu);
-    const firstMenu = menuItems.at(0) ?? null;
-
-    return matchedMenu ?? defaultLeafMenu ?? firstMenu;
-  }, [menuItems, rawMenuPath]);
-  const activeMenuId = activeMenu ? activeMenu.id : null;
-  const isLeafMenuSelected = activeMenu ? activeMenu.isLeafMenu : false;
-
-  const programsQuery = useAdminProgramsQuery({
-    collectionPath: activeMenu ? activeMenu.path : null,
-    enabled: activeMenu !== null,
-    format: formatFilter,
-    query: deferredProgramSearchKeyword,
-    status: statusFilter,
+  const publishMutation = useMutation({
+    mutationFn: (programId: number) => publishAdminProgramLive(programId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '강의 공개 처리에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await refreshPrograms();
+      showToast({
+        message: '강의를 공개했습니다.',
+        variant: 'success',
+      });
+    },
   });
-  const programItems = useMemo(() => programsQuery.data?.items || [], [programsQuery.data?.items]);
-  const hasDuplicatableProgram = programItems.some((item) => item.canDuplicate);
 
-  const updateSearchState = (
-    updates: Partial<{
-      format: string | null;
-      menuPath: string | null;
-      menuSearch: string | null;
-      programQuery: string | null;
-      status: string | null;
-    }>,
-    replace = false,
-  ) => {
-    const nextParams = new URLSearchParams(searchParams);
+  const hideMutation = useMutation({
+    mutationFn: (programId: number) => hideAdminProgramLive(programId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '강의 숨김 처리에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await refreshPrograms();
+      showToast({
+        message: '강의를 숨김 처리했습니다.',
+        variant: 'success',
+      });
+    },
+  });
 
-    (Object.entries(updates) as Array<[keyof typeof updates, string | null | undefined]>).forEach(
-      ([key, value]) => {
-        if (!value || value === DEFAULT_STATUS_FILTER || value === DEFAULT_FORMAT_FILTER) {
-          nextParams.delete(key);
-          return;
-        }
+  const deleteMutation = useMutation({
+    mutationFn: (programId: number) => deleteAdminProgramLive(programId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '강의 삭제에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await refreshPrograms();
+      showToast({
+        message: '강의를 삭제했습니다.',
+        variant: 'success',
+      });
+    },
+  });
 
-        nextParams.set(key, value);
-      },
-    );
+  const filteredItems = useMemo(() => {
+    const items = programsQuery.data ?? [];
+    const normalizedKeyword = searchKeyword.trim().toLowerCase();
 
-    setSearchParams(nextParams, { replace });
-  };
+    return items.filter((item) => {
+      const matchesKeyword =
+        !normalizedKeyword ||
+        [item.title, item.categoryName, item.instructorName ?? '']
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedKeyword);
+      const matchesVisibility =
+        visibilityFilter === 'all' ||
+        (visibilityFilter === 'published' && item.published) ||
+        (visibilityFilter === 'hidden' && !item.published);
+      const matchesType = typeFilter === 'all' || item.programType === typeFilter;
 
-  useEffect(() => {
-    queueMicrotask(() => {
-      setExpandedMenuIds((current) =>
-        current.filter((menuId) => menuItems.some((item) => item.id === menuId)),
-      );
+      return matchesKeyword && matchesVisibility && matchesType;
     });
-  }, [menuItems]);
+  }, [programsQuery.data, searchKeyword, typeFilter, visibilityFilter]);
 
-  useEffect(() => {
-    const selectionExpandedIds = buildExpandedIdsForSelection(activeMenuId, menuItemMap);
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PROGRAMS_PAGE_SIZE));
+  const currentPageIndex = Math.min(currentPage, totalPages - 1);
+  const paginatedItems = useMemo(() => {
+    const startIndex = currentPageIndex * PROGRAMS_PAGE_SIZE;
+    return filteredItems.slice(startIndex, startIndex + PROGRAMS_PAGE_SIZE);
+  }, [currentPageIndex, filteredItems]);
+  const visibleStart = filteredItems.length === 0 ? 0 : currentPageIndex * PROGRAMS_PAGE_SIZE + 1;
+  const visibleEnd = Math.min(filteredItems.length, (currentPageIndex + 1) * PROGRAMS_PAGE_SIZE);
+  const pageNumbers = useMemo(() => {
+    const startPage = Math.max(0, currentPageIndex - 2);
+    const endPage = Math.min(totalPages, startPage + 5);
+    return Array.from({ length: endPage - startPage }, (_, index) => startPage + index);
+  }, [currentPageIndex, totalPages]);
 
-    if (!selectionExpandedIds.length) {
-      return;
-    }
+  return (
+    <section className={styles['workspace']}>
+      <header className={styles['pageHeader']}>
+        <h1 className={styles['pageTitle']}>강의 관리</h1>
+      </header>
 
-    queueMicrotask(() => {
-      setExpandedMenuIds((current) => mergeUniqueIds(current, selectionExpandedIds));
-    });
-  }, [activeMenuId, menuItemMap]);
+      <div className={styles['listFrame']}>
+        <div className={styles['toolbar']}>
+          <div className={styles['toolbarFilters']}>
+            <div className={styles['toolbarFilterRow']}>
+              <div className={styles['toolbarSearchField']}>
+                <TextField
+                  label='강의 검색'
+                  name='programSearch'
+                  onChange={(event) => {
+                    setCurrentPage(0);
+                    setSearchKeyword(event.target.value);
+                  }}
+                  placeholder='강의명, 카테고리, 강사명으로 검색'
+                  value={searchKeyword}
+                />
+              </div>
 
-  useEffect(() => {
-    if (!rawMenuSearch.trim()) {
-      return;
-    }
+              <div className={styles['toolbarDropdownRow']}>
+                <AdminDropdownField
+                  compact
+                  label='공개 상태'
+                  onChange={(nextValue) => {
+                    setCurrentPage(0);
+                    setVisibilityFilter(nextValue as ProgramVisibilityFilter);
+                  }}
+                  options={visibilityOptions}
+                  value={visibilityFilter}
+                />
+                <AdminDropdownField
+                  compact
+                  label='강의 형태'
+                  onChange={(nextValue) => {
+                    setCurrentPage(0);
+                    setTypeFilter(nextValue as ProgramTypeFilter);
+                  }}
+                  options={typeOptions}
+                  value={typeFilter}
+                />
+              </div>
+            </div>
+          </div>
 
-    queueMicrotask(() => {
-      setExpandedMenuIds(collectExpandableMenuIds(filteredMenuTree));
-    });
-  }, [filteredMenuTree, rawMenuSearch]);
+          <div className={styles['toolbarAction']}>
+            <Button
+              onClick={() => {
+                void navigate(routePaths.adminProgramCreate);
+              }}
+              type='button'
+            >
+              새 강의 등록
+            </Button>
+          </div>
+        </div>
 
-  useEffect(() => {
-    const nextParams = new URLSearchParams(searchParams);
-    let hasChanges = false;
+        {programsQuery.isPending ? (
+          <section aria-busy='true' className={styles['stateSection']}>
+            <h2 className={styles['stateTitle']}>강의 목록을 불러오는 중입니다.</h2>
+            <p className={styles['stateDescription']}>강의 관리 API 응답을 확인하고 있습니다.</p>
+          </section>
+        ) : null}
 
-    if (activeMenu !== null && rawMenuPath !== activeMenu.path) {
-      nextParams.set('menuPath', activeMenu.path);
-      hasChanges = true;
-    }
+        {programsQuery.isError ? (
+          <section className={styles['stateSection']}>
+            <h2 className={styles['stateTitle']}>강의 목록을 불러오지 못했습니다.</h2>
+            <p className={styles['stateDescription']}>
+              {programsQuery.error instanceof Error
+                ? programsQuery.error.message
+                : '강의 목록 조회에 실패했습니다.'}
+            </p>
+          </section>
+        ) : null}
 
-    if (rawStatusFilter && !isStatusFilter(rawStatusFilter)) {
-      nextParams.delete('status');
-      hasChanges = true;
-    }
+        {!programsQuery.isPending && !programsQuery.isError ? (
+          <div className={styles['listPanel']}>
+            <div className={styles['listPanelHeader']}>
+              <p className={styles['listPanelMeta']}>
+                {`총 ${String(filteredItems.length)}개 중 ${String(visibleStart)}-${String(visibleEnd)}개`}
+              </p>
+            </div>
 
-    if (rawFormatFilter && !isFormatFilter(rawFormatFilter)) {
-      nextParams.delete('format');
-      hasChanges = true;
-    }
+            <div className={styles['tableWrap']}>
+              <table className={styles['table']}>
+                <thead>
+                  <tr>
+                    <th scope='col'>강의명</th>
+                    <th scope='col'>카테고리</th>
+                    <th scope='col'>형태</th>
+                    <th scope='col'>가격</th>
+                    <th scope='col'>정원</th>
+                    <th scope='col'>판매 상태</th>
+                    <th scope='col'>공개 상태</th>
+                    <th scope='col'>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedItems.map((item) => {
+                    const deleteBlockedReason = item.deleteBlockedReason ?? undefined;
+                    const deletable = isProgramDeletable(item);
 
-    if (hasChanges) {
-      setSearchParams(nextParams, { replace: true });
-    }
-  }, [activeMenu, rawFormatFilter, rawMenuPath, rawStatusFilter, searchParams, setSearchParams]);
+                    return (
+                      <tr key={item.id}>
+                        <td>
+                          <strong className={styles['cellPrimary']}>{item.title}</strong>
+                        </td>
+                        <td>{item.categoryName}</td>
+                        <td>{programTypeLabel[item.programType]}</td>
+                        <td>
+                          <div className={styles['cellStack']}>
+                            <span className={styles['cellPrimary']}>
+                              {formatCurrency(item.salePrice ?? item.price)}
+                            </span>
+                            {item.salePrice !== null ? (
+                              <span className={styles['cellSecondary']}>
+                                정가 {formatCurrency(item.price)}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td>
+                          {item.maxStudents === null
+                            ? '제한 없음'
+                            : `${String(item.currentStudents)} / ${String(item.maxStudents)}`}
+                        </td>
+                        <td>
+                          <div className={styles['cellStack']}>
+                            <span className={styles['cellPrimary']}>
+                              {catalogStatusLabel[item.catalogStatus]}
+                            </span>
+                            <span
+                              className={`${styles['cellSecondary']} ${styles['cellSecondaryInline']}`}
+                            >
+                              {formatDate(item.saleStartAt)} ~ {formatDate(item.saleEndAt)}
+                            </span>
+                          </div>
+                        </td>
+                        <td>{buildProgramVisibilityLabel(item)}</td>
+                        <td>
+                          <div className={styles['tableActionGroup']}>
+                            <button
+                              className={styles['tableActionButton']}
+                              onClick={() => {
+                                void navigate(routePaths.adminProgramEdit(String(item.id)));
+                              }}
+                              type='button'
+                            >
+                              편집
+                            </button>
+                            <button
+                              className={styles['tableActionButton']}
+                              onClick={() => {
+                                void navigate(routePaths.adminProgramDuplicate(String(item.id)));
+                              }}
+                              type='button'
+                            >
+                              복제
+                            </button>
+                            {item.published ? (
+                              <button
+                                className={styles['tableActionButton']}
+                                onClick={() => {
+                                  hideMutation.mutate(item.id);
+                                }}
+                                type='button'
+                              >
+                                숨김
+                              </button>
+                            ) : (
+                              <button
+                                className={styles['tableActionButton']}
+                                onClick={() => {
+                                  publishMutation.mutate(item.id);
+                                }}
+                                type='button'
+                              >
+                                공개
+                              </button>
+                            )}
+                            <button
+                              className={styles['tableActionButtonDanger']}
+                              disabled={!deletable}
+                              onClick={() => {
+                                if (!confirmProgramDelete()) {
+                                  return;
+                                }
+                                deleteMutation.mutate(item.id);
+                              }}
+                              title={deleteBlockedReason}
+                              type='button'
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-  const returnTo = `${location.pathname}${location.search}`;
-  const navigationState = {
-    returnTo,
-  } satisfies AdminProgramEditorRouteState;
-
-  const handleCreate = () => {
-    if (!activeMenu || !activeMenu.isLeafMenu) {
-      return;
-    }
-
-    const nextSearchParams = new URLSearchParams({
-      parentCollectionPath: activeMenu.path,
-    });
-
-    void navigate(`${routePaths.adminProgramCreate}?${nextSearchParams.toString()}`, {
-      state: navigationState,
-    });
-  };
-
-  const renderMenuBranches = (branches: readonly MenuTreeBranch[]) => {
-    return (
-      <ul className={styles['menuTreeList']}>
-        {branches.map((branch) => {
-          const isExpanded = expandedMenuIds.includes(branch.id);
-          const isActive = activeMenuId === branch.id;
-
-          return (
-            <li className={styles['menuTreeItem']} key={branch.id}>
-              <div
-                className={classNames(
-                  styles['menuTreeRow'],
-                  isActive ? styles['menuTreeRowActive'] : undefined,
-                )}
-              >
-                {branch.children.length ? (
-                  <button
-                    aria-expanded={isExpanded}
-                    className={styles['menuToggleButton']}
-                    onClick={() => {
-                      setExpandedMenuIds((current) =>
-                        current.includes(branch.id)
-                          ? current.filter((menuId) => menuId !== branch.id)
-                          : [...current, branch.id],
-                      );
-                    }}
-                    type='button'
-                  >
-                    <ChevronDownIcon
-                      className={classNames(
-                        styles['menuToggleIcon'],
-                        isExpanded ? styles['menuToggleIconExpanded'] : undefined,
-                      )}
-                    />
-                  </button>
-                ) : (
-                  <span className={styles['menuToggleSpacer']} />
-                )}
-
+            <div className={styles['paginationBar']}>
+              <div className={styles['paginationNumbers']}>
                 <button
-                  className={styles['menuSelectButton']}
+                  aria-label='이전 페이지'
+                  className={styles['paginationArrowButton']}
+                  disabled={currentPageIndex === 0}
                   onClick={() => {
-                    updateSearchState({ menuPath: branch.path });
+                    setCurrentPage(Math.max(0, currentPageIndex - 1));
                   }}
                   type='button'
                 >
-                  <span className={styles['menuSelectLabel']}>{branch.label}</span>
-                  <span className={styles['menuBadges']}>
-                    <span className={styles['menuBadge']}>
-                      {branch.isLeafMenu ? '강의 허브' : '브랜치'}
-                    </span>
-                    <span className={styles['menuBadge']}>
-                      총 {String(branch.totalProgramCount)}강의
-                    </span>
-                  </span>
+                  <img
+                    alt=''
+                    aria-hidden='true'
+                    className={`${styles['paginationArrow']} ${styles['paginationArrowPrev']}`}
+                    src={rightArrowIconSrc}
+                  />
+                </button>
+
+                {pageNumbers.map((pageNumber) => (
+                  <button
+                    aria-current={pageNumber === currentPageIndex ? 'page' : undefined}
+                    className={
+                      pageNumber === currentPageIndex
+                        ? styles['paginationButtonActive']
+                        : styles['paginationButton']
+                    }
+                    key={`program-page-${String(pageNumber)}`}
+                    onClick={() => {
+                      setCurrentPage(pageNumber);
+                    }}
+                    type='button'
+                  >
+                    {String(pageNumber + 1)}
+                  </button>
+                ))}
+
+                <button
+                  aria-label='다음 페이지'
+                  className={styles['paginationArrowButton']}
+                  disabled={currentPageIndex >= totalPages - 1}
+                  onClick={() => {
+                    setCurrentPage(Math.min(totalPages - 1, currentPageIndex + 1));
+                  }}
+                  type='button'
+                >
+                  <img
+                    alt=''
+                    aria-hidden='true'
+                    className={styles['paginationArrow']}
+                    src={rightArrowIconSrc}
+                  />
                 </button>
               </div>
-
-              {branch.children.length && isExpanded ? renderMenuBranches(branch.children) : null}
-            </li>
-          );
-        })}
-      </ul>
-    );
-  };
-
-  return (
-    <div className={styles['workspace']}>
-      <section className={styles['managementLayout']}>
-        <aside className={styles['menuPanel']}>
-          <div className={styles['panelHeader']}>
-            <div>
-              <p className={styles['eyebrow']}>Program Menus</p>
-              <h3 className={styles['sectionTitle']}>강의메뉴 기준으로 시작</h3>
-              <p className={styles['sectionDescription']}>
-                브랜치를 선택하면 하위 강의를 한 번에 보고, leaf 메뉴를 선택하면 해당 메뉴에서 바로
-                새 강의 등록 페이지로 이동합니다. 브랜치의 강의 수는 하위 메뉴를 포함한 총합
-                기준으로 표시합니다.
-              </p>
             </div>
           </div>
+        ) : null}
+      </div>
 
-          <TextField
-            label='메뉴 검색'
-            name='programMenuSearch'
-            onChange={(event) => {
-              updateSearchState({ menuSearch: event.target.value || null });
-            }}
-            placeholder='예: 복부 Basic, 내과과정'
-            value={rawMenuSearch}
-          />
-
-          {menuTreeQuery.isPending ? (
-            <div className={styles['inlineState']}>강의 메뉴를 불러오는 중입니다.</div>
-          ) : filteredMenuTree.length ? (
-            renderMenuBranches(filteredMenuTree)
-          ) : (
-            <div className={styles['inlineState']}>검색 결과에 맞는 강의 메뉴가 없습니다.</div>
-          )}
-        </aside>
-
-        <section className={styles['listPanel']}>
-          <div className={styles['panelHeaderRow']}>
-            <div className={styles['sectionHeader']}>
-              <p className={styles['eyebrow']}>Lectures</p>
-              <h3 className={styles['sectionTitle']}>
-                {activeMenu ? `${activeMenu.labelPath} 강의 목록` : '강의 목록'}
-              </h3>
-              <p className={styles['sectionDescription']}>
-                새 강의 등록, 복제, 편집은 모두 전용 페이지에서 진행합니다. 목록 상태는 URL에
-                유지되어 작업 후 같은 맥락으로 돌아올 수 있습니다.
-              </p>
-            </div>
-
-            <div className={styles['headerActions']}>
-              <Button disabled={!isLeafMenuSelected} onClick={handleCreate} type='button'>
-                새 강의 등록
-              </Button>
-              {hasDuplicatableProgram ? (
-                <span className={styles['metaText']}>복제는 각 강의 행에서 시작합니다.</span>
-              ) : null}
-            </div>
-          </div>
-
-          {activeMenu && !isLeafMenuSelected ? (
-            <div className={styles['selectionHint']}>
-              <strong>현재는 브랜치 메뉴가 선택되어 있습니다.</strong>
-              <span>
-                하위 강의는 볼 수 있지만 새 강의를 만들려면 강의를 담는 leaf 메뉴를 선택해야 합니다.
-              </span>
-            </div>
-          ) : null}
-
-          <div className={styles['filterRow']}>
-            <TextField
-              label='강의 검색'
-              name='adminProgramSearch'
-              onChange={(event) => {
-                updateSearchState({ programQuery: event.target.value || null });
-              }}
-              placeholder='강의명, 공개 경로, 일정으로 검색'
-              value={rawProgramQuery}
-            />
-
-            <label className={styles['field']}>
-              <span className={styles['fieldLabel']}>상태</span>
-              <div className={styles['selectWrap']}>
-                <select
-                  className={styles['select']}
-                  onChange={(event) => {
-                    updateSearchState({ status: event.target.value });
-                  }}
-                  value={statusFilter}
-                >
-                  <option value='all'>전체</option>
-                  <option value='draft'>초안</option>
-                  <option value='published'>게시중</option>
-                  <option value='hidden'>숨김</option>
-                </select>
-              </div>
-            </label>
-
-            <label className={styles['field']}>
-              <span className={styles['fieldLabel']}>운영 형식</span>
-              <div className={styles['selectWrap']}>
-                <select
-                  className={styles['select']}
-                  onChange={(event) => {
-                    updateSearchState({ format: event.target.value });
-                  }}
-                  value={formatFilter}
-                >
-                  <option value='all'>전체</option>
-                  <option value='offline'>오프라인</option>
-                  <option value='hybrid'>하이브리드</option>
-                  <option value='online'>온라인</option>
-                </select>
-              </div>
-            </label>
-          </div>
-
-          {programsQuery.isPending ? (
-            <div className={styles['inlineState']}>강의 목록을 불러오는 중입니다.</div>
-          ) : programItems.length ? (
-            <div className={styles['programList']}>
-              {programItems.map((program) => {
-                const duplicateParentCollectionPath =
-                  activeMenu && activeMenu.isLeafMenu
-                    ? activeMenu.path
-                    : program.parentCollectionPath;
-
-                return (
-                  <article className={styles['programRow']} key={program.id}>
-                    <div className={styles['programRowMain']}>
-                      <div className={styles['programRowMeta']}>
-                        <span className={styles['statusBadge']} data-status={program.status}>
-                          {programStatusLabel[program.status]}
-                        </span>
-                        <span className={styles['originBadge']}>
-                          {programOriginLabel[program.origin]}
-                        </span>
-                        <span className={styles['metaText']}>{program.parentCollectionLabel}</span>
-                      </div>
-                      <h4 className={styles['programTitle']}>{program.title}</h4>
-                      <dl className={styles['programInfoGrid']}>
-                        <div>
-                          <dt>운영 방식</dt>
-                          <dd>{program.formatLabel}</dd>
-                        </div>
-                        <div>
-                          <dt>운영 일정</dt>
-                          <dd>{program.scheduleSummary}</dd>
-                        </div>
-                        <div>
-                          <dt>가격</dt>
-                          <dd>{program.priceLabel}</dd>
-                        </div>
-                        <div>
-                          <dt>잔여 좌석</dt>
-                          <dd>{program.remainingSeatsLabel}</dd>
-                        </div>
-                        <div>
-                          <dt>공개 경로</dt>
-                          <dd>{program.publicPath}</dd>
-                        </div>
-                        <div>
-                          <dt>수정일</dt>
-                          <dd>{program.updatedAt}</dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    <div className={styles['programRowSide']}>
-                      <div className={styles['readinessBox']}>
-                        <strong>{program.isPublishReady ? '게시 가능' : '추가 입력 필요'}</strong>
-                        <span>
-                          {program.missingFieldCount
-                            ? `누락 항목 ${String(program.missingFieldCount)}개`
-                            : '바로 게시할 수 있습니다.'}
-                        </span>
-                      </div>
-
-                      <div className={styles['rowActions']}>
-                        {program.canEdit ? (
-                          <Button
-                            onClick={() => {
-                              void navigate(routePaths.adminProgramEdit(program.id), {
-                                state: navigationState,
-                              });
-                            }}
-                            size='sm'
-                            type='button'
-                            variant='secondary'
-                          >
-                            편집
-                          </Button>
-                        ) : null}
-
-                        {program.canDuplicate ? (
-                          <Button
-                            onClick={() => {
-                              const nextSearchParams = new URLSearchParams({
-                                parentCollectionPath: duplicateParentCollectionPath,
-                              });
-
-                              void navigate(
-                                `${routePaths.adminProgramDuplicate(program.id)}?${nextSearchParams.toString()}`,
-                                {
-                                  state: navigationState,
-                                },
-                              );
-                            }}
-                            size='sm'
-                            type='button'
-                            variant='secondary'
-                          >
-                            복제
-                          </Button>
-                        ) : null}
-
-                        <Link
-                          className={styles['inlineLink']}
-                          target='_blank'
-                          to={program.publicPath}
-                        >
-                          공개 페이지
-                        </Link>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className={styles['emptyState']}>
-              <p className={styles['emptyStateTitle']}>선택한 메뉴에서 표시할 강의가 없습니다.</p>
-              <p className={styles['emptyStateDescription']}>
-                leaf 메뉴를 선택한 뒤 새 강의를 등록하거나, 검색과 필터를 조정해 주세요.
-              </p>
-            </div>
-          )}
-        </section>
-      </section>
-    </div>
+      {!programsQuery.isPending && !programsQuery.isError && filteredItems.length === 0 ? (
+        <p className={styles['helperText']}>선택한 조건에 맞는 강의가 없습니다.</p>
+      ) : null}
+    </section>
   );
 };
 

@@ -1,9 +1,8 @@
 /* eslint-disable import/order */
+import { resetMockAdminConsoleData } from '@/mocks/data/adminConsole';
+import { resetMockMyPageData } from '@/mocks/data/mypage';
+import { resetMockStudentAuthState } from '@/mocks/data/studentAuth';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMockAdminConsole, resetMockAdminConsoleData } from '@/mocks/data/adminConsole';
-import { getMockMyCart, getMockMyCoupons, resetMockMyPageData } from '@/mocks/data/mypage';
-import { getMockPaymentResult, getMockPaymentResultByToken } from '@/mocks/data/payments';
-import { getMockRegistrationTerms, resetMockStudentAuthState } from '@/mocks/data/studentAuth';
 const { httpGetMock, axiosGetMock, axiosPostMock, axiosPatchMock, axiosDeleteMock } = vi.hoisted(
   () => {
     return {
@@ -47,8 +46,6 @@ import {
 import { fetchPaymentResult, fetchPaymentResultByToken } from '@/api/payments';
 import { useAuthStore } from '@/stores/useAuthStore';
 
-const siteKey = 'sono-school-main';
-
 const createAxiosFailure = (status: number | null) => {
   return {
     isAxiosError: true,
@@ -78,7 +75,7 @@ describe('app API fallback', () => {
     resetMockStudentAuthState();
   });
 
-  it('falls back to mock auth data when auth endpoints are unavailable', async () => {
+  it('keeps auth requests failing when live endpoints are unavailable', async () => {
     axiosPostMock.mockRejectedValueOnce(createAxiosFailure(404));
     axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
 
@@ -87,13 +84,9 @@ describe('app API fallback', () => {
         loginId: 'student01',
         password: 'password123',
       }),
-    ).resolves.toMatchObject({
-      displayName: '길동',
-      loginId: 'student01',
-      role: 'ROLE_STUDENT',
-    });
+    ).rejects.toBeTruthy();
 
-    await expect(fetchRegistrationTerms()).resolves.toEqual(getMockRegistrationTerms());
+    await expect(fetchRegistrationTerms()).rejects.toBeTruthy();
   });
 
   it('does not use auth fallback for a reachable invalid-credential response', async () => {
@@ -107,7 +100,7 @@ describe('app API fallback', () => {
     ).rejects.toBeTruthy();
   });
 
-  it('falls back to mock mypage data when mypage APIs are unavailable', async () => {
+  it('keeps mypage requests failing when live endpoints are unavailable', async () => {
     axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
     axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
     axiosPatchMock.mockRejectedValueOnce(createAxiosFailure(404));
@@ -123,24 +116,14 @@ describe('app API fallback', () => {
       tokenType: 'Bearer',
     });
 
-    await expect(fetchMyProfile()).resolves.toMatchObject({
-      displayName: '홍길동',
-      loginId: 'student01',
-    });
+    await expect(fetchMyProfile()).rejects.toBeTruthy();
 
     await expect(
       updateMyProfile({
         name: '김학생',
         nickname: '학생',
       }),
-    ).resolves.toMatchObject({
-      displayName: '학생',
-      email: 'student01@example.com',
-      name: '김학생',
-      nickname: '학생',
-    });
-
-    const previousCount = getMockMyCart().itemCount;
+    ).rejects.toBeTruthy();
 
     await expect(
       addMyCartItem({
@@ -154,34 +137,28 @@ describe('app API fallback', () => {
         thumbnailUrl: null,
         title: '테스트 코스',
       }),
-    ).resolves.toMatchObject({
-      itemCount: previousCount + 1,
-    });
+    ).rejects.toBeTruthy();
 
-    await expect(removeMyCartItem(55)).resolves.toMatchObject({
-      itemCount: previousCount,
-    });
+    await expect(removeMyCartItem(55)).rejects.toBeTruthy();
 
-    await expect(fetchMyCoupons()).resolves.toEqual(getMockMyCoupons());
+    await expect(fetchMyCoupons()).rejects.toBeTruthy();
   });
 
-  it('falls back to mock admin data when admin APIs are unavailable', async () => {
+  it('keeps admin read requests failing when live endpoints are unavailable', async () => {
     httpGetMock.mockRejectedValueOnce(createAxiosFailure(404));
 
-    await expect(fetchAdminConsole()).resolves.toEqual(getMockAdminConsole(siteKey));
+    await expect(fetchAdminConsole()).rejects.toBeTruthy();
   });
 
-  it('falls back to mock payment data when payment APIs are unavailable', async () => {
+  it('keeps payment requests failing when live endpoints are unavailable', async () => {
     axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
     axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
 
-    await expect(fetchPaymentResult(501)).resolves.toEqual(getMockPaymentResult(501));
-    await expect(fetchPaymentResultByToken('mock-card-completed')).resolves.toEqual(
-      getMockPaymentResultByToken('mock-card-completed'),
-    );
+    await expect(fetchPaymentResult(501)).rejects.toBeTruthy();
+    await expect(fetchPaymentResultByToken('mock-card-completed')).rejects.toBeTruthy();
   });
 
-  it('falls back to mock admin mutations when admin write APIs are unavailable', async () => {
+  it('keeps admin write requests failing when live endpoints are unavailable', async () => {
     axiosPostMock.mockRejectedValueOnce(createAxiosFailure(404));
 
     await expect(
@@ -190,8 +167,6 @@ describe('app API fallback', () => {
         isPinned: true,
         title: 'fallback notice',
       }),
-    ).resolves.toBeUndefined();
-
-    expect(getMockAdminConsole(siteKey).notices[0]?.title).toBe('fallback notice');
+    ).rejects.toBeTruthy();
   });
 });

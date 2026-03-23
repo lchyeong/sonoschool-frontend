@@ -5037,7 +5037,11 @@ export const resetMockProgramCatalogData = (): void => {
   invalidateProgramCatalogBaseTreeCache();
 };
 
-export const getMockProgramNavigationItems = (siteKey: string): SiteNavigationItem[] => {
+const DEFAULT_PROGRAM_SITE_KEY = 'default';
+
+export const getMockProgramNavigationItems = (
+  siteKey = DEFAULT_PROGRAM_SITE_KEY,
+): SiteNavigationItem[] => {
   const tree = getProgramCatalogPublicTree(siteKey);
 
   // 헤더 메뉴는 카탈로그 트리에서 label / to / children 정보만 뽑아
@@ -5071,7 +5075,9 @@ export const getMockProgramNavigationItems = (siteKey: string): SiteNavigationIt
   return toSiteNavigationItems(tree);
 };
 
-export const getMockProgramsOverview = (siteKey: string): ProgramsOverviewResponse => {
+export const getMockProgramsOverview = (
+  siteKey = DEFAULT_PROGRAM_SITE_KEY,
+): ProgramsOverviewResponse => {
   const tree = getProgramCatalogPublicTree(siteKey);
   const topLevelCollections = collectVisibleCollections(tree, true).filter(
     (collection) => collection.ancestors.length === 0 && !isLeafHubCollectionNode(collection),
@@ -5100,13 +5106,16 @@ export const getMockProgramsOverview = (siteKey: string): ProgramsOverviewRespon
   };
 };
 
-export const getMockProgramPage = (siteKey: string, path: string): ProgramPageResponse | null => {
+export const getMockProgramPage = (
+  path: string,
+  siteKey = DEFAULT_PROGRAM_SITE_KEY,
+): ProgramPageResponse | null => {
   // 같은 `/programs/...` 경로라도 leaf면 상세, collection이면 목록 페이지 응답을 돌려줍니다.
   return buildProgramPageResponse(siteKey, path);
 };
 
 export const getMockProgramSearchLectureItems = (
-  siteKey: string,
+  siteKey = DEFAULT_PROGRAM_SITE_KEY,
 ): ProgramSearchIndexResponse['items'] => {
   const tree = getProgramCatalogPublicTree(siteKey);
 

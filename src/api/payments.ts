@@ -1,11 +1,5 @@
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import { shouldUseMockFallback } from '@/api/fallback';
-import {
-  getMockPaymentHistory,
-  getMockPaymentResult,
-  getMockPaymentResultByToken,
-} from '@/mocks/data/payments';
 import type { ApiEnvelope } from '@/types/auth';
 import type {
   CheckoutPaymentInitiatePayload,
@@ -27,14 +21,6 @@ export const fetchPaymentResult = async (paymentId: number): Promise<PaymentResu
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockPayment = getMockPaymentResult(paymentId);
-
-      if (mockPayment) {
-        return mockPayment;
-      }
-    }
-
     throw toApiError(error, '결제 결과를 불러오지 못했습니다.');
   }
 };
@@ -49,14 +35,6 @@ export const fetchPaymentResultByToken = async (token: string): Promise<PaymentR
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockPayment = getMockPaymentResultByToken(token);
-
-      if (mockPayment) {
-        return mockPayment;
-      }
-    }
-
     throw toApiError(error, '결제 결과를 불러오지 못했습니다.');
   }
 };
@@ -66,10 +44,6 @@ export const fetchPaymentHistory = async (): Promise<PaymentResult[]> => {
     const response = await axiosInstance.get<ApiEnvelope<PaymentResult[]>>('/api/v1/payments');
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      return getMockPaymentHistory();
-    }
-
     throw toApiError(error, '결제 내역을 불러오지 못했습니다.');
   }
 };

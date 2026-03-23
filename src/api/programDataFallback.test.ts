@@ -1,8 +1,4 @@
-/* eslint-disable import/order */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMockProgramPage, getMockProgramsOverview } from '@/mocks/data/programCatalog';
-import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
-import { getMockSiteNavigation } from '@/mocks/data/siteNavigation';
 const { httpGetMock } = vi.hoisted(() => {
   return {
     httpGetMock: vi.fn(),
@@ -26,22 +22,21 @@ describe('program data API fallback', () => {
     httpGetMock.mockReset();
   });
 
-  it('returns mock overview data when the programs overview API fails', async () => {
-    httpGetMock.mockRejectedValue(new Error('overview failed'));
+  it('keeps rejecting when the programs overview API fails', async () => {
+    const error = new Error('overview failed');
 
-    await expect(fetchProgramsOverview()).resolves.toEqual(
-      getMockProgramsOverview('sono-school-main'),
-    );
+    httpGetMock.mockRejectedValue(error);
+
+    await expect(fetchProgramsOverview()).rejects.toBe(error);
   });
 
-  it('returns mock program page data when the program page API fails', async () => {
+  it('keeps rejecting when the program page API fails', async () => {
     const path = '/programs/general-course/abdomen';
+    const error = new Error('page failed');
 
-    httpGetMock.mockRejectedValue(new Error('page failed'));
+    httpGetMock.mockRejectedValue(error);
 
-    await expect(fetchProgramPage(path)).resolves.toEqual(
-      getMockProgramPage('sono-school-main', path),
-    );
+    await expect(fetchProgramPage(path)).rejects.toBe(error);
   });
 
   it('keeps rejecting when a failed program page request has no matching mock fallback', async () => {
@@ -52,15 +47,19 @@ describe('program data API fallback', () => {
     await expect(fetchProgramPage('/programs/unknown-course')).rejects.toBe(error);
   });
 
-  it('returns mock navigation data when the navigation API fails', async () => {
-    httpGetMock.mockRejectedValue(new Error('navigation failed'));
+  it('keeps rejecting when the navigation API fails', async () => {
+    const error = new Error('navigation failed');
 
-    await expect(fetchSiteNavigation()).resolves.toEqual(getMockSiteNavigation());
+    httpGetMock.mockRejectedValue(error);
+
+    await expect(fetchSiteNavigation()).rejects.toBe(error);
   });
 
-  it('returns mock search index data when the search index API fails', async () => {
-    httpGetMock.mockRejectedValue(new Error('search failed'));
+  it('keeps rejecting when the search index API fails', async () => {
+    const error = new Error('search failed');
 
-    await expect(fetchProgramSearchIndex()).resolves.toEqual(getMockProgramSearchIndex());
+    httpGetMock.mockRejectedValue(error);
+
+    await expect(fetchProgramSearchIndex()).rejects.toBe(error);
   });
 });

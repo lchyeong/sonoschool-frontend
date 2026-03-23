@@ -32,7 +32,7 @@ const ProgramsPage = () => {
       <section className={styles['stateSection']}>
         <p className={styles['stateTitle']}>교육과정 허브를 불러오지 못했습니다.</p>
         <p className={styles['stateDescription']}>
-          MSW 또는 프로그램 API 응답을 확인한 뒤 다시 시도해 주세요.
+          프로그램 API 응답과 서버 상태를 확인한 뒤 다시 시도해 주세요.
         </p>
       </section>
     );

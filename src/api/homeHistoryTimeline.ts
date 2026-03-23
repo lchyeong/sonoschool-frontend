@@ -1,8 +1,6 @@
 import { z } from 'zod';
 
-import { shouldUseMockFallback } from '@/api/fallback';
 import { http } from '@/api/http';
-import { getMockHomeHistoryTimeline } from '@/mocks/data/homeHistoryTimeline';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
 
 const toZodErrorMessage = (error: z.ZodError): string => {
@@ -24,21 +22,13 @@ const homeHistoryTimelineResponseSchema = z.object({
 });
 
 export const fetchHomeHistoryTimeline = async (): Promise<HomeHistoryTimelineResponse> => {
-  try {
-    const responseData = await http.get<unknown>('/api/v1/home/history-timeline');
+  const responseData = await http.get<unknown>('/api/v1/home/history-timeline');
 
-    const parsed = homeHistoryTimelineResponseSchema.safeParse(responseData);
+  const parsed = homeHistoryTimelineResponseSchema.safeParse(responseData);
 
-    if (!parsed.success) {
-      throw new Error(`[homeHistoryTimeline] Invalid response.${toZodErrorMessage(parsed.error)}`);
-    }
-
-    return parsed.data;
-  } catch (error) {
-    if (!shouldUseMockFallback(error)) {
-      throw error;
-    }
-
-    return getMockHomeHistoryTimeline();
+  if (!parsed.success) {
+    throw new Error(`[homeHistoryTimeline] Invalid response.${toZodErrorMessage(parsed.error)}`);
   }
+
+  return parsed.data;
 };

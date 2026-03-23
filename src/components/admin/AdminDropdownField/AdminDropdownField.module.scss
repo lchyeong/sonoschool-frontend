@@ -1,0 +1,125 @@
+.field {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.compact {
+  width: min(100%, 196px);
+  flex: 0 0 196px;
+}
+
+.label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.trigger {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.trigger:focus-visible {
+  border-color: var(--color-brand-main);
+  box-shadow: 0 0 0 3px rgba(52, 178, 159, 0.14);
+  outline: none;
+}
+
+.trigger:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.triggerLabel {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 12px;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.caret {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+}
+
+.caretIcon {
+  width: 15px;
+  height: 15px;
+  filter: brightness(0) invert(1);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% - 1px);
+  right: 0;
+  left: 0;
+  z-index: 8;
+  display: grid;
+  gap: 4px;
+  max-height: 280px;
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
+}
+
+.option {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  background: rgba(248, 251, 250, 0.9);
+  text-align: left;
+}
+
+.option:hover,
+.option:focus-visible {
+  border-color: var(--color-brand-lighten-25);
+  background: var(--color-brand-lighten-50);
+  outline: none;
+}
+
+.optionSelected {
+  border-color: var(--color-brand-lighten-20);
+  background: var(--color-brand-lighten-45);
+}
+
+.optionDisabled {
+  opacity: 0.52;
+}
+
+.optionTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.optionMeta {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+}
+
+@media (width < 900px) {
+  .compact {
+    width: 100%;
+    flex-basis: 100%;
+  }
+}

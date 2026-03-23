@@ -161,11 +161,11 @@ const appLeafRouteDefinitions = {
     routePath: 'admin/videos',
     absolutePath: '/admin/videos',
   }),
-  adminSales: defineStaticRoute({
-    key: 'adminSales',
+  adminPayments: defineStaticRoute({
+    key: 'adminPayments',
     access: 'public',
-    routePath: 'admin/sales',
-    absolutePath: '/admin/sales',
+    routePath: 'admin/payments',
+    absolutePath: '/admin/payments',
   }),
   signup: defineStaticRoute({
     key: 'signup',
@@ -313,7 +313,7 @@ const appChildRouteKeys = [
   'adminProgramEdit',
   'adminProgramDuplicate',
   'adminProgramMenus',
-  'adminSales',
+  'adminPayments',
   'signup',
   'accountRecovery',
   'mypage',
@@ -370,7 +370,7 @@ export const routePaths = {
     routes.adminProgramDuplicate.buildPath({ sourceProgramId }),
   adminProgramMenus: routes.adminProgramMenus.absolutePath,
   adminVideos: routes.adminVideos.absolutePath,
-  adminSales: routes.adminSales.absolutePath,
+  adminPayments: routes.adminPayments.absolutePath,
   signup: routes.signup.absolutePath,
   accountRecovery: routes.accountRecovery.absolutePath,
   mypage: routes.mypage.absolutePath,

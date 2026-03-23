@@ -8,6 +8,8 @@ import { adminAuthRouteTree, adminConsoleRouteTree, appRouteTree } from '@/route
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 
+const ACTIVE_SESSION_EXPIRES_AT = '2099-01-01T00:00:00Z';
+
 const createTestQueryClient = () => {
   return new QueryClient({
     defaultOptions: {
@@ -24,8 +26,13 @@ const createTestQueryClient = () => {
 afterEach(() => {
   cleanup();
   useAdminAuthStore.setState({
-    adminDisplayName: null,
+    accessToken: '',
+    adminDisplayName: '',
+    expiresAt: '',
     isAuthenticated: false,
+    loginId: '',
+    role: '',
+    tokenType: '',
   });
   useAuthStore.setState({
     accessToken: '',
@@ -62,8 +69,13 @@ describe('router layouts', () => {
 
   it('renders the admin sidebar navigation on admin console routes without the common header and footer', async () => {
     useAdminAuthStore.setState({
+      accessToken: 'admin-token',
       adminDisplayName: '소노스쿨 운영 관리자',
+      expiresAt: ACTIVE_SESSION_EXPIRES_AT,
       isAuthenticated: true,
+      loginId: 'admin',
+      role: 'ROLE_ADMIN',
+      tokenType: 'Bearer',
     });
 
     const queryClient = createTestQueryClient();
@@ -88,13 +100,18 @@ describe('router layouts', () => {
 
   it('keeps the lecture management navigation active on nested admin lecture editor routes', async () => {
     useAdminAuthStore.setState({
+      accessToken: 'admin-token',
       adminDisplayName: '소노스쿨 운영 관리자',
+      expiresAt: ACTIVE_SESSION_EXPIRES_AT,
       isAuthenticated: true,
+      loginId: 'admin',
+      role: 'ROLE_ADMIN',
+      tokenType: 'Bearer',
     });
 
     const queryClient = createTestQueryClient();
     const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
-      initialEntries: ['/admin/programs/doctor-course-internal-medicine-abdomen-practice/edit'],
+      initialEntries: ['/admin/programs/2001/edit'],
     });
 
     render(
@@ -104,7 +121,7 @@ describe('router layouts', () => {
     );
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '내과과정 복부 실전 워크숍 편집' }),
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 수정' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /강의 관리/i })).toHaveAttribute(
       'aria-current',
@@ -131,7 +148,7 @@ describe('router layouts', () => {
     useAuthStore.setState({
       accessToken: 'token',
       tokenType: 'Bearer',
-      expiresAt: '2026-03-17T00:00:00Z',
+      expiresAt: ACTIVE_SESSION_EXPIRES_AT,
       loginId: 'student01',
       displayName: '길동',
       role: 'ROLE_STUDENT',
