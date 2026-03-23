@@ -60,9 +60,7 @@ export const fetchProgramSearchIndex = async (): Promise<ProgramSearchIndexRespo
     const backendParsed = backendProgramSearchIndexResponseSchema.safeParse(responseData);
 
     if (!backendParsed.success) {
-      throw new Error(
-        `[programSearch] Invalid response.${toZodErrorMessage(backendParsed.error)}`,
-      );
+      throw new Error(`[programSearch] Invalid response.${toZodErrorMessage(backendParsed.error)}`);
     }
 
     return {

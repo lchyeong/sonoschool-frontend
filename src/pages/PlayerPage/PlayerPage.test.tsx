@@ -4,7 +4,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import PlayerPage from '@/pages/PlayerPage/PlayerPage';
-import type { LearningPlayerSnapshot, ProtectedLectureStream } from '@/types/mypage';
+import type {
+  LearningPlayerSnapshot,
+  LectureProgressSaveResponse,
+  ProtectedLectureStream,
+} from '@/types/mypage';
 
 const {
   createdHlsConfigs,
@@ -15,10 +19,20 @@ const {
   testState,
 } = vi.hoisted(() => ({
   createdHlsConfigs: [] as Array<Record<string, unknown>>,
-  fetchLectureStreamMock: vi.fn<(lectureId: number, deviceId: string) => Promise<ProtectedLectureStream>>(),
-  fetchMyLearningPlayerSnapshotMock: vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>(),
-  saveLectureProgressMock: vi.fn(),
-  sendLectureProgressBeaconMock: vi.fn(),
+  fetchLectureStreamMock:
+    vi.fn<(lectureId: number, deviceId: string) => Promise<ProtectedLectureStream>>(),
+  fetchMyLearningPlayerSnapshotMock:
+    vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>(),
+  saveLectureProgressMock:
+    vi.fn<
+      (
+        enrollmentId: number,
+        lectureId: number,
+        watchedSeconds: number,
+      ) => Promise<LectureProgressSaveResponse>
+    >(),
+  sendLectureProgressBeaconMock:
+    vi.fn<(enrollmentId: number, lectureId: number, watchedSeconds: number) => boolean>(),
   testState: {
     isHlsSupported: true,
   },
@@ -72,10 +86,10 @@ vi.mock('@/api/mypage', () => ({
     fetchLectureStreamMock(lectureId, deviceId),
   fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
     fetchMyLearningPlayerSnapshotMock(enrollmentId),
-  saveLectureProgress: (...args: Parameters<typeof saveLectureProgressMock>) =>
-    saveLectureProgressMock(...args),
-  sendLectureProgressBeacon: (...args: Parameters<typeof sendLectureProgressBeaconMock>) =>
-    sendLectureProgressBeaconMock(...args),
+  saveLectureProgress: (enrollmentId: number, lectureId: number, watchedSeconds: number) =>
+    saveLectureProgressMock(enrollmentId, lectureId, watchedSeconds),
+  sendLectureProgressBeacon: (enrollmentId: number, lectureId: number, watchedSeconds: number) =>
+    sendLectureProgressBeaconMock(enrollmentId, lectureId, watchedSeconds),
 }));
 
 vi.mock('@/utils/playbackDeviceId', () => ({

@@ -15,6 +15,7 @@ import {
   updateMockMyProfile,
   verifyMockMyPhoneChange,
 } from '@/mocks/data/mypage';
+import { getStudentAccessToken, isStudentAuthenticated } from '@/stores/useAuthStore';
 import type { ApiEnvelope, SmsSendPayload, SmsSendResponse, SmsVerifyPayload } from '@/types/auth';
 import type {
   AddToCartPayload,
@@ -30,7 +31,6 @@ import type {
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
-import { getStudentAccessToken, isStudentAuthenticated } from '@/stores/useAuthStore';
 import { formatPaymentMethodLabel, type PaymentResult } from '@/types/payment';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
@@ -424,7 +424,9 @@ export const fetchMyRefunds = async (): Promise<RefundHistory[]> => {
 
   try {
     const payments = await fetchPaymentHistory();
-    return payments.map(toRefundHistory).filter((refund): refund is RefundHistory => refund !== null);
+    return payments
+      .map(toRefundHistory)
+      .filter((refund): refund is RefundHistory => refund !== null);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
       return getMockMyRefunds();

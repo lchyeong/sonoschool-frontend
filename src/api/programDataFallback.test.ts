@@ -39,7 +39,9 @@ describe('program data API fallback', () => {
 
     httpGetMock.mockRejectedValue(new Error('page failed'));
 
-    await expect(fetchProgramPage(path)).resolves.toEqual(getMockProgramPage('sono-school-main', path));
+    await expect(fetchProgramPage(path)).resolves.toEqual(
+      getMockProgramPage('sono-school-main', path),
+    );
   });
 
   it('keeps rejecting when a failed program page request has no matching mock fallback', async () => {

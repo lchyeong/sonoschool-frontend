@@ -10,8 +10,27 @@ const getDefaultState = (): PersistedGuestCartState => ({
   items: [],
 });
 
-const clone = <T,>(value: T): T => {
+const clone = <T>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T;
+};
+
+const isCartItem = (value: unknown): value is CartItem => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const item = value as Record<string, unknown>;
+
+  return (
+    typeof item['id'] === 'number' &&
+    typeof item['programId'] === 'number' &&
+    typeof item['title'] === 'string' &&
+    typeof item['detailPath'] === 'string' &&
+    typeof item['programType'] === 'string' &&
+    typeof item['originalPrice'] === 'number' &&
+    typeof item['payablePrice'] === 'number' &&
+    typeof item['addedAt'] === 'string'
+  );
 };
 
 const parsePersistedState = (): PersistedGuestCartState => {
@@ -29,22 +48,7 @@ const parsePersistedState = (): PersistedGuestCartState => {
     const parsed = JSON.parse(storedValue) as Partial<PersistedGuestCartState>;
 
     return {
-      items: Array.isArray(parsed.items)
-        ? parsed.items.filter((item): item is CartItem => {
-            return (
-              typeof item === 'object' &&
-              item !== null &&
-              typeof item.id === 'number' &&
-              typeof item.programId === 'number' &&
-              typeof item.title === 'string' &&
-              typeof item.detailPath === 'string' &&
-              typeof item.programType === 'string' &&
-              typeof item.originalPrice === 'number' &&
-              typeof item.payablePrice === 'number' &&
-              typeof item.addedAt === 'string'
-            );
-          })
-        : [],
+      items: Array.isArray(parsed.items) ? parsed.items.filter(isCartItem) : [],
     };
   } catch {
     return getDefaultState();

@@ -26,10 +26,7 @@ const renderCommonHeader = () => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <CommonHeader
-          LinkComponent={Link}
-          logo={{ label: 'SONO SCHOOL', to: '/' }}
-        />
+        <CommonHeader LinkComponent={Link} logo={{ label: 'SONO SCHOOL', to: '/' }} />
       </MemoryRouter>
     </QueryClientProvider>,
   );

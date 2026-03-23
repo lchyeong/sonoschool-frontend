@@ -74,10 +74,7 @@ describe('PaymentResultPage', () => {
     expect(screen.getByText('카드 결제')).toBeInTheDocument();
     expect(screen.getByText('120,000원')).toBeInTheDocument();
     expect(screen.getByText('결제 완료')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '내 강의로 이동' })).toHaveAttribute(
-      'href',
-      '/mypage',
-    );
+    expect(screen.getByRole('link', { name: '내 강의로 이동' })).toHaveAttribute('href', '/mypage');
     expect(screen.getByRole('link', { name: '홈으로 이동' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: '영수증 보기' })).toHaveAttribute(
       'href',

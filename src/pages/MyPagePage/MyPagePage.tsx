@@ -1116,8 +1116,8 @@ const MyPagePage = () => {
           <div className={styles['consentGroup']}>
             <p className={styles['consentTitle']}>선택정보 동의</p>
             <p className={sharedStyles['mutedText']}>
-              이메일 변경과 마케팅 수신 동의 변경은 현재 준비 중입니다. 현재는 이름,
-              닉네임, 휴대폰 번호만 수정할 수 있습니다.
+              이메일 변경과 마케팅 수신 동의 변경은 현재 준비 중입니다. 현재는 이름, 닉네임, 휴대폰
+              번호만 수정할 수 있습니다.
             </p>
           </div>
 

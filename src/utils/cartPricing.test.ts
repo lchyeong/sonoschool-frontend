@@ -99,7 +99,7 @@ describe('cartPricing', () => {
   it('treats HYBRID items as online targets for online coupons', () => {
     const evaluation = evaluateCouponForItems(
       createCoupon(),
-      [testCartItems[1] as CartItem],
+      [testCartItems[1]],
       new Date('2026-03-19T09:00:00Z'),
     );
 

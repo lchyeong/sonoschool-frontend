@@ -3,9 +3,9 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AppliedCoupon, CartItem, CartSummary, UserCoupon } from '@/types/mypage';
 import CartPage from '@/pages/CartPage/CartPage';
 import { resetCartSelectionState } from '@/stores/useCartSelectionStore';
+import type { AppliedCoupon, CartItem, CartSummary, UserCoupon } from '@/types/mypage';
 
 const cloneData = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -101,7 +101,7 @@ const buildCart = (items: CartItem[], appliedCoupon: AppliedCoupon | null = null
 let currentCart = buildCart(cloneData(initialCartItems));
 
 vi.mock('@/api/mypage', () => ({
-  applyMyCartCoupon: vi.fn(async (couponCode: string) => {
+  applyMyCartCoupon: vi.fn((couponCode: string) => {
     const coupon = testCoupons.find((item) => item.code === couponCode) ?? null;
     const onlineItems = currentCart.items.filter((item) => item.programType === 'ONLINE');
     const onlineSubtotal = onlineItems.reduce((sum, item) => sum + item.payablePrice, 0);
@@ -115,26 +115,26 @@ vi.mock('@/api/mypage', () => ({
       coupon ? toAppliedCoupon(coupon, discountAmount) : null,
     );
 
-    return currentCart;
+    return Promise.resolve(currentCart);
   }),
-  clearMyCartCoupon: vi.fn(async () => {
+  clearMyCartCoupon: vi.fn(() => {
     currentCart = buildCart(currentCart.items);
-    return currentCart;
+    return Promise.resolve(currentCart);
   }),
   fetchMyApplicationSummary: vi.fn(),
-  fetchMyCart: vi.fn(async () => currentCart),
-  fetchMyCoupons: vi.fn(async () => testCoupons),
+  fetchMyCart: vi.fn(() => Promise.resolve(currentCart)),
+  fetchMyCoupons: vi.fn(() => Promise.resolve(testCoupons)),
   fetchMyEnrollmentDetail: vi.fn(),
   fetchMyEnrollments: vi.fn(),
   fetchMyLearningPlayerSnapshot: vi.fn(),
   fetchMyProfile: vi.fn(),
   fetchMyRefunds: vi.fn(),
-  removeMyCartItem: vi.fn(async (cartItemId: number) => {
+  removeMyCartItem: vi.fn((cartItemId: number) => {
     currentCart = buildCart(
       currentCart.items.filter((item) => item.id !== cartItemId),
       currentCart.appliedCoupon,
     );
-    return currentCart;
+    return Promise.resolve(currentCart);
   }),
 }));
 

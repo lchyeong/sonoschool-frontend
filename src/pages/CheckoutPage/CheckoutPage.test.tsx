@@ -81,12 +81,12 @@ const { prepareKcpPcCheckoutPaymentMock } = vi.hoisted(() => ({
 
 vi.mock('@/api/mypage', () => ({
   fetchMyApplicationSummary: vi.fn(),
-  fetchMyCart: vi.fn(async () => testCart),
-  fetchMyCoupons: vi.fn(async () => testCoupons),
+  fetchMyCart: vi.fn(() => Promise.resolve(testCart)),
+  fetchMyCoupons: vi.fn(() => Promise.resolve(testCoupons)),
   fetchMyEnrollmentDetail: vi.fn(),
   fetchMyEnrollments: vi.fn(),
   fetchMyLearningPlayerSnapshot: vi.fn(),
-  fetchMyProfile: vi.fn(async () => testProfile),
+  fetchMyProfile: vi.fn(() => Promise.resolve(testProfile)),
   fetchMyRefunds: vi.fn(),
 }));
 
@@ -148,7 +148,9 @@ describe('CheckoutPage', () => {
     expect(screen.getByText('1,301,000원')).toBeInTheDocument();
     expect(screen.getByText('쿠폰 미적용')).toBeInTheDocument();
     expect(
-      screen.getByText('현재는 카드 결제를 지원하며, 선택한 장바구니 항목 전체가 한 번에 결제됩니다.'),
+      screen.getByText(
+        '현재는 카드 결제를 지원하며, 선택한 장바구니 항목 전체가 한 번에 결제됩니다.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '실결제 진행' })).toBeEnabled();
   });

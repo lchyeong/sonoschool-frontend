@@ -15,7 +15,7 @@ export const getOrCreatePlaybackDeviceId = (): string => {
   }
 
   const nextId =
-    typeof window.crypto?.randomUUID === 'function'
+    typeof window.crypto.randomUUID === 'function'
       ? `web-${window.crypto.randomUUID()}`
       : createFallbackDeviceId();
   window.localStorage.setItem(STORAGE_KEY, nextId);

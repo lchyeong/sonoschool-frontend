@@ -557,7 +557,9 @@ export const fetchAdminProgramMenuDetail = async (
 ): Promise<AdminProgramMenuDetailResponse> => {
   try {
     const encodedMenuId = encodeURIComponent(menuId);
-    const responseData = await http.get<unknown>(`${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}`);
+    const responseData = await http.get<unknown>(
+      `${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}`,
+    );
     const parsed = programMenuDetailResponseSchema.safeParse(responseData);
 
     if (!parsed.success) {
@@ -582,14 +584,12 @@ export const fetchAdminProgramMenuDetail = async (
   }
 };
 
-export const fetchAdminPrograms = async (
-  options?: {
-    collectionPath?: string | null;
-    format?: 'all' | 'hybrid' | 'offline' | 'online';
-    query?: string;
-    status?: 'all' | 'draft' | 'hidden' | 'published';
-  },
-): Promise<AdminProgramsResponse> => {
+export const fetchAdminPrograms = async (options?: {
+  collectionPath?: string | null;
+  format?: 'all' | 'hybrid' | 'offline' | 'online';
+  query?: string;
+  status?: 'all' | 'draft' | 'hidden' | 'published';
+}): Promise<AdminProgramsResponse> => {
   const searchParams = new URLSearchParams();
 
   if (options?.collectionPath) {
@@ -636,7 +636,9 @@ export const fetchAdminProgramDetail = async (
 ): Promise<AdminProgramDetailResponse> => {
   try {
     const encodedProgramId = encodeURIComponent(programId);
-    const responseData = await http.get<unknown>(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}`);
+    const responseData = await http.get<unknown>(
+      `${ADMIN_API_PREFIX}/programs/${encodedProgramId}`,
+    );
     const parsed = adminProgramDetailResponseSchema.safeParse(responseData);
 
     if (!parsed.success) {
@@ -690,9 +692,7 @@ export const loginAdmin = async (payload: AdminLoginRequest): Promise<AdminLogin
   }
 };
 
-export const createAdminNotice = async (
-  payload: CreateAdminNoticePayload,
-): Promise<void> => {
+export const createAdminNotice = async (payload: CreateAdminNoticePayload): Promise<void> => {
   try {
     const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/notices`, payload);
     assertMutationSucceeded(response.data);
@@ -713,7 +713,10 @@ export const replyAdminQna = async (
   const encodedThreadId = encodeURIComponent(threadId);
 
   try {
-    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/qna/${encodedThreadId}/replies`, payload);
+    const response = await axiosInstance.post(
+      `${ADMIN_API_PREFIX}/qna/${encodedThreadId}/replies`,
+      payload,
+    );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
@@ -730,9 +733,7 @@ export const replyAdminQna = async (
   }
 };
 
-export const createAdminResource = async (
-  payload: CreateAdminResourcePayload,
-): Promise<void> => {
+export const createAdminResource = async (payload: CreateAdminResourcePayload): Promise<void> => {
   try {
     const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/resources`, payload);
     assertMutationSucceeded(response.data);
@@ -746,9 +747,7 @@ export const createAdminResource = async (
   }
 };
 
-export const createAdminReview = async (
-  payload: CreateAdminReviewPayload,
-): Promise<void> => {
+export const createAdminReview = async (payload: CreateAdminReviewPayload): Promise<void> => {
   try {
     const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/reviews`, payload);
     assertMutationSucceeded(response.data);
@@ -799,9 +798,7 @@ export const createAdminProgramDraft = async (
   }
 };
 
-export const createAdminProgram = async (
-  payload: UpsertAdminProgramPayload,
-): Promise<void> => {
+export const createAdminProgram = async (payload: UpsertAdminProgramPayload): Promise<void> => {
   try {
     const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/programs`, payload);
     assertMutationSucceeded(response.data);
@@ -827,7 +824,10 @@ export const updateAdminProgram = async (
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
-    const response = await axiosInstance.patch(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}`, payload);
+    const response = await axiosInstance.patch(
+      `${ADMIN_API_PREFIX}/programs/${encodedProgramId}`,
+      payload,
+    );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
@@ -844,9 +844,7 @@ export const updateAdminProgram = async (
   }
 };
 
-export const toggleAdminProgramVisibility = async (
-  programId: string,
-): Promise<void> => {
+export const toggleAdminProgramVisibility = async (programId: string): Promise<void> => {
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
@@ -892,7 +890,9 @@ export const publishAdminProgram = async (programId: string): Promise<void> => {
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
-    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}/publish`);
+    const response = await axiosInstance.post(
+      `${ADMIN_API_PREFIX}/programs/${encodedProgramId}/publish`,
+    );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
@@ -913,7 +913,9 @@ export const hideAdminProgram = async (programId: string): Promise<void> => {
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
-    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}/hide`);
+    const response = await axiosInstance.post(
+      `${ADMIN_API_PREFIX}/programs/${encodedProgramId}/hide`,
+    );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
@@ -958,7 +960,10 @@ export const updateAdminProgramMenu = async (
   const encodedMenuId = encodeURIComponent(menuId);
 
   try {
-    const response = await axiosInstance.patch(`${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}`, payload);
+    const response = await axiosInstance.patch(
+      `${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}`,
+      payload,
+    );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
@@ -979,7 +984,9 @@ export const deleteAdminProgramMenu = async (menuId: string): Promise<void> => {
   const encodedMenuId = encodeURIComponent(menuId);
 
   try {
-    const response = await axiosInstance.delete(`${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}`);
+    const response = await axiosInstance.delete(
+      `${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}`,
+    );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
@@ -1003,7 +1010,10 @@ export const moveAdminProgramMenu = async (
   const encodedMenuId = encodeURIComponent(menuId);
 
   try {
-    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}/move`, payload);
+    const response = await axiosInstance.post(
+      `${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}/move`,
+      payload,
+    );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
@@ -1054,7 +1064,10 @@ export const moveAdminProgram = async (
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
-    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}/move`, payload);
+    const response = await axiosInstance.post(
+      `${ADMIN_API_PREFIX}/programs/${encodedProgramId}/move`,
+      payload,
+    );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {

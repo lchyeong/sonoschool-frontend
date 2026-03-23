@@ -166,7 +166,8 @@ const StudentLoginForm = ({
 
     if (mergeResult.failedCount > 0) {
       showToast({
-        message: '일부 비로그인 장바구니 항목은 옮기지 못했습니다. 장바구니에서 다시 확인해 주세요.',
+        message:
+          '일부 비로그인 장바구니 항목은 옮기지 못했습니다. 장바구니에서 다시 확인해 주세요.',
         variant: 'info',
       });
     }

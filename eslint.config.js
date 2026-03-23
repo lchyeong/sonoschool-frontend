@@ -26,6 +26,7 @@ export default [
       '*.config.js', // 설정 파일 제외 (TS 프로젝트 범위 밖)
       'public', // 정적 파일 제외
       'eslint.config.js', // ESLint 설정 파일 자체 제외
+      'Implement with React/**', // 별도 샘플 프로젝트 제외
     ],
   },
 

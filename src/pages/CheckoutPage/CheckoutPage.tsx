@@ -302,7 +302,7 @@ const CheckoutPage = () => {
       delete window.jsf__pay;
       delete window.m_Completepayment;
     };
-  }, [navigate, queryClient, showToast]);
+  }, [cartScope, navigate, queryClient, showToast]);
 
   const handleStartPayment = async () => {
     if (!pricing.itemCount) {
@@ -512,7 +512,8 @@ const CheckoutPage = () => {
                   <div className={sharedStyles['sectionHeader']}>
                     <h2 className={sharedStyles['sectionTitle']}>선택한 주문 항목</h2>
                     <p className={sharedStyles['sectionDescription']}>
-                      모바일에서는 KCP 결제창으로 이동하며, 서버가 선택 항목과 쿠폰 기준 최종 금액을 확정합니다.
+                      모바일에서는 KCP 결제창으로 이동하며, 서버가 선택 항목과 쿠폰 기준 최종 금액을
+                      확정합니다.
                     </p>
                   </div>
                   <div className={styles['itemList']}>

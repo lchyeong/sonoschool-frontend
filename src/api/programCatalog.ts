@@ -177,35 +177,29 @@ const programPageResponseSchema = z.union([
 ]);
 
 export const fetchProgramsOverview = async (): Promise<ProgramsOverviewResponse> => {
-  try {
-    const responseData = await http.get<unknown>('/api/v1/program-pages/overview');
+  const responseData = await http.get<unknown>('/api/v1/program-pages/overview');
 
-    const parsed = programsOverviewResponseSchema.safeParse(responseData);
+  const parsed = programsOverviewResponseSchema.safeParse(responseData);
 
-    if (!parsed.success) {
-      throw new Error(`[programCatalog] Invalid overview response.${toZodErrorMessage(parsed.error)}`);
-    }
-
-    return parsed.data;
-  } catch (error) {
-    throw error;
+  if (!parsed.success) {
+    throw new Error(
+      `[programCatalog] Invalid overview response.${toZodErrorMessage(parsed.error)}`,
+    );
   }
+
+  return parsed.data;
 };
 
 export const fetchProgramPage = async (path: string): Promise<ProgramPageResponse> => {
-  try {
-    const responseData = await http.get<unknown>('/api/v1/program-pages/page', {
-      params: { path },
-    });
+  const responseData = await http.get<unknown>('/api/v1/program-pages/page', {
+    params: { path },
+  });
 
-    const parsed = programPageResponseSchema.safeParse(responseData);
+  const parsed = programPageResponseSchema.safeParse(responseData);
 
-    if (!parsed.success) {
-      throw new Error(`[programCatalog] Invalid page response.${toZodErrorMessage(parsed.error)}`);
-    }
-
-    return parsed.data;
-  } catch (error) {
-    throw error;
+  if (!parsed.success) {
+    throw new Error(`[programCatalog] Invalid page response.${toZodErrorMessage(parsed.error)}`);
   }
+
+  return parsed.data;
 };

@@ -55,9 +55,9 @@ describe('HomePage', () => {
         'img',
       ),
     ).toHaveLength(5);
-    expect((await screen.findAllByRole('list', { name: '소노스쿨 연혁 타임라인' })).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      (await screen.findAllByRole('list', { name: '소노스쿨 연혁 타임라인' })).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { name: '공지사항' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '공지사항 게시판 보기' })).toBeInTheDocument();
     expect(

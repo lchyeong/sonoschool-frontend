@@ -71,29 +71,25 @@ const getMaxNavigationDepth = (items: SiteNavigationItemPayload[], depth = 1): n
 // 4. 최대 깊이 3 검사
 // 5. 모두 통과하면 안전한 데이터 반환
 export const fetchSiteNavigation = async (): Promise<SiteNavigationResponse> => {
-  try {
-    const responseData = await http.get<unknown>('/api/v1/navigation/programs');
+  const responseData = await http.get<unknown>('/api/v1/navigation/programs');
 
-    const parsed = siteNavigationResponseSchema.safeParse(responseData);
+  const parsed = siteNavigationResponseSchema.safeParse(responseData);
 
-    if (!parsed.success) {
-      throw new Error(`[siteNavigation] Invalid response.${toZodErrorMessage(parsed.error)}`);
-    }
-
-    const itemCount = countNavigationItems(parsed.data.items);
-    const uniqueIdCount = collectNavigationIds(parsed.data.items).size;
-    const maxDepth = getMaxNavigationDepth(parsed.data.items);
-
-    if (itemCount !== uniqueIdCount) {
-      throw new Error('[siteNavigation] Invalid response.\n- items: duplicate id detected');
-    }
-
-    if (maxDepth > 3) {
-      throw new Error('[siteNavigation] Invalid response.\n- items: maximum depth is 3');
-    }
-
-    return parsed.data;
-  } catch (error) {
-    throw error;
+  if (!parsed.success) {
+    throw new Error(`[siteNavigation] Invalid response.${toZodErrorMessage(parsed.error)}`);
   }
+
+  const itemCount = countNavigationItems(parsed.data.items);
+  const uniqueIdCount = collectNavigationIds(parsed.data.items).size;
+  const maxDepth = getMaxNavigationDepth(parsed.data.items);
+
+  if (itemCount !== uniqueIdCount) {
+    throw new Error('[siteNavigation] Invalid response.\n- items: duplicate id detected');
+  }
+
+  if (maxDepth > 3) {
+    throw new Error('[siteNavigation] Invalid response.\n- items: maximum depth is 3');
+  }
+
+  return parsed.data;
 };

@@ -103,7 +103,10 @@ const formatOrderTypeLabel = (value: PaymentResult['orderType'] | null) => {
   return '-';
 };
 
-const resolveProcessedAt = (payment: PaymentResult | null, fallbackStatus: PaymentStatus | null) => {
+const resolveProcessedAt = (
+  payment: PaymentResult | null,
+  fallbackStatus: PaymentStatus | null,
+) => {
   if (!payment) {
     return null;
   }

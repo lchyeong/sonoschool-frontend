@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 import Hls from 'hls.js';
@@ -190,71 +190,73 @@ const PlayerPage = () => {
   const selectedQualityLabel =
     qualityOptions.find((quality) => quality.levelIndex === selectedQualityLevel)?.label || '자동';
 
-  const persistProgress = async (
-    nextWatchedSeconds: number,
-    force = false,
-    minDeltaSeconds = PROGRESS_SAVE_MIN_DELTA_SECONDS,
-  ) => {
-    if (!selectedSource || !selectedLesson || !isValidEnrollmentId) {
-      return;
-    }
-
-    const lectureId = selectedSource.lectureId;
-    const lessonId = selectedLesson.id;
-    const normalizedSeconds = Math.max(0, Math.floor(nextWatchedSeconds));
-    const lastSavedSeconds = lastSavedProgressRef.current[lectureId] ?? 0;
-
-    if (!force && normalizedSeconds < lastSavedSeconds + minDeltaSeconds) {
-      return;
-    }
-    if (saveInFlightRef.current[lectureId]) {
-      return;
-    }
-
-    saveInFlightRef.current[lectureId] = true;
-    try {
-      const response = await saveLectureProgress(
-        resolvedEnrollmentId,
-        lectureId,
-        normalizedSeconds,
-      );
-      lastSavedProgressRef.current[lectureId] = response.watchedSeconds;
-      setLessonProgressByLessonId((previous) => {
-        const fallbackDurationSeconds =
-          mediaDurationSeconds > 0
-            ? mediaDurationSeconds
-            : Math.max(0, (selectedLesson.durationMinutes ?? 0) * 60);
-        const progressPercent = response.completed
-          ? 100
-          : fallbackDurationSeconds > 0
-            ? Math.min(100, Math.round((response.watchedSeconds / fallbackDurationSeconds) * 100))
-            : previous[lessonId]?.progressPercent || 0;
-
-        return {
-          ...previous,
-          [lessonId]: {
-            completed: response.completed,
-            completedAt: response.completedAt,
-            lastWatchedAt: response.lastWatchedAt,
-            lectureId,
-            progressPercent,
-            watchedSeconds: response.watchedSeconds,
-          },
-        };
-      });
-      setProgressSaveError(null);
-    } catch (error) {
-      if (error instanceof Error) {
-        setProgressSaveError(error.message);
-      } else {
-        setProgressSaveError('학습 진도를 저장하지 못했습니다.');
+  const persistProgress = useEffectEvent(
+    async (
+      nextWatchedSeconds: number,
+      force = false,
+      minDeltaSeconds = PROGRESS_SAVE_MIN_DELTA_SECONDS,
+    ) => {
+      if (!selectedSource || !selectedLesson || !isValidEnrollmentId) {
+        return;
       }
-    } finally {
-      saveInFlightRef.current[lectureId] = false;
-    }
-  };
 
-  const queueProgressBeacon = (nextWatchedSeconds: number) => {
+      const lectureId = selectedSource.lectureId;
+      const lessonId = selectedLesson.id;
+      const normalizedSeconds = Math.max(0, Math.floor(nextWatchedSeconds));
+      const lastSavedSeconds = lastSavedProgressRef.current[lectureId] ?? 0;
+
+      if (!force && normalizedSeconds < lastSavedSeconds + minDeltaSeconds) {
+        return;
+      }
+      if (saveInFlightRef.current[lectureId]) {
+        return;
+      }
+
+      saveInFlightRef.current[lectureId] = true;
+      try {
+        const response = await saveLectureProgress(
+          resolvedEnrollmentId,
+          lectureId,
+          normalizedSeconds,
+        );
+        lastSavedProgressRef.current[lectureId] = response.watchedSeconds;
+        setLessonProgressByLessonId((previous) => {
+          const fallbackDurationSeconds =
+            mediaDurationSeconds > 0
+              ? mediaDurationSeconds
+              : Math.max(0, (selectedLesson.durationMinutes ?? 0) * 60);
+          const progressPercent = response.completed
+            ? 100
+            : fallbackDurationSeconds > 0
+              ? Math.min(100, Math.round((response.watchedSeconds / fallbackDurationSeconds) * 100))
+              : previous[lessonId]?.progressPercent || 0;
+
+          return {
+            ...previous,
+            [lessonId]: {
+              completed: response.completed,
+              completedAt: response.completedAt,
+              lastWatchedAt: response.lastWatchedAt,
+              lectureId,
+              progressPercent,
+              watchedSeconds: response.watchedSeconds,
+            },
+          };
+        });
+        setProgressSaveError(null);
+      } catch (error) {
+        if (error instanceof Error) {
+          setProgressSaveError(error.message);
+        } else {
+          setProgressSaveError('학습 진도를 저장하지 못했습니다.');
+        }
+      } finally {
+        saveInFlightRef.current[lectureId] = false;
+      }
+    },
+  );
+
+  const queueProgressBeacon = useEffectEvent((nextWatchedSeconds: number) => {
     if (!selectedSource || !isValidEnrollmentId) {
       return false;
     }
@@ -275,7 +277,7 @@ const PlayerPage = () => {
     }
 
     return queued;
-  };
+  });
 
   useEffect(() => {
     const initialProgress: Record<number, number> = {};
@@ -360,6 +362,8 @@ const PlayerPage = () => {
 
   useEffect(() => {
     const videoElement = videoRef.current;
+    const playbackSessionToken = protectedStream?.playbackSessionToken ?? '';
+    const selectedHlsKeyUrl = protectedStream?.hlsKeyUrl ?? '';
     const selectedStreamUrl = protectedStream?.hlsUrl ?? '';
 
     setQualityOptions(DEFAULT_QUALITY_OPTIONS);
@@ -371,11 +375,6 @@ const PlayerPage = () => {
     }
 
     let hls: Hls | null = null;
-    const currentStream = protectedStream;
-
-    if (!currentStream) {
-      return;
-    }
 
     const syncResumeTime = () => {
       if (!shouldResumeCurrentLesson) {
@@ -452,15 +451,15 @@ const PlayerPage = () => {
     videoElement.addEventListener('ended', handleEnded);
     window.addEventListener('pagehide', handlePageHide);
 
-    const ProtectedLoader = createProtectedHlsLoader(currentStream.hlsKeyUrl);
+    const ProtectedLoader = createProtectedHlsLoader(selectedHlsKeyUrl);
     hls = new Hls({
       enableWorker: true,
       loader: ProtectedLoader,
       xhrSetup: (xhr, url) => {
         xhr.withCredentials = true;
 
-        if (url === currentStream.hlsKeyUrl) {
-          xhr.setRequestHeader('X-Playback-Session-Token', currentStream.playbackSessionToken);
+        if (url === selectedHlsKeyUrl) {
+          xhr.setRequestHeader('X-Playback-Session-Token', playbackSessionToken);
           xhr.setRequestHeader('X-Playback-Device-Id', playbackDeviceId);
         }
       },
@@ -495,6 +494,7 @@ const PlayerPage = () => {
   }, [
     isValidEnrollmentId,
     playbackDeviceId,
+    protectedStream,
     protectedStream?.hlsKeyUrl,
     protectedStream?.hlsUrl,
     protectedStream?.playbackSessionToken,
