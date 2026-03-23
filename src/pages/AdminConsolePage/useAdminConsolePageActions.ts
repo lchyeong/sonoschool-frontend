@@ -10,7 +10,6 @@ import {
   createAdminReview,
   replyAdminQna,
 } from '@/api/adminConsole';
-import { env } from '@/config/env';
 import { adminConsoleQueryKey } from '@/query/useAdminConsoleQuery';
 import { useToastStore } from '@/stores/useToastStore';
 import type {
@@ -60,12 +59,12 @@ export const useAdminConsolePageActions = (): AdminConsolePageActions => {
 
   const invalidateAdminConsole = async () => {
     await queryClient.invalidateQueries({
-      queryKey: adminConsoleQueryKey(env.siteKey),
+      queryKey: adminConsoleQueryKey(),
     });
   };
 
   const noticeMutation = useMutation({
-    mutationFn: createAdminNotice.bind(null, env.siteKey),
+    mutationFn: createAdminNotice,
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '공지사항 등록에 실패했습니다.',
@@ -84,7 +83,7 @@ export const useAdminConsolePageActions = (): AdminConsolePageActions => {
 
   const qnaReplyMutation = useMutation({
     mutationFn: ({ content, threadId }: { content: string; threadId: string }) => {
-      return replyAdminQna(env.siteKey, threadId, { content });
+      return replyAdminQna(threadId, { content });
     },
     onError: (error: unknown) => {
       showToast({
@@ -106,7 +105,7 @@ export const useAdminConsolePageActions = (): AdminConsolePageActions => {
   });
 
   const resourceMutation = useMutation({
-    mutationFn: createAdminResource.bind(null, env.siteKey),
+    mutationFn: createAdminResource,
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '자료실 게시글 등록에 실패했습니다.',
@@ -124,7 +123,7 @@ export const useAdminConsolePageActions = (): AdminConsolePageActions => {
   });
 
   const reviewMutation = useMutation({
-    mutationFn: createAdminReview.bind(null, env.siteKey),
+    mutationFn: createAdminReview,
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '교육후기 홍보글 등록에 실패했습니다.',

@@ -1,10 +1,16 @@
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import congraturationIconSrc from '@/assets/icons/icon_congraturation.png';
 import { LoadingSpinner } from '@/components/feedback/Loading/LoadingSpinner';
 import { usePaymentResultQuery } from '@/query/usePaymentResultQuery';
+import { routePaths } from '@/routes/routeRegistry';
 import sharedStyles from '@/styles/accountPage.module.scss';
-import { type PaymentStatus } from '@/types/payment';
+import {
+  formatPaymentMethodLabel,
+  paymentStatusLabels,
+  type PaymentResult,
+  type PaymentStatus,
+} from '@/types/payment';
 import { classNames } from '@/utils/classNames';
 
 import styles from './PaymentResultPage.module.scss';
@@ -69,17 +75,157 @@ const getStatusCopy = (status: PaymentStatus | null, fallbackMessage: string | n
   }
 };
 
+const currencyFormatter = new Intl.NumberFormat('ko-KR');
+
+const formatCurrency = (value: number | null | undefined) => {
+  if (typeof value !== 'number') {
+    return '-';
+  }
+  return `${currencyFormatter.format(value)}원`;
+};
+
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return '-';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return date.toLocaleString('ko-KR');
+};
+
+const formatOrderTypeLabel = (value: PaymentResult['orderType'] | null) => {
+  if (value === 'CART_CHECKOUT') {
+    return '장바구니 결제';
+  }
+  if (value === 'PROGRAM') {
+    return '단일 강의 결제';
+  }
+  return '-';
+};
+
+const resolveProcessedAt = (payment: PaymentResult | null, fallbackStatus: PaymentStatus | null) => {
+  if (!payment) {
+    return null;
+  }
+
+  switch (payment.status) {
+    case 'COMPLETED':
+      return payment.paidAt ?? payment.registeredAt ?? payment.requestedAt;
+    case 'CANCELLED':
+      return payment.cancelledAt ?? payment.paidAt ?? payment.requestedAt;
+    case 'FAILED':
+      return payment.failedAt ?? payment.requestedAt;
+    case 'REGISTERED':
+      return payment.registeredAt ?? payment.requestedAt;
+    case 'PENDING':
+      return payment.requestedAt;
+    default:
+      return fallbackStatus ? payment.requestedAt : null;
+  }
+};
+
+const buildDetailItems = (
+  payment: PaymentResult | null,
+  fallbackStatus: PaymentStatus | null,
+  fallbackGatewayOrderId: string | null,
+) => {
+  if (!payment && !fallbackGatewayOrderId && !fallbackStatus) {
+    return [];
+  }
+
+  const detailItems: Array<{ key: string; label: string; value: string; muted?: boolean }> = [];
+
+  if (payment?.orderName) {
+    detailItems.push({
+      key: 'order-name',
+      label: '주문명',
+      value: payment.orderName,
+    });
+  }
+
+  if (payment?.orderType) {
+    detailItems.push({
+      key: 'order-type',
+      label: '주문 유형',
+      value: formatOrderTypeLabel(payment.orderType),
+    });
+  }
+
+  if (payment?.gatewayOrderId || fallbackGatewayOrderId) {
+    detailItems.push({
+      key: 'order-id',
+      label: '주문번호',
+      value: payment?.gatewayOrderId ?? fallbackGatewayOrderId ?? '-',
+    });
+  }
+
+  if (payment?.paymentMethod) {
+    detailItems.push({
+      key: 'payment-method',
+      label: '결제 수단',
+      value: formatPaymentMethodLabel(payment.paymentMethod),
+    });
+  }
+
+  if (payment) {
+    detailItems.push({
+      key: 'payment-amount',
+      label: payment.status === 'CANCELLED' ? '취소 금액' : '결제 금액',
+      value: formatCurrency(payment.approvedAmount ?? payment.amount),
+    });
+  }
+
+  if (payment?.status || fallbackStatus) {
+    detailItems.push({
+      key: 'status',
+      label: '상태',
+      value: paymentStatusLabels[payment?.status ?? fallbackStatus ?? 'PENDING'],
+    });
+  }
+
+  const processedAt = resolveProcessedAt(payment, fallbackStatus);
+  if (processedAt) {
+    detailItems.push({
+      key: 'processed-at',
+      label: '처리 시각',
+      value: formatDateTime(processedAt),
+    });
+  }
+
+  if (payment?.cancelReason) {
+    detailItems.push({
+      key: 'cancel-reason',
+      label: '취소 사유',
+      value: payment.cancelReason,
+      muted: true,
+    });
+  }
+
+  if (payment?.gatewayResponseMessage && payment.status === 'FAILED') {
+    detailItems.push({
+      key: 'gateway-message',
+      label: '실패 사유',
+      value: payment.gatewayResponseMessage,
+      muted: true,
+    });
+  }
+
+  return detailItems;
+};
+
 const PaymentResultPage = () => {
   const [searchParams] = useSearchParams();
   const paymentId = parsePaymentId(searchParams.get('paymentId'));
   const resultToken = searchParams.get('resultToken')?.trim() || null;
   const fallbackStatus = normalizeStatus(searchParams.get('status'));
   const fallbackMessage = searchParams.get('message')?.trim() || null;
+  const fallbackGatewayOrderId = searchParams.get('gatewayOrderId')?.trim() || null;
 
   const paymentQuery = usePaymentResultQuery(paymentId, resultToken);
   const payment = paymentQuery.data ?? null;
   const resolvedStatus = payment?.status ?? fallbackStatus;
   const statusCopy = getStatusCopy(resolvedStatus, fallbackMessage);
+  const detailItems = buildDetailItems(payment, fallbackStatus, fallbackGatewayOrderId);
   const errorMessage =
     paymentQuery.error instanceof Error
       ? paymentQuery.error.message
@@ -111,6 +257,44 @@ const PaymentResultPage = () => {
               </p>
             ) : null}
           </header>
+
+          {detailItems.length ? (
+            <section className={sharedStyles['section']}>
+              <div className={sharedStyles['sectionHeader']}>
+                <h2 className={sharedStyles['sectionTitle']}>결제 정보</h2>
+                <p className={sharedStyles['sectionDescription']}>
+                  결제 상태와 주문 정보를 다시 확인할 수 있습니다.
+                </p>
+              </div>
+              <div className={styles['detailGrid']}>
+                {detailItems.map((item) => (
+                  <div className={styles['detailItem']} key={item.key}>
+                    <span className={styles['detailLabel']}>{item.label}</span>
+                    <strong
+                      className={classNames(
+                        styles['detailValue'],
+                        item.muted && styles['detailValueMuted'],
+                      )}
+                    >
+                      {item.value}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <div className={styles['actions']}>
+            {resolvedStatus === 'COMPLETED' ? (
+              <Link to={routePaths.mypage}>내 강의로 이동</Link>
+            ) : null}
+            <Link to={routePaths.home}>홈으로 이동</Link>
+            {payment?.receiptUrl ? (
+              <a href={payment.receiptUrl} rel='noreferrer' target='_blank'>
+                영수증 보기
+              </a>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>

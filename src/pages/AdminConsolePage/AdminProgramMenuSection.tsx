@@ -14,7 +14,6 @@ import {
 import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
-import { env } from '@/config/env';
 import { adminConsoleQueryKey } from '@/query/useAdminConsoleQuery';
 import {
   adminProgramMenuDetailQueryKey,
@@ -360,7 +359,7 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
   const [isSlugDirty, setIsSlugDirty] = useState(false);
   const [formState, setFormState] = useState<ProgramMenuFormState>(INITIAL_FORM_STATE);
   const [programMoveTargets, setProgramMoveTargets] = useState<Record<string, string>>({});
-  const treeQuery = useAdminProgramMenuTreeQuery(env.siteKey);
+  const treeQuery = useAdminProgramMenuTreeQuery();
   const menuItems = useMemo(() => treeQuery.data?.items ?? [], [treeQuery.data?.items]);
   const activeMenuId =
     selectedMenuId && menuItems.some((item) => item.id === selectedMenuId)
@@ -368,7 +367,6 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
       : (menuItems[0]?.id ?? null);
   const effectiveEditorMode = menuItems.length === 0 ? 'create' : editorMode;
   const detailQuery = useAdminProgramMenuDetailQuery(
-    env.siteKey,
     effectiveEditorMode === 'edit' ? activeMenuId : null,
   );
   const menuTree = useMemo(() => buildMenuTree(menuItems), [menuItems]);
@@ -443,25 +441,25 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
   const invalidateMenuQueries = async () => {
     await Promise.all([
       queryClient.invalidateQueries({
-        queryKey: adminConsoleQueryKey(env.siteKey),
+        queryKey: adminConsoleQueryKey(),
       }),
       queryClient.invalidateQueries({
-        queryKey: adminProgramMenuTreeQueryKey(env.siteKey),
+        queryKey: adminProgramMenuTreeQueryKey(),
       }),
       queryClient.invalidateQueries({
-        queryKey: ['adminProgramMenuDetail', env.siteKey],
+        queryKey: ['adminProgramMenuDetail'],
       }),
       queryClient.invalidateQueries({
-        queryKey: siteNavigationQueryKey(env.siteKey),
+        queryKey: siteNavigationQueryKey(),
       }),
       queryClient.invalidateQueries({
-        queryKey: programsOverviewQueryKey(env.siteKey),
+        queryKey: programsOverviewQueryKey(),
       }),
       queryClient.invalidateQueries({
-        queryKey: ['programPage', env.siteKey],
+        queryKey: ['programPage'],
       }),
       queryClient.invalidateQueries({
-        queryKey: programSearchIndexQueryKey(env.siteKey),
+        queryKey: programSearchIndexQueryKey(),
       }),
     ]);
   };
@@ -483,7 +481,7 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
       };
 
       if (editorMode === 'create') {
-        return createAdminProgramMenu(env.siteKey, {
+        return createAdminProgramMenu({
           ...normalizedPayload,
           parentId: createParentId,
         });
@@ -493,7 +491,7 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
         throw new Error('선택한 강의 메뉴를 찾을 수 없습니다.');
       }
 
-      return updateAdminProgramMenu(env.siteKey, activeMenuId, normalizedPayload);
+      return updateAdminProgramMenu(activeMenuId, normalizedPayload);
     },
     onError: (error: unknown) => {
       showToast({
@@ -521,7 +519,7 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
         throw new Error('선택한 강의 메뉴를 찾을 수 없습니다.');
       }
 
-      return moveAdminProgramMenu(env.siteKey, activeMenuId, { parentId });
+      return moveAdminProgramMenu(activeMenuId, { parentId });
     },
     onError: (error: unknown) => {
       showToast({
@@ -544,7 +542,7 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
         throw new Error('선택한 강의 메뉴를 찾을 수 없습니다.');
       }
 
-      return reorderAdminProgramMenu(env.siteKey, activeMenuId, { direction });
+      return reorderAdminProgramMenu(activeMenuId, { direction });
     },
     onError: (error: unknown) => {
       showToast({
@@ -567,7 +565,7 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
         throw new Error('선택한 강의 메뉴를 찾을 수 없습니다.');
       }
 
-      return deleteAdminProgramMenu(env.siteKey, activeMenuId);
+      return deleteAdminProgramMenu(activeMenuId);
     },
     onError: (error: unknown) => {
       showToast({
@@ -588,7 +586,7 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
 
       if (deletedMenuId) {
         queryClient.removeQueries({
-          queryKey: adminProgramMenuDetailQueryKey(env.siteKey, deletedMenuId),
+          queryKey: adminProgramMenuDetailQueryKey(deletedMenuId),
         });
       }
     },
@@ -602,7 +600,7 @@ const AdminProgramMenuSection = ({ programCollectionOptions }: AdminProgramMenuS
       programId: string;
       targetCollectionPath: string;
     }) => {
-      return moveAdminProgram(env.siteKey, programId, { targetCollectionPath });
+      return moveAdminProgram(programId, { targetCollectionPath });
     },
     onError: (error: unknown) => {
       showToast({

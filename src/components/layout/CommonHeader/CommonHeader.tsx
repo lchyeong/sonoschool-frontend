@@ -27,7 +27,7 @@ import {
 import { useCommonHeaderAutoHide } from './useCommonHeaderAutoHide';
 import { useCommonHeaderDesktopDropdown } from './useCommonHeaderDesktopDropdown';
 
-export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps) => {
+export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
   const navigate = useNavigate();
   // 실제 `<header>` DOM 요소를 가리키는 ref입니다.
   // 헤더 높이를 측정하거나, 헤더 바깥 클릭 여부를 판단할 때 사용됩니다.
@@ -40,9 +40,9 @@ export const CommonHeader = ({ siteKey, logo, LinkComponent }: CommonHeaderProps
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const logout = useAuthStore((state) => state.logout);
   const showToast = useToastStore((state) => state.showToast);
-  // 현재 siteKey에 맞는 헤더 메뉴 데이터를 가져옵니다.
+  // 단일 사이트 기준의 헤더 메뉴 데이터를 가져옵니다.
   // `isError`는 메뉴 조회 실패 여부를 뜻합니다.
-  const { data, isError } = useSiteNavigationQuery(siteKey);
+  const { data, isError } = useSiteNavigationQuery();
 
   // 서버에서 받은 원본 메뉴 데이터를 헤더 렌더링에 편한 구조로 변환합니다.
   const navigationItems = useMemo(() => {

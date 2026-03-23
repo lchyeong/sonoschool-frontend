@@ -25,7 +25,6 @@ export interface CommonHeaderLogoConfig {
 }
 
 export interface CommonHeaderProps {
-  siteKey: string;
   logo: CommonHeaderLogoConfig;
   LinkComponent: CommonHeaderLinkComponent;
 }

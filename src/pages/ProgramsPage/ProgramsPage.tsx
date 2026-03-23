@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 
-import { env } from '@/config/env';
 import { useProgramsOverviewQuery } from '@/query/useProgramsOverviewQuery';
 import { routePaths } from '@/routes/routeRegistry';
 
@@ -15,7 +14,7 @@ import styles from './ProgramsPage.module.scss';
 const ProgramsPage = () => {
   // 전체 교육과정 허브에 필요한 요약 데이터는 별도 API로 가져옵니다.
   // 목록/상세 공통 데이터 구조를 맞춰 두면, 나중에 실제 백엔드로 교체하기가 쉽습니다.
-  const { data, isError, isPending } = useProgramsOverviewQuery(env.siteKey);
+  const { data, isError, isPending } = useProgramsOverviewQuery();
 
   if (isPending) {
     return (

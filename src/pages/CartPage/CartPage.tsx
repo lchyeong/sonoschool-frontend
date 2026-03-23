@@ -3,8 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { removeMyCartItem } from '@/api/mypage';
+import { applyMyCartCoupon, clearMyCartCoupon, removeMyCartItem } from '@/api/mypage';
 import downIconSrc from '@/assets/icons/icons_down.png';
+import { env } from '@/config/env';
 import {
   myCartQueryKey,
   myCouponsQueryKey,
@@ -17,12 +18,14 @@ import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import { calculateSelectedCartPricing, evaluateCouponForItems } from '@/utils/cartPricing';
+import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 import { classNames } from '@/utils/classNames';
 import { getProgramTypeLabel } from '@/utils/programType';
 
 import styles from './CartPage.module.scss';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
+const shouldPreferMockMyPage = env.VITE_ENABLE_MOCK;
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
 
@@ -31,6 +34,7 @@ const CartPage = () => {
   const queryClient = useQueryClient();
   const couponDropdownRef = useRef<HTMLDivElement | null>(null);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const cartScope = resolveCartQueryScope(isAuthenticated);
   const showToast = useToastStore((state) => state.showToast);
   const [isCouponDropdownOpen, setIsCouponDropdownOpen] = useState(false);
   const selectedItemIds = useCartSelectionStore((state) => state.selectedItemIds);
@@ -115,8 +119,8 @@ const CartPage = () => {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: myCartQueryKey }),
-        queryClient.invalidateQueries({ queryKey: myCouponsQueryKey }),
+        queryClient.invalidateQueries({ queryKey: myCartQueryKey(cartScope) }),
+        queryClient.invalidateQueries({ queryKey: myCouponsQueryKey(cartScope) }),
       ]);
       showToast({
         message: '장바구니에서 제거했습니다.',
@@ -124,6 +128,47 @@ const CartPage = () => {
       });
     },
   });
+
+  const applyCouponMutation = useMutation({
+    mutationFn: async (couponCode: string | null) => {
+      if (couponCode) {
+        return applyMyCartCoupon(couponCode);
+      }
+      return clearMyCartCoupon();
+    },
+    onError: (error: unknown) => {
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : '쿠폰 적용을 변경하지 못했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (nextCart, couponCode) => {
+      queryClient.setQueryData(myCartQueryKey(cartScope), nextCart);
+      setSelectedCouponId(nextCart.appliedCoupon?.id ?? null);
+      setIsCouponDropdownOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: myCartQueryKey(cartScope) }),
+        queryClient.invalidateQueries({ queryKey: myCouponsQueryKey(cartScope) }),
+      ]);
+      showToast({
+        message: couponCode ? '쿠폰을 적용했습니다.' : '쿠폰 적용을 해제했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const handleSelectCoupon = (couponCode: string | null, couponId: number | null) => {
+    if (shouldPreferMockMyPage) {
+      setSelectedCouponId(couponId);
+      setIsCouponDropdownOpen(false);
+      return;
+    }
+
+    applyCouponMutation.mutate(couponCode);
+  };
 
   return (
     <section className={sharedStyles['page']}>
@@ -278,6 +323,7 @@ const CartPage = () => {
                               aria-expanded={isCouponDropdownOpen}
                               aria-haspopup='listbox'
                               className={styles['couponDropdownTrigger']}
+                              disabled={applyCouponMutation.isPending}
                               onClick={() => {
                                 setIsCouponDropdownOpen((current) => !current);
                               }}
@@ -310,8 +356,7 @@ const CartPage = () => {
                                       styles['couponDropdownOptionSelected'],
                                   )}
                                   onClick={() => {
-                                    setSelectedCouponId(null);
-                                    setIsCouponDropdownOpen(false);
+                                    handleSelectCoupon(null, null);
                                   }}
                                   role='option'
                                   type='button'
@@ -334,8 +379,7 @@ const CartPage = () => {
                                     disabled={!option.evaluation.isApplicable}
                                     key={option.coupon.id}
                                     onClick={() => {
-                                      setSelectedCouponId(option.coupon.id);
-                                      setIsCouponDropdownOpen(false);
+                                      handleSelectCoupon(option.coupon.code, option.coupon.id);
                                     }}
                                     role='option'
                                     type='button'
@@ -378,7 +422,9 @@ const CartPage = () => {
 
                         {!couponsQuery.isLoading && !couponsQuery.isError ? (
                           <p className={styles['couponInlineText']}>
-                            선택한 항목에 적용 가능한 쿠폰만 고를 수 있습니다.
+                            {shouldPreferMockMyPage
+                              ? '선택한 항목에 적용 가능한 쿠폰만 고를 수 있습니다.'
+                              : '쿠폰 선택 시 서버 장바구니에 실제로 적용됩니다.'}
                           </p>
                         ) : null}
                       </div>

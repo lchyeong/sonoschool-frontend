@@ -2,12 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 
 import { fetchHomeHeroSlides } from '@/api/homeHeroSlides';
 
-export const homeHeroSlidesQueryKey = (siteKey: string) => ['homeHeroSlides', siteKey] as const;
+export const homeHeroSlidesQueryKey = () => ['homeHeroSlides'] as const;
 
-export const useHomeHeroSlidesQuery = (siteKey: string) => {
+export const useHomeHeroSlidesQuery = () => {
   return useQuery({
-    queryKey: homeHeroSlidesQueryKey(siteKey),
-    queryFn: () => fetchHomeHeroSlides(siteKey),
+    queryKey: homeHeroSlidesQueryKey(),
+    queryFn: () => fetchHomeHeroSlides(),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

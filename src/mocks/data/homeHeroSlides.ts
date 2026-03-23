@@ -36,15 +36,6 @@ const mainHomeHeroSlides: HomeHeroSlidesResponse = {
   ],
 };
 
-const compactHomeHeroSlides: HomeHeroSlidesResponse = {
-  autoPlayDurationMs: 8000,
-  items: mainHomeHeroSlides.items.slice(0, 2),
-};
-
-export const getMockHomeHeroSlides = (siteKey: string): HomeHeroSlidesResponse => {
-  if (siteKey.includes('compact')) {
-    return compactHomeHeroSlides;
-  }
-
+export const getMockHomeHeroSlides = (): HomeHeroSlidesResponse => {
   return mainHomeHeroSlides;
 };

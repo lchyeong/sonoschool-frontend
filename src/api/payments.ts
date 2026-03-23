@@ -7,7 +7,14 @@ import {
   getMockPaymentResultByToken,
 } from '@/mocks/data/payments';
 import type { ApiEnvelope } from '@/types/auth';
-import type { PaymentResult } from '@/types/payment';
+import type {
+  CheckoutPaymentInitiatePayload,
+  KcpMobileRegisterResponse,
+  KcpPcApprovePayload,
+  KcpPcPrepareResponse,
+  PaymentInitiatePayload,
+  PaymentResult,
+} from '@/types/payment';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
@@ -21,10 +28,10 @@ export const fetchPaymentResult = async (paymentId: number): Promise<PaymentResu
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const mockPaymentResult = getMockPaymentResult(paymentId);
+      const mockPayment = getMockPaymentResult(paymentId);
 
-      if (mockPaymentResult) {
-        return mockPaymentResult;
+      if (mockPayment) {
+        return mockPayment;
       }
     }
 
@@ -43,10 +50,10 @@ export const fetchPaymentResultByToken = async (token: string): Promise<PaymentR
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const mockPaymentResult = getMockPaymentResultByToken(token);
+      const mockPayment = getMockPaymentResultByToken(token);
 
-      if (mockPaymentResult) {
-        return mockPaymentResult;
+      if (mockPayment) {
+        return mockPayment;
       }
     }
 
@@ -64,5 +71,73 @@ export const fetchPaymentHistory = async (): Promise<PaymentResult[]> => {
     }
 
     throw toApiError(error, '결제 내역을 불러오지 못했습니다.');
+  }
+};
+
+export const prepareKcpPcPayment = async (
+  payload: PaymentInitiatePayload,
+): Promise<KcpPcPrepareResponse> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<KcpPcPrepareResponse>>(
+      '/api/v1/payments/kcp/pc/prepare',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, 'PC 결제 준비에 실패했습니다.');
+  }
+};
+
+export const prepareKcpPcCheckoutPayment = async (
+  payload: CheckoutPaymentInitiatePayload,
+): Promise<KcpPcPrepareResponse> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<KcpPcPrepareResponse>>(
+      '/api/v1/payments/checkout/kcp/pc/prepare',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, 'PC 결제 준비에 실패했습니다.');
+  }
+};
+
+export const registerKcpMobilePayment = async (
+  payload: PaymentInitiatePayload,
+): Promise<KcpMobileRegisterResponse> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<KcpMobileRegisterResponse>>(
+      '/api/v1/payments/kcp/mobile/register',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '모바일 결제 준비에 실패했습니다.');
+  }
+};
+
+export const registerKcpMobileCheckoutPayment = async (
+  payload: CheckoutPaymentInitiatePayload,
+): Promise<KcpMobileRegisterResponse> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<KcpMobileRegisterResponse>>(
+      '/api/v1/payments/checkout/kcp/mobile/register',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '모바일 결제 준비에 실패했습니다.');
+  }
+};
+
+export const approveKcpPcPayment = async (payload: KcpPcApprovePayload): Promise<PaymentResult> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<PaymentResult>>(
+      '/api/v1/payments/kcp/pc/approve',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, 'PC 결제 승인에 실패했습니다.');
   }
 };

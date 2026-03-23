@@ -12,6 +12,7 @@ interface PersistedCartSelectionState {
 
 interface CartSelectionState extends PersistedCartSelectionState {
   hydrate: (cart: CartSummary | null | undefined, coupons: UserCoupon[]) => void;
+  replaceSelection: (selectedItemIds: number[], selectedCouponId?: number | null) => void;
   reset: () => void;
   selectSingleItem: (itemId: number) => void;
   setSelectedCouponId: (couponId: number | null) => void;
@@ -103,6 +104,15 @@ export const useCartSelectionStore = create<CartSelectionState>((set, get) => {
     },
     reset: () => {
       const nextState = getDefaultState();
+      persistState(nextState);
+      set(nextState);
+    },
+    replaceSelection: (selectedItemIds, selectedCouponId = null) => {
+      const nextState = {
+        selectedCouponId,
+        selectedItemIds,
+      };
+
       persistState(nextState);
       set(nextState);
     },

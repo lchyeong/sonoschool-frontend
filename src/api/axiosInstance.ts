@@ -42,7 +42,7 @@ const shouldSkipRefresh = (url?: string): boolean => {
     url.includes('/api/auth/register') ||
     url.includes('/api/auth/refresh') ||
     url.includes('/api/auth/logout') ||
-    url.includes('/sites/')
+    url.includes('/api/v1/admin/')
   );
 };
 

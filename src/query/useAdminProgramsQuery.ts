@@ -4,7 +4,6 @@ import { fetchAdminProgramDetail, fetchAdminPrograms } from '@/api/adminConsole'
 import type { AdminProgramFormat, AdminProgramStatus } from '@/types/adminConsole';
 
 export const adminProgramsQueryKey = (
-  siteKey: string,
   options?: {
     collectionPath?: string | null;
     format?: AdminProgramFormat | 'all';
@@ -14,18 +13,16 @@ export const adminProgramsQueryKey = (
 ) =>
   [
     'adminPrograms',
-    siteKey,
     options?.collectionPath ?? null,
     options?.status ?? 'all',
     options?.format ?? 'all',
     options?.query ?? '',
   ] as const;
 
-export const adminProgramDetailQueryKey = (siteKey: string, programId: string) =>
-  ['adminProgramDetail', siteKey, programId] as const;
+export const adminProgramDetailQueryKey = (programId: string) =>
+  ['adminProgramDetail', programId] as const;
 
 export const useAdminProgramsQuery = (
-  siteKey: string,
   options?: {
     collectionPath?: string | null;
     enabled?: boolean;
@@ -37,18 +34,18 @@ export const useAdminProgramsQuery = (
   return useQuery({
     enabled: options?.enabled ?? true,
     gcTime: 5 * 60 * 1000,
-    queryFn: () => fetchAdminPrograms(siteKey, options),
-    queryKey: adminProgramsQueryKey(siteKey, options),
+    queryFn: () => fetchAdminPrograms(options),
+    queryKey: adminProgramsQueryKey(options),
     staleTime: 30 * 1000,
   });
 };
 
-export const useAdminProgramDetailQuery = (siteKey: string, programId: string | null) => {
+export const useAdminProgramDetailQuery = (programId: string | null) => {
   return useQuery({
     enabled: Boolean(programId),
     gcTime: 5 * 60 * 1000,
-    queryFn: () => fetchAdminProgramDetail(siteKey, programId ?? ''),
-    queryKey: adminProgramDetailQueryKey(siteKey, programId ?? ''),
+    queryFn: () => fetchAdminProgramDetail(programId ?? ''),
+    queryKey: adminProgramDetailQueryKey(programId ?? ''),
     staleTime: 30 * 1000,
   });
 };

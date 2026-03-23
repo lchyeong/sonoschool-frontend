@@ -95,9 +95,6 @@ const createInitialProfile = (): UserProfile => {
     displayName: '홍길동',
     email: 'student01@example.com',
     loginId: 'student01',
-    marketingEmailOptIn: true,
-    marketingOptInUpdatedAt: '2026-03-05T09:30:00Z',
-    marketingSmsOptIn: false,
     name: '홍길동',
     nickname: '길벗',
     phoneNumber: '010-1111-2222',
@@ -1504,11 +1501,7 @@ export const getMockMyProfile = (): UserProfile => {
 export const updateMockMyProfile = (payload: UserProfileUpdatePayload): UserProfile => {
   profileState = {
     ...profileState,
-    email: payload.email.trim(),
     displayName: payload.nickname.trim() || payload.name,
-    marketingEmailOptIn: payload.marketingEmailOptIn,
-    marketingOptInUpdatedAt: new Date('2026-03-18T09:00:00Z').toISOString(),
-    marketingSmsOptIn: payload.marketingSmsOptIn,
     name: payload.name,
     nickname: payload.nickname,
   };

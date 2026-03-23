@@ -43,6 +43,13 @@ interface ImportMeta {
 
 interface Window {
   dataLayer?: Array<Record<string, unknown>>;
+  GetField?: (form: HTMLFormElement, values: unknown) => void;
+  KCP_Pay_Execute_Web?: (form: HTMLFormElement) => void;
+  jsf__pay?: (form: HTMLFormElement) => void;
+  m_Completepayment?: (
+    formOrJson: unknown,
+    closeEvent?: (() => void) | null,
+  ) => void | Promise<void>;
 }
 
 /* ========================================

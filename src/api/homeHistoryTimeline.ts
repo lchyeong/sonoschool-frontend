@@ -23,12 +23,9 @@ const homeHistoryTimelineResponseSchema = z.object({
   items: z.array(homeHistoryTimelineItemSchema).min(1).max(20),
 });
 
-export const fetchHomeHistoryTimeline = async (
-  siteKey: string,
-): Promise<HomeHistoryTimelineResponse> => {
+export const fetchHomeHistoryTimeline = async (): Promise<HomeHistoryTimelineResponse> => {
   try {
-    const encodedSiteKey = encodeURIComponent(siteKey);
-    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/home-history-timeline`);
+    const responseData = await http.get<unknown>('/api/v1/home/history-timeline');
 
     const parsed = homeHistoryTimelineResponseSchema.safeParse(responseData);
 
@@ -42,6 +39,6 @@ export const fetchHomeHistoryTimeline = async (
       throw error;
     }
 
-    return getMockHomeHistoryTimeline(siteKey);
+    return getMockHomeHistoryTimeline();
   }
 };

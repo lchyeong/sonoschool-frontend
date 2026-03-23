@@ -21,7 +21,6 @@ const RootLayout = () => {
         <CommonHeader
           LinkComponent={Link}
           logo={{ imageSrc: '/SRDMS_logo_2x.png', label: env.appName, to: routePaths.home }}
-          siteKey={env.siteKey}
         />
       ) : null}
 

@@ -1,25 +1,185 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
 
-import { createMockCheckoutRedirectPayload } from '@/mocks/data/payments';
-import { useMyCartQuery, useMyCouponsQuery, useMyProfileQuery } from '@/query/useMyPageQueries';
+import {
+  approveKcpPcPayment,
+  prepareKcpPcCheckoutPayment,
+  registerKcpMobileCheckoutPayment,
+} from '@/api/payments';
+import {
+  myCartQueryKey,
+  myCouponsQueryKey,
+  myEnrollmentsQueryKey,
+  myPaymentHistoryQueryKey,
+  useMyCartQuery,
+  useMyCouponsQuery,
+  useMyProfileQuery,
+} from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
+import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
-import { formatPaymentMethodLabel, paymentMethodLabels, type PaymentMethod } from '@/types/payment';
+import {
+  formatPaymentMethodLabel,
+  paymentMethodLabels,
+  type KcpMobileRegisterResponse,
+  type KcpPcPrepareResponse,
+  type PaymentMethod,
+} from '@/types/payment';
 import { calculateSelectedCartPricing } from '@/utils/cartPricing';
+import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 import { classNames } from '@/utils/classNames';
 import { getProgramTypeLabel } from '@/utils/programType';
 
 import styles from './CheckoutPage.module.scss';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
+const checkoutPaymentMethods: PaymentMethod[] = ['CARD'];
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
 
+const isMobileBrowser = (): boolean => {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(
+    navigator.userAgent,
+  );
+};
+
+const setHiddenFieldValue = (
+  form: HTMLFormElement,
+  name: string,
+  value: number | string | null | undefined,
+) => {
+  const field = form.elements.namedItem(name);
+  if (!(field instanceof HTMLInputElement)) {
+    return;
+  }
+  field.value = value === null || value === undefined ? '' : String(value);
+};
+
+const getHiddenFieldValue = (form: HTMLFormElement, name: string): string => {
+  const field = form.elements.namedItem(name);
+  return field instanceof HTMLInputElement ? field.value : '';
+};
+
+const applyPcPrepareResponse = (form: HTMLFormElement, prepare: KcpPcPrepareResponse) => {
+  setHiddenFieldValue(form, 'site_cd', prepare.siteCd);
+  setHiddenFieldValue(form, 'site_name', prepare.siteName);
+  setHiddenFieldValue(form, 'pay_method', prepare.payMethod);
+  setHiddenFieldValue(form, 'currency', prepare.currency);
+  setHiddenFieldValue(form, 'ordr_idxx', prepare.ordrIdxx);
+  setHiddenFieldValue(form, 'good_mny', prepare.goodMny);
+  setHiddenFieldValue(form, 'good_name', prepare.goodName);
+  setHiddenFieldValue(form, 'shop_user_id', prepare.shopUserId);
+  setHiddenFieldValue(form, 'buyr_name', prepare.buyrName);
+  setHiddenFieldValue(form, 'buyr_mail', prepare.buyrMail);
+  setHiddenFieldValue(form, 'buyr_tel2', prepare.buyrTel2);
+  setHiddenFieldValue(form, 'good_expr', prepare.goodExpr);
+};
+
+const applyMobileRegisterResponse = (
+  form: HTMLFormElement,
+  register: KcpMobileRegisterResponse,
+) => {
+  form.action = register.payUrl;
+  setHiddenFieldValue(form, 'site_cd', register.siteCd);
+  setHiddenFieldValue(form, 'pay_method', register.payMethod);
+  setHiddenFieldValue(form, 'approval_key', register.approvalKey);
+  setHiddenFieldValue(form, 'Ret_URL', register.retUrl);
+  setHiddenFieldValue(form, 'PayUrl', register.payUrl);
+  setHiddenFieldValue(form, 'currency', register.currency);
+  setHiddenFieldValue(form, 'good_mny', register.goodMny);
+  setHiddenFieldValue(form, 'ordr_idxx', register.ordrIdxx);
+  setHiddenFieldValue(form, 'good_name', register.goodName);
+  setHiddenFieldValue(form, 'shop_user_id', register.shopUserId);
+  setHiddenFieldValue(form, 'buyr_name', register.buyrName);
+  setHiddenFieldValue(form, 'buyr_mail', register.buyrMail);
+};
+
+const applyKcpCompletionValues = (form: HTMLFormElement, values: unknown) => {
+  if (!values || typeof values !== 'object') {
+    return;
+  }
+
+  for (const [key, value] of Object.entries(values)) {
+    if (typeof value === 'string' || typeof value === 'number') {
+      setHiddenFieldValue(form, key, value);
+      continue;
+    }
+    setHiddenFieldValue(form, key, null);
+  }
+};
+
+const loadKcpScript = async (jsUrl: string): Promise<void> => {
+  if (window.KCP_Pay_Execute_Web) {
+    return;
+  }
+
+  const existing = document.querySelector<HTMLScriptElement>(`script[src="${jsUrl}"]`);
+  if (existing) {
+    await new Promise<void>((resolve, reject) => {
+      existing.addEventListener(
+        'load',
+        () => {
+          resolve();
+        },
+        { once: true },
+      );
+      existing.addEventListener(
+        'error',
+        () => {
+          reject(new Error('KCP 스크립트를 불러오지 못했습니다.'));
+        },
+        { once: true },
+      );
+    });
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = jsUrl;
+    script.async = true;
+    script.onload = () => {
+      resolve();
+    };
+    script.onerror = () => {
+      reject(new Error('KCP 스크립트를 불러오지 못했습니다.'));
+    };
+    document.head.append(script);
+  });
+};
+
+const buildResultSearch = (params: Record<string, number | string | null | undefined>) => {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined || value === '') {
+      continue;
+    }
+    searchParams.set(key, String(value));
+  }
+
+  return searchParams.toString();
+};
+
 const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const showToast = useToastStore((state) => state.showToast);
+  const cartScope = resolveCartQueryScope(true);
+
+  const kcpFormRef = useRef<HTMLFormElement | null>(null);
+  const kcpMobileFormRef = useRef<HTMLFormElement | null>(null);
+  const latestPrepareRef = useRef<KcpPcPrepareResponse | null>(null);
+
   const selectedItemIds = useCartSelectionStore((state) => state.selectedItemIds);
   const selectedCouponId = useCartSelectionStore((state) => state.selectedCouponId);
   const hydrateSelection = useCartSelectionStore((state) => state.hydrate);
@@ -36,15 +196,6 @@ const CheckoutPage = () => {
     coupons ?? [],
     selectedCouponId,
   );
-  const mockCheckoutRedirect = createMockCheckoutRedirectPayload(paymentMethod);
-  const resultSearchParams = new URLSearchParams({
-    code: mockCheckoutRedirect.code ?? '',
-    gatewayOrderId: mockCheckoutRedirect.gatewayOrderId,
-    message: mockCheckoutRedirect.message,
-    paymentId: String(mockCheckoutRedirect.paymentId),
-    resultToken: mockCheckoutRedirect.resultToken,
-    status: mockCheckoutRedirect.status,
-  }).toString();
 
   useEffect(() => {
     if (!cart) {
@@ -54,6 +205,161 @@ const CheckoutPage = () => {
     hydrateSelection(cart, coupons ?? []);
   }, [cart, coupons, hydrateSelection]);
 
+  useEffect(() => {
+    window.jsf__pay = (form: HTMLFormElement) => {
+      if (!window.KCP_Pay_Execute_Web) {
+        throw new Error('KCP 결제 스크립트가 준비되지 않았습니다.');
+      }
+
+      window.KCP_Pay_Execute_Web(form);
+    };
+
+    window.m_Completepayment = async (formOrJson, closeEvent) => {
+      const form = kcpFormRef.current;
+      const latestPrepare = latestPrepareRef.current;
+
+      if (!form || !latestPrepare) {
+        closeEvent?.();
+        return;
+      }
+
+      try {
+        if (window.GetField) {
+          window.GetField(form, formOrJson);
+        } else {
+          applyKcpCompletionValues(form, formOrJson);
+        }
+
+        const resCd = getHiddenFieldValue(form, 'res_cd');
+        const resMsg = getHiddenFieldValue(form, 'res_msg');
+
+        if (resCd !== '0000') {
+          showToast({
+            message: resMsg || '결제가 완료되지 않았습니다. 결제창에서 다시 확인해 주세요.',
+            variant: 'error',
+          });
+          void navigate(
+            `${routePaths.paymentResult}?${buildResultSearch({
+              code: resCd,
+              gatewayOrderId: latestPrepare.ordrIdxx,
+              message: resMsg || '결제가 승인되지 않았습니다.',
+              paymentId: latestPrepare.paymentId,
+              status: 'FAILED',
+            })}`,
+          );
+          return;
+        }
+
+        const payment = await approveKcpPcPayment({
+          paymentId: latestPrepare.paymentId,
+          encData: getHiddenFieldValue(form, 'enc_data'),
+          encInfo: getHiddenFieldValue(form, 'enc_info'),
+          tranCd: getHiddenFieldValue(form, 'tran_cd'),
+          resCd,
+          resMsg,
+        });
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: myCartQueryKey(cartScope) }),
+          queryClient.invalidateQueries({ queryKey: myCouponsQueryKey(cartScope) }),
+          queryClient.invalidateQueries({ queryKey: myEnrollmentsQueryKey }),
+          queryClient.invalidateQueries({ queryKey: myPaymentHistoryQueryKey }),
+        ]);
+
+        void navigate(
+          `${routePaths.paymentResult}?${buildResultSearch({
+            gatewayOrderId: payment.gatewayOrderId,
+            paymentId: payment.id,
+            status: payment.status,
+          })}`,
+        );
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'PC 결제 승인에 실패했습니다. 다시 시도해 주세요.';
+
+        showToast({
+          message,
+          variant: 'error',
+        });
+        void navigate(
+          `${routePaths.paymentResult}?${buildResultSearch({
+            gatewayOrderId: latestPrepare.ordrIdxx,
+            message,
+            paymentId: latestPrepare.paymentId,
+            status: 'FAILED',
+          })}`,
+        );
+      } finally {
+        latestPrepareRef.current = null;
+        setIsSubmitting(false);
+        closeEvent?.();
+      }
+    };
+
+    return () => {
+      delete window.jsf__pay;
+      delete window.m_Completepayment;
+    };
+  }, [navigate, queryClient, showToast]);
+
+  const handleStartPayment = async () => {
+    if (!pricing.itemCount) {
+      showToast({
+        message: '결제 가능한 항목을 먼저 선택해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    const checkoutPayload = {
+      cartItemIds: pricing.selectedItems.map((item) => item.id),
+      paymentMethod,
+      selectedCouponId,
+    };
+
+    try {
+      if (isMobileBrowser()) {
+        const mobileForm = kcpMobileFormRef.current;
+        if (!mobileForm) {
+          throw new Error('모바일 결제 폼을 초기화하지 못했습니다.');
+        }
+
+        const register = await registerKcpMobileCheckoutPayment(checkoutPayload);
+
+        applyMobileRegisterResponse(mobileForm, register);
+        mobileForm.submit();
+        return;
+      }
+
+      const form = kcpFormRef.current;
+      if (!form) {
+        throw new Error('PC 결제 폼을 초기화하지 못했습니다.');
+      }
+
+      const prepare = await prepareKcpPcCheckoutPayment(checkoutPayload);
+
+      latestPrepareRef.current = prepare;
+      applyPcPrepareResponse(form, prepare);
+      await loadKcpScript(prepare.jsUrl);
+
+      if (!window.jsf__pay) {
+        throw new Error('KCP 결제창을 준비하지 못했습니다.');
+      }
+
+      window.jsf__pay(form);
+    } catch (error: unknown) {
+      latestPrepareRef.current = null;
+      setIsSubmitting(false);
+      showToast({
+        message: error instanceof Error ? error.message : '결제 준비에 실패했습니다.',
+        variant: 'error',
+      });
+    }
+  };
+
   return (
     <section className={sharedStyles['page']}>
       <div className={sharedStyles['shell']}>
@@ -61,9 +367,44 @@ const CheckoutPage = () => {
           <header className={sharedStyles['header']}>
             <h1 className={sharedStyles['title']}>결제하기</h1>
             <p className={sharedStyles['description']}>
-              장바구니에서 선택한 항목과 쿠폰 적용 금액을 확인하고 결제를 진행합니다.
+              장바구니에서 선택한 항목을 확인하고 실제 KCP 결제를 진행합니다.
             </p>
           </header>
+
+          <form ref={kcpFormRef} acceptCharset='UTF-8' method='post' name='order_info'>
+            <input name='site_cd' type='hidden' />
+            <input name='site_name' type='hidden' />
+            <input name='pay_method' type='hidden' />
+            <input name='currency' type='hidden' />
+            <input name='ordr_idxx' type='hidden' />
+            <input name='good_mny' type='hidden' />
+            <input name='good_name' type='hidden' />
+            <input name='shop_user_id' type='hidden' />
+            <input name='buyr_name' type='hidden' />
+            <input name='buyr_mail' type='hidden' />
+            <input name='buyr_tel2' type='hidden' />
+            <input name='good_expr' type='hidden' />
+            <input name='res_cd' type='hidden' />
+            <input name='res_msg' type='hidden' />
+            <input name='enc_data' type='hidden' />
+            <input name='enc_info' type='hidden' />
+            <input name='tran_cd' type='hidden' />
+          </form>
+
+          <form ref={kcpMobileFormRef} acceptCharset='UTF-8' method='post'>
+            <input name='site_cd' type='hidden' />
+            <input name='pay_method' type='hidden' />
+            <input name='approval_key' type='hidden' />
+            <input name='Ret_URL' type='hidden' />
+            <input name='PayUrl' type='hidden' />
+            <input name='currency' type='hidden' />
+            <input name='good_mny' type='hidden' />
+            <input name='ordr_idxx' type='hidden' />
+            <input name='good_name' type='hidden' />
+            <input name='shop_user_id' type='hidden' />
+            <input name='buyr_name' type='hidden' />
+            <input name='buyr_mail' type='hidden' />
+          </form>
 
           {cartQuery.isLoading || couponsQuery.isLoading || profileQuery.isLoading ? (
             <p className={sharedStyles['mutedText']}>결제 정보를 불러오는 중입니다.</p>
@@ -107,7 +448,7 @@ const CheckoutPage = () => {
               <div className={sharedStyles['sectionHeader']}>
                 <h2 className={sharedStyles['sectionTitle']}>선택한 항목이 없습니다.</h2>
                 <p className={sharedStyles['sectionDescription']}>
-                  장바구니에서 결제할 강의 또는 실습 과정을 먼저 선택해 주세요.
+                  장바구니에서 결제할 과정을 먼저 선택해 주세요.
                 </p>
               </div>
               <div className={styles['actionRow']}>
@@ -147,31 +488,32 @@ const CheckoutPage = () => {
                   <div className={sharedStyles['sectionHeader']}>
                     <h2 className={sharedStyles['sectionTitle']}>결제 수단</h2>
                     <p className={sharedStyles['sectionDescription']}>
-                      실제 PG 연결 전까지는 목 결제 결과 페이지로 이동합니다.
+                      현재는 카드 결제를 지원하며, 선택한 장바구니 항목 전체가 한 번에 결제됩니다.
                     </p>
                   </div>
                   <div className={styles['methodList']}>
-                    {(Object.entries(paymentMethodLabels) as Array<[PaymentMethod, string]>).map(
-                      ([value, label]) => (
-                        <label className={styles['methodOption']} key={value}>
-                          <input
-                            checked={paymentMethod === value}
-                            name='paymentMethod'
-                            onChange={() => {
-                              setPaymentMethod(value);
-                            }}
-                            type='radio'
-                          />
-                          <span>{label}</span>
-                        </label>
-                      ),
-                    )}
+                    {checkoutPaymentMethods.map((value) => (
+                      <label className={styles['methodOption']} key={value}>
+                        <input
+                          checked={paymentMethod === value}
+                          name='paymentMethod'
+                          onChange={() => {
+                            setPaymentMethod(value);
+                          }}
+                          type='radio'
+                        />
+                        <span>{paymentMethodLabels[value]}</span>
+                      </label>
+                    ))}
                   </div>
                 </section>
 
                 <section className={sharedStyles['section']}>
                   <div className={sharedStyles['sectionHeader']}>
                     <h2 className={sharedStyles['sectionTitle']}>선택한 주문 항목</h2>
+                    <p className={sharedStyles['sectionDescription']}>
+                      모바일에서는 KCP 결제창으로 이동하며, 서버가 선택 항목과 쿠폰 기준 최종 금액을 확정합니다.
+                    </p>
                   </div>
                   <div className={styles['itemList']}>
                     {pricing.selectedItems.map((item) => (
@@ -247,12 +589,16 @@ const CheckoutPage = () => {
                     <Link className={styles['secondaryActionLink']} to={routePaths.cart}>
                       장바구니로 돌아가기
                     </Link>
-                    <Link
-                      className={styles['primaryActionLink']}
-                      to={`${routePaths.paymentResult}?${resultSearchParams}`}
+                    <button
+                      className={styles['primaryActionButton']}
+                      disabled={isSubmitting || pricing.itemCount === 0}
+                      onClick={() => {
+                        void handleStartPayment();
+                      }}
+                      type='button'
                     >
-                      목 결제 진행
-                    </Link>
+                      {isSubmitting ? '결제창 여는 중...' : '실결제 진행'}
+                    </button>
                   </div>
                 </section>
               </aside>

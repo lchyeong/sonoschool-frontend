@@ -21,8 +21,6 @@ import { fetchProgramPage, fetchProgramsOverview } from '@/api/programCatalog';
 import { fetchProgramSearchIndex } from '@/api/programSearch';
 import { fetchSiteNavigation } from '@/api/siteNavigation';
 
-const siteKey = 'sono-school-main';
-
 describe('program data API fallback', () => {
   beforeEach(() => {
     httpGetMock.mockReset();
@@ -31,7 +29,9 @@ describe('program data API fallback', () => {
   it('returns mock overview data when the programs overview API fails', async () => {
     httpGetMock.mockRejectedValue(new Error('overview failed'));
 
-    await expect(fetchProgramsOverview(siteKey)).resolves.toEqual(getMockProgramsOverview(siteKey));
+    await expect(fetchProgramsOverview()).resolves.toEqual(
+      getMockProgramsOverview('sono-school-main'),
+    );
   });
 
   it('returns mock program page data when the program page API fails', async () => {
@@ -39,9 +39,7 @@ describe('program data API fallback', () => {
 
     httpGetMock.mockRejectedValue(new Error('page failed'));
 
-    await expect(fetchProgramPage(siteKey, path)).resolves.toEqual(
-      getMockProgramPage(siteKey, path),
-    );
+    await expect(fetchProgramPage(path)).resolves.toEqual(getMockProgramPage('sono-school-main', path));
   });
 
   it('keeps rejecting when a failed program page request has no matching mock fallback', async () => {
@@ -49,20 +47,18 @@ describe('program data API fallback', () => {
 
     httpGetMock.mockRejectedValue(error);
 
-    await expect(fetchProgramPage(siteKey, '/programs/unknown-course')).rejects.toBe(error);
+    await expect(fetchProgramPage('/programs/unknown-course')).rejects.toBe(error);
   });
 
   it('returns mock navigation data when the navigation API fails', async () => {
     httpGetMock.mockRejectedValue(new Error('navigation failed'));
 
-    await expect(fetchSiteNavigation(siteKey)).resolves.toEqual(getMockSiteNavigation(siteKey));
+    await expect(fetchSiteNavigation()).resolves.toEqual(getMockSiteNavigation());
   });
 
   it('returns mock search index data when the search index API fails', async () => {
     httpGetMock.mockRejectedValue(new Error('search failed'));
 
-    await expect(fetchProgramSearchIndex(siteKey)).resolves.toEqual(
-      getMockProgramSearchIndex(siteKey),
-    );
+    await expect(fetchProgramSearchIndex()).resolves.toEqual(getMockProgramSearchIndex());
   });
 });

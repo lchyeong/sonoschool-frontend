@@ -2,13 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 
 import { fetchProgramSearchIndex } from '@/api/programSearch';
 
-export const programSearchIndexQueryKey = (siteKey: string) =>
-  ['programSearchIndex', siteKey] as const;
+export const programSearchIndexQueryKey = () => ['programSearchIndex'] as const;
 
-export const useProgramSearchIndexQuery = (siteKey: string) => {
+export const useProgramSearchIndexQuery = () => {
   return useQuery({
-    queryKey: programSearchIndexQueryKey(siteKey),
-    queryFn: () => fetchProgramSearchIndex(siteKey),
+    queryKey: programSearchIndexQueryKey(),
+    queryFn: () => fetchProgramSearchIndex(),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

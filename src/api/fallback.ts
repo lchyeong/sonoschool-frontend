@@ -1,23 +1,17 @@
 import axios from 'axios';
 
-import { ApiError } from '@/api/errors';
-
-const isFallbackStatus = (status: number | null): boolean => {
-  return status === null || status === 404 || status >= 500;
-};
+import { env } from '@/config/env';
 
 export const shouldUseMockFallback = (error: unknown): boolean => {
-  if (error instanceof ApiError) {
-    return isFallbackStatus(error.status);
-  }
-
-  if (axios.isAxiosError(error)) {
-    return isFallbackStatus(error.response?.status ?? null);
-  }
-
-  if (error instanceof Error) {
+  if (env.VITE_ENABLE_MOCK) {
     return true;
   }
 
-  return true;
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  const status = error.response?.status ?? null;
+
+  return status === null || status === 404 || status === 501 || status === 502 || status === 503;
 };

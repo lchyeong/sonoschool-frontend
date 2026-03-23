@@ -3,6 +3,8 @@ import type { ProgramSearchIndexResponse } from '@/types/programSearch';
 
 import { getMockProgramSearchLectureItems } from './programCatalog';
 
+const DEFAULT_PROGRAM_SITE_ID = 'sono-school-main';
+
 const communityProgramSearchItems: ProgramSearchIndexResponse['items'] = [
   {
     categoryLabel: '교육후기',
@@ -100,8 +102,11 @@ const communityProgramSearchItems: ProgramSearchIndexResponse['items'] = [
   },
 ];
 
-export const getMockProgramSearchIndex = (siteKey: string): ProgramSearchIndexResponse => {
+export const getMockProgramSearchIndex = (): ProgramSearchIndexResponse => {
   return {
-    items: [...getMockProgramSearchLectureItems(siteKey), ...communityProgramSearchItems],
+    items: [
+      ...getMockProgramSearchLectureItems(DEFAULT_PROGRAM_SITE_ID),
+      ...communityProgramSearchItems,
+    ],
   };
 };

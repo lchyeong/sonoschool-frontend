@@ -39,11 +39,8 @@ const PROGRESS_SAVE_INTERVAL_SECONDS = 30;
 const PROGRESS_SAVE_MIN_DELTA_SECONDS = 20;
 const PROGRESS_EXIT_SAVE_MIN_DELTA_SECONDS = 5;
 
-interface HlsLoader {
-  load: (context: { type?: string; url: string }, config: unknown, callbacks: unknown) => void;
-}
-
-type HlsLoaderConstructor = new (...args: unknown[]) => HlsLoader;
+type HlsLoaderConstructor = typeof Hls.DefaultConfig.loader;
+type HlsLoaderInstance = InstanceType<HlsLoaderConstructor>;
 
 const formatQualityLabel = (level: {
   height?: number;
@@ -84,12 +81,12 @@ const buildQualityOptions = (
 };
 
 const createProtectedHlsLoader = (hlsKeyUrl: string): HlsLoaderConstructor => {
-  const DefaultLoader = Hls.DefaultConfig.loader as HlsLoaderConstructor;
+  const DefaultLoader = Hls.DefaultConfig.loader;
 
   return class ProtectedHlsLoader extends DefaultLoader {
-    load(context: { type?: string; url: string }, config: unknown, callbacks: unknown) {
+    override load: HlsLoaderInstance['load'] = (context, config, callbacks) => {
       const nextContext =
-        context.type === 'key'
+        'type' in context && context.type === 'key'
           ? {
               ...context,
               url: hlsKeyUrl,
@@ -97,7 +94,7 @@ const createProtectedHlsLoader = (hlsKeyUrl: string): HlsLoaderConstructor => {
           : context;
 
       super.load(nextContext, config, callbacks);
-    }
+    };
   };
 };
 
@@ -159,7 +156,7 @@ const PlayerPage = () => {
   const completedLessonIds = useMemo(() => {
     return new Set(
       Object.entries(lessonProgressByLessonId)
-        .filter(([, progress]) => progress.completed)
+        .filter(([, progress]) => progress?.completed === true)
         .map(([lessonId]) => lessonId),
     );
   }, [lessonProgressByLessonId]);

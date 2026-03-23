@@ -1,4 +1,3 @@
-import { env } from '@/config/env';
 import { useAdminConsoleQuery } from '@/query/useAdminConsoleQuery';
 
 import styles from './AdminConsolePage.module.scss';
@@ -22,7 +21,7 @@ interface AdminConsolePageProps {
 
 const AdminConsolePage = ({ section }: AdminConsolePageProps) => {
   const actions = useAdminConsolePageActions();
-  const { data, isError, isPending } = useAdminConsoleQuery(env.siteKey);
+  const { data, isError, isPending } = useAdminConsoleQuery();
 
   if (isPending) {
     return (

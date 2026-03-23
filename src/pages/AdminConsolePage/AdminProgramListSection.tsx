@@ -5,7 +5,6 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import Button from '@/components/ui/Button/Button';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import { TextField } from '@/components/ui/TextField/TextField';
-import { env } from '@/config/env';
 import { useAdminProgramMenuTreeQuery } from '@/query/useAdminProgramMenuQuery';
 import { useAdminProgramsQuery } from '@/query/useAdminProgramsQuery';
 import { routePaths } from '@/routes/routeRegistry';
@@ -157,7 +156,7 @@ const AdminProgramListSection = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedMenuIds, setExpandedMenuIds] = useState<string[]>([]);
 
-  const menuTreeQuery = useAdminProgramMenuTreeQuery(env.siteKey);
+  const menuTreeQuery = useAdminProgramMenuTreeQuery();
   const menuItems = useMemo(() => menuTreeQuery.data?.items ?? [], [menuTreeQuery.data?.items]);
   const menuItemMap = useMemo(() => new Map(menuItems.map((item) => [item.id, item])), [menuItems]);
   const menuTree = useMemo(() => buildMenuTree(menuItems), [menuItems]);
@@ -187,7 +186,7 @@ const AdminProgramListSection = () => {
   const activeMenuId = activeMenu ? activeMenu.id : null;
   const isLeafMenuSelected = activeMenu ? activeMenu.isLeafMenu : false;
 
-  const programsQuery = useAdminProgramsQuery(env.siteKey, {
+  const programsQuery = useAdminProgramsQuery({
     collectionPath: activeMenu ? activeMenu.path : null,
     enabled: activeMenu !== null,
     format: formatFilter,

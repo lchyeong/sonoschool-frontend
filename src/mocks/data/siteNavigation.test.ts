@@ -22,7 +22,7 @@ const getMaxDepth = (items: SiteNavigationItem[], depth = 1): number => {
 
 describe('getMockSiteNavigation', () => {
   it('matches the doctor, general, and online course groupings to the current reference structure', () => {
-    const navigation = getMockSiteNavigation('sono-school-main').items;
+    const navigation = getMockSiteNavigation().items;
 
     const doctorCourses = findNavigationItem(navigation, '의사과정');
     const generalCourses = findNavigationItem(navigation, '일반과정');
@@ -65,7 +65,7 @@ describe('getMockSiteNavigation', () => {
   });
 
   it('builds hub URLs for header-exposed 교육과정 items without exposing /detail children', () => {
-    const navigation = getMockSiteNavigation('sono-school-main').items;
+    const navigation = getMockSiteNavigation().items;
     const doctorCourses = findNavigationItem(navigation, '의사과정');
     const generalCourses = findNavigationItem(navigation, '일반과정');
     const abdomenCourse = findNavigationItem(generalCourses?.children ?? [], '복부과정');
@@ -94,7 +94,7 @@ describe('getMockSiteNavigation', () => {
   });
 
   it('does not place faculty introduction items under online courses and stays within 3 depths', () => {
-    const navigation = getMockSiteNavigation('sono-school-main').items;
+    const navigation = getMockSiteNavigation().items;
     const onlineCourses = findNavigationItem(navigation, '온라인과정');
 
     const onlineChildLabels = onlineCourses?.children?.map((item) => item.label) ?? [];

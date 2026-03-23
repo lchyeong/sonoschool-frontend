@@ -37,10 +37,9 @@ const homeHeroSlidesResponseSchema = z.object({
   autoPlayDurationMs: z.number().int().positive().max(60000),
 });
 
-export const fetchHomeHeroSlides = async (siteKey: string): Promise<HomeHeroSlidesResponse> => {
+export const fetchHomeHeroSlides = async (): Promise<HomeHeroSlidesResponse> => {
   try {
-    const encodedSiteKey = encodeURIComponent(siteKey);
-    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/home-hero-slides`);
+    const responseData = await http.get<unknown>('/api/v1/home/hero-slides');
 
     const parsed = homeHeroSlidesResponseSchema.safeParse(responseData);
 
@@ -54,6 +53,6 @@ export const fetchHomeHeroSlides = async (siteKey: string): Promise<HomeHeroSlid
       throw error;
     }
 
-    return getMockHomeHeroSlides(siteKey);
+    return getMockHomeHeroSlides();
   }
 };

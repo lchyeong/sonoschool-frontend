@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { addMyCartItem, fetchMyCart } from '@/api/mypage';
 import { myCartQueryKey } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AddToCartPayload, CartSummary, ProgramType } from '@/types/mypage';
 import type { ProgramDetailPageResponse } from '@/types/programCatalog';
+import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 
 import styles from './ProgramPageDetail.module.scss';
 import {
@@ -56,7 +58,7 @@ const buildAddToCartPayload = (
     instructorName: data.instructor.name,
     originalPrice: originalPriceAmount,
     payablePrice: discountedPriceAmount,
-    programId: deriveProgramId(`${sourcePath}:${selectedOption}`),
+    programId: data.programId ?? deriveProgramId(`${sourcePath}:${selectedOption}`),
     programType: inferProgramType(data),
     salePrice: discountedPriceAmount < originalPriceAmount ? discountedPriceAmount : null,
     sourcePath,
@@ -72,8 +74,10 @@ const findCartItemByPayload = (cart: CartSummary, payload: AddToCartPayload) => 
 const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const selectSingleCartItem = useCartSelectionStore((state) => state.selectSingleItem);
   const showToast = useToastStore((state) => state.showToast);
+  const cartScope = resolveCartQueryScope(isAuthenticated);
   const viewModel = useProgramPageDetailViewModel(data);
   const {
     activeSectionId,
@@ -115,7 +119,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
 
     void addToCartMutation.mutateAsync(payload).then(
       async (cart) => {
-        queryClient.setQueryData(myCartQueryKey, cart);
+        queryClient.setQueryData(myCartQueryKey(cartScope), cart);
 
         showToast({
           message: '장바구니에 담았습니다.',
@@ -150,7 +154,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
       const cart = await addToCartMutation.mutateAsync(payload);
       const targetCartItem = findCartItemByPayload(cart, payload);
 
-      queryClient.setQueryData(myCartQueryKey, cart);
+      queryClient.setQueryData(myCartQueryKey(cartScope), cart);
 
       if (!targetCartItem) {
         throw new Error('결제할 강의 정보를 찾지 못했습니다.');
@@ -168,7 +172,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
         try {
           const cart = await queryClient.fetchQuery({
             queryFn: fetchMyCart,
-            queryKey: myCartQueryKey,
+            queryKey: myCartQueryKey(cartScope),
           });
           const targetCartItem = findCartItemByPayload(cart, payload);
 

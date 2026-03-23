@@ -109,6 +109,23 @@ const testEnrollments: EnrollmentSummary[] = [
     status: 'EXPIRED',
     totalLectures: 4,
   },
+  {
+    active: false,
+    certificateEligible: true,
+    completed: true,
+    completedAt: '2026-03-04T09:00:00Z',
+    completedLectures: 3,
+    completionRate: 100,
+    enrolledAt: '2026-01-05T09:00:00Z',
+    expireAt: '2026-03-30T14:59:59Z',
+    id: 104,
+    lastLearningAt: '2026-03-04T09:00:00Z',
+    programId: 2005,
+    programThumbnailUrl: null,
+    programTitle: '취소된 강의',
+    status: 'CANCELLED',
+    totalLectures: 3,
+  },
 ];
 
 const testCoupons: UserCoupon[] = [
@@ -263,9 +280,6 @@ beforeEach(() => {
     displayName: '홍길동',
     email: 'student01@example.com',
     loginId: 'student01',
-    marketingEmailOptIn: true,
-    marketingOptInUpdatedAt: '2026-03-05T09:30:00Z',
-    marketingSmsOptIn: false,
     name: '홍길동',
     nickname: '길벗',
     phoneNumber: '010-1111-2222',
@@ -276,9 +290,6 @@ beforeEach(() => {
     displayName: '김학생',
     email: 'newstudent@example.com',
     loginId: 'student01',
-    marketingEmailOptIn: true,
-    marketingOptInUpdatedAt: '2026-03-18T09:00:00Z',
-    marketingSmsOptIn: true,
     name: '김학생',
     nickname: '길벗',
     phoneNumber: '010-1111-2222',
@@ -293,9 +304,6 @@ beforeEach(() => {
     displayName: '홍길동',
     email: 'student01@example.com',
     loginId: 'student01',
-    marketingEmailOptIn: true,
-    marketingOptInUpdatedAt: '2026-03-05T09:30:00Z',
-    marketingSmsOptIn: false,
     name: '홍길동',
     nickname: '길벗',
     phoneNumber: '010-3333-4444',
@@ -349,6 +357,7 @@ describe('MyPagePage', () => {
     expect(await screen.findByText('복부초음파 기초')).toBeInTheDocument();
     expect(screen.getByText('심장초음파 실전')).toBeInTheDocument();
     expect(screen.queryByText('POCUS 응급 핸즈온')).not.toBeInTheDocument();
+    expect(screen.queryByText('취소된 강의')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /수료증/ })).toBeInTheDocument();
     expect(await screen.findByText('67%')).toBeInTheDocument();
     expect(screen.getByText('2 / 3강')).toBeInTheDocument();
@@ -366,12 +375,14 @@ describe('MyPagePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /수강 종료/ }));
 
     expect(await screen.findByText('POCUS 응급 핸즈온')).toBeInTheDocument();
+    expect(screen.queryByText('취소된 강의')).not.toBeInTheDocument();
     expect(screen.queryByText('복부초음파 기초')).not.toBeInTheDocument();
     expect(screen.getByText('수강 종료된 강의입니다.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /수료증/ }));
 
     expect(await screen.findByText('심장초음파 실전')).toBeInTheDocument();
+    expect(screen.queryByText('취소된 강의')).not.toBeInTheDocument();
     expect(screen.queryByText('복부초음파 기초')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '수료증 다운로드' })).toBeInTheDocument();
   });
@@ -406,21 +417,15 @@ describe('MyPagePage', () => {
       expect(emailInput).toHaveValue('student01@example.com');
       expect(nameInput).toHaveValue('홍길동');
     });
-    fireEvent.change(emailInput, {
-      target: { value: 'newstudent@example.com' },
-    });
+    expect(emailInput).toHaveAttribute('readonly');
     fireEvent.change(nameInput, {
       target: { value: '김학생' },
     });
-    fireEvent.click(screen.getByLabelText('문자로 일정/혜택 안내를 받겠습니다.'));
     fireEvent.click(screen.getByRole('button', { name: '저장하기' }));
 
     await waitFor(() => {
       expect(updateMyProfileMock).toHaveBeenCalled();
       expect(updateMyProfileMock.mock.calls[0][0]).toEqual({
-        email: 'newstudent@example.com',
-        marketingEmailOptIn: true,
-        marketingSmsOptIn: true,
         name: '김학생',
         nickname: '길벗',
       });

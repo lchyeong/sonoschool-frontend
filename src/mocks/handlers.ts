@@ -40,7 +40,11 @@ import {
   updateMockMyProfile,
   verifyMockMyPhoneChange as verifyMockMyPagePhoneChange,
 } from '@/mocks/data/mypage';
-import { getMockProgramPage, getMockProgramsOverview } from '@/mocks/data/programCatalog';
+import {
+  getMockProgramPage,
+  getMockProgramSearchLectureItems,
+  getMockProgramsOverview,
+} from '@/mocks/data/programCatalog';
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import { getMockSiteNavigation } from '@/mocks/data/siteNavigation';
 import {
@@ -84,6 +88,91 @@ import type { SiteNavigationResponse } from '@/types/siteNavigation';
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === 'object';
+};
+
+const DEFAULT_SITE_KEY = 'sono-school-main';
+
+const deriveMockProgramId = (sourcePath: string): number => {
+  const normalizedPath = sourcePath.trim() || '/programs/detail';
+
+  return Array.from(normalizedPath).reduce((accumulator, character) => {
+    return (accumulator * 31 + character.charCodeAt(0)) % 1_000_000_007;
+  }, 7_000);
+};
+
+const parsePriceAmount = (label: string | undefined, fallback: number): number => {
+  const amount = Number(label?.replace(/[^\d]/g, '') ?? '');
+
+  return Number.isFinite(amount) && amount > 0 ? amount : fallback;
+};
+
+const inferProgramTypeFromPage = (page: ProgramPageResponse): AddToCartPayload['programType'] => {
+  if (page.pageKind !== 'detail') {
+    return 'ONLINE';
+  }
+
+  const hasOnlineLesson = page.curriculumTrack.sections.some((section) => {
+    return section.lessons.some((lesson) => lesson.deliveryType === 'online');
+  });
+  const hasOfflineLesson = page.curriculumTrack.sections.some((section) => {
+    return section.lessons.some((lesson) => lesson.deliveryType === 'offline');
+  });
+
+  if (hasOnlineLesson && hasOfflineLesson) {
+    return 'HYBRID';
+  }
+
+  return hasOfflineLesson ? 'OFFLINE' : 'ONLINE';
+};
+
+const resolveMockCartPayloadByProgramId = (
+  siteKey: string,
+  programId: number,
+): AddToCartPayload | null => {
+  const lectureItems = getMockProgramSearchLectureItems(siteKey);
+
+  for (const lectureItem of lectureItems) {
+    const candidatePaths = Array.from(
+      new Set([
+        lectureItem.to,
+        lectureItem.to.endsWith('/detail') ? lectureItem.to : `${lectureItem.to}/detail`,
+      ]),
+    );
+
+    for (const candidatePath of candidatePaths) {
+      const candidateProgramId = deriveMockProgramId(`${candidatePath}:${lectureItem.title}`);
+
+      if (candidateProgramId !== programId) {
+        continue;
+      }
+
+      const programPage = getMockProgramPage(siteKey, candidatePath);
+
+      if (!programPage || programPage.pageKind !== 'detail') {
+        continue;
+      }
+
+      const originalPrice = parsePriceAmount(
+        programPage.originalPriceLabel,
+        parsePriceAmount(programPage.discountedPriceLabel, 100_000),
+      );
+      const payablePrice = parsePriceAmount(programPage.discountedPriceLabel, originalPrice);
+
+      return {
+        instructorName: programPage.instructor.name,
+        originalPrice,
+        payablePrice,
+        programId,
+        programType: inferProgramTypeFromPage(programPage),
+        salePrice: payablePrice < originalPrice ? payablePrice : null,
+        sourcePath: candidatePath,
+        thumbnailUrl: programPage.heroImageSrc,
+        title: lectureItem.title,
+      };
+    }
+  }
+
+  return null;
 };
 
 const isAdminNoticeCategory = (value: unknown): value is AdminNoticeCategory => {
@@ -494,11 +583,8 @@ export const handlers = [
 
     if (
       !isRecord(body) ||
-      typeof body['email'] !== 'string' ||
       typeof body['name'] !== 'string' ||
-      typeof body['nickname'] !== 'string' ||
-      typeof body['marketingEmailOptIn'] !== 'boolean' ||
-      typeof body['marketingSmsOptIn'] !== 'boolean'
+      typeof body['nickname'] !== 'string'
     ) {
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
@@ -506,9 +592,6 @@ export const handlers = [
     return HttpResponse.json(
       createApiEnvelope(
         updateMockMyProfile({
-          email: body['email'],
-          marketingEmailOptIn: body['marketingEmailOptIn'],
-          marketingSmsOptIn: body['marketingSmsOptIn'],
           name: body['name'],
           nickname: body['nickname'],
         }),
@@ -630,7 +713,7 @@ export const handlers = [
   http.get('*/api/v1/cart/application-summary', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyApplicationSummary()));
   }),
-  http.post('*/api/v1/cart', async ({ request }) => {
+  http.post('*/api/v1/cart/items', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (!isRecord(body)) {
@@ -649,31 +732,41 @@ export const handlers = [
       title,
     } = body;
 
+    let payload: AddToCartPayload;
+
     if (
-      (instructorName !== null && typeof instructorName !== 'string') ||
-      typeof originalPrice !== 'number' ||
-      typeof payablePrice !== 'number' ||
-      typeof programId !== 'number' ||
-      (programType !== 'ONLINE' && programType !== 'OFFLINE' && programType !== 'HYBRID') ||
-      (salePrice !== null && typeof salePrice !== 'number') ||
-      typeof sourcePath !== 'string' ||
-      (thumbnailUrl !== null && typeof thumbnailUrl !== 'string') ||
-      typeof title !== 'string'
+      typeof programId === 'number' &&
+      !(instructorName !== null && typeof instructorName !== 'string') &&
+      typeof originalPrice === 'number' &&
+      typeof payablePrice === 'number' &&
+      (programType === 'ONLINE' || programType === 'OFFLINE' || programType === 'HYBRID') &&
+      (salePrice === null || typeof salePrice === 'number') &&
+      typeof sourcePath === 'string' &&
+      (thumbnailUrl === null || typeof thumbnailUrl === 'string') &&
+      typeof title === 'string'
     ) {
+      payload = {
+        instructorName: typeof instructorName === 'string' ? instructorName : null,
+        originalPrice,
+        payablePrice,
+        programId,
+        programType,
+        salePrice: typeof salePrice === 'number' ? salePrice : null,
+        sourcePath,
+        thumbnailUrl: typeof thumbnailUrl === 'string' ? thumbnailUrl : null,
+        title,
+      };
+    } else if (typeof programId === 'number') {
+      const resolvedPayload = resolveMockCartPayloadByProgramId(DEFAULT_SITE_KEY, programId);
+
+      if (!resolvedPayload) {
+        return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
+      }
+
+      payload = resolvedPayload;
+    } else {
       return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
     }
-
-    const payload: AddToCartPayload = {
-      instructorName,
-      originalPrice,
-      payablePrice,
-      programId,
-      programType,
-      salePrice,
-      sourcePath,
-      thumbnailUrl,
-      title,
-    };
 
     try {
       return HttpResponse.json(createApiEnvelope(addMockMyCartItem(payload)));
@@ -684,7 +777,7 @@ export const handlers = [
       );
     }
   }),
-  http.delete('*/api/v1/cart/:cartItemId', ({ params }) => {
+  http.delete('*/api/v1/cart/items/:cartItemId', ({ params }) => {
     const cartItemId = Number(params['cartItemId']);
 
     if (!Number.isInteger(cartItemId) || cartItemId <= 0) {
@@ -1219,41 +1312,58 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  http.get('*/sites/:siteKey/navigation', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const response: SiteNavigationResponse = getMockSiteNavigation(siteKey);
+  http.get('*/api/v1/navigation/site', () => {
+    const response: SiteNavigationResponse = getMockSiteNavigation();
+
+    return HttpResponse.json(response);
+  }),
+  http.get('*/api/v1/navigation/programs', () => {
+    const response: SiteNavigationResponse = getMockSiteNavigation();
 
     return HttpResponse.json(response);
   }),
   http.get('*/sites/:siteKey/home-hero-slides', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const response: HomeHeroSlidesResponse = getMockHomeHeroSlides(siteKey);
+    void params;
+    const response: HomeHeroSlidesResponse = getMockHomeHeroSlides();
+
+    return HttpResponse.json(response);
+  }),
+  http.get('*/api/v1/home/hero-slides', () => {
+    const response: HomeHeroSlidesResponse = getMockHomeHeroSlides();
 
     return HttpResponse.json(response);
   }),
   http.get('*/sites/:siteKey/home-history-timeline', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const response: HomeHistoryTimelineResponse = getMockHomeHistoryTimeline(siteKey);
+    void params;
+    const response: HomeHistoryTimelineResponse = getMockHomeHistoryTimeline();
+
+    return HttpResponse.json(response);
+  }),
+  http.get('*/api/v1/home/history-timeline', () => {
+    const response: HomeHistoryTimelineResponse = getMockHomeHistoryTimeline();
 
     return HttpResponse.json(response);
   }),
   http.get('*/sites/:siteKey/program-search-index', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const response: ProgramSearchIndexResponse = getMockProgramSearchIndex(siteKey);
+    void params;
+    const response: ProgramSearchIndexResponse = getMockProgramSearchIndex();
 
     return HttpResponse.json(response);
   }),
-  http.get('*/sites/:siteKey/programs/overview', ({ params }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
-    const response: ProgramsOverviewResponse = getMockProgramsOverview(siteKey);
+  http.get('*/api/v1/catalog/search-index', () => {
+    const response: ProgramSearchIndexResponse = getMockProgramSearchIndex();
 
     return HttpResponse.json(response);
   }),
-  http.get('*/sites/:siteKey/programs/page', ({ params, request }) => {
-    const siteKey = typeof params['siteKey'] === 'string' ? params['siteKey'] : 'sono-school-main';
+  http.get('*/api/v1/program-pages/overview', () => {
+    const response: ProgramsOverviewResponse = getMockProgramsOverview('sono-school-main');
+
+    return HttpResponse.json(response);
+  }),
+  http.get('*/api/v1/program-pages/page', ({ request }) => {
     const requestUrl = new URL(request.url);
     const path = requestUrl.searchParams.get('path') ?? '/programs';
-    const response: ProgramPageResponse | null = getMockProgramPage(siteKey, path);
+    const response: ProgramPageResponse | null = getMockProgramPage('sono-school-main', path);
 
     if (!response) {
       return HttpResponse.json({ message: 'Program page not found' }, { status: 404 });
@@ -1261,18 +1371,18 @@ export const handlers = [
 
     return HttpResponse.json(response);
   }),
-  http.post('*/contact', async ({ request }) => {
+  http.post('*/api/v1/contact', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (!isRecord(body)) {
-      return HttpResponse.json({ ok: false, message: 'Invalid body' }, { status: 400 });
+      return HttpResponse.json({ message: '요청 형식이 올바르지 않습니다.' }, { status: 400 });
     }
 
     const title = body['title'];
     if (typeof title === 'string' && title.toLowerCase().includes('error')) {
-      return HttpResponse.json({ ok: false, message: 'Invalid title' }, { status: 400 });
+      return HttpResponse.json({ message: '제목을 입력해주세요.' }, { status: 400 });
     }
 
-    return HttpResponse.json({ ok: true });
+    return HttpResponse.json(createApiEnvelope({ ok: true }));
   }),
 ];

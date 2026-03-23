@@ -3,19 +3,42 @@ import type { AxiosRequestConfig } from 'axios';
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
 
+interface ApiResponseEnvelope<T> {
+  data: T;
+  timestamp: string;
+}
+
+const isApiResponseEnvelope = <T>(value: unknown): value is ApiResponseEnvelope<T> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return 'data' in record && typeof record['timestamp'] === 'string';
+};
+
+const unwrapApiResponse = <T>(value: unknown): T => {
+  if (isApiResponseEnvelope<T>(value)) {
+    return value.data;
+  }
+
+  return value as T;
+};
+
 export const http = {
   get: async <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
     try {
-      const response = await axiosInstance.get<T>(url, config);
-      return response.data;
+      const response = await axiosInstance.get<unknown>(url, config);
+      return unwrapApiResponse<T>(response.data);
     } catch (error: unknown) {
       throw toApiError(error);
     }
   },
   post: async <T>(url: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> => {
     try {
-      const response = await axiosInstance.post<T>(url, body, config);
-      return response.data;
+      const response = await axiosInstance.post<unknown>(url, body, config);
+      return unwrapApiResponse<T>(response.data);
     } catch (error: unknown) {
       throw toApiError(error);
     }

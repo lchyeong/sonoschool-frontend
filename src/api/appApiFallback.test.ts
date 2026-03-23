@@ -45,6 +45,7 @@ import {
   updateMyProfile,
 } from '@/api/mypage';
 import { fetchPaymentResult, fetchPaymentResultByToken } from '@/api/payments';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 const siteKey = 'sono-school-main';
 
@@ -63,6 +64,15 @@ describe('app API fallback', () => {
     axiosPostMock.mockReset();
     axiosPatchMock.mockReset();
     axiosDeleteMock.mockReset();
+    useAuthStore.setState({
+      accessToken: '',
+      displayName: '',
+      expiresAt: '',
+      isAuthenticated: false,
+      loginId: '',
+      role: '',
+      tokenType: '',
+    });
     resetMockAdminConsoleData();
     resetMockMyPageData();
     resetMockStudentAuthState();
@@ -99,9 +109,19 @@ describe('app API fallback', () => {
 
   it('falls back to mock mypage data when mypage APIs are unavailable', async () => {
     axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
+    axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
     axiosPatchMock.mockRejectedValueOnce(createAxiosFailure(404));
     axiosPostMock.mockRejectedValueOnce(createAxiosFailure(404));
     axiosDeleteMock.mockRejectedValueOnce(createAxiosFailure(404));
+    useAuthStore.setState({
+      accessToken: 'token',
+      displayName: '홍길동',
+      expiresAt: '2026-03-30T00:00:00Z',
+      isAuthenticated: true,
+      loginId: 'student01',
+      role: 'ROLE_STUDENT',
+      tokenType: 'Bearer',
+    });
 
     await expect(fetchMyProfile()).resolves.toMatchObject({
       displayName: '홍길동',
@@ -110,15 +130,12 @@ describe('app API fallback', () => {
 
     await expect(
       updateMyProfile({
-        email: 'kim@example.com',
-        marketingEmailOptIn: true,
-        marketingSmsOptIn: false,
         name: '김학생',
         nickname: '학생',
       }),
     ).resolves.toMatchObject({
       displayName: '학생',
-      email: 'kim@example.com',
+      email: 'student01@example.com',
       name: '김학생',
       nickname: '학생',
     });
@@ -151,7 +168,7 @@ describe('app API fallback', () => {
   it('falls back to mock admin data when admin APIs are unavailable', async () => {
     httpGetMock.mockRejectedValueOnce(createAxiosFailure(404));
 
-    await expect(fetchAdminConsole(siteKey)).resolves.toEqual(getMockAdminConsole(siteKey));
+    await expect(fetchAdminConsole()).resolves.toEqual(getMockAdminConsole(siteKey));
   });
 
   it('falls back to mock payment data when payment APIs are unavailable', async () => {
@@ -168,7 +185,7 @@ describe('app API fallback', () => {
     axiosPostMock.mockRejectedValueOnce(createAxiosFailure(404));
 
     await expect(
-      createAdminNotice(siteKey, {
+      createAdminNotice({
         category: '운영',
         isPinned: true,
         title: 'fallback notice',

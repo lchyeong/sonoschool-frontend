@@ -2,8 +2,10 @@ import type { SiteNavigationResponse } from '@/types/siteNavigation';
 
 import { getMockProgramNavigationItems } from './programCatalog';
 
-export const getMockSiteNavigation = (siteKey: string): SiteNavigationResponse => {
+const DEFAULT_PROGRAM_SITE_ID = 'sono-school-main';
+
+export const getMockSiteNavigation = (): SiteNavigationResponse => {
   return {
-    items: getMockProgramNavigationItems(siteKey),
+    items: getMockProgramNavigationItems(DEFAULT_PROGRAM_SITE_ID),
   };
 };

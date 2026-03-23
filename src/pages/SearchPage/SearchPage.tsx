@@ -1,7 +1,6 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import SiteSearchBar from '@/components/search/SiteSearchBar/SiteSearchBar';
-import { env } from '@/config/env';
 import { useProgramSearchIndexQuery } from '@/query/useProgramSearchIndexQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import {
@@ -35,7 +34,7 @@ const SearchPage = () => {
   const rawScope = params.get('scope') ?? defaultSearchScope;
   const selectedScope = isSearchScope(rawScope) ? rawScope : defaultSearchScope;
   const normalizedQuery = normalizeSearchText(query);
-  const { data, isError, isPending } = useProgramSearchIndexQuery(env.siteKey);
+  const { data, isError, isPending } = useProgramSearchIndexQuery();
 
   const items = data?.items ?? [];
   const filteredItems = items.filter((item) => {

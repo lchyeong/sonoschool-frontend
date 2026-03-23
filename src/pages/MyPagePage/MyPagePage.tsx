@@ -75,6 +75,7 @@ const ALL_ITEMS = SIDEBAR_GROUPS.flatMap((group) => group.items);
 const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: '수강 중',
   EXPIRED: '수강 종료',
+  CANCELLED: '취소 완료',
 };
 
 const REFUND_STATUS_LABELS: Record<string, string> = {
@@ -252,8 +253,6 @@ interface ProfileFormValues {
   email: string;
   name: string;
   nickname: string;
-  marketingEmailOptIn: boolean;
-  marketingSmsOptIn: boolean;
 }
 
 const MyPagePage = () => {
@@ -285,10 +284,12 @@ const MyPagePage = () => {
   const profileQuery = useMyProfileQuery();
   const enrollmentsQuery = useMyEnrollmentsQuery();
   const allEnrollments = enrollmentsQuery.data ?? [];
-  const activeEnrollments = allEnrollments.filter((enrollment) => enrollment.status === 'ACTIVE');
-  const expiredEnrollments = allEnrollments.filter((enrollment) => enrollment.status === 'EXPIRED');
+  const activeEnrollments = allEnrollments.filter((enrollment) => enrollment.active);
+  const expiredEnrollments = allEnrollments.filter(
+    (enrollment) => !enrollment.active && enrollment.status !== 'CANCELLED',
+  );
   const certificateEnrollments = allEnrollments.filter(
-    (enrollment) => enrollment.certificateEligible,
+    (enrollment) => enrollment.certificateEligible && enrollment.status !== 'CANCELLED',
   );
   const filteredEnrollments =
     courseTab === 'ACTIVE'
@@ -318,10 +319,6 @@ const MyPagePage = () => {
   const accountName = profileQuery.data?.displayName || storeDisplayName || '회원';
   const resolvedProfileFormValues: ProfileFormValues = {
     email: profileFormValues?.email ?? profileQuery.data?.email ?? '',
-    marketingEmailOptIn:
-      profileFormValues?.marketingEmailOptIn ?? profileQuery.data?.marketingEmailOptIn ?? false,
-    marketingSmsOptIn:
-      profileFormValues?.marketingSmsOptIn ?? profileQuery.data?.marketingSmsOptIn ?? false,
     name: profileFormValues?.name ?? profileQuery.data?.name ?? '',
     nickname: profileFormValues?.nickname ?? profileQuery.data?.nickname ?? '',
   };
@@ -415,38 +412,12 @@ const MyPagePage = () => {
           fieldName === 'email'
             ? nextValue
             : (currentValues?.email ?? profileQuery.data?.email ?? ''),
-        marketingEmailOptIn:
-          currentValues?.marketingEmailOptIn ?? profileQuery.data?.marketingEmailOptIn ?? false,
-        marketingSmsOptIn:
-          currentValues?.marketingSmsOptIn ?? profileQuery.data?.marketingSmsOptIn ?? false,
         name:
           fieldName === 'name' ? nextValue : (currentValues?.name ?? profileQuery.data?.name ?? ''),
         nickname:
           fieldName === 'nickname'
             ? nextValue
             : (currentValues?.nickname ?? profileQuery.data?.nickname ?? ''),
-      }));
-    };
-
-  const handleConsentChange =
-    (fieldName: 'marketingEmailOptIn' | 'marketingSmsOptIn') =>
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const nextValue = event.target.checked;
-
-      setProfileFormValues((currentValues) => ({
-        email: currentValues?.email ?? profileQuery.data?.email ?? '',
-        marketingEmailOptIn:
-          fieldName === 'marketingEmailOptIn'
-            ? nextValue
-            : (currentValues?.marketingEmailOptIn ??
-              profileQuery.data?.marketingEmailOptIn ??
-              false),
-        marketingSmsOptIn:
-          fieldName === 'marketingSmsOptIn'
-            ? nextValue
-            : (currentValues?.marketingSmsOptIn ?? profileQuery.data?.marketingSmsOptIn ?? false),
-        name: currentValues?.name ?? profileQuery.data?.name ?? '',
-        nickname: currentValues?.nickname ?? profileQuery.data?.nickname ?? '',
       }));
     };
 
@@ -499,8 +470,6 @@ const MyPagePage = () => {
       });
       setProfileFormValues({
         email: updatedProfile.email,
-        marketingEmailOptIn: updatedProfile.marketingEmailOptIn,
-        marketingSmsOptIn: updatedProfile.marketingSmsOptIn,
         name: updatedProfile.name,
         nickname: updatedProfile.nickname ?? '',
       });
@@ -715,7 +684,11 @@ const MyPagePage = () => {
                       </div>
                     ) : courseTab === 'EXPIRED' ? (
                       <div className={styles['courseCardFooter']}>
-                        <p className={styles['courseMetaText']}>수강 종료된 강의입니다.</p>
+                        <p className={styles['courseMetaText']}>
+                          {enrollment.status === 'CANCELLED'
+                            ? '취소된 강의입니다.'
+                            : '수강 종료된 강의입니다.'}
+                        </p>
                       </div>
                     ) : (
                       <div className={styles['courseCardFooter']}>
@@ -1080,8 +1053,8 @@ const MyPagePage = () => {
             <TextField
               label='이메일'
               name='email'
-              onChange={handleProfileFieldChange('email')}
               placeholder='name@example.com'
+              readOnly
               type='email'
               value={resolvedProfileFormValues.email}
             />
@@ -1142,24 +1115,10 @@ const MyPagePage = () => {
 
           <div className={styles['consentGroup']}>
             <p className={styles['consentTitle']}>선택정보 동의</p>
-            <label className={styles['checkboxRow']}>
-              <input
-                checked={resolvedProfileFormValues.marketingEmailOptIn}
-                name='marketingEmailOptIn'
-                onChange={handleConsentChange('marketingEmailOptIn')}
-                type='checkbox'
-              />
-              <span>이메일로 이벤트/강의 소식을 받겠습니다.</span>
-            </label>
-            <label className={styles['checkboxRow']}>
-              <input
-                checked={resolvedProfileFormValues.marketingSmsOptIn}
-                name='marketingSmsOptIn'
-                onChange={handleConsentChange('marketingSmsOptIn')}
-                type='checkbox'
-              />
-              <span>문자로 일정/혜택 안내를 받겠습니다.</span>
-            </label>
+            <p className={sharedStyles['mutedText']}>
+              이메일 변경과 마케팅 수신 동의 변경은 현재 준비 중입니다. 현재는 이름,
+              닉네임, 휴대폰 번호만 수정할 수 있습니다.
+            </p>
           </div>
 
           {isPhoneEditorOpen ? (
@@ -1232,14 +1191,10 @@ const MyPagePage = () => {
             <Button
               disabled={
                 updateProfileMutation.isPending ||
-                resolvedProfileFormValues.email.trim().length === 0 ||
                 resolvedProfileFormValues.name.trim().length === 0
               }
               onClick={() => {
                 updateProfileMutation.mutate({
-                  email: resolvedProfileFormValues.email.trim(),
-                  marketingEmailOptIn: resolvedProfileFormValues.marketingEmailOptIn,
-                  marketingSmsOptIn: resolvedProfileFormValues.marketingSmsOptIn,
                   name: resolvedProfileFormValues.name.trim(),
                   nickname: resolvedProfileFormValues.nickname.trim(),
                 });

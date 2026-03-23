@@ -1,8 +1,6 @@
 import { z } from 'zod';
 
-import { shouldUseMockFallback } from '@/api/fallback';
 import { http } from '@/api/http';
-import { getMockProgramPage, getMockProgramsOverview } from '@/mocks/data/programCatalog';
 import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
 
 const toZodErrorMessage = (error: z.ZodError): string => {
@@ -39,6 +37,7 @@ const lectureCardSchema = z.object({
   formatLabel: z.string().min(1),
   hashtagLabels: z.array(z.string().trim().min(1)).max(8),
   id: z.string().min(1),
+  programId: z.number().int().positive().optional(),
   priceLabel: z.string().min(1),
   remainingSeatsCount: z.number().int().nonnegative().optional(),
   remainingSeatsLabel: z.string().min(1).optional(),
@@ -157,6 +156,7 @@ const programDetailPageResponseSchema = z.object({
   originalPriceLabel: z.string().min(1),
   overallRating: z.number().min(0).max(5),
   pageKind: z.literal('detail'),
+  programId: z.number().int().positive().optional(),
   preparationChecklist: z.array(z.string().trim().min(1)).min(1).max(8),
   remainingSeatsLabel: z.string().min(1).optional(),
   registrationPeriodLabel: z.string().min(1),
@@ -176,36 +176,25 @@ const programPageResponseSchema = z.union([
   programDetailPageResponseSchema,
 ]);
 
-export const fetchProgramsOverview = async (siteKey: string): Promise<ProgramsOverviewResponse> => {
+export const fetchProgramsOverview = async (): Promise<ProgramsOverviewResponse> => {
   try {
-    const encodedSiteKey = encodeURIComponent(siteKey);
-    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/programs/overview`);
+    const responseData = await http.get<unknown>('/api/v1/program-pages/overview');
 
     const parsed = programsOverviewResponseSchema.safeParse(responseData);
 
     if (!parsed.success) {
-      throw new Error(
-        `[programCatalog] Invalid overview response.${toZodErrorMessage(parsed.error)}`,
-      );
+      throw new Error(`[programCatalog] Invalid overview response.${toZodErrorMessage(parsed.error)}`);
     }
 
     return parsed.data;
   } catch (error) {
-    if (!shouldUseMockFallback(error)) {
-      throw error;
-    }
-
-    return getMockProgramsOverview(siteKey);
+    throw error;
   }
 };
 
-export const fetchProgramPage = async (
-  siteKey: string,
-  path: string,
-): Promise<ProgramPageResponse> => {
+export const fetchProgramPage = async (path: string): Promise<ProgramPageResponse> => {
   try {
-    const encodedSiteKey = encodeURIComponent(siteKey);
-    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/programs/page`, {
+    const responseData = await http.get<unknown>('/api/v1/program-pages/page', {
       params: { path },
     });
 
@@ -217,16 +206,6 @@ export const fetchProgramPage = async (
 
     return parsed.data;
   } catch (error) {
-    if (!shouldUseMockFallback(error)) {
-      throw error;
-    }
-
-    const fallbackData = getMockProgramPage(siteKey, path);
-
-    if (fallbackData) {
-      return fallbackData;
-    }
-
     throw error;
   }
 };

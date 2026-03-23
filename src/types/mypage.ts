@@ -26,18 +26,12 @@ export interface UserProfile {
   displayName: string;
   phoneNumber: string | null;
   phoneVerifiedAt: string | null;
-  marketingEmailOptIn: boolean;
-  marketingSmsOptIn: boolean;
-  marketingOptInUpdatedAt: string | null;
   role: string;
 }
 
 export interface UserProfileUpdatePayload {
-  email: string;
   name: string;
   nickname: string;
-  marketingEmailOptIn: boolean;
-  marketingSmsOptIn: boolean;
 }
 
 export interface EnrollmentSummary {

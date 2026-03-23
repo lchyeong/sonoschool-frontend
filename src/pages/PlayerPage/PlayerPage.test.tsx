@@ -3,18 +3,26 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type * as MyPageApi from '@/api/mypage';
 import PlayerPage from '@/pages/PlayerPage/PlayerPage';
 import type { LearningPlayerSnapshot, ProtectedLectureStream } from '@/types/mypage';
 
-const fetchMyLearningPlayerSnapshotMock =
-  vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>();
-const fetchLectureStreamMock =
-  vi.fn<(lectureId: number, deviceId: string) => Promise<ProtectedLectureStream>>();
-const saveLectureProgressMock = vi.fn();
-const sendLectureProgressBeaconMock = vi.fn();
-let isHlsSupportedMock = true;
-const createdHlsConfigs: Array<Record<string, unknown>> = [];
+const {
+  createdHlsConfigs,
+  fetchLectureStreamMock,
+  fetchMyLearningPlayerSnapshotMock,
+  saveLectureProgressMock,
+  sendLectureProgressBeaconMock,
+  testState,
+} = vi.hoisted(() => ({
+  createdHlsConfigs: [] as Array<Record<string, unknown>>,
+  fetchLectureStreamMock: vi.fn<(lectureId: number, deviceId: string) => Promise<ProtectedLectureStream>>(),
+  fetchMyLearningPlayerSnapshotMock: vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>(),
+  saveLectureProgressMock: vi.fn(),
+  sendLectureProgressBeaconMock: vi.fn(),
+  testState: {
+    isHlsSupported: true,
+  },
+}));
 
 vi.mock('hls.js', () => {
   class LoaderMock {
@@ -34,7 +42,7 @@ vi.mock('hls.js', () => {
     };
 
     static isSupported() {
-      return isHlsSupportedMock;
+      return testState.isHlsSupported;
     }
 
     constructor(config?: Record<string, unknown>) {
@@ -59,26 +67,16 @@ vi.mock('hls.js', () => {
   };
 });
 
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-const myPageApiMock: Pick<
-  typeof MyPageApi,
-  | 'fetchMyLearningPlayerSnapshot'
-  | 'fetchLectureStream'
-  | 'saveLectureProgress'
-  | 'sendLectureProgressBeacon'
-> = {
-  fetchMyLearningPlayerSnapshot: (enrollmentId) => {
-    return fetchMyLearningPlayerSnapshotMock(enrollmentId);
-  },
-  fetchLectureStream: (lectureId, deviceId) => {
-    return fetchLectureStreamMock(lectureId, deviceId);
-  },
-  saveLectureProgress: (...args) => saveLectureProgressMock(...args),
-  sendLectureProgressBeacon: (...args) => sendLectureProgressBeaconMock(...args),
-};
-/* eslint-enable @typescript-eslint/no-unsafe-return */
-
-vi.mock('@/api/mypage', () => myPageApiMock);
+vi.mock('@/api/mypage', () => ({
+  fetchLectureStream: (lectureId: number, deviceId: string) =>
+    fetchLectureStreamMock(lectureId, deviceId),
+  fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
+    fetchMyLearningPlayerSnapshotMock(enrollmentId),
+  saveLectureProgress: (...args: Parameters<typeof saveLectureProgressMock>) =>
+    saveLectureProgressMock(...args),
+  sendLectureProgressBeacon: (...args: Parameters<typeof sendLectureProgressBeaconMock>) =>
+    sendLectureProgressBeaconMock(...args),
+}));
 
 vi.mock('@/utils/playbackDeviceId', () => ({
   getOrCreatePlaybackDeviceId: () => 'test-device-id',
@@ -249,7 +247,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  isHlsSupportedMock = true;
+  testState.isHlsSupported = true;
   createdHlsConfigs.length = 0;
   HTMLMediaElement.prototype.canPlayType = originalCanPlayType;
   HTMLMediaElement.prototype.play = originalPlay;
@@ -344,7 +342,7 @@ describe('PlayerPage', () => {
   });
 
   it('shows an unsupported browser notice when HLS playback is unavailable', async () => {
-    isHlsSupportedMock = false;
+    testState.isHlsSupported = false;
     HTMLMediaElement.prototype.canPlayType = vi.fn(() => '' as CanPlayTypeResult);
     fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
 

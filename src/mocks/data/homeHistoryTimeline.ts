@@ -41,14 +41,6 @@ const mainHomeHistoryTimeline: HomeHistoryTimelineResponse = {
   ],
 };
 
-const compactHomeHistoryTimeline: HomeHistoryTimelineResponse = {
-  items: mainHomeHistoryTimeline.items.slice(0, 4),
-};
-
-export const getMockHomeHistoryTimeline = (siteKey: string): HomeHistoryTimelineResponse => {
-  if (siteKey.includes('compact')) {
-    return compactHomeHistoryTimeline;
-  }
-
+export const getMockHomeHistoryTimeline = (): HomeHistoryTimelineResponse => {
   return mainHomeHistoryTimeline;
 };

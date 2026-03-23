@@ -102,8 +102,6 @@ describe('mypage mock data', () => {
     const refunds = getMockMyRefunds();
 
     expect(profile.email).toBe('student01@example.com');
-    expect(profile.marketingEmailOptIn).toBe(true);
-    expect(profile.marketingSmsOptIn).toBe(false);
     expect(coupons).toHaveLength(5);
     expect(coupons[0]?.name).toBe('봄맞이 할인');
 

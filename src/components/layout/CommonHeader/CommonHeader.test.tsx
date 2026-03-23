@@ -29,7 +29,6 @@ const renderCommonHeader = () => {
         <CommonHeader
           LinkComponent={Link}
           logo={{ label: 'SONO SCHOOL', to: '/' }}
-          siteKey='sono-school-main'
         />
       </MemoryRouter>
     </QueryClientProvider>,

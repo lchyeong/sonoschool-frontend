@@ -1,6 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
 
-import { env } from '@/config/env';
 import { useProgramPageQuery } from '@/query/useProgramPageQuery';
 import { routePaths } from '@/routes/routeRegistry';
 
@@ -24,7 +23,7 @@ const ProgramPage = () => {
   // `/programs/*` 아래에서는 URL 전체가 현재 보고 싶은 교육과정 페이지의 식별자 역할을 합니다.
   // 그래서 params 조합 대신 `pathname` 자체를 API 조회 기준으로 사용합니다.
   const location = useLocation();
-  const { data, isError, isPending } = useProgramPageQuery(env.siteKey, location.pathname);
+  const { data, isError, isPending } = useProgramPageQuery(location.pathname);
 
   if (isPending) {
     return (

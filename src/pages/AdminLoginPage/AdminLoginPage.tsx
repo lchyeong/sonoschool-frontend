@@ -7,7 +7,6 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { loginAdmin } from '@/api/adminConsole';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
-import { env } from '@/config/env';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
 import { setStudentSession } from '@/stores/useAuthStore';
@@ -45,7 +44,7 @@ const AdminLoginPage = () => {
 
   const loginMutation = useMutation({
     mutationFn: (values: AdminLoginFormValues) => {
-      return loginAdmin(env.siteKey, values);
+      return loginAdmin(values);
     },
     onError: (error: unknown) => {
       const message =

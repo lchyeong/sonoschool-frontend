@@ -1,7 +1,68 @@
 export type PaymentStatus = 'PENDING' | 'REGISTERED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-export type PaymentMethod = 'CARD' | 'BANK_TRANSFER' | 'VIRTUAL_ACCOUNT';
-export type PaymentMethodValue = PaymentMethod | (string & {});
+export type PaymentMethod = 'CARD' | 'BANK' | 'MOBILE' | 'POINT' | 'GIFT';
+export type PaymentMethodValue =
+  | PaymentMethod
+  | 'BANK_TRANSFER'
+  | 'VIRTUAL_ACCOUNT'
+  | (string & {});
 export type PaymentOrderType = 'PROGRAM' | 'CART_CHECKOUT';
+
+export interface PaymentInitiatePayload {
+  orderType: 'PROGRAM';
+  orderReference: string;
+  paymentMethod: PaymentMethod;
+}
+
+export interface CheckoutPaymentInitiatePayload {
+  cartItemIds: number[];
+  selectedCouponId: number | null;
+  paymentMethod: PaymentMethod;
+}
+
+export interface KcpPcPrepareResponse {
+  paymentId: number;
+  jsUrl: string;
+  siteCd: string;
+  siteName: string;
+  currency: string;
+  payMethod: string;
+  ordrIdxx: string;
+  goodMny: number;
+  goodName: string;
+  shopUserId: string;
+  buyrName: string;
+  buyrMail: string;
+  buyrTel2: string;
+  goodExpr: string;
+}
+
+export interface KcpMobileRegisterResponse {
+  paymentId: number;
+  siteCd: string;
+  payMethod: string;
+  currency: string;
+  approvalKey: string;
+  payUrl: string;
+  retUrl: string;
+  ordrIdxx: string;
+  goodName: string;
+  goodMny: number;
+  shopUserId: string;
+  buyrName: string;
+  buyrMail: string;
+  hashData: string;
+  traceNo: string;
+  paymentMethodCode: string;
+}
+
+export interface KcpPcApprovePayload {
+  paymentId: number;
+  encData: string;
+  encInfo: string;
+  tranCd: string;
+  resCd: string | null;
+  resMsg: string | null;
+}
 
 export interface MockCheckoutRedirectPayload {
   paymentId: number;
@@ -13,8 +74,15 @@ export interface MockCheckoutRedirectPayload {
 }
 
 export const paymentMethodLabels: Record<PaymentMethod, string> = {
-  BANK_TRANSFER: '계좌이체',
+  BANK: '계좌이체',
   CARD: '카드 결제',
+  GIFT: '상품권',
+  MOBILE: '휴대폰 결제',
+  POINT: '포인트',
+};
+
+const legacyPaymentMethodLabels: Record<'BANK_TRANSFER' | 'VIRTUAL_ACCOUNT', string> = {
+  BANK_TRANSFER: '계좌이체',
   VIRTUAL_ACCOUNT: '가상계좌',
 };
 
@@ -29,6 +97,9 @@ export const paymentStatusLabels: Record<PaymentStatus, string> = {
 export const formatPaymentMethodLabel = (value: PaymentMethodValue): string => {
   if (Object.prototype.hasOwnProperty.call(paymentMethodLabels, value)) {
     return paymentMethodLabels[value as PaymentMethod];
+  }
+  if (Object.prototype.hasOwnProperty.call(legacyPaymentMethodLabels, value)) {
+    return legacyPaymentMethodLabels[value as 'BANK_TRANSFER' | 'VIRTUAL_ACCOUNT'];
   }
 
   return value;

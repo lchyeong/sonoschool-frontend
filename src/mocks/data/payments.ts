@@ -2,7 +2,7 @@ import { getMockMyCart, getMockMyCoupons, getMockMyProfile } from '@/mocks/data/
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import type {
   MockCheckoutRedirectPayload,
-  PaymentMethod,
+  PaymentMethodValue,
   PaymentResult,
   PaymentStatus,
 } from '@/types/payment';
@@ -13,7 +13,7 @@ interface PaymentScenarioSeed {
   gatewayOrderId: string;
   gatewayResponseMessage: string;
   id: number;
-  method: PaymentMethod;
+  method: PaymentMethodValue;
   paidAt: string | null;
   registeredAt: string | null;
   resultToken: string;
@@ -197,7 +197,7 @@ export const getMockPaymentResultByToken = (token: string): PaymentResult | null
 };
 
 export const createMockCheckoutRedirectPayload = (
-  paymentMethod: PaymentMethod,
+  paymentMethod: PaymentMethodValue,
 ): MockCheckoutRedirectPayload => {
   const paymentId = paymentMethod === 'CARD' ? 501 : paymentMethod === 'BANK_TRANSFER' ? 502 : 503;
   const seed = paymentScenarioSeeds.find((item) => item.id === paymentId);

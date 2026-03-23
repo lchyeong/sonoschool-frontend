@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import PaymentResultPage from '@/pages/PaymentResultPage/PaymentResultPage';
 import { usePaymentResultQuery } from '@/query/usePaymentResultQuery';
@@ -48,6 +48,10 @@ describe('PaymentResultPage', () => {
     mockedUsePaymentResultQuery.mockReset();
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it('renders payment details when the payment query succeeds', () => {
     mockedUsePaymentResultQuery.mockReturnValue({
       data: mockPaymentResult,
@@ -63,13 +67,22 @@ describe('PaymentResultPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: '결제가 완료되었습니다.' })).toBeInTheDocument();
-    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
-    expect(screen.queryByText('결제 정보')).not.toBeInTheDocument();
-    expect(screen.queryByText('복부 초음파 기초 과정')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '홈으로 이동' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '강의 둘러보기' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '마이페이지' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '영수증 보기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '결제 정보' })).toBeInTheDocument();
+    expect(screen.getByText('복부 초음파 기초 과정')).toBeInTheDocument();
+    expect(screen.getByText('단일 강의 결제')).toBeInTheDocument();
+    expect(screen.getByText('KCP-ORDER-1')).toBeInTheDocument();
+    expect(screen.getByText('카드 결제')).toBeInTheDocument();
+    expect(screen.getByText('120,000원')).toBeInTheDocument();
+    expect(screen.getByText('결제 완료')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '내 강의로 이동' })).toHaveAttribute(
+      'href',
+      '/mypage',
+    );
+    expect(screen.getByRole('link', { name: '홈으로 이동' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: '영수증 보기' })).toHaveAttribute(
+      'href',
+      'https://example.com/receipt',
+    );
   });
 
   it('falls back to redirect parameters when the payment query fails', () => {
@@ -94,7 +107,10 @@ describe('PaymentResultPage', () => {
       screen.getByRole('heading', { name: '결제가 완료되지 않았습니다.' }),
     ).toBeInTheDocument();
     expect(screen.getByText('결제가 승인되지 않았습니다.')).toBeInTheDocument();
-    expect(screen.queryByText('결제 정보')).not.toBeInTheDocument();
-    expect(screen.queryByText('KCP-ORDER-9')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '결제 정보' })).toBeInTheDocument();
+    expect(screen.getByText('KCP-ORDER-9')).toBeInTheDocument();
+    expect(screen.getByText('결제 실패')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '홈으로 이동' })).toHaveAttribute('href', '/');
+    expect(screen.queryByRole('link', { name: '영수증 보기' })).not.toBeInTheDocument();
   });
 });

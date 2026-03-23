@@ -15,7 +15,6 @@ import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import downIconSrc from '@/assets/icons/icons_down.png';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
-import { env } from '@/config/env';
 import {
   adminProgramSchema,
   type AdminProgramFormValues,
@@ -288,12 +287,12 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
   const isInvalidRoute =
     (mode === 'edit' && !editingProgramId) || (mode === 'duplicate' && !duplicateSourceProgramId);
 
-  const menuTreeQuery = useAdminProgramMenuTreeQuery(env.siteKey);
+  const menuTreeQuery = useAdminProgramMenuTreeQuery();
   const menuItems = useMemo(() => menuTreeQuery.data?.items ?? [], [menuTreeQuery.data?.items]);
   const leafCollectionOptions = useMemo(() => getLeafCollectionOptions(menuItems), [menuItems]);
 
-  const detailQuery = useAdminProgramDetailQuery(env.siteKey, editingProgramId);
-  const duplicateSourceQuery = useAdminProgramDetailQuery(env.siteKey, duplicateSourceProgramId);
+  const detailQuery = useAdminProgramDetailQuery(editingProgramId);
+  const duplicateSourceQuery = useAdminProgramDetailQuery(duplicateSourceProgramId);
 
   const form = useForm<AdminProgramFormValues>({
     defaultValues: createDefaultAdminProgramFormValues(),
@@ -348,15 +347,15 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
 
   const invalidateProgramQueries = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: adminConsoleQueryKey(env.siteKey) }),
-      queryClient.invalidateQueries({ queryKey: adminProgramMenuTreeQueryKey(env.siteKey) }),
-      queryClient.invalidateQueries({ queryKey: ['adminProgramMenuDetail', env.siteKey] }),
-      queryClient.invalidateQueries({ queryKey: ['adminPrograms', env.siteKey] }),
-      queryClient.invalidateQueries({ queryKey: ['adminProgramDetail', env.siteKey] }),
-      queryClient.invalidateQueries({ queryKey: programsOverviewQueryKey(env.siteKey) }),
-      queryClient.invalidateQueries({ queryKey: ['programPage', env.siteKey] }),
-      queryClient.invalidateQueries({ queryKey: siteNavigationQueryKey(env.siteKey) }),
-      queryClient.invalidateQueries({ queryKey: programSearchIndexQueryKey(env.siteKey) }),
+      queryClient.invalidateQueries({ queryKey: adminConsoleQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: adminProgramMenuTreeQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: ['adminProgramMenuDetail'] }),
+      queryClient.invalidateQueries({ queryKey: ['adminPrograms'] }),
+      queryClient.invalidateQueries({ queryKey: ['adminProgramDetail'] }),
+      queryClient.invalidateQueries({ queryKey: programsOverviewQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: ['programPage'] }),
+      queryClient.invalidateQueries({ queryKey: siteNavigationQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: programSearchIndexQueryKey() }),
     ]);
   };
 
@@ -487,7 +486,7 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
 
   const saveMutation = useMutation({
     mutationFn: ({ programId, values }: { programId: string; values: AdminProgramFormValues }) =>
-      updateAdminProgram(env.siteKey, programId, toAdminProgramPayload(values)),
+      updateAdminProgram(programId, toAdminProgramPayload(values)),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '강의 초안 저장에 실패했습니다.',
@@ -497,7 +496,7 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
   });
 
   const publishMutation = useMutation({
-    mutationFn: (programId: string) => publishAdminProgram(env.siteKey, programId),
+    mutationFn: (programId: string) => publishAdminProgram(programId),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '강의 게시에 실패했습니다.',
@@ -507,7 +506,7 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
   });
 
   const hideMutation = useMutation({
-    mutationFn: (programId: string) => hideAdminProgram(env.siteKey, programId),
+    mutationFn: (programId: string) => hideAdminProgram(programId),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '강의 숨김 처리에 실패했습니다.',
@@ -592,15 +591,14 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
 
     try {
       const response = await createAdminProgramDraft(
-        env.siteKey,
         toAdminProgramDraftPayloadFromFormValues(values, duplicateSourceProgramId),
       );
 
       createdProgramId = response.id;
-      await updateAdminProgram(env.siteKey, response.id, toAdminProgramPayload(values));
+      await updateAdminProgram(response.id, toAdminProgramPayload(values));
 
       if (action === 'publish') {
-        await publishAdminProgram(env.siteKey, response.id);
+        await publishAdminProgram(response.id);
       }
 
       await invalidateProgramQueries();

@@ -4,8 +4,6 @@ import { shouldUseMockFallback } from '@/api/fallback';
 import {
   getMockRegistrationTerms,
   loginMockStudent,
-  logoutMockStudent,
-  refreshMockStudentSession,
   registerMockStudent,
   sendMockSmsVerification,
   verifyMockSmsCode,
@@ -189,14 +187,6 @@ export const refreshStudentSession = async (): Promise<StudentSession> => {
     const response = await axiosInstance.post<ApiEnvelope<StudentSession>>('/api/auth/refresh');
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      const mockSession = refreshMockStudentSession();
-
-      if (mockSession) {
-        return mockSession;
-      }
-    }
-
     throw toApiError(error, '세션을 갱신하지 못했습니다.');
   }
 };
@@ -205,11 +195,6 @@ export const logoutStudent = async (): Promise<void> => {
   try {
     await axiosInstance.post<ApiEnvelope<null>>('/api/auth/logout');
   } catch (error: unknown) {
-    if (shouldUseMockFallback(error)) {
-      logoutMockStudent();
-      return;
-    }
-
     throw toApiError(error, '로그아웃에 실패했습니다.');
   }
 };

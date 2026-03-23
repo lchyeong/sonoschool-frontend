@@ -1,16 +1,22 @@
 import type { ChangeEvent, FormEvent, ReactNode, RefObject } from 'react';
 import { useRef, useState } from 'react';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { loginStudent, verifyStudentLoginSms } from '@/api/auth';
+import { clearGuestCart, getGuestCart, retainGuestCartPrograms } from '@/api/guestCart';
+import { addMyCartItem, fetchMyCart } from '@/api/mypage';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
+import { myCartQueryKey, myCouponsQueryKey } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { StudentLoginChallenge } from '@/types/auth';
+import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 
 import styles from './StudentLoginForm.module.scss';
 
@@ -34,6 +40,13 @@ interface StudentLoginFormProps {
   initialValues?: Partial<LoginFormValues> | undefined;
 }
 
+interface LoginRedirectState {
+  from?: {
+    pathname?: string;
+    search?: string;
+  };
+}
+
 const INITIAL_FORM_VALUES: LoginFormValues = {
   loginId: '',
   password: '',
@@ -52,8 +65,11 @@ const StudentLoginForm = ({
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((state) => state.setSession);
   const showToast = useToastStore((state) => state.showToast);
+  const replaceSelection = useCartSelectionStore((state) => state.replaceSelection);
 
   const [formValues, setFormValues] = useState<LoginFormValues>(() => ({
     ...INITIAL_FORM_VALUES,
@@ -62,6 +78,111 @@ const StudentLoginForm = ({
   const [formErrors, setFormErrors] = useState<LoginFormErrors>({});
   const [verificationCode, setVerificationCode] = useState('');
   const [loginChallenge, setLoginChallenge] = useState<StudentLoginChallenge | null>(null);
+
+  const mergeGuestCartIntoServer = async () => {
+    const guestCart = getGuestCart();
+
+    if (!guestCart.items.length) {
+      return { failedCount: 0, serverCart: null as Awaited<ReturnType<typeof fetchMyCart>> | null };
+    }
+
+    const currentSelection = useCartSelectionStore.getState().selectedItemIds;
+    const selectedProgramIds = new Set(
+      guestCart.items
+        .filter((item) => currentSelection.includes(item.id))
+        .map((item) => item.programId),
+    );
+    const failedProgramIds = new Set<number>();
+
+    for (const item of guestCart.items) {
+      try {
+        await addMyCartItem({
+          instructorName: item.instructorName,
+          originalPrice: item.originalPrice,
+          payablePrice: item.payablePrice,
+          programId: item.programId,
+          programType: item.programType,
+          salePrice: item.salePrice,
+          sourcePath: item.detailPath,
+          thumbnailUrl: item.thumbnailUrl,
+          title: item.title,
+        });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '';
+
+        if (!message.includes('이미 장바구니에 담긴 강의')) {
+          failedProgramIds.add(item.programId);
+        }
+      }
+    }
+
+    const serverCart = await fetchMyCart();
+    const selectedItemIds = serverCart.items
+      .filter((item) => selectedProgramIds.has(item.programId))
+      .map((item) => item.id);
+
+    replaceSelection(selectedItemIds, null);
+
+    if (failedProgramIds.size > 0) {
+      retainGuestCartPrograms([...failedProgramIds]);
+    } else {
+      clearGuestCart();
+    }
+
+    return {
+      failedCount: failedProgramIds.size,
+      serverCart,
+    };
+  };
+
+  const resolvePostLoginPath = () => {
+    const redirectState = location.state as LoginRedirectState | null;
+    const from = redirectState?.from;
+
+    if (typeof from?.pathname === 'string' && from.pathname.trim()) {
+      return `${from.pathname}${typeof from.search === 'string' ? from.search : ''}`;
+    }
+
+    return routePaths.mypage;
+  };
+
+  const finalizeAuthenticatedLogin = async (session: {
+    accessToken: string;
+    tokenType: string;
+    expiresAt: string;
+    loginId: string;
+    displayName: string;
+    role: string;
+  }) => {
+    setSession(session);
+
+    const cartScope = resolveCartQueryScope(true);
+    const mergeResult = await mergeGuestCartIntoServer();
+
+    if (mergeResult.serverCart) {
+      queryClient.setQueryData(myCartQueryKey(cartScope), mergeResult.serverCart);
+      queryClient.setQueryData(myCouponsQueryKey(cartScope), []);
+    }
+
+    if (mergeResult.failedCount > 0) {
+      showToast({
+        message: '일부 비로그인 장바구니 항목은 옮기지 못했습니다. 장바구니에서 다시 확인해 주세요.',
+        variant: 'info',
+      });
+    }
+
+    showToast({
+      message: `${session.displayName}님으로 로그인했습니다.`,
+      variant: 'success',
+    });
+
+    if (onSuccess) {
+      onSuccess();
+      return;
+    }
+
+    void navigate(resolvePostLoginPath(), { replace: true });
+  };
 
   const loginMutation = useMutation({
     mutationFn: loginStudent,
@@ -72,7 +193,7 @@ const StudentLoginForm = ({
         variant: 'error',
       });
     },
-    onSuccess: (session) => {
+    onSuccess: async (session) => {
       if (session.status === 'SMS_REQUIRED') {
         setLoginChallenge(session);
         setVerificationCode(MOCK_SMS_CODE);
@@ -86,18 +207,7 @@ const StudentLoginForm = ({
         return;
       }
 
-      setSession(session);
-      showToast({
-        message: `${session.displayName}님으로 로그인했습니다.`,
-        variant: 'success',
-      });
-
-      if (onSuccess) {
-        onSuccess();
-        return;
-      }
-
-      void navigate(routePaths.mypage);
+      await finalizeAuthenticatedLogin(session);
     },
   });
 
@@ -112,21 +222,10 @@ const StudentLoginForm = ({
         variant: 'error',
       });
     },
-    onSuccess: (session) => {
-      setSession(session);
+    onSuccess: async (session) => {
       setLoginChallenge(null);
       setVerificationCode('');
-      showToast({
-        message: `${session.displayName}님으로 로그인했습니다.`,
-        variant: 'success',
-      });
-
-      if (onSuccess) {
-        onSuccess();
-        return;
-      }
-
-      void navigate(routePaths.mypage);
+      await finalizeAuthenticatedLogin(session);
     },
   });
 

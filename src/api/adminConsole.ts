@@ -509,10 +509,12 @@ const getProgramMoveBackendMessage = (reason: string): string => {
   }
 };
 
-export const fetchAdminConsole = async (siteKey: string): Promise<AdminConsoleResponse> => {
+const DEFAULT_ADMIN_SITE_KEY = 'sono-school-main';
+const ADMIN_API_PREFIX = '/api/v1/admin';
+
+export const fetchAdminConsole = async (): Promise<AdminConsoleResponse> => {
   try {
-    const encodedSiteKey = encodeURIComponent(siteKey);
-    const responseData = await http.get<unknown>(`/sites/${encodedSiteKey}/admin/console`);
+    const responseData = await http.get<unknown>(`${ADMIN_API_PREFIX}/console`);
     const parsed = adminConsoleResponseSchema.safeParse(responseData);
 
     if (!parsed.success) {
@@ -525,18 +527,13 @@ export const fetchAdminConsole = async (siteKey: string): Promise<AdminConsoleRe
       throw error;
     }
 
-    return getMockAdminConsole(siteKey);
+    return getMockAdminConsole(DEFAULT_ADMIN_SITE_KEY);
   }
 };
 
-export const fetchAdminProgramMenuTree = async (
-  siteKey: string,
-): Promise<AdminProgramMenuTreeResponse> => {
+export const fetchAdminProgramMenuTree = async (): Promise<AdminProgramMenuTreeResponse> => {
   try {
-    const encodedSiteKey = encodeURIComponent(siteKey);
-    const responseData = await http.get<unknown>(
-      `/sites/${encodedSiteKey}/admin/program-menu-tree`,
-    );
+    const responseData = await http.get<unknown>(`${ADMIN_API_PREFIX}/program-menu-tree`);
     const parsed = programMenuTreeResponseSchema.safeParse(responseData);
 
     if (!parsed.success) {
@@ -551,20 +548,16 @@ export const fetchAdminProgramMenuTree = async (
       throw error;
     }
 
-    return getMockAdminProgramMenuTreeResponse(siteKey);
+    return getMockAdminProgramMenuTreeResponse(DEFAULT_ADMIN_SITE_KEY);
   }
 };
 
 export const fetchAdminProgramMenuDetail = async (
-  siteKey: string,
   menuId: string,
 ): Promise<AdminProgramMenuDetailResponse> => {
   try {
-    const encodedSiteKey = encodeURIComponent(siteKey);
     const encodedMenuId = encodeURIComponent(menuId);
-    const responseData = await http.get<unknown>(
-      `/sites/${encodedSiteKey}/admin/program-menus/${encodedMenuId}`,
-    );
+    const responseData = await http.get<unknown>(`${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}`);
     const parsed = programMenuDetailResponseSchema.safeParse(responseData);
 
     if (!parsed.success) {
@@ -579,7 +572,7 @@ export const fetchAdminProgramMenuDetail = async (
       throw error;
     }
 
-    const mockResponse = getMockAdminProgramMenuDetailResponse(siteKey, menuId);
+    const mockResponse = getMockAdminProgramMenuDetailResponse(DEFAULT_ADMIN_SITE_KEY, menuId);
 
     if (mockResponse) {
       return mockResponse;
@@ -590,7 +583,6 @@ export const fetchAdminProgramMenuDetail = async (
 };
 
 export const fetchAdminPrograms = async (
-  siteKey: string,
   options?: {
     collectionPath?: string | null;
     format?: 'all' | 'hybrid' | 'offline' | 'online';
@@ -617,10 +609,9 @@ export const fetchAdminPrograms = async (
   }
 
   try {
-    const encodedSiteKey = encodeURIComponent(siteKey);
     const queryString = searchParams.toString();
     const responseData = await http.get<unknown>(
-      `/sites/${encodedSiteKey}/admin/programs${queryString ? `?${queryString}` : ''}`,
+      `${ADMIN_API_PREFIX}/programs${queryString ? `?${queryString}` : ''}`,
     );
     const parsed = adminProgramsResponseSchema.safeParse(responseData);
 
@@ -636,20 +627,16 @@ export const fetchAdminPrograms = async (
       throw error;
     }
 
-    return getMockAdminProgramsResponse(siteKey, options);
+    return getMockAdminProgramsResponse(DEFAULT_ADMIN_SITE_KEY, options);
   }
 };
 
 export const fetchAdminProgramDetail = async (
-  siteKey: string,
   programId: string,
 ): Promise<AdminProgramDetailResponse> => {
   try {
-    const encodedSiteKey = encodeURIComponent(siteKey);
     const encodedProgramId = encodeURIComponent(programId);
-    const responseData = await http.get<unknown>(
-      `/sites/${encodedSiteKey}/admin/programs/${encodedProgramId}`,
-    );
+    const responseData = await http.get<unknown>(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}`);
     const parsed = adminProgramDetailResponseSchema.safeParse(responseData);
 
     if (!parsed.success) {
@@ -664,7 +651,7 @@ export const fetchAdminProgramDetail = async (
       throw error;
     }
 
-    const mockResponse = getMockAdminProgramDetailResponse(siteKey, programId);
+    const mockResponse = getMockAdminProgramDetailResponse(DEFAULT_ADMIN_SITE_KEY, programId);
 
     if (mockResponse) {
       return mockResponse;
@@ -674,12 +661,7 @@ export const fetchAdminProgramDetail = async (
   }
 };
 
-export const loginAdmin = async (
-  siteKey: string,
-  payload: AdminLoginRequest,
-): Promise<AdminLoginResponse> => {
-  void siteKey;
-
+export const loginAdmin = async (payload: AdminLoginRequest): Promise<AdminLoginResponse> => {
   try {
     const response = await axiosInstance.post<{ data: unknown }>(`/api/auth/login`, {
       loginId: payload.identifier,
@@ -709,17 +691,14 @@ export const loginAdmin = async (
 };
 
 export const createAdminNotice = async (
-  siteKey: string,
   payload: CreateAdminNoticePayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-
   try {
-    const response = await axiosInstance.post(`/sites/${encodedSiteKey}/admin/notices`, payload);
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/notices`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      createMockAdminNotice(siteKey, payload);
+      createMockAdminNotice(DEFAULT_ADMIN_SITE_KEY, payload);
       return;
     }
 
@@ -728,22 +707,17 @@ export const createAdminNotice = async (
 };
 
 export const replyAdminQna = async (
-  siteKey: string,
   threadId: string,
   payload: ReplyAdminQnaPayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
   const encodedThreadId = encodeURIComponent(threadId);
 
   try {
-    const response = await axiosInstance.post(
-      `/sites/${encodedSiteKey}/admin/qna/${encodedThreadId}/replies`,
-      payload,
-    );
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/qna/${encodedThreadId}/replies`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const mockResponse = replyMockAdminQna(siteKey, threadId, payload);
+      const mockResponse = replyMockAdminQna(DEFAULT_ADMIN_SITE_KEY, threadId, payload);
 
       if (mockResponse) {
         return;
@@ -757,17 +731,14 @@ export const replyAdminQna = async (
 };
 
 export const createAdminResource = async (
-  siteKey: string,
   payload: CreateAdminResourcePayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-
   try {
-    const response = await axiosInstance.post(`/sites/${encodedSiteKey}/admin/resources`, payload);
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/resources`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      createMockAdminResource(siteKey, payload);
+      createMockAdminResource(DEFAULT_ADMIN_SITE_KEY, payload);
       return;
     }
 
@@ -776,17 +747,14 @@ export const createAdminResource = async (
 };
 
 export const createAdminReview = async (
-  siteKey: string,
   payload: CreateAdminReviewPayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-
   try {
-    const response = await axiosInstance.post(`/sites/${encodedSiteKey}/admin/reviews`, payload);
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/reviews`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      createMockAdminReview(siteKey, payload);
+      createMockAdminReview(DEFAULT_ADMIN_SITE_KEY, payload);
       return;
     }
 
@@ -795,10 +763,8 @@ export const createAdminReview = async (
 };
 
 export const createAdminProgramDraft = async (
-  siteKey: string,
   payload: CreateAdminProgramDraftPayload,
 ): Promise<CreateAdminProgramDraftResponse> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
   const parsedPayload = createAdminProgramDraftPayloadSchema.safeParse(payload);
 
   if (!parsedPayload.success) {
@@ -808,10 +774,7 @@ export const createAdminProgramDraft = async (
   }
 
   try {
-    const response = await axiosInstance.post(
-      `/sites/${encodedSiteKey}/admin/program-drafts`,
-      payload,
-    );
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/program-drafts`, payload);
     const parsed = createAdminProgramDraftResponseSchema.safeParse(response.data);
 
     if (!parsed.success) {
@@ -823,7 +786,7 @@ export const createAdminProgramDraft = async (
     return parsed.data;
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const mockResponse = createMockAdminProgramDraftItem(siteKey, payload);
+      const mockResponse = createMockAdminProgramDraftItem(DEFAULT_ADMIN_SITE_KEY, payload);
 
       if (mockResponse) {
         return mockResponse;
@@ -837,17 +800,14 @@ export const createAdminProgramDraft = async (
 };
 
 export const createAdminProgram = async (
-  siteKey: string,
   payload: UpsertAdminProgramPayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-
   try {
-    const response = await axiosInstance.post(`/sites/${encodedSiteKey}/admin/programs`, payload);
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/programs`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const mockResponse = createMockAdminProgram(siteKey, payload);
+      const mockResponse = createMockAdminProgram(DEFAULT_ADMIN_SITE_KEY, payload);
 
       if (mockResponse) {
         return;
@@ -861,22 +821,17 @@ export const createAdminProgram = async (
 };
 
 export const updateAdminProgram = async (
-  siteKey: string,
   programId: string,
   payload: UpsertAdminProgramPayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
-    const response = await axiosInstance.patch(
-      `/sites/${encodedSiteKey}/admin/programs/${encodedProgramId}`,
-      payload,
-    );
+    const response = await axiosInstance.patch(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const mockResponse = updateMockAdminProgram(siteKey, programId, payload);
+      const mockResponse = updateMockAdminProgram(DEFAULT_ADMIN_SITE_KEY, programId, payload);
 
       if (mockResponse) {
         return;
@@ -890,20 +845,18 @@ export const updateAdminProgram = async (
 };
 
 export const toggleAdminProgramVisibility = async (
-  siteKey: string,
   programId: string,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
     const response = await axiosInstance.post(
-      `/sites/${encodedSiteKey}/admin/programs/${encodedProgramId}/toggle-visibility`,
+      `${ADMIN_API_PREFIX}/programs/${encodedProgramId}/toggle-visibility`,
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const mockResponse = toggleMockAdminProgramVisibility(siteKey, programId);
+      const mockResponse = toggleMockAdminProgramVisibility(DEFAULT_ADMIN_SITE_KEY, programId);
 
       if (mockResponse) {
         return;
@@ -916,18 +869,15 @@ export const toggleAdminProgramVisibility = async (
   }
 };
 
-export const deleteAdminProgram = async (siteKey: string, programId: string): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
+export const deleteAdminProgram = async (programId: string): Promise<void> => {
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
-    const response = await axiosInstance.delete(
-      `/sites/${encodedSiteKey}/admin/programs/${encodedProgramId}`,
-    );
+    const response = await axiosInstance.delete(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}`);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      if (deleteMockAdminProgram(siteKey, programId)) {
+      if (deleteMockAdminProgram(DEFAULT_ADMIN_SITE_KEY, programId)) {
         return;
       }
 
@@ -938,18 +888,15 @@ export const deleteAdminProgram = async (siteKey: string, programId: string): Pr
   }
 };
 
-export const publishAdminProgram = async (siteKey: string, programId: string): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
+export const publishAdminProgram = async (programId: string): Promise<void> => {
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
-    const response = await axiosInstance.post(
-      `/sites/${encodedSiteKey}/admin/programs/${encodedProgramId}/publish`,
-    );
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}/publish`);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const mockResponse = publishMockAdminProgramItem(siteKey, programId);
+      const mockResponse = publishMockAdminProgramItem(DEFAULT_ADMIN_SITE_KEY, programId);
 
       if (mockResponse) {
         return;
@@ -962,18 +909,15 @@ export const publishAdminProgram = async (siteKey: string, programId: string): P
   }
 };
 
-export const hideAdminProgram = async (siteKey: string, programId: string): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
+export const hideAdminProgram = async (programId: string): Promise<void> => {
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
-    const response = await axiosInstance.post(
-      `/sites/${encodedSiteKey}/admin/programs/${encodedProgramId}/hide`,
-    );
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}/hide`);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const mockResponse = hideMockAdminProgramItem(siteKey, programId);
+      const mockResponse = hideMockAdminProgramItem(DEFAULT_ADMIN_SITE_KEY, programId);
 
       if (mockResponse) {
         return;
@@ -987,20 +931,14 @@ export const hideAdminProgram = async (siteKey: string, programId: string): Prom
 };
 
 export const createAdminProgramMenu = async (
-  siteKey: string,
   payload: CreateAdminProgramMenuPayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
-
   try {
-    const response = await axiosInstance.post(
-      `/sites/${encodedSiteKey}/admin/program-menus`,
-      payload,
-    );
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/program-menus`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const result = createMockAdminProgramMenuItem(siteKey, payload);
+      const result = createMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, payload);
 
       if (result.ok) {
         return;
@@ -1014,22 +952,17 @@ export const createAdminProgramMenu = async (
 };
 
 export const updateAdminProgramMenu = async (
-  siteKey: string,
   menuId: string,
   payload: UpdateAdminProgramMenuPayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
   const encodedMenuId = encodeURIComponent(menuId);
 
   try {
-    const response = await axiosInstance.patch(
-      `/sites/${encodedSiteKey}/admin/program-menus/${encodedMenuId}`,
-      payload,
-    );
+    const response = await axiosInstance.patch(`${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const result = updateMockAdminProgramMenuItem(siteKey, menuId, payload);
+      const result = updateMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, menuId, payload);
 
       if (result.ok) {
         return;
@@ -1042,18 +975,15 @@ export const updateAdminProgramMenu = async (
   }
 };
 
-export const deleteAdminProgramMenu = async (siteKey: string, menuId: string): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
+export const deleteAdminProgramMenu = async (menuId: string): Promise<void> => {
   const encodedMenuId = encodeURIComponent(menuId);
 
   try {
-    const response = await axiosInstance.delete(
-      `/sites/${encodedSiteKey}/admin/program-menus/${encodedMenuId}`,
-    );
+    const response = await axiosInstance.delete(`${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}`);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const result = deleteMockAdminProgramMenuItem(siteKey, menuId);
+      const result = deleteMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, menuId);
 
       if (result.ok) {
         return;
@@ -1067,22 +997,17 @@ export const deleteAdminProgramMenu = async (siteKey: string, menuId: string): P
 };
 
 export const moveAdminProgramMenu = async (
-  siteKey: string,
   menuId: string,
   payload: MoveAdminProgramMenuPayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
   const encodedMenuId = encodeURIComponent(menuId);
 
   try {
-    const response = await axiosInstance.post(
-      `/sites/${encodedSiteKey}/admin/program-menus/${encodedMenuId}/move`,
-      payload,
-    );
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}/move`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const result = moveMockAdminProgramMenuItem(siteKey, menuId, payload);
+      const result = moveMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, menuId, payload);
 
       if (result.ok) {
         return;
@@ -1096,22 +1021,20 @@ export const moveAdminProgramMenu = async (
 };
 
 export const reorderAdminProgramMenu = async (
-  siteKey: string,
   menuId: string,
   payload: ReorderAdminProgramMenuPayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
   const encodedMenuId = encodeURIComponent(menuId);
 
   try {
     const response = await axiosInstance.post(
-      `/sites/${encodedSiteKey}/admin/program-menus/${encodedMenuId}/reorder`,
+      `${ADMIN_API_PREFIX}/program-menus/${encodedMenuId}/reorder`,
       payload,
     );
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const result = reorderMockAdminProgramMenuItem(siteKey, menuId, payload);
+      const result = reorderMockAdminProgramMenuItem(DEFAULT_ADMIN_SITE_KEY, menuId, payload);
 
       if (result.ok) {
         return;
@@ -1125,22 +1048,17 @@ export const reorderAdminProgramMenu = async (
 };
 
 export const moveAdminProgram = async (
-  siteKey: string,
   programId: string,
   payload: MoveAdminProgramPayload,
 ): Promise<void> => {
-  const encodedSiteKey = encodeURIComponent(siteKey);
   const encodedProgramId = encodeURIComponent(programId);
 
   try {
-    const response = await axiosInstance.post(
-      `/sites/${encodedSiteKey}/admin/programs/${encodedProgramId}/move`,
-      payload,
-    );
+    const response = await axiosInstance.post(`${ADMIN_API_PREFIX}/programs/${encodedProgramId}/move`, payload);
     assertMutationSucceeded(response.data);
   } catch (error: unknown) {
     if (shouldUseMockFallback(error)) {
-      const result = moveMockAdminProgramItem(siteKey, programId, payload);
+      const result = moveMockAdminProgramItem(DEFAULT_ADMIN_SITE_KEY, programId, payload);
 
       if (result.ok) {
         return;

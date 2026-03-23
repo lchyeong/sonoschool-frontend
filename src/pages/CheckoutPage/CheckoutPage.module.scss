@@ -73,7 +73,8 @@
 }
 
 .itemMeta,
-.errorText {
+.errorText,
+.warningText {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
@@ -125,6 +126,7 @@
   align-items: center;
 }
 
+.primaryActionButton,
 .primaryActionLink,
 .secondaryActionLink {
   display: inline-flex;
@@ -132,19 +134,27 @@
   justify-content: center;
   min-height: 44px;
   padding: 0 16px;
+  border: 0;
   text-decoration: none;
   font-weight: var(--font-weight-semibold);
 }
 
+.primaryActionButton,
 .primaryActionLink {
   color: #ffffff;
   background: var(--color-primary);
+  cursor: pointer;
 }
 
 .secondaryActionLink {
   color: var(--color-text-primary);
   border: 1px solid rgba(15, 23, 42, 0.12);
   background: #ffffff;
+}
+
+.primaryActionButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 @media (width < 960px) {
@@ -184,6 +194,7 @@
     width: 100%;
   }
 
+  .primaryActionButton,
   .primaryActionLink,
   .secondaryActionLink {
     width: 100%;

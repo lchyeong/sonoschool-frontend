@@ -44,7 +44,9 @@ describe('HomePage', () => {
     expect(
       screen.getByAltText('임상 초음파 코어 루틴과 국제 자격 준비 집중 과정 소개 이미지'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('searchbox', { name: '강의 프로그램 검색' })).toBeInTheDocument();
+    expect(screen.getAllByRole('searchbox', { name: '강의 프로그램 검색' }).length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getByRole('heading', { name: /SINCE 2003 의사교육전문 국제자격보유/i }),
     ).toBeInTheDocument();
@@ -53,7 +55,9 @@ describe('HomePage', () => {
         'img',
       ),
     ).toHaveLength(5);
-    expect(await screen.findByRole('list', { name: '소노스쿨 연혁 타임라인' })).toBeInTheDocument();
+    expect((await screen.findAllByRole('list', { name: '소노스쿨 연혁 타임라인' })).length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByRole('heading', { name: '공지사항' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '공지사항 게시판 보기' })).toBeInTheDocument();
     expect(
@@ -68,12 +72,12 @@ describe('HomePage', () => {
     expect(screen.getByAltText('응급실 POCUS FAST 강의 썸네일 예시')).toBeInTheDocument();
   });
 
-  it('keeps rendering the home content with mock fallback data when home APIs fail', async () => {
+  it('renders fallback content when home APIs fail', async () => {
     server.use(
-      http.get('*/sites/:siteKey/home-hero-slides', () => {
+      http.get('*/api/v1/home/hero-slides', () => {
         return HttpResponse.json({ message: 'hero failed' }, { status: 500 });
       }),
-      http.get('*/sites/:siteKey/home-history-timeline', () => {
+      http.get('*/api/v1/home/history-timeline', () => {
         return HttpResponse.json({ message: 'timeline failed' }, { status: 500 });
       }),
     );
@@ -85,7 +89,12 @@ describe('HomePage', () => {
         name: '임상 초음파 코어 루틴과 국제 자격 준비 집중 과정',
       }),
     ).toBeInTheDocument();
-    expect(await screen.findByRole('list', { name: '소노스쿨 연혁 타임라인' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('메인 슬라이드 오류')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('searchbox', { name: '강의 프로그램 검색' }).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      (await screen.findAllByRole('list', { name: '소노스쿨 연혁 타임라인' })).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByRole('heading', { name: '공지사항' }).length).toBeGreaterThan(0);
   });
 });

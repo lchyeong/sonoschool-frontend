@@ -31,6 +31,7 @@ export interface ProgramCollectionCard {
 
 export interface ProgramLectureCard {
   id: string;
+  programId?: number | undefined;
   title: string;
   to: string;
   summary: string;
@@ -116,6 +117,7 @@ export interface ProgramReviewItem {
 
 export interface ProgramDetailPageResponse {
   pageKind: 'detail';
+  programId?: number | undefined;
   title: string;
   description: string;
   kicker: string;
