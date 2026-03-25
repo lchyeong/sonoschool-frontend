@@ -49,7 +49,17 @@ export interface EnrollmentSummary {
   completed: boolean;
   completedAt: string | null;
   certificateEligible: boolean;
+  reviewWritable?: boolean;
+  reviewWritten?: boolean;
   lastLearningAt: string | null;
+}
+
+export interface EnrollmentReview {
+  id: number;
+  rating: number;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface LectureProgress {
@@ -104,7 +114,15 @@ export interface EnrollmentDetail {
   completed: boolean;
   completedAt: string | null;
   certificateEligible: boolean;
+  reviewWritable?: boolean;
+  reviewWritten?: boolean;
+  review?: EnrollmentReview | null;
   progress: LectureProgress[];
+}
+
+export interface EnrollmentReviewPayload {
+  rating: number;
+  content: string;
 }
 
 export interface LearningPlayerSnapshot {

@@ -4,6 +4,7 @@ export const detailTabItems = [
   { id: 'course-introduction', label: '강의 소개' },
   { id: 'course-curriculum', label: '커리큘럼' },
   { id: 'course-reviews', label: '수강평' },
+  { id: 'course-qna', label: 'Q&A' },
   { id: 'course-faq', label: '자주하는 질문' },
 ] as const;
 

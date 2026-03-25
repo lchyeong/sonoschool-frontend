@@ -1,4 +1,4 @@
-import { getMockMyCart, getMockMyCoupons, getMockMyProfile } from '@/mocks/data/mypage';
+import { getMockMyCart, getMockMyCoupons } from '@/mocks/data/mypage';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import type {
   MockCheckoutRedirectPayload,
@@ -54,7 +54,6 @@ const createOrderName = (): string => {
 const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
   const cart = getMockMyCart();
   const coupons = getMockMyCoupons();
-  const profile = getMockMyProfile();
   const selection = useCartSelectionStore.getState();
   const selectedItemIds = selection.selectedItemIds.length
     ? selection.selectedItemIds
@@ -70,23 +69,11 @@ const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
     amount: pricing.totalPayablePrice,
     approvedAmount:
       seed.status === 'COMPLETED' ? pricing.totalPayablePrice : seed.status === 'FAILED' ? 0 : null,
-    buyerKey: profile.loginId,
     cancelReason: seed.status === 'CANCELLED' ? '사용자 요청 취소' : null,
     cancelledAt: seed.status === 'CANCELLED' ? '2026-03-18T10:20:00Z' : null,
-    cashReceiptIssued: null,
-    easyPayKind: null,
-    easyPayProvider: null,
     failedAt: seed.status === 'FAILED' ? '2026-03-18T10:12:00Z' : null,
-    gateway: 'KCP',
-    gatewayCardOtherPayType: null,
     gatewayOrderId: seed.gatewayOrderId,
-    gatewayPayType:
-      seed.method === 'CARD' ? 'PACA' : seed.method === 'BANK_TRANSFER' ? 'BANK' : 'VCNT',
-    gatewayResponseCode: seed.code,
     gatewayResponseMessage: seed.gatewayResponseMessage,
-    gatewayServiceCorpId: null,
-    gatewayTid: seed.status === 'FAILED' ? null : `TID-${String(seed.id).padStart(6, '0')}`,
-    gatewayTraceNo: `TRACE-${String(seed.id).padStart(6, '0')}`,
     id: seed.id,
     orderName: createOrderName(),
     orderReference: `CART-${String(seed.id)}`,
@@ -209,7 +196,7 @@ export const createMockCheckoutRedirectPayload = (
   const payment = createPaymentScenario(seed);
 
   return {
-    code: payment.gatewayResponseCode,
+    code: seed.code,
     gatewayOrderId: payment.gatewayOrderId,
     message: getStatusMessage(payment),
     paymentId: payment.id,

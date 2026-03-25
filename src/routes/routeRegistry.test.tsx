@@ -46,6 +46,7 @@ describe('appRouteRegistry', () => {
     );
     expect(routePaths.checkout).toBe(appRouteRegistry.routes.checkout.absolutePath);
     expect(routePaths.paymentResult).toBe(appRouteRegistry.routes.paymentResult.absolutePath);
+    expect(routePaths.noticeDetail('7')).toBe('/notices/7');
     expect(routePaths.reviews).toBe(appRouteRegistry.routes.reviews.absolutePath);
     expect(routePaths.resources).toBe(appRouteRegistry.routes.resources.absolutePath);
     expect(routePaths.programCatalog()).toBe('/programs');
@@ -60,17 +61,17 @@ describe('appRouteRegistry', () => {
     expect(appRouteAccessByKey.home).toBe('public');
     expect(appRouteAccessByKey.login).toBe('guest-only');
     expect(appRouteAccessByKey.adminLogin).toBe('public');
-    expect(appRouteAccessByKey.admin).toBe('public');
-    expect(appRouteAccessByKey.adminNotices).toBe('public');
-    expect(appRouteAccessByKey.adminQna).toBe('public');
-    expect(appRouteAccessByKey.adminResources).toBe('public');
-    expect(appRouteAccessByKey.adminReviews).toBe('public');
-    expect(appRouteAccessByKey.adminPrograms).toBe('public');
-    expect(appRouteAccessByKey.adminProgramCreate).toBe('public');
-    expect(appRouteAccessByKey.adminProgramEdit).toBe('public');
-    expect(appRouteAccessByKey.adminProgramDuplicate).toBe('public');
-    expect(appRouteAccessByKey.adminProgramMenus).toBe('public');
-    expect(appRouteAccessByKey.adminPayments).toBe('public');
+    expect(appRouteAccessByKey.admin).toBe('admin');
+    expect(appRouteAccessByKey.adminNotices).toBe('admin');
+    expect(appRouteAccessByKey.adminQna).toBe('admin');
+    expect(appRouteAccessByKey.adminResources).toBe('admin');
+    expect(appRouteAccessByKey.adminReviews).toBe('admin');
+    expect(appRouteAccessByKey.adminPrograms).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramCreate).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramEdit).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramDuplicate).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramMenus).toBe('admin');
+    expect(appRouteAccessByKey.adminPayments).toBe('admin');
     expect(appRouteAccessByKey.accountRecovery).toBe('guest-only');
     expect(appRouteAccessByKey.mypage).toBe('authenticated');
     expect(appRouteAccessByKey.learningPlayer).toBe('authenticated');
@@ -103,47 +104,47 @@ describe('appRouteRegistry', () => {
     });
     expect(getRouteHandle('admin')).toEqual({
       routeKey: 'admin',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/notices')).toEqual({
       routeKey: 'adminNotices',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/qna')).toEqual({
       routeKey: 'adminQna',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/resources')).toEqual({
       routeKey: 'adminResources',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/reviews')).toEqual({
       routeKey: 'adminReviews',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/programs')).toEqual({
       routeKey: 'adminPrograms',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/programs/new')).toEqual({
       routeKey: 'adminProgramCreate',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/programs/:programId/edit')).toEqual({
       routeKey: 'adminProgramEdit',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/programs/:sourceProgramId/duplicate')).toEqual({
       routeKey: 'adminProgramDuplicate',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/program-menus')).toEqual({
       routeKey: 'adminProgramMenus',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('admin/payments')).toEqual({
       routeKey: 'adminPayments',
-      access: 'public',
+      access: 'admin',
     });
     expect(getRouteHandle('payments/checkout')).toEqual({
       routeKey: 'checkout',
@@ -151,6 +152,10 @@ describe('appRouteRegistry', () => {
     });
     expect(getRouteHandle('payments/result')).toEqual({
       routeKey: 'paymentResult',
+      access: 'public',
+    });
+    expect(getRouteHandle('notices/:noticeId')).toEqual({
+      routeKey: 'noticeDetail',
       access: 'public',
     });
   });

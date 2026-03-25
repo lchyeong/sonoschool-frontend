@@ -305,6 +305,13 @@
   justify-content: space-between;
 }
 
+.courseActionGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
 .courseCta {
   display: inline-flex;
   align-items: center;
@@ -384,6 +391,29 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
+}
+
+.reviewForm,
+.reviewBlockedState {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.reviewSummary {
+  display: grid;
+  gap: 6px;
+}
+
+.reviewFieldGrid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.reviewActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: flex-end;
 }
 
 .learningActionLink {

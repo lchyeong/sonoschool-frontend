@@ -40,6 +40,7 @@ const AdminLoginPage = () => {
 
   const [formValues, setFormValues] = useState<AdminLoginFormValues>(INITIAL_FORM_VALUES);
   const [formErrors, setFormErrors] = useState<AdminLoginFormErrors>({});
+  const [hasCompletedLogin, setHasCompletedLogin] = useState(false);
 
   const loginMutation = useMutation({
     mutationFn: (values: AdminLoginFormValues) => {
@@ -57,6 +58,7 @@ const AdminLoginPage = () => {
       });
     },
     onSuccess: (response) => {
+      setHasCompletedLogin(true);
       login(response);
       showToast({
         message: `${response.adminDisplayName} 계정으로 로그인했습니다.`,
@@ -109,7 +111,7 @@ const AdminLoginPage = () => {
     loginMutation.mutate(formValues);
   };
 
-  if (isAuthenticated) {
+  if (isAuthenticated && !hasCompletedLogin) {
     return <Navigate replace to={routePaths.admin} />;
   }
 

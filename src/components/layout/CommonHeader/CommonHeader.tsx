@@ -8,6 +8,7 @@ import cartIconSrc from '@/assets/icons/icon_cart.svg';
 import myPageIconSrc from '@/assets/icons/icon_my.svg';
 import CloseIcon from '@/components/ui/icons/CloseIcon';
 import MenuIcon from '@/components/ui/icons/MenuIcon';
+import { useMyCartQuery } from '@/query/useMyPageQueries';
 import { useSiteNavigationQuery } from '@/query/useSiteNavigationQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -27,6 +28,8 @@ import {
 import { useCommonHeaderAutoHide } from './useCommonHeaderAutoHide';
 import { useCommonHeaderDesktopDropdown } from './useCommonHeaderDesktopDropdown';
 
+const KCP_PAYMENT_VISIBILITY_EVENT = 'sonoschool:kcp-payment-visibility';
+
 export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
   const navigate = useNavigate();
   // 실제 `<header>` DOM 요소를 가리키는 ref입니다.
@@ -43,6 +46,9 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
   // 단일 사이트 기준의 헤더 메뉴 데이터를 가져옵니다.
   // `isError`는 메뉴 조회 실패 여부를 뜻합니다.
   const { data, isError } = useSiteNavigationQuery();
+  const cartQuery = useMyCartQuery();
+  const cartItemCount = cartQuery.data?.itemCount ?? 0;
+  const cartItemCountLabel = cartItemCount > 99 ? '99+' : String(cartItemCount);
 
   // 서버에서 받은 원본 메뉴 데이터를 헤더 렌더링에 편한 구조로 변환합니다.
   const navigationItems = useMemo(() => {
@@ -52,6 +58,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
   // 모바일 드로어가 현재 열려 있는지 여부입니다.
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [isKcpPaymentVisible, setIsKcpPaymentVisible] = useState(false);
   // 모바일에서 펼쳐 둔 메뉴 id 목록입니다.
   // 여러 항목을 동시에 열 수 있으므로 배열로 관리합니다.
   const [expandedMobileItemIds, setExpandedMobileItemIds] = useState<string[]>([]);
@@ -178,6 +185,22 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
     };
   }, [isMobileMenuOpen]);
 
+  useEffect(() => {
+    const handleKcpPaymentVisibilityChange = (event: Event) => {
+      if (!(event instanceof CustomEvent) || typeof event.detail?.visible !== 'boolean') {
+        return;
+      }
+
+      setIsKcpPaymentVisible(event.detail.visible);
+    };
+
+    window.addEventListener(KCP_PAYMENT_VISIBILITY_EVENT, handleKcpPaymentVisibilityChange);
+
+    return () => {
+      window.removeEventListener(KCP_PAYMENT_VISIBILITY_EVENT, handleKcpPaymentVisibilityChange);
+    };
+  }, []);
+
   // 모바일 메뉴를 닫을 때 쓰는 공통 함수입니다.
   // 드로어를 닫을 뿐 아니라, 펼쳐 둔 하위 메뉴 상태도 함께 초기화합니다.
   const closeMobileMenu = () => {
@@ -266,7 +289,11 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
       {/* 실제 고정 헤더 영역입니다. */}
       <header
         // 스크롤 상태에 따라 헤더 숨김 클래스를 조건부로 붙입니다.
-        className={classNames(styles['header'], shouldHideHeader && styles['headerHidden'])}
+        className={classNames(
+          styles['header'],
+          shouldHideHeader && styles['headerHidden'],
+          isKcpPaymentVisible && styles['headerPaymentHidden'],
+        )}
         // 마우스가 헤더를 벗어나면 데스크톱 드롭다운을 닫습니다.
         onMouseLeave={() => {
           closeDesktopMenu();
@@ -356,7 +383,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
           장바구니와 로그인/마이페이지 액션을 표시합니다. */}
           <div className={styles['desktopUtilityArea']}>
             <LinkComponent
-              className={styles['iconLink']}
+              className={classNames(styles['iconLink'], styles['cartIconLink'])}
               onClick={() => {
                 closeDesktopMenu();
                 closeAccountMenu();
@@ -372,6 +399,15 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
                 className={classNames(styles['iconImage'], styles['iconImageCart'])}
                 src={cartIconSrc}
               />
+              {cartItemCount > 0 ? (
+                <span
+                  aria-hidden='true'
+                  className={styles['cartCountBadge']}
+                  data-testid='cart-count-badge'
+                >
+                  {cartItemCountLabel}
+                </span>
+              ) : null}
             </LinkComponent>
 
             <div className={styles['authActionGroup']}>
@@ -443,7 +479,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
           데스크톱과 달리 장바구니와 메뉴 열기/닫기 버튼만 보여 줍니다. */}
           <div className={styles['mobileUtilityArea']}>
             <LinkComponent
-              className={styles['iconLink']}
+              className={classNames(styles['iconLink'], styles['cartIconLink'])}
               onClick={() => {
                 closeMobileMenu();
                 closeAccountMenu();
@@ -453,6 +489,15 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
               {/* 모바일 아이콘 링크도 동일하게 접근성 텍스트를 제공합니다. */}
               <span className={styles['srOnly']}>장바구니</span>
               <img alt='' aria-hidden='true' className={styles['iconImage']} src={cartIconSrc} />
+              {cartItemCount > 0 ? (
+                <span
+                  aria-hidden='true'
+                  className={styles['cartCountBadge']}
+                  data-testid='cart-count-badge'
+                >
+                  {cartItemCountLabel}
+                </span>
+              ) : null}
             </LinkComponent>
 
             <button

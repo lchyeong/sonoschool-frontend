@@ -109,19 +109,35 @@ const DEFAULT_COURSE_NAVIGATION: HeaderNavigationItem[] = [
         to: routePaths.programCatalog('online-course', 'ardms-exam-prep'),
       },
       {
-        id: 'fixed-online-pocus-library',
-        label: 'POCUS 라이브러리',
-        to: routePaths.programCatalog('online-course', 'pocus-library'),
-      },
-      {
-        id: 'fixed-online-women-theory',
-        label: '여성초음파 이론',
-        to: routePaths.programCatalog('online-course', 'women-ultrasound-theory'),
-      },
-      {
-        id: 'fixed-online-spi',
-        label: 'SPI 시험 대비 (재학생 특강)',
-        to: routePaths.programCatalog('online-course', 'spi-exam-prep'),
+        id: 'fixed-online-hybrid',
+        label: '실습 포함 온라인과정',
+        to: routePaths.programCatalog('online-course', 'hybrid-course'),
+        children: [
+          {
+            id: 'fixed-online-hybrid-pediatric',
+            label: '소아초음파 실습 포함 과정',
+            to: routePaths.programCatalog('online-course', 'hybrid-course', 'pediatric-hybrid'),
+          },
+          {
+            id: 'fixed-online-hybrid-abdomen-urinary',
+            label: '상복부·비뇨기 실습 포함 과정',
+            to: routePaths.programCatalog(
+              'online-course',
+              'hybrid-course',
+              'abdomen-urinary-hybrid',
+            ),
+          },
+          {
+            id: 'fixed-online-hybrid-gi-tract',
+            label: 'GI tract 실습 포함 과정',
+            to: routePaths.programCatalog('online-course', 'hybrid-course', 'gi-tract-hybrid'),
+          },
+          {
+            id: 'fixed-online-hybrid-neck',
+            label: '두경부 실습 포함 과정',
+            to: routePaths.programCatalog('online-course', 'hybrid-course', 'neck-hybrid'),
+          },
+        ],
       },
     ],
     isFixed: true,
@@ -139,12 +155,6 @@ export const buildHeaderNavigation = (
   };
 
   const fixedTrailingNavigation: HeaderNavigationItem[] = [
-    {
-      id: 'fixed-reviews',
-      label: '교육후기',
-      to: routePaths.reviews,
-      isFixed: true,
-    },
     {
       id: 'fixed-notices',
       label: '공지사항',

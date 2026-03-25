@@ -1,4 +1,6 @@
 import styles from './AdminConsolePage.module.scss';
+import AdminNoticesSection from './AdminNoticesSection';
+import AdminQnaSection from './AdminQnaSection';
 import { type AdminConsoleSection } from './adminConsolePageShared';
 import {
   AdminConsolePageHeader,
@@ -26,8 +28,8 @@ const AdminConsolePage = ({ section }: AdminConsolePageProps) => {
     <div className={styles['page']}>
       {section !== 'programs' ? <AdminConsolePageHeader section={section} /> : null}
 
-      {section === 'notices' ? <AdminDeferredSection section={section} /> : null}
-      {section === 'qna' ? <AdminDeferredSection section={section} /> : null}
+      {section === 'notices' ? <AdminNoticesSection /> : null}
+      {section === 'qna' ? <AdminQnaSection /> : null}
       {section === 'resources' ? <AdminDeferredSection section={section} /> : null}
       {section === 'reviews' ? <AdminDeferredSection section={section} /> : null}
       {section === 'programMenus' ? <AdminProgramMenuSection /> : null}

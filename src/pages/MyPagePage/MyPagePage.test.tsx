@@ -8,6 +8,7 @@ import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { SmsSendPayload, SmsSendResponse, SmsVerifyPayload } from '@/types/auth';
 import type {
+  EnrollmentDetail,
   EnrollmentSummary,
   RefundHistory,
   UserCoupon,
@@ -16,9 +17,16 @@ import type {
 } from '@/types/mypage';
 import type { PaymentResult } from '@/types/payment';
 
+const createMyEnrollmentReviewMock = vi.fn<
+  (programId: number, payload: { content: string; rating: number }) => Promise<void>
+>();
+const fetchMyEnrollmentDetailMock = vi.fn<(enrollmentId: number) => Promise<EnrollmentDetail>>();
 const fetchMyProfileMock = vi.fn<() => Promise<UserProfile>>();
 const updateMyProfileMock = vi.fn<(payload: UserProfileUpdatePayload) => Promise<UserProfile>>();
 const sendMyPhoneVerificationMock = vi.fn<(payload: SmsSendPayload) => Promise<SmsSendResponse>>();
+const updateMyEnrollmentReviewMock = vi.fn<
+  (reviewId: number, payload: { content: string; rating: number }) => Promise<void>
+>();
 const verifyMyPhoneChangeMock = vi.fn<(payload: SmsVerifyPayload) => Promise<UserProfile>>();
 const fetchMyEnrollmentsMock = vi.fn<() => Promise<EnrollmentSummary[]>>();
 const fetchMyCouponsMock = vi.fn<() => Promise<UserCoupon[]>>();
@@ -27,11 +35,16 @@ const fetchMyRefundsMock = vi.fn<() => Promise<RefundHistory[]>>();
 const logoutStudentMock = vi.fn<() => Promise<void>>();
 
 vi.mock('@/api/mypage', () => ({
+  createMyEnrollmentReview: (programId: number, payload: { content: string; rating: number }) =>
+    createMyEnrollmentReviewMock(programId, payload),
   fetchMyCoupons: () => fetchMyCouponsMock(),
+  fetchMyEnrollmentDetail: (enrollmentId: number) => fetchMyEnrollmentDetailMock(enrollmentId),
   fetchMyEnrollments: () => fetchMyEnrollmentsMock(),
   fetchMyProfile: () => fetchMyProfileMock(),
   fetchMyRefunds: () => fetchMyRefundsMock(),
   sendMyPhoneVerification: (payload: SmsSendPayload) => sendMyPhoneVerificationMock(payload),
+  updateMyEnrollmentReview: (reviewId: number, payload: { content: string; rating: number }) =>
+    updateMyEnrollmentReviewMock(reviewId, payload),
   updateMyProfile: (payload: UserProfileUpdatePayload) => updateMyProfileMock(payload),
   verifyMyPhoneChange: (payload: SmsVerifyPayload) => verifyMyPhoneChangeMock(payload),
 }));
@@ -72,6 +85,8 @@ const testEnrollments: EnrollmentSummary[] = [
     programId: 2001,
     programThumbnailUrl: null,
     programTitle: '복부초음파 기초',
+    reviewWritable: true,
+    reviewWritten: false,
     status: 'ACTIVE',
     totalLectures: 3,
   },
@@ -89,6 +104,8 @@ const testEnrollments: EnrollmentSummary[] = [
     programId: 2003,
     programThumbnailUrl: null,
     programTitle: '심장초음파 실전',
+    reviewWritable: false,
+    reviewWritten: true,
     status: 'ACTIVE',
     totalLectures: 6,
   },
@@ -106,6 +123,8 @@ const testEnrollments: EnrollmentSummary[] = [
     programId: 2004,
     programThumbnailUrl: null,
     programTitle: 'POCUS 응급 핸즈온',
+    reviewWritable: false,
+    reviewWritten: false,
     status: 'EXPIRED',
     totalLectures: 4,
   },
@@ -123,10 +142,74 @@ const testEnrollments: EnrollmentSummary[] = [
     programId: 2005,
     programThumbnailUrl: null,
     programTitle: '취소된 강의',
+    reviewWritable: false,
+    reviewWritten: false,
     status: 'CANCELLED',
     totalLectures: 3,
   },
 ];
+
+const testEnrollmentDetails: Record<number, EnrollmentDetail> = {
+  101: {
+    active: true,
+    certificateEligible: false,
+    completed: false,
+    completedAt: null,
+    completedLectures: 2,
+    completionRate: 67,
+    enrolledAt: '2026-02-01T09:00:00Z',
+    expireAt: '2026-12-31T14:59:59Z',
+    id: 101,
+    programId: 2001,
+    programTitle: '복부초음파 기초',
+    progress: [
+      {
+        completed: true,
+        completedAt: '2026-02-10T10:00:00Z',
+        lastWatchedAt: '2026-02-10T10:00:00Z',
+        lectureId: 1,
+        watchedSeconds: 900,
+      },
+      {
+        completed: false,
+        completedAt: null,
+        lastWatchedAt: '2026-03-10T08:00:00Z',
+        lectureId: 2,
+        watchedSeconds: 480,
+      },
+    ],
+    review: null,
+    reviewWritable: true,
+    reviewWritten: false,
+    status: 'ACTIVE',
+    totalLectures: 3,
+  },
+  102: {
+    active: true,
+    certificateEligible: true,
+    completed: false,
+    completedAt: null,
+    completedLectures: 5,
+    completionRate: 83,
+    enrolledAt: '2026-02-20T09:00:00Z',
+    expireAt: '2026-08-31T14:59:59Z',
+    id: 102,
+    programId: 2003,
+    programTitle: '심장초음파 실전',
+    progress: [],
+    review: {
+      content: '실습과 함께 보기 좋았습니다.',
+      createdAt: '2026-03-18T10:00:00Z',
+      id: 910,
+      rating: 5,
+      updatedAt: '2026-03-18T10:00:00Z',
+    },
+    reviewWritable: false,
+    reviewWritten: true,
+    status: 'ACTIVE',
+    totalLectures: 6,
+  },
+};
 
 const testCoupons: UserCoupon[] = [
   {
@@ -202,22 +285,11 @@ const testPaymentHistory: PaymentResult[] = [
   {
     amount: 149000,
     approvedAmount: 149000,
-    buyerKey: 'student01',
     cancelReason: null,
     cancelledAt: null,
-    cashReceiptIssued: null,
-    easyPayKind: null,
-    easyPayProvider: null,
     failedAt: null,
-    gateway: 'KCP',
-    gatewayCardOtherPayType: null,
     gatewayOrderId: 'MOCK-CARD-COMPLETED',
-    gatewayPayType: 'PACA',
-    gatewayResponseCode: '0000',
     gatewayResponseMessage: '카드 결제가 승인되었습니다.',
-    gatewayServiceCorpId: null,
-    gatewayTid: 'TID-000501',
-    gatewayTraceNo: 'TRACE-000501',
     id: 501,
     orderName: '심장초음파 실전 마스터 클래스',
     orderReference: 'CART-501',
@@ -232,22 +304,11 @@ const testPaymentHistory: PaymentResult[] = [
   {
     amount: 99000,
     approvedAmount: null,
-    buyerKey: 'student01',
     cancelReason: '사용자 요청 취소',
     cancelledAt: '2026-03-18T10:20:00Z',
-    cashReceiptIssued: null,
-    easyPayKind: null,
-    easyPayProvider: null,
     failedAt: null,
-    gateway: 'KCP',
-    gatewayCardOtherPayType: null,
     gatewayOrderId: 'MOCK-CARD-CANCELLED',
-    gatewayPayType: 'PACA',
-    gatewayResponseCode: 'C001',
     gatewayResponseMessage: '결제가 취소되었습니다.',
-    gatewayServiceCorpId: null,
-    gatewayTid: 'TID-000504',
-    gatewayTraceNo: 'TRACE-000504',
     id: 504,
     orderName: '복부초음파 기초',
     orderReference: 'CART-504',
@@ -310,7 +371,16 @@ beforeEach(() => {
     phoneVerifiedAt: '2026-03-17T10:10:00Z',
     role: 'STUDENT',
   });
+  createMyEnrollmentReviewMock.mockResolvedValue(undefined);
+  updateMyEnrollmentReviewMock.mockResolvedValue(undefined);
   fetchMyEnrollmentsMock.mockResolvedValue(testEnrollments);
+  fetchMyEnrollmentDetailMock.mockImplementation(async (enrollmentId: number) => {
+    const detail = testEnrollmentDetails[enrollmentId];
+    if (!detail) {
+      throw new Error('수강 상세가 없습니다.');
+    }
+    return detail;
+  });
   fetchMyCouponsMock.mockResolvedValue(testCoupons);
   fetchPaymentHistoryMock.mockResolvedValue(testPaymentHistory);
   fetchMyRefundsMock.mockResolvedValue(testRefunds);
@@ -359,9 +429,11 @@ describe('MyPagePage', () => {
     expect(screen.queryByText('POCUS 응급 핸즈온')).not.toBeInTheDocument();
     expect(screen.queryByText('취소된 강의')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /수료증/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '후기 작성' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '후기 수정' })).toBeInTheDocument();
     expect(await screen.findByText('67%')).toBeInTheDocument();
     expect(screen.getByText('2 / 3강')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /복부초음파 기초/ })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: '이어보기' })[0]).toHaveAttribute(
       'href',
       '/mypage/learning/101',
     );
@@ -478,6 +550,30 @@ describe('MyPagePage', () => {
     expect(screen.getByText('온라인 집중 10%')).toBeInTheDocument();
     expect(screen.getAllByText('사용 가능').length).toBeGreaterThan(0);
     expect(screen.getByText(/전체 과정 · 최소 150,000원/)).toBeInTheDocument();
+  });
+
+  it('creates a review from my course card', async () => {
+    renderMyPage();
+
+    expect(await screen.findByText('복부초음파 기초')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '후기 작성' }));
+
+    expect(await screen.findByRole('dialog', { name: '후기 작성' })).toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText('평점'), {
+      target: { value: '4' },
+    });
+    fireEvent.change(screen.getByLabelText('후기 내용'), {
+      target: { value: '실습 전에 예습하기 좋은 강의였습니다.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '후기 등록하기' }));
+
+    await waitFor(() => {
+      expect(createMyEnrollmentReviewMock).toHaveBeenCalledWith(2001, {
+        content: '실습 전에 예습하기 좋은 강의였습니다.',
+        rating: 4,
+      });
+    });
   });
 
   it('shows the support entry without lecture browse links', async () => {

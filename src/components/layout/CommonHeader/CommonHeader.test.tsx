@@ -67,7 +67,7 @@ describe('CommonHeader', () => {
     useAuthStore.setState({
       accessToken: 'token',
       tokenType: 'Bearer',
-      expiresAt: '2026-03-17T00:00:00Z',
+      expiresAt: '2099-03-17T00:00:00Z',
       loginId: 'student01',
       displayName: '길동',
       role: 'ROLE_STUDENT',
@@ -92,7 +92,7 @@ describe('CommonHeader', () => {
     useAuthStore.setState({
       accessToken: 'token',
       tokenType: 'Bearer',
-      expiresAt: '2026-03-17T00:00:00Z',
+      expiresAt: '2099-03-17T00:00:00Z',
       loginId: 'student01',
       displayName: '길동',
       role: 'ROLE_STUDENT',
@@ -106,6 +106,56 @@ describe('CommonHeader', () => {
 
     expect(cartIcon).toHaveClass(styles['iconImage'], styles['iconImageCart']);
     expect(accountIcon).toHaveClass(styles['iconImage'], styles['iconImageMy']);
+  });
+
+  it('shows a cart count badge when cart items exist', async () => {
+    useAuthStore.setState({
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresAt: '2099-03-17T00:00:00Z',
+      loginId: 'student01',
+      displayName: '길동',
+      role: 'ROLE_STUDENT',
+      isAuthenticated: true,
+    });
+
+    renderCommonHeader();
+
+    let cartBadges: HTMLElement[] = [];
+
+    await waitFor(() => {
+      cartBadges = screen.getAllByTestId('cart-count-badge');
+      expect(cartBadges).toHaveLength(2);
+    });
+
+    expect(cartBadges[0]?.textContent).toMatch(/^\d+\+?$/);
+    expect(cartBadges[0]?.textContent).toBe(cartBadges[1]?.textContent);
+  });
+
+  it('hides the header while the KCP payment layer is visible', async () => {
+    renderCommonHeader();
+
+    const header = screen.getByRole('banner');
+
+    window.dispatchEvent(
+      new CustomEvent('sonoschool:kcp-payment-visibility', {
+        detail: { visible: true },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(header.className).toMatch(/headerPaymentHidden/);
+    });
+
+    window.dispatchEvent(
+      new CustomEvent('sonoschool:kcp-payment-visibility', {
+        detail: { visible: false },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(header.className).not.toMatch(/headerPaymentHidden/);
+    });
   });
 
   it('closes the mobile drawer when navigating to the login page', () => {

@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "scope": "GLOBAL",
+      "visibility": "PUBLIC",
+      "programId": null,
+      "programTitle": null,
+      "title": "자료 제목",
+      "description": "자료 설명을 입력하세요.",
+      "fileName": "sample-file.pdf",
+      "fileSize": 1024000,
+      "mimeType": "application/pdf",
+      "sortOrder": 1,
+      "createdAt": "2026-03-25T00:00:00Z"
+    }
+  ]
+}

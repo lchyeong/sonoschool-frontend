@@ -9,9 +9,17 @@ export const usePaymentResultQuery = (paymentId: number | null, resultToken: str
   return useQuery({
     enabled: paymentId !== null || resultToken !== null,
     gcTime: 10 * 60 * 1000,
-    queryFn: () => {
+    queryFn: async () => {
       if (resultToken) {
-        return fetchPaymentResultByToken(resultToken);
+        try {
+          return await fetchPaymentResultByToken(resultToken);
+        } catch (error) {
+          if (paymentId !== null) {
+            return await fetchPaymentResult(paymentId);
+          }
+
+          throw error;
+        }
       }
       return fetchPaymentResult(paymentId as number);
     },

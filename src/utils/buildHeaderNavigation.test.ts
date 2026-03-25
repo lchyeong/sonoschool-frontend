@@ -17,7 +17,6 @@ describe('buildHeaderNavigation', () => {
       '온라인과정',
       '동적 메뉴 1',
       '동적 메뉴 2',
-      '교육후기',
       '공지사항',
       'Q&A',
       '자료실',
@@ -26,7 +25,6 @@ describe('buildHeaderNavigation', () => {
     expect(navigation[1]?.to).toBe(routePaths.programCatalog('doctor-course'));
     expect(navigation[2]?.to).toBe(routePaths.programCatalog('general-course'));
     expect(navigation[3]?.to).toBe(routePaths.programCatalog('online-course'));
-    expect(navigation.at(-4)?.to).toBe(routePaths.reviews);
     expect(navigation.at(-3)?.to).toBe(routePaths.notices);
     expect(navigation.at(-2)?.to).toBe(routePaths.qna);
     expect(navigation.at(-1)?.to).toBe(routePaths.resources);
@@ -40,10 +38,26 @@ describe('buildHeaderNavigation', () => {
       '의사과정',
       '일반과정',
       '온라인과정',
-      '교육후기',
       '공지사항',
       'Q&A',
       '자료실',
+    ]);
+  });
+
+  it('uses the current backend online category slugs for fixed online navigation', () => {
+    const navigation = buildHeaderNavigation([]);
+    const onlineItem = navigation.find((item) => item.id === 'fixed-online-courses');
+
+    expect(onlineItem?.children?.map((item) => item.to)).toEqual([
+      routePaths.programCatalog('online-course', 'theory-and-scan'),
+      routePaths.programCatalog('online-course', 'ardms-exam-prep'),
+      routePaths.programCatalog('online-course', 'hybrid-course'),
+    ]);
+    expect(onlineItem?.children?.[2]?.children?.map((item) => item.to)).toEqual([
+      routePaths.programCatalog('online-course', 'hybrid-course', 'pediatric-hybrid'),
+      routePaths.programCatalog('online-course', 'hybrid-course', 'abdomen-urinary-hybrid'),
+      routePaths.programCatalog('online-course', 'hybrid-course', 'gi-tract-hybrid'),
+      routePaths.programCatalog('online-course', 'hybrid-course', 'neck-hybrid'),
     ]);
   });
 

@@ -23,6 +23,12 @@
     opacity: 0;
     transform: translate3d(0, calc(-100% - 1px), 0);
   }
+
+  &PaymentHidden {
+    pointer-events: none;
+    opacity: 0;
+    transform: translate3d(0, calc(-100% - 1px), 0);
+  }
 }
 
 .inner {
@@ -211,6 +217,31 @@
     width: 22px;
     height: 22px;
   }
+}
+
+.cartIconLink {
+  position: relative;
+}
+
+.cartCountBadge {
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid var(--color-bg-primary);
+  border-radius: 999px;
+  background: #d64545;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  pointer-events: none;
 }
 
 .authActionGroup {

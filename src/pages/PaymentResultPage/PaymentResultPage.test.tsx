@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import PaymentResultPage from '@/pages/PaymentResultPage/PaymentResultPage';
@@ -14,26 +14,15 @@ const mockedUsePaymentResultQuery = vi.mocked(usePaymentResultQuery);
 
 const mockPaymentResult: PaymentResult = {
   id: 301,
-  buyerKey: '10',
   orderType: 'PROGRAM',
   orderReference: '100',
   orderName: '복부 초음파 기초 과정',
   amount: 120000,
   paymentMethod: 'CARD',
-  gateway: 'KCP',
   gatewayOrderId: 'KCP-ORDER-1',
-  gatewayTid: 'TID-1234',
-  gatewayTraceNo: 'TRACE-1',
-  gatewayPayType: 'PACA',
-  gatewayResponseCode: '0000',
   gatewayResponseMessage: '정상처리',
   approvedAmount: 120000,
   receiptUrl: 'https://example.com/receipt',
-  easyPayProvider: 'NONE',
-  easyPayKind: 'NONE',
-  gatewayServiceCorpId: null,
-  gatewayCardOtherPayType: null,
-  cashReceiptIssued: null,
   status: 'COMPLETED',
   requestedAt: '2026-03-18T10:00:00Z',
   registeredAt: '2026-03-18T10:01:00Z',
@@ -41,6 +30,18 @@ const mockPaymentResult: PaymentResult = {
   failedAt: null,
   cancelledAt: null,
   cancelReason: null,
+};
+
+const mockPendingPaymentResult: PaymentResult = {
+  ...mockPaymentResult,
+  amount: 100,
+  approvedAmount: null,
+  gatewayResponseMessage: null,
+  gatewayOrderId: 'KCP-PENDING-1',
+  orderName: '내과과정 복부 실전 워크숍',
+  orderType: 'CART_CHECKOUT',
+  paidAt: null,
+  status: 'PENDING',
 };
 
 describe('PaymentResultPage', () => {
@@ -109,5 +110,72 @@ describe('PaymentResultPage', () => {
     expect(screen.getByText('결제 실패')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '홈으로 이동' })).toHaveAttribute('href', '/');
     expect(screen.queryByRole('link', { name: '영수증 보기' })).not.toBeInTheDocument();
+  });
+
+  it('hides payment details and shows retry actions for pending results', () => {
+    mockedUsePaymentResultQuery.mockReturnValue({
+      data: undefined,
+      error: null,
+      isError: false,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePaymentResultQuery>);
+
+    render(
+      <MemoryRouter initialEntries={['/payments/result?status=PENDING&gatewayOrderId=KCP-ORDER-10']}>
+        <Routes>
+          <Route element={<PaymentResultPage />} path='/payments/result' />
+          <Route element={<div>checkout-page</div>} path='/payments/checkout' />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('checkout-page')).toBeInTheDocument();
+  });
+
+  it('hides payment details when the fetched payment is still pending', () => {
+    mockedUsePaymentResultQuery.mockReturnValue({
+      data: mockPendingPaymentResult,
+      error: null,
+      isError: false,
+      isPending: false,
+    } as ReturnType<typeof usePaymentResultQuery>);
+
+    render(
+      <MemoryRouter initialEntries={['/payments/result?paymentId=401']}>
+        <Routes>
+          <Route element={<PaymentResultPage />} path='/payments/result' />
+          <Route element={<div>checkout-page</div>} path='/payments/checkout' />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('checkout-page')).toBeInTheDocument();
+  });
+
+  it('redirects cancelled results back to checkout', () => {
+    mockedUsePaymentResultQuery.mockReturnValue({
+      data: {
+        ...mockPaymentResult,
+        cancelReason: '사용자 요청 취소',
+        cancelledAt: '2026-03-18T10:03:00Z',
+        paidAt: null,
+        receiptUrl: null,
+        status: 'CANCELLED',
+      },
+      error: null,
+      isError: false,
+      isPending: false,
+    } as ReturnType<typeof usePaymentResultQuery>);
+
+    render(
+      <MemoryRouter initialEntries={['/payments/result?paymentId=301&status=CANCELLED']}>
+        <Routes>
+          <Route element={<PaymentResultPage />} path='/payments/result' />
+          <Route element={<div>checkout-page</div>} path='/payments/checkout' />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('checkout-page')).toBeInTheDocument();
   });
 });

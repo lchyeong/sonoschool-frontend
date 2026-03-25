@@ -21,7 +21,7 @@ export interface HomeFeaturedReviewCard {
   isPrimary?: boolean;
 }
 
-// 실제 교육후기 게시판이 연결되면 이 배열을 홈 대표 게시글 응답으로 교체하면 됩니다.
+// 실제 과정 후기 API가 연결되면 이 배열을 홈 대표 후기 응답으로 교체하면 됩니다.
 const defaultFeaturedReviewCards = [
   {
     id: 'home-featured-review-abdomen-core',
@@ -32,7 +32,7 @@ const defaultFeaturedReviewCards = [
     badgeLabel: '대표 후기',
     thumbnailSrc: homeReviewAbdomenImageSrc,
     thumbnailAlt: '복부 초음파 실습이 진행되는 소노스쿨 교육 현장',
-    to: routePaths.reviews,
+    to: routePaths.program('doctor-course-internal-medicine-abdomen-practice'),
     isPrimary: true,
   },
   {
@@ -44,7 +44,7 @@ const defaultFeaturedReviewCards = [
     badgeLabel: '강사 작성',
     thumbnailSrc: homeReviewFastImageSrc,
     thumbnailAlt: '응급 POCUS 실습이 진행되는 소노스쿨 교육 현장',
-    to: routePaths.reviews,
+    to: routePaths.program('doctor-course-emergency-pocus-fast'),
   },
   {
     id: 'home-featured-review-thyroid-reading',
@@ -55,7 +55,7 @@ const defaultFeaturedReviewCards = [
     badgeLabel: '강사 작성',
     thumbnailSrc: homeReviewThyroidImageSrc,
     thumbnailAlt: '갑상선 초음파 판독 교육이 진행되는 소노스쿨 교육 현장',
-    to: routePaths.reviews,
+    to: routePaths.program('hybrid-course-head-neck-master'),
   },
   {
     id: 'home-featured-review-msk-lab',
@@ -66,7 +66,7 @@ const defaultFeaturedReviewCards = [
     badgeLabel: '강사 작성',
     thumbnailSrc: homeReviewMskImageSrc,
     thumbnailAlt: '근골격 초음파 실습이 진행되는 소노스쿨 교육 현장',
-    to: routePaths.reviews,
+    to: routePaths.program('general-course-shoulder-basic-6-weeks'),
   },
 ] as const satisfies readonly HomeFeaturedReviewCard[];
 
@@ -106,14 +106,14 @@ const HomeFeaturedReviewsSection = ({
               </h2>
               <p className={styles['description']}>
                 수업 중 실제로 자주 막히는 순간과 강의 운영 포인트를 강사 시선으로 정리했습니다.
-                홈에서는 대표 후기 4건을 먼저 읽고, 이어서 교육후기 게시판으로 들어갈 수 있게
-                구성했습니다.
+                홈에서는 대표 후기 4건을 먼저 확인하고, 각 카드에서 해당 강좌 상세 페이지 후기
+                영역으로 이어지도록 구성했습니다.
               </p>
             </div>
           </div>
 
-          <Link className={styles['viewAllLink']} to={routePaths.reviews}>
-            교육후기 게시판 보기
+          <Link className={styles['viewAllLink']} to={routePaths.programs}>
+            전체 과정 보기
           </Link>
         </div>
 

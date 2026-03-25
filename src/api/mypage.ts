@@ -10,6 +10,7 @@ import type {
   ApplicationSummary,
   CartSummary,
   EnrollmentDetail,
+  EnrollmentReviewPayload,
   EnrollmentSummary,
   LectureProgressSaveResponse,
   LearningPlayerSnapshot,
@@ -136,6 +137,28 @@ export const fetchMyEnrollmentDetail = async (enrollmentId: number): Promise<Enr
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '수강 상세 정보를 불러오지 못했습니다.');
+  }
+};
+
+export const createMyEnrollmentReview = async (
+  programId: number,
+  payload: EnrollmentReviewPayload,
+): Promise<void> => {
+  try {
+    await axiosInstance.post(`/api/v1/programs/${String(programId)}/reviews`, payload);
+  } catch (error: unknown) {
+    throw toApiError(error, '후기를 등록하지 못했습니다.');
+  }
+};
+
+export const updateMyEnrollmentReview = async (
+  reviewId: number,
+  payload: EnrollmentReviewPayload,
+): Promise<void> => {
+  try {
+    await axiosInstance.put(`/api/v1/reviews/${String(reviewId)}`, payload);
+  } catch (error: unknown) {
+    throw toApiError(error, '후기를 수정하지 못했습니다.');
   }
 };
 

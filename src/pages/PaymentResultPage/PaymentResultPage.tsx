@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 
 import congraturationIconSrc from '@/assets/icons/icon_congraturation.png';
 import { LoadingSpinner } from '@/components/feedback/Loading/LoadingSpinner';
@@ -22,6 +22,8 @@ const knownStatuses = new Set<PaymentStatus>([
   'FAILED',
   'CANCELLED',
 ]);
+const pendingStatuses = new Set<PaymentStatus>(['PENDING', 'REGISTERED']);
+const checkoutReturnStatuses = new Set<PaymentStatus>(['PENDING', 'REGISTERED', 'CANCELLED']);
 
 const parsePaymentId = (value: string | null): number | null => {
   if (!value) return null;
@@ -62,9 +64,10 @@ const getStatusCopy = (status: PaymentStatus | null, fallbackMessage: string | n
     case 'PENDING':
     case 'REGISTERED':
       return {
-        title: '결제 결과를 확인하고 있습니다.',
+        title: '결제를 완료하지 않았습니다.',
         description:
-          fallbackMessage ?? '결제 상태가 아직 확정되지 않았습니다. 잠시 후 다시 확인해 주세요.',
+          fallbackMessage ??
+          '결제창이 닫혔거나 승인 절차가 끝나지 않았습니다. 장바구니로 돌아가 다시 결제를 진행해 주세요.',
       };
     default:
       return {
@@ -129,10 +132,14 @@ const resolveProcessedAt = (
 
 const buildDetailItems = (
   payment: PaymentResult | null,
-  fallbackStatus: PaymentStatus | null,
+  resolvedStatus: PaymentStatus | null,
   fallbackGatewayOrderId: string | null,
 ) => {
-  if (!payment && !fallbackGatewayOrderId && !fallbackStatus) {
+  if (resolvedStatus && pendingStatuses.has(resolvedStatus)) {
+    return [];
+  }
+
+  if (!payment && !fallbackGatewayOrderId && !resolvedStatus) {
     return [];
   }
 
@@ -178,15 +185,15 @@ const buildDetailItems = (
     });
   }
 
-  if (payment?.status || fallbackStatus) {
+  if (payment?.status || resolvedStatus) {
     detailItems.push({
       key: 'status',
       label: '상태',
-      value: paymentStatusLabels[payment?.status ?? fallbackStatus ?? 'PENDING'],
+      value: paymentStatusLabels[payment?.status ?? resolvedStatus ?? 'PENDING'],
     });
   }
 
-  const processedAt = resolveProcessedAt(payment, fallbackStatus);
+  const processedAt = resolveProcessedAt(payment, resolvedStatus);
   if (processedAt) {
     detailItems.push({
       key: 'processed-at',
@@ -227,12 +234,18 @@ const PaymentResultPage = () => {
   const paymentQuery = usePaymentResultQuery(paymentId, resultToken);
   const payment = paymentQuery.data ?? null;
   const resolvedStatus = payment?.status ?? fallbackStatus;
+  const isPendingResult = resolvedStatus ? pendingStatuses.has(resolvedStatus) : false;
+  const shouldReturnToCheckout = resolvedStatus ? checkoutReturnStatuses.has(resolvedStatus) : false;
   const statusCopy = getStatusCopy(resolvedStatus, fallbackMessage);
-  const detailItems = buildDetailItems(payment, fallbackStatus, fallbackGatewayOrderId);
+  const detailItems = buildDetailItems(payment, resolvedStatus, fallbackGatewayOrderId);
   const errorMessage =
     paymentQuery.error instanceof Error
       ? paymentQuery.error.message
       : '결제 상세 조회에 실패했습니다.';
+
+  if (shouldReturnToCheckout) {
+    return <Navigate replace to={routePaths.checkout} />;
+  }
 
   return (
     <section className={sharedStyles['page']}>
@@ -291,8 +304,10 @@ const PaymentResultPage = () => {
             {resolvedStatus === 'COMPLETED' ? (
               <Link to={routePaths.mypage}>내 강의로 이동</Link>
             ) : null}
+            {isPendingResult ? <Link to={routePaths.checkout}>결제 다시 시도</Link> : null}
+            {isPendingResult ? <Link to={routePaths.cart}>장바구니로 돌아가기</Link> : null}
             <Link to={routePaths.home}>홈으로 이동</Link>
-            {payment?.receiptUrl ? (
+            {resolvedStatus === 'COMPLETED' && payment?.receiptUrl ? (
               <a href={payment.receiptUrl} rel='noreferrer' target='_blank'>
                 영수증 보기
               </a>

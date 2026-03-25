@@ -41,6 +41,7 @@ interface ImportMeta {
 }
 
 interface Window {
+  chkAvailablePostMessage?: () => boolean;
   dataLayer?: Array<Record<string, unknown>>;
   GetField?: (form: HTMLFormElement, values: unknown) => void;
   KCP_Pay_Execute_Web?: (form: HTMLFormElement) => void;

@@ -130,6 +130,7 @@ afterEach(() => {
   cleanup();
   resetCartSelectionState();
   window.localStorage.clear();
+  delete window.KCP_Pay_Execute_Web;
 });
 
 beforeEach(() => {
@@ -192,6 +193,86 @@ describe('CheckoutPage', () => {
         paymentMethod: 'CARD',
         selectedCouponId: 10,
       });
+    });
+  });
+
+  it('waits for the delayed KCP executor before opening the payment layer', async () => {
+    const delayedExecutor = vi.fn();
+
+    prepareKcpPcCheckoutPaymentMock.mockResolvedValue({
+      buyrMail: testProfile.email,
+      buyrName: testProfile.name,
+      buyrTel2: testProfile.phoneNumber,
+      currency: 'WON',
+      goodExpr: '0',
+      goodMny: 419000,
+      goodName: 'POCUS 워크숍 외 2건',
+      jsUrl: 'https://testspay.kcp.co.kr/plugin/kcp_spay_hub.js',
+      ordrIdxx: 'ORDER-2',
+      payMethod: 'CARD',
+      paymentId: 3001,
+      shopUserId: '10',
+      siteCd: 'T0000',
+      siteName: 'SONOSCHOOL',
+    });
+
+    const appendSpy = vi
+      .spyOn(document.head, 'append')
+      .mockImplementation((...args: Array<string | Node>) => {
+        const script = args[0] as HTMLScriptElement;
+
+        window.setTimeout(() => {
+          script.onload?.(new Event('load'));
+
+          window.setTimeout(() => {
+            window.KCP_Pay_Execute_Web = delayedExecutor;
+          }, 80);
+        }, 0);
+
+        return;
+      });
+
+    renderCheckoutPage();
+
+    expect(await screen.findByRole('button', { name: '실결제 진행' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: '실결제 진행' }));
+
+    await waitFor(() => {
+      expect(delayedExecutor).toHaveBeenCalledTimes(1);
+    });
+
+    appendSpy.mockRestore();
+  });
+
+  it('locks background scroll while the KCP payment layer is visible', async () => {
+    prepareKcpPcCheckoutPaymentMock.mockResolvedValue({
+      buyrMail: testProfile.email,
+      buyrName: testProfile.name,
+      buyrTel2: testProfile.phoneNumber,
+      currency: 'WON',
+      goodExpr: '0',
+      goodMny: 419000,
+      goodName: 'POCUS 워크숍 외 2건',
+      jsUrl: 'https://testspay.kcp.co.kr/plugin/kcp_spay_hub.js',
+      ordrIdxx: 'ORDER-3',
+      payMethod: 'CARD',
+      paymentId: 3002,
+      shopUserId: '10',
+      siteCd: 'T0000',
+      siteName: 'SONOSCHOOL',
+    });
+    window.KCP_Pay_Execute_Web = vi.fn();
+
+    renderCheckoutPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: '실결제 진행' }));
+
+    await waitFor(() => {
+      expect(document.body.style.overflow).toBe('hidden');
+      expect(document.body.style.touchAction).toBe('none');
+      expect(document.documentElement.style.overflow).toBe('hidden');
+      expect(document.documentElement.style.overscrollBehavior).toBe('none');
     });
   });
 });

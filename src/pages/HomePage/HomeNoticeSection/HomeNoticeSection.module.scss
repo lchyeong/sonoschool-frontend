@@ -201,6 +201,28 @@
   content: '>';
 }
 
+.noticeState {
+  display: grid;
+  gap: var(--space-2);
+  padding: clamp(1.3rem, 2vw, 1.8rem);
+  border: 1px solid rgba(52, 178, 159, 0.14);
+  border-radius: calc(var(--radius-xl) + var(--space-1));
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.noticeStateTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.noticeStateDescription {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
 @media (width < 1200px) {
   .header {
     align-items: start;

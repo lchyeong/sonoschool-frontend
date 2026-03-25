@@ -139,4 +139,12 @@ describe('AdminConsolePage', () => {
       ).toBe(true);
     });
   });
+
+  it('renders the qna management section with pending threads first', async () => {
+    renderAdminConsoleRoute('/admin/qna');
+
+    expect(await screen.findByText('답변 대기 2건')).toBeInTheDocument();
+    expect(screen.getByText('오프라인 핸즈온 과정 환불 기준이 궁금합니다.')).toBeInTheDocument();
+    expect(screen.getAllByText('답변 대기').length).toBeGreaterThan(0);
+  });
 });

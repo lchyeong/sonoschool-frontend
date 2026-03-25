@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "id": "review-1",
+      "programId": 1,
+      "programTitle": "과정명",
+      "programPath": "/programs/sample/detail",
+      "categoryLabel": "카테고리명",
+      "authorName": "작성자명",
+      "rating": 5,
+      "content": "교육후기 본문을 입력하세요.",
+      "dateLabel": "2026.03.25"
+    }
+  ]
+}

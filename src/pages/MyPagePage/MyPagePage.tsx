@@ -1,16 +1,26 @@
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { logoutStudent } from '@/api/auth';
-import { sendMyPhoneVerification, updateMyProfile, verifyMyPhoneChange } from '@/api/mypage';
-import Button from '@/components/ui/Button/Button';
-import { TextField } from '@/components/ui/TextField/TextField';
 import {
+  createMyEnrollmentReview,
+  sendMyPhoneVerification,
+  updateMyEnrollmentReview,
+  updateMyProfile,
+  verifyMyPhoneChange,
+} from '@/api/mypage';
+import Modal from '@/components/overlay/Modal/Modal';
+import Button from '@/components/ui/Button/Button';
+import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import {
+  myEnrollmentDetailQueryKey,
+  myEnrollmentsQueryKey,
   myProfileQueryKey,
   useMyCouponsQuery,
+  useMyEnrollmentDetailQuery,
   useMyEnrollmentsQuery,
   useMyPaymentHistoryQuery,
   useMyProfileQuery,
@@ -21,7 +31,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import type { SmsSendResponse } from '@/types/auth';
-import type { UserCoupon } from '@/types/mypage';
+import type { EnrollmentReviewPayload, UserCoupon } from '@/types/mypage';
 import { formatPaymentMethodLabel, paymentStatusLabels, type PaymentStatus } from '@/types/payment';
 import { classNames } from '@/utils/classNames';
 
@@ -255,6 +265,16 @@ interface ProfileFormValues {
   nickname: string;
 }
 
+interface ReviewFormValues {
+  content: string;
+  rating: string;
+}
+
+const DEFAULT_REVIEW_FORM_VALUES: ReviewFormValues = {
+  content: '',
+  rating: '5',
+};
+
 const MyPagePage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -274,6 +294,11 @@ const MyPagePage = () => {
   const [paymentPage, setPaymentPage] = useState(1);
   const [refundPage, setRefundPage] = useState(1);
   const [profileFormValues, setProfileFormValues] = useState<ProfileFormValues | null>(null);
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
+  const [reviewFormValues, setReviewFormValues] = useState<ReviewFormValues>(
+    DEFAULT_REVIEW_FORM_VALUES,
+  );
+  const [reviewFormError, setReviewFormError] = useState<string | null>(null);
   const [phoneFormValues, setPhoneFormValues] = useState({
     phoneNumber: '',
     code: '',
@@ -302,6 +327,10 @@ const MyPagePage = () => {
   const paymentHistoryQuery = useMyPaymentHistoryQuery(activeView === 'orders-history');
   const refundsQuery = useMyRefundsQuery(activeView === 'orders-refunds');
   const couponsQuery = useMyCouponsQuery(activeView === 'orders-coupons');
+  const enrollmentDetailQuery = useMyEnrollmentDetailQuery(
+    selectedEnrollmentId,
+    selectedEnrollmentId !== null,
+  );
   const visiblePayments = (paymentHistoryQuery.data ?? []).filter((payment) => {
     return payment.status === 'COMPLETED' || payment.status === 'CANCELLED';
   });
@@ -317,6 +346,10 @@ const MyPagePage = () => {
   const paginatedRefunds = paginateItems(filteredRefunds, refundPage, ORDER_LIST_PAGE_SIZE);
 
   const accountName = profileQuery.data?.displayName || storeDisplayName || '회원';
+  const selectedEnrollment =
+    selectedEnrollmentId === null
+      ? null
+      : allEnrollments.find((enrollment) => enrollment.id === selectedEnrollmentId) ?? null;
   const resolvedProfileFormValues: ProfileFormValues = {
     email: profileFormValues?.email ?? profileQuery.data?.email ?? '',
     name: profileFormValues?.name ?? profileQuery.data?.name ?? '',
@@ -332,6 +365,24 @@ const MyPagePage = () => {
       role: profileQuery.data.role,
     });
   }, [profileQuery.data, syncProfileSnapshot]);
+
+  useEffect(() => {
+    if (!selectedEnrollmentId) {
+      setReviewFormValues(DEFAULT_REVIEW_FORM_VALUES);
+      setReviewFormError(null);
+      return;
+    }
+
+    if (!enrollmentDetailQuery.data) {
+      return;
+    }
+
+    setReviewFormValues({
+      content: enrollmentDetailQuery.data.review?.content ?? '',
+      rating: String(enrollmentDetailQuery.data.review?.rating ?? 5),
+    });
+    setReviewFormError(null);
+  }, [enrollmentDetailQuery.data, selectedEnrollmentId]);
 
   const handleCourseTabChange = (nextTab: EnrollmentCourseTabValue) => {
     setCourseTab(nextTab);
@@ -358,6 +409,16 @@ const MyPagePage = () => {
     }
 
     setSearchParams(nextParams);
+  };
+
+  const closeReviewModal = () => {
+    setSelectedEnrollmentId(null);
+    setReviewFormValues(DEFAULT_REVIEW_FORM_VALUES);
+    setReviewFormError(null);
+  };
+
+  const openReviewModal = (enrollmentId: number) => {
+    setSelectedEnrollmentId(enrollmentId);
   };
 
   const handleCertificateDownload = (programTitle: string, completedAt?: string | null) => {
@@ -531,6 +592,98 @@ const MyPagePage = () => {
     },
   });
 
+  const reviewMutation = useMutation({
+    mutationFn: async ({
+      detailReviewId,
+      payload,
+      programId,
+    }: {
+      detailReviewId: number | null;
+      payload: EnrollmentReviewPayload;
+      programId: number;
+    }) => {
+      if (detailReviewId !== null) {
+        await updateMyEnrollmentReview(detailReviewId, payload);
+        return 'update' as const;
+      }
+
+      await createMyEnrollmentReview(programId, payload);
+      return 'create' as const;
+    },
+    onError: (error: unknown) => {
+      showToast({
+        message:
+          error instanceof Error ? error.message : '후기를 저장하지 못했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (mode) => {
+      await queryClient.invalidateQueries({ queryKey: myEnrollmentsQueryKey });
+      if (selectedEnrollmentId !== null) {
+        await queryClient.invalidateQueries({
+          queryKey: myEnrollmentDetailQueryKey(selectedEnrollmentId),
+        });
+      }
+      closeReviewModal();
+      showToast({
+        message: mode === 'update' ? '후기를 수정했습니다.' : '후기를 등록했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const handleReviewSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const detail = enrollmentDetailQuery.data;
+    if (!detail) {
+      setReviewFormError('후기 대상 강의 정보를 불러오지 못했습니다.');
+      return;
+    }
+
+    const rating = Number.parseInt(reviewFormValues.rating, 10);
+    const content = reviewFormValues.content.trim();
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      setReviewFormError('평점은 1점부터 5점 사이로 입력해 주세요.');
+      return;
+    }
+
+    if (content.length === 0) {
+      setReviewFormError('후기 내용을 입력해 주세요.');
+      return;
+    }
+
+    setReviewFormError(null);
+    reviewMutation.mutate({
+      detailReviewId: detail.review?.id ?? null,
+      payload: {
+        content,
+        rating,
+      },
+      programId: detail.programId,
+    });
+  };
+
+  const renderReviewAction = (enrollment: (typeof allEnrollments)[number]) => {
+    if (!enrollment.reviewWritable && !enrollment.reviewWritten) {
+      return null;
+    }
+
+    return (
+      <Button
+        onClick={() => {
+          openReviewModal(enrollment.id);
+        }}
+        size='sm'
+        type='button'
+        variant='secondary'
+      >
+        {enrollment.reviewWritten ? '후기 수정' : '후기 작성'}
+      </Button>
+    );
+  };
+
   const renderLearningCourses = () => {
     const activeCount = activeEnrollments.length;
     const expiredCount = expiredEnrollments.length;
@@ -668,19 +821,22 @@ const MyPagePage = () => {
 
                     {courseTab === 'CERTIFICATE' ? (
                       <div className={styles['courseCardFooter']}>
-                        <Button
-                          onClick={() => {
-                            handleCertificateDownload(
-                              enrollment.programTitle,
-                              enrollment.completedAt ?? enrollment.lastLearningAt,
-                            );
-                          }}
-                          size='sm'
-                          type='button'
-                          variant='secondary'
-                        >
-                          수료증 다운로드
-                        </Button>
+                        <div className={styles['courseActionGroup']}>
+                          <Button
+                            onClick={() => {
+                              handleCertificateDownload(
+                                enrollment.programTitle,
+                                enrollment.completedAt ?? enrollment.lastLearningAt,
+                              );
+                            }}
+                            size='sm'
+                            type='button'
+                            variant='secondary'
+                          >
+                            수료증 다운로드
+                          </Button>
+                          {renderReviewAction(enrollment)}
+                        </div>
                       </div>
                     ) : courseTab === 'EXPIRED' ? (
                       <div className={styles['courseCardFooter']}>
@@ -689,27 +845,24 @@ const MyPagePage = () => {
                             ? '취소된 강의입니다.'
                             : '수강 종료된 강의입니다.'}
                         </p>
+                        {renderReviewAction(enrollment)}
                       </div>
                     ) : (
                       <div className={styles['courseCardFooter']}>
-                        <span className={styles['courseCta']}>이어보기</span>
+                        <div className={styles['courseActionGroup']}>
+                          <Link
+                            className={styles['learningActionLink']}
+                            to={routePaths.learningPlayer(String(enrollment.id))}
+                          >
+                            이어보기
+                          </Link>
+                          {renderReviewAction(enrollment)}
+                        </div>
                       </div>
                     )}
                   </div>
                 </>
               );
-
-              if (courseTab === 'ACTIVE') {
-                return (
-                  <Link
-                    className={styles['courseCardLink']}
-                    key={enrollment.id}
-                    to={routePaths.learningPlayer(String(enrollment.id))}
-                  >
-                    {cardBody}
-                  </Link>
-                );
-              }
 
               return (
                 <article className={styles['courseCard']} key={enrollment.id}>
@@ -1244,6 +1397,104 @@ const MyPagePage = () => {
     }
   };
 
+  const renderReviewModal = () => {
+    if (selectedEnrollmentId === null) {
+      return null;
+    }
+
+    const detail = enrollmentDetailQuery.data;
+    const reviewWritten = Boolean(detail?.reviewWritten);
+    const reviewWritable = Boolean(detail?.reviewWritable);
+    const canManageReview = reviewWritten || reviewWritable;
+    const title = selectedEnrollment?.programTitle ?? detail?.programTitle ?? '강의 후기';
+
+    return (
+      <Modal
+        description={`${title}에 대한 학습 후기를 남겨 주세요.`}
+        onClose={closeReviewModal}
+        title={reviewWritten ? '후기 수정' : '후기 작성'}
+      >
+        {enrollmentDetailQuery.isLoading ? (
+          <p className={sharedStyles['mutedText']}>후기 정보를 불러오는 중입니다.</p>
+        ) : null}
+
+        {enrollmentDetailQuery.isError ? (
+          <p className={styles['errorText']}>
+            {enrollmentDetailQuery.error instanceof Error
+              ? enrollmentDetailQuery.error.message
+              : '후기 정보를 불러오지 못했습니다.'}
+          </p>
+        ) : null}
+
+        {!enrollmentDetailQuery.isLoading && !enrollmentDetailQuery.isError && detail ? (
+          canManageReview ? (
+            <form className={styles['reviewForm']} onSubmit={handleReviewSubmit}>
+              <div className={styles['reviewSummary']}>
+                <strong className={styles['contentTitle']}>{detail.programTitle}</strong>
+                <p className={sharedStyles['mutedText']}>
+                  수강 경험과 도움이 된 포인트를 간단히 정리해 주세요.
+                </p>
+              </div>
+              <div className={styles['reviewFieldGrid']}>
+                <TextField
+                  label='평점'
+                  max={5}
+                  min={1}
+                  name='rating'
+                  onChange={(event) => {
+                    setReviewFormValues((current) => ({
+                      ...current,
+                      rating: event.target.value,
+                    }));
+                  }}
+                  type='number'
+                  value={reviewFormValues.rating}
+                />
+                <TextAreaField
+                  label='후기 내용'
+                  name='content'
+                  onChange={(event) => {
+                    setReviewFormValues((current) => ({
+                      ...current,
+                      content: event.target.value,
+                    }));
+                  }}
+                  rows={6}
+                  value={reviewFormValues.content}
+                />
+              </div>
+              {reviewFormError ? <p className={styles['errorText']}>{reviewFormError}</p> : null}
+              <div className={styles['reviewActionRow']}>
+                <Button onClick={closeReviewModal} type='button' variant='secondary'>
+                  닫기
+                </Button>
+                <Button disabled={reviewMutation.isPending} type='submit'>
+                  {reviewMutation.isPending
+                    ? '저장 중...'
+                    : reviewWritten
+                      ? '후기 수정하기'
+                      : '후기 등록하기'}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className={styles['reviewBlockedState']}>
+              <strong className={styles['contentTitle']}>{detail.programTitle}</strong>
+              <p className={sharedStyles['mutedText']}>
+                후기는 현재 수강 중이거나 이미 작성한 강의에서만 관리할 수 있습니다.
+              </p>
+              <div className={styles['reviewActionRow']}>
+                <Button onClick={closeReviewModal} type='button' variant='secondary'>
+                  닫기
+                </Button>
+              </div>
+            </div>
+          )
+        ) : null}
+      </Modal>
+    );
+  };
+
   return (
     <section className={sharedStyles['page']}>
       <div className={sharedStyles['shell']}>
@@ -1307,6 +1558,7 @@ const MyPagePage = () => {
           </div>
         </div>
       </div>
+      {renderReviewModal()}
     </section>
   );
 };

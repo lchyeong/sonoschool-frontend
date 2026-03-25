@@ -16,13 +16,40 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
-interface PageResponse<T> {
-  content: T[];
+interface PageResponse<TItem> {
+  content: TItem[];
+}
+
+interface RawAdminVideoProgramSummary {
+  categoryName: string;
+  id: number;
+  programType: 'ONLINE' | 'OFFLINE' | 'HYBRID';
+  title: string;
+}
+
+interface RawAdminLectureVideoAssignmentResponse {
+  description: string | null;
+  durationSeconds: number | null;
+  id: number;
+  preview: boolean;
+  published: boolean;
+  sectionId: number;
+  sortOrder: number;
+  title: string;
+  videoId: number | null;
+}
+
+interface RawAdminVideoSectionResponse {
+  description: string | null;
+  id: number;
+  lectures: RawAdminLectureVideoAssignmentResponse[];
+  sortOrder: number;
+  title: string;
 }
 
 export const fetchAdminVideoPrograms = async (): Promise<AdminVideoProgramSummary[]> => {
   try {
-    const response = await axiosInstance.get<ApiEnvelope<PageResponse<AdminVideoProgramSummary>>>(
+    const response = await axiosInstance.get<ApiEnvelope<PageResponse<RawAdminVideoProgramSummary>>>(
       '/api/v1/admin/programs',
       {
         params: {
@@ -34,7 +61,7 @@ export const fetchAdminVideoPrograms = async (): Promise<AdminVideoProgramSummar
     );
     return unwrapApiEnvelope(response.data).content.map((program) => ({
       ...program,
-      id: program.id,
+      id: String(program.id),
     }));
   } catch (error: unknown) {
     throw toApiError(error, '과정 목록을 불러오지 못했습니다.');
@@ -45,16 +72,16 @@ export const fetchAdminProgramLectures = async (
   programId: string,
 ): Promise<AdminVideoSectionResponse[]> => {
   try {
-    const response = await axiosInstance.get<ApiEnvelope<AdminVideoSectionResponse[]>>(
+    const response = await axiosInstance.get<ApiEnvelope<RawAdminVideoSectionResponse[]>>(
       `/api/v1/admin/programs/${encodeURIComponent(programId)}/sections`,
     );
     return unwrapApiEnvelope(response.data).map((section) => ({
       ...section,
-      id: section.id,
+      id: String(section.id),
       lectures: section.lectures.map((lecture) => ({
         ...lecture,
-        id: lecture.id,
-        sectionId: lecture.sectionId,
+        id: String(lecture.id),
+        sectionId: String(lecture.sectionId),
       })),
     }));
   } catch (error: unknown) {
@@ -116,7 +143,7 @@ export const assignAdminLectureVideo = async (
   videoId: number,
 ): Promise<AdminLectureVideoAssignmentResponse> => {
   try {
-    const response = await axiosInstance.put<ApiEnvelope<AdminLectureVideoAssignmentResponse>>(
+    const response = await axiosInstance.put<ApiEnvelope<RawAdminLectureVideoAssignmentResponse>>(
       `/api/v1/admin/lectures/${encodeURIComponent(lectureId)}/video`,
       null,
       {
@@ -126,8 +153,8 @@ export const assignAdminLectureVideo = async (
     const data = unwrapApiEnvelope(response.data);
     return {
       ...data,
-      id: data.id,
-      sectionId: data.sectionId,
+      id: String(data.id),
+      sectionId: String(data.sectionId),
     };
   } catch (error: unknown) {
     throw toApiError(error, '강의에 영상을 연결하지 못했습니다.');

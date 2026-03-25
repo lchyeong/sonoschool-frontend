@@ -25,7 +25,6 @@ const ADMIN_LOGIN_TRIGGER_WINDOW_MS = 2400;
 const footerNavigationItems: readonly FooterNavigationItem[] = [
   { label: '소노스쿨', to: routePaths.home },
   { label: '교육과정', to: routePaths.programs },
-  { label: '교육후기', to: routePaths.reviews },
   { label: '공지사항', to: routePaths.notices },
   { label: 'Q&A', to: routePaths.qna },
   { label: '자료실', to: routePaths.resources },

@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "scope": "GLOBAL",
+      "programId": null,
+      "programTitle": null,
+      "title": "공지사항 제목",
+      "content": "공지사항 본문을 입력하세요.",
+      "pinned": false,
+      "popup": false,
+      "published": true,
+      "visibleStartAt": null,
+      "visibleEndAt": null,
+      "createdAt": "2026-03-25T00:00:00Z",
+      "updatedAt": "2026-03-25T00:00:00Z"
+    }
+  ]
+}

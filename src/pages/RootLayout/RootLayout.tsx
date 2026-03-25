@@ -1,5 +1,6 @@
 import { Link, Outlet, useMatches } from 'react-router-dom';
 
+import GlobalNoticePopup from '@/components/notice/GlobalNoticePopup/GlobalNoticePopup';
 import CommonFooter from '@/components/layout/CommonFooter/CommonFooter';
 import CommonHeader from '@/components/layout/CommonHeader/CommonHeader';
 import { env } from '@/config/env';
@@ -13,6 +14,9 @@ const RootLayout = () => {
   const fullBleedRouteKeys = new Set<AppRouteKey>(['learningLesson']);
   const isFullBleed = matches.some((match) => {
     return Boolean(match.handle && fullBleedRouteKeys.has(match.handle.routeKey));
+  });
+  const shouldRenderNoticePopup = matches.some((match) => {
+    return Boolean(match.handle && match.handle.routeKey === 'home');
   });
 
   return (
@@ -29,6 +33,7 @@ const RootLayout = () => {
       </main>
 
       {!isFullBleed ? <CommonFooter /> : null}
+      {shouldRenderNoticePopup ? <GlobalNoticePopup /> : null}
     </div>
   );
 };

@@ -42,6 +42,23 @@ import {
 import { getMockHomeHeroSlides } from '@/mocks/data/homeHeroSlides';
 import { getMockHomeHistoryTimeline } from '@/mocks/data/homeHistoryTimeline';
 import {
+  createMockNotice,
+  deleteMockNotice,
+  getMockAdminNotices,
+  getMockNoticeById,
+  getMockPublishedGlobalNotices,
+  updateMockNotice,
+} from '@/mocks/data/notices';
+import {
+  createMockAdminReply,
+  createMockGlobalQuestion,
+  createMockProgramQuestion,
+  getMockAdminQuestions,
+  getMockGlobalQuestions,
+  getMockProgramQuestions,
+} from '@/mocks/data/qna';
+import { getMockGlobalResourceDownload, getMockGlobalResources } from '@/mocks/data/resources';
+import {
   getMockPaymentHistory,
   getMockPaymentResult,
   getMockPaymentResultByToken,
@@ -96,8 +113,11 @@ import type { ApiEnvelope, StudentSession } from '@/types/auth';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
 import type { AddToCartPayload } from '@/types/mypage';
+import type { NoticeItem } from '@/types/notice';
 import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
+import type { QuestionCreatePayload, QuestionReplyCreatePayload } from '@/types/qna';
+import type { ResourceDownloadItem, ResourceItem } from '@/types/resource';
 import type { SiteNavigationResponse } from '@/types/siteNavigation';
 
 const unusedAdminProgramMocks = [
@@ -1305,6 +1325,173 @@ export const handlers = [
     const response: SiteNavigationResponse = getMockSiteNavigation();
 
     return HttpResponse.json(response);
+  }),
+  http.get('*/api/v1/notices', () => {
+    return HttpResponse.json(createApiEnvelope(getMockPublishedGlobalNotices()));
+  }),
+  http.get('*/api/v1/qna', () => {
+    return HttpResponse.json(createApiEnvelope(getMockGlobalQuestions()));
+  }),
+  http.get('*/api/v1/resources', () => {
+    const response: ResourceItem[] = getMockGlobalResources();
+
+    return HttpResponse.json(createApiEnvelope(response));
+  }),
+  http.get('*/api/v1/resources/:resourceId/download', ({ params }) => {
+    const resourceId = Number(params['resourceId']);
+    const response: ResourceDownloadItem | null = getMockGlobalResourceDownload(resourceId);
+
+    if (!response) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(response));
+  }),
+  http.post('*/api/v1/qna', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as QuestionCreatePayload | null;
+
+    if (!body || typeof body.title !== 'string' || typeof body.content !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(createMockGlobalQuestion(body)), { status: 201 });
+  }),
+  http.get('*/api/v1/notices/:noticeId', ({ params }) => {
+    const noticeId = Number(params['noticeId']);
+    const notice = getMockNoticeById(noticeId);
+
+    if (!notice || !notice.published) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(notice));
+  }),
+  http.get('*/api/v1/admin/notices', () => {
+    return HttpResponse.json(createApiEnvelope(getMockAdminNotices()));
+  }),
+  http.post('*/api/v1/admin/notices', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Partial<NoticeItem> | null;
+
+    if (
+      !body ||
+      body['scope'] !== 'GLOBAL' ||
+      typeof body['title'] !== 'string' ||
+      typeof body['content'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const notice = createMockNotice({
+      content: body['content'],
+      pinned: Boolean(body['pinned']),
+      popup: Boolean(body['popup']),
+      programId: null,
+      programTitle: null,
+      published: Boolean(body['published']),
+      scope: 'GLOBAL',
+      title: body['title'],
+      visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
+      visibleStartAt:
+        typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
+    });
+
+    return HttpResponse.json(createApiEnvelope(notice), { status: 201 });
+  }),
+  http.put('*/api/v1/admin/notices/:noticeId', async ({ params, request }) => {
+    const noticeId = Number(params['noticeId']);
+    const body = (await request.json().catch(() => null)) as Partial<NoticeItem> | null;
+
+    if (
+      !body ||
+      body['scope'] !== 'GLOBAL' ||
+      typeof body['title'] !== 'string' ||
+      typeof body['content'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const notice = updateMockNotice(noticeId, {
+      content: body['content'],
+      pinned: Boolean(body['pinned']),
+      popup: Boolean(body['popup']),
+      scope: 'GLOBAL',
+      title: body['title'],
+      visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
+      visibleStartAt:
+        typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
+    });
+
+    if (!notice) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(notice));
+  }),
+  http.post('*/api/v1/admin/notices/:noticeId/publish', ({ params }) => {
+    const noticeId = Number(params['noticeId']);
+    const notice = updateMockNotice(noticeId, { published: true });
+
+    if (!notice) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(notice));
+  }),
+  http.post('*/api/v1/admin/notices/:noticeId/unpublish', ({ params }) => {
+    const noticeId = Number(params['noticeId']);
+    const notice = updateMockNotice(noticeId, { published: false });
+
+    if (!notice) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(notice));
+  }),
+  http.delete('*/api/v1/admin/notices/:noticeId', ({ params }) => {
+    const noticeId = Number(params['noticeId']);
+    const deleted = deleteMockNotice(noticeId);
+
+    if (!deleted) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.get('*/api/v1/programs/:programId/questions', ({ params }) => {
+    const programId = Number(params['programId']);
+
+    return HttpResponse.json(createApiEnvelope(getMockProgramQuestions(programId)));
+  }),
+  http.post('*/api/v1/programs/:programId/questions', async ({ params, request }) => {
+    const programId = Number(params['programId']);
+    const body = (await request.json().catch(() => null)) as QuestionCreatePayload | null;
+
+    if (!body || typeof body.title !== 'string' || typeof body.content !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(createMockProgramQuestion(programId, body)), {
+      status: 201,
+    });
+  }),
+  http.get('*/api/v1/admin/qna', () => {
+    return HttpResponse.json(createApiEnvelope(getMockAdminQuestions()));
+  }),
+  http.post('*/api/v1/admin/qna/:questionId/replies', async ({ params, request }) => {
+    const questionId = Number(params['questionId']);
+    const body = (await request.json().catch(() => null)) as QuestionReplyCreatePayload | null;
+
+    if (!body || typeof body.content !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const reply = createMockAdminReply(questionId, body);
+
+    if (!reply) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(reply), { status: 201 });
   }),
   http.get('*/api/v1/home/hero-slides', () => {
     const response: HomeHeroSlidesResponse = getMockHomeHeroSlides();

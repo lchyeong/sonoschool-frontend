@@ -1,7 +1,11 @@
 export type PaymentStatus = 'PENDING' | 'REGISTERED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-export type PaymentMethod = 'CARD' | 'BANK' | 'MOBILE' | 'POINT' | 'GIFT';
+export type CheckoutPaymentMethod = 'CARD';
 export type PaymentMethodValue =
-  | PaymentMethod
+  | CheckoutPaymentMethod
+  | 'BANK'
+  | 'MOBILE'
+  | 'POINT'
+  | 'GIFT'
   | 'BANK_TRANSFER'
   | 'VIRTUAL_ACCOUNT'
   | (string & {});
@@ -10,13 +14,13 @@ export type PaymentOrderType = 'PROGRAM' | 'CART_CHECKOUT';
 export interface PaymentInitiatePayload {
   orderType: 'PROGRAM';
   orderReference: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: CheckoutPaymentMethod;
 }
 
 export interface CheckoutPaymentInitiatePayload {
   cartItemIds: number[];
   selectedCouponId: number | null;
-  paymentMethod: PaymentMethod;
+  paymentMethod: CheckoutPaymentMethod;
 }
 
 export interface KcpPcPrepareResponse {
@@ -73,7 +77,7 @@ export interface MockCheckoutRedirectPayload {
   message: string;
 }
 
-export const paymentMethodLabels: Record<PaymentMethod, string> = {
+export const paymentMethodLabels: Record<'BANK' | 'CARD' | 'GIFT' | 'MOBILE' | 'POINT', string> = {
   BANK: '계좌이체',
   CARD: '카드 결제',
   GIFT: '상품권',
@@ -96,7 +100,7 @@ export const paymentStatusLabels: Record<PaymentStatus, string> = {
 
 export const formatPaymentMethodLabel = (value: PaymentMethodValue): string => {
   if (Object.prototype.hasOwnProperty.call(paymentMethodLabels, value)) {
-    return paymentMethodLabels[value as PaymentMethod];
+    return paymentMethodLabels[value as keyof typeof paymentMethodLabels];
   }
   if (Object.prototype.hasOwnProperty.call(legacyPaymentMethodLabels, value)) {
     return legacyPaymentMethodLabels[value as 'BANK_TRANSFER' | 'VIRTUAL_ACCOUNT'];
@@ -107,26 +111,15 @@ export const formatPaymentMethodLabel = (value: PaymentMethodValue): string => {
 
 export interface PaymentResult {
   id: number;
-  buyerKey: string;
   orderType: PaymentOrderType;
   orderReference: string;
   orderName: string;
   amount: number;
   paymentMethod: PaymentMethodValue;
-  gateway: string;
   gatewayOrderId: string;
-  gatewayTid: string | null;
-  gatewayTraceNo: string | null;
-  gatewayPayType: string | null;
-  gatewayResponseCode: string | null;
   gatewayResponseMessage: string | null;
   approvedAmount: number | null;
   receiptUrl: string | null;
-  easyPayProvider: string | null;
-  easyPayKind: string | null;
-  gatewayServiceCorpId: string | null;
-  gatewayCardOtherPayType: string | null;
-  cashReceiptIssued: string | null;
   status: PaymentStatus;
   requestedAt: string;
   registeredAt: string | null;

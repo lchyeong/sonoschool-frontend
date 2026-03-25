@@ -1,5 +1,5 @@
 import { generatePath } from 'react-router-dom';
-export type AppRouteAccess = 'authenticated' | 'guest-only' | 'public';
+export type AppRouteAccess = 'admin' | 'authenticated' | 'guest-only' | 'public';
 export interface AppRouteHandle {
   routeKey: AppRouteKey;
   access: AppRouteAccess;
@@ -91,49 +91,49 @@ const appLeafRouteDefinitions = {
   }),
   admin: defineStaticRoute({
     key: 'admin',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin',
     absolutePath: '/admin',
   }),
   adminNotices: defineStaticRoute({
     key: 'adminNotices',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/notices',
     absolutePath: '/admin/notices',
   }),
   adminQna: defineStaticRoute({
     key: 'adminQna',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/qna',
     absolutePath: '/admin/qna',
   }),
   adminResources: defineStaticRoute({
     key: 'adminResources',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/resources',
     absolutePath: '/admin/resources',
   }),
   adminReviews: defineStaticRoute({
     key: 'adminReviews',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/reviews',
     absolutePath: '/admin/reviews',
   }),
   adminPrograms: defineStaticRoute({
     key: 'adminPrograms',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/programs',
     absolutePath: '/admin/programs',
   }),
   adminProgramCreate: defineStaticRoute({
     key: 'adminProgramCreate',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/programs/new',
     absolutePath: '/admin/programs/new',
   }),
   adminProgramEdit: defineDynamicRoute({
     key: 'adminProgramEdit',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/programs/:programId/edit',
     absolutePathPattern: '/admin/programs/:programId/edit',
     buildPath: ({ programId }: { programId: string }) => {
@@ -142,7 +142,7 @@ const appLeafRouteDefinitions = {
   }),
   adminProgramDuplicate: defineDynamicRoute({
     key: 'adminProgramDuplicate',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/programs/:sourceProgramId/duplicate',
     absolutePathPattern: '/admin/programs/:sourceProgramId/duplicate',
     buildPath: ({ sourceProgramId }: { sourceProgramId: string }) => {
@@ -151,19 +151,19 @@ const appLeafRouteDefinitions = {
   }),
   adminProgramMenus: defineStaticRoute({
     key: 'adminProgramMenus',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/program-menus',
     absolutePath: '/admin/program-menus',
   }),
   adminVideos: defineStaticRoute({
     key: 'adminVideos',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/videos',
     absolutePath: '/admin/videos',
   }),
   adminPayments: defineStaticRoute({
     key: 'adminPayments',
-    access: 'public',
+    access: 'admin',
     routePath: 'admin/payments',
     absolutePath: '/admin/payments',
   }),
@@ -229,6 +229,15 @@ const appLeafRouteDefinitions = {
     access: 'public',
     routePath: 'notices',
     absolutePath: '/notices',
+  }),
+  noticeDetail: defineDynamicRoute({
+    key: 'noticeDetail',
+    access: 'public',
+    routePath: 'notices/:noticeId',
+    absolutePathPattern: '/notices/:noticeId',
+    buildPath: ({ noticeId }: { noticeId: string }) => {
+      return generatePath('/notices/:noticeId', { noticeId });
+    },
   }),
   reviews: defineStaticRoute({
     key: 'reviews',
@@ -323,6 +332,7 @@ const appChildRouteKeys = [
   'checkout',
   'paymentResult',
   'notices',
+  'noticeDetail',
   'reviews',
   'qna',
   'resources',
@@ -381,6 +391,7 @@ export const routePaths = {
   checkout: routes.checkout.absolutePath,
   paymentResult: routes.paymentResult.absolutePath,
   notices: routes.notices.absolutePath,
+  noticeDetail: (noticeId: string) => routes.noticeDetail.buildPath({ noticeId }),
   reviews: routes.reviews.absolutePath,
   qna: routes.qna.absolutePath,
   resources: routes.resources.absolutePath,

@@ -85,9 +85,7 @@ describe('HomePage', () => {
     renderHomePage();
 
     expect(
-      await screen.findByRole('heading', {
-        name: '임상 초음파 코어 루틴과 국제 자격 준비 집중 과정',
-      }),
+      await screen.findByText('메인 슬라이드를 불러오지 못했습니다.'),
     ).toBeInTheDocument();
     expect(screen.getAllByRole('searchbox', { name: '강의 프로그램 검색' }).length).toBeGreaterThan(
       0,

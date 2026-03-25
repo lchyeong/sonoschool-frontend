@@ -49,6 +49,7 @@ const createSectionRefMap = (): Record<DetailSectionId, HTMLElement | null> => (
   'course-curriculum': null,
   'course-faq': null,
   'course-introduction': null,
+  'course-qna': null,
   'course-reviews': null,
 });
 
@@ -204,6 +205,9 @@ export const useProgramPageDetailViewModel = (
       },
       'course-introduction': (element) => {
         sectionRefs.current['course-introduction'] = element;
+      },
+      'course-qna': (element) => {
+        sectionRefs.current['course-qna'] = element;
       },
       'course-reviews': (element) => {
         sectionRefs.current['course-reviews'] = element;

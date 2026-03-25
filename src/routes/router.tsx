@@ -18,6 +18,7 @@ import HomePage from '@/pages/HomePage/HomePage';
 import LearningPage from '@/pages/LearningPage/LearningPage';
 import LoginPage from '@/pages/LoginPage/LoginPage';
 import MyPagePage from '@/pages/MyPagePage/MyPagePage';
+import NoticeDetailPage from '@/pages/NoticeDetailPage/NoticeDetailPage';
 import NotFoundPage from '@/pages/NotFoundPage/NotFoundPage';
 import NoticesPage from '@/pages/NoticesPage/NoticesPage';
 import PaymentResultPage from '@/pages/PaymentResultPage/PaymentResultPage';
@@ -26,7 +27,6 @@ import ProgramPage from '@/pages/ProgramPage/ProgramPage';
 import ProgramsPage from '@/pages/ProgramsPage/ProgramsPage';
 import QnaPage from '@/pages/QnaPage/QnaPage';
 import ResourcesPage from '@/pages/ResourcesPage/ResourcesPage';
-import ReviewsPage from '@/pages/ReviewsPage/ReviewsPage';
 import RootLayout from '@/pages/RootLayout/RootLayout';
 import RouteErrorPage from '@/pages/RouteErrorPage/RouteErrorPage';
 import SearchPage from '@/pages/SearchPage/SearchPage';
@@ -65,7 +65,8 @@ const appRouteElements: Record<AppRouteKey, ReactElement> = {
   checkout: <CheckoutPage />,
   paymentResult: <PaymentResultPage />,
   notices: <NoticesPage />,
-  reviews: <ReviewsPage />,
+  noticeDetail: <NoticeDetailPage />,
+  reviews: <Navigate replace to={routePaths.programs} />,
   qna: <QnaPage />,
   resources: <ResourcesPage />,
   programs: <ProgramsPage />,
@@ -98,7 +99,7 @@ const RouteAccessBoundary = ({
   access,
   children,
 }: {
-  access: 'authenticated' | 'guest-only' | 'public';
+  access: 'admin' | 'authenticated' | 'guest-only' | 'public';
   children: ReactElement;
 }) => {
   const expiresAt = useAuthStore((state) => state.expiresAt);

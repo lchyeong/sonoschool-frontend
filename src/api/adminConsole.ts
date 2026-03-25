@@ -362,9 +362,10 @@ const adminConsoleResponseSchema = z.object({
 });
 
 const adminLoginResponseSchema = z.object({
-  accessToken: z.string().min(1),
-  tokenType: z.string().min(1),
-  expiresAt: z.string().min(1),
+  status: z.enum(['COMPLETED', 'SMS_REQUIRED']),
+  accessToken: z.string().min(1).nullable().optional(),
+  tokenType: z.string().min(1).nullable().optional(),
+  expiresAt: z.string().min(1).nullable().optional(),
   loginId: z.string().min(1),
   displayName: z.string().min(1),
   role: z.string().min(1),
@@ -589,6 +590,15 @@ export const loginAdmin = async (payload: AdminLoginRequest): Promise<AdminLogin
 
     if (parsed.data.role !== 'ROLE_ADMIN') {
       throw new Error('관리자 권한 계정으로 로그인해 주세요.');
+    }
+
+    if (
+      parsed.data.status !== 'COMPLETED' ||
+      !parsed.data.accessToken ||
+      !parsed.data.tokenType ||
+      !parsed.data.expiresAt
+    ) {
+      throw new Error('관리자 로그인에 실패했습니다. 다시 시도해 주세요.');
     }
 
     return {

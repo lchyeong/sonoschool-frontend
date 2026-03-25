@@ -1,0 +1,33 @@
+{
+  "notice": {
+    "title": "Q&A 상단 공지 제목",
+    "authorName": "관리자",
+    "createdAt": "2026-03-25T00:00:00Z"
+  },
+  "items": [
+    {
+      "id": 1,
+      "scope": "GLOBAL",
+      "programId": null,
+      "programTitle": null,
+      "authorName": "작성자명",
+      "title": "Q&A 질문 제목",
+      "content": "Q&A 질문 본문을 입력하세요.",
+      "mine": false,
+      "answered": true,
+      "createdAt": "2026-03-25T00:00:00Z",
+      "updatedAt": "2026-03-25T00:00:00Z",
+      "replies": [
+        {
+          "id": 101,
+          "authorName": "관리자",
+          "content": "답변 내용을 입력하세요.",
+          "mine": false,
+          "adminReply": true,
+          "createdAt": "2026-03-25T00:00:00Z",
+          "updatedAt": "2026-03-25T00:00:00Z"
+        }
+      ]
+    }
+  ]
+}

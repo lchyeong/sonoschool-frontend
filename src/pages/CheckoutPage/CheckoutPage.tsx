@@ -24,9 +24,9 @@ import sharedStyles from '@/styles/accountPage.module.scss';
 import {
   formatPaymentMethodLabel,
   paymentMethodLabels,
+  type CheckoutPaymentMethod,
   type KcpMobileRegisterResponse,
   type KcpPcPrepareResponse,
-  type PaymentMethod,
 } from '@/types/payment';
 import { calculateSelectedCartPricing } from '@/utils/cartPricing';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
@@ -36,7 +36,16 @@ import { getProgramTypeLabel } from '@/utils/programType';
 import styles from './CheckoutPage.module.scss';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
-const checkoutPaymentMethods: PaymentMethod[] = ['CARD'];
+const checkoutPaymentMethods: CheckoutPaymentMethod[] = ['CARD'];
+const KCP_PAYMENT_VISIBILITY_EVENT = 'sonoschool:kcp-payment-visibility';
+let kcpScrollLockSnapshot:
+  | {
+      bodyOverflow: string;
+      bodyTouchAction: string;
+      htmlOverflow: string;
+      htmlOverscrollBehavior: string;
+    }
+  | null = null;
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
 
@@ -115,29 +124,65 @@ const applyKcpCompletionValues = (form: HTMLFormElement, values: unknown) => {
   }
 };
 
+const ensureKcpWindowHelpers = () => {
+  if (!window.chkAvailablePostMessage) {
+    window.chkAvailablePostMessage = () => {
+      return typeof window.postMessage === 'function' || typeof window.postMessage === 'object';
+    };
+  }
+};
+
+const waitForKcpPaymentScript = async (timeoutMs = 3000): Promise<void> => {
+  if (window.KCP_Pay_Execute_Web) {
+    return;
+  }
+
+  const startedAt = Date.now();
+
+  await new Promise<void>((resolve, reject) => {
+    const pollTimer = window.setInterval(() => {
+      if (window.KCP_Pay_Execute_Web) {
+        window.clearInterval(pollTimer);
+        resolve();
+        return;
+      }
+
+      if (Date.now() - startedAt >= timeoutMs) {
+        window.clearInterval(pollTimer);
+        reject(new Error('KCP 결제 스크립트를 준비하지 못했습니다.'));
+      }
+    }, 50);
+  });
+};
+
 const loadKcpScript = async (jsUrl: string): Promise<void> => {
+  ensureKcpWindowHelpers();
+
   if (window.KCP_Pay_Execute_Web) {
     return;
   }
 
   const existing = document.querySelector<HTMLScriptElement>(`script[src="${jsUrl}"]`);
   if (existing) {
+    if (existing.dataset['loaded'] === 'true') {
+      await waitForKcpPaymentScript();
+      return;
+    }
+
     await new Promise<void>((resolve, reject) => {
-      existing.addEventListener(
-        'load',
-        () => {
-          resolve();
-        },
-        { once: true },
-      );
-      existing.addEventListener(
-        'error',
-        () => {
-          reject(new Error('KCP 스크립트를 불러오지 못했습니다.'));
-        },
-        { once: true },
-      );
+      const handleLoad = () => {
+        existing.dataset['loaded'] = 'true';
+        resolve();
+      };
+      const handleError = () => {
+        reject(new Error('KCP 스크립트를 불러오지 못했습니다.'));
+      };
+
+      existing.addEventListener('load', handleLoad, { once: true });
+      existing.addEventListener('error', handleError, { once: true });
     });
+
+    await waitForKcpPaymentScript();
     return;
   }
 
@@ -146,6 +191,7 @@ const loadKcpScript = async (jsUrl: string): Promise<void> => {
     script.src = jsUrl;
     script.async = true;
     script.onload = () => {
+      script.dataset['loaded'] = 'true';
       resolve();
     };
     script.onerror = () => {
@@ -153,6 +199,8 @@ const loadKcpScript = async (jsUrl: string): Promise<void> => {
     };
     document.head.append(script);
   });
+
+  await waitForKcpPaymentScript();
 };
 
 const buildResultSearch = (params: Record<string, number | string | null | undefined>) => {
@@ -168,8 +216,41 @@ const buildResultSearch = (params: Record<string, number | string | null | undef
   return searchParams.toString();
 };
 
+const setKcpPaymentVisibility = (visible: boolean) => {
+  if (typeof document !== 'undefined') {
+    if (visible) {
+      if (!kcpScrollLockSnapshot) {
+        kcpScrollLockSnapshot = {
+          bodyOverflow: document.body.style.overflow,
+          bodyTouchAction: document.body.style.touchAction,
+          htmlOverflow: document.documentElement.style.overflow,
+          htmlOverscrollBehavior: document.documentElement.style.overscrollBehavior,
+        };
+      }
+
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.overscrollBehavior = 'none';
+    } else if (kcpScrollLockSnapshot) {
+      document.body.style.overflow = kcpScrollLockSnapshot.bodyOverflow;
+      document.body.style.touchAction = kcpScrollLockSnapshot.bodyTouchAction;
+      document.documentElement.style.overflow = kcpScrollLockSnapshot.htmlOverflow;
+      document.documentElement.style.overscrollBehavior =
+        kcpScrollLockSnapshot.htmlOverscrollBehavior;
+      kcpScrollLockSnapshot = null;
+    }
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(KCP_PAYMENT_VISIBILITY_EVENT, {
+      detail: { visible },
+    }),
+  );
+};
+
 const CheckoutPage = () => {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('CARD');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -295,10 +376,12 @@ const CheckoutPage = () => {
         latestPrepareRef.current = null;
         setIsSubmitting(false);
         closeEvent?.();
+        setKcpPaymentVisibility(false);
       }
     };
 
     return () => {
+      setKcpPaymentVisibility(false);
       delete window.jsf__pay;
       delete window.m_Completepayment;
     };
@@ -349,9 +432,11 @@ const CheckoutPage = () => {
         throw new Error('KCP 결제창을 준비하지 못했습니다.');
       }
 
+      setKcpPaymentVisibility(true);
       window.jsf__pay(form);
     } catch (error: unknown) {
       latestPrepareRef.current = null;
+      setKcpPaymentVisibility(false);
       setIsSubmitting(false);
       showToast({
         message: error instanceof Error ? error.message : '결제 준비에 실패했습니다.',

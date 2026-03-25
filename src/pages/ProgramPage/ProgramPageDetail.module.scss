@@ -825,6 +825,139 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
+.qnaSectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.qnaSectionDescription,
+.qnaSectionMeta,
+.qnaFormHint,
+.qnaCardMeta,
+.qnaReplyCardContent,
+.qnaEmptyState {
+  margin: 0;
+}
+
+.qnaSectionDescription,
+.qnaFormHint,
+.qnaCardMeta,
+.qnaReplyCardContent,
+.qnaEmptyState {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.qnaSectionMeta {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.qnaForm,
+.qnaList,
+.qnaReplies {
+  display: grid;
+  gap: 16px;
+}
+
+.qnaForm {
+  margin-bottom: 24px;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #f9fafb;
+}
+
+.qnaFormActionRow,
+.qnaCardHeader,
+.qnaReplyCardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.qnaCard {
+  display: grid;
+  gap: 16px;
+  padding: 24px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.qnaCardTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.qnaCardStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.qnaCardStatus[data-tone='waiting'] {
+  border-color: #f59e0b;
+  background: #fff7ed;
+  color: #b45309;
+}
+
+.qnaCardStatus[data-tone='answered'] {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.qnaCardContent {
+  margin: 0;
+  color: #111827;
+  font-size: 16px;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.qnaReplyCard {
+  display: grid;
+  gap: 10px;
+  padding: 16px 20px;
+  border-left: 3px solid var(--color-brand-lighten-25);
+  border-radius: 16px;
+  background: var(--color-brand-lighten-50);
+}
+
+.qnaReplyCardAuthor {
+  color: var(--color-brand-darken-15);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.qnaReplyCardBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid rgba(49, 77, 204, 0.12);
+  border-radius: 999px;
+  color: var(--color-brand-darken-10);
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(49, 77, 204, 0.06);
+}
+
 .fullReviewDate {
   color: #9ca3af;
   font-size: 14px;

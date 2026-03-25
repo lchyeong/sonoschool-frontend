@@ -448,6 +448,9 @@ export const AdminPaymentsSection = () => {
 
               {selectedPayment.canCancel ? (
                 <div className={styles['replyComposer']}>
+                  <p className={styles['helperText']}>
+                    결제 취소를 실행하면 KCP 취소 요청과 내부 수강 취소가 함께 진행됩니다.
+                  </p>
                   <TextAreaField
                     label='취소 사유'
                     name='cancelReason'
