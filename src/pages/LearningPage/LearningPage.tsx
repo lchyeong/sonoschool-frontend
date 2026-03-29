@@ -6,7 +6,7 @@ import { useMyLearningPlayerSnapshotQuery } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import sharedStyles from '@/styles/accountPage.module.scss';
 
-import { flattenLessons, getDefaultLessonId } from './learningShared';
+import { flattenPlayerItems, getDefaultPlayerItemId } from './learningShared';
 
 const LearningPage = () => {
   const params = useParams<{ enrollmentId: string }>();
@@ -16,12 +16,12 @@ const LearningPage = () => {
     isValidEnrollmentId ? resolvedEnrollmentId : null,
     isValidEnrollmentId,
   );
-  const lessons = useMemo(
-    () => flattenLessons(playerSnapshotQuery.data?.curriculumTrack.sections ?? []),
+  const playerItems = useMemo(
+    () => flattenPlayerItems(playerSnapshotQuery.data?.curriculumTrack.sections ?? []),
     [playerSnapshotQuery.data?.curriculumTrack.sections],
   );
   const enrollmentState = playerSnapshotQuery.data?.enrollment;
-  const nextLessonId = getDefaultLessonId(playerSnapshotQuery.data, lessons);
+  const nextItemId = getDefaultPlayerItemId(playerSnapshotQuery.data, playerItems);
   const isLoading = playerSnapshotQuery.isLoading;
   const hasError = playerSnapshotQuery.isError;
   const errorMessage =
@@ -41,12 +41,9 @@ const LearningPage = () => {
     return <p className={sharedStyles['mutedText']}>{errorMessage}</p>;
   }
 
-  if (enrollmentState?.active && nextLessonId) {
+  if (enrollmentState?.active && nextItemId) {
     return (
-      <Navigate
-        replace
-        to={routePaths.learningLesson(String(resolvedEnrollmentId), nextLessonId)}
-      />
+      <Navigate replace to={routePaths.learningLesson(String(resolvedEnrollmentId), nextItemId)} />
     );
   }
 

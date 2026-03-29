@@ -93,12 +93,39 @@ describe('router layouts', () => {
       await screen.findByRole('heading', { level: 1, name: '공지사항 관리' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: '관리자 메뉴' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '팝업' })).toHaveAttribute('href', '/admin/popups');
     expect(screen.queryByRole('img', { name: env.appName })).not.toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: '푸터 메뉴' })).not.toBeInTheDocument();
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
   });
 
-  it('keeps the lecture management navigation active on nested admin lecture editor routes', async () => {
+  it('renders the admin dashboard on /admin and hides unfinished review navigation', async () => {
+    useAdminAuthStore.setState({
+      accessToken: 'admin-token',
+      adminDisplayName: '소노스쿨 운영 관리자',
+      expiresAt: ACTIVE_SESSION_EXPIRES_AT,
+      isAuthenticated: true,
+      loginId: 'admin',
+      role: 'ROLE_ADMIN',
+      tokenType: 'Bearer',
+    });
+
+    const queryClient = createTestQueryClient();
+    const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
+      initialEntries: ['/admin'],
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('heading', { level: 1, name: '운영 개요' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '교육후기' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the program management navigation active on nested admin program editor routes', async () => {
     useAdminAuthStore.setState({
       accessToken: 'admin-token',
       adminDisplayName: '소노스쿨 운영 관리자',
@@ -121,9 +148,9 @@ describe('router layouts', () => {
     );
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 수정' }),
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 기본정보' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /강의 관리/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /프로그램 관리/i })).toHaveAttribute(
       'aria-current',
       'page',
     );

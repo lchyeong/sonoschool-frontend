@@ -274,6 +274,14 @@
   background: transparent;
 }
 
+.playerPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
 .playerOverlay,
 .playerErrorBanner {
   position: absolute;
@@ -319,6 +327,13 @@
   margin: 0;
   color: rgb(191 209 220);
   font-size: var(--font-size-xs);
+}
+
+.playerPlaceholderDescription {
+  margin: 0;
+  color: rgb(219 231 239);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
 }
 
 .playerErrorBanner {
@@ -681,6 +696,12 @@
   background: rgb(231 248 244);
 }
 
+.lessonLinkQuiz {
+  margin-left: 18px;
+  border-style: dashed;
+  background: rgb(246 250 252);
+}
+
 .lessonStatusIcon {
   width: 18px;
   height: 18px;
@@ -693,6 +714,10 @@
 .lessonStatusIconCurrent {
   border-color: var(--color-primary);
   box-shadow: inset 0 0 0 4px var(--color-primary);
+}
+
+.lessonStatusIconQuiz {
+  border-style: dashed;
 }
 
 .lessonStatusIconCompleted {
@@ -730,7 +755,25 @@
 .lessonLinkMeta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.lessonQuizBadge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(143, 168, 191, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.18rem 0.45rem;
+  color: rgb(219 231 239);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.lessonQuizBadgeCompleted {
+  border-color: rgba(14, 111, 77, 0.22);
+  background: rgba(14, 111, 77, 0.14);
+  color: #75d0ad;
 }
 
 .blockedCard {
@@ -747,6 +790,279 @@
   color: rgb(252 165 165);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+}
+
+.practicumCard {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  border: 1px solid rgba(240, 201, 129, 0.3);
+  background: rgba(255, 248, 236, 0.96);
+  padding: 1rem 1.25rem;
+  color: #38220f;
+}
+
+.practicumHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.practicumTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.practicumDescription {
+  margin: 0.35rem 0 0;
+  color: rgba(56, 34, 15, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.practicumMutedText {
+  margin: 0;
+  color: rgba(56, 34, 15, 0.72);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.practicumErrorText {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.practicumCurrentReservation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  border: 1px solid rgba(56, 34, 15, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.9rem 1rem;
+}
+
+.practicumCurrentTitle {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.practicumCurrentMeta {
+  margin: 0.22rem 0 0;
+  color: rgba(56, 34, 15, 0.72);
+  font-size: 0.88rem;
+}
+
+.practicumSlotList {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.practicumSlotRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  border: 1px solid rgba(56, 34, 15, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+  padding: 0.85rem 1rem;
+}
+
+.practicumSlotTime {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.practicumSlotMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  margin-top: 0.3rem;
+  color: rgba(56, 34, 15, 0.72);
+  font-size: 0.85rem;
+}
+
+.practicumReservedBadge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(14, 111, 77, 0.22);
+  background: rgba(14, 111, 77, 0.12);
+  padding: 0.4rem 0.7rem;
+  color: #0e6f4d;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.quizWorkspace {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(143, 168, 191, 0.24);
+  border-radius: 26px;
+  background: rgba(16, 28, 40, 0.92);
+  padding: 1.25rem;
+}
+
+.quizWorkspaceHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.quizDescription {
+  margin: 0.35rem 0 0;
+  color: rgb(191 209 220);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.quizMutedText,
+.quizSummaryMeta,
+.quizResultMeta,
+.quizResultExplanation {
+  margin: 0;
+  color: rgb(191 209 220);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.quizErrorText {
+  margin: 0;
+  color: rgb(252 165 165);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.quizSummary,
+.quizResultCard {
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid rgba(143, 168, 191, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1rem;
+}
+
+.quizSummaryTitle,
+.quizResultTitle {
+  display: block;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.quizQuestionList,
+.quizResultList {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.quizQuestionCard,
+.quizResultItem {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid rgba(143, 168, 191, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1rem;
+}
+
+.quizQuestionHeader,
+.quizResultHeader,
+.quizResultItemHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.quizQuestionTitle,
+.quizResultQuestion {
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.quizQuestionType,
+.quizResultBadge,
+.quizResultState {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(143, 168, 191, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.3rem 0.6rem;
+  color: rgb(219 231 239);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.quizResultBadgePassed,
+.quizResultStateCorrect {
+  border-color: rgba(14, 111, 77, 0.22);
+  background: rgba(14, 111, 77, 0.14);
+  color: #75d0ad;
+}
+
+.quizOptionList {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.quizMediaImage,
+.quizOptionMedia {
+  border-radius: 18px;
+  max-width: 100%;
+  object-fit: cover;
+}
+
+.quizMediaImage {
+  max-height: 340px;
+}
+
+.quizOptionContent {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.quizOptionMedia {
+  max-height: 220px;
+}
+
+.quizOptionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: 1px solid rgba(143, 168, 191, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.8rem 0.9rem;
+  color: rgb(219 231 239);
+}
+
+.quizOptionRowSelected {
+  border-color: rgba(94, 234, 212, 0.32);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.quizOptionRow input {
+  margin-top: 0.2rem;
+}
+
+.quizOptionLabel {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.quizActionRow {
+  display: flex;
+  justify-content: flex-start;
 }
 
 @media (width < 1180px) {

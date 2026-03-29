@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -25,7 +25,7 @@ interface AdminConsolePageHeaderProps {
 }
 
 interface DeferredSectionProps {
-  section: Extract<AdminConsoleSection, 'notices' | 'qna' | 'resources' | 'reviews'>;
+  section: Extract<AdminConsoleSection, 'reviews'>;
 }
 
 const formatDateTime = (value: string | null): string => {
@@ -58,19 +58,8 @@ const formatOrderTypeLabel = (value: string): string => {
   }
 };
 
-const getDeferredDescription = (section: DeferredSectionProps['section']): string => {
-  switch (section) {
-    case 'notices':
-      return '공지사항은 공개 범위와 게시 정책을 운영 기준으로 다시 정리한 뒤 2차로 연결합니다.';
-    case 'qna':
-      return '문의 답변은 공개 페이지 정책과 관리자 응답 흐름을 확정한 뒤 실제 API를 추가합니다.';
-    case 'resources':
-      return '자료실은 파일 업로드 정책과 다운로드 권한 구조를 정리한 뒤 연결합니다.';
-    case 'reviews':
-      return '교육후기 운영 화면은 게시 정책과 공개 구조를 정리한 뒤 후속 연동합니다.';
-    default:
-      return '후속 구현 예정 메뉴입니다.';
-  }
+const getDeferredDescription = (_section: DeferredSectionProps['section']): string => {
+  return '교육후기 운영 화면은 게시 정책과 공개 구조를 정리한 뒤 별도 관리자 페이지로 연결합니다.';
 };
 
 export const AdminConsolePageHeader = ({ section }: AdminConsolePageHeaderProps) => {
@@ -78,11 +67,7 @@ export const AdminConsolePageHeader = ({ section }: AdminConsolePageHeaderProps)
 
   return (
     <header className={styles['pageHeader']}>
-      {sectionMeta.eyebrow ? <p className={styles['pageEyebrow']}>{sectionMeta.eyebrow}</p> : null}
       <h1 className={styles['pageTitle']}>{sectionMeta.title}</h1>
-      {sectionMeta.description ? (
-        <p className={styles['pageDescription']}>{sectionMeta.description}</p>
-      ) : null}
     </header>
   );
 };
@@ -93,11 +78,11 @@ export const AdminDashboardSection = () => {
 
   const summaryCards = [
     {
-      description: '실제 관리자 강의 목록과 편집 화면을 기준으로 운영합니다.',
+      description: '실제 관리자 프로그램 목록과 편집 화면을 기준으로 운영합니다.',
       id: 'programs',
-      label: '강의 관리',
+      label: '프로그램 관리',
       tone: 'brand',
-      value: programsQuery.data ? `${String(programsQuery.data.length)}개` : '확인 중',
+      value: programsQuery.data ? `${String(programsQuery.data.length)}개 프로그램` : '확인 중',
     },
     {
       description: '결제 상태, 취소 이력, 영수증 확인에 필요한 최소 정보만 노출합니다.',
@@ -114,26 +99,59 @@ export const AdminDashboardSection = () => {
       value: '실연동',
     },
     {
-      description: '공지사항, Q&A, 자료실은 보안과 운영 정책을 정리한 뒤 이어서 구현합니다.',
-      id: 'deferred',
-      label: '후속 구현',
+      description: '리뷰 운영 화면이 다음 구현 대상으로 남아 있습니다.',
+      id: 'gaps',
+      label: '추가 구현',
       tone: 'neutral',
-      value: '3개 메뉴',
+      value: '1개 과제',
     },
   ] as const;
 
   const dashboardShortcutItems = [
     {
-      countLabel: programsQuery.data ? `${String(programsQuery.data.length)}개 강의` : '확인 중',
-      description: '강의 등록, 수정, 공개 상태를 실제 데이터로 관리합니다.',
-      title: '강의 관리',
+      countLabel: programsQuery.data
+        ? `${String(programsQuery.data.length)}개 프로그램`
+        : '확인 중',
+      description:
+        '프로그램 등록, 기본정보, 커리큘럼, 퀴즈와 공개 상태를 실제 데이터로 관리합니다.',
+      title: '프로그램 관리',
       to: routePaths.adminPrograms,
     },
     {
       countLabel: '구조 관리',
-      description: '공개 카테고리 구조와 강의 배치를 같은 데이터로 관리합니다.',
-      title: '강의 카테고리 관리',
+      description: '공개 카테고리 구조와 프로그램 배치를 같은 데이터로 관리합니다.',
+      title: '프로그램 카테고리 관리',
       to: routePaths.adminProgramMenus,
+    },
+    {
+      countLabel: '실연동',
+      description: '공지 등록, 수정, 게시, 게시중지를 실제 공지 API 기준으로 처리합니다.',
+      title: '공지사항 관리',
+      to: routePaths.adminNotices,
+    },
+    {
+      countLabel: '실연동',
+      description: '홈 팝업 노출용 항목을 공지와 분리해 별도 목록과 게시 흐름으로 관리합니다.',
+      title: '팝업 관리',
+      to: routePaths.adminPopups,
+    },
+    {
+      countLabel: '실연동',
+      description: '질문 확인, 답변 등록, 답변 삭제까지 운영 흐름을 바로 처리합니다.',
+      title: 'Q&A 관리',
+      to: routePaths.adminQna,
+    },
+    {
+      countLabel: '분류 마스터',
+      description: '프로그램 태그 마스터를 만들고 활성/비활성 상태를 관리합니다.',
+      title: '태그 관리',
+      to: routePaths.adminTags,
+    },
+    {
+      countLabel: '실연동',
+      description: '쿠폰 등록, 수정, 활성화와 비활성화를 실제 쿠폰 API로 관리합니다.',
+      title: '쿠폰 관리',
+      to: routePaths.adminCoupons,
     },
     {
       countLabel: '업로드 가능',
@@ -148,16 +166,22 @@ export const AdminDashboardSection = () => {
       to: routePaths.adminPayments,
     },
     {
-      countLabel: '후속 구현',
-      description: '공지사항 등록과 공지 공개 정책을 실제 운영 흐름에 맞춰 후속 구현합니다.',
-      title: '공지사항 관리',
-      to: routePaths.adminNotices,
+      countLabel: '실연동',
+      description: '자료 목록, 범위, 공개 범위를 실제 자료 API 기준으로 관리합니다.',
+      title: '자료실 관리',
+      to: routePaths.adminResources,
     },
     {
-      countLabel: '후속 구현',
-      description: '문의 응답과 자료실은 운영 정책을 정리한 뒤 실제 연동합니다.',
-      title: 'Q&A / 자료실',
-      to: routePaths.adminQna,
+      countLabel: '운영 실행',
+      description: '회원과 수강 현황을 확인하고 수동 배정과 만료 정리를 운영합니다.',
+      title: '수강관리',
+      to: routePaths.adminEnrollments,
+    },
+    {
+      countLabel: '시간 운영',
+      description: '하이브리드 실습 예약, 예약 제외 시간, 예약자 상태를 달력 기준으로 운영합니다.',
+      title: '실습일정관리',
+      to: routePaths.adminPracticum,
     },
   ] as const;
 
@@ -167,7 +191,8 @@ export const AdminDashboardSection = () => {
         <div className={styles['heroCopy']}>
           <h1 className={styles['title']}>운영 개요</h1>
           <p className={styles['description']}>
-            실제 연동된 강의, 영상, 결제 관리 흐름을 기준으로 운영 상태를 확인합니다.
+            공지, 문의, 프로그램, 자료, 수강, 영상, 결제 관리의 현재 운영 상태를 한곳에서
+            확인합니다.
           </p>
         </div>
       </header>
@@ -216,29 +241,27 @@ export const AdminPaymentsSection = () => {
   const paymentsQuery = useAdminPaymentsQuery();
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState('');
-
-  useEffect(() => {
-    const nextPaymentId = paymentsQuery.data?.[0]?.paymentId ?? null;
-
-    if (selectedPaymentId !== null && paymentsQuery.data?.some((item) => item.paymentId === selectedPaymentId)) {
-      return;
+  const paymentItems = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
+  const resolvedSelectedPaymentId = useMemo(() => {
+    if (
+      selectedPaymentId !== null &&
+      paymentItems.some((item) => item.paymentId === selectedPaymentId)
+    ) {
+      return selectedPaymentId;
     }
 
-    setSelectedPaymentId(nextPaymentId);
-  }, [paymentsQuery.data, selectedPaymentId]);
-
-  const detailQuery = useAdminPaymentDetailQuery(selectedPaymentId);
+    return paymentItems[0]?.paymentId ?? null;
+  }, [paymentItems, selectedPaymentId]);
+  const detailQuery = useAdminPaymentDetailQuery(resolvedSelectedPaymentId);
 
   const paymentSummary = useMemo(() => {
-    const items = paymentsQuery.data ?? [];
-
     return {
-      cancelledCount: items.filter((item) => item.status === 'CANCELLED').length,
-      completedCount: items.filter((item) => item.status === 'COMPLETED').length,
-      failedCount: items.filter((item) => item.status === 'FAILED').length,
-      totalCount: items.length,
+      cancelledCount: paymentItems.filter((item) => item.status === 'CANCELLED').length,
+      completedCount: paymentItems.filter((item) => item.status === 'COMPLETED').length,
+      failedCount: paymentItems.filter((item) => item.status === 'FAILED').length,
+      totalCount: paymentItems.length,
     };
-  }, [paymentsQuery.data]);
+  }, [paymentItems]);
 
   const cancelMutation = useMutation({
     mutationFn: ({ paymentId, reason }: { paymentId: number; reason: string }) =>
@@ -253,7 +276,9 @@ export const AdminPaymentsSection = () => {
       setCancelReason('');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: adminPaymentsQueryKey() }),
-        queryClient.invalidateQueries({ queryKey: adminPaymentDetailQueryKey(variables.paymentId) }),
+        queryClient.invalidateQueries({
+          queryKey: adminPaymentDetailQueryKey(variables.paymentId),
+        }),
       ]);
       showToast({
         message: '결제 취소 처리를 반영했습니다.',
@@ -263,10 +288,6 @@ export const AdminPaymentsSection = () => {
   });
 
   const handleCancel = () => {
-    if (selectedPaymentId === null) {
-      return;
-    }
-
     if (!cancelReason.trim()) {
       showToast({
         message: '취소 사유를 입력해 주세요.',
@@ -276,7 +297,7 @@ export const AdminPaymentsSection = () => {
     }
 
     cancelMutation.mutate({
-      paymentId: selectedPaymentId,
+      paymentId: resolvedSelectedPaymentId,
       reason: cancelReason.trim(),
     });
   };
@@ -305,7 +326,7 @@ export const AdminPaymentsSection = () => {
     );
   }
 
-  if (!paymentsQuery.data?.length) {
+  if (paymentItems.length === 0) {
     return (
       <section className={styles['stateSection']}>
         <h2 className={styles['stateTitle']}>표시할 결제 내역이 없습니다.</h2>
@@ -354,7 +375,7 @@ export const AdminPaymentsSection = () => {
             </tr>
           </thead>
           <tbody>
-            {paymentsQuery.data.map((payment) => {
+            {paymentItems.map((payment) => {
               const processedAt = payment.cancelledAt ?? payment.paidAt ?? null;
 
               return (
@@ -390,85 +411,83 @@ export const AdminPaymentsSection = () => {
         </table>
       </div>
 
-      {selectedPaymentId !== null ? (
-        <div className={styles['replyCard']}>
-          <p className={styles['replyLabel']}>결제 상세</p>
+      <div className={styles['replyCard']}>
+        <p className={styles['replyLabel']}>결제 상세</p>
 
-          {detailQuery.isPending ? (
-            <p className={styles['itemDescription']}>결제 상세를 불러오는 중입니다.</p>
-          ) : null}
+        {detailQuery.isPending ? (
+          <p className={styles['itemDescription']}>결제 상세를 불러오는 중입니다.</p>
+        ) : null}
 
-          {detailQuery.isError ? (
+        {detailQuery.isError ? (
+          <p className={styles['itemDescription']}>
+            {detailQuery.error instanceof Error
+              ? detailQuery.error.message
+              : '결제 상세를 불러오지 못했습니다.'}
+          </p>
+        ) : null}
+
+        {selectedPayment ? (
+          <>
+            <p className={styles['itemTitle']}>{selectedPayment.orderName}</p>
+            <div className={styles['metaRow']}>
+              <span className={styles['badge']}>
+                {formatOrderTypeLabel(selectedPayment.orderType)}
+              </span>
+              <span className={styles['badgeAccent']}>
+                {paymentStatusLabels[selectedPayment.status]}
+              </span>
+              <span className={styles['metaText']}>
+                {selectedPayment.buyerDisplayName} · {selectedPayment.buyerLoginId}
+              </span>
+            </div>
             <p className={styles['itemDescription']}>
-              {detailQuery.error instanceof Error
-                ? detailQuery.error.message
-                : '결제 상세를 불러오지 못했습니다.'}
+              결제 수단 {formatPaymentMethodLabel(selectedPayment.paymentMethod)} · 결제 금액{' '}
+              {formatCurrency(selectedPayment.approvedAmount ?? selectedPayment.amount)}
             </p>
-          ) : null}
+            <p className={styles['itemDescription']}>
+              요청일 {formatDateTime(selectedPayment.requestedAt)} · 완료일{' '}
+              {formatDateTime(selectedPayment.paidAt)} · 취소일{' '}
+              {formatDateTime(selectedPayment.cancelledAt)}
+            </p>
+            {selectedPayment.cancelReason ? (
+              <p className={styles['itemDescription']}>취소 사유: {selectedPayment.cancelReason}</p>
+            ) : null}
 
-          {selectedPayment ? (
-            <>
-              <p className={styles['itemTitle']}>{selectedPayment.orderName}</p>
-              <div className={styles['metaRow']}>
-                <span className={styles['badge']}>{formatOrderTypeLabel(selectedPayment.orderType)}</span>
-                <span className={styles['badgeAccent']}>
-                  {paymentStatusLabels[selectedPayment.status]}
-                </span>
-                <span className={styles['metaText']}>
-                  {selectedPayment.buyerDisplayName} · {selectedPayment.buyerLoginId}
-                </span>
-              </div>
-              <p className={styles['itemDescription']}>
-                결제 수단 {formatPaymentMethodLabel(selectedPayment.paymentMethod)} · 결제 금액{' '}
-                {formatCurrency(selectedPayment.approvedAmount ?? selectedPayment.amount)}
-              </p>
-              <p className={styles['itemDescription']}>
-                요청일 {formatDateTime(selectedPayment.requestedAt)} · 완료일{' '}
-                {formatDateTime(selectedPayment.paidAt)} · 취소일{' '}
-                {formatDateTime(selectedPayment.cancelledAt)}
-              </p>
-              {selectedPayment.cancelReason ? (
-                <p className={styles['itemDescription']}>
-                  취소 사유: {selectedPayment.cancelReason}
+            <div className={styles['actionRow']}>
+              {selectedPayment.receiptUrl ? (
+                <a
+                  className={styles['tableActionButton']}
+                  href={selectedPayment.receiptUrl}
+                  rel='noreferrer'
+                  target='_blank'
+                >
+                  영수증 보기
+                </a>
+              ) : null}
+            </div>
+
+            {selectedPayment.canCancel ? (
+              <div className={styles['replyComposer']}>
+                <p className={styles['helperText']}>
+                  결제 취소를 실행하면 KCP 취소 요청과 내부 수강 취소가 함께 진행됩니다.
                 </p>
-              ) : null}
-
-              <div className={styles['actionRow']}>
-                {selectedPayment.receiptUrl ? (
-                  <a
-                    className={styles['tableActionButton']}
-                    href={selectedPayment.receiptUrl}
-                    rel='noreferrer'
-                    target='_blank'
-                  >
-                    영수증 보기
-                  </a>
-                ) : null}
+                <TextAreaField
+                  label='취소 사유'
+                  name='cancelReason'
+                  onChange={(event) => {
+                    setCancelReason(event.target.value);
+                  }}
+                  placeholder='예: 사용자 요청 취소'
+                  value={cancelReason}
+                />
+                <Button disabled={cancelMutation.isPending} onClick={handleCancel} type='button'>
+                  {cancelMutation.isPending ? '취소 처리 중...' : '결제 취소 처리'}
+                </Button>
               </div>
-
-              {selectedPayment.canCancel ? (
-                <div className={styles['replyComposer']}>
-                  <p className={styles['helperText']}>
-                    결제 취소를 실행하면 KCP 취소 요청과 내부 수강 취소가 함께 진행됩니다.
-                  </p>
-                  <TextAreaField
-                    label='취소 사유'
-                    name='cancelReason'
-                    onChange={(event) => {
-                      setCancelReason(event.target.value);
-                    }}
-                    placeholder='예: 사용자 요청 취소'
-                    value={cancelReason}
-                  />
-                  <Button disabled={cancelMutation.isPending} onClick={handleCancel} type='button'>
-                    {cancelMutation.isPending ? '취소 처리 중...' : '결제 취소 처리'}
-                  </Button>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-      ) : null}
+            ) : null}
+          </>
+        ) : null}
+      </div>
     </section>
   );
 };

@@ -4,68 +4,11 @@ import type {
   ProgramInfoItem,
 } from '@/types/programCatalog';
 
-export type AdminSummaryTone = 'brand' | 'accent' | 'neutral' | 'danger';
-export type AdminNoticeCategory = '운영' | '학사' | '이벤트';
-export type AdminQnaStatus = 'waiting' | 'answered';
-export type AdminResourceVisibility = 'public' | 'students-only';
 export type AdminProgramFormat = 'online' | 'offline' | 'hybrid';
 export type AdminProgramStatus = 'draft' | 'published' | 'hidden';
 export type AdminProgramOrigin = 'managed' | 'site';
 export type AdminProgramAccessPolicy = 'cohort' | 'limited-window' | 'unlimited';
 export type AdminProgramMenuStatus = 'published' | 'hidden';
-export type AdminReviewStatus = 'published' | 'draft';
-
-export interface AdminSummaryCard {
-  id: string;
-  label: string;
-  value: string;
-  description: string;
-  tone: AdminSummaryTone;
-}
-
-export interface AdminNoticeItem {
-  id: string;
-  category: AdminNoticeCategory;
-  title: string;
-  isPinned: boolean;
-  publishedAt: string;
-  status: 'published' | 'scheduled';
-}
-
-export interface AdminQnaReply {
-  authorName: string;
-  content: string;
-  repliedAt: string;
-}
-
-export interface AdminQnaThread {
-  id: string;
-  category: string;
-  authorName: string;
-  question: string;
-  submittedAt: string;
-  status: AdminQnaStatus;
-  reply?: AdminQnaReply | undefined;
-}
-
-export interface AdminResourceItem {
-  id: string;
-  title: string;
-  description: string;
-  attachmentName: string;
-  attachmentSizeLabel: string;
-  publishedAt: string;
-  visibility: AdminResourceVisibility;
-}
-
-export interface AdminReviewItem {
-  id: string;
-  title: string;
-  summary: string;
-  educatorName: string;
-  publishedAt: string;
-  status: AdminReviewStatus;
-}
 
 export interface AdminProgramItem {
   id: string;
@@ -246,77 +189,6 @@ export interface AdminProgramMenuDetailResponse {
   siblingIndex: number;
 }
 
-export interface AdminSalesOverview {
-  grossRevenueLabel: string;
-  monthlyRevenueLabel: string;
-  totalOrdersLabel: string;
-  bestSellerTitle: string;
-}
-
-export interface AdminSalesRow {
-  id: string;
-  programTitle: string;
-  format: AdminProgramFormat;
-  status: AdminProgramStatus;
-  soldCount: number;
-  monthlySoldCount: number;
-  totalRevenueLabel: string;
-  monthlyRevenueLabel: string;
-  remainingSeatsLabel: string;
-}
-
-export interface AdminConsoleResponse {
-  adminDisplayName: string;
-  summaryCards: AdminSummaryCard[];
-  notices: AdminNoticeItem[];
-  programMenus: AdminProgramMenuItem[];
-  qnaThreads: AdminQnaThread[];
-  resources: AdminResourceItem[];
-  reviewPosts: AdminReviewItem[];
-  programCollectionOptions: AdminProgramCollectionOption[];
-  managedPrograms: AdminProgramDetailItem[];
-  programs: AdminProgramItem[];
-  salesOverview: AdminSalesOverview;
-  salesRows: AdminSalesRow[];
-}
-
-export interface AdminLoginRequest {
-  identifier: string;
-  password: string;
-}
-
-export interface AdminLoginResponse {
-  accessToken: string;
-  tokenType: string;
-  expiresAt: string;
-  loginId: string;
-  adminDisplayName: string;
-  role: string;
-}
-
-export interface CreateAdminNoticePayload {
-  category: AdminNoticeCategory;
-  isPinned: boolean;
-  title: string;
-}
-
-export interface ReplyAdminQnaPayload {
-  content: string;
-}
-
-export interface CreateAdminResourcePayload {
-  attachmentName: string;
-  attachmentSizeLabel: string;
-  description: string;
-  title: string;
-  visibility: AdminResourceVisibility;
-}
-
-export interface CreateAdminReviewPayload {
-  summary: string;
-  title: string;
-}
-
 export interface UpsertAdminProgramPayload {
   parentCollectionPath: string;
   capacity: number | null;
@@ -360,10 +232,6 @@ export interface CreateAdminProgramDraftPayload {
   slug: string;
   sourceProgramId: string | null;
   title: string;
-}
-
-export interface CreateAdminProgramDraftResponse {
-  id: string;
 }
 
 export interface CreateAdminProgramMenuPayload {

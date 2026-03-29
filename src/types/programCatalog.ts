@@ -73,7 +73,9 @@ export interface ProgramCurriculumLesson {
   durationLabel: string;
   durationMinutes: number | null;
   endDate: string | null;
+  hasQuiz?: boolean | undefined;
   id: string;
+  quizAttempted?: boolean | undefined;
   startDate: string | null;
   title: string;
 }

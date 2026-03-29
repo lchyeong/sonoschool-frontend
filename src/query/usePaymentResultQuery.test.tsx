@@ -36,12 +36,10 @@ const createWrapper = () => {
 const mockPaymentResult: PaymentResult = {
   id: 301,
   orderType: 'CART_CHECKOUT',
-  orderReference: 'checkout-ref',
   orderName: 'POCUS 워크숍 외 2건',
+  orderNumber: 'ORD-301',
   amount: 419000,
   paymentMethod: 'CARD',
-  gatewayOrderId: 'KCP-ORDER-301',
-  gatewayResponseMessage: '정상처리',
   approvedAmount: 419000,
   receiptUrl: 'https://example.com/receipt',
   status: 'COMPLETED',

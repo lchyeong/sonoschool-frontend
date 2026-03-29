@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { AdminLoginResponse } from '@/types/adminConsole';
+import type { AdminLoginResponse } from '@/types/adminAuth';
 
 import { isExpiredSession } from './sessionExpiry';
 

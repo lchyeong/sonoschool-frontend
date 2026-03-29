@@ -28,7 +28,7 @@ import type {
   ReorderAdminProgramMenuPayload,
   UpdateAdminProgramMenuPayload,
   UpsertAdminProgramPayload,
-} from '@/types/adminConsole';
+} from '@/types/adminProgramCatalogMock';
 import type {
   ProgramBreadcrumbItem,
   ProgramCollectionCard,
@@ -4873,7 +4873,7 @@ export const publishMockAdminManagedProgram = (
   return toAdminSiteProgramDetailItem(siteKey, siteProgram);
 };
 
-export const hideMockAdminManagedProgram = (
+export const unpublishMockAdminManagedProgram = (
   siteKey: string,
   programId: string,
 ): AdminProgramDetailItem | null => {

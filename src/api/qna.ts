@@ -78,3 +78,11 @@ export const createAdminQuestionReply = async (
     throw toApiError(error, '관리자 답변 등록에 실패했습니다.');
   }
 };
+
+export const deleteAdminQuestionReply = async (replyId: number): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/api/v1/admin/qna/replies/${String(replyId)}`);
+  } catch (error: unknown) {
+    throw toApiError(error, '관리자 답변 삭제에 실패했습니다.');
+  }
+};

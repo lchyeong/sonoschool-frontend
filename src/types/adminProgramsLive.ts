@@ -2,6 +2,7 @@ export type AdminProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID';
 export type AdminProgramLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 export type AdminProgramCatalogStatus = 'OPEN' | 'SCHEDULED' | 'CLOSED' | 'FULL';
 export type AdminProgramAccessPolicy = 'COHORT' | 'FIXED_DURATION' | 'UNLIMITED';
+export type AdminProgramTagType = 'FEATURE' | 'FORMAT' | 'LEVEL' | 'TARGET' | 'TOPIC';
 
 export interface AdminProgramCategoryTreeItem {
   id: number;
@@ -55,6 +56,33 @@ export interface AdminProgramFaqItem {
   answer: string;
 }
 
+export interface AdminProgramTag {
+  active: boolean;
+  createdAt: string;
+  id: number;
+  name: string;
+  slug: string;
+  sortOrder: number;
+  type: AdminProgramTagType;
+  updatedAt: string;
+}
+
+export interface AdminProgramDocument {
+  createdAt: string;
+  description: string | null;
+  fileName: string;
+  fileSize: number;
+  fileUrl: string;
+  id: number;
+  mimeType: string | null;
+  programId: number | null;
+  programTitle: string | null;
+  scope: 'GLOBAL' | 'PROGRAM';
+  sortOrder: number;
+  title: string;
+  visibility: 'PUBLIC' | 'ENROLLED_ONLY';
+}
+
 export interface AdminProgramDetail {
   id: number;
   categoryId: number;
@@ -85,6 +113,8 @@ export interface AdminProgramDetail {
   checklists: string[];
   summaryItems: AdminProgramSummaryInfoItem[];
   faqs: AdminProgramFaqItem[];
+  tags: AdminProgramTag[];
+  documents: AdminProgramDocument[];
   deletable?: boolean;
   deleteBlockedReason?: string | null;
 }

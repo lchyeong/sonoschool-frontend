@@ -4,8 +4,9 @@ import { fetchAdminCategoriesTree } from '@/api/adminCategories';
 
 export const adminCategoriesTreeQueryKey = () => ['adminCategoriesTree'] as const;
 
-export const useAdminCategoriesTreeQuery = () => {
+export const useAdminCategoriesTreeQuery = (enabled = true) => {
   return useQuery({
+    enabled,
     gcTime: 5 * 60 * 1000,
     queryFn: () => fetchAdminCategoriesTree(),
     queryKey: adminCategoriesTreeQueryKey(),

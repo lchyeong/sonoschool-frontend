@@ -1,30 +1,6 @@
 import { http, HttpResponse } from 'msw';
 
 import {
-  createMockAdminNotice,
-  createMockAdminProgram,
-  createMockAdminProgramDraftItem,
-  createMockAdminProgramMenuItem,
-  createMockAdminResource,
-  createMockAdminReview,
-  deleteMockAdminProgram,
-  deleteMockAdminProgramMenuItem,
-  getMockAdminConsole,
-  getMockAdminProgramDetailResponse,
-  getMockAdminProgramsResponse,
-  getMockAdminProgramMenuDetailResponse,
-  getMockAdminProgramMenuTreeResponse,
-  hideMockAdminProgramItem,
-  moveMockAdminProgramItem,
-  moveMockAdminProgramMenuItem,
-  publishMockAdminProgramItem,
-  reorderMockAdminProgramMenuItem,
-  replyMockAdminQna,
-  toggleMockAdminProgramVisibility,
-  updateMockAdminProgramMenuItem,
-  updateMockAdminProgram,
-} from '@/mocks/data/adminConsole';
-import {
   cancelMockAdminPayment,
   getMockAdminPaymentDetail,
   getMockAdminPayments,
@@ -35,34 +11,12 @@ import {
   getMockAdminProgramCategories,
   getMockAdminProgramDetailLive,
   getMockAdminProgramsLive,
-  hideMockAdminProgramLive,
+  unpublishMockAdminProgramLive,
   publishMockAdminProgramLive,
   updateMockAdminProgramLive,
 } from '@/mocks/data/adminProgramsLive';
 import { getMockHomeHeroSlides } from '@/mocks/data/homeHeroSlides';
 import { getMockHomeHistoryTimeline } from '@/mocks/data/homeHistoryTimeline';
-import {
-  createMockNotice,
-  deleteMockNotice,
-  getMockAdminNotices,
-  getMockNoticeById,
-  getMockPublishedGlobalNotices,
-  updateMockNotice,
-} from '@/mocks/data/notices';
-import {
-  createMockAdminReply,
-  createMockGlobalQuestion,
-  createMockProgramQuestion,
-  getMockAdminQuestions,
-  getMockGlobalQuestions,
-  getMockProgramQuestions,
-} from '@/mocks/data/qna';
-import { getMockGlobalResourceDownload, getMockGlobalResources } from '@/mocks/data/resources';
-import {
-  getMockPaymentHistory,
-  getMockPaymentResult,
-  getMockPaymentResultByToken,
-} from '@/mocks/data/payments';
 import {
   addMockMyCartItem,
   getMockMyApplicationSummary,
@@ -76,8 +30,40 @@ import {
   updateMockMyProfile,
   verifyMockMyPhoneChange as verifyMockMyPagePhoneChange,
 } from '@/mocks/data/mypage';
-import { getMockProgramPage, getMockProgramSearchLectureItems, getMockProgramsOverview } from '@/mocks/data/programCatalog';
+import {
+  createMockNotice,
+  deleteMockNotice,
+  getMockAdminNotices,
+  getMockAdminPopups,
+  getMockNoticeById,
+  getMockPublishedGlobalNotices,
+  getMockPublishedGlobalPopups,
+  updateMockNotice,
+} from '@/mocks/data/notices';
+import {
+  getMockPaymentHistory,
+  getMockPaymentResult,
+  getMockPaymentResultByToken,
+} from '@/mocks/data/payments';
+import {
+  getMockProgramPage,
+  getMockProgramSearchLectureItems,
+  getMockProgramsOverview,
+} from '@/mocks/data/programCatalog';
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
+import {
+  createMockAdminReply,
+  createMockGlobalQuestion,
+  deleteMockAdminReply,
+  createMockProgramQuestion,
+  getMockAdminQuestions,
+  getMockGlobalQuestions,
+  getMockProgramQuestions,
+} from '@/mocks/data/qna';
+import {
+  getMockGlobalResourceById,
+  getMockGlobalResources,
+} from '@/mocks/data/resources';
 import { getMockSiteNavigation } from '@/mocks/data/siteNavigation';
 import {
   getMockRegistrationTerms,
@@ -88,27 +74,6 @@ import {
   sendMockSmsVerification,
   verifyMockSmsCode,
 } from '@/mocks/data/studentAuth';
-import type {
-  AdminConsoleResponse,
-  AdminProgramAccessPolicy,
-  AdminNoticeCategory,
-  AdminProgramFormat,
-  AdminProgramMenuDetailResponse,
-  AdminProgramMenuTreeResponse,
-  CreateAdminProgramDraftPayload,
-  CreateAdminProgramMenuPayload,
-  AdminProgramStatus,
-  AdminResourceVisibility,
-  CreateAdminNoticePayload,
-  CreateAdminResourcePayload,
-  CreateAdminReviewPayload,
-  MoveAdminProgramMenuPayload,
-  MoveAdminProgramPayload,
-  ReorderAdminProgramMenuPayload,
-  ReplyAdminQnaPayload,
-  UpdateAdminProgramMenuPayload,
-  UpsertAdminProgramPayload,
-} from '@/types/adminConsole';
 import type { ApiEnvelope, StudentSession } from '@/types/auth';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
@@ -117,25 +82,8 @@ import type { NoticeItem } from '@/types/notice';
 import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
 import type { QuestionCreatePayload, QuestionReplyCreatePayload } from '@/types/qna';
-import type { ResourceDownloadItem, ResourceItem } from '@/types/resource';
+import type { ResourceItem } from '@/types/resource';
 import type { SiteNavigationResponse } from '@/types/siteNavigation';
-
-const unusedAdminProgramMocks = [
-  createMockAdminProgram,
-  createMockAdminProgramDraftItem,
-  deleteMockAdminProgram,
-  getMockAdminProgramDetailResponse,
-  getMockAdminProgramsResponse,
-  hideMockAdminProgramItem,
-  moveMockAdminProgramItem,
-  publishMockAdminProgramItem,
-  toggleMockAdminProgramVisibility,
-  updateMockAdminProgram,
-];
-void unusedAdminProgramMocks;
-
-const unusedAdminProgramStatus: AdminProgramStatus | null = null;
-void unusedAdminProgramStatus;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === 'object';
@@ -221,225 +169,6 @@ const resolveMockCartPayloadByProgramId = (programId: number): AddToCartPayload 
   return null;
 };
 
-const isAdminNoticeCategory = (value: unknown): value is AdminNoticeCategory => {
-  return value === '운영' || value === '학사' || value === '이벤트';
-};
-
-const isAdminResourceVisibility = (value: unknown): value is AdminResourceVisibility => {
-  return value === 'public' || value === 'students-only';
-};
-
-const isAdminProgramFormat = (value: unknown): value is AdminProgramFormat => {
-  return value === 'online' || value === 'offline' || value === 'hybrid';
-};
-
-const isAdminProgramAccessPolicy = (value: unknown): value is AdminProgramAccessPolicy => {
-  return value === 'cohort' || value === 'limited-window' || value === 'unlimited';
-};
-
-const isAdminProgramMenuStatus = (value: unknown): value is 'published' | 'hidden' => {
-  return value === 'published' || value === 'hidden';
-};
-
-const isStringArray = (value: unknown): value is string[] => {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string' && item.trim());
-};
-
-const isProgramInfoItem = (value: unknown): boolean => {
-  return (
-    isRecord(value) &&
-    typeof value['label'] === 'string' &&
-    value['label'].trim().length > 0 &&
-    typeof value['value'] === 'string' &&
-    value['value'].trim().length > 0
-  );
-};
-
-const isProgramFaqItem = (value: unknown): boolean => {
-  return (
-    isRecord(value) &&
-    typeof value['id'] === 'string' &&
-    value['id'].trim().length > 0 &&
-    typeof value['question'] === 'string' &&
-    value['question'].trim().length > 0 &&
-    typeof value['answer'] === 'string' &&
-    value['answer'].trim().length > 0
-  );
-};
-
-const isProgramCurriculumLesson = (value: unknown): boolean => {
-  return (
-    isRecord(value) &&
-    typeof value['id'] === 'string' &&
-    value['id'].trim().length > 0 &&
-    typeof value['title'] === 'string' &&
-    value['title'].trim().length > 0 &&
-    (value['description'] === undefined || typeof value['description'] === 'string') &&
-    (value['deliveryType'] === 'online' || value['deliveryType'] === 'offline') &&
-    typeof value['durationLabel'] === 'string' &&
-    value['durationLabel'].trim().length > 0 &&
-    (value['durationMinutes'] === null || typeof value['durationMinutes'] === 'number') &&
-    (value['startDate'] === null || typeof value['startDate'] === 'string') &&
-    (value['endDate'] === null || typeof value['endDate'] === 'string')
-  );
-};
-
-const isProgramCurriculumSection = (value: unknown): boolean => {
-  return (
-    isRecord(value) &&
-    typeof value['id'] === 'string' &&
-    value['id'].trim().length > 0 &&
-    typeof value['title'] === 'string' &&
-    value['title'].trim().length > 0 &&
-    typeof value['description'] === 'string' &&
-    value['description'].trim().length > 0 &&
-    typeof value['durationLabel'] === 'string' &&
-    value['durationLabel'].trim().length > 0 &&
-    Array.isArray(value['lessons']) &&
-    value['lessons'].every(isProgramCurriculumLesson)
-  );
-};
-
-const isProgramCurriculumTrack = (value: unknown): boolean => {
-  return (
-    isRecord(value) &&
-    typeof value['id'] === 'string' &&
-    value['id'].trim().length > 0 &&
-    (value['title'] === undefined ||
-      (typeof value['title'] === 'string' && value['title'].trim().length > 0)) &&
-    (value['summaryKind'] === 'decimal' || value['summaryKind'] === 'disc') &&
-    isStringArray(value['summaryItems']) &&
-    Array.isArray(value['sections']) &&
-    value['sections'].every(isProgramCurriculumSection)
-  );
-};
-
-const isUpsertAdminProgramPayload = (value: unknown): value is UpsertAdminProgramPayload => {
-  return (
-    isRecord(value) &&
-    typeof value['title'] === 'string' &&
-    value['title'].trim().length > 0 &&
-    typeof value['slug'] === 'string' &&
-    value['slug'].trim().length > 0 &&
-    typeof value['parentCollectionPath'] === 'string' &&
-    value['parentCollectionPath'].trim().length > 0 &&
-    typeof value['description'] === 'string' &&
-    typeof value['heroImageSrc'] === 'string' &&
-    value['heroImageSrc'].trim().length > 0 &&
-    typeof value['heroImageAlt'] === 'string' &&
-    isAdminProgramFormat(value['format']) &&
-    isAdminProgramAccessPolicy(value['accessPolicy']) &&
-    (value['registrationStartDate'] === null ||
-      typeof value['registrationStartDate'] === 'string') &&
-    (value['registrationEndDate'] === null || typeof value['registrationEndDate'] === 'string') &&
-    (value['learningStartDate'] === null || typeof value['learningStartDate'] === 'string') &&
-    (value['learningEndDate'] === null || typeof value['learningEndDate'] === 'string') &&
-    typeof value['difficultyLabel'] === 'string' &&
-    value['difficultyLabel'].trim().length > 0 &&
-    typeof value['originalPrice'] === 'number' &&
-    typeof value['price'] === 'number' &&
-    (value['capacity'] === null || typeof value['capacity'] === 'number') &&
-    isStringArray(value['tags']) &&
-    Array.isArray(value['stats']) &&
-    value['stats'].every(isProgramInfoItem) &&
-    isStringArray(value['learningPoints']) &&
-    isStringArray(value['recommendedFor']) &&
-    isStringArray(value['preparationChecklist']) &&
-    Array.isArray(value['faqItems']) &&
-    value['faqItems'].every(isProgramFaqItem) &&
-    isProgramCurriculumTrack(value['curriculumTrack']) &&
-    (value['hashtagLabels'] === undefined || isStringArray(value['hashtagLabels']))
-  );
-};
-
-const isCreateAdminProgramDraftPayload = (
-  value: unknown,
-): value is CreateAdminProgramDraftPayload => {
-  return (
-    isRecord(value) &&
-    typeof value['title'] === 'string' &&
-    value['title'].trim().length > 0 &&
-    typeof value['slug'] === 'string' &&
-    value['slug'].trim().length > 0 &&
-    typeof value['parentCollectionPath'] === 'string' &&
-    value['parentCollectionPath'].trim().length > 0 &&
-    isAdminProgramFormat(value['format']) &&
-    isAdminProgramAccessPolicy(value['accessPolicy']) &&
-    (value['sourceProgramId'] === null ||
-      value['sourceProgramId'] === undefined ||
-      (typeof value['sourceProgramId'] === 'string' &&
-        value['sourceProgramId'].trim().length > 0)) &&
-    typeof value['originalPrice'] === 'number' &&
-    typeof value['price'] === 'number' &&
-    (value['capacity'] === null || typeof value['capacity'] === 'number') &&
-    (value['registrationStartDate'] === null ||
-      typeof value['registrationStartDate'] === 'string') &&
-    (value['registrationEndDate'] === null || typeof value['registrationEndDate'] === 'string') &&
-    (value['learningStartDate'] === null || typeof value['learningStartDate'] === 'string') &&
-    (value['learningEndDate'] === null || typeof value['learningEndDate'] === 'string')
-  );
-};
-
-const isCreateAdminProgramMenuPayload = (
-  value: unknown,
-): value is CreateAdminProgramMenuPayload => {
-  return (
-    isRecord(value) &&
-    (value['parentId'] === null ||
-      value['parentId'] === undefined ||
-      (typeof value['parentId'] === 'string' && value['parentId'].trim().length > 0)) &&
-    typeof value['label'] === 'string' &&
-    value['label'].trim().length > 0 &&
-    typeof value['slug'] === 'string' &&
-    value['slug'].trim().length > 0 &&
-    typeof value['description'] === 'string' &&
-    value['description'].trim().length > 0 &&
-    isAdminProgramMenuStatus(value['status'])
-  );
-};
-
-const isUpdateAdminProgramMenuPayload = (
-  value: unknown,
-): value is UpdateAdminProgramMenuPayload => {
-  return (
-    isRecord(value) &&
-    typeof value['label'] === 'string' &&
-    value['label'].trim().length > 0 &&
-    typeof value['slug'] === 'string' &&
-    value['slug'].trim().length > 0 &&
-    typeof value['description'] === 'string' &&
-    value['description'].trim().length > 0 &&
-    isAdminProgramMenuStatus(value['status'])
-  );
-};
-
-const isMoveAdminProgramMenuPayload = (value: unknown): value is MoveAdminProgramMenuPayload => {
-  return (
-    isRecord(value) &&
-    (value['parentId'] === null ||
-      value['parentId'] === undefined ||
-      (typeof value['parentId'] === 'string' && value['parentId'].trim().length > 0))
-  );
-};
-
-const isReorderAdminProgramMenuPayload = (
-  value: unknown,
-): value is ReorderAdminProgramMenuPayload => {
-  return isRecord(value) && (value['direction'] === 'up' || value['direction'] === 'down');
-};
-
-const isMoveAdminProgramPayload = (value: unknown): value is MoveAdminProgramPayload => {
-  return (
-    isRecord(value) &&
-    typeof value['targetCollectionPath'] === 'string' &&
-    value['targetCollectionPath'].trim().length > 0
-  );
-};
-
-void isUpsertAdminProgramPayload;
-void isCreateAdminProgramDraftPayload;
-void isMoveAdminProgramPayload;
-
 const createApiEnvelope = <T>(data: T): ApiEnvelope<T> => {
   return {
     data,
@@ -464,10 +193,6 @@ const createAdminPostHandlers = (path: string, resolver: Parameters<typeof http.
   return adminRoutePatterns(path).map((pattern) => http.post(pattern, resolver));
 };
 
-const createAdminPatchHandlers = (path: string, resolver: Parameters<typeof http.patch>[1]) => {
-  return adminRoutePatterns(path).map((pattern) => http.patch(pattern, resolver));
-};
-
 const createAdminPutHandlers = (path: string, resolver: Parameters<typeof http.put>[1]) => {
   return adminRoutePatterns(path).map((pattern) => http.put(pattern, resolver));
 };
@@ -477,10 +202,10 @@ const createAdminDeleteHandlers = (path: string, resolver: Parameters<typeof htt
 };
 
 export const handlers = [
-  http.get('*/api/terms/registration', () => {
+  http.get('*/api/v1/terms/registration', () => {
     return HttpResponse.json(createApiEnvelope(getMockRegistrationTerms()));
   }),
-  http.post('*/api/auth/login', async ({ request }) => {
+  http.post('*/api/v1/auth/login', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (
@@ -518,13 +243,13 @@ export const handlers = [
       },
     );
   }),
-  http.post('*/api/auth/login/verify-sms', () => {
+  http.post('*/api/v1/auth/login/verify-sms', () => {
     return HttpResponse.json(
       { code: 'AUTH_400_LOGIN_CHALLENGE', message: 'Login verification challenge is invalid.' },
       { status: 400 },
     );
   }),
-  http.post('*/api/auth/sms/send', async ({ request }) => {
+  http.post('*/api/v1/auth/sms/send', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (!isRecord(body) || typeof body['phoneNumber'] !== 'string') {
@@ -548,7 +273,7 @@ export const handlers = [
       );
     }
   }),
-  http.post('*/api/auth/sms/verify', async ({ request }) => {
+  http.post('*/api/v1/auth/sms/verify', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (
@@ -573,7 +298,7 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(response));
   }),
-  http.post('*/api/auth/register', async ({ request }) => {
+  http.post('*/api/v1/auth/register', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (!isRecord(body)) {
@@ -633,7 +358,7 @@ export const handlers = [
       );
     }
   }),
-  http.post('*/api/auth/refresh', () => {
+  http.post('*/api/v1/auth/refresh', () => {
     const response: StudentSession | null = refreshMockStudentSession();
 
     if (!response) {
@@ -645,14 +370,14 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(response));
   }),
-  http.post('*/api/auth/logout', () => {
+  http.post('*/api/v1/auth/logout', () => {
     logoutMockStudent();
     return HttpResponse.json(createApiEnvelope(null));
   }),
-  http.get('*/api/users/me', () => {
+  http.get('*/api/v1/users/me', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyProfile()));
   }),
-  http.patch('*/api/users/me', async ({ request }) => {
+  http.patch('*/api/v1/users/me', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (
@@ -672,7 +397,7 @@ export const handlers = [
       ),
     );
   }),
-  http.post('*/api/users/me/phone/send', async ({ request }) => {
+  http.post('*/api/v1/users/me/phone/send', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (!isRecord(body) || typeof body['phoneNumber'] !== 'string') {
@@ -687,7 +412,7 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(response));
   }),
-  http.post('*/api/users/me/phone/verify', async ({ request }) => {
+  http.post('*/api/v1/users/me/phone/verify', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
     if (
@@ -903,11 +628,6 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(payment));
   }),
-  ...createAdminGetHandlers('/console', () => {
-    const response: AdminConsoleResponse = getMockAdminConsole();
-
-    return HttpResponse.json(response);
-  }),
   ...createAdminGetHandlers('/payments', () => {
     return HttpResponse.json(createApiEnvelope(getMockAdminPayments()));
   }),
@@ -950,105 +670,6 @@ export const handlers = [
     }
 
     return HttpResponse.json(createApiEnvelope(payment));
-  }),
-  ...createAdminPostHandlers('/notices', async ({ request }) => {
-    const body = await request.json().catch(() => null);
-
-    if (!isRecord(body)) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const title = body['title'];
-    const category = body['category'];
-    const isPinned = body['isPinned'];
-
-    if (
-      typeof title !== 'string' ||
-      !isAdminNoticeCategory(category) ||
-      typeof isPinned !== 'boolean'
-    ) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: CreateAdminNoticePayload = { category, isPinned, title };
-
-    createMockAdminNotice(payload);
-    return HttpResponse.json({ ok: true });
-  }),
-  ...createAdminPostHandlers('/qna/:threadId/replies', async ({ params, request }) => {
-    const threadId = typeof params['threadId'] === 'string' ? params['threadId'] : '';
-    const body = await request.json().catch(() => null);
-
-    if (!isRecord(body) || !threadId) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const content = body['content'];
-    if (typeof content !== 'string') {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: ReplyAdminQnaPayload = { content };
-    const updatedThread = replyMockAdminQna(threadId, payload);
-
-    if (!updatedThread) {
-      return HttpResponse.json({ message: 'Q&A thread not found' }, { status: 404 });
-    }
-
-    return HttpResponse.json({ ok: true });
-  }),
-  ...createAdminPostHandlers('/resources', async ({ request }) => {
-    const body = await request.json().catch(() => null);
-
-    if (!isRecord(body)) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const title = body['title'];
-    const description = body['description'];
-    const attachmentName = body['attachmentName'];
-    const attachmentSizeLabel = body['attachmentSizeLabel'];
-    const visibility = body['visibility'];
-
-    if (
-      typeof title !== 'string' ||
-      typeof description !== 'string' ||
-      typeof attachmentName !== 'string' ||
-      typeof attachmentSizeLabel !== 'string' ||
-      !isAdminResourceVisibility(visibility)
-    ) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: CreateAdminResourcePayload = {
-      attachmentName,
-      attachmentSizeLabel,
-      description,
-      title,
-      visibility: visibility,
-    };
-
-    createMockAdminResource(payload);
-    return HttpResponse.json({ ok: true });
-  }),
-  ...createAdminPostHandlers('/reviews', async ({ request }) => {
-    const body = await request.json().catch(() => null);
-
-    if (!isRecord(body)) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const title = body['title'];
-    const summary = body['summary'];
-
-    if (typeof title !== 'string' || typeof summary !== 'string') {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: CreateAdminReviewPayload = { summary, title };
-
-    createMockAdminReview(payload);
-    return HttpResponse.json({ ok: true });
   }),
   ...createAdminGetHandlers('/programs', () => {
     return HttpResponse.json(
@@ -1114,14 +735,14 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  ...createAdminPostHandlers('/programs/:programId/hide', ({ params }) => {
+  ...createAdminPostHandlers('/programs/:programId/unpublish', ({ params }) => {
     const programId = Number(params['programId']);
 
     if (!Number.isInteger(programId) || programId <= 0) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
     }
 
-    const updatedProgram = hideMockAdminProgramLive(programId);
+    const updatedProgram = unpublishMockAdminProgramLive(programId);
 
     if (!updatedProgram) {
       return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
@@ -1144,178 +765,6 @@ export const handlers = [
 
     return HttpResponse.json({ ok: true });
   }),
-  ...createAdminPostHandlers('/program-menus', async ({ request }) => {
-    const body = await request.json().catch(() => null);
-
-    if (!isCreateAdminProgramMenuPayload(body)) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: CreateAdminProgramMenuPayload = {
-      description: body.description,
-      label: body.label,
-      parentId: body.parentId ?? null,
-      slug: body.slug,
-      status: body.status,
-    };
-    const result = createMockAdminProgramMenuItem(payload);
-
-    if (!result.ok) {
-      const message =
-        result.reason === 'parent-not-found'
-          ? 'Program menu parent not found'
-          : result.reason === 'parent-has-linked-programs'
-            ? 'Program menu parent has linked programs'
-            : result.reason === 'top-level-limit-exceeded'
-              ? 'Program menu top level limit exceeded'
-              : result.reason === 'unsupported-depth'
-                ? 'Program menu depth exceeded'
-                : result.reason === 'duplicate-slug'
-                  ? 'Program menu slug duplicated'
-                  : 'Program menu not found';
-
-      return HttpResponse.json({ message }, { status: 400 });
-    }
-
-    return HttpResponse.json({ ok: true });
-  }),
-  ...createAdminGetHandlers('/program-menu-tree', () => {
-    const response: AdminProgramMenuTreeResponse = getMockAdminProgramMenuTreeResponse();
-
-    return HttpResponse.json(response);
-  }),
-  ...createAdminGetHandlers('/program-menus/:menuId', ({ params }) => {
-    const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
-
-    if (!menuId) {
-      return HttpResponse.json({ message: 'Program menu not found' }, { status: 404 });
-    }
-
-    const response: AdminProgramMenuDetailResponse | null =
-      getMockAdminProgramMenuDetailResponse(menuId);
-
-    if (!response) {
-      return HttpResponse.json({ message: 'Program menu not found' }, { status: 404 });
-    }
-
-    return HttpResponse.json(response);
-  }),
-  ...createAdminPatchHandlers('/program-menus/:menuId', async ({ params, request }) => {
-    const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
-    const body = await request.json().catch(() => null);
-
-    if (!menuId || !isUpdateAdminProgramMenuPayload(body)) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: UpdateAdminProgramMenuPayload = {
-      description: body.description,
-      label: body.label,
-      slug: body.slug,
-      status: body.status,
-    };
-    const result = updateMockAdminProgramMenuItem(menuId, payload);
-
-    if (!result.ok) {
-      const message =
-        result.reason === 'duplicate-slug'
-          ? 'Program menu slug duplicated'
-          : 'Program menu not found';
-
-      return HttpResponse.json({ message }, { status: 400 });
-    }
-
-    return HttpResponse.json({ ok: true });
-  }),
-  ...createAdminDeleteHandlers('/program-menus/:menuId', ({ params }) => {
-    const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
-
-    if (!menuId) {
-      return HttpResponse.json({ message: 'Program menu not found' }, { status: 404 });
-    }
-
-    const result = deleteMockAdminProgramMenuItem(menuId);
-
-    if (!result.ok) {
-      const message =
-        result.reason === 'has-child-menus'
-          ? 'Program menu has child menus'
-          : result.reason === 'has-linked-programs'
-            ? 'Program menu has linked programs'
-            : 'Program menu not found';
-
-      return HttpResponse.json(
-        { message },
-        { status: result.reason === 'menu-not-found' ? 404 : 400 },
-      );
-    }
-
-    return HttpResponse.json({ ok: true });
-  }),
-  ...createAdminPostHandlers('/program-menus/:menuId/move', async ({ params, request }) => {
-    const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
-    const body = await request.json().catch(() => null);
-
-    if (!menuId || !isMoveAdminProgramMenuPayload(body)) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: MoveAdminProgramMenuPayload = {
-      parentId: body.parentId ?? null,
-    };
-    const result = moveMockAdminProgramMenuItem(menuId, payload);
-
-    if (!result.ok) {
-      const message =
-        result.reason === 'parent-not-found'
-          ? 'Program menu parent not found'
-          : result.reason === 'parent-has-linked-programs'
-            ? 'Program menu parent has linked programs'
-            : result.reason === 'top-level-limit-exceeded'
-              ? 'Program menu top level limit exceeded'
-              : result.reason === 'unsupported-depth'
-                ? 'Program menu depth exceeded'
-                : result.reason === 'duplicate-slug'
-                  ? 'Program menu slug duplicated'
-                  : result.reason === 'cannot-move-to-descendant'
-                    ? 'Program menu cannot move to descendant'
-                    : 'Program menu not found';
-
-      return HttpResponse.json(
-        { message },
-        { status: result.reason === 'menu-not-found' ? 404 : 400 },
-      );
-    }
-
-    return HttpResponse.json({ ok: true });
-  }),
-  ...createAdminPostHandlers('/program-menus/:menuId/reorder', async ({ params, request }) => {
-    const menuId = typeof params['menuId'] === 'string' ? params['menuId'] : '';
-    const body = await request.json().catch(() => null);
-
-    if (!menuId || !isReorderAdminProgramMenuPayload(body)) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payload: ReorderAdminProgramMenuPayload = {
-      direction: body.direction,
-    };
-    const result = reorderMockAdminProgramMenuItem(menuId, payload);
-
-    if (!result.ok) {
-      const message =
-        result.reason === 'reorder-limit'
-          ? 'Program menu reorder limit reached'
-          : 'Program menu not found';
-
-      return HttpResponse.json(
-        { message },
-        { status: result.reason === 'menu-not-found' ? 404 : 400 },
-      );
-    }
-
-    return HttpResponse.json({ ok: true });
-  }),
   http.get('*/api/v1/navigation/site', () => {
     const response: SiteNavigationResponse = getMockSiteNavigation();
 
@@ -1329,6 +778,9 @@ export const handlers = [
   http.get('*/api/v1/notices', () => {
     return HttpResponse.json(createApiEnvelope(getMockPublishedGlobalNotices()));
   }),
+  http.get('*/api/v1/popups', () => {
+    return HttpResponse.json(createApiEnvelope(getMockPublishedGlobalPopups()));
+  }),
   http.get('*/api/v1/qna', () => {
     return HttpResponse.json(createApiEnvelope(getMockGlobalQuestions()));
   }),
@@ -1337,15 +789,34 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(response));
   }),
-  http.get('*/api/v1/resources/:resourceId/download', ({ params }) => {
+  http.get('*/api/v1/resources/:resourceId', ({ params }) => {
     const resourceId = Number(params['resourceId']);
-    const response: ResourceDownloadItem | null = getMockGlobalResourceDownload(resourceId);
+    const response: ResourceItem | null = getMockGlobalResourceById(resourceId);
 
     if (!response) {
       return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
     }
 
     return HttpResponse.json(createApiEnvelope(response));
+  }),
+  http.get('*/api/v1/resources/:resourceId/download', ({ params }) => {
+    const resourceId = Number(params['resourceId']);
+    const resource = getMockGlobalResources().find((item) =>
+      item.attachments.some((attachment) => attachment.documentId === resourceId),
+    );
+    const attachment = resource?.attachments.find((item) => item.documentId === resourceId);
+
+    if (!attachment) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(`mock content for ${attachment.fileName}`, {
+      headers: {
+        'Content-Disposition': `attachment; filename="${attachment.fileName}"`,
+        'Content-Type': attachment.mimeType,
+      },
+      status: 200,
+    });
   }),
   http.post('*/api/v1/qna', async ({ request }) => {
     const body = (await request.json().catch(() => null)) as QuestionCreatePayload | null;
@@ -1384,15 +855,14 @@ export const handlers = [
     const notice = createMockNotice({
       content: body['content'],
       pinned: Boolean(body['pinned']),
-      popup: Boolean(body['popup']),
+      popup: false,
       programId: null,
       programTitle: null,
       published: Boolean(body['published']),
       scope: 'GLOBAL',
       title: body['title'],
       visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
-      visibleStartAt:
-        typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
+      visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
     });
 
     return HttpResponse.json(createApiEnvelope(notice), { status: 201 });
@@ -1413,12 +883,11 @@ export const handlers = [
     const notice = updateMockNotice(noticeId, {
       content: body['content'],
       pinned: Boolean(body['pinned']),
-      popup: Boolean(body['popup']),
+      popup: false,
       scope: 'GLOBAL',
       title: body['title'],
       visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
-      visibleStartAt:
-        typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
+      visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
     });
 
     if (!notice) {
@@ -1450,6 +919,85 @@ export const handlers = [
   http.delete('*/api/v1/admin/notices/:noticeId', ({ params }) => {
     const noticeId = Number(params['noticeId']);
     const deleted = deleteMockNotice(noticeId);
+
+    if (!deleted) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.get('*/api/v1/admin/popups', () => {
+    return HttpResponse.json(createApiEnvelope(getMockAdminPopups()));
+  }),
+  http.post('*/api/v1/admin/popups', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Partial<NoticeItem> | null;
+
+    if (!body || typeof body['title'] !== 'string' || typeof body['content'] !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const popup = createMockNotice({
+      content: body['content'],
+      pinned: false,
+      popup: true,
+      programId: null,
+      programTitle: null,
+      published: Boolean(body['published']),
+      scope: 'GLOBAL',
+      title: body['title'],
+      visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
+      visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
+    });
+
+    return HttpResponse.json(createApiEnvelope(popup), { status: 201 });
+  }),
+  http.put('*/api/v1/admin/popups/:popupId', async ({ params, request }) => {
+    const popupId = Number(params['popupId']);
+    const body = (await request.json().catch(() => null)) as Partial<NoticeItem> | null;
+
+    if (!body || typeof body['title'] !== 'string' || typeof body['content'] !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const popup = updateMockNotice(popupId, {
+      content: body['content'],
+      pinned: false,
+      popup: true,
+      scope: 'GLOBAL',
+      title: body['title'],
+      visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
+      visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
+    });
+
+    if (!popup) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(popup));
+  }),
+  http.post('*/api/v1/admin/popups/:popupId/publish', ({ params }) => {
+    const popupId = Number(params['popupId']);
+    const popup = updateMockNotice(popupId, { published: true, popup: true });
+
+    if (!popup) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(popup));
+  }),
+  http.post('*/api/v1/admin/popups/:popupId/unpublish', ({ params }) => {
+    const popupId = Number(params['popupId']);
+    const popup = updateMockNotice(popupId, { published: false, popup: true });
+
+    if (!popup) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(popup));
+  }),
+  http.delete('*/api/v1/admin/popups/:popupId', ({ params }) => {
+    const popupId = Number(params['popupId']);
+    const deleted = deleteMockNotice(popupId);
 
     if (!deleted) {
       return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
@@ -1492,6 +1040,271 @@ export const handlers = [
     }
 
     return HttpResponse.json(createApiEnvelope(reply), { status: 201 });
+  }),
+  http.delete('*/api/v1/admin/qna/replies/:replyId', ({ params }) => {
+    const replyId = Number(params['replyId']);
+
+    if (!deleteMockAdminReply(replyId)) {
+      return HttpResponse.json({ message: 'Reply not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.get('*/api/v1/admin/users/search', ({ request }) => {
+    const keyword = (new URL(request.url).searchParams.get('keyword') ?? '').trim().toLowerCase();
+
+    const users = [
+      {
+        active: true,
+        displayName: '김민지',
+        email: 'minji@example.com',
+        id: 101,
+        loginId: 'minji01',
+        name: '김민지',
+        nickname: null,
+      },
+      {
+        active: true,
+        displayName: '박수현',
+        email: 'soohyun@example.com',
+        id: 102,
+        loginId: 'shpark',
+        name: '박수현',
+        nickname: '수현',
+      },
+      {
+        active: true,
+        displayName: '이도윤',
+        email: 'doyoon@example.com',
+        id: 103,
+        loginId: 'doyoonlee',
+        name: '이도윤',
+        nickname: null,
+      },
+    ];
+
+    const filteredUsers =
+      keyword.length < 2
+        ? []
+        : users.filter((user) =>
+            [user.displayName, user.email, user.loginId, user.name].some((value) =>
+              value.toLowerCase().includes(keyword),
+            ),
+          );
+
+    return HttpResponse.json(createApiEnvelope(filteredUsers));
+  }),
+  http.get('*/api/v1/admin/users', ({ request }) => {
+    const keyword = (new URL(request.url).searchParams.get('keyword') ?? '').trim().toLowerCase();
+
+    const users = [
+      {
+        active: true,
+        activeEnrollmentCount: 2,
+        displayName: '김민지',
+        email: 'minji@example.com',
+        id: 101,
+        joinedAt: '2026-01-10T09:00:00Z',
+        loginId: 'minji01',
+        name: '김민지',
+        nickname: null,
+        phoneNumber: '010-1111-2222',
+        upcomingPracticumCount: 1,
+      },
+      {
+        active: true,
+        activeEnrollmentCount: 1,
+        displayName: '박수현',
+        email: 'soohyun@example.com',
+        id: 102,
+        joinedAt: '2026-01-22T09:00:00Z',
+        loginId: 'shpark',
+        name: '박수현',
+        nickname: '수현',
+        phoneNumber: '010-2222-3333',
+        upcomingPracticumCount: 0,
+      },
+      {
+        active: false,
+        activeEnrollmentCount: 0,
+        displayName: '이도윤',
+        email: 'doyoon@example.com',
+        id: 103,
+        joinedAt: '2025-12-11T09:00:00Z',
+        loginId: 'doyoonlee',
+        name: '이도윤',
+        nickname: null,
+        phoneNumber: '010-3333-4444',
+        upcomingPracticumCount: 0,
+      },
+    ];
+
+    const filteredUsers = keyword
+      ? users.filter((user) =>
+          [user.displayName, user.email, user.loginId, user.name, user.phoneNumber].some((value) =>
+            value.toLowerCase().includes(keyword),
+          ),
+        )
+      : users;
+
+    return HttpResponse.json(createApiEnvelope(filteredUsers));
+  }),
+  http.get('*/api/v1/admin/enrollments', ({ request }) => {
+    const keyword = (new URL(request.url).searchParams.get('keyword') ?? '').trim().toLowerCase();
+
+    const enrollments = [
+      {
+        attemptedQuizCount: 1,
+        completedLectureCount: 3,
+        completionRate: 60,
+        enrollmentId: 7001,
+        enrolledAt: '2026-03-01T09:00:00Z',
+        expireAt: '2026-06-01T09:00:00Z',
+        hasPracticumReservation: true,
+        loginId: 'minji01',
+        phoneNumber: '010-1111-2222',
+        programId: 2001,
+        programTitle: '복부초음파 기초',
+        programType: 'HYBRID',
+        status: 'ACTIVE',
+        totalLectureCount: 5,
+        totalQuizCount: 2,
+        userId: 101,
+        userName: '김민지',
+      },
+      {
+        attemptedQuizCount: 0,
+        completedLectureCount: 1,
+        completionRate: 25,
+        enrollmentId: 7002,
+        enrolledAt: '2026-03-12T09:00:00Z',
+        expireAt: '2026-07-12T09:00:00Z',
+        hasPracticumReservation: false,
+        loginId: 'shpark',
+        phoneNumber: '010-2222-3333',
+        programId: 2002,
+        programTitle: '경부초음파 집중 과정',
+        programType: 'ONLINE',
+        status: 'ACTIVE',
+        totalLectureCount: 4,
+        totalQuizCount: 1,
+        userId: 102,
+        userName: '박수현',
+      },
+    ];
+
+    const filteredEnrollments = keyword
+      ? enrollments.filter((item) =>
+          [item.userName, item.loginId, item.programTitle, item.phoneNumber].some((value) =>
+            value.toLowerCase().includes(keyword),
+          ),
+        )
+      : enrollments;
+
+    return HttpResponse.json(createApiEnvelope(filteredEnrollments));
+  }),
+  http.post('*/api/v1/admin/enrollments', ({ request }) => {
+    const requestUrl = new URL(request.url);
+    const programId = Number(requestUrl.searchParams.get('programId'));
+    const userId = Number(requestUrl.searchParams.get('userId'));
+    const program = getMockAdminProgramsLive().find((item) => item.id === programId);
+
+    if (!Number.isFinite(programId) || !Number.isFinite(userId) || !program) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        active: true,
+        enrolledAt: '2026-03-27T10:30:00Z',
+        expireAt: '2026-06-25T10:30:00Z',
+        id: 9000 + userId,
+        programId,
+        programTitle: program.title,
+        status: 'ACTIVE',
+      }),
+      { status: 201 },
+    );
+  }),
+  http.post('*/api/v1/admin/enrollments/expire', () => {
+    return HttpResponse.json(
+      createApiEnvelope({
+        processedAt: '2026-03-27T11:00:00Z',
+        processedCount: 3,
+      }),
+    );
+  }),
+  http.get('*/api/v1/admin/practicum/slots', () => {
+    return HttpResponse.json(
+      createApiEnvelope([
+        {
+          endAt: '2026-03-29T02:00:00Z',
+          full: false,
+          lectureId: 9101,
+          lectureTitle: '복부 기본 실습',
+          location: '서울 강의실 A',
+          maxCapacity: 2,
+          programId: 2001,
+          programTitle: '복부초음파 기초',
+          remainingCapacity: 1,
+          reservations: [
+            {
+              enrollmentId: 7001,
+              lectureCompleted: true,
+              loginId: 'minji01',
+              phoneNumber: '010-1111-2222',
+              quizAttempted: true,
+              reservationId: 8101,
+              reservedAt: '2026-03-28T10:00:00Z',
+              status: 'ACTIVE',
+              userId: 101,
+              userName: '김민지',
+            },
+          ],
+          reservedCount: 1,
+          sectionTitle: '1주차',
+          slotId: 5001,
+          slotStatus: 'OPEN',
+          startAt: '2026-03-29T01:00:00Z',
+        },
+      ]),
+    );
+  }),
+  http.put('*/api/v1/admin/practicum/daily-operations', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.patch('*/api/v1/admin/practicum-slots/:slotId/status', async ({ params, request }) => {
+    const slotId = Number(params['slotId']);
+    const body = (await request.json().catch(() => null)) as { status?: string } | null;
+
+    if (!Number.isFinite(slotId) || !body?.status) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        endAt: '2026-03-29T02:00:00Z',
+        full: false,
+        id: slotId,
+        lectureId: 9101,
+        location: '서울 강의실 A',
+        maxCapacity: 2,
+        remainingCapacity: 1,
+        reservedByMe: false,
+        reservedCount: 1,
+        slotStatus: body.status,
+        startAt: '2026-03-29T01:00:00Z',
+      }),
+    );
+  }),
+  http.delete('*/api/v1/admin/practicum-reservations/:reservationId', ({ params }) => {
+    const reservationId = Number(params['reservationId']);
+
+    if (!Number.isFinite(reservationId)) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
   }),
   http.get('*/api/v1/home/hero-slides', () => {
     const response: HomeHeroSlidesResponse = getMockHomeHeroSlides();

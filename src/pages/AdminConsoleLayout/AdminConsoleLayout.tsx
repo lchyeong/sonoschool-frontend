@@ -20,6 +20,10 @@ const adminNavigationItems = [
     to: routePaths.adminNotices,
   },
   {
+    label: '팝업',
+    to: routePaths.adminPopups,
+  },
+  {
     label: 'Q&A',
     to: routePaths.adminQna,
   },
@@ -28,16 +32,28 @@ const adminNavigationItems = [
     to: routePaths.adminResources,
   },
   {
-    label: '교육후기',
-    to: routePaths.adminReviews,
+    label: '수강관리',
+    to: routePaths.adminEnrollments,
   },
   {
-    label: '강의 관리',
+    label: '실습일정관리',
+    to: routePaths.adminPracticum,
+  },
+  {
+    label: '프로그램 관리',
     to: routePaths.adminPrograms,
   },
   {
-    label: '강의 카테고리 관리',
+    label: '프로그램 카테고리 관리',
     to: routePaths.adminProgramMenus,
+  },
+  {
+    label: '태그 관리',
+    to: routePaths.adminTags,
+  },
+  {
+    label: '쿠폰 관리',
+    to: routePaths.adminCoupons,
   },
   {
     label: '영상 업로드',

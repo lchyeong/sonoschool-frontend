@@ -1,0 +1,143 @@
+.container {
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  width: min(100%, 920px);
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 4rem) clamp(1.25rem, 4vw, 2rem) clamp(4rem, 8vw, 6rem);
+}
+
+.hero {
+  display: grid;
+  gap: var(--space-4);
+  border: 1px solid rgba(52, 178, 159, 0.18);
+  padding: clamp(1.6rem, 3vw, 2.4rem);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(52, 178, 159, 0.08), rgba(30, 51, 134, 0.02)),
+    #ffffff;
+}
+
+.backLink {
+  width: fit-content;
+  color: var(--color-brand-darken-10);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.description {
+  max-width: 780px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+}
+
+.attachmentList {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.attachmentCard {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(52, 178, 159, 0.14);
+  border-radius: 18px;
+  text-align: left;
+  background: #ffffff;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.attachmentCard:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: rgba(52, 178, 159, 0.04);
+  transform: translateY(-1px);
+}
+
+.attachmentCard:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.fileTypeIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(52, 178, 159, 0.14);
+  border-radius: 14px;
+  color: var(--color-brand-darken-10);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: var(--color-brand-lighten-50);
+}
+
+.attachmentBody {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.attachmentName {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+}
+
+.stateSection {
+  display: grid;
+  gap: 0.85rem;
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: clamp(2rem, 6vw, 4rem) clamp(1.25rem, 4vw, 2rem);
+  text-align: center;
+}
+
+.stateTitle,
+.stateDescription {
+  margin: 0;
+}
+
+.stateTitle {
+  color: #222936;
+  font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+  font-weight: 800;
+}
+
+.stateDescription {
+  color: #6f7688;
+  line-height: 1.7;
+}
+
+@media (width < 900px) {
+  .attachmentCard {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .fileTypeIcon {
+    width: 48px;
+    height: 48px;
+  }
+}

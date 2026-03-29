@@ -189,8 +189,8 @@
 }
 
 .statusBadge[data-tone='answered'] {
-  border-color: #8e92ff;
-  color: #5b5fe8;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .statusBadge[data-tone='waiting'] {
@@ -288,9 +288,19 @@
 }
 
 .pageButton[data-active='true'] {
-  border-color: #5b5fe8;
+  border-color: var(--color-primary);
   color: #ffffff;
-  background: #5b5fe8;
+  background: var(--color-primary);
+}
+
+.pageButton:hover,
+.pageNavButton:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pageButton[data-active='true']:hover {
+  color: #ffffff;
 }
 
 .pageNavButton:disabled {

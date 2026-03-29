@@ -13,7 +13,7 @@ describe('payments mock data', () => {
 
     expect(completedPayment?.status).toBe('COMPLETED');
     expect(tokenPayment?.id).toBe(501);
-    expect(tokenPayment?.gatewayOrderId).toBe(completedPayment?.gatewayOrderId);
+    expect(tokenPayment?.orderNumber).toBe(completedPayment?.orderNumber);
   });
 
   it('builds checkout redirect payloads from the selected mock payment scenario', () => {

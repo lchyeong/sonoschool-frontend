@@ -251,3 +251,7 @@ declare module '*?url' {
   const src: string;
   export default src;
 }
+
+declare module 'hls.js/light' {
+  export { default } from 'hls.js';
+}

@@ -1,12 +1,18 @@
-import type { AdminNoticeCategory, AdminResourceVisibility } from '@/types/adminConsole';
+type AdminNoticeCategory = '운영' | '학사' | '이벤트';
+type AdminResourceVisibility = 'public' | 'students-only';
 
 export type AdminConsoleSection =
   | 'dashboard'
   | 'notices'
+  | 'popups'
   | 'programMenus'
   | 'programs'
+  | 'practicum'
   | 'payments'
+  | 'coupons'
+  | 'tags'
   | 'qna'
+  | 'enrollments'
   | 'resources'
   | 'reviews';
 
@@ -74,25 +80,50 @@ export const sectionContent = {
     eyebrow: '',
     title: '공지사항 관리',
   },
+  popups: {
+    description: '',
+    eyebrow: '',
+    title: '팝업 관리',
+  },
   programMenus: {
     description: '',
     eyebrow: '',
-    title: '강의 카테고리 관리',
+    title: '프로그램 카테고리 관리',
   },
   programs: {
     description: '',
     eyebrow: '',
-    title: '강의 관리',
+    title: '프로그램 관리',
+  },
+  practicum: {
+    description: '',
+    eyebrow: '',
+    title: '실습일정관리',
   },
   payments: {
     description: '',
     eyebrow: '',
     title: '결제 관리',
   },
+  coupons: {
+    description: '',
+    eyebrow: '',
+    title: '쿠폰 관리',
+  },
+  tags: {
+    description: '',
+    eyebrow: '',
+    title: '태그 관리',
+  },
   qna: {
     description: '',
     eyebrow: '',
     title: '문의 답변 관리',
+  },
+  enrollments: {
+    description: '',
+    eyebrow: '',
+    title: '수강관리',
   },
   resources: {
     description: '',

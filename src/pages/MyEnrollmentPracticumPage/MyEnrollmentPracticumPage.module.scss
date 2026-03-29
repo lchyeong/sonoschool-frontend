@@ -1,0 +1,549 @@
+.page {
+  min-height: 100%;
+  background: #ffffff;
+}
+
+.shell {
+  margin: 0 auto;
+  max-width: 1360px;
+  padding: 32px 24px 88px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.backLink {
+  color: var(--color-primary);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-decoration: none;
+}
+
+.title {
+  color: #111827;
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.description {
+  color: #4b5563;
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 10px 0 0;
+}
+
+.headerActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 320px;
+}
+
+.summaryCard,
+.calendarPanel,
+.calendarDetail,
+.lectureCard {
+  background: #ffffff;
+  border: 1px solid #d8dee6;
+  border-radius: 18px;
+}
+
+.summaryCard {
+  padding: 16px 18px;
+}
+
+.summaryTitle {
+  color: #111827;
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.summaryMeta {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.learningLink {
+  align-items: center;
+  border: 1px solid var(--color-primary);
+  border-radius: 999px;
+  color: var(--color-primary);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 18px;
+  text-decoration: none;
+}
+
+.reservationSummarySection {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid #d8dee6;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.reservationSummaryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reservationSummaryTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.reservationSummaryMeta,
+.reservationSummaryInfo,
+.reservationSummarySectionText,
+.reservationSummaryEmpty {
+  margin: 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.reservationSummaryList {
+  display: grid;
+}
+
+.reservationSummaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.reservationSummaryRow:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.reservationSummaryRow:last-child {
+  padding-bottom: 0;
+}
+
+.reservationSummaryCourse {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.reservationSummarySectionText {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reservationSummaryDivider {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.reservationSummaryEmpty {
+  padding: 8px 0;
+}
+
+.calendarLayout {
+  display: grid;
+  gap: 20px;
+}
+
+.calendarPanel {
+  overflow: hidden;
+}
+
+.calendarMonthHeader,
+.detailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 20px 16px;
+}
+
+.calendarMonthTitle,
+.detailTitle {
+  color: #111827;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.monthInput {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #d8dee6;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.calendarWeekdays,
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendarWeekdays {
+  border-top: 1px solid #d8dee6;
+  border-bottom: 1px solid #d8dee6;
+}
+
+.calendarWeekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-right: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.calendarWeekday:last-child {
+  border-right: 0;
+}
+
+.calendarGrid {
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+}
+
+.calendarEmptyCell,
+.calendarDay {
+  min-height: 152px;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.calendarGrid > :nth-child(7n) {
+  border-right: 0;
+}
+
+.calendarGrid > :nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+
+.calendarEmptyCell {
+  background: #fafbfc;
+}
+
+.calendarDay {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.calendarDay[data-has-items='true'] {
+  background: #fcfefe;
+}
+
+.calendarDay[data-selected='true'] {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+  background: #ffffff;
+}
+
+.calendarDayHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.calendarDayNumber {
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.calendarDayCount {
+  color: #047857;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.calendarPreviewList {
+  display: grid;
+  gap: 6px;
+}
+
+.calendarPreviewItem,
+.calendarEmptyText {
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.calendarPreviewItem {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendarPreviewItemReserved {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.calendarEmptyText {
+  color: #9ca3af;
+}
+
+.calendarDetail {
+  padding: 0 20px 20px;
+}
+
+.detailHeader {
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 14px;
+}
+
+.detailDescription {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 6px 0 0;
+}
+
+.lectureList {
+  display: grid;
+  gap: 16px;
+}
+
+.lectureCard {
+  padding: 16px 18px;
+}
+
+.lectureHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.lectureSection {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.lectureTitle {
+  color: #111827;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.lectureBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.statusChip,
+.slotStatusChip {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d8dee6;
+  border-radius: 999px;
+  color: #374151;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 28px;
+  padding: 0 12px;
+}
+
+.slotStatusChipOPEN {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.slotStatusChipBLOCKED {
+  border-color: #f59e0b;
+  color: #b45309;
+}
+
+.slotStatusChipCLOSED {
+  border-color: #d1d5db;
+  color: #6b7280;
+}
+
+.currentReservation {
+  align-items: center;
+  background: #f8fafb;
+  border: 1px solid #d8dee6;
+  border-radius: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+}
+
+.currentReservationTitle {
+  color: #111827;
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.currentReservationMeta,
+.mutedText,
+.blockedText,
+.slotMeta,
+.message,
+.errorText {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.currentReservationMeta,
+.mutedText,
+.slotMeta,
+.message {
+  color: #4b5563;
+}
+
+.blockedText,
+.errorText {
+  color: #c2410c;
+}
+
+.slotList {
+  display: grid;
+  gap: 10px;
+}
+
+.slotRow {
+  align-items: center;
+  border: 1px solid #d8dee6;
+  border-radius: 14px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.slotMain {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.slotTime {
+  color: #111827;
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+@media (width <= 1100px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .headerActions {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .calendarEmptyCell,
+  .calendarDay {
+    min-height: 132px;
+  }
+}
+
+@media (width <= 900px) {
+  .reservationSummaryHeader,
+  .lectureHeader,
+  .currentReservation,
+  .slotRow,
+  .slotMain,
+  .detailHeader,
+  .calendarMonthHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lectureBadges {
+    justify-content: flex-start;
+  }
+
+  .calendarWeekdays,
+  .calendarGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .calendarGrid > :nth-child(n) {
+    border-right: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .calendarGrid > :nth-child(2n) {
+    border-right: 0;
+  }
+}
+
+@media (width <= 640px) {
+  .shell {
+    padding: 24px 16px 72px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .calendarWeekdays,
+  .calendarGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .calendarWeekday,
+  .calendarEmptyCell,
+  .calendarDay,
+  .calendarGrid > :nth-child(n),
+  .calendarGrid > :nth-child(2n) {
+    border-right: 0;
+  }
+
+  .calendarEmptyCell,
+  .calendarDay {
+    min-height: auto;
+  }
+}

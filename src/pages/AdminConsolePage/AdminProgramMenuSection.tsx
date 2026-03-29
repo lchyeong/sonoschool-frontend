@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -35,6 +35,11 @@ interface CategoryFormState {
   slug: string;
 }
 
+interface CategoryEditDraftState {
+  categoryId: number;
+  values: CategoryFormState;
+}
+
 interface FlatCategoryItem extends AdminCategoryTreeItem {
   parentId: number | null;
   pathIds: number[];
@@ -57,9 +62,7 @@ const slugifyCategory = (value: string): string => {
     .replace(/^-+|-+$/g, '');
 };
 
-const sortCategoryTree = (
-  items: readonly AdminCategoryTreeItem[],
-): AdminCategoryTreeItem[] => {
+const sortCategoryTree = (items: readonly AdminCategoryTreeItem[]): AdminCategoryTreeItem[] => {
   return [...items]
     .sort((left, right) => {
       if (left.sortOrder !== right.sortOrder) {
@@ -170,8 +173,13 @@ const CategoryBrowser = ({
       <div className={styles['browserGrid']}>
         {columns.map((columnItems, columnIndex) => {
           return (
-            <section className={styles['browserColumn']} key={`category-column-${String(columnIndex)}`}>
-              <div className={styles['browserColumnHeader']}>{`${String(columnIndex + 1)}차 카테고리`}</div>
+            <section
+              className={styles['browserColumn']}
+              key={`category-column-${String(columnIndex)}`}
+            >
+              <div className={styles['browserColumnHeader']}>
+                {`${String(columnIndex + 1)}차 카테고리`}
+              </div>
               {columnItems.length ? (
                 <div className={styles['browserList']} role='list'>
                   {columnItems.map((item) => {
@@ -225,7 +233,7 @@ const AdminProgramMenuSection = () => {
   const [createSlugDirty, setCreateSlugDirty] = useState(false);
   const [createFormState, setCreateFormState] = useState<CategoryFormState>(INITIAL_FORM_STATE);
   const [detailTab, setDetailTab] = useState<'create' | 'edit'>('edit');
-  const [editFormState, setEditFormState] = useState<CategoryFormState>(INITIAL_FORM_STATE);
+  const [editDraftState, setEditDraftState] = useState<CategoryEditDraftState | null>(null);
 
   const sortedTree = useMemo(() => sortCategoryTree(treeQuery.data ?? []), [treeQuery.data]);
   const flatCategories = useMemo(() => flattenCategoryTree(sortedTree), [sortedTree]);
@@ -233,10 +241,35 @@ const AdminProgramMenuSection = () => {
     () => new Map(flatCategories.map((item) => [item.id, item])),
     [flatCategories],
   );
-  const selectedCategory = selectedCategoryId ? (categoryMap.get(selectedCategoryId) ?? null) : null;
-  const createParentCategory =
-    createParentId !== null ? (categoryMap.get(createParentId) ?? null) : null;
-  const browserFocusPathIds = selectedCategory?.pathIds ?? [];
+  const resolvedSelectedCategoryId = useMemo(() => {
+    if (!flatCategories.length) {
+      return null;
+    }
+
+    if (selectedCategoryId !== null && categoryMap.has(selectedCategoryId)) {
+      return selectedCategoryId;
+    }
+
+    return flatCategories[0]?.id ?? null;
+  }, [categoryMap, flatCategories, selectedCategoryId]);
+  const selectedCategory =
+    resolvedSelectedCategoryId !== null
+      ? (categoryMap.get(resolvedSelectedCategoryId) ?? null)
+      : null;
+  const resolvedCreateParentId = useMemo(() => {
+    if (createParentId === null) {
+      return null;
+    }
+
+    const candidate = categoryMap.get(createParentId) ?? null;
+
+    if (!candidate || candidate.depth >= MAX_DEPTH) {
+      return null;
+    }
+
+    return candidate.id;
+  }, [categoryMap, createParentId]);
+  const browserFocusPathIds = useMemo(() => selectedCategory?.pathIds ?? [], [selectedCategory]);
   const categoryColumns = useMemo(
     () => buildCategoryColumns(sortedTree, browserFocusPathIds),
     [browserFocusPathIds, sortedTree],
@@ -251,6 +284,20 @@ const AdminProgramMenuSection = () => {
   const siblingIndex = selectedCategory
     ? siblingCategories.findIndex((item) => item.id === selectedCategory.id)
     : -1;
+  const editFormState = useMemo(() => {
+    if (!selectedCategory) {
+      return INITIAL_FORM_STATE;
+    }
+
+    if (editDraftState?.categoryId === selectedCategory.id) {
+      return editDraftState.values;
+    }
+
+    return {
+      name: selectedCategory.name,
+      slug: selectedCategory.slug,
+    };
+  }, [editDraftState, selectedCategory]);
   const linkedPrograms = useMemo(() => {
     if (!selectedCategory || !programsQuery.data) {
       return [];
@@ -258,41 +305,6 @@ const AdminProgramMenuSection = () => {
 
     return programsQuery.data.filter((program) => program.categoryId === selectedCategory.id);
   }, [programsQuery.data, selectedCategory]);
-
-  useEffect(() => {
-    if (!flatCategories.length) {
-      setSelectedCategoryId(null);
-      return;
-    }
-
-    if (!selectedCategoryId || !categoryMap.has(selectedCategoryId)) {
-      setSelectedCategoryId(flatCategories[0]?.id ?? null);
-    }
-  }, [categoryMap, flatCategories, selectedCategoryId]);
-
-  useEffect(() => {
-    if (createParentId !== null && !categoryMap.has(createParentId)) {
-      setCreateParentId(null);
-    }
-  }, [categoryMap, createParentId]);
-
-  useEffect(() => {
-    if (createParentCategory && createParentCategory.depth >= MAX_DEPTH) {
-      setCreateParentId(null);
-    }
-  }, [createParentCategory]);
-
-  useEffect(() => {
-    if (!selectedCategory) {
-      setEditFormState(INITIAL_FORM_STATE);
-      return;
-    }
-
-    setEditFormState({
-      name: selectedCategory.name,
-      slug: selectedCategory.slug,
-    });
-  }, [selectedCategory]);
 
   const invalidateQueries = async () => {
     await Promise.all([
@@ -317,14 +329,15 @@ const AdminProgramMenuSection = () => {
       const normalizedSlug = slugifyCategory(state.slug);
 
       if (!normalizedName || !normalizedSlug) {
-        throw new Error('카테고리명과 카테고리 영어 이름을 입력해 주세요.');
+        throw new Error('카테고리명과 카테고리 코드를 입력해 주세요.');
       }
 
-      const siblings = getSiblingCategories(sortedTree, categoryMap, createParentId);
+      const nextParentId = resolvedCreateParentId;
+      const siblings = getSiblingCategories(sortedTree, categoryMap, nextParentId);
       const nextSortOrder = siblings.length ? siblings[siblings.length - 1].sortOrder + 1 : 0;
 
       return createAdminCategory({
-        parentId: createParentId,
+        parentId: nextParentId,
         name: normalizedName,
         slug: normalizedSlug,
         sortOrder: nextSortOrder,
@@ -339,6 +352,7 @@ const AdminProgramMenuSection = () => {
     onSuccess: async (category) => {
       await invalidateQueries();
       setSelectedCategoryId(category.id);
+      setEditDraftState(null);
       setCreateFormState(INITIAL_FORM_STATE);
       setCreateSlugDirty(false);
       setCreateParentId(null);
@@ -356,7 +370,7 @@ const AdminProgramMenuSection = () => {
       const normalizedSlug = slugifyCategory(state.slug);
 
       if (!normalizedName || !normalizedSlug || !selectedCategory) {
-        throw new Error('카테고리명과 카테고리 영어 이름을 확인해 주세요.');
+        throw new Error('카테고리명과 카테고리 코드를 확인해 주세요.');
       }
 
       return updateAdminCategory(selectedCategory.id, {
@@ -374,6 +388,7 @@ const AdminProgramMenuSection = () => {
     onSuccess: async (category) => {
       await invalidateQueries();
       setSelectedCategoryId(category.id);
+      setEditDraftState(null);
       showToast({
         message: '카테고리를 수정했습니다.',
         variant: 'success',
@@ -428,12 +443,42 @@ const AdminProgramMenuSection = () => {
     onSuccess: async (parentId) => {
       await invalidateQueries();
       setSelectedCategoryId(parentId);
+      setEditDraftState(null);
       showToast({
         message: '카테고리를 삭제했습니다.',
         variant: 'success',
       });
     },
   });
+
+  const selectCategory = (categoryId: number) => {
+    setSelectedCategoryId(categoryId);
+    setEditDraftState(null);
+  };
+
+  const updateEditFormState = (patch: Partial<CategoryFormState>) => {
+    if (!selectedCategory) {
+      return;
+    }
+
+    setEditDraftState((current) => {
+      const baseValues =
+        current?.categoryId === selectedCategory.id
+          ? current.values
+          : {
+              name: selectedCategory.name,
+              slug: selectedCategory.slug,
+            };
+
+      return {
+        categoryId: selectedCategory.id,
+        values: {
+          ...baseValues,
+          ...patch,
+        },
+      };
+    });
+  };
 
   const handleCreateNameChange = (nextName: string) => {
     setCreateFormState((current) => ({
@@ -482,7 +527,7 @@ const AdminProgramMenuSection = () => {
                 ? (categoryMap.get(clickedCategory.parentId) ?? null)
                 : clickedCategory;
 
-            setSelectedCategoryId(createBaseCategory?.id ?? categoryId);
+            selectCategory(createBaseCategory?.id ?? categoryId);
             setCreateParentId(
               createBaseCategory && createBaseCategory.depth < MAX_DEPTH
                 ? createBaseCategory.id
@@ -491,9 +536,9 @@ const AdminProgramMenuSection = () => {
             return;
           }
 
-          setSelectedCategoryId(categoryId);
+          selectCategory(categoryId);
         }}
-        selectedCategoryId={selectedCategoryId}
+        selectedCategoryId={resolvedSelectedCategoryId}
       />
     );
   };
@@ -506,18 +551,20 @@ const AdminProgramMenuSection = () => {
     return (
       <article className={styles['detailCard']}>
         <div className={styles['cardHeader']}>
-          <h3 className={styles['cardTitle']}>이 카테고리의 강의</h3>
+          <h3 className={styles['cardTitle']}>이 카테고리의 프로그램</h3>
           <p className={styles['cardDescription']}>
-            {selectedCategory.isLeaf ? `${String(linkedPrograms.length)}개` : '하위 카테고리에서 관리'}
+            {selectedCategory.isLeaf
+              ? `${String(linkedPrograms.length)}개`
+              : '하위 카테고리에서 관리'}
           </p>
         </div>
 
         {programsQuery.isPending ? (
-          <div className={styles['inlineState']}>강의 목록을 불러오는 중입니다.</div>
+          <div className={styles['inlineState']}>프로그램 목록을 불러오는 중입니다.</div>
         ) : programsQuery.isError ? (
-          <div className={styles['inlineState']}>강의 연결 정보를 불러오지 못했습니다.</div>
+          <div className={styles['inlineState']}>프로그램 연결 정보를 불러오지 못했습니다.</div>
         ) : !selectedCategory.isLeaf ? (
-          <div className={styles['inlineState']}>강의는 말단 카테고리에 연결됩니다.</div>
+          <div className={styles['inlineState']}>프로그램은 말단 카테고리에 연결됩니다.</div>
         ) : linkedPrograms.length ? (
           <div className={styles['linkedPrograms']}>
             {linkedPrograms.map((program) => {
@@ -527,7 +574,10 @@ const AdminProgramMenuSection = () => {
                     <strong className={styles['linkedProgramTitle']}>{program.title}</strong>
                     <p className={styles['linkedProgramMeta']}>{program.categoryName}</p>
                   </div>
-                  <Link className={styles['inlineLink']} to={routePaths.adminProgramEdit(String(program.id))}>
+                  <Link
+                    className={styles['inlineLink']}
+                    to={routePaths.adminProgramEdit(String(program.id))}
+                  >
                     수정
                   </Link>
                 </div>
@@ -535,7 +585,7 @@ const AdminProgramMenuSection = () => {
             })}
           </div>
         ) : (
-          <div className={styles['inlineState']}>연결된 강의가 없습니다.</div>
+          <div className={styles['inlineState']}>연결된 프로그램이 없습니다.</div>
         )}
       </article>
     );
@@ -582,7 +632,7 @@ const AdminProgramMenuSection = () => {
                     : selectedCategory;
 
                 if (createBaseCategory) {
-                  setSelectedCategoryId(createBaseCategory.id);
+                  selectCategory(createBaseCategory.id);
                 }
 
                 setCreateParentId(
@@ -619,21 +669,15 @@ const AdminProgramMenuSection = () => {
                       label='카테고리명'
                       name='edit-category-name'
                       onChange={(event) => {
-                        setEditFormState((current) => ({
-                          ...current,
-                          name: event.target.value,
-                        }));
+                        updateEditFormState({ name: event.target.value });
                       }}
                       value={editFormState.name}
                     />
                     <TextField
-                      label='카테고리 영어 이름'
+                      label='카테고리 코드'
                       name='edit-category-slug'
                       onChange={(event) => {
-                        setEditFormState((current) => ({
-                          ...current,
-                          slug: event.target.value,
-                        }));
+                        updateEditFormState({ slug: event.target.value });
                       }}
                       value={editFormState.slug}
                     />
@@ -679,7 +723,9 @@ const AdminProgramMenuSection = () => {
                       }}
                       size='sm'
                       type='button'
-                      variant={createParentId === selectedCategory.id ? 'primary' : 'secondary'}
+                      variant={
+                        resolvedCreateParentId === selectedCategory.id ? 'primary' : 'secondary'
+                      }
                     >
                       이 카테고리 하위로 만들기
                     </Button>
@@ -690,7 +736,7 @@ const AdminProgramMenuSection = () => {
                     }}
                     size='sm'
                     type='button'
-                    variant={createParentId === null ? 'primary' : 'secondary'}
+                    variant={resolvedCreateParentId === null ? 'primary' : 'secondary'}
                   >
                     최상위 카테고리로 만들기
                   </Button>
@@ -707,7 +753,7 @@ const AdminProgramMenuSection = () => {
                   value={createFormState.name}
                 />
                 <TextField
-                  label='카테고리 영어 이름'
+                  label='카테고리 코드'
                   name='create-category-slug'
                   onChange={(event) => {
                     setCreateSlugDirty(true);

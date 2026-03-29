@@ -38,6 +38,13 @@ import styles from './CheckoutPage.module.scss';
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 const checkoutPaymentMethods: CheckoutPaymentMethod[] = ['CARD'];
 const KCP_PAYMENT_VISIBILITY_EVENT = 'sonoschool:kcp-payment-visibility';
+const pcPaymentOpenErrorMessage = '결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.';
+const pcPaymentIncompleteMessage =
+  '결제가 완료되지 않았습니다. 결제 정보를 확인한 뒤 다시 시도해 주세요.';
+const pcPaymentApproveErrorMessage = '결제 승인에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+const pcPaymentCancelledMessage = '결제가 취소되었습니다. 다시 결제를 진행해 주세요.';
+const pcPaymentClosedMessage = '결제창이 닫혀 결제가 완료되지 않았습니다. 다시 시도해 주세요.';
+const pcPaymentReturnGraceMs = 1200;
 let kcpScrollLockSnapshot:
   | {
       bodyOverflow: string;
@@ -216,6 +223,34 @@ const buildResultSearch = (params: Record<string, number | string | null | undef
   return searchParams.toString();
 };
 
+const isUserCancelledPcPayment = (resCd: string, resMsg: string | null) => {
+  if (!resCd || resCd === '0000') {
+    return false;
+  }
+
+  const normalizedMessage = (resMsg ?? '').trim().toLowerCase();
+  return (
+    normalizedMessage.includes('취소') ||
+    normalizedMessage.includes('cancel') ||
+    normalizedMessage.includes('닫') ||
+    normalizedMessage.includes('close')
+  );
+};
+
+const buildPcPrepareKey = (
+  cartItemIds: number[],
+  paymentMethod: CheckoutPaymentMethod,
+  selectedCouponId: number | null,
+  prepareVersion: number,
+) => {
+  return JSON.stringify({
+    cartItemIds,
+    paymentMethod,
+    prepareVersion,
+    selectedCouponId,
+  });
+};
+
 const setKcpPaymentVisibility = (visible: boolean) => {
   if (typeof document !== 'undefined') {
     if (visible) {
@@ -252,6 +287,9 @@ const setKcpPaymentVisibility = (visible: boolean) => {
 const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('CARD');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPcPreparing, setIsPcPreparing] = useState(false);
+  const [isPcPaymentReady, setIsPcPaymentReady] = useState(false);
+  const [pcPrepareVersion, setPcPrepareVersion] = useState(0);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
@@ -260,6 +298,8 @@ const CheckoutPage = () => {
   const kcpFormRef = useRef<HTMLFormElement | null>(null);
   const kcpMobileFormRef = useRef<HTMLFormElement | null>(null);
   const latestPrepareRef = useRef<KcpPcPrepareResponse | null>(null);
+  const isPcAttemptPendingRef = useRef(false);
+  const pcAttemptRecoveryTimerRef = useRef<number | null>(null);
 
   const selectedItemIds = useCartSelectionStore((state) => state.selectedItemIds);
   const selectedCouponId = useCartSelectionStore((state) => state.selectedCouponId);
@@ -277,6 +317,38 @@ const CheckoutPage = () => {
     coupons ?? [],
     selectedCouponId,
   );
+  const isMobilePayment = isMobileBrowser();
+  const selectedCartItemIds = pricing.selectedItems.map((item) => item.id);
+  const pcPrepareKey = buildPcPrepareKey(
+    selectedCartItemIds,
+    paymentMethod,
+    selectedCouponId,
+    pcPrepareVersion,
+  );
+
+  const clearPcAttemptRecoveryTimer = () => {
+    if (pcAttemptRecoveryTimerRef.current !== null) {
+      window.clearTimeout(pcAttemptRecoveryTimerRef.current);
+      pcAttemptRecoveryTimerRef.current = null;
+    }
+  };
+
+  const resetPcPreparedPayment = () => {
+    latestPrepareRef.current = null;
+    setIsPcPaymentReady(false);
+  };
+
+  const requestPcReprepare = () => {
+    resetPcPreparedPayment();
+    setPcPrepareVersion((current) => current + 1);
+  };
+
+  const completePcAttempt = () => {
+    isPcAttemptPendingRef.current = false;
+    clearPcAttemptRecoveryTimer();
+    setIsSubmitting(false);
+    setKcpPaymentVisibility(false);
+  };
 
   useEffect(() => {
     if (!cart) {
@@ -287,9 +359,122 @@ const CheckoutPage = () => {
   }, [cart, coupons, hydrateSelection]);
 
   useEffect(() => {
+    resetPcPreparedPayment();
+  }, [pcPrepareKey]);
+
+  useEffect(() => {
+    if (isMobilePayment || pricing.itemCount === 0) {
+      resetPcPreparedPayment();
+      setIsPcPreparing(false);
+      return;
+    }
+
+    const form = kcpFormRef.current;
+    if (!form) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const primePcPayment = async () => {
+      setIsPcPreparing(true);
+
+      try {
+        const prepare = await prepareKcpPcCheckoutPayment({
+          cartItemIds: selectedCartItemIds,
+          paymentMethod,
+          selectedCouponId,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        latestPrepareRef.current = prepare;
+        applyPcPrepareResponse(form, prepare);
+        await loadKcpScript(prepare.jsUrl);
+
+        if (cancelled) {
+          return;
+        }
+
+        setIsPcPaymentReady(true);
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        latestPrepareRef.current = null;
+        setIsPcPaymentReady(false);
+      } finally {
+        if (!cancelled) {
+          setIsPcPreparing(false);
+        }
+      }
+    };
+
+    void primePcPayment();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isMobilePayment, pcPrepareKey, pricing.itemCount]);
+
+  useEffect(() => {
+    const recoverPendingPcAttempt = () => {
+      if (!isPcAttemptPendingRef.current) {
+        return;
+      }
+
+      completePcAttempt();
+      requestPcReprepare();
+      showToast({
+        message: pcPaymentClosedMessage,
+        variant: 'error',
+      });
+    };
+
+    const schedulePcAttemptRecovery = () => {
+      if (!isPcAttemptPendingRef.current) {
+        return;
+      }
+      clearPcAttemptRecoveryTimer();
+      pcAttemptRecoveryTimerRef.current = window.setTimeout(() => {
+        if (isPcAttemptPendingRef.current) {
+          recoverPendingPcAttempt();
+        }
+      }, pcPaymentReturnGraceMs);
+    };
+
+    const handlePageHide = () => {
+      clearPcAttemptRecoveryTimer();
+      setKcpPaymentVisibility(false);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        schedulePcAttemptRecovery();
+      }
+    };
+
+    window.addEventListener('focus', schedulePcAttemptRecovery);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handlePageHide);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearPcAttemptRecoveryTimer();
+      window.removeEventListener('focus', schedulePcAttemptRecovery);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handlePageHide);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [showToast]);
+
+  useEffect(() => {
     window.jsf__pay = (form: HTMLFormElement) => {
       if (!window.KCP_Pay_Execute_Web) {
-        throw new Error('KCP 결제 스크립트가 준비되지 않았습니다.');
+        throw new Error(pcPaymentOpenErrorMessage);
       }
 
       window.KCP_Pay_Execute_Web(form);
@@ -312,18 +497,27 @@ const CheckoutPage = () => {
         }
 
         const resCd = getHiddenFieldValue(form, 'res_cd');
-        const resMsg = getHiddenFieldValue(form, 'res_msg');
+        const resMsg = getHiddenFieldValue(form, 'res_msg') || null;
+
+        if (isUserCancelledPcPayment(resCd, resMsg)) {
+          completePcAttempt();
+          requestPcReprepare();
+          showToast({
+            message: pcPaymentCancelledMessage,
+            variant: 'info',
+          });
+          return;
+        }
 
         if (resCd !== '0000') {
           showToast({
-            message: resMsg || '결제가 완료되지 않았습니다. 결제창에서 다시 확인해 주세요.',
+            message: pcPaymentIncompleteMessage,
             variant: 'error',
           });
           void navigate(
             `${routePaths.paymentResult}?${buildResultSearch({
               code: resCd,
-              gatewayOrderId: latestPrepare.ordrIdxx,
-              message: resMsg || '결제가 승인되지 않았습니다.',
+              message: pcPaymentIncompleteMessage,
               paymentId: latestPrepare.paymentId,
               status: 'FAILED',
             })}`,
@@ -332,6 +526,7 @@ const CheckoutPage = () => {
         }
 
         const payment = await approveKcpPcPayment({
+          orderReference: latestPrepare.orderReference,
           paymentId: latestPrepare.paymentId,
           encData: getHiddenFieldValue(form, 'enc_data'),
           encInfo: getHiddenFieldValue(form, 'enc_info'),
@@ -349,38 +544,32 @@ const CheckoutPage = () => {
 
         void navigate(
           `${routePaths.paymentResult}?${buildResultSearch({
-            gatewayOrderId: payment.gatewayOrderId,
             paymentId: payment.id,
             status: payment.status,
           })}`,
         );
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'PC 결제 승인에 실패했습니다. 다시 시도해 주세요.';
-
+      } catch {
         showToast({
-          message,
+          message: pcPaymentApproveErrorMessage,
           variant: 'error',
         });
         void navigate(
           `${routePaths.paymentResult}?${buildResultSearch({
-            gatewayOrderId: latestPrepare.ordrIdxx,
-            message,
+            message: pcPaymentApproveErrorMessage,
             paymentId: latestPrepare.paymentId,
             status: 'FAILED',
           })}`,
         );
       } finally {
-        latestPrepareRef.current = null;
-        setIsSubmitting(false);
+        resetPcPreparedPayment();
+        completePcAttempt();
         closeEvent?.();
-        setKcpPaymentVisibility(false);
       }
     };
 
     return () => {
+      isPcAttemptPendingRef.current = false;
+      clearPcAttemptRecoveryTimer();
       setKcpPaymentVisibility(false);
       delete window.jsf__pay;
       delete window.m_Completepayment;
@@ -396,9 +585,8 @@ const CheckoutPage = () => {
       return;
     }
 
-    setIsSubmitting(true);
     const checkoutPayload = {
-      cartItemIds: pricing.selectedItems.map((item) => item.id),
+      cartItemIds: selectedCartItemIds,
       paymentMethod,
       selectedCouponId,
     };
@@ -419,27 +607,23 @@ const CheckoutPage = () => {
 
       const form = kcpFormRef.current;
       if (!form) {
-        throw new Error('PC 결제 폼을 초기화하지 못했습니다.');
+        throw new Error(pcPaymentOpenErrorMessage);
       }
 
-      const prepare = await prepareKcpPcCheckoutPayment(checkoutPayload);
-
-      latestPrepareRef.current = prepare;
-      applyPcPrepareResponse(form, prepare);
-      await loadKcpScript(prepare.jsUrl);
-
-      if (!window.jsf__pay) {
-        throw new Error('KCP 결제창을 준비하지 못했습니다.');
+      if (!isPcPaymentReady || !latestPrepareRef.current || !window.jsf__pay || !window.KCP_Pay_Execute_Web) {
+        throw new Error(pcPaymentOpenErrorMessage);
       }
 
+      clearPcAttemptRecoveryTimer();
+      isPcAttemptPendingRef.current = true;
+      setIsSubmitting(true);
       setKcpPaymentVisibility(true);
       window.jsf__pay(form);
     } catch (error: unknown) {
-      latestPrepareRef.current = null;
-      setKcpPaymentVisibility(false);
-      setIsSubmitting(false);
+      completePcAttempt();
+      requestPcReprepare();
       showToast({
-        message: error instanceof Error ? error.message : '결제 준비에 실패했습니다.',
+        message: error instanceof Error ? error.message : pcPaymentOpenErrorMessage,
         variant: 'error',
       });
     }
@@ -677,13 +861,17 @@ const CheckoutPage = () => {
                     </Link>
                     <button
                       className={styles['primaryActionButton']}
-                      disabled={isSubmitting || pricing.itemCount === 0}
+                      disabled={isSubmitting || isPcPreparing || pricing.itemCount === 0}
                       onClick={() => {
                         void handleStartPayment();
                       }}
                       type='button'
                     >
-                      {isSubmitting ? '결제창 여는 중...' : '실결제 진행'}
+                      {isSubmitting
+                        ? '결제창 여는 중...'
+                        : isPcPreparing
+                          ? '결제창 준비 중...'
+                          : '실결제 진행'}
                     </button>
                   </div>
                 </section>

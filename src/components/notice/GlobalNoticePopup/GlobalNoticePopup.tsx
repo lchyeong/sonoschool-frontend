@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
-import { useGlobalNoticesQuery } from '@/query/useNoticeQueries';
+import { useGlobalPopupsQuery } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
 
 import styles from './GlobalNoticePopup.module.scss';
@@ -26,7 +26,8 @@ const buildTodayLabel = (): string => {
   return `${String(year)}-${month}-${day}`;
 };
 
-const buildStorageKey = (noticeId: number): string => `${DISMISS_STORAGE_PREFIX}:${String(noticeId)}`;
+const buildStorageKey = (noticeId: number): string =>
+  `${DISMISS_STORAGE_PREFIX}:${String(noticeId)}`;
 
 const hasDismissedToday = (noticeId: number): boolean => {
   if (typeof window === 'undefined') {
@@ -52,24 +53,22 @@ const splitContentParagraphs = (content: string): string[] => {
 };
 
 const GlobalNoticePopup = () => {
-  const noticesQuery = useGlobalNoticesQuery();
-  const [isClosed, setIsClosed] = useState(false);
+  const popupsQuery = useGlobalPopupsQuery();
+  const [closedPopupId, setClosedPopupId] = useState<number | null>(null);
 
   const activePopupNotice = useMemo(() => {
-    const notices = noticesQuery.data ?? [];
+    const notices = popupsQuery.data ?? [];
 
     return (
       notices.find((notice) => {
-        return notice.popup && !hasDismissedToday(notice.id);
+        return !hasDismissedToday(notice.id);
       }) ?? null
     );
-  }, [noticesQuery.data]);
+  }, [popupsQuery.data]);
 
-  useEffect(() => {
-    setIsClosed(false);
-  }, [activePopupNotice?.id]);
+  const isClosed = activePopupNotice !== null && closedPopupId === activePopupNotice.id;
 
-  if (noticesQuery.isPending || noticesQuery.isError || !activePopupNotice || isClosed) {
+  if (popupsQuery.isPending || popupsQuery.isError || !activePopupNotice || isClosed) {
     return null;
   }
 
@@ -77,7 +76,7 @@ const GlobalNoticePopup = () => {
     <Modal
       description={`등록일 ${formatDate(activePopupNotice.createdAt)} · 운영 공지`}
       onClose={() => {
-        setIsClosed(true);
+        setClosedPopupId(activePopupNotice.id);
       }}
       title={activePopupNotice.title}
     >
@@ -100,7 +99,7 @@ const GlobalNoticePopup = () => {
         <Button
           onClick={() => {
             dismissForToday(activePopupNotice.id);
-            setIsClosed(true);
+            setClosedPopupId(activePopupNotice.id);
           }}
           type='button'
           variant='secondary'

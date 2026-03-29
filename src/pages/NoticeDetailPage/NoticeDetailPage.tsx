@@ -16,22 +16,6 @@ const formatDate = (value: string | null): string => {
   }).format(new Date(value));
 };
 
-const formatVisibilityPeriod = (startValue: string | null, endValue: string | null): string => {
-  if (!startValue && !endValue) {
-    return '상시 노출';
-  }
-
-  if (startValue && endValue) {
-    return `${formatDate(startValue)} ~ ${formatDate(endValue)}`;
-  }
-
-  if (startValue) {
-    return `${formatDate(startValue)}부터`;
-  }
-
-  return `${formatDate(endValue)}까지`;
-};
-
 const splitContentParagraphs = (content: string): string[] => {
   return content
     .split(/\n+/)
@@ -101,37 +85,15 @@ const NoticeDetailPage = () => {
         </p>
       </div>
 
-      <div className={styles['contentGrid']}>
-        <article className={styles['contentCard']}>
-          {splitContentParagraphs(notice.content).map((paragraph) => {
-            return (
-              <p className={styles['paragraph']} key={paragraph}>
-                {paragraph}
-              </p>
-            );
-          })}
-        </article>
-
-        <aside className={styles['metaCard']}>
-          <h2 className={styles['metaTitle']}>공지 정보</h2>
-          <dl className={styles['metaList']}>
-            <div className={styles['metaItem']}>
-              <dt className={styles['metaLabel']}>공지 범위</dt>
-              <dd className={styles['metaValue']}>전역 공지</dd>
-            </div>
-            <div className={styles['metaItem']}>
-              <dt className={styles['metaLabel']}>노출 기간</dt>
-              <dd className={styles['metaValue']}>
-                {formatVisibilityPeriod(notice.visibleStartAt, notice.visibleEndAt)}
-              </dd>
-            </div>
-            <div className={styles['metaItem']}>
-              <dt className={styles['metaLabel']}>최근 수정</dt>
-              <dd className={styles['metaValue']}>{formatDate(notice.updatedAt)}</dd>
-            </div>
-          </dl>
-        </aside>
-      </div>
+      <article className={styles['contentCard']}>
+        {splitContentParagraphs(notice.content).map((paragraph) => {
+          return (
+            <p className={styles['paragraph']} key={paragraph}>
+              {paragraph}
+            </p>
+          );
+        })}
+      </article>
     </div>
   );
 };

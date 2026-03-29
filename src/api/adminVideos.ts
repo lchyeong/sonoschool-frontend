@@ -49,16 +49,15 @@ interface RawAdminVideoSectionResponse {
 
 export const fetchAdminVideoPrograms = async (): Promise<AdminVideoProgramSummary[]> => {
   try {
-    const response = await axiosInstance.get<ApiEnvelope<PageResponse<RawAdminVideoProgramSummary>>>(
-      '/api/v1/admin/programs',
-      {
-        params: {
-          page: 0,
-          size: 200,
-          sort: 'id,desc',
-        },
+    const response = await axiosInstance.get<
+      ApiEnvelope<PageResponse<RawAdminVideoProgramSummary>>
+    >('/api/v1/admin/programs', {
+      params: {
+        page: 0,
+        size: 200,
+        sort: 'id,desc',
       },
-    );
+    });
     return unwrapApiEnvelope(response.data).content.map((program) => ({
       ...program,
       id: String(program.id),
@@ -85,7 +84,7 @@ export const fetchAdminProgramLectures = async (
       })),
     }));
   } catch (error: unknown) {
-    throw toApiError(error, '강의 목록을 불러오지 못했습니다.');
+    throw toApiError(error, '커리큘럼 강의 목록을 불러오지 못했습니다.');
   }
 };
 

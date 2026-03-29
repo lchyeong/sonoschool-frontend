@@ -35,7 +35,11 @@ describe('ResourcesPage', () => {
     );
 
     expect(await screen.findByRole('heading', { level: 1, name: '자료실' })).toBeInTheDocument();
-    expect(await screen.findByText('2026 상반기 과정 일정표')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: '2026 상반기 과정 일정표' })).toHaveAttribute(
+      'href',
+      '/resources/1',
+    );
     expect(await screen.findByText('오프라인 실습 준비 체크리스트')).toBeInTheDocument();
+    expect(screen.queryByText('상세')).not.toBeInTheDocument();
   });
 });

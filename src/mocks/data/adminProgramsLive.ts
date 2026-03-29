@@ -5,7 +5,7 @@ import type {
   AdminProgramUpsertPayload,
 } from '@/types/adminProgramsLive';
 
-interface AdminProgramStateItem extends AdminProgramDetail {}
+type AdminProgramStateItem = AdminProgramDetail;
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -92,9 +92,11 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
       { label: '수강 방식', value: '온라인 VOD' },
       { label: '수강 기간', value: '90일' },
     ],
-    faqs: [
-      { question: '모바일 수강이 가능한가요?', answer: '모바일과 PC 모두 가능합니다.' },
-    ],
+    faqs: [{ question: '모바일 수강이 가능한가요?', answer: '모바일과 PC 모두 가능합니다.' }],
+    tags: [],
+    documents: [],
+    deletable: true,
+    deleteBlockedReason: null,
   },
   {
     id: 2002,
@@ -128,9 +130,11 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
       { label: '수강 방식', value: '오프라인 실습' },
       { label: '정원', value: '20명' },
     ],
-    faqs: [
-      { question: '실습 준비물이 있나요?', answer: '별도 준비물은 없습니다.' },
-    ],
+    faqs: [{ question: '실습 준비물이 있나요?', answer: '별도 준비물은 없습니다.' }],
+    tags: [],
+    documents: [],
+    deletable: true,
+    deleteBlockedReason: null,
   },
 ];
 
@@ -152,7 +156,12 @@ const findCategoryName = (categoryId: number): string => {
   return '미분류';
 };
 
-const deriveCatalogStatus = (program: Pick<AdminProgramStateItem, 'maxStudents' | 'currentStudents' | 'saleStartAt' | 'saleEndAt'>): AdminProgramStateItem['catalogStatus'] => {
+const deriveCatalogStatus = (
+  program: Pick<
+    AdminProgramStateItem,
+    'maxStudents' | 'currentStudents' | 'saleStartAt' | 'saleEndAt'
+  >,
+): AdminProgramStateItem['catalogStatus'] => {
   if (program.maxStudents !== null && program.currentStudents >= program.maxStudents) {
     return 'FULL';
   }
@@ -195,7 +204,12 @@ const toListItem = (program: AdminProgramStateItem): AdminProgramListItem => ({
 
 const toDetail = (program: AdminProgramStateItem): AdminProgramDetail => clone(program);
 
-const toStateItem = (id: number, payload: AdminProgramUpsertPayload, currentStudents = 0, published = false): AdminProgramStateItem => {
+const toStateItem = (
+  id: number,
+  payload: AdminProgramUpsertPayload,
+  currentStudents = 0,
+  published = false,
+): AdminProgramStateItem => {
   const maxStudents = payload.maxStudents;
   return {
     id,
@@ -232,6 +246,10 @@ const toStateItem = (id: number, payload: AdminProgramUpsertPayload, currentStud
     checklists: clone(payload.checklists),
     summaryItems: clone(payload.summaryItems),
     faqs: clone(payload.faqs),
+    tags: [],
+    documents: [],
+    deletable: true,
+    deleteBlockedReason: null,
   };
 };
 
@@ -240,7 +258,8 @@ export const resetMockAdminProgramsLiveData = () => {
   nextProgramId = 3000;
 };
 
-export const getMockAdminProgramCategories = (): AdminProgramCategoryTreeItem[] => clone(CATEGORY_TREE);
+export const getMockAdminProgramCategories = (): AdminProgramCategoryTreeItem[] =>
+  clone(CATEGORY_TREE);
 
 export const getMockAdminProgramsLive = (): AdminProgramListItem[] => state.map(toListItem);
 
@@ -249,20 +268,31 @@ export const getMockAdminProgramDetailLive = (programId: number): AdminProgramDe
   return program ? toDetail(program) : null;
 };
 
-export const createMockAdminProgramLive = (payload: AdminProgramUpsertPayload): AdminProgramDetail => {
+export const createMockAdminProgramLive = (
+  payload: AdminProgramUpsertPayload,
+): AdminProgramDetail => {
   const program = toStateItem(nextProgramId++, payload);
   state.unshift(program);
   return toDetail(program);
 };
 
-export const updateMockAdminProgramLive = (programId: number, payload: AdminProgramUpsertPayload): AdminProgramDetail | null => {
+export const updateMockAdminProgramLive = (
+  programId: number,
+  payload: AdminProgramUpsertPayload,
+): AdminProgramDetail | null => {
   const index = state.findIndex((item) => item.id === programId);
   if (index < 0) {
     return null;
   }
 
   const current = state[index];
-  const nextProgram = toStateItem(programId, payload, current.currentStudents, current.published);
+  const nextProgram = {
+    ...toStateItem(programId, payload, current.currentStudents, current.published),
+    tags: clone(current.tags),
+    documents: clone(current.documents),
+    deletable: current.deletable ?? true,
+    deleteBlockedReason: current.deleteBlockedReason ?? null,
+  };
   state[index] = nextProgram;
   return toDetail(nextProgram);
 };
@@ -276,7 +306,7 @@ export const publishMockAdminProgramLive = (programId: number): AdminProgramDeta
   return toDetail(program);
 };
 
-export const hideMockAdminProgramLive = (programId: number): AdminProgramDetail | null => {
+export const unpublishMockAdminProgramLive = (programId: number): AdminProgramDetail | null => {
   const program = state.find((item) => item.id === programId);
   if (!program) {
     return null;

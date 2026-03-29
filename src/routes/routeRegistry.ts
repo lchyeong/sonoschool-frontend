@@ -101,6 +101,12 @@ const appLeafRouteDefinitions = {
     routePath: 'admin/notices',
     absolutePath: '/admin/notices',
   }),
+  adminPopups: defineStaticRoute({
+    key: 'adminPopups',
+    access: 'admin',
+    routePath: 'admin/popups',
+    absolutePath: '/admin/popups',
+  }),
   adminQna: defineStaticRoute({
     key: 'adminQna',
     access: 'admin',
@@ -113,11 +119,29 @@ const appLeafRouteDefinitions = {
     routePath: 'admin/resources',
     absolutePath: '/admin/resources',
   }),
+  adminEnrollments: defineStaticRoute({
+    key: 'adminEnrollments',
+    access: 'admin',
+    routePath: 'admin/enrollments',
+    absolutePath: '/admin/enrollments',
+  }),
+  adminPracticum: defineStaticRoute({
+    key: 'adminPracticum',
+    access: 'admin',
+    routePath: 'admin/practicum',
+    absolutePath: '/admin/practicum',
+  }),
   adminReviews: defineStaticRoute({
     key: 'adminReviews',
     access: 'admin',
     routePath: 'admin/reviews',
     absolutePath: '/admin/reviews',
+  }),
+  adminCoupons: defineStaticRoute({
+    key: 'adminCoupons',
+    access: 'admin',
+    routePath: 'admin/coupons',
+    absolutePath: '/admin/coupons',
   }),
   adminPrograms: defineStaticRoute({
     key: 'adminPrograms',
@@ -140,6 +164,42 @@ const appLeafRouteDefinitions = {
       return generatePath('/admin/programs/:programId/edit', { programId });
     },
   }),
+  adminProgramCurriculum: defineDynamicRoute({
+    key: 'adminProgramCurriculum',
+    access: 'admin',
+    routePath: 'admin/programs/:programId/curriculum',
+    absolutePathPattern: '/admin/programs/:programId/curriculum',
+    buildPath: ({ programId }: { programId: string }) => {
+      return generatePath('/admin/programs/:programId/curriculum', { programId });
+    },
+  }),
+  adminProgramQuizzes: defineDynamicRoute({
+    key: 'adminProgramQuizzes',
+    access: 'admin',
+    routePath: 'admin/programs/:programId/quizzes',
+    absolutePathPattern: '/admin/programs/:programId/quizzes',
+    buildPath: ({ programId }: { programId: string }) => {
+      return generatePath('/admin/programs/:programId/quizzes', { programId });
+    },
+  }),
+  adminProgramTags: defineDynamicRoute({
+    key: 'adminProgramTags',
+    access: 'admin',
+    routePath: 'admin/programs/:programId/tags',
+    absolutePathPattern: '/admin/programs/:programId/tags',
+    buildPath: ({ programId }: { programId: string }) => {
+      return generatePath('/admin/programs/:programId/tags', { programId });
+    },
+  }),
+  adminProgramResources: defineDynamicRoute({
+    key: 'adminProgramResources',
+    access: 'admin',
+    routePath: 'admin/programs/:programId/resources',
+    absolutePathPattern: '/admin/programs/:programId/resources',
+    buildPath: ({ programId }: { programId: string }) => {
+      return generatePath('/admin/programs/:programId/resources', { programId });
+    },
+  }),
   adminProgramDuplicate: defineDynamicRoute({
     key: 'adminProgramDuplicate',
     access: 'admin',
@@ -154,6 +214,12 @@ const appLeafRouteDefinitions = {
     access: 'admin',
     routePath: 'admin/program-menus',
     absolutePath: '/admin/program-menus',
+  }),
+  adminTags: defineStaticRoute({
+    key: 'adminTags',
+    access: 'admin',
+    routePath: 'admin/tags',
+    absolutePath: '/admin/tags',
   }),
   adminVideos: defineStaticRoute({
     key: 'adminVideos',
@@ -206,6 +272,15 @@ const appLeafRouteDefinitions = {
       });
     },
   }),
+  myEnrollmentPracticum: defineDynamicRoute({
+    key: 'myEnrollmentPracticum',
+    access: 'authenticated',
+    routePath: 'mypage/enrollments/:enrollmentId/practicum',
+    absolutePathPattern: '/mypage/enrollments/:enrollmentId/practicum',
+    buildPath: ({ enrollmentId }: { enrollmentId: string }) => {
+      return generatePath('/mypage/enrollments/:enrollmentId/practicum', { enrollmentId });
+    },
+  }),
   cart: defineStaticRoute({
     key: 'cart',
     access: 'public',
@@ -256,6 +331,15 @@ const appLeafRouteDefinitions = {
     access: 'public',
     routePath: 'resources',
     absolutePath: '/resources',
+  }),
+  resourceDetail: defineDynamicRoute({
+    key: 'resourceDetail',
+    access: 'public',
+    routePath: 'resources/:resourceId',
+    absolutePathPattern: '/resources/:resourceId',
+    buildPath: ({ resourceId }: { resourceId: string }) => {
+      return generatePath('/resources/:resourceId', { resourceId });
+    },
   }),
   programs: defineStaticRoute({
     key: 'programs',
@@ -314,20 +398,30 @@ const appChildRouteKeys = [
   'adminLogin',
   'admin',
   'adminNotices',
+  'adminPopups',
   'adminQna',
   'adminResources',
+  'adminEnrollments',
+  'adminPracticum',
   'adminReviews',
+  'adminCoupons',
   'adminPrograms',
   'adminProgramCreate',
   'adminProgramEdit',
+  'adminProgramCurriculum',
+  'adminProgramQuizzes',
+  'adminProgramTags',
+  'adminProgramResources',
   'adminProgramDuplicate',
   'adminProgramMenus',
+  'adminTags',
   'adminPayments',
   'signup',
   'accountRecovery',
   'mypage',
   'learningPlayer',
   'learningLesson',
+  'myEnrollmentPracticum',
   'cart',
   'checkout',
   'paymentResult',
@@ -336,6 +430,7 @@ const appChildRouteKeys = [
   'reviews',
   'qna',
   'resources',
+  'resourceDetail',
   'programs',
   'search',
   'program',
@@ -370,15 +465,26 @@ export const routePaths = {
   adminLogin: routes.adminLogin.absolutePath,
   admin: routes.admin.absolutePath,
   adminNotices: routes.adminNotices.absolutePath,
+  adminPopups: routes.adminPopups.absolutePath,
   adminQna: routes.adminQna.absolutePath,
   adminResources: routes.adminResources.absolutePath,
+  adminEnrollments: routes.adminEnrollments.absolutePath,
+  adminPracticum: routes.adminPracticum.absolutePath,
   adminReviews: routes.adminReviews.absolutePath,
+  adminCoupons: routes.adminCoupons.absolutePath,
   adminPrograms: routes.adminPrograms.absolutePath,
   adminProgramCreate: routes.adminProgramCreate.absolutePath,
   adminProgramEdit: (programId: string) => routes.adminProgramEdit.buildPath({ programId }),
+  adminProgramCurriculum: (programId: string) =>
+    routes.adminProgramCurriculum.buildPath({ programId }),
+  adminProgramQuizzes: (programId: string) => routes.adminProgramQuizzes.buildPath({ programId }),
+  adminProgramTags: (programId: string) => routes.adminProgramTags.buildPath({ programId }),
+  adminProgramResources: (programId: string) =>
+    routes.adminProgramResources.buildPath({ programId }),
   adminProgramDuplicate: (sourceProgramId: string) =>
     routes.adminProgramDuplicate.buildPath({ sourceProgramId }),
   adminProgramMenus: routes.adminProgramMenus.absolutePath,
+  adminTags: routes.adminTags.absolutePath,
   adminVideos: routes.adminVideos.absolutePath,
   adminPayments: routes.adminPayments.absolutePath,
   signup: routes.signup.absolutePath,
@@ -387,6 +493,8 @@ export const routePaths = {
   learningPlayer: (enrollmentId: string) => routes.learningPlayer.buildPath({ enrollmentId }),
   learningLesson: (enrollmentId: string, lessonId: string) =>
     routes.learningLesson.buildPath({ enrollmentId, lessonId }),
+  myEnrollmentPracticum: (enrollmentId: string) =>
+    routes.myEnrollmentPracticum.buildPath({ enrollmentId }),
   cart: routes.cart.absolutePath,
   checkout: routes.checkout.absolutePath,
   paymentResult: routes.paymentResult.absolutePath,
@@ -395,6 +503,7 @@ export const routePaths = {
   reviews: routes.reviews.absolutePath,
   qna: routes.qna.absolutePath,
   resources: routes.resources.absolutePath,
+  resourceDetail: (resourceId: string) => routes.resourceDetail.buildPath({ resourceId }),
   programs: routes.programs.absolutePath,
   search: routes.search.absolutePath,
   contact: routes.contact.absolutePath,

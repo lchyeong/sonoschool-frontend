@@ -1,12 +1,13 @@
 .layout {
   min-height: 100vh;
-  background: var(--color-brand-lighten-50);
+  background: #ffffff;
 }
 
 .main {
   width: 100%;
   min-height: 100vh;
   padding: var(--space-6);
+  background: #ffffff;
 }
 
 @media (width < 640px) {

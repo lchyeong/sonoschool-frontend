@@ -329,16 +329,46 @@ export default defineConfig(({ mode }) => {
           // - 전체 번들: app.js (500KB)
           // - 분리 후: react.js (150KB) + app.js (350KB)
           // → React 라이브러리는 캐시에 저장되어 다음 방문 시 다운로드 불필요
-          manualChunks: {
-            // React 관련 라이브러리를 react.js 파일로 분리
-            react: ['react', 'react-dom'],
+          manualChunks(id) {
+            if (id.includes('node_modules/hls.js')) {
+              return 'hls';
+            }
 
-            // 추가 라이브러리 분리 예시 (라이브러리 설치 후 주석 해제)
-            // React Router를 router.js 파일로 분리
-            // router: ['react-router-dom'],
+            if (
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/scheduler/')
+            ) {
+              return 'react';
+            }
 
-            // UI 라이브러리를 ui.js 파일로 분리
-            // ui: ['@mui/material', '@emotion/react'],
+            if (
+              id.includes('node_modules/react-router/') ||
+              id.includes('node_modules/react-router-dom/')
+            ) {
+              return 'router';
+            }
+
+            if (
+              id.includes('node_modules/@tanstack/react-query/') ||
+              id.includes('node_modules/@tanstack/query-core/')
+            ) {
+              return 'query';
+            }
+
+            if (id.includes('node_modules/axios/')) {
+              return 'http';
+            }
+
+            if (id.includes('node_modules/zod/')) {
+              return 'validation';
+            }
+
+            if (id.includes('node_modules/zustand/')) {
+              return 'state';
+            }
+
+            return undefined;
           },
         },
       },

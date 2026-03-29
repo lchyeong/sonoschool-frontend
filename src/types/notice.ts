@@ -22,7 +22,6 @@ export interface AdminNoticeCreatePayload {
   title: string;
   content: string;
   pinned: boolean;
-  popup: boolean;
   published: boolean;
   visibleStartAt: string | null;
   visibleEndAt: string | null;
@@ -34,7 +33,21 @@ export interface AdminNoticeUpdatePayload {
   title: string;
   content: string;
   pinned: boolean;
-  popup: boolean;
+  visibleStartAt: string | null;
+  visibleEndAt: string | null;
+}
+
+export interface AdminPopupCreatePayload {
+  title: string;
+  content: string;
+  published: boolean;
+  visibleStartAt: string | null;
+  visibleEndAt: string | null;
+}
+
+export interface AdminPopupUpdatePayload {
+  title: string;
+  content: string;
   visibleStartAt: string | null;
   visibleEndAt: string | null;
 }

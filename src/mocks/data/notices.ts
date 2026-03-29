@@ -64,6 +64,22 @@ const initialNotices: NoticeItem[] = [
     createdAt: '2026-03-18T03:00:00Z',
     updatedAt: '2026-03-18T03:00:00Z',
   },
+  {
+    id: 5,
+    scope: 'GLOBAL',
+    programId: null,
+    programTitle: null,
+    title: '홈페이지 점검 시간 안내',
+    content:
+      '주말 새벽 2시부터 3시까지 홈페이지 점검이 예정되어 있습니다.\n점검 시간에는 로그인과 결제 기능이 일시적으로 지연될 수 있습니다.',
+    pinned: false,
+    popup: false,
+    published: true,
+    visibleStartAt: '2026-03-15T00:00:00Z',
+    visibleEndAt: null,
+    createdAt: '2026-03-15T06:00:00Z',
+    updatedAt: '2026-03-15T06:00:00Z',
+  },
 ];
 
 let notices = initialNotices.map((notice) => ({ ...notice }));
@@ -79,11 +95,23 @@ const sortNotices = (items: NoticeItem[]): NoticeItem[] => {
 };
 
 export const getMockPublishedGlobalNotices = (): NoticeItem[] => {
-  return sortNotices(notices.filter((notice) => notice.scope === 'GLOBAL' && notice.published));
+  return sortNotices(
+    notices.filter((notice) => notice.scope === 'GLOBAL' && notice.published && !notice.popup),
+  );
 };
 
 export const getMockAdminNotices = (): NoticeItem[] => {
-  return sortNotices(notices);
+  return sortNotices(notices.filter((notice) => notice.scope === 'GLOBAL' && !notice.popup));
+};
+
+export const getMockPublishedGlobalPopups = (): NoticeItem[] => {
+  return sortNotices(
+    notices.filter((notice) => notice.scope === 'GLOBAL' && notice.published && notice.popup),
+  );
+};
+
+export const getMockAdminPopups = (): NoticeItem[] => {
+  return sortNotices(notices.filter((notice) => notice.scope === 'GLOBAL' && notice.popup));
 };
 
 export const getMockNoticeById = (noticeId: number): NoticeItem | null => {

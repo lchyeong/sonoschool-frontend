@@ -10,8 +10,7 @@ import { calculateSelectedCartPricing } from '@/utils/cartPricing';
 
 interface PaymentScenarioSeed {
   code: string | null;
-  gatewayOrderId: string;
-  gatewayResponseMessage: string;
+  orderNumber: string;
   id: number;
   method: PaymentMethodValue;
   paidAt: string | null;
@@ -72,11 +71,9 @@ const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
     cancelReason: seed.status === 'CANCELLED' ? '사용자 요청 취소' : null,
     cancelledAt: seed.status === 'CANCELLED' ? '2026-03-18T10:20:00Z' : null,
     failedAt: seed.status === 'FAILED' ? '2026-03-18T10:12:00Z' : null,
-    gatewayOrderId: seed.gatewayOrderId,
-    gatewayResponseMessage: seed.gatewayResponseMessage,
     id: seed.id,
     orderName: createOrderName(),
-    orderReference: `CART-${String(seed.id)}`,
+    orderNumber: seed.orderNumber,
     orderType: 'CART_CHECKOUT',
     paidAt: seed.paidAt,
     paymentMethod: seed.method,
@@ -91,8 +88,7 @@ const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
 const paymentScenarioSeeds: PaymentScenarioSeed[] = [
   {
     code: '0000',
-    gatewayOrderId: 'MOCK-CARD-COMPLETED',
-    gatewayResponseMessage: '카드 결제가 승인되었습니다.',
+    orderNumber: 'ORD-501',
     id: 501,
     method: 'CARD',
     paidAt: '2026-03-18T10:05:00Z',
@@ -102,8 +98,7 @@ const paymentScenarioSeeds: PaymentScenarioSeed[] = [
   },
   {
     code: 'B001',
-    gatewayOrderId: 'MOCK-BANK-FAILED',
-    gatewayResponseMessage: '계좌이체 승인에 실패했습니다.',
+    orderNumber: 'ORD-502',
     id: 502,
     method: 'BANK_TRANSFER',
     paidAt: null,
@@ -113,8 +108,7 @@ const paymentScenarioSeeds: PaymentScenarioSeed[] = [
   },
   {
     code: 'V001',
-    gatewayOrderId: 'MOCK-VBANK-REGISTERED',
-    gatewayResponseMessage: '가상계좌가 발급되었습니다.',
+    orderNumber: 'ORD-503',
     id: 503,
     method: 'VIRTUAL_ACCOUNT',
     paidAt: null,
@@ -124,8 +118,7 @@ const paymentScenarioSeeds: PaymentScenarioSeed[] = [
   },
   {
     code: 'C001',
-    gatewayOrderId: 'MOCK-CARD-CANCELLED',
-    gatewayResponseMessage: '결제가 취소되었습니다.',
+    orderNumber: 'ORD-504',
     id: 504,
     method: 'CARD',
     paidAt: null,
@@ -197,7 +190,6 @@ export const createMockCheckoutRedirectPayload = (
 
   return {
     code: seed.code,
-    gatewayOrderId: payment.gatewayOrderId,
     message: getStatusMessage(payment),
     paymentId: payment.id,
     resultToken: seed.resultToken,

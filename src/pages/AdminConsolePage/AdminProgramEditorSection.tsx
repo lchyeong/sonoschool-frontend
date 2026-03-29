@@ -6,16 +6,23 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   createAdminProgramLive,
   deleteAdminProgramLive,
-  hideAdminProgramLive,
   publishAdminProgramLive,
+  unpublishAdminProgramLive,
   updateAdminProgramLive,
 } from '@/api/adminProgramsLive';
 import AdminCategoryPicker from '@/components/admin/AdminCategoryPicker/AdminCategoryPicker';
-import AdminFieldArray from '@/components/admin/AdminFieldArray/AdminFieldArray';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
+import AdminFieldArray from '@/components/admin/AdminFieldArray/AdminFieldArray';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
-import { adminCategoriesTreeQueryKey, useAdminCategoriesTreeQuery } from '@/query/useAdminCategoriesQuery';
+import AdminProgramCurriculumSection from '@/pages/AdminConsolePage/AdminProgramCurriculumSection';
+import AdminProgramQuizzesSection from '@/pages/AdminConsolePage/AdminProgramQuizzesSection';
+import AdminProgramResourcesSection from '@/pages/AdminConsolePage/AdminProgramResourcesSection';
+import AdminProgramTagsSection from '@/pages/AdminConsolePage/AdminProgramTagsSection';
+import {
+  adminCategoriesTreeQueryKey,
+  useAdminCategoriesTreeQuery,
+} from '@/query/useAdminCategoriesQuery';
 import {
   adminProgramDetailLiveQueryKey,
   adminProgramsLiveQueryKey,
@@ -35,6 +42,7 @@ import styles from './AdminConsolePage.module.scss';
 
 interface AdminProgramEditorSectionProps {
   mode: 'create' | 'duplicate' | 'edit';
+  view?: 'curriculum' | 'details' | 'quizzes' | 'resources' | 'tags';
 }
 
 interface AdminProgramSummaryFormItem {
@@ -101,7 +109,7 @@ const INITIAL_FORM_STATE: AdminProgramFormState = {
 
 const confirmProgramDelete = (): boolean => {
   return window.confirm(
-    '강의를 삭제하면 되돌릴 수 없습니다.\n커리큘럼이나 수강 이력이 있는 강의는 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
+    '프로그램을 삭제하면 되돌릴 수 없습니다.\n커리큘럼이나 수강 이력이 있는 프로그램은 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
   );
 };
 
@@ -199,7 +207,11 @@ const DatePickerField = ({ label, name, value, onChange }: DatePickerFieldProps)
 
   const openPicker = () => {
     const input = inputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
-    input?.showPicker?.();
+    if (!input || typeof input.showPicker !== 'function') {
+      return;
+    }
+
+    input.showPicker();
   };
 
   return (
@@ -237,12 +249,7 @@ const DatePickerField = ({ label, name, value, onChange }: DatePickerFieldProps)
   );
 };
 
-const DateTimeSplitField = ({
-  dateLabel,
-  timeLabel,
-  value,
-  onChange,
-}: DateTimeSplitFieldProps) => {
+const DateTimeSplitField = ({ dateLabel, timeLabel, value, onChange }: DateTimeSplitFieldProps) => {
   const dateValue = extractDatePart(value);
   const timeValue = extractTimePart(value);
 
@@ -306,6 +313,18 @@ const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormS
     })),
     thumbnailUrl: detail.thumbnailUrl ?? '',
     title: detail.title,
+  };
+};
+
+const normalizeFormState = (formState: AdminProgramFormState): AdminProgramFormState => {
+  if (formState.programType !== 'OFFLINE') {
+    return formState;
+  }
+
+  return {
+    ...formState,
+    accessDays: '',
+    accessPolicy: 'COHORT',
   };
 };
 
@@ -375,7 +394,7 @@ const validateFormState = (formState: AdminProgramFormState): string | null => {
     return '카테고리를 선택해 주세요.';
   }
   if (!formState.title.trim()) {
-    return '강의명을 입력해 주세요.';
+    return '프로그램명을 입력해 주세요.';
   }
   if (!formState.price.trim() || Number(formState.price) < 0) {
     return '가격을 올바르게 입력해 주세요.';
@@ -392,7 +411,10 @@ const validateFormState = (formState: AdminProgramFormState): string | null => {
   if (hasPartialDateTime(formState.saleStartAt) || hasPartialDateTime(formState.saleEndAt)) {
     return '판매 시작일과 종료일의 날짜와 시간을 모두 선택해 주세요.';
   }
-  if (hasPartialDateTime(formState.learningStartAt) || hasPartialDateTime(formState.learningEndAt)) {
+  if (
+    hasPartialDateTime(formState.learningStartAt) ||
+    hasPartialDateTime(formState.learningEndAt)
+  ) {
     return '수강 시작일과 종료일의 날짜와 시간을 모두 선택해 주세요.';
   }
   if (formState.accessPolicy === 'FIXED_DURATION' && !formState.accessDays.trim()) {
@@ -439,14 +461,27 @@ const validateFormState = (formState: AdminProgramFormState): string | null => {
 const buildEditorTitle = (
   mode: AdminProgramEditorSectionProps['mode'],
   detail: AdminProgramDetail | null,
+  view: NonNullable<AdminProgramEditorSectionProps['view']>,
 ): string => {
   if (mode === 'create') {
-    return '새 강의 등록';
+    return '새 프로그램 등록';
+  }
+  if (view === 'curriculum') {
+    return detail ? `${detail.title} 커리큘럼` : '커리큘럼 관리';
+  }
+  if (view === 'quizzes') {
+    return detail ? `${detail.title} 퀴즈` : '강의 퀴즈';
+  }
+  if (view === 'tags') {
+    return detail ? `${detail.title} 태그` : '태그 관리';
+  }
+  if (view === 'resources') {
+    return detail ? `${detail.title} 자료` : '프로그램 자료';
   }
   if (mode === 'duplicate') {
-    return detail ? `${detail.title} 복제` : '강의 복제';
+    return detail ? `${detail.title} 복제` : '프로그램 복제';
   }
-  return detail ? `${detail.title} 수정` : '강의 수정';
+  return detail ? `${detail.title} 기본정보` : '프로그램 기본정보';
 };
 
 const programTypeOptions = [
@@ -468,15 +503,39 @@ const accessPolicyOptions = [
   { value: 'COHORT', label: '기수형' },
 ] as const;
 
-const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => {
+const programTypeLabel: Record<AdminProgramType, string> = {
+  HYBRID: '하이브리드',
+  OFFLINE: '오프라인',
+  ONLINE: '온라인',
+};
+
+const accessPolicyLabel: Record<AdminProgramAccessPolicy, string> = {
+  COHORT: '기수형',
+  FIXED_DURATION: '고정 기간',
+  UNLIMITED: '무제한',
+};
+
+const catalogStatusLabel: Record<'CLOSED' | 'FULL' | 'OPEN' | 'SCHEDULED', string> = {
+  CLOSED: '판매 종료',
+  FULL: '정원 마감',
+  OPEN: '판매중',
+  SCHEDULED: '판매 예정',
+};
+
+const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEditorSectionProps) => {
   const params = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
+  const isCurriculumView = view === 'curriculum';
+  const isQuizzesView = view === 'quizzes';
+  const isTagsView = view === 'tags';
+  const isResourcesView = view === 'resources';
+  const isDetailView = !isCurriculumView && !isQuizzesView && !isTagsView && !isResourcesView;
   const editingProgramId = mode === 'edit' ? Number(params['programId']) : null;
   const duplicateSourceProgramId = mode === 'duplicate' ? Number(params['sourceProgramId']) : null;
   const targetProgramId = mode === 'edit' ? editingProgramId : duplicateSourceProgramId;
-  const categoriesTreeQuery = useAdminCategoriesTreeQuery();
+  const categoriesTreeQuery = useAdminCategoriesTreeQuery(isDetailView);
   const detailQuery = useAdminProgramDetailLiveQuery(
     Number.isFinite(targetProgramId) ? targetProgramId : null,
     mode !== 'create',
@@ -499,7 +558,9 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
           }
         : nextState;
 
-    setFormState(duplicatedState);
+    queueMicrotask(() => {
+      setFormState(normalizeFormState(duplicatedState));
+    });
   }, [detailQuery.data, mode]);
 
   const invalidateProgramQueries = async (programId?: number) => {
@@ -522,14 +583,14 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
     },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '강의 저장에 실패했습니다.',
+        message: error instanceof Error ? error.message : '프로그램 저장에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async (response) => {
       await invalidateProgramQueries(response.id);
       showToast({
-        message: mode === 'edit' ? '강의를 수정했습니다.' : '강의를 등록했습니다.',
+        message: mode === 'edit' ? '프로그램을 수정했습니다.' : '프로그램을 등록했습니다.',
         variant: 'success',
       });
       void navigate(routePaths.adminProgramEdit(String(response.id)));
@@ -540,31 +601,31 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
     mutationFn: (programId: number) => publishAdminProgramLive(programId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '강의 공개 처리에 실패했습니다.',
+        message: error instanceof Error ? error.message : '프로그램 공개 처리에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await invalidateProgramQueries(editingProgramId ?? undefined);
       showToast({
-        message: '강의를 공개했습니다.',
+        message: '프로그램을 공개했습니다.',
         variant: 'success',
       });
     },
   });
 
   const hideMutation = useMutation({
-    mutationFn: (programId: number) => hideAdminProgramLive(programId),
+    mutationFn: (programId: number) => unpublishAdminProgramLive(programId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '강의 숨김 처리에 실패했습니다.',
+        message: error instanceof Error ? error.message : '프로그램 숨김 처리에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await invalidateProgramQueries(editingProgramId ?? undefined);
       showToast({
-        message: '강의를 숨김 처리했습니다.',
+        message: '프로그램을 숨김 처리했습니다.',
         variant: 'success',
       });
     },
@@ -574,14 +635,14 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
     mutationFn: (programId: number) => deleteAdminProgramLive(programId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '강의 삭제에 실패했습니다.',
+        message: error instanceof Error ? error.message : '프로그램 삭제에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await invalidateProgramQueries();
       showToast({
-        message: '강의를 삭제했습니다.',
+        message: '프로그램을 삭제했습니다.',
         variant: 'success',
       });
       void navigate(routePaths.adminPrograms);
@@ -589,29 +650,37 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
   });
 
   const editorTitle = useMemo(
-    () => buildEditorTitle(mode, detailQuery.data ?? null),
-    [detailQuery.data, mode],
+    () => buildEditorTitle(mode, detailQuery.data ?? null, view),
+    [detailQuery.data, mode, view],
   );
 
-  const isLoading = categoriesTreeQuery.isPending || (mode !== 'create' && detailQuery.isPending);
-  const hasError = categoriesTreeQuery.isError || (mode !== 'create' && detailQuery.isError);
+  const isLoading =
+    (isDetailView && categoriesTreeQuery.isPending) || (mode !== 'create' && detailQuery.isPending);
+  const hasError =
+    (isDetailView && categoriesTreeQuery.isError) || (mode !== 'create' && detailQuery.isError);
   const errorMessage =
-    categoriesTreeQuery.error instanceof Error
+    categoriesTreeQuery.error instanceof Error && isDetailView
       ? categoriesTreeQuery.error.message
       : detailQuery.error instanceof Error
         ? detailQuery.error.message
-        : '강의 편집 화면을 준비하지 못했습니다.';
+        : '프로그램 편집 화면을 준비하지 못했습니다.';
 
-  const isEditMode = mode === 'edit' && editingProgramId !== null && Number.isFinite(editingProgramId);
+  const isEditMode =
+    mode === 'edit' && editingProgramId !== null && Number.isFinite(editingProgramId);
   const currentDetail = detailQuery.data ?? null;
   const deleteBlockedReason = currentDetail?.deleteBlockedReason ?? null;
   const deletable = currentDetail?.deletable !== false;
 
-  const updateField = <T extends keyof AdminProgramFormState>(field: T, value: AdminProgramFormState[T]) => {
-    setFormState((current) => ({
-      ...current,
-      [field]: value,
-    }));
+  const updateField = <T extends keyof AdminProgramFormState>(
+    field: T,
+    value: AdminProgramFormState[T],
+  ) => {
+    setFormState((current) =>
+      normalizeFormState({
+        ...current,
+        [field]: value,
+      }),
+    );
   };
 
   const updateStringListItem = (
@@ -709,8 +778,18 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
   if (isLoading) {
     return (
       <section aria-busy='true' className={styles['stateSection']}>
-        <h1 className={styles['stateTitle']}>강의 편집 화면을 준비하는 중입니다.</h1>
-        <p className={styles['stateDescription']}>카테고리와 강의 상세를 불러오고 있습니다.</p>
+        <h1 className={styles['stateTitle']}>프로그램 편집 화면을 준비하는 중입니다.</h1>
+        <p className={styles['stateDescription']}>
+          {isCurriculumView
+            ? '프로그램 상세와 커리큘럼을 불러오고 있습니다.'
+            : isQuizzesView
+              ? '프로그램 상세와 강의 퀴즈를 불러오고 있습니다.'
+              : isTagsView
+                ? '프로그램 상세와 태그 목록을 불러오고 있습니다.'
+                : isResourcesView
+                  ? '프로그램 상세와 자료 목록을 불러오고 있습니다.'
+                  : '카테고리와 프로그램 상세를 불러오고 있습니다.'}
+        </p>
       </section>
     );
   }
@@ -718,7 +797,7 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
   if (hasError) {
     return (
       <section className={styles['stateSection']}>
-        <h1 className={styles['stateTitle']}>강의 편집 화면을 불러오지 못했습니다.</h1>
+        <h1 className={styles['stateTitle']}>프로그램 편집 화면을 불러오지 못했습니다.</h1>
         <p className={styles['stateDescription']}>{errorMessage}</p>
       </section>
     );
@@ -726,426 +805,544 @@ const AdminProgramEditorSection = ({ mode }: AdminProgramEditorSectionProps) => 
 
   return (
     <section className={styles['workspace']}>
-      <div className={styles['pageHeader']}>
-        <h1 className={styles['pageTitle']}>{editorTitle}</h1>
-      </div>
+      <section className={styles['editorShell']}>
+        <div className={styles['editorToolbar']}>
+          <Link className={styles['tableActionButton']} to={routePaths.adminPrograms}>
+            목록으로 돌아가기
+          </Link>
 
-      <div className={styles['actionRow']}>
-        <Link className={styles['tableActionButton']} to={routePaths.adminPrograms}>
-          목록으로 돌아가기
-        </Link>
-        {isEditMode && currentDetail ? (
-          <>
-            {currentDetail.published ? (
-              <Button
-                disabled={hideMutation.isPending}
-                onClick={() => {
-                  hideMutation.mutate(currentDetail.id);
-                }}
-                type='button'
-                variant='secondary'
-              >
-                숨김 처리
-              </Button>
-            ) : (
-              <Button
-                disabled={publishMutation.isPending}
-                onClick={() => {
-                  publishMutation.mutate(currentDetail.id);
-                }}
-                type='button'
-              >
-                공개 처리
-              </Button>
-            )}
-            <Button
-              disabled={deleteMutation.isPending || !deletable}
-              onClick={() => {
-                if (!confirmProgramDelete()) {
-                  return;
-                }
-                deleteMutation.mutate(currentDetail.id);
-              }}
-              title={deleteBlockedReason ?? undefined}
-              type='button'
-              variant='secondary'
-            >
-              삭제
-            </Button>
-          </>
-        ) : null}
-      </div>
-
-      {isEditMode && currentDetail && !deletable && deleteBlockedReason ? (
-        <p className={styles['helperText']}>{deleteBlockedReason}</p>
-      ) : null}
-
-      <div className={styles['formShell']}>
-        <div className={styles['form']}>
-          <AdminCategoryPicker
-            helperText='카테고리 관리와 같은 3단 구조에서 가장 하위 카테고리를 선택해 주세요.'
-            label='카테고리'
-            onChange={(nextValue) => {
-              updateField('categoryId', nextValue);
-            }}
-            tree={categoriesTreeQuery.data ?? []}
-            value={formState.categoryId}
-          />
-
-          <div className={styles['inlineFieldGrid']}>
-            <TextField
-              label='강의명'
-              name='title'
-              onChange={(event) => {
-                updateField('title', event.target.value);
-              }}
-              value={formState.title}
-            />
-            <div className={styles['metaNotice']}>
-              <p className={styles['metaNoticeLabel']}>주소 식별자</p>
-              <p className={styles['metaNoticeText']}>
-                강의 저장 시 서버에서 자동으로 관리합니다.
-              </p>
-            </div>
-          </div>
-
-          <div className={styles['compactFieldRow']}>
-            <AdminDropdownField
-              compact
-              label='강의 형태'
-              onChange={(nextValue) => {
-                updateField('programType', nextValue as AdminProgramType);
-              }}
-              options={programTypeOptions}
-              value={formState.programType}
-            />
-            <AdminDropdownField
-              compact
-              label='난이도'
-              onChange={(nextValue) => {
-                updateField('level', nextValue as AdminProgramFormState['level']);
-              }}
-              options={levelOptions}
-              value={formState.level}
-            />
-            <AdminDropdownField
-              compact
-              label='수강 정책'
-              onChange={(nextValue) => {
-                const policy = nextValue as AdminProgramAccessPolicy;
-                setFormState((current) => ({
-                  ...current,
-                  accessDays: policy === 'FIXED_DURATION' ? current.accessDays : '',
-                  accessPolicy: policy,
-                  learningEndAt: policy === 'COHORT' ? current.learningEndAt : '',
-                  learningStartAt: policy === 'COHORT' ? current.learningStartAt : '',
-                }));
-              }}
-              options={accessPolicyOptions}
-              value={formState.accessPolicy}
-            />
-          </div>
-
-          <TextAreaField
-            label='강의 소개'
-            name='description'
-            onChange={(event) => {
-              updateField('description', event.target.value);
-            }}
-            value={formState.description}
-          />
-
-          <div className={styles['mediaField']}>
-            <div className={styles['mediaFieldHeader']}>
-              <div className={styles['mediaFieldCopy']}>
-                <p className={styles['fieldLabel']}>대표 이미지</p>
-                <p className={styles['mediaFieldHint']}>
-                  운영 화면에는 이미지 주소를 노출하지 않고 현재 연결된 이미지만 보여줍니다.
-                </p>
-              </div>
-              {formState.thumbnailUrl ? (
-                <button
-                  className={styles['tableActionButton']}
+          {isEditMode && currentDetail ? (
+            <div className={styles['editorToolbarActions']}>
+              {currentDetail.published ? (
+                <Button
+                  disabled={hideMutation.isPending}
                   onClick={() => {
-                    updateField('thumbnailUrl', '');
+                    hideMutation.mutate(currentDetail.id);
+                  }}
+                  type='button'
+                  variant='secondary'
+                >
+                  숨김 처리
+                </Button>
+              ) : (
+                <Button
+                  disabled={publishMutation.isPending}
+                  onClick={() => {
+                    publishMutation.mutate(currentDetail.id);
                   }}
                   type='button'
                 >
-                  이미지 제거
-                </button>
-              ) : null}
+                  공개 처리
+                </Button>
+              )}
+              <Button
+                disabled={deleteMutation.isPending || !deletable}
+                onClick={() => {
+                  if (!confirmProgramDelete()) {
+                    return;
+                  }
+                  deleteMutation.mutate(currentDetail.id);
+                }}
+                title={deleteBlockedReason ?? undefined}
+                type='button'
+                variant='danger'
+              >
+                삭제
+              </Button>
             </div>
-
-            {formState.thumbnailUrl ? (
-              <div className={styles['thumbnailPreview']}>
-                <img
-                  alt={formState.title ? `${formState.title} 대표 이미지` : '강의 대표 이미지'}
-                  className={styles['thumbnailPreviewImage']}
-                  src={formState.thumbnailUrl}
-                />
-              </div>
-            ) : (
-              <div className={styles['thumbnailEmptyState']}>등록된 대표 이미지가 없습니다.</div>
-            )}
-          </div>
-
-          <div className={styles['inlineFieldGrid']}>
-            <TextField
-              label='강사명'
-              name='instructorName'
-              onChange={(event) => {
-                updateField('instructorName', event.target.value);
-              }}
-              value={formState.instructorName}
-            />
-          </div>
-
-          <TextAreaField
-            label='강사 소개'
-            name='instructorBio'
-            onChange={(event) => {
-              updateField('instructorBio', event.target.value);
-            }}
-            value={formState.instructorBio}
-          />
-
-          <div className={styles['inlineFieldGrid']}>
-            <TextField
-              label='정가'
-              name='price'
-              onChange={(event) => {
-                updateField('price', event.target.value);
-              }}
-              value={formState.price}
-            />
-            <TextField
-              label='할인가'
-              name='salePrice'
-              onChange={(event) => {
-                updateField('salePrice', event.target.value);
-              }}
-              value={formState.salePrice}
-            />
-          </div>
-
-          <div className={styles['compactFieldRow']}>
-            <div className={styles['compactTextField']}>
-              <TextField
-                label='정원'
-                name='maxStudents'
-                onChange={(event) => {
-                  updateField('maxStudents', event.target.value);
-                }}
-                value={formState.maxStudents}
-              />
-            </div>
-            {formState.accessPolicy === 'FIXED_DURATION' ? (
-              <div className={styles['compactTextField']}>
-                <TextField
-                  label='수강일수'
-                  name='accessDays'
-                  onChange={(event) => {
-                    updateField('accessDays', event.target.value);
-                  }}
-                  value={formState.accessDays}
-                />
-              </div>
-            ) : null}
-          </div>
-
-          <div className={styles['dateTimeRow']}>
-            <div className={styles['dateTimeGroup']}>
-              <p className={styles['dateTimeGroupTitle']}>판매 기간</p>
-              <DateTimeSplitField
-                dateLabel='판매 시작일'
-                onChange={(nextValue) => {
-                  updateField('saleStartAt', nextValue);
-                }}
-                timeLabel='시작 시간'
-                value={formState.saleStartAt}
-              />
-              <DateTimeSplitField
-                dateLabel='판매 종료일'
-                onChange={(nextValue) => {
-                  updateField('saleEndAt', nextValue);
-                }}
-                timeLabel='종료 시간'
-                value={formState.saleEndAt}
-              />
-            </div>
-
-            {formState.accessPolicy === 'COHORT' ? (
-              <div className={styles['dateTimeGroup']}>
-                <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
-                <DateTimeSplitField
-                  dateLabel='수강 시작일'
-                  onChange={(nextValue) => {
-                    updateField('learningStartAt', nextValue);
-                  }}
-                  timeLabel='시작 시간'
-                  value={formState.learningStartAt}
-                />
-                <DateTimeSplitField
-                  dateLabel='수강 종료일'
-                  onChange={(nextValue) => {
-                    updateField('learningEndAt', nextValue);
-                  }}
-                  timeLabel='종료 시간'
-                  value={formState.learningEndAt}
-                />
-              </div>
-            ) : null}
-          </div>
-
-          {formState.accessPolicy === 'UNLIMITED' ? (
-            <p className={styles['policyHint']}>무제한 수강은 수강일수와 수강 기간을 따로 입력하지 않습니다.</p>
           ) : null}
-          {formState.accessPolicy === 'FIXED_DURATION' ? (
-            <p className={styles['policyHint']}>고정 기간 수강은 수강일수만 입력합니다.</p>
-          ) : null}
-          {formState.accessPolicy === 'COHORT' ? (
-            <p className={styles['policyHint']}>기수형 수강은 시작일과 종료일을 함께 지정합니다.</p>
-          ) : null}
-
-          <AdminFieldArray
-            addLabel='학습 포인트 추가'
-            emptyMessage='등록된 학습 포인트가 없습니다.'
-            helperText='사용자에게 보여줄 핵심 학습 포인트를 항목별로 추가합니다.'
-            items={formState.learningPoints}
-            label='학습 포인트'
-            onAdd={() => {
-              addStringListItem('learningPoints');
-            }}
-            onRemove={(index) => {
-              removeStringListItem('learningPoints', index);
-            }}
-            renderItem={(item, index) => (
-              <TextField
-                label={`학습 포인트 ${index + 1}`}
-                name={`learning-point-${index}`}
-                onChange={(event) => {
-                  updateStringListItem('learningPoints', index, event.target.value);
-                }}
-                value={item}
-              />
-            )}
-          />
-
-          <AdminFieldArray
-            addLabel='추천 대상 추가'
-            emptyMessage='등록된 추천 대상이 없습니다.'
-            helperText='이 강의를 추천할 대상 유형을 하나씩 정리합니다.'
-            items={formState.recommendedFor}
-            label='추천 대상'
-            onAdd={() => {
-              addStringListItem('recommendedFor');
-            }}
-            onRemove={(index) => {
-              removeStringListItem('recommendedFor', index);
-            }}
-            renderItem={(item, index) => (
-              <TextField
-                label={`추천 대상 ${index + 1}`}
-                name={`recommended-for-${index}`}
-                onChange={(event) => {
-                  updateStringListItem('recommendedFor', index, event.target.value);
-                }}
-                value={item}
-              />
-            )}
-          />
-
-          <AdminFieldArray
-            addLabel='체크리스트 추가'
-            emptyMessage='등록된 체크리스트가 없습니다.'
-            helperText='수강 전 준비사항을 체크리스트로 추가합니다.'
-            items={formState.checklists}
-            label='수강 체크리스트'
-            onAdd={() => {
-              addStringListItem('checklists');
-            }}
-            onRemove={(index) => {
-              removeStringListItem('checklists', index);
-            }}
-            renderItem={(item, index) => (
-              <TextField
-                label={`체크리스트 ${index + 1}`}
-                name={`checklist-${index}`}
-                onChange={(event) => {
-                  updateStringListItem('checklists', index, event.target.value);
-                }}
-                value={item}
-              />
-            )}
-          />
-
-          <AdminFieldArray
-            addLabel='요약 항목 추가'
-            emptyMessage='등록된 요약 항목이 없습니다.'
-            helperText='항목명과 내용을 각각 입력해 카드 형태 요약 정보를 구성합니다.'
-            items={formState.summaryItems}
-            label='요약 항목'
-            onAdd={addSummaryItem}
-            onRemove={removeSummaryItem}
-            renderItem={(item, index) => (
-              <div className={styles['inlineFieldGrid']}>
-                <TextField
-                  label='항목명'
-                  name={`summary-label-${index}`}
-                  onChange={(event) => {
-                    updateSummaryItem(index, 'label', event.target.value);
-                  }}
-                  value={item.label}
-                />
-                <TextField
-                  label='내용'
-                  name={`summary-value-${index}`}
-                  onChange={(event) => {
-                    updateSummaryItem(index, 'value', event.target.value);
-                  }}
-                  value={item.value}
-                />
-              </div>
-            )}
-          />
-
-          <AdminFieldArray
-            addLabel='FAQ 추가'
-            emptyMessage='등록된 FAQ가 없습니다.'
-            helperText='질문과 답변을 각각 입력해 자주 묻는 질문 영역을 구성합니다.'
-            items={formState.faqs}
-            label='FAQ'
-            onAdd={addFaqItem}
-            onRemove={removeFaqItem}
-            renderItem={(item, index) => (
-              <div className={styles['faqFieldGrid']}>
-                <TextField
-                  label='질문'
-                  name={`faq-question-${index}`}
-                  onChange={(event) => {
-                    updateFaqItem(index, 'question', event.target.value);
-                  }}
-                  value={item.question}
-                />
-                <TextAreaField
-                  label='답변'
-                  name={`faq-answer-${index}`}
-                  onChange={(event) => {
-                    updateFaqItem(index, 'answer', event.target.value);
-                  }}
-                  value={item.answer}
-                />
-              </div>
-            )}
-          />
-
-          <div className={styles['actionRow']}>
-            <Button disabled={saveMutation.isPending} onClick={handleSubmit} type='button'>
-              {saveMutation.isPending ? '저장 중...' : mode === 'edit' ? '강의 저장' : '강의 등록'}
-            </Button>
-          </div>
         </div>
-      </div>
+
+        <div className={styles['editorHeaderCompact']}>
+          <div className={styles['pageHeader']}>
+            <h1 className={styles['pageTitle']}>{editorTitle}</h1>
+          </div>
+
+          {currentDetail ? (
+            <div className={styles['editorMetaRow']}>
+              <span
+                className={currentDetail.published ? styles['badgeSuccess'] : styles['badgeDanger']}
+              >
+                {currentDetail.published ? '공개중' : '숨김'}
+              </span>
+              <span className={styles['badgeAccent']}>
+                {catalogStatusLabel[currentDetail.catalogStatus]}
+              </span>
+              <span className={styles['badge']}>{programTypeLabel[currentDetail.programType]}</span>
+              <span className={styles['badge']}>
+                {currentDetail.accessPolicy
+                  ? accessPolicyLabel[currentDetail.accessPolicy]
+                  : '수강 정책 미설정'}
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        {deleteBlockedReason ? (
+          <p className={styles['editorDangerHint']}>{deleteBlockedReason}</p>
+        ) : null}
+      </section>
+
+      <section className={styles['editorWorkspacePanel']}>
+        {isEditMode && currentDetail ? (
+          <nav aria-label='프로그램 편집 보기' className={styles['workspaceTabs']}>
+            <Link
+              aria-current={isDetailView ? 'page' : undefined}
+              className={isDetailView ? styles['workspaceTabActive'] : styles['workspaceTab']}
+              to={routePaths.adminProgramEdit(String(currentDetail.id))}
+            >
+              기본정보
+            </Link>
+            <Link
+              aria-current={isCurriculumView ? 'page' : undefined}
+              className={isCurriculumView ? styles['workspaceTabActive'] : styles['workspaceTab']}
+              to={routePaths.adminProgramCurriculum(String(currentDetail.id))}
+            >
+              커리큘럼
+            </Link>
+            <Link
+              aria-current={isQuizzesView ? 'page' : undefined}
+              className={isQuizzesView ? styles['workspaceTabActive'] : styles['workspaceTab']}
+              to={routePaths.adminProgramQuizzes(String(currentDetail.id))}
+            >
+              퀴즈
+            </Link>
+            <Link
+              aria-current={isTagsView ? 'page' : undefined}
+              className={isTagsView ? styles['workspaceTabActive'] : styles['workspaceTab']}
+              to={routePaths.adminProgramTags(String(currentDetail.id))}
+            >
+              태그
+            </Link>
+            <Link
+              aria-current={isResourcesView ? 'page' : undefined}
+              className={isResourcesView ? styles['workspaceTabActive'] : styles['workspaceTab']}
+              to={routePaths.adminProgramResources(String(currentDetail.id))}
+            >
+              자료
+            </Link>
+          </nav>
+        ) : null}
+
+        <div className={styles['workspaceBody']}>
+          {isDetailView ? (
+            <div className={styles['formShell']}>
+              <div className={styles['form']}>
+                <AdminCategoryPicker
+                  helperText='프로그램 카테고리 관리와 같은 3단 구조에서 가장 하위 카테고리를 선택해 주세요.'
+                  label='카테고리'
+                  onChange={(nextValue) => {
+                    updateField('categoryId', nextValue);
+                  }}
+                  tree={categoriesTreeQuery.data ?? []}
+                  value={formState.categoryId}
+                />
+
+                <div className={styles['inlineFieldGrid']}>
+                  <TextField
+                    label='프로그램명'
+                    name='title'
+                    onChange={(event) => {
+                      updateField('title', event.target.value);
+                    }}
+                    value={formState.title}
+                  />
+                  <div className={styles['metaNotice']}>
+                    <p className={styles['metaNoticeLabel']}>주소 식별자</p>
+                    <p className={styles['metaNoticeText']}>
+                      프로그램 저장 시 서버에서 자동으로 관리합니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div className={styles['compactFieldRow']}>
+                  <AdminDropdownField
+                    compact
+                    label='프로그램 형태'
+                    onChange={(nextValue) => {
+                      updateField('programType', nextValue as AdminProgramType);
+                    }}
+                    options={programTypeOptions}
+                    value={formState.programType}
+                  />
+                  <AdminDropdownField
+                    compact
+                    label='난이도'
+                    onChange={(nextValue) => {
+                      updateField('level', nextValue as AdminProgramFormState['level']);
+                    }}
+                    options={levelOptions}
+                    value={formState.level}
+                  />
+                  <AdminDropdownField
+                    compact
+                    disabled={formState.programType === 'OFFLINE'}
+                    label='수강 정책'
+                    onChange={(nextValue) => {
+                      const policy = nextValue as AdminProgramAccessPolicy;
+                      setFormState((current) => ({
+                        ...current,
+                        accessDays: policy === 'FIXED_DURATION' ? current.accessDays : '',
+                        accessPolicy: policy,
+                        learningEndAt: policy === 'COHORT' ? current.learningEndAt : '',
+                        learningStartAt: policy === 'COHORT' ? current.learningStartAt : '',
+                      }));
+                    }}
+                    options={accessPolicyOptions}
+                    value={formState.programType === 'OFFLINE' ? 'COHORT' : formState.accessPolicy}
+                  />
+                </div>
+
+                <TextAreaField
+                  label='프로그램 소개'
+                  name='description'
+                  onChange={(event) => {
+                    updateField('description', event.target.value);
+                  }}
+                  value={formState.description}
+                />
+
+                <div className={styles['mediaField']}>
+                  <div className={styles['mediaFieldHeader']}>
+                    <div className={styles['mediaFieldCopy']}>
+                      <p className={styles['fieldLabel']}>대표 이미지</p>
+                      <p className={styles['mediaFieldHint']}>
+                        운영 화면에는 이미지 주소를 노출하지 않고 현재 연결된 이미지만 보여줍니다.
+                      </p>
+                    </div>
+                    {formState.thumbnailUrl ? (
+                      <button
+                        className={styles['tableActionButton']}
+                        onClick={() => {
+                          updateField('thumbnailUrl', '');
+                        }}
+                        type='button'
+                      >
+                        이미지 제거
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {formState.thumbnailUrl ? (
+                    <div className={styles['thumbnailPreview']}>
+                      <img
+                        alt={
+                          formState.title
+                            ? `${formState.title} 대표 이미지`
+                            : '프로그램 대표 이미지'
+                        }
+                        className={styles['thumbnailPreviewImage']}
+                        src={formState.thumbnailUrl}
+                      />
+                    </div>
+                  ) : (
+                    <div className={styles['thumbnailEmptyState']}>
+                      등록된 대표 이미지가 없습니다.
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles['inlineFieldGrid']}>
+                  <TextField
+                    label='강사명'
+                    name='instructorName'
+                    onChange={(event) => {
+                      updateField('instructorName', event.target.value);
+                    }}
+                    value={formState.instructorName}
+                  />
+                </div>
+
+                <TextAreaField
+                  label='강사 소개'
+                  name='instructorBio'
+                  onChange={(event) => {
+                    updateField('instructorBio', event.target.value);
+                  }}
+                  value={formState.instructorBio}
+                />
+
+                <div className={styles['inlineFieldGrid']}>
+                  <TextField
+                    label='정가'
+                    name='price'
+                    onChange={(event) => {
+                      updateField('price', event.target.value);
+                    }}
+                    value={formState.price}
+                  />
+                  <TextField
+                    label='할인가'
+                    name='salePrice'
+                    onChange={(event) => {
+                      updateField('salePrice', event.target.value);
+                    }}
+                    value={formState.salePrice}
+                  />
+                </div>
+
+                <div className={styles['compactFieldRow']}>
+                  <div className={styles['compactTextField']}>
+                    <TextField
+                      label='정원'
+                      name='maxStudents'
+                      onChange={(event) => {
+                        updateField('maxStudents', event.target.value);
+                      }}
+                      value={formState.maxStudents}
+                    />
+                  </div>
+                  {formState.accessPolicy === 'FIXED_DURATION' ? (
+                    <div className={styles['compactTextField']}>
+                      <TextField
+                        label='수강일수'
+                        name='accessDays'
+                        onChange={(event) => {
+                          updateField('accessDays', event.target.value);
+                        }}
+                        value={formState.accessDays}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className={styles['dateTimeRow']}>
+                  <div className={styles['dateTimeGroup']}>
+                    <p className={styles['dateTimeGroupTitle']}>판매 기간</p>
+                    <DateTimeSplitField
+                      dateLabel='판매 시작일'
+                      onChange={(nextValue) => {
+                        updateField('saleStartAt', nextValue);
+                      }}
+                      timeLabel='시작 시간'
+                      value={formState.saleStartAt}
+                    />
+                    <DateTimeSplitField
+                      dateLabel='판매 종료일'
+                      onChange={(nextValue) => {
+                        updateField('saleEndAt', nextValue);
+                      }}
+                      timeLabel='종료 시간'
+                      value={formState.saleEndAt}
+                    />
+                  </div>
+
+                  {formState.accessPolicy === 'COHORT' ? (
+                    <div className={styles['dateTimeGroup']}>
+                      <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
+                      <DateTimeSplitField
+                        dateLabel='수강 시작일'
+                        onChange={(nextValue) => {
+                          updateField('learningStartAt', nextValue);
+                        }}
+                        timeLabel='시작 시간'
+                        value={formState.learningStartAt}
+                      />
+                      <DateTimeSplitField
+                        dateLabel='수강 종료일'
+                        onChange={(nextValue) => {
+                          updateField('learningEndAt', nextValue);
+                        }}
+                        timeLabel='종료 시간'
+                        value={formState.learningEndAt}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                {formState.accessPolicy === 'UNLIMITED' ? (
+                  <p className={styles['policyHint']}>
+                    무제한 수강은 수강일수와 수강 기간을 따로 입력하지 않습니다.
+                  </p>
+                ) : null}
+                {formState.accessPolicy === 'FIXED_DURATION' ? (
+                  <p className={styles['policyHint']}>고정 기간 수강은 수강일수만 입력합니다.</p>
+                ) : null}
+                {formState.accessPolicy === 'COHORT' ? (
+                  <p className={styles['policyHint']}>
+                    기수형 수강은 시작일과 종료일을 함께 지정합니다.
+                  </p>
+                ) : null}
+
+                <AdminFieldArray
+                  addLabel='학습 포인트 추가'
+                  emptyMessage='등록된 학습 포인트가 없습니다.'
+                  helperText='사용자에게 보여줄 핵심 학습 포인트를 항목별로 추가합니다.'
+                  items={formState.learningPoints}
+                  label='학습 포인트'
+                  onAdd={() => {
+                    addStringListItem('learningPoints');
+                  }}
+                  onRemove={(index) => {
+                    removeStringListItem('learningPoints', index);
+                  }}
+                  renderItem={(item, index) => (
+                    <TextField
+                      label={`학습 포인트 ${String(index + 1)}`}
+                      name={`learning-point-${String(index)}`}
+                      onChange={(event) => {
+                        updateStringListItem('learningPoints', index, event.target.value);
+                      }}
+                      value={item}
+                    />
+                  )}
+                />
+
+                <AdminFieldArray
+                  addLabel='추천 대상 추가'
+                  emptyMessage='등록된 추천 대상이 없습니다.'
+                  helperText='이 프로그램을 추천할 대상 유형을 하나씩 정리합니다.'
+                  items={formState.recommendedFor}
+                  label='추천 대상'
+                  onAdd={() => {
+                    addStringListItem('recommendedFor');
+                  }}
+                  onRemove={(index) => {
+                    removeStringListItem('recommendedFor', index);
+                  }}
+                  renderItem={(item, index) => (
+                    <TextField
+                      label={`추천 대상 ${String(index + 1)}`}
+                      name={`recommended-for-${String(index)}`}
+                      onChange={(event) => {
+                        updateStringListItem('recommendedFor', index, event.target.value);
+                      }}
+                      value={item}
+                    />
+                  )}
+                />
+
+                <AdminFieldArray
+                  addLabel='체크리스트 추가'
+                  emptyMessage='등록된 체크리스트가 없습니다.'
+                  helperText='수강 전 준비사항을 체크리스트로 추가합니다.'
+                  items={formState.checklists}
+                  label='수강 체크리스트'
+                  onAdd={() => {
+                    addStringListItem('checklists');
+                  }}
+                  onRemove={(index) => {
+                    removeStringListItem('checklists', index);
+                  }}
+                  renderItem={(item, index) => (
+                    <TextField
+                      label={`체크리스트 ${String(index + 1)}`}
+                      name={`checklist-${String(index)}`}
+                      onChange={(event) => {
+                        updateStringListItem('checklists', index, event.target.value);
+                      }}
+                      value={item}
+                    />
+                  )}
+                />
+
+                <AdminFieldArray
+                  addLabel='요약 항목 추가'
+                  emptyMessage='등록된 요약 항목이 없습니다.'
+                  helperText='항목명과 내용을 각각 입력해 카드 형태 요약 정보를 구성합니다.'
+                  items={formState.summaryItems}
+                  label='요약 항목'
+                  onAdd={addSummaryItem}
+                  onRemove={removeSummaryItem}
+                  renderItem={(item, index) => (
+                    <div className={styles['inlineFieldGrid']}>
+                      <TextField
+                        label='항목명'
+                        name={`summary-label-${String(index)}`}
+                        onChange={(event) => {
+                          updateSummaryItem(index, 'label', event.target.value);
+                        }}
+                        value={item.label}
+                      />
+                      <TextField
+                        label='내용'
+                        name={`summary-value-${String(index)}`}
+                        onChange={(event) => {
+                          updateSummaryItem(index, 'value', event.target.value);
+                        }}
+                        value={item.value}
+                      />
+                    </div>
+                  )}
+                />
+
+                <AdminFieldArray
+                  addLabel='FAQ 추가'
+                  emptyMessage='등록된 FAQ가 없습니다.'
+                  helperText='질문과 답변을 각각 입력해 자주 묻는 질문 영역을 구성합니다.'
+                  items={formState.faqs}
+                  label='FAQ'
+                  onAdd={addFaqItem}
+                  onRemove={removeFaqItem}
+                  renderItem={(item, index) => (
+                    <div className={styles['faqFieldGrid']}>
+                      <TextField
+                        label='질문'
+                        name={`faq-question-${String(index)}`}
+                        onChange={(event) => {
+                          updateFaqItem(index, 'question', event.target.value);
+                        }}
+                        value={item.question}
+                      />
+                      <TextAreaField
+                        label='답변'
+                        name={`faq-answer-${String(index)}`}
+                        onChange={(event) => {
+                          updateFaqItem(index, 'answer', event.target.value);
+                        }}
+                        value={item.answer}
+                      />
+                    </div>
+                  )}
+                />
+
+                <div className={styles['actionRow']}>
+                  <Button disabled={saveMutation.isPending} onClick={handleSubmit} type='button'>
+                    {saveMutation.isPending
+                      ? '저장 중...'
+                      : mode === 'edit'
+                        ? '기본정보 저장'
+                        : '프로그램 등록'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : isCurriculumView ? (
+            <AdminProgramCurriculumSection
+              embedded
+              enabled={isEditMode}
+              programId={isEditMode && currentDetail ? currentDetail.id : null}
+            />
+          ) : isQuizzesView ? (
+            <AdminProgramQuizzesSection
+              enabled={isEditMode}
+              programId={isEditMode && currentDetail ? currentDetail.id : null}
+            />
+          ) : isTagsView ? (
+            <AdminProgramTagsSection
+              enabled={isEditMode}
+              initialTags={currentDetail?.tags ?? []}
+              key={
+                currentDetail
+                  ? `${String(currentDetail.id)}:${currentDetail.tags.map((tag) => String(tag.id)).join(',')}`
+                  : 'program-tags-empty'
+              }
+              programId={isEditMode && currentDetail ? currentDetail.id : null}
+            />
+          ) : isResourcesView ? (
+            <AdminProgramResourcesSection
+              enabled={isEditMode}
+              initialDocuments={currentDetail?.documents ?? []}
+              key={
+                currentDetail
+                  ? `${String(currentDetail.id)}:${currentDetail.documents.map((document) => String(document.id)).join(',')}`
+                  : 'program-documents-empty'
+              }
+              programId={isEditMode && currentDetail ? currentDetail.id : null}
+            />
+          ) : null}
+        </div>
+      </section>
     </section>
   );
 };

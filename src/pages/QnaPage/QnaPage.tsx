@@ -165,7 +165,6 @@ const QnaPage = () => {
     <div className={styles['page']}>
       <div className={styles['boardHeader']}>
         <div className={styles['boardTitleBlock']}>
-          <p className={styles['boardEyebrow']}>SONOSCHOOL Q&A</p>
           <h1 className={styles['boardTitle']}>운영 Q&A</h1>
         </div>
         <p className={styles['boardSummary']}>

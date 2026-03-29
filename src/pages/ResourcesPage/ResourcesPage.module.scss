@@ -126,10 +126,6 @@
   width: 90px;
 }
 
-.fileCol {
-  width: 240px;
-}
-
 .dateCol {
   width: 120px;
 }
@@ -144,7 +140,8 @@
 }
 
 .titleText,
-.previewText {
+.previewText,
+.attachmentCount {
   margin: 0;
 }
 
@@ -152,9 +149,25 @@
   color: #252b38;
 }
 
+.titleLink {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.titleLink:hover {
+  color: var(--color-primary);
+}
+
 .previewText {
   color: #7d8391;
   font-size: 0.85rem;
+}
+
+.attachmentCount {
+  color: #56607a;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .typeBadge {
@@ -171,18 +184,15 @@
   background: #ffffff;
 }
 
-.downloadButton {
-  padding: 0;
-  color: #4e58d7;
-  font-size: 0.88rem;
-  text-decoration: underline;
-  background: none;
-  cursor: pointer;
-}
-
-.downloadButton:disabled {
-  cursor: default;
-  opacity: 0.6;
+.detailLink:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: linear-gradient(
+    180deg,
+    var(--color-brand-lighten-50) 0%,
+    var(--color-brand-lighten-45) 100%
+  );
+  transform: translateY(-1px);
 }
 
 .emptyRow {
@@ -225,9 +235,19 @@
 }
 
 .pageButton[data-active='true'] {
-  border-color: #5b5fe8;
+  border-color: var(--color-primary);
   color: #ffffff;
-  background: #5b5fe8;
+  background: var(--color-primary);
+}
+
+.pageButton:hover,
+.pageNavButton:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pageButton[data-active='true']:hover {
+  color: #ffffff;
 }
 
 .pageNavButton:disabled {

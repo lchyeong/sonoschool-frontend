@@ -1,145 +1,291 @@
-import { type ReactElement, useEffect } from 'react';
+import type { ReactElement } from 'react';
 
 import { createBrowserRouter } from 'react-router-dom';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
 
-import AccountRecoveryPage from '@/pages/AccountRecoveryPage/AccountRecoveryPage';
+import { LoadingSpinner } from '@/components/feedback/Loading/LoadingSpinner';
 import AdminConsoleLayout from '@/pages/AdminConsoleLayout/AdminConsoleLayout';
-import AdminConsolePage from '@/pages/AdminConsolePage/AdminConsolePage';
-import AdminProgramEditorSection from '@/pages/AdminConsolePage/AdminProgramEditorSection';
 import AdminLayout from '@/pages/AdminLayout/AdminLayout';
-import AdminLoginPage from '@/pages/AdminLoginPage/AdminLoginPage';
-import AdminVideoUploadPage from '@/pages/AdminVideoUploadPage/AdminVideoUploadPage';
-import CartPage from '@/pages/CartPage/CartPage';
-import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
-import ContactPage from '@/pages/ContactPage/ContactPage';
-import HomePage from '@/pages/HomePage/HomePage';
-import LearningPage from '@/pages/LearningPage/LearningPage';
-import LoginPage from '@/pages/LoginPage/LoginPage';
-import MyPagePage from '@/pages/MyPagePage/MyPagePage';
-import NoticeDetailPage from '@/pages/NoticeDetailPage/NoticeDetailPage';
-import NotFoundPage from '@/pages/NotFoundPage/NotFoundPage';
-import NoticesPage from '@/pages/NoticesPage/NoticesPage';
-import PaymentResultPage from '@/pages/PaymentResultPage/PaymentResultPage';
-import PlayerPage from '@/pages/PlayerPage/PlayerPage';
-import ProgramPage from '@/pages/ProgramPage/ProgramPage';
-import ProgramsPage from '@/pages/ProgramsPage/ProgramsPage';
-import QnaPage from '@/pages/QnaPage/QnaPage';
-import ResourcesPage from '@/pages/ResourcesPage/ResourcesPage';
 import RootLayout from '@/pages/RootLayout/RootLayout';
 import RouteErrorPage from '@/pages/RouteErrorPage/RouteErrorPage';
-import SearchPage from '@/pages/SearchPage/SearchPage';
-import SignupPage from '@/pages/SignupPage/SignupPage';
+import RouteAccessBoundary from '@/routes/RouteAccessBoundary';
 import {
   appRouteRegistry,
   createAppRouteHandle,
   routePaths,
   type AppRouteKey,
 } from '@/routes/routeRegistry';
-import { isExpiredSession } from '@/stores/sessionExpiry';
-import { useAuthStore } from '@/stores/useAuthStore';
 
-const appRouteElements: Record<AppRouteKey, ReactElement> = {
-  home: <HomePage />,
-  login: <LoginPage />,
-  adminLogin: <AdminLoginPage />,
-  admin: <Navigate replace to={routePaths.adminPrograms} />,
-  adminNotices: <AdminConsolePage section='notices' />,
-  adminQna: <AdminConsolePage section='qna' />,
-  adminResources: <AdminConsolePage section='resources' />,
-  adminReviews: <AdminConsolePage section='reviews' />,
-  adminPrograms: <AdminConsolePage section='programs' />,
-  adminProgramCreate: <AdminProgramEditorSection mode='create' />,
-  adminProgramEdit: <AdminProgramEditorSection mode='edit' />,
-  adminProgramDuplicate: <AdminProgramEditorSection mode='duplicate' />,
-  adminProgramMenus: <AdminConsolePage section='programMenus' />,
-  adminVideos: <AdminVideoUploadPage />,
-  adminPayments: <AdminConsolePage section='payments' />,
-  signup: <SignupPage />,
-  accountRecovery: <AccountRecoveryPage />,
-  mypage: <MyPagePage />,
-  learningPlayer: <LearningPage />,
-  learningLesson: <PlayerPage />,
-  cart: <CartPage />,
-  checkout: <CheckoutPage />,
-  paymentResult: <PaymentResultPage />,
-  notices: <NoticesPage />,
-  noticeDetail: <NoticeDetailPage />,
-  reviews: <Navigate replace to={routePaths.programs} />,
-  qna: <QnaPage />,
-  resources: <ResourcesPage />,
-  programs: <ProgramsPage />,
-  search: <SearchPage />,
-  program: <ProgramPage />,
-  programSection: <ProgramPage />,
-  programCatalogDeep: <ProgramPage />,
-  contact: <ContactPage />,
-  notFound: <NotFoundPage />,
+type AppRouteLazy = () => Promise<{ element: ReactElement }>;
+
+const createLazyRoute = (loadElement: () => Promise<ReactElement>): AppRouteLazy => {
+  return async () => {
+    return {
+      element: await loadElement(),
+    };
+  };
+};
+
+const createStaticElementRoute = (element: ReactElement): AppRouteLazy => {
+  return () =>
+    Promise.resolve({
+      element,
+    });
+};
+
+const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
+  home: createLazyRoute(async () => {
+    const { default: HomePage } = await import('@/pages/HomePage/HomePage');
+    return <HomePage />;
+  }),
+  login: createLazyRoute(async () => {
+    const { default: LoginPage } = await import('@/pages/LoginPage/LoginPage');
+    return <LoginPage />;
+  }),
+  adminLogin: createLazyRoute(async () => {
+    const { default: AdminLoginPage } = await import('@/pages/AdminLoginPage/AdminLoginPage');
+    return <AdminLoginPage />;
+  }),
+  admin: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='dashboard' />;
+  }),
+  adminNotices: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='notices' />;
+  }),
+  adminPopups: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='popups' />;
+  }),
+  adminQna: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='qna' />;
+  }),
+  adminResources: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='resources' />;
+  }),
+  adminEnrollments: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='enrollments' />;
+  }),
+  adminPracticum: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='practicum' />;
+  }),
+  adminReviews: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='reviews' />;
+  }),
+  adminCoupons: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='coupons' />;
+  }),
+  adminPrograms: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='programs' />;
+  }),
+  adminProgramCreate: createLazyRoute(async () => {
+    const { default: AdminProgramEditorSection } = await import(
+      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    );
+    return <AdminProgramEditorSection mode='create' />;
+  }),
+  adminProgramEdit: createLazyRoute(async () => {
+    const { default: AdminProgramEditorSection } = await import(
+      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    );
+    return <AdminProgramEditorSection mode='edit' />;
+  }),
+  adminProgramCurriculum: createLazyRoute(async () => {
+    const { default: AdminProgramEditorSection } = await import(
+      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    );
+    return <AdminProgramEditorSection mode='edit' view='curriculum' />;
+  }),
+  adminProgramQuizzes: createLazyRoute(async () => {
+    const { default: AdminProgramEditorSection } = await import(
+      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    );
+    return <AdminProgramEditorSection mode='edit' view='quizzes' />;
+  }),
+  adminProgramTags: createLazyRoute(async () => {
+    const { default: AdminProgramEditorSection } = await import(
+      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    );
+    return <AdminProgramEditorSection mode='edit' view='tags' />;
+  }),
+  adminProgramResources: createLazyRoute(async () => {
+    const { default: AdminProgramEditorSection } = await import(
+      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    );
+    return <AdminProgramEditorSection mode='edit' view='resources' />;
+  }),
+  adminProgramDuplicate: createLazyRoute(async () => {
+    const { default: AdminProgramEditorSection } = await import(
+      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    );
+    return <AdminProgramEditorSection mode='duplicate' />;
+  }),
+  adminProgramMenus: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='programMenus' />;
+  }),
+  adminTags: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='tags' />;
+  }),
+  adminVideos: createLazyRoute(async () => {
+    const { default: AdminVideoUploadPage } = await import(
+      '@/pages/AdminVideoUploadPage/AdminVideoUploadPage'
+    );
+    return <AdminVideoUploadPage />;
+  }),
+  adminPayments: createLazyRoute(async () => {
+    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
+    return <AdminConsolePage section='payments' />;
+  }),
+  signup: createLazyRoute(async () => {
+    const { default: SignupPage } = await import('@/pages/SignupPage/SignupPage');
+    return <SignupPage />;
+  }),
+  accountRecovery: createLazyRoute(async () => {
+    const { default: AccountRecoveryPage } = await import(
+      '@/pages/AccountRecoveryPage/AccountRecoveryPage'
+    );
+    return <AccountRecoveryPage />;
+  }),
+  mypage: createLazyRoute(async () => {
+    const { default: MyPagePage } = await import('@/pages/MyPagePage/MyPagePage');
+    return <MyPagePage />;
+  }),
+  learningPlayer: createLazyRoute(async () => {
+    const { default: LearningPage } = await import('@/pages/LearningPage/LearningPage');
+    return <LearningPage />;
+  }),
+  learningLesson: createLazyRoute(async () => {
+    const { default: PlayerPage } = await import('@/pages/PlayerPage/PlayerPage');
+    return <PlayerPage />;
+  }),
+  myEnrollmentPracticum: createLazyRoute(async () => {
+    const { default: MyEnrollmentPracticumPage } = await import(
+      '@/pages/MyEnrollmentPracticumPage/MyEnrollmentPracticumPage'
+    );
+    return <MyEnrollmentPracticumPage />;
+  }),
+  cart: createLazyRoute(async () => {
+    const { default: CartPage } = await import('@/pages/CartPage/CartPage');
+    return <CartPage />;
+  }),
+  checkout: createLazyRoute(async () => {
+    const { default: CheckoutPage } = await import('@/pages/CheckoutPage/CheckoutPage');
+    return <CheckoutPage />;
+  }),
+  paymentResult: createLazyRoute(async () => {
+    const { default: PaymentResultPage } = await import(
+      '@/pages/PaymentResultPage/PaymentResultPage'
+    );
+    return <PaymentResultPage />;
+  }),
+  notices: createLazyRoute(async () => {
+    const { default: NoticesPage } = await import('@/pages/NoticesPage/NoticesPage');
+    return <NoticesPage />;
+  }),
+  noticeDetail: createLazyRoute(async () => {
+    const { default: NoticeDetailPage } = await import('@/pages/NoticeDetailPage/NoticeDetailPage');
+    return <NoticeDetailPage />;
+  }),
+  reviews: createStaticElementRoute(<Navigate replace to={routePaths.programs} />),
+  qna: createLazyRoute(async () => {
+    const { default: QnaPage } = await import('@/pages/QnaPage/QnaPage');
+    return <QnaPage />;
+  }),
+  resources: createLazyRoute(async () => {
+    const { default: ResourcesPage } = await import('@/pages/ResourcesPage/ResourcesPage');
+    return <ResourcesPage />;
+  }),
+  resourceDetail: createLazyRoute(async () => {
+    const { default: ResourceDetailPage } = await import(
+      '@/pages/ResourceDetailPage/ResourceDetailPage'
+    );
+    return <ResourceDetailPage />;
+  }),
+  programs: createLazyRoute(async () => {
+    const { default: ProgramsPage } = await import('@/pages/ProgramsPage/ProgramsPage');
+    return <ProgramsPage />;
+  }),
+  search: createLazyRoute(async () => {
+    const { default: SearchPage } = await import('@/pages/SearchPage/SearchPage');
+    return <SearchPage />;
+  }),
+  program: createLazyRoute(async () => {
+    const { default: ProgramPage } = await import('@/pages/ProgramPage/ProgramPage');
+    return <ProgramPage />;
+  }),
+  programSection: createLazyRoute(async () => {
+    const { default: ProgramPage } = await import('@/pages/ProgramPage/ProgramPage');
+    return <ProgramPage />;
+  }),
+  programCatalogDeep: createLazyRoute(async () => {
+    const { default: ProgramPage } = await import('@/pages/ProgramPage/ProgramPage');
+    return <ProgramPage />;
+  }),
+  contact: createLazyRoute(async () => {
+    const { default: ContactPage } = await import('@/pages/ContactPage/ContactPage');
+    return <ContactPage />;
+  }),
+  notFound: createLazyRoute(async () => {
+    const { default: NotFoundPage } = await import('@/pages/NotFoundPage/NotFoundPage');
+    return <NotFoundPage />;
+  }),
 };
 
 const adminAuthRouteKeys = ['adminLogin'] as const satisfies readonly AppRouteKey[];
 const adminConsoleRouteKeys = [
   'admin',
   'adminNotices',
+  'adminPopups',
   'adminQna',
   'adminResources',
+  'adminEnrollments',
+  'adminPracticum',
   'adminReviews',
+  'adminCoupons',
   'adminPrograms',
   'adminProgramCreate',
   'adminProgramEdit',
+  'adminProgramCurriculum',
+  'adminProgramQuizzes',
+  'adminProgramTags',
+  'adminProgramResources',
   'adminProgramDuplicate',
   'adminProgramMenus',
+  'adminTags',
   'adminVideos',
   'adminPayments',
 ] as const satisfies readonly AppRouteKey[];
 const adminRouteKeySet = new Set<AppRouteKey>([...adminAuthRouteKeys, ...adminConsoleRouteKeys]);
 
-const RouteAccessBoundary = ({
-  access,
-  children,
-}: {
-  access: 'admin' | 'authenticated' | 'guest-only' | 'public';
-  children: ReactElement;
-}) => {
-  const expiresAt = useAuthStore((state) => state.expiresAt);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const logout = useAuthStore((state) => state.logout);
-  const location = useLocation();
-  const isSessionExpired = isAuthenticated && isExpiredSession(expiresAt);
-
-  useEffect(() => {
-    if (!isSessionExpired) {
-      return;
-    }
-
-    logout();
-  }, [isSessionExpired, logout]);
-
-  if (access === 'authenticated' && (!isAuthenticated || isSessionExpired)) {
-    return <Navigate replace state={{ from: location }} to={routePaths.login} />;
-  }
-
-  if (access === 'guest-only' && isAuthenticated && !isSessionExpired) {
-    return <Navigate replace to={routePaths.mypage} />;
-  }
-
-  return children;
-};
-
 const createAppRouteObject = (routeKey: AppRouteKey): RouteObject => {
   const definition = appRouteRegistry.routes[routeKey];
-  const element = (
-    <RouteAccessBoundary access={definition.access}>
-      {appRouteElements[routeKey]}
-    </RouteAccessBoundary>
-  );
+  const lazy = async () => {
+    const routeModule = await appRouteLazies[routeKey]();
+
+    return {
+      ...routeModule,
+      element: (
+        <RouteAccessBoundary access={definition.access}>{routeModule.element}</RouteAccessBoundary>
+      ),
+    };
+  };
 
   switch (definition.kind) {
     case 'index':
       return {
         index: true,
-        element,
+        lazy,
         handle: createAppRouteHandle(routeKey),
       };
     case 'static':
@@ -147,7 +293,7 @@ const createAppRouteObject = (routeKey: AppRouteKey): RouteObject => {
     case 'catch-all':
       return {
         path: definition.routePath,
-        element,
+        lazy,
         handle: createAppRouteHandle(routeKey),
       };
   }
@@ -157,6 +303,7 @@ export const appRouteTree: RouteObject = {
   path: appRouteRegistry.root.path,
   element: <RootLayout />,
   errorElement: <RouteErrorPage />,
+  hydrateFallbackElement: <LoadingSpinner />,
   children: appRouteRegistry.root.childRouteKeys
     .filter((routeKey) => !adminRouteKeySet.has(routeKey))
     .map((routeKey) => createAppRouteObject(routeKey)),
@@ -166,6 +313,7 @@ export const adminAuthRouteTree: RouteObject = {
   path: appRouteRegistry.root.path,
   element: <AdminLayout />,
   errorElement: <RouteErrorPage />,
+  hydrateFallbackElement: <LoadingSpinner />,
   children: adminAuthRouteKeys.map((routeKey) => createAppRouteObject(routeKey)),
 };
 
@@ -173,6 +321,7 @@ export const adminConsoleRouteTree: RouteObject = {
   path: appRouteRegistry.root.path,
   element: <AdminConsoleLayout />,
   errorElement: <RouteErrorPage />,
+  hydrateFallbackElement: <LoadingSpinner />,
   children: adminConsoleRouteKeys.map((routeKey) => createAppRouteObject(routeKey)),
 };
 

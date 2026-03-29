@@ -23,20 +23,33 @@ describe('appRouteRegistry', () => {
     expect(routePaths.adminLogin).toBe(appRouteRegistry.routes.adminLogin.absolutePath);
     expect(routePaths.admin).toBe(appRouteRegistry.routes.admin.absolutePath);
     expect(routePaths.adminNotices).toBe(appRouteRegistry.routes.adminNotices.absolutePath);
+    expect(routePaths.adminPopups).toBe(appRouteRegistry.routes.adminPopups.absolutePath);
     expect(routePaths.adminQna).toBe(appRouteRegistry.routes.adminQna.absolutePath);
     expect(routePaths.adminResources).toBe(appRouteRegistry.routes.adminResources.absolutePath);
+    expect(routePaths.adminEnrollments).toBe(appRouteRegistry.routes.adminEnrollments.absolutePath);
+    expect(routePaths.adminPracticum).toBe(appRouteRegistry.routes.adminPracticum.absolutePath);
     expect(routePaths.adminReviews).toBe(appRouteRegistry.routes.adminReviews.absolutePath);
+    expect(routePaths.adminCoupons).toBe(appRouteRegistry.routes.adminCoupons.absolutePath);
     expect(routePaths.adminPrograms).toBe(appRouteRegistry.routes.adminPrograms.absolutePath);
     expect(routePaths.adminProgramCreate).toBe(
       appRouteRegistry.routes.adminProgramCreate.absolutePath,
     );
     expect(routePaths.adminProgramEdit('program-1')).toBe('/admin/programs/program-1/edit');
+    expect(routePaths.adminProgramCurriculum('program-1')).toBe(
+      '/admin/programs/program-1/curriculum',
+    );
+    expect(routePaths.adminProgramQuizzes('program-1')).toBe('/admin/programs/program-1/quizzes');
+    expect(routePaths.adminProgramTags('program-1')).toBe('/admin/programs/program-1/tags');
+    expect(routePaths.adminProgramResources('program-1')).toBe(
+      '/admin/programs/program-1/resources',
+    );
     expect(routePaths.adminProgramDuplicate('program-1')).toBe(
       '/admin/programs/program-1/duplicate',
     );
     expect(routePaths.adminProgramMenus).toBe(
       appRouteRegistry.routes.adminProgramMenus.absolutePath,
     );
+    expect(routePaths.adminTags).toBe(appRouteRegistry.routes.adminTags.absolutePath);
     expect(routePaths.adminPayments).toBe(appRouteRegistry.routes.adminPayments.absolutePath);
     expect(routePaths.signup).toBe(appRouteRegistry.routes.signup.absolutePath);
     expect(routePaths.accountRecovery).toBe(appRouteRegistry.routes.accountRecovery.absolutePath);
@@ -44,11 +57,13 @@ describe('appRouteRegistry', () => {
     expect(routePaths.learningLesson('101', 'lesson-2')).toBe(
       '/mypage/learning/101/lesson/lesson-2',
     );
+    expect(routePaths.myEnrollmentPracticum('101')).toBe('/mypage/enrollments/101/practicum');
     expect(routePaths.checkout).toBe(appRouteRegistry.routes.checkout.absolutePath);
     expect(routePaths.paymentResult).toBe(appRouteRegistry.routes.paymentResult.absolutePath);
     expect(routePaths.noticeDetail('7')).toBe('/notices/7');
     expect(routePaths.reviews).toBe(appRouteRegistry.routes.reviews.absolutePath);
     expect(routePaths.resources).toBe(appRouteRegistry.routes.resources.absolutePath);
+    expect(routePaths.resourceDetail('7')).toBe('/resources/7');
     expect(routePaths.programCatalog()).toBe('/programs');
     expect(routePaths.programCatalog('general-course', 'abdomen', 'abdomen-basic-6-weeks')).toBe(
       '/programs/general-course/abdomen/abdomen-basic-6-weeks',
@@ -63,19 +78,29 @@ describe('appRouteRegistry', () => {
     expect(appRouteAccessByKey.adminLogin).toBe('public');
     expect(appRouteAccessByKey.admin).toBe('admin');
     expect(appRouteAccessByKey.adminNotices).toBe('admin');
+    expect(appRouteAccessByKey.adminPopups).toBe('admin');
     expect(appRouteAccessByKey.adminQna).toBe('admin');
     expect(appRouteAccessByKey.adminResources).toBe('admin');
+    expect(appRouteAccessByKey.adminEnrollments).toBe('admin');
+    expect(appRouteAccessByKey.adminPracticum).toBe('admin');
     expect(appRouteAccessByKey.adminReviews).toBe('admin');
+    expect(appRouteAccessByKey.adminCoupons).toBe('admin');
     expect(appRouteAccessByKey.adminPrograms).toBe('admin');
     expect(appRouteAccessByKey.adminProgramCreate).toBe('admin');
     expect(appRouteAccessByKey.adminProgramEdit).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramCurriculum).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramQuizzes).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramTags).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramResources).toBe('admin');
     expect(appRouteAccessByKey.adminProgramDuplicate).toBe('admin');
     expect(appRouteAccessByKey.adminProgramMenus).toBe('admin');
+    expect(appRouteAccessByKey.adminTags).toBe('admin');
     expect(appRouteAccessByKey.adminPayments).toBe('admin');
     expect(appRouteAccessByKey.accountRecovery).toBe('guest-only');
     expect(appRouteAccessByKey.mypage).toBe('authenticated');
     expect(appRouteAccessByKey.learningPlayer).toBe('authenticated');
     expect(appRouteAccessByKey.learningLesson).toBe('authenticated');
+    expect(appRouteAccessByKey.myEnrollmentPracticum).toBe('authenticated');
     expect(appRouteAccessByKey.checkout).toBe('authenticated');
     expect(appRouteAccessByKey.paymentResult).toBe('public');
     expect(getRouteHandle('mypage')).toEqual({
@@ -88,6 +113,10 @@ describe('appRouteRegistry', () => {
     });
     expect(getRouteHandle('mypage/learning/:enrollmentId/lesson/:lessonId')).toEqual({
       routeKey: 'learningLesson',
+      access: 'authenticated',
+    });
+    expect(getRouteHandle('mypage/enrollments/:enrollmentId/practicum')).toEqual({
+      routeKey: 'myEnrollmentPracticum',
       access: 'authenticated',
     });
     expect(getRouteHandle('login')).toEqual({
@@ -110,6 +139,10 @@ describe('appRouteRegistry', () => {
       routeKey: 'adminNotices',
       access: 'admin',
     });
+    expect(getRouteHandle('admin/popups')).toEqual({
+      routeKey: 'adminPopups',
+      access: 'admin',
+    });
     expect(getRouteHandle('admin/qna')).toEqual({
       routeKey: 'adminQna',
       access: 'admin',
@@ -118,8 +151,20 @@ describe('appRouteRegistry', () => {
       routeKey: 'adminResources',
       access: 'admin',
     });
+    expect(getRouteHandle('admin/enrollments')).toEqual({
+      routeKey: 'adminEnrollments',
+      access: 'admin',
+    });
+    expect(getRouteHandle('admin/practicum')).toEqual({
+      routeKey: 'adminPracticum',
+      access: 'admin',
+    });
     expect(getRouteHandle('admin/reviews')).toEqual({
       routeKey: 'adminReviews',
+      access: 'admin',
+    });
+    expect(getRouteHandle('admin/coupons')).toEqual({
+      routeKey: 'adminCoupons',
       access: 'admin',
     });
     expect(getRouteHandle('admin/programs')).toEqual({
@@ -134,12 +179,32 @@ describe('appRouteRegistry', () => {
       routeKey: 'adminProgramEdit',
       access: 'admin',
     });
+    expect(getRouteHandle('admin/programs/:programId/curriculum')).toEqual({
+      routeKey: 'adminProgramCurriculum',
+      access: 'admin',
+    });
+    expect(getRouteHandle('admin/programs/:programId/quizzes')).toEqual({
+      routeKey: 'adminProgramQuizzes',
+      access: 'admin',
+    });
+    expect(getRouteHandle('admin/programs/:programId/tags')).toEqual({
+      routeKey: 'adminProgramTags',
+      access: 'admin',
+    });
+    expect(getRouteHandle('admin/programs/:programId/resources')).toEqual({
+      routeKey: 'adminProgramResources',
+      access: 'admin',
+    });
     expect(getRouteHandle('admin/programs/:sourceProgramId/duplicate')).toEqual({
       routeKey: 'adminProgramDuplicate',
       access: 'admin',
     });
     expect(getRouteHandle('admin/program-menus')).toEqual({
       routeKey: 'adminProgramMenus',
+      access: 'admin',
+    });
+    expect(getRouteHandle('admin/tags')).toEqual({
+      routeKey: 'adminTags',
       access: 'admin',
     });
     expect(getRouteHandle('admin/payments')).toEqual({
@@ -156,6 +221,10 @@ describe('appRouteRegistry', () => {
     });
     expect(getRouteHandle('notices/:noticeId')).toEqual({
       routeKey: 'noticeDetail',
+      access: 'public',
+    });
+    expect(getRouteHandle('resources/:resourceId')).toEqual({
+      routeKey: 'resourceDetail',
       access: 'public',
     });
   });

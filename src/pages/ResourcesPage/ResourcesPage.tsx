@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { useMutation } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 
-import { fetchGlobalResourceDownload } from '@/api/resources';
 import { useGlobalResourcesQuery } from '@/query/useResourceQueries';
-import { useToastStore } from '@/stores/useToastStore';
+import { routePaths } from '@/routes/routeRegistry';
 
 import styles from './ResourcesPage.module.scss';
 
@@ -14,18 +13,6 @@ const formatDate = (value: string): string => {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'short',
   }).format(new Date(value));
-};
-
-const formatFileSize = (value: number): string => {
-  if (value >= 1024 * 1024) {
-    return `${(value / (1024 * 1024)).toFixed(1)}MB`;
-  }
-
-  if (value >= 1024) {
-    return `${Math.round(value / 1024)}KB`;
-  }
-
-  return `${value}B`;
 };
 
 const buildPreview = (value: string): string => {
@@ -39,13 +26,11 @@ const buildPreview = (value: string): string => {
 };
 
 const ResourcesPage = () => {
-  const showToast = useToastStore((state) => state.showToast);
   const resourcesQuery = useGlobalResourcesQuery();
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [downloadingId, setDownloadingId] = useState<number | null>(null);
-  const resources = resourcesQuery.data ?? [];
+  const [page, setPage] = useState(1);
+  const resources = useMemo(() => resourcesQuery.data ?? [], [resourcesQuery.data]);
 
   const filteredResources = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
@@ -55,52 +40,29 @@ const ResourcesPage = () => {
     }
 
     return resources.filter((resource) => {
-      return [resource.title, resource.description, resource.fileName].some((field) => {
+      const searchableFields = [
+        resource.title,
+        resource.description,
+        ...resource.attachments.map((attachment) => attachment.fileName),
+      ];
+
+      return searchableFields.some((field) => {
         return field.toLowerCase().includes(normalizedSearchTerm);
       });
     });
   }, [resources, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(filteredResources.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
   const paginatedResources = filteredResources.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE,
   );
 
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  const downloadMutation = useMutation({
-    mutationFn: fetchGlobalResourceDownload,
-    onError: (error: unknown) => {
-      showToast({
-        message: error instanceof Error ? error.message : '자료 다운로드에 실패했습니다.',
-        variant: 'error',
-      });
-    },
-    onSuccess: (download) => {
-      window.open(download.downloadUrl, '_blank', 'noopener,noreferrer');
-    },
-  });
-
-  const handleDownload = async (resourceId: number) => {
-    setDownloadingId(resourceId);
-
-    try {
-      await downloadMutation.mutateAsync(resourceId);
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
   return (
     <div className={styles['page']}>
       <div className={styles['boardHeader']}>
         <div className={styles['boardTitleBlock']}>
-          <p className={styles['boardEyebrow']}>SONOSCHOOL RESOURCES</p>
           <h1 className={styles['boardTitle']}>자료실</h1>
         </div>
         <p className={styles['boardSummary']}>
@@ -115,7 +77,7 @@ const ResourcesPage = () => {
             onSubmit={(event) => {
               event.preventDefault();
               setSearchTerm(searchInput);
-              setCurrentPage(1);
+              setPage(1);
             }}
           >
             <select
@@ -164,7 +126,6 @@ const ResourcesPage = () => {
                   <col className={styles['numberCol']} />
                   <col className={styles['typeCol']} />
                   <col />
-                  <col className={styles['fileCol']} />
                   <col className={styles['dateCol']} />
                 </colgroup>
                 <thead>
@@ -172,7 +133,6 @@ const ResourcesPage = () => {
                     <th scope='col'>번호</th>
                     <th scope='col'>구분</th>
                     <th scope='col'>제목</th>
-                    <th scope='col'>파일</th>
                     <th scope='col'>등록일</th>
                   </tr>
                 </thead>
@@ -181,7 +141,6 @@ const ResourcesPage = () => {
                     paginatedResources.map((resource, index) => {
                       const rowNumber =
                         filteredResources.length - ((currentPage - 1) * PAGE_SIZE + index);
-                      const isDownloading = downloadingId === resource.id && downloadMutation.isPending;
 
                       return (
                         <tr className={styles['resourceRow']} key={resource.id}>
@@ -192,22 +151,21 @@ const ResourcesPage = () => {
                             </span>
                           </td>
                           <td className={styles['titleCell']}>
-                            <div className={styles['titleBlock']}>
-                              <strong className={styles['titleText']}>{resource.title}</strong>
-                              <p className={styles['previewText']}>{buildPreview(resource.description)}</p>
-                            </div>
-                          </td>
-                          <td>
-                            <button
-                              className={styles['downloadButton']}
-                              disabled={isDownloading}
-                              onClick={() => {
-                                void handleDownload(resource.id);
-                              }}
-                              type='button'
+                            <Link
+                              aria-label={resource.title}
+                              className={styles['titleLink']}
+                              to={routePaths.resourceDetail(String(resource.id))}
                             >
-                              {isDownloading ? '준비 중...' : `${resource.fileName} (${formatFileSize(resource.fileSize)})`}
-                            </button>
+                              <div className={styles['titleBlock']}>
+                                <strong className={styles['titleText']}>{resource.title}</strong>
+                                <p className={styles['previewText']}>
+                                  {buildPreview(resource.description)}
+                                </p>
+                                <p className={styles['attachmentCount']}>
+                                  첨부 {String(resource.attachments.length)}개
+                                </p>
+                              </div>
+                            </Link>
                           </td>
                           <td>{formatDate(resource.createdAt)}</td>
                         </tr>
@@ -215,7 +173,7 @@ const ResourcesPage = () => {
                     })
                   ) : (
                     <tr>
-                      <td className={styles['emptyRow']} colSpan={5}>
+                      <td className={styles['emptyRow']} colSpan={4}>
                         검색 조건에 맞는 자료가 없습니다.
                       </td>
                     </tr>
@@ -230,7 +188,7 @@ const ResourcesPage = () => {
                   className={styles['pageNavButton']}
                   disabled={currentPage === 1}
                   onClick={() => {
-                    setCurrentPage((page) => Math.max(1, page - 1));
+                    setPage((value) => Math.max(1, value - 1));
                   }}
                   type='button'
                 >
@@ -244,7 +202,7 @@ const ResourcesPage = () => {
                       data-active={pageNumber === currentPage}
                       key={pageNumber}
                       onClick={() => {
-                        setCurrentPage(pageNumber);
+                        setPage(pageNumber);
                       }}
                       type='button'
                     >
@@ -257,7 +215,7 @@ const ResourcesPage = () => {
                   className={styles['pageNavButton']}
                   disabled={currentPage === totalPages}
                   onClick={() => {
-                    setCurrentPage((page) => Math.min(totalPages, page + 1));
+                    setPage((value) => Math.min(totalPages, value + 1));
                   }}
                   type='button'
                 >

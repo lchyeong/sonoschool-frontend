@@ -20,7 +20,7 @@ vi.mock('@/utils/authDeviceId', () => {
   };
 });
 
-import { loginAdmin } from '@/api/adminConsole';
+import { loginAdmin } from '@/api/adminAuth';
 
 describe('adminConsole auth API', () => {
   beforeEach(() => {

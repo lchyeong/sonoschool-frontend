@@ -5,6 +5,8 @@ import type { ApiEnvelope } from '@/types/auth';
 import type {
   AdminNoticeCreatePayload,
   AdminNoticeUpdatePayload,
+  AdminPopupCreatePayload,
+  AdminPopupUpdatePayload,
   NoticeItem,
 } from '@/types/notice';
 
@@ -17,6 +19,14 @@ export const fetchGlobalNotices = async (): Promise<NoticeItem[]> => {
     return await http.get<NoticeItem[]>('/api/v1/notices');
   } catch (error: unknown) {
     throw toApiError(error, '공지사항을 불러오지 못했습니다.');
+  }
+};
+
+export const fetchGlobalPopups = async (): Promise<NoticeItem[]> => {
+  try {
+    return await http.get<NoticeItem[]>('/api/v1/popups');
+  } catch (error: unknown) {
+    throw toApiError(error, '팝업 공지를 불러오지 못했습니다.');
   }
 };
 
@@ -37,14 +47,40 @@ export const fetchAdminNotices = async (): Promise<NoticeItem[]> => {
   }
 };
 
+export const fetchAdminPopups = async (): Promise<NoticeItem[]> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<NoticeItem[]>>('/api/v1/admin/popups');
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '관리자 팝업 목록을 불러오지 못했습니다.');
+  }
+};
+
 export const createAdminNoticeLive = async (
   payload: AdminNoticeCreatePayload,
 ): Promise<NoticeItem> => {
   try {
-    const response = await axiosInstance.post<ApiEnvelope<NoticeItem>>('/api/v1/admin/notices', payload);
+    const response = await axiosInstance.post<ApiEnvelope<NoticeItem>>(
+      '/api/v1/admin/notices',
+      payload,
+    );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '공지사항 등록에 실패했습니다.');
+  }
+};
+
+export const createAdminPopupLive = async (
+  payload: AdminPopupCreatePayload,
+): Promise<NoticeItem> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<NoticeItem>>(
+      '/api/v1/admin/popups',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '팝업 등록에 실패했습니다.');
   }
 };
 
@@ -63,6 +99,21 @@ export const updateAdminNoticeLive = async (
   }
 };
 
+export const updateAdminPopupLive = async (
+  popupId: number,
+  payload: AdminPopupUpdatePayload,
+): Promise<NoticeItem> => {
+  try {
+    const response = await axiosInstance.put<ApiEnvelope<NoticeItem>>(
+      `/api/v1/admin/popups/${String(popupId)}`,
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '팝업 수정에 실패했습니다.');
+  }
+};
+
 export const publishAdminNoticeLive = async (noticeId: number): Promise<NoticeItem> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<NoticeItem>>(
@@ -71,6 +122,17 @@ export const publishAdminNoticeLive = async (noticeId: number): Promise<NoticeIt
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '공지 게시 처리에 실패했습니다.');
+  }
+};
+
+export const publishAdminPopupLive = async (popupId: number): Promise<NoticeItem> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<NoticeItem>>(
+      `/api/v1/admin/popups/${String(popupId)}/publish`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '팝업 게시 처리에 실패했습니다.');
   }
 };
 
@@ -85,10 +147,29 @@ export const unpublishAdminNoticeLive = async (noticeId: number): Promise<Notice
   }
 };
 
+export const unpublishAdminPopupLive = async (popupId: number): Promise<NoticeItem> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<NoticeItem>>(
+      `/api/v1/admin/popups/${String(popupId)}/unpublish`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '팝업 게시 중지에 실패했습니다.');
+  }
+};
+
 export const deleteAdminNoticeLive = async (noticeId: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/api/v1/admin/notices/${String(noticeId)}`);
   } catch (error: unknown) {
     throw toApiError(error, '공지 삭제에 실패했습니다.');
+  }
+};
+
+export const deleteAdminPopupLive = async (popupId: number): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/api/v1/admin/popups/${String(popupId)}`);
+  } catch (error: unknown) {
+    throw toApiError(error, '팝업 삭제에 실패했습니다.');
   }
 };

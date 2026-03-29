@@ -24,7 +24,8 @@ export interface CheckoutPaymentInitiatePayload {
 }
 
 export interface KcpPcPrepareResponse {
-  paymentId: number;
+  paymentId: number | null;
+  orderReference: string;
   jsUrl: string;
   siteCd: string;
   siteName: string;
@@ -60,7 +61,8 @@ export interface KcpMobileRegisterResponse {
 }
 
 export interface KcpPcApprovePayload {
-  paymentId: number;
+  paymentId?: number | null;
+  orderReference?: string;
   encData: string;
   encInfo: string;
   tranCd: string;
@@ -69,11 +71,10 @@ export interface KcpPcApprovePayload {
 }
 
 export interface MockCheckoutRedirectPayload {
-  paymentId: number;
-  resultToken: string;
+  paymentId: number | null;
+  resultToken: string | null;
   status: PaymentStatus;
   code: string | null;
-  gatewayOrderId: string;
   message: string;
 }
 
@@ -112,12 +113,10 @@ export const formatPaymentMethodLabel = (value: PaymentMethodValue): string => {
 export interface PaymentResult {
   id: number;
   orderType: PaymentOrderType;
-  orderReference: string;
   orderName: string;
+  orderNumber: string | null;
   amount: number;
   paymentMethod: PaymentMethodValue;
-  gatewayOrderId: string;
-  gatewayResponseMessage: string | null;
   approvedAmount: number | null;
   receiptUrl: string | null;
   status: PaymentStatus;

@@ -3,12 +3,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { loginAdmin } from '@/api/adminConsole';
+import { loginAdmin } from '@/api/adminAuth';
 import AdminLoginPage from '@/pages/AdminLoginPage/AdminLoginPage';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
 
-vi.mock('@/api/adminConsole', () => ({
+vi.mock('@/api/adminAuth', () => ({
   loginAdmin: vi.fn(),
 }));
 

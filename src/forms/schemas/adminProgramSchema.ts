@@ -49,7 +49,7 @@ export const adminProgramDraftSchema = z
     slug: z
       .string()
       .trim()
-      .min(1, '공개 URL 슬러그를 입력해 주세요.')
+      .min(1, '공개 주소 코드를 입력해 주세요.')
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, '영문 소문자, 숫자, 하이픈만 사용할 수 있습니다.'),
     sourceProgramId: z.string().trim(),
     title: z.string().trim().min(1, '강의명을 입력해 주세요.').max(120, '강의명이 너무 깁니다.'),
@@ -172,7 +172,7 @@ export const adminProgramSchema = z
     slug: z
       .string()
       .trim()
-      .min(1, '공개 URL 슬러그를 입력해 주세요.')
+      .min(1, '공개 주소 코드를 입력해 주세요.')
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, '영문 소문자, 숫자, 하이픈만 사용할 수 있습니다.'),
     stats: z.array(programStatSchema).min(2, '핵심 요약 항목을 최소 2개 이상 입력해 주세요.'),
     tagsInput: z.string().trim().min(1, '검색/분류 태그를 한 줄 이상 입력해 주세요.'),

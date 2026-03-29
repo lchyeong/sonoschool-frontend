@@ -1,5 +1,4 @@
 /* eslint-disable import/order */
-import { resetMockAdminConsoleData } from '@/mocks/data/adminConsole';
 import { resetMockMyPageData } from '@/mocks/data/mypage';
 import { resetMockStudentAuthState } from '@/mocks/data/studentAuth';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,7 +34,7 @@ vi.mock('@/api/axiosInstance', () => {
 });
 
 import { fetchRegistrationTerms, loginStudent } from '@/api/auth';
-import { createAdminNotice, fetchAdminConsole } from '@/api/adminConsole';
+import { fetchAdminProgramsLive } from '@/api/adminProgramsLive';
 import {
   addMyCartItem,
   fetchMyCoupons,
@@ -43,6 +42,7 @@ import {
   removeMyCartItem,
   updateMyProfile,
 } from '@/api/mypage';
+import { createAdminNoticeLive } from '@/api/notices';
 import { fetchPaymentResult, fetchPaymentResultByToken } from '@/api/payments';
 import { useAuthStore } from '@/stores/useAuthStore';
 
@@ -70,7 +70,6 @@ describe('app API fallback', () => {
       role: '',
       tokenType: '',
     });
-    resetMockAdminConsoleData();
     resetMockMyPageData();
     resetMockStudentAuthState();
   });
@@ -145,9 +144,9 @@ describe('app API fallback', () => {
   });
 
   it('keeps admin read requests failing when live endpoints are unavailable', async () => {
-    httpGetMock.mockRejectedValueOnce(createAxiosFailure(404));
+    axiosGetMock.mockRejectedValueOnce(createAxiosFailure(404));
 
-    await expect(fetchAdminConsole()).rejects.toBeTruthy();
+    await expect(fetchAdminProgramsLive()).rejects.toBeTruthy();
   });
 
   it('keeps payment requests failing when live endpoints are unavailable', async () => {
@@ -162,10 +161,15 @@ describe('app API fallback', () => {
     axiosPostMock.mockRejectedValueOnce(createAxiosFailure(404));
 
     await expect(
-      createAdminNotice({
-        category: '운영',
-        isPinned: true,
+      createAdminNoticeLive({
+        content: 'fallback notice body',
+        pinned: true,
+        programId: null,
+        published: false,
+        scope: 'GLOBAL',
         title: 'fallback notice',
+        visibleEndAt: null,
+        visibleStartAt: null,
       }),
     ).rejects.toBeTruthy();
   });

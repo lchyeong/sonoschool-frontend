@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -17,14 +17,17 @@ import {
   useAdminNoticesQuery,
 } from '@/query/useNoticeQueries';
 import { useToastStore } from '@/stores/useToastStore';
-import type { AdminNoticeCreatePayload, AdminNoticeUpdatePayload, NoticeItem } from '@/types/notice';
+import type {
+  AdminNoticeCreatePayload,
+  AdminNoticeUpdatePayload,
+  NoticeItem,
+} from '@/types/notice';
 
 import styles from './AdminConsolePage.module.scss';
 
 interface NoticeFormState {
   content: string;
   pinned: boolean;
-  popup: boolean;
   published: boolean;
   title: string;
   visibleEndAt: string;
@@ -34,7 +37,6 @@ interface NoticeFormState {
 const EMPTY_FORM: NoticeFormState = {
   content: '',
   pinned: false,
-  popup: false,
   published: true,
   title: '',
   visibleEndAt: '',
@@ -86,7 +88,6 @@ const createFormState = (notice?: NoticeItem | null): NoticeFormState => {
   return {
     content: notice.content,
     pinned: notice.pinned,
-    popup: notice.popup,
     published: notice.published,
     title: notice.title,
     visibleEndAt: formatDateTimeInputValue(notice.visibleEndAt),
@@ -124,36 +125,26 @@ const AdminNoticesSection = () => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const noticesQuery = useAdminNoticesQuery();
-  const [selectedNoticeId, setSelectedNoticeId] = useState<number | null>(null);
-  const [editingNoticeId, setEditingNoticeId] = useState<number | null>(null);
+  const [selectedNoticeIdState, setSelectedNoticeId] = useState<number | null>(null);
+  const [editingNoticeIdState, setEditingNoticeId] = useState<number | null>(null);
   const [formState, setFormState] = useState<NoticeFormState>(EMPTY_FORM);
 
   const globalNotices = useMemo(() => {
     return (noticesQuery.data ?? []).filter((notice) => notice.scope === 'GLOBAL');
   }, [noticesQuery.data]);
+  const firstNotice = globalNotices.at(0) ?? null;
 
-  useEffect(() => {
-    const firstNoticeId = globalNotices[0]?.id ?? null;
-
-    setSelectedNoticeId((current) => {
-      if (current !== null && globalNotices.some((notice) => notice.id === current)) {
-        return current;
-      }
-
-      return firstNoticeId;
-    });
-
-    setEditingNoticeId((current) => {
-      if (current !== null && globalNotices.some((notice) => notice.id === current)) {
-        return current;
-      }
-
-      return null;
-    });
-  }, [globalNotices]);
-
-  const selectedNotice =
-    globalNotices.find((notice) => notice.id === selectedNoticeId) ?? globalNotices[0] ?? null;
+  const selectedNoticeId =
+    selectedNoticeIdState !== null &&
+    globalNotices.some((notice) => notice.id === selectedNoticeIdState)
+      ? selectedNoticeIdState
+      : (firstNotice?.id ?? null);
+  const editingNoticeId =
+    editingNoticeIdState !== null &&
+    globalNotices.some((notice) => notice.id === editingNoticeIdState)
+      ? editingNoticeIdState
+      : null;
+  const selectedNotice = globalNotices.find((notice) => notice.id === selectedNoticeId) ?? null;
 
   const refreshNotices = async () => {
     await Promise.all([
@@ -298,7 +289,6 @@ const AdminNoticesSection = () => {
       createMutation.mutate({
         content,
         pinned: formState.pinned,
-        popup: formState.popup,
         programId: null,
         published: formState.published,
         scope: 'GLOBAL',
@@ -314,7 +304,6 @@ const AdminNoticesSection = () => {
       payload: {
         content,
         pinned: formState.pinned,
-        popup: formState.popup,
         programId: null,
         scope: 'GLOBAL',
         title,
@@ -326,7 +315,6 @@ const AdminNoticesSection = () => {
 
   const summary = {
     pinnedCount: globalNotices.filter((notice) => notice.pinned).length,
-    popupCount: globalNotices.filter((notice) => notice.popup).length,
     publishedCount: globalNotices.filter((notice) => notice.published).length,
     totalCount: globalNotices.length,
   };
@@ -359,29 +347,27 @@ const AdminNoticesSection = () => {
         <article className={styles['summaryCard']} data-tone='brand'>
           <p className={styles['summaryLabel']}>전체 전역 공지</p>
           <strong className={styles['summaryValue']}>{String(summary.totalCount)}건</strong>
-          <p className={styles['summaryDescription']}>운영 중인 전역 공지를 같은 계약으로 관리합니다.</p>
+          <p className={styles['summaryDescription']}>
+            운영 중인 전역 공지를 같은 계약으로 관리합니다.
+          </p>
         </article>
         <article className={styles['summaryCard']} data-tone='accent'>
           <p className={styles['summaryLabel']}>게시 중</p>
           <strong className={styles['summaryValue']}>{String(summary.publishedCount)}건</strong>
-          <p className={styles['summaryDescription']}>공개 페이지에 실제 노출 가능한 공지 수입니다.</p>
+          <p className={styles['summaryDescription']}>
+            공개 페이지에 실제 노출 가능한 공지 수입니다.
+          </p>
         </article>
         <article className={styles['summaryCard']} data-tone='brand'>
           <p className={styles['summaryLabel']}>고정 공지</p>
           <strong className={styles['summaryValue']}>{String(summary.pinnedCount)}건</strong>
           <p className={styles['summaryDescription']}>목록 상단 우선 배치되는 필독 공지입니다.</p>
         </article>
-        <article className={styles['summaryCard']} data-tone='neutral'>
-          <p className={styles['summaryLabel']}>팝업 공지</p>
-          <strong className={styles['summaryValue']}>{String(summary.popupCount)}건</strong>
-          <p className={styles['summaryDescription']}>홈 진입 시 팝업으로도 노출되는 공지입니다.</p>
-        </article>
       </section>
 
       <div className={styles['contentGrid']}>
         <article className={styles['panel']}>
           <header className={styles['panelHeader']}>
-            <p className={styles['panelEyebrow']}>{editingNoticeId === null ? 'Create' : 'Edit'}</p>
             <h2 className={styles['panelTitle']}>
               {editingNoticeId === null ? '새 공지 등록' : '공지 수정'}
             </h2>
@@ -438,17 +424,6 @@ const AdminNoticesSection = () => {
               상단 고정 공지로 노출
             </label>
 
-            <label className={styles['checkboxRow']}>
-              <input
-                checked={formState.popup}
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, popup: event.target.checked }));
-                }}
-                type='checkbox'
-              />
-              홈 팝업 공지로도 노출
-            </label>
-
             {editingNoticeId === null ? (
               <label className={styles['checkboxRow']}>
                 <input
@@ -487,7 +462,6 @@ const AdminNoticesSection = () => {
 
         <article className={styles['panel']}>
           <header className={styles['panelHeader']}>
-            <p className={styles['panelEyebrow']}>Preview</p>
             <h2 className={styles['panelTitle']}>선택한 공지</h2>
           </header>
 
@@ -500,12 +474,15 @@ const AdminNoticesSection = () => {
                   ) : (
                     <span className={styles['badgeDanger']}>비공개</span>
                   )}
-                  {selectedNotice.pinned ? <span className={styles['badge']}>고정</span> : null}
-                  {selectedNotice.popup ? <span className={styles['badgeAccent']}>팝업</span> : null}
+                  {selectedNotice.pinned && <span className={styles['badge']}>고정</span>}
                 </div>
                 <h3 className={styles['itemTitle']}>{selectedNotice.title}</h3>
-                <p className={styles['itemDescription']}>{getNoticePreview(selectedNotice.content)}</p>
-                <p className={styles['metaText']}>노출 기간 {formatVisibilityWindow(selectedNotice)}</p>
+                <p className={styles['itemDescription']}>
+                  {getNoticePreview(selectedNotice.content)}
+                </p>
+                <p className={styles['metaText']}>
+                  노출 기간 {formatVisibilityWindow(selectedNotice)}
+                </p>
                 <p className={styles['metaText']}>
                   등록일 {formatDateTime(selectedNotice.createdAt)} · 수정일{' '}
                   {formatDateTime(selectedNotice.updatedAt)}
@@ -558,7 +535,6 @@ const AdminNoticesSection = () => {
 
       <article className={styles['panelWide']}>
         <header className={styles['panelHeader']}>
-          <p className={styles['panelEyebrow']}>List</p>
           <h2 className={styles['panelTitle']}>전역 공지 목록</h2>
         </header>
 
@@ -575,7 +551,6 @@ const AdminNoticesSection = () => {
                   <th scope='col'>제목</th>
                   <th scope='col'>게시 상태</th>
                   <th scope='col'>고정</th>
-                  <th scope='col'>팝업</th>
                   <th scope='col'>노출 기간</th>
                   <th scope='col'>등록일</th>
                   <th scope='col'>수정일</th>
@@ -589,12 +564,13 @@ const AdminNoticesSection = () => {
                       <td>
                         <div className={styles['cellStack']}>
                           <span className={styles['cellPrimary']}>{notice.title}</span>
-                          <span className={styles['cellSecondary']}>{getNoticePreview(notice.content)}</span>
+                          <span className={styles['cellSecondary']}>
+                            {getNoticePreview(notice.content)}
+                          </span>
                         </div>
                       </td>
                       <td>{notice.published ? '게시 중' : '비공개'}</td>
                       <td>{notice.pinned ? '고정' : '-'}</td>
-                      <td>{notice.popup ? '노출' : '-'}</td>
                       <td>{formatVisibilityWindow(notice)}</td>
                       <td>{formatDateTime(notice.createdAt)}</td>
                       <td>{formatDateTime(notice.updatedAt)}</td>

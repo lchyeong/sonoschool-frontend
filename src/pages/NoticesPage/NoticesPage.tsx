@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
@@ -6,8 +6,6 @@ import { useGlobalNoticesQuery } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
 
 import styles from './NoticesPage.module.scss';
-
-type NoticeFilter = 'all' | 'pinned' | 'popup' | 'general';
 
 const PAGE_SIZE = 8;
 
@@ -29,24 +27,15 @@ const buildSummary = (value: string): string => {
 
 const NoticesPage = () => {
   const noticesQuery = useGlobalNoticesQuery();
-  const notices = noticesQuery.data ?? [];
+  const notices = useMemo(() => noticesQuery.data ?? [], [noticesQuery.data]);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<NoticeFilter>('all');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [page, setPage] = useState(1);
 
   const filteredNotices = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
     return notices.filter((notice) => {
-      const matchesFilter =
-        filter === 'all' ||
-        (filter === 'pinned' ? notice.pinned : filter === 'popup' ? notice.popup : !notice.pinned && !notice.popup);
-
-      if (!matchesFilter) {
-        return false;
-      }
-
       if (!normalizedSearchTerm) {
         return true;
       }
@@ -55,25 +44,19 @@ const NoticesPage = () => {
         return field.toLowerCase().includes(normalizedSearchTerm);
       });
     });
-  }, [filter, notices, searchTerm]);
+  }, [notices, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(filteredNotices.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
   const paginatedNotices = filteredNotices.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE,
   );
 
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
   return (
     <div className={styles['page']}>
       <div className={styles['boardHeader']}>
         <div className={styles['boardTitleBlock']}>
-          <p className={styles['boardEyebrow']}>SONOSCHOOL NOTICE</p>
           <h1 className={styles['boardTitle']}>공지사항</h1>
         </div>
         <p className={styles['boardSummary']}>
@@ -88,24 +71,9 @@ const NoticesPage = () => {
             onSubmit={(event) => {
               event.preventDefault();
               setSearchTerm(searchInput);
-              setCurrentPage(1);
+              setPage(1);
             }}
           >
-            <select
-              aria-label='공지 상태 필터'
-              className={styles['filterSelect']}
-              onChange={(event) => {
-                setFilter(event.target.value as NoticeFilter);
-                setCurrentPage(1);
-              }}
-              value={filter}
-            >
-              <option value='all'>전체</option>
-              <option value='pinned'>필독</option>
-              <option value='popup'>팝업</option>
-              <option value='general'>일반</option>
-            </select>
-
             <input
               className={styles['searchInput']}
               onChange={(event) => {
@@ -142,14 +110,12 @@ const NoticesPage = () => {
               <table className={styles['boardTable']}>
                 <colgroup>
                   <col className={styles['numberCol']} />
-                  <col className={styles['statusCol']} />
                   <col />
                   <col className={styles['dateCol']} />
                 </colgroup>
                 <thead>
                   <tr>
                     <th scope='col'>번호</th>
-                    <th scope='col'>상태</th>
                     <th scope='col'>제목</th>
                     <th scope='col'>등록일</th>
                   </tr>
@@ -163,32 +129,22 @@ const NoticesPage = () => {
                       return (
                         <tr className={styles['noticeRow']} key={notice.id}>
                           <td>{String(rowNumber)}</td>
-                          <td>
-                            <div className={styles['statusGroup']}>
-                              {notice.pinned ? (
-                                <span className={styles['statusBadge']} data-tone='pinned'>
-                                  필독
-                                </span>
-                              ) : null}
-                              {notice.popup ? (
-                                <span className={styles['statusBadge']} data-tone='popup'>
-                                  팝업
-                                </span>
-                              ) : null}
-                              {!notice.pinned && !notice.popup ? (
-                                <span className={styles['statusBadge']} data-tone='general'>
-                                  일반
-                                </span>
-                              ) : null}
-                            </div>
-                          </td>
                           <td className={styles['titleCell']}>
                             <Link
                               className={styles['titleLink']}
                               to={routePaths.noticeDetail(String(notice.id))}
                             >
-                              <span className={styles['titleText']}>{notice.title}</span>
-                              <span className={styles['previewText']}>{buildSummary(notice.content)}</span>
+                              <span className={styles['titleHeading']}>
+                                {notice.pinned ? (
+                                  <span className={styles['statusBadge']} data-tone='pinned'>
+                                    필독
+                                  </span>
+                                ) : null}
+                                <span className={styles['titleText']}>{notice.title}</span>
+                              </span>
+                              <span className={styles['previewText']}>
+                                {buildSummary(notice.content)}
+                              </span>
                             </Link>
                           </td>
                           <td>{formatDate(notice.createdAt)}</td>
@@ -197,7 +153,7 @@ const NoticesPage = () => {
                     })
                   ) : (
                     <tr>
-                      <td className={styles['emptyRow']} colSpan={4}>
+                      <td className={styles['emptyRow']} colSpan={3}>
                         검색 조건에 맞는 공지사항이 없습니다.
                       </td>
                     </tr>
@@ -212,7 +168,7 @@ const NoticesPage = () => {
                   className={styles['pageNavButton']}
                   disabled={currentPage === 1}
                   onClick={() => {
-                    setCurrentPage((page) => Math.max(1, page - 1));
+                    setPage((value) => Math.max(1, value - 1));
                   }}
                   type='button'
                 >
@@ -226,7 +182,7 @@ const NoticesPage = () => {
                       data-active={pageNumber === currentPage}
                       key={pageNumber}
                       onClick={() => {
-                        setCurrentPage(pageNumber);
+                        setPage(pageNumber);
                       }}
                       type='button'
                     >
@@ -239,7 +195,7 @@ const NoticesPage = () => {
                   className={styles['pageNavButton']}
                   disabled={currentPage === totalPages}
                   onClick={() => {
-                    setCurrentPage((page) => Math.min(totalPages, page + 1));
+                    setPage((value) => Math.min(totalPages, value + 1));
                   }}
                   type='button'
                 >

@@ -5,6 +5,7 @@ import {
   fetchMyCart,
   fetchMyCoupons,
   fetchMyEnrollmentDetail,
+  fetchMyEnrollmentPracticumOverview,
   fetchMyEnrollments,
   fetchMyLearningPlayerSnapshot,
   fetchMyProfile,
@@ -20,6 +21,8 @@ export const myEnrollmentDetailQueryKey = (enrollmentId: number | null) =>
   ['mypage', 'enrollmentDetail', enrollmentId] as const;
 export const myLearningPlayerQueryKey = (enrollmentId: number | null) =>
   ['mypage', 'learningPlayer', enrollmentId] as const;
+export const myEnrollmentPracticumQueryKey = (enrollmentId: number | null) =>
+  ['mypage', 'enrollmentPracticum', enrollmentId] as const;
 export const myCartQueryKey = (scope: 'authenticated' | 'guest') =>
   ['mypage', 'cart', scope] as const;
 export const myCouponsQueryKey = (scope: 'authenticated' | 'guest') =>
@@ -62,6 +65,16 @@ export const useMyLearningPlayerSnapshotQuery = (enrollmentId: number | null, en
     gcTime: 10 * 60 * 1000,
     queryFn: () => fetchMyLearningPlayerSnapshot(enrollmentId as number),
     queryKey: myLearningPlayerQueryKey(enrollmentId),
+    staleTime: 60 * 1000,
+  });
+};
+
+export const useMyEnrollmentPracticumQuery = (enrollmentId: number | null, enabled = true) => {
+  return useQuery({
+    enabled: enabled && enrollmentId !== null,
+    gcTime: 10 * 60 * 1000,
+    queryFn: () => fetchMyEnrollmentPracticumOverview(enrollmentId as number),
+    queryKey: myEnrollmentPracticumQueryKey(enrollmentId),
     staleTime: 60 * 1000,
   });
 };

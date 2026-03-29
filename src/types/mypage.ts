@@ -49,6 +49,7 @@ export interface EnrollmentSummary {
   completed: boolean;
   completedAt: string | null;
   certificateEligible: boolean;
+  hasPracticum: boolean;
   reviewWritable?: boolean;
   reviewWritten?: boolean;
   lastLearningAt: string | null;
@@ -139,7 +140,7 @@ export interface LearningPlayerSnapshot {
 
 export interface LearningPlayerSource {
   lectureId: number;
-  mimeType: 'application/x-mpegURL';
+  mimeType: 'application/x-mpegURL' | null;
   posterUrl: string | null;
 }
 

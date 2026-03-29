@@ -1,9 +1,11 @@
-import type { AdminProgramAccessPolicy, AdminProgramFormat } from '@/types/adminConsole';
 import type {
   ProgramCurriculumLesson,
   ProgramCurriculumSection,
   ProgramCurriculumTrack,
 } from '@/types/programCatalog';
+
+type AdminProgramAccessPolicy = 'cohort' | 'limited-window' | 'unlimited';
+type AdminProgramFormat = 'online' | 'offline' | 'hybrid';
 
 interface ProgramWindow {
   endDate: string | null;

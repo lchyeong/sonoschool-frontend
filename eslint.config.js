@@ -78,7 +78,8 @@ export default [
       'import/resolver': {
         typescript: {
           alwaysTryTypes: true,
-          project: ['./tsconfig.app.json', './tsconfig.node.json'],
+          noWarnOnMultipleProjects: true,
+          project: './tsconfig.json',
         },
         node: true,
       },

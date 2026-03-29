@@ -107,6 +107,7 @@ const mockEnrollments: EnrollmentSummary[] = [
   {
     active: true,
     certificateEligible: false,
+    hasPracticum: false,
     completed: false,
     completedAt: null,
     completedLectures: 0,
@@ -124,6 +125,7 @@ const mockEnrollments: EnrollmentSummary[] = [
   {
     active: true,
     certificateEligible: false,
+    hasPracticum: false,
     completed: false,
     completedAt: null,
     completedLectures: 0,
@@ -141,6 +143,7 @@ const mockEnrollments: EnrollmentSummary[] = [
   {
     active: false,
     certificateEligible: false,
+    hasPracticum: false,
     completed: false,
     completedAt: null,
     completedLectures: 0,
@@ -158,6 +161,7 @@ const mockEnrollments: EnrollmentSummary[] = [
   {
     active: true,
     certificateEligible: false,
+    hasPracticum: false,
     completed: false,
     completedAt: null,
     completedLectures: 0,
@@ -175,6 +179,7 @@ const mockEnrollments: EnrollmentSummary[] = [
   {
     active: false,
     certificateEligible: false,
+    hasPracticum: false,
     completed: false,
     completedAt: null,
     completedLectures: 0,
@@ -192,6 +197,7 @@ const mockEnrollments: EnrollmentSummary[] = [
   {
     active: false,
     certificateEligible: false,
+    hasPracticum: false,
     completed: false,
     completedAt: null,
     completedLectures: 0,
@@ -738,6 +744,7 @@ const extendMockMyPageData = (): void => {
     {
       active: true,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -755,6 +762,7 @@ const extendMockMyPageData = (): void => {
     {
       active: true,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -772,6 +780,7 @@ const extendMockMyPageData = (): void => {
     {
       active: false,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -789,6 +798,7 @@ const extendMockMyPageData = (): void => {
     {
       active: true,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -806,6 +816,7 @@ const extendMockMyPageData = (): void => {
     {
       active: false,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -823,6 +834,7 @@ const extendMockMyPageData = (): void => {
     {
       active: false,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -840,6 +852,7 @@ const extendMockMyPageData = (): void => {
     {
       active: true,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -857,6 +870,7 @@ const extendMockMyPageData = (): void => {
     {
       active: true,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -874,6 +888,7 @@ const extendMockMyPageData = (): void => {
     {
       active: false,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -891,6 +906,7 @@ const extendMockMyPageData = (): void => {
     {
       active: false,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -908,6 +924,7 @@ const extendMockMyPageData = (): void => {
     {
       active: false,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,
@@ -925,6 +942,7 @@ const extendMockMyPageData = (): void => {
     {
       active: false,
       certificateEligible: false,
+      hasPracticum: false,
       completed: false,
       completedAt: null,
       completedLectures: 0,

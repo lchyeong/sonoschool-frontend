@@ -2,7 +2,6 @@ import '@testing-library/jest-dom/vitest';
 
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
-import { resetMockAdminConsoleData } from '@/mocks/data/adminConsole';
 import { resetMockAdminPaymentsData } from '@/mocks/data/adminPayments';
 import { resetMockAdminProgramsLiveData } from '@/mocks/data/adminProgramsLive';
 import { resetMockMyPageData } from '@/mocks/data/mypage';
@@ -17,7 +16,6 @@ beforeAll(() => {
 
 afterEach(() => {
   server.resetHandlers();
-  resetMockAdminConsoleData();
   resetMockAdminPaymentsData();
   resetMockAdminProgramsLiveData();
   resetMockMyPageData();

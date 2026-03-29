@@ -57,12 +57,11 @@
 
 .searchForm {
   display: grid;
-  grid-template-columns: 140px minmax(260px, 1fr) 92px;
+  grid-template-columns: minmax(260px, 1fr) 92px;
   gap: 0.75rem;
-  width: min(100%, 620px);
+  width: min(100%, 460px);
 }
 
-.filterSelect,
 .searchInput {
   min-height: 50px;
   padding: 0 1rem;
@@ -121,10 +120,6 @@
   width: 72px;
 }
 
-.statusCol {
-  width: 140px;
-}
-
 .dateCol {
   width: 120px;
 }
@@ -144,6 +139,12 @@
   text-decoration: none;
 }
 
+.titleHeading {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .titleText {
   color: #252b38;
   font-weight: 600;
@@ -152,13 +153,6 @@
 .previewText {
   color: #7d8391;
   font-size: 0.85rem;
-}
-
-.statusGroup {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  justify-content: center;
 }
 
 .statusBadge {
@@ -176,18 +170,8 @@
 }
 
 .statusBadge[data-tone='pinned'] {
-  border-color: #8e92ff;
-  color: #5b5fe8;
-}
-
-.statusBadge[data-tone='popup'] {
-  border-color: #6ea58d;
-  color: #2a6f50;
-}
-
-.statusBadge[data-tone='general'] {
-  border-color: #d8dbe1;
-  color: #8a90a0;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .emptyRow {
@@ -230,9 +214,19 @@
 }
 
 .pageButton[data-active='true'] {
-  border-color: #5b5fe8;
+  border-color: var(--color-primary);
   color: #ffffff;
-  background: #5b5fe8;
+  background: var(--color-primary);
+}
+
+.pageButton:hover,
+.pageNavButton:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pageButton[data-active='true']:hover {
+  color: #ffffff;
 }
 
 .pageNavButton:disabled {

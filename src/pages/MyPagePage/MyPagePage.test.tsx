@@ -17,16 +17,14 @@ import type {
 } from '@/types/mypage';
 import type { PaymentResult } from '@/types/payment';
 
-const createMyEnrollmentReviewMock = vi.fn<
-  (programId: number, payload: { content: string; rating: number }) => Promise<void>
->();
+const createMyEnrollmentReviewMock =
+  vi.fn<(programId: number, payload: { content: string; rating: number }) => Promise<void>>();
 const fetchMyEnrollmentDetailMock = vi.fn<(enrollmentId: number) => Promise<EnrollmentDetail>>();
 const fetchMyProfileMock = vi.fn<() => Promise<UserProfile>>();
 const updateMyProfileMock = vi.fn<(payload: UserProfileUpdatePayload) => Promise<UserProfile>>();
 const sendMyPhoneVerificationMock = vi.fn<(payload: SmsSendPayload) => Promise<SmsSendResponse>>();
-const updateMyEnrollmentReviewMock = vi.fn<
-  (reviewId: number, payload: { content: string; rating: number }) => Promise<void>
->();
+const updateMyEnrollmentReviewMock =
+  vi.fn<(reviewId: number, payload: { content: string; rating: number }) => Promise<void>>();
 const verifyMyPhoneChangeMock = vi.fn<(payload: SmsVerifyPayload) => Promise<UserProfile>>();
 const fetchMyEnrollmentsMock = vi.fn<() => Promise<EnrollmentSummary[]>>();
 const fetchMyCouponsMock = vi.fn<() => Promise<UserCoupon[]>>();
@@ -74,6 +72,7 @@ const testEnrollments: EnrollmentSummary[] = [
   {
     active: true,
     certificateEligible: false,
+    hasPracticum: true,
     completed: false,
     completedAt: null,
     completedLectures: 2,
@@ -93,6 +92,7 @@ const testEnrollments: EnrollmentSummary[] = [
   {
     active: true,
     certificateEligible: true,
+    hasPracticum: false,
     completed: false,
     completedAt: null,
     completedLectures: 5,
@@ -112,6 +112,7 @@ const testEnrollments: EnrollmentSummary[] = [
   {
     active: false,
     certificateEligible: false,
+    hasPracticum: false,
     completed: true,
     completedAt: '2026-02-18T09:00:00Z',
     completedLectures: 4,
@@ -131,6 +132,7 @@ const testEnrollments: EnrollmentSummary[] = [
   {
     active: false,
     certificateEligible: true,
+    hasPracticum: false,
     completed: true,
     completedAt: '2026-03-04T09:00:00Z',
     completedLectures: 3,
@@ -288,11 +290,9 @@ const testPaymentHistory: PaymentResult[] = [
     cancelReason: null,
     cancelledAt: null,
     failedAt: null,
-    gatewayOrderId: 'MOCK-CARD-COMPLETED',
-    gatewayResponseMessage: '카드 결제가 승인되었습니다.',
+    orderNumber: 'ORD-501',
     id: 501,
     orderName: '심장초음파 실전 마스터 클래스',
-    orderReference: 'CART-501',
     orderType: 'CART_CHECKOUT',
     paidAt: '2026-03-18T10:05:00Z',
     paymentMethod: 'CARD',
@@ -307,11 +307,9 @@ const testPaymentHistory: PaymentResult[] = [
     cancelReason: '사용자 요청 취소',
     cancelledAt: '2026-03-18T10:20:00Z',
     failedAt: null,
-    gatewayOrderId: 'MOCK-CARD-CANCELLED',
-    gatewayResponseMessage: '결제가 취소되었습니다.',
+    orderNumber: 'ORD-504',
     id: 504,
     orderName: '복부초음파 기초',
-    orderReference: 'CART-504',
     orderType: 'CART_CHECKOUT',
     paidAt: null,
     paymentMethod: 'CARD',
@@ -374,13 +372,9 @@ beforeEach(() => {
   createMyEnrollmentReviewMock.mockResolvedValue(undefined);
   updateMyEnrollmentReviewMock.mockResolvedValue(undefined);
   fetchMyEnrollmentsMock.mockResolvedValue(testEnrollments);
-  fetchMyEnrollmentDetailMock.mockImplementation(async (enrollmentId: number) => {
-    const detail = testEnrollmentDetails[enrollmentId];
-    if (!detail) {
-      throw new Error('수강 상세가 없습니다.');
-    }
-    return detail;
-  });
+  fetchMyEnrollmentDetailMock.mockImplementation((enrollmentId: number) =>
+    Promise.resolve(testEnrollmentDetails[enrollmentId]),
+  );
   fetchMyCouponsMock.mockResolvedValue(testCoupons);
   fetchPaymentHistoryMock.mockResolvedValue(testPaymentHistory);
   fetchMyRefundsMock.mockResolvedValue(testRefunds);
@@ -436,6 +430,10 @@ describe('MyPagePage', () => {
     expect(screen.getAllByRole('link', { name: '이어보기' })[0]).toHaveAttribute(
       'href',
       '/mypage/learning/101',
+    );
+    expect(screen.getByRole('link', { name: '실습 예약' })).toHaveAttribute(
+      'href',
+      '/mypage/enrollments/101/practicum',
     );
   });
 

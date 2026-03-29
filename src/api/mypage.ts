@@ -21,6 +21,11 @@ import type {
   UserProfileUpdatePayload,
 } from '@/types/mypage';
 import { formatPaymentMethodLabel, type PaymentResult } from '@/types/payment';
+import type {
+  EnrollmentPracticumOverview,
+  LecturePracticum,
+  PracticumReservation,
+} from '@/types/practicum';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
@@ -60,10 +65,7 @@ const toRefundHistory = (payment: PaymentResult): RefundHistory | null => {
     orderName: payment.orderName,
     paymentMethod: formatPaymentMethodLabel(payment.paymentMethod),
     processedAt: payment.cancelledAt,
-    programId:
-      payment.orderType === 'PROGRAM'
-        ? Number.parseInt(payment.orderReference.replace(/\D+/g, ''), 10) || payment.id
-        : payment.id,
+    programId: payment.id,
     programTitle: payment.orderName,
     reason: payment.cancelReason,
     refundAmount: payment.approvedAmount ?? payment.amount,
@@ -74,7 +76,7 @@ const toRefundHistory = (payment: PaymentResult): RefundHistory | null => {
 
 export const fetchMyProfile = async (): Promise<UserProfile> => {
   try {
-    const response = await axiosInstance.get<ApiEnvelope<BackendUserProfile>>('/api/users/me');
+    const response = await axiosInstance.get<ApiEnvelope<BackendUserProfile>>('/api/v1/users/me');
     return toUserProfile(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '내 정보를 불러오지 못했습니다.');
@@ -83,10 +85,13 @@ export const fetchMyProfile = async (): Promise<UserProfile> => {
 
 export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promise<UserProfile> => {
   try {
-    const response = await axiosInstance.patch<ApiEnvelope<BackendUserProfile>>('/api/users/me', {
-      name: payload.name,
-      nickname: payload.nickname,
-    });
+    const response = await axiosInstance.patch<ApiEnvelope<BackendUserProfile>>(
+      '/api/v1/users/me',
+      {
+        name: payload.name,
+        nickname: payload.nickname,
+      },
+    );
     return toUserProfile(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '회원 정보를 수정하지 못했습니다.');
@@ -98,7 +103,7 @@ export const sendMyPhoneVerification = async (
 ): Promise<SmsSendResponse> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<SmsSendResponse>>(
-      '/api/users/me/phone/send',
+      '/api/v1/users/me/phone/send',
       payload,
     );
     return unwrapApiEnvelope(response.data);
@@ -110,7 +115,7 @@ export const sendMyPhoneVerification = async (
 export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<UserProfile> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<BackendUserProfile>>(
-      '/api/users/me/phone/verify',
+      '/api/v1/users/me/phone/verify',
       payload,
     );
     return toUserProfile(unwrapApiEnvelope(response.data));
@@ -175,6 +180,19 @@ export const fetchMyLearningPlayerSnapshot = async (
   }
 };
 
+export const fetchMyEnrollmentPracticumOverview = async (
+  enrollmentId: number,
+): Promise<EnrollmentPracticumOverview> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<EnrollmentPracticumOverview>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/practicum`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '실습 예약 정보를 불러오지 못했습니다.');
+  }
+};
+
 export const fetchLectureStream = async (
   lectureId: number,
   deviceId: string,
@@ -210,6 +228,50 @@ export const saveLectureProgress = async (
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '학습 진도를 저장하지 못했습니다.');
+  }
+};
+
+export const fetchMyLecturePracticum = async (
+  enrollmentId: number,
+  lectureId: number,
+): Promise<LecturePracticum> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<LecturePracticum>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/lectures/${String(lectureId)}/practicum`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '실습 예약 정보를 불러오지 못했습니다.');
+  }
+};
+
+export const reserveMyLecturePracticum = async (
+  enrollmentId: number,
+  slotId: number,
+): Promise<PracticumReservation> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<PracticumReservation>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/practicum-reservations`,
+      {
+        slotId,
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '실습을 예약하지 못했습니다.');
+  }
+};
+
+export const cancelMyLecturePracticum = async (
+  enrollmentId: number,
+  reservationId: number,
+): Promise<void> => {
+  try {
+    await axiosInstance.delete(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/practicum-reservations/${String(reservationId)}`,
+    );
+  } catch (error: unknown) {
+    throw toApiError(error, '실습 예약을 취소하지 못했습니다.');
   }
 };
 

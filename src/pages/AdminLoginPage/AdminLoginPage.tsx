@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 
-import { loginAdmin } from '@/api/adminConsole';
+import { loginAdmin } from '@/api/adminAuth';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { routePaths } from '@/routes/routeRegistry';

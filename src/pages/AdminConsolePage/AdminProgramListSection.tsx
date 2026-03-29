@@ -5,14 +5,17 @@ import { useNavigate } from 'react-router-dom';
 
 import {
   deleteAdminProgramLive,
-  hideAdminProgramLive,
   publishAdminProgramLive,
+  unpublishAdminProgramLive,
 } from '@/api/adminProgramsLive';
 import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
-import { adminProgramsLiveQueryKey, useAdminProgramsLiveQuery } from '@/query/useAdminProgramsLiveQuery';
+import {
+  adminProgramsLiveQueryKey,
+  useAdminProgramsLiveQuery,
+} from '@/query/useAdminProgramsLiveQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
 import type {
@@ -77,7 +80,7 @@ const typeOptions = [
 
 const confirmProgramDelete = (): boolean => {
   return window.confirm(
-    '강의를 삭제하면 되돌릴 수 없습니다.\n커리큘럼이나 수강 이력이 있는 강의는 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
+    '프로그램을 삭제하면 되돌릴 수 없습니다.\n커리큘럼이나 수강 이력이 있는 프로그램은 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
   );
 };
 
@@ -103,31 +106,31 @@ const AdminProgramListSection = () => {
     mutationFn: (programId: number) => publishAdminProgramLive(programId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '강의 공개 처리에 실패했습니다.',
+        message: error instanceof Error ? error.message : '프로그램 공개 처리에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await refreshPrograms();
       showToast({
-        message: '강의를 공개했습니다.',
+        message: '프로그램을 공개했습니다.',
         variant: 'success',
       });
     },
   });
 
   const hideMutation = useMutation({
-    mutationFn: (programId: number) => hideAdminProgramLive(programId),
+    mutationFn: (programId: number) => unpublishAdminProgramLive(programId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '강의 숨김 처리에 실패했습니다.',
+        message: error instanceof Error ? error.message : '프로그램 숨김 처리에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await refreshPrograms();
       showToast({
-        message: '강의를 숨김 처리했습니다.',
+        message: '프로그램을 숨김 처리했습니다.',
         variant: 'success',
       });
     },
@@ -137,14 +140,14 @@ const AdminProgramListSection = () => {
     mutationFn: (programId: number) => deleteAdminProgramLive(programId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '강의 삭제에 실패했습니다.',
+        message: error instanceof Error ? error.message : '프로그램 삭제에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await refreshPrograms();
       showToast({
-        message: '강의를 삭제했습니다.',
+        message: '프로그램을 삭제했습니다.',
         variant: 'success',
       });
     },
@@ -188,7 +191,7 @@ const AdminProgramListSection = () => {
   return (
     <section className={styles['workspace']}>
       <header className={styles['pageHeader']}>
-        <h1 className={styles['pageTitle']}>강의 관리</h1>
+        <h1 className={styles['pageTitle']}>프로그램 관리</h1>
       </header>
 
       <div className={styles['listFrame']}>
@@ -197,13 +200,13 @@ const AdminProgramListSection = () => {
             <div className={styles['toolbarFilterRow']}>
               <div className={styles['toolbarSearchField']}>
                 <TextField
-                  label='강의 검색'
+                  label='프로그램 검색'
                   name='programSearch'
                   onChange={(event) => {
                     setCurrentPage(0);
                     setSearchKeyword(event.target.value);
                   }}
-                  placeholder='강의명, 카테고리, 강사명으로 검색'
+                  placeholder='프로그램명, 카테고리, 강사명으로 검색'
                   value={searchKeyword}
                 />
               </div>
@@ -221,7 +224,7 @@ const AdminProgramListSection = () => {
                 />
                 <AdminDropdownField
                   compact
-                  label='강의 형태'
+                  label='프로그램 형태'
                   onChange={(nextValue) => {
                     setCurrentPage(0);
                     setTypeFilter(nextValue as ProgramTypeFilter);
@@ -240,25 +243,27 @@ const AdminProgramListSection = () => {
               }}
               type='button'
             >
-              새 강의 등록
+              새 프로그램 등록
             </Button>
           </div>
         </div>
 
         {programsQuery.isPending ? (
           <section aria-busy='true' className={styles['stateSection']}>
-            <h2 className={styles['stateTitle']}>강의 목록을 불러오는 중입니다.</h2>
-            <p className={styles['stateDescription']}>강의 관리 API 응답을 확인하고 있습니다.</p>
+            <h2 className={styles['stateTitle']}>프로그램 목록을 불러오는 중입니다.</h2>
+            <p className={styles['stateDescription']}>
+              프로그램 관리 API 응답을 확인하고 있습니다.
+            </p>
           </section>
         ) : null}
 
         {programsQuery.isError ? (
           <section className={styles['stateSection']}>
-            <h2 className={styles['stateTitle']}>강의 목록을 불러오지 못했습니다.</h2>
+            <h2 className={styles['stateTitle']}>프로그램 목록을 불러오지 못했습니다.</h2>
             <p className={styles['stateDescription']}>
               {programsQuery.error instanceof Error
                 ? programsQuery.error.message
-                : '강의 목록 조회에 실패했습니다.'}
+                : '프로그램 목록 조회에 실패했습니다.'}
             </p>
           </section>
         ) : null}
@@ -275,7 +280,7 @@ const AdminProgramListSection = () => {
               <table className={styles['table']}>
                 <thead>
                   <tr>
-                    <th scope='col'>강의명</th>
+                    <th scope='col'>프로그램명</th>
                     <th scope='col'>카테고리</th>
                     <th scope='col'>형태</th>
                     <th scope='col'>가격</th>
@@ -336,7 +341,16 @@ const AdminProgramListSection = () => {
                               }}
                               type='button'
                             >
-                              편집
+                              기본정보
+                            </button>
+                            <button
+                              className={styles['tableActionButton']}
+                              onClick={() => {
+                                void navigate(routePaths.adminProgramCurriculum(String(item.id)));
+                              }}
+                              type='button'
+                            >
+                              커리큘럼
                             </button>
                             <button
                               className={styles['tableActionButton']}

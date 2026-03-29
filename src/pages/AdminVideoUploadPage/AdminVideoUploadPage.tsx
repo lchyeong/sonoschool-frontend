@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { useSearchParams } from 'react-router-dom';
+
 import {
   assignAdminLectureVideo,
   completeAdminVideoUpload,
@@ -116,6 +118,7 @@ const buildChunks = (
 
 const AdminVideoUploadPage = () => {
   const showToast = useToastStore((state) => state.showToast);
+  const [searchParams] = useSearchParams();
   const [programs, setPrograms] = useState<AdminVideoProgramSummary[]>([]);
   const [lectureOptions, setLectureOptions] = useState<AdminVideoLectureOption[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
@@ -128,6 +131,8 @@ const AdminVideoUploadPage = () => {
   const [uploadSession, setUploadSession] = useState<AdminVideoUploadSessionResponse | null>(null);
   const [videoStatus, setVideoStatus] = useState<AdminVideoStatusResponse | null>(null);
   const [uploadTargetLectureTitle, setUploadTargetLectureTitle] = useState<string | null>(null);
+  const requestedProgramId = searchParams.get('programId');
+  const requestedLectureId = searchParams.get('lectureId');
 
   const videoId = uploadSession?.videoId ?? null;
   const selectedProgram = useMemo(
@@ -146,6 +151,20 @@ const AdminVideoUploadPage = () => {
       try {
         const nextPrograms = await fetchAdminVideoPrograms();
         setPrograms(nextPrograms);
+        setSelectedProgramId((current) => {
+          if (current && nextPrograms.some((program) => program.id === current)) {
+            return current;
+          }
+
+          if (
+            requestedProgramId &&
+            nextPrograms.some((program) => program.id === requestedProgramId)
+          ) {
+            return requestedProgramId;
+          }
+
+          return nextPrograms[0]?.id ?? null;
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : '과정 목록을 불러오지 못했습니다.';
         showToast({
@@ -158,7 +177,7 @@ const AdminVideoUploadPage = () => {
     };
 
     void loadPrograms();
-  }, [showToast]);
+  }, [requestedProgramId, showToast]);
 
   useEffect(() => {
     if (!selectedProgramId) {
@@ -185,10 +204,14 @@ const AdminVideoUploadPage = () => {
         setSelectedLectureId((current) =>
           current && nextLectureOptions.some((lecture) => lecture.id === current)
             ? current
-            : (nextLectureOptions[0]?.id ?? null),
+            : requestedLectureId &&
+                nextLectureOptions.some((lecture) => lecture.id === requestedLectureId)
+              ? requestedLectureId
+              : (nextLectureOptions[0]?.id ?? null),
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : '강의 목록을 불러오지 못했습니다.';
+        const message =
+          error instanceof Error ? error.message : '커리큘럼 강의 목록을 불러오지 못했습니다.';
         showToast({
           message,
           variant: 'error',
@@ -201,7 +224,7 @@ const AdminVideoUploadPage = () => {
     };
 
     void loadLectures();
-  }, [selectedProgramId, showToast]);
+  }, [requestedLectureId, selectedProgramId, showToast]);
 
   const refreshStatus = async (targetVideoId: number) => {
     const nextStatus = await fetchAdminVideoStatus(targetVideoId);

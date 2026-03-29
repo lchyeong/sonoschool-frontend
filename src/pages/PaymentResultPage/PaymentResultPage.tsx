@@ -23,7 +23,7 @@ const knownStatuses = new Set<PaymentStatus>([
   'CANCELLED',
 ]);
 const pendingStatuses = new Set<PaymentStatus>(['PENDING', 'REGISTERED']);
-const checkoutReturnStatuses = new Set<PaymentStatus>(['PENDING', 'REGISTERED', 'CANCELLED']);
+const retryRedirectStatuses = new Set<PaymentStatus>(['PENDING', 'REGISTERED', 'CANCELLED']);
 
 const parsePaymentId = (value: string | null): number | null => {
   if (!value) return null;
@@ -52,8 +52,7 @@ const getStatusCopy = (status: PaymentStatus | null, fallbackMessage: string | n
     case 'FAILED':
       return {
         title: '결제가 완료되지 않았습니다.',
-        description:
-          fallbackMessage ?? '결제 승인에 실패했습니다. 결제 정보를 확인한 뒤 다시 시도해 주세요.',
+        description: fallbackMessage ?? '결제 승인에 실패했습니다. 잠시 후 다시 시도해 주세요.',
       };
     case 'CANCELLED':
       return {
@@ -64,7 +63,7 @@ const getStatusCopy = (status: PaymentStatus | null, fallbackMessage: string | n
     case 'PENDING':
     case 'REGISTERED':
       return {
-        title: '결제를 완료하지 않았습니다.',
+        title: '결제가 완료되지 않았습니다.',
         description:
           fallbackMessage ??
           '결제창이 닫혔거나 승인 절차가 끝나지 않았습니다. 장바구니로 돌아가 다시 결제를 진행해 주세요.',
@@ -133,13 +132,12 @@ const resolveProcessedAt = (
 const buildDetailItems = (
   payment: PaymentResult | null,
   resolvedStatus: PaymentStatus | null,
-  fallbackGatewayOrderId: string | null,
 ) => {
   if (resolvedStatus && pendingStatuses.has(resolvedStatus)) {
     return [];
   }
 
-  if (!payment && !fallbackGatewayOrderId && !resolvedStatus) {
+  if (!payment && !resolvedStatus) {
     return [];
   }
 
@@ -158,14 +156,6 @@ const buildDetailItems = (
       key: 'order-type',
       label: '주문 유형',
       value: formatOrderTypeLabel(payment.orderType),
-    });
-  }
-
-  if (payment?.gatewayOrderId || fallbackGatewayOrderId) {
-    detailItems.push({
-      key: 'order-id',
-      label: '주문번호',
-      value: payment?.gatewayOrderId ?? fallbackGatewayOrderId ?? '-',
     });
   }
 
@@ -211,15 +201,6 @@ const buildDetailItems = (
     });
   }
 
-  if (payment?.gatewayResponseMessage && payment.status === 'FAILED') {
-    detailItems.push({
-      key: 'gateway-message',
-      label: '실패 사유',
-      value: payment.gatewayResponseMessage,
-      muted: true,
-    });
-  }
-
   return detailItems;
 };
 
@@ -229,21 +210,18 @@ const PaymentResultPage = () => {
   const resultToken = searchParams.get('resultToken')?.trim() || null;
   const fallbackStatus = normalizeStatus(searchParams.get('status'));
   const fallbackMessage = searchParams.get('message')?.trim() || null;
-  const fallbackGatewayOrderId = searchParams.get('gatewayOrderId')?.trim() || null;
-
   const paymentQuery = usePaymentResultQuery(paymentId, resultToken);
   const payment = paymentQuery.data ?? null;
   const resolvedStatus = payment?.status ?? fallbackStatus;
   const isPendingResult = resolvedStatus ? pendingStatuses.has(resolvedStatus) : false;
-  const shouldReturnToCheckout = resolvedStatus ? checkoutReturnStatuses.has(resolvedStatus) : false;
   const statusCopy = getStatusCopy(resolvedStatus, fallbackMessage);
-  const detailItems = buildDetailItems(payment, resolvedStatus, fallbackGatewayOrderId);
-  const errorMessage =
-    paymentQuery.error instanceof Error
-      ? paymentQuery.error.message
-      : '결제 상세 조회에 실패했습니다.';
+  const detailItems = buildDetailItems(payment, resolvedStatus);
+  const shouldRedirectToCheckout =
+    payment === null &&
+    resolvedStatus !== null &&
+    retryRedirectStatuses.has(resolvedStatus);
 
-  if (shouldReturnToCheckout) {
+  if (shouldRedirectToCheckout) {
     return <Navigate replace to={routePaths.checkout} />;
   }
 
@@ -269,7 +247,7 @@ const PaymentResultPage = () => {
             ) : null}
             {(paymentId !== null || resultToken !== null) && paymentQuery.isError ? (
               <p className={styles['helperText']}>
-                상세 조회는 실패했지만 현재 전달받은 결과 기준으로 화면을 표시합니다. {errorMessage}
+                결제 결과를 바로 확인하지 못했습니다. 내 결제 내역에서 다시 확인해 주세요.
               </p>
             ) : null}
           </header>

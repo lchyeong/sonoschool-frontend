@@ -55,6 +55,11 @@ interface SidebarGroup {
   items: SidebarItem[];
 }
 
+interface ReviewFormDraftState {
+  enrollmentId: number | null;
+  values: ReviewFormValues;
+}
+
 const DEFAULT_VIEW: MyPageViewKey = 'learning-courses';
 
 const SIDEBAR_GROUPS: SidebarGroup[] = [
@@ -295,9 +300,10 @@ const MyPagePage = () => {
   const [refundPage, setRefundPage] = useState(1);
   const [profileFormValues, setProfileFormValues] = useState<ProfileFormValues | null>(null);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
-  const [reviewFormValues, setReviewFormValues] = useState<ReviewFormValues>(
-    DEFAULT_REVIEW_FORM_VALUES,
-  );
+  const [reviewFormDraft, setReviewFormDraft] = useState<ReviewFormDraftState>({
+    enrollmentId: null,
+    values: DEFAULT_REVIEW_FORM_VALUES,
+  });
   const [reviewFormError, setReviewFormError] = useState<string | null>(null);
   const [phoneFormValues, setPhoneFormValues] = useState({
     phoneNumber: '',
@@ -349,12 +355,19 @@ const MyPagePage = () => {
   const selectedEnrollment =
     selectedEnrollmentId === null
       ? null
-      : allEnrollments.find((enrollment) => enrollment.id === selectedEnrollmentId) ?? null;
+      : (allEnrollments.find((enrollment) => enrollment.id === selectedEnrollmentId) ?? null);
   const resolvedProfileFormValues: ProfileFormValues = {
     email: profileFormValues?.email ?? profileQuery.data?.email ?? '',
     name: profileFormValues?.name ?? profileQuery.data?.name ?? '',
     nickname: profileFormValues?.nickname ?? profileQuery.data?.nickname ?? '',
   };
+  const reviewFormValues: ReviewFormValues =
+    selectedEnrollmentId !== null && reviewFormDraft.enrollmentId === selectedEnrollmentId
+      ? reviewFormDraft.values
+      : {
+          content: enrollmentDetailQuery.data?.review?.content ?? '',
+          rating: String(enrollmentDetailQuery.data?.review?.rating ?? 5),
+        };
 
   useEffect(() => {
     if (!profileQuery.data) return;
@@ -365,24 +378,6 @@ const MyPagePage = () => {
       role: profileQuery.data.role,
     });
   }, [profileQuery.data, syncProfileSnapshot]);
-
-  useEffect(() => {
-    if (!selectedEnrollmentId) {
-      setReviewFormValues(DEFAULT_REVIEW_FORM_VALUES);
-      setReviewFormError(null);
-      return;
-    }
-
-    if (!enrollmentDetailQuery.data) {
-      return;
-    }
-
-    setReviewFormValues({
-      content: enrollmentDetailQuery.data.review?.content ?? '',
-      rating: String(enrollmentDetailQuery.data.review?.rating ?? 5),
-    });
-    setReviewFormError(null);
-  }, [enrollmentDetailQuery.data, selectedEnrollmentId]);
 
   const handleCourseTabChange = (nextTab: EnrollmentCourseTabValue) => {
     setCourseTab(nextTab);
@@ -413,12 +408,20 @@ const MyPagePage = () => {
 
   const closeReviewModal = () => {
     setSelectedEnrollmentId(null);
-    setReviewFormValues(DEFAULT_REVIEW_FORM_VALUES);
+    setReviewFormDraft({
+      enrollmentId: null,
+      values: DEFAULT_REVIEW_FORM_VALUES,
+    });
     setReviewFormError(null);
   };
 
   const openReviewModal = (enrollmentId: number) => {
     setSelectedEnrollmentId(enrollmentId);
+    setReviewFormDraft({
+      enrollmentId: null,
+      values: DEFAULT_REVIEW_FORM_VALUES,
+    });
+    setReviewFormError(null);
   };
 
   const handleCertificateDownload = (programTitle: string, completedAt?: string | null) => {
@@ -613,7 +616,9 @@ const MyPagePage = () => {
     onError: (error: unknown) => {
       showToast({
         message:
-          error instanceof Error ? error.message : '후기를 저장하지 못했습니다. 다시 시도해 주세요.',
+          error instanceof Error
+            ? error.message
+            : '후기를 저장하지 못했습니다. 다시 시도해 주세요.',
         variant: 'error',
       });
     },
@@ -856,6 +861,14 @@ const MyPagePage = () => {
                           >
                             이어보기
                           </Link>
+                          {enrollment.hasPracticum ? (
+                            <Link
+                              className={styles['learningActionLink']}
+                              to={routePaths.myEnrollmentPracticum(String(enrollment.id))}
+                            >
+                              실습 예약
+                            </Link>
+                          ) : null}
                           {renderReviewAction(enrollment)}
                         </div>
                       </div>
@@ -928,7 +941,7 @@ const MyPagePage = () => {
                   <div className={styles['paymentCardTitleGroup']}>
                     <strong className={styles['stackItemTitle']}>{payment.orderName}</strong>
                     <p className={styles['stackItemText']}>
-                      주문번호 {payment.gatewayOrderId} ·{' '}
+                      주문번호 {payment.orderNumber ?? '-'} ·{' '}
                       {formatPaymentMethodLabel(payment.paymentMethod)}
                     </p>
                   </div>
@@ -1442,10 +1455,13 @@ const MyPagePage = () => {
                   min={1}
                   name='rating'
                   onChange={(event) => {
-                    setReviewFormValues((current) => ({
-                      ...current,
-                      rating: event.target.value,
-                    }));
+                    setReviewFormDraft({
+                      enrollmentId: selectedEnrollmentId,
+                      values: {
+                        ...reviewFormValues,
+                        rating: event.target.value,
+                      },
+                    });
                   }}
                   type='number'
                   value={reviewFormValues.rating}
@@ -1454,10 +1470,13 @@ const MyPagePage = () => {
                   label='후기 내용'
                   name='content'
                   onChange={(event) => {
-                    setReviewFormValues((current) => ({
-                      ...current,
-                      content: event.target.value,
-                    }));
+                    setReviewFormDraft({
+                      enrollmentId: selectedEnrollmentId,
+                      values: {
+                        ...reviewFormValues,
+                        content: event.target.value,
+                      },
+                    });
                   }}
                   rows={6}
                   value={reviewFormValues.content}

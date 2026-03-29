@@ -48,10 +48,10 @@ const shouldSkipRefresh = (url?: string): boolean => {
   if (!url) return false;
 
   return (
-    url.includes('/api/auth/login') ||
-    url.includes('/api/auth/register') ||
-    url.includes('/api/auth/refresh') ||
-    url.includes('/api/auth/logout') ||
+    url.includes('/api/v1/auth/login') ||
+    url.includes('/api/v1/auth/register') ||
+    url.includes('/api/v1/auth/refresh') ||
+    url.includes('/api/v1/auth/logout') ||
     url.includes('/api/v1/admin/')
   );
 };
@@ -114,7 +114,7 @@ axiosInstance.interceptors.response.use(
 
       try {
         const refreshResponse =
-          await refreshClient.post<ApiEnvelope<StudentSession>>('/api/auth/refresh');
+          await refreshClient.post<ApiEnvelope<StudentSession>>('/api/v1/auth/refresh');
         const nextSession = refreshResponse.data.data;
         setStudentSession(nextSession);
         requestConfig.headers = AxiosHeaders.from(requestConfig.headers);

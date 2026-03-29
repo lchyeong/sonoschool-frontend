@@ -13,7 +13,8 @@ const initialQuestions: QuestionItem[] = [
     programTitle: null,
     authorName: '김민지',
     title: '회원가입 후 본인인증 문자가 오지 않을 때는 어떻게 하나요?',
-    content: '회원가입은 완료했는데 본인인증 문자가 바로 도착하지 않았습니다. 재요청 전 확인해야 할 항목이 있을까요?',
+    content:
+      '회원가입은 완료했는데 본인인증 문자가 바로 도착하지 않았습니다. 재요청 전 확인해야 할 항목이 있을까요?',
     mine: false,
     answered: true,
     createdAt: '2026-03-08T01:00:00Z',
@@ -77,8 +78,7 @@ const initialQuestions: QuestionItem[] = [
     programTitle: '내과과정 복부 실전 워크숍',
     authorName: '김민지',
     title: '복부 실전 워크숍은 사전 복습이 필요한가요?',
-    content:
-      '기본 스캔 루틴을 미리 보고 가는 편이 좋은지, 현장에서 처음 들어도 되는지 궁금합니다.',
+    content: '기본 스캔 루틴을 미리 보고 가는 편이 좋은지, 현장에서 처음 들어도 되는지 궁금합니다.',
     mine: true,
     answered: true,
     createdAt: '2026-03-20T03:40:00Z',
@@ -230,7 +230,9 @@ export const createMockAdminReply = (
   }
 
   const nextReply: QuestionReplyItem = {
-    id: Math.max(...questions.flatMap((question) => question.replies.map((reply) => reply.id)), 100) + 1,
+    id:
+      Math.max(...questions.flatMap((question) => question.replies.map((reply) => reply.id)), 100) +
+      1,
     authorName: '소노스쿨 운영팀',
     content: payload.content,
     mine: true,
@@ -253,4 +255,32 @@ export const createMockAdminReply = (
   });
 
   return nextReply;
+};
+
+export const deleteMockAdminReply = (replyId: number): boolean => {
+  let deleted = false;
+
+  questions = questions.map((question) => {
+    const nextReplies = question.replies.filter((reply) => {
+      if (reply.id !== replyId) {
+        return true;
+      }
+
+      deleted = true;
+      return false;
+    });
+
+    if (nextReplies.length === question.replies.length) {
+      return question;
+    }
+
+    return {
+      ...question,
+      answered: nextReplies.length > 0,
+      replies: nextReplies,
+      updatedAt: new Date().toISOString(),
+    };
+  });
+
+  return deleted;
 };

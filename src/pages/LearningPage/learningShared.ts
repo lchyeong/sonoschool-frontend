@@ -7,6 +7,32 @@ export interface FlattenedLesson extends ProgramCurriculumLesson {
   sectionTitle: string;
 }
 
+export interface FlattenedQuizItem {
+  id: string;
+  kind: 'quiz';
+  lesson: FlattenedLesson;
+  sectionId: string;
+  sectionIndex: number;
+  sectionTitle: string;
+  title: string;
+}
+
+export interface FlattenedLessonItem {
+  id: string;
+  kind: 'lesson';
+  lesson: FlattenedLesson;
+  sectionId: string;
+  sectionIndex: number;
+  sectionTitle: string;
+  title: string;
+}
+
+export type FlattenedPlayerItem = FlattenedLessonItem | FlattenedQuizItem;
+
+export const buildQuizItemId = (lessonId: string) => `${lessonId}__quiz`;
+
+export const isQuizItemId = (itemId: string) => itemId.endsWith('__quiz');
+
 export const formatDate = (value?: string | null) => {
   if (!value) return '-';
 
@@ -47,9 +73,55 @@ export const flattenLessons = (
   });
 };
 
+export const flattenPlayerItems = (
+  sections: readonly { id: string; title: string; lessons: ProgramCurriculumLesson[] }[],
+): FlattenedPlayerItem[] => {
+  return flattenLessons(sections).flatMap((lesson) => {
+    const lessonItem: FlattenedLessonItem = {
+      id: lesson.id,
+      kind: 'lesson',
+      lesson,
+      sectionId: lesson.sectionId,
+      sectionIndex: lesson.sectionIndex,
+      sectionTitle: lesson.sectionTitle,
+      title: lesson.title,
+    };
+
+    if (!lesson.hasQuiz) {
+      return [lessonItem];
+    }
+
+    return [
+      lessonItem,
+      {
+        id: buildQuizItemId(lesson.id),
+        kind: 'quiz',
+        lesson,
+        sectionId: lesson.sectionId,
+        sectionIndex: lesson.sectionIndex,
+        sectionTitle: lesson.sectionTitle,
+        title: `${lesson.title} 확인 퀴즈`,
+      } satisfies FlattenedQuizItem,
+    ];
+  });
+};
+
 export const getDefaultLessonId = (
   snapshot: LearningPlayerSnapshot | undefined,
   lessons: FlattenedLesson[],
 ) => {
   return snapshot?.currentLessonId || lessons[0]?.id || null;
+};
+
+export const getDefaultPlayerItemId = (
+  snapshot: LearningPlayerSnapshot | undefined,
+  items: FlattenedPlayerItem[],
+) => {
+  const currentLessonId = snapshot?.currentLessonId;
+
+  if (currentLessonId && items.some((item) => item.id === currentLessonId)) {
+    return currentLessonId;
+  }
+
+  return items[0]?.id || null;
 };

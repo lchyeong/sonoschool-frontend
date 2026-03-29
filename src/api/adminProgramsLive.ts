@@ -1,7 +1,6 @@
 import axiosInstance from '@/api/axiosInstance';
-import { http } from '@/api/http';
 import { toApiError } from '@/api/errors';
-import type { ApiEnvelope } from '@/types/auth';
+import { http } from '@/api/http';
 import type {
   AdminProgramCategoryOption,
   AdminProgramCategoryTreeItem,
@@ -9,6 +8,7 @@ import type {
   AdminProgramListItem,
   AdminProgramUpsertPayload,
 } from '@/types/adminProgramsLive';
+import type { ApiEnvelope } from '@/types/auth';
 
 interface PageResponse<T> {
   content: T[];
@@ -47,18 +47,19 @@ export const fetchAdminProgramCategories = async (): Promise<AdminProgramCategor
     const tree = await http.get<AdminProgramCategoryTreeItem[]>('/api/v1/admin/categories/tree');
     return toCategoryOptions(tree.filter((item) => item.active));
   } catch (error: unknown) {
-    throw toApiError(error, '강의 카테고리를 불러오지 못했습니다.');
+    throw toApiError(error, '프로그램 카테고리를 불러오지 못했습니다.');
   }
 };
 
 export const fetchAdminProgramsLive = async (): Promise<AdminProgramListItem[]> => {
   try {
-    const response = await axiosInstance.get<ApiEnvelope<PageResponse<AdminProgramListItem>>>(
-      '/api/v1/admin/programs',
-    );
+    const response =
+      await axiosInstance.get<ApiEnvelope<PageResponse<AdminProgramListItem>>>(
+        '/api/v1/admin/programs',
+      );
     return unwrapApiEnvelope(response.data).content;
   } catch (error: unknown) {
-    throw toApiError(error, '강의 목록을 불러오지 못했습니다.');
+    throw toApiError(error, '프로그램 목록을 불러오지 못했습니다.');
   }
 };
 
@@ -71,7 +72,7 @@ export const fetchAdminProgramDetailLive = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '강의 상세를 불러오지 못했습니다.');
+    throw toApiError(error, '프로그램 상세를 불러오지 못했습니다.');
   }
 };
 
@@ -109,7 +110,7 @@ export const createAdminProgramLive = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '강의 등록에 실패했습니다.');
+    throw toApiError(error, '프로그램 등록에 실패했습니다.');
   }
 };
 
@@ -124,7 +125,7 @@ export const updateAdminProgramLive = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '강의 수정에 실패했습니다.');
+    throw toApiError(error, '프로그램 수정에 실패했습니다.');
   }
 };
 
@@ -132,15 +133,15 @@ export const publishAdminProgramLive = async (programId: number): Promise<void> 
   try {
     await axiosInstance.post(`/api/v1/admin/programs/${String(programId)}/publish`);
   } catch (error: unknown) {
-    throw toApiError(error, '강의 공개 처리에 실패했습니다.');
+    throw toApiError(error, '프로그램 공개 처리에 실패했습니다.');
   }
 };
 
-export const hideAdminProgramLive = async (programId: number): Promise<void> => {
+export const unpublishAdminProgramLive = async (programId: number): Promise<void> => {
   try {
-    await axiosInstance.post(`/api/v1/admin/programs/${String(programId)}/hide`);
+    await axiosInstance.post(`/api/v1/admin/programs/${String(programId)}/unpublish`);
   } catch (error: unknown) {
-    throw toApiError(error, '강의 숨김 처리에 실패했습니다.');
+    throw toApiError(error, '프로그램 숨김 처리에 실패했습니다.');
   }
 };
 
@@ -148,6 +149,6 @@ export const deleteAdminProgramLive = async (programId: number): Promise<void> =
   try {
     await axiosInstance.delete(`/api/v1/admin/programs/${String(programId)}`);
   } catch (error: unknown) {
-    throw toApiError(error, '강의 삭제에 실패했습니다.');
+    throw toApiError(error, '프로그램 삭제에 실패했습니다.');
   }
 };

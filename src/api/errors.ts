@@ -81,10 +81,15 @@ export const toApiError = (
   // 사용자에게 보여 줄 기본 메시지입니다.
   // 서버 메시지를 추출하지 못했을 때 안전한 안내 문구로 사용합니다.
   fallbackUserMessage = '요청에 실패했습니다.',
+  options?: {
+    preferFallbackUserMessage?: boolean;
+  },
 ): ApiError => {
   // 서버/axios 쪽에서 읽을 수 있는 메시지가 있으면 그 값을 사용하고,
   // 없으면 fallback 문구를 사용합니다.
-  const userMessage = getAxiosErrorMessage(error) ?? fallbackUserMessage;
+  const userMessage = options?.preferFallbackUserMessage
+    ? fallbackUserMessage
+    : (getAxiosErrorMessage(error) ?? fallbackUserMessage);
   // Axios 에러라면 상태 코드를 꺼내고, 아니면 `null`로 둡니다.
   const status = axios.isAxiosError(error) ? (error.response?.status ?? null) : null;
   // 최종적으로 프로젝트 공통 `ApiError` 인스턴스를 만들어 반환합니다.

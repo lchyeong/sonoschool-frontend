@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { createAdminQuestionReply } from '@/api/qna';
+import { createAdminQuestionReply, deleteAdminQuestionReply } from '@/api/qna';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField } from '@/components/ui/TextField/TextField';
 import { adminQuestionsQueryKey, useAdminQuestionsQuery } from '@/query/useQnaQueries';
@@ -24,30 +24,23 @@ const AdminQnaSection = () => {
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState('');
 
-  const questions = questionsQuery.data ?? [];
+  const questions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
+  const resolvedSelectedQuestionId = useMemo(() => {
+    if (
+      selectedQuestionId !== null &&
+      questions.some((question) => question.id === selectedQuestionId)
+    ) {
+      return selectedQuestionId;
+    }
 
-  useEffect(() => {
-    const firstQuestionId = questions[0]?.id ?? null;
-
-    setSelectedQuestionId((current) => {
-      if (current !== null && questions.some((question) => question.id === current)) {
-        return current;
-      }
-
-      return firstQuestionId;
-    });
-  }, [questions]);
-
+    return questions[0]?.id ?? null;
+  }, [questions, selectedQuestionId]);
   const selectedQuestion =
-    questions.find((question) => question.id === selectedQuestionId) ?? questions[0] ?? null;
+    questions.find((question) => question.id === resolvedSelectedQuestionId) ?? null;
 
   const pendingCount = useMemo(() => {
     return questions.filter((question) => !question.answered).length;
   }, [questions]);
-
-  useEffect(() => {
-    setReplyContent('');
-  }, [selectedQuestionId]);
 
   const replyMutation = useMutation({
     mutationFn: ({ content, questionId }: { questionId: number; content: string }) => {
@@ -64,6 +57,23 @@ const AdminQnaSection = () => {
       await queryClient.invalidateQueries({ queryKey: adminQuestionsQueryKey() });
       showToast({
         message: '답변을 등록했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const deleteReplyMutation = useMutation({
+    mutationFn: (replyId: number) => deleteAdminQuestionReply(replyId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '답변 삭제에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: adminQuestionsQueryKey() });
+      showToast({
+        message: '답변을 삭제했습니다.',
         variant: 'success',
       });
     },
@@ -90,11 +100,15 @@ const AdminQnaSection = () => {
     });
   };
 
+  const handleSelectQuestion = (questionId: number) => {
+    setSelectedQuestionId(questionId);
+    setReplyContent('');
+  };
+
   return (
     <div className={styles['workspace']}>
       <section className={styles['hero']}>
         <div className={styles['heroCopy']}>
-          <p className={styles['eyebrow']}>Q&A OPERATIONS</p>
           <h1 className={styles['title']}>문의 답변 관리</h1>
           <p className={styles['description']}>
             운영 Q&A와 과정 Q&A를 한 화면에서 확인하고, 답변 대기 질문부터 처리합니다.
@@ -126,7 +140,7 @@ const AdminQnaSection = () => {
                     data-active={isActive}
                     key={question.id}
                     onClick={() => {
-                      setSelectedQuestionId(question.id);
+                      handleSelectQuestion(question.id);
                     }}
                     type='button'
                   >
@@ -192,8 +206,20 @@ const AdminQnaSection = () => {
                           return (
                             <article className={styles['qnaReplyCard']} key={reply.id}>
                               <div className={styles['qnaReplyCardHeader']}>
-                                <strong>{reply.authorName}</strong>
-                                <span>{formatDateTime(reply.createdAt)}</span>
+                                <div className={styles['qnaReplyMetaStack']}>
+                                  <strong>{reply.authorName}</strong>
+                                  <span>{formatDateTime(reply.createdAt)}</span>
+                                </div>
+                                <button
+                                  className={styles['tableActionButtonDanger']}
+                                  disabled={deleteReplyMutation.isPending}
+                                  onClick={() => {
+                                    deleteReplyMutation.mutate(reply.id);
+                                  }}
+                                  type='button'
+                                >
+                                  삭제
+                                </button>
                               </div>
                               <p className={styles['qnaReplyCardContent']}>{reply.content}</p>
                             </article>
