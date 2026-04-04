@@ -3,6 +3,7 @@ import { toApiError } from '@/api/errors';
 import type {
   AdminCurriculumLecture,
   AdminCurriculumSection,
+  AdminLectureOfflineScheduleRuleUpsertPayload,
   AdminLectureUpsertPayload,
   AdminSectionUpsertPayload,
   AdminSortOrderItem,
@@ -33,6 +34,20 @@ const normalizeLecturePayload = (payload: AdminLectureUpsertPayload): AdminLectu
   return {
     ...payload,
     description: normalizeDescription(payload.description),
+    lectureType: payload.lectureType,
+    practicumDescription: normalizeDescription(payload.practicumDescription),
+    practicumTitle: normalizeDescription(payload.practicumTitle),
+  };
+};
+
+const normalizeOfflineScheduleRulePayload = (
+  payload: AdminLectureOfflineScheduleRuleUpsertPayload,
+): AdminLectureOfflineScheduleRuleUpsertPayload => {
+  return {
+    ...payload,
+    location: normalizeDescription(payload.location),
+    notes: normalizeDescription(payload.notes),
+    weekdays: payload.weekdays.map((weekday) => weekday.trim()).filter(Boolean),
   };
 };
 
@@ -43,7 +58,23 @@ export const fetchAdminCurriculum = async (
     const response = await axiosInstance.get<ApiEnvelope<AdminCurriculumSection[]>>(
       `/api/v1/admin/programs/${String(programId)}/sections`,
     );
-    return unwrapApiEnvelope(response.data);
+    return unwrapApiEnvelope(response.data).map((section) => ({
+      ...section,
+      lectures: section.lectures.map((lecture) => ({
+        ...lecture,
+        offlineSession: lecture.offlineScheduleRule
+          ? {
+              endAt: `${lecture.offlineScheduleRule.endDate}T${lecture.offlineScheduleRule.endTime}`,
+              id: lecture.offlineScheduleRule.id,
+              location: lecture.offlineScheduleRule.location,
+              notes: lecture.offlineScheduleRule.notes,
+              startAt: `${lecture.offlineScheduleRule.startDate}T${lecture.offlineScheduleRule.startTime}`,
+            }
+          : null,
+        practicumEnabled: lecture.lectureType === 'PRACTICUM',
+        quizOnly: lecture.lectureType === 'PROBLEM',
+      })),
+    }));
   } catch (error: unknown) {
     throw toApiError(error, '커리큘럼을 불러오지 못했습니다.');
   }
@@ -170,5 +201,33 @@ export const reorderAdminLectures = async (
     });
   } catch (error: unknown) {
     throw toApiError(error, '강의 순서를 변경하지 못했습니다.');
+  }
+};
+
+export const upsertAdminLectureOfflineScheduleRule = async (
+  lectureId: number,
+  payload: AdminLectureOfflineScheduleRuleUpsertPayload,
+): Promise<AdminCurriculumLecture> => {
+  try {
+    const response = await axiosInstance.put<ApiEnvelope<AdminCurriculumLecture>>(
+      `/api/v1/admin/lectures/${String(lectureId)}/offline-schedule-rule`,
+      normalizeOfflineScheduleRulePayload(payload),
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '현장 강의 일정을 저장하지 못했습니다.');
+  }
+};
+
+export const deleteAdminLectureOfflineScheduleRule = async (
+  lectureId: number,
+): Promise<AdminCurriculumLecture> => {
+  try {
+    const response = await axiosInstance.delete<ApiEnvelope<AdminCurriculumLecture>>(
+      `/api/v1/admin/lectures/${String(lectureId)}/offline-schedule-rule`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '현장 강의 일정을 삭제하지 못했습니다.');
   }
 };

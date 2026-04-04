@@ -12,6 +12,7 @@ import {
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
+import { adminProgramTagsQueryKey } from '@/query/useAdminProgramTagsQuery';
 import { adminTagsQueryKey, useAdminTagsQuery } from '@/query/useAdminTagsQuery';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AdminProgramTag, AdminProgramTagType } from '@/types/adminProgramsLive';
@@ -130,7 +131,10 @@ const AdminTagsSection = () => {
   const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
 
   const refreshTags = async () => {
-    await queryClient.invalidateQueries({ queryKey: adminTagsQueryKey() });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: adminTagsQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: adminProgramTagsQueryKey() }),
+    ]);
   };
 
   const resetCreateForm = () => {

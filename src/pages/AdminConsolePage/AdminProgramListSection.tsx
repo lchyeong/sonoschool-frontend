@@ -12,12 +12,14 @@ import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
+import { useAdminProgramDraftsQuery } from '@/query/useAdminProgramDraftsQuery';
 import {
   adminProgramsLiveQueryKey,
   useAdminProgramsLiveQuery,
 } from '@/query/useAdminProgramsLiveQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
+import type { AdminProgramDraftSummary } from '@/types/adminProgramDrafts';
 import type {
   AdminProgramCatalogStatus,
   AdminProgramListItem,
@@ -34,6 +36,7 @@ const programTypeLabel: Record<AdminProgramType, string> = {
   HYBRID: '하이브리드',
   OFFLINE: '오프라인',
   ONLINE: '온라인',
+  PROBLEM_SOLVING: '문제풀이',
 };
 
 const catalogStatusLabel: Record<AdminProgramCatalogStatus, string> = {
@@ -91,6 +94,7 @@ const AdminProgramListSection = () => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const programsQuery = useAdminProgramsLiveQuery();
+  const draftsQuery = useAdminProgramDraftsQuery();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [visibilityFilter, setVisibilityFilter] = useState<ProgramVisibilityFilter>('all');
   const [typeFilter, setTypeFilter] = useState<ProgramTypeFilter>('all');
@@ -195,6 +199,41 @@ const AdminProgramListSection = () => {
       </header>
 
       <div className={styles['listFrame']}>
+        {!draftsQuery.isPending && !draftsQuery.isError && draftsQuery.data.length > 0 ? (
+          <section className={styles['listPanel']}>
+            <div className={styles['listPanelHeader']}>
+              <p className={styles['listPanelMeta']}>진행 중 초안</p>
+            </div>
+
+            <div className={styles['stackListCompact']}>
+              {draftsQuery.data.map((draft: AdminProgramDraftSummary) => (
+                <article className={styles['panel']} key={draft.id}>
+                  <div className={styles['panelToolbar']}>
+                    <div>
+                      <h2 className={styles['panelTitle']}>
+                        {draft.titlePreview?.trim() || `제목 없는 초안 #${String(draft.id)}`}
+                      </h2>
+                      <p className={styles['metaText']}>
+                        마지막 저장 {formatDate(draft.updatedAt)}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        void navigate(
+                          `${routePaths.adminProgramCreate}?draftId=${String(draft.id)}`,
+                        );
+                      }}
+                      type='button'
+                    >
+                      이어서 작성
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <div className={styles['toolbar']}>
           <div className={styles['toolbarFilters']}>
             <div className={styles['toolbarFilterRow']}>
@@ -342,15 +381,6 @@ const AdminProgramListSection = () => {
                               type='button'
                             >
                               기본정보
-                            </button>
-                            <button
-                              className={styles['tableActionButton']}
-                              onClick={() => {
-                                void navigate(routePaths.adminProgramCurriculum(String(item.id)));
-                              }}
-                              type='button'
-                            >
-                              커리큘럼
                             </button>
                             <button
                               className={styles['tableActionButton']}

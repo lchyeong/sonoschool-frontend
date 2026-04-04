@@ -47,18 +47,78 @@
   padding: var(--space-4);
 }
 
+.createCard {
+  display: grid;
+  gap: var(--space-3);
+  border-style: dashed;
+  border-width: 2px;
+  background: linear-gradient(180deg, rgba(47, 111, 103, 0.05) 0%, #ffffff 12rem);
+}
+
+.sectionCard {
+  border-left: 4px solid #2f6f67;
+  background: linear-gradient(180deg, rgba(47, 111, 103, 0.07) 0%, #ffffff 14rem);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.lectureCard {
+  border-left: 4px solid #9fb8c8;
+  background: linear-gradient(180deg, rgba(159, 184, 200, 0.12) 0%, #ffffff 12rem);
+}
+
 .sectionList {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .cardHeader {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
   margin-bottom: var(--space-3);
+}
+
+.summaryContent {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 26rem;
+}
+
+.headerEyebrowRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.levelBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  border: 1px solid currentColor;
+  padding: 0 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.levelBadge[data-level='section'] {
+  background: rgba(47, 111, 103, 0.12);
+  color: #1f5a53;
+}
+
+.levelBadge[data-level='lecture'] {
+  background: rgba(99, 138, 171, 0.14);
+  color: #47647b;
+}
+
+.levelHint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
 }
 
 .cardTitle {
@@ -74,10 +134,75 @@
   font-size: var(--font-size-xs);
 }
 
+.sectionDescription {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-2);
+}
+
+.summaryItem {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--color-brand-lighten-35);
+  background: rgba(47, 65, 85, 0.03);
+  padding: 0.75rem 0.875rem;
+}
+
+.summaryLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.summaryValue {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.actionColumn {
+  display: flex;
+  flex-wrap: wrap;
+  place-content: flex-start flex-end;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  padding: 0.5rem;
+  border: 1px solid var(--color-brand-lighten-35);
+  background: rgba(255, 255, 255, 0.78);
+}
+
 .buttonRow {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+.managementToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.uploadActionLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  border: 1px solid var(--color-brand-lighten-35);
+  background: rgba(47, 65, 85, 0.04);
+  padding: 0.5rem 0.875rem;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .fieldGrid {
@@ -85,24 +210,102 @@
   gap: var(--space-3);
 }
 
+.cardBody {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-brand-lighten-35);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.workspaceHeader {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--color-brand-lighten-35);
+  background: rgba(47, 65, 85, 0.035);
+  padding: var(--space-4);
+}
+
+.workspaceHeaderSummary {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.workspaceEyebrow {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspaceCurrentPanel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+}
+
+.workspaceTabBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.workspaceTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #ffffff;
+  padding: 0.55rem 0.9rem;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspaceTab[data-active='true'] {
+  border-color: #2f6f67;
+  background: rgba(47, 111, 103, 0.12);
+  color: #1f5a53;
+}
+
+.managementPanel {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #ffffff;
+  padding: var(--space-4);
+}
+
+.panelHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
 .lectureList {
   display: grid;
   gap: var(--space-3);
-  margin-top: var(--space-3);
+  padding-left: calc(var(--space-3) + 0.25rem);
+  border-left: 2px dashed rgba(47, 111, 103, 0.24);
 }
 
 .lectureHeader {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-bottom: var(--space-3);
 }
 
 .lectureTitle {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   font-weight: 700;
   color: var(--color-text-primary);
 }
@@ -144,6 +347,26 @@
   gap: var(--space-2);
   color: var(--color-text-primary);
   font-weight: 600;
+}
+
+.selectField {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.selectLabel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.selectControl {
+  min-height: 2.75rem;
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #ffffff;
+  padding: 0 0.875rem;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
 }
 
 .checkboxRow input {
@@ -224,5 +447,23 @@
 
   .buttonRow {
     width: 100%;
+  }
+
+  .actionColumn {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspaceTabBar {
+    flex-direction: column;
+  }
+
+  .lectureList {
+    padding-left: 0;
+    border-left: 0;
   }
 }

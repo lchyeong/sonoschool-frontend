@@ -85,12 +85,25 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     accessPolicy: 'FIXED_DURATION',
     learningStartAt: '2026-03-10T00:00:00.000Z',
     learningEndAt: '2026-12-31T14:59:59.000Z',
-    learningPoints: ['기본 스캔 순서 정리', '정상 해부 구조 이해'],
+    learningPoints: [],
+    learningOutcomes: [
+      {
+        label: '기본 스캔 순서 정리',
+        value: '복부초음파 기본 루틴을 스스로 설명하고 재현할 수 있습니다.',
+      },
+      {
+        label: '정상 해부 구조 이해',
+        value: '정상 해부 구조를 기준으로 주요 장기를 구분할 수 있습니다.',
+      },
+    ],
     recommendedFor: ['복부초음파 입문자', '기본 루틴을 다시 정리하려는 수강생'],
     checklists: ['기본 장비 세팅 확인', '프로브 방향 표기 숙지'],
     summaryItems: [
-      { label: '수강 방식', value: '온라인 VOD' },
-      { label: '수강 기간', value: '90일' },
+      {
+        label: '기본 스캔 순서 정리',
+        value: '실전 루틴 기준으로 복부초음파 흐름을 빠르게 잡습니다.',
+      },
+      { label: '정상 해부 구조 이해', value: '주요 해부 구조를 영상과 함께 연결해 이해합니다.' },
     ],
     faqs: [{ question: '모바일 수강이 가능한가요?', answer: '모바일과 PC 모두 가능합니다.' }],
     tags: [],
@@ -123,12 +136,22 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     accessPolicy: 'COHORT',
     learningStartAt: '2026-06-01T00:00:00.000Z',
     learningEndAt: '2026-06-30T14:59:59.000Z',
-    learningPoints: ['FAST 프로토콜 실습', '응급 상황 판독 포인트'],
+    learningPoints: [],
+    learningOutcomes: [
+      {
+        label: 'FAST 프로토콜 실습',
+        value: '응급 상황에서 FAST 기본 루틴을 즉시 적용할 수 있습니다.',
+      },
+      {
+        label: '응급 상황 판독 포인트',
+        value: '현장에서 놓치기 쉬운 판독 포인트를 빠르게 구분할 수 있습니다.',
+      },
+    ],
     recommendedFor: ['응급실/중환자실 의료진'],
     checklists: ['현장 실습 일정 확인'],
     summaryItems: [
-      { label: '수강 방식', value: '오프라인 실습' },
-      { label: '정원', value: '20명' },
+      { label: '현장 중심 실습', value: 'FAST 프로토콜을 현장 흐름에 맞춰 반복 실습합니다.' },
+      { label: '응급 판독 포인트', value: '실제 응급 상황에서 필요한 해석 기준을 함께 익힙니다.' },
     ],
     faqs: [{ question: '실습 준비물이 있나요?', answer: '별도 준비물은 없습니다.' }],
     tags: [],
@@ -242,6 +265,7 @@ const toStateItem = (
     learningStartAt: payload.learningStartAt,
     learningEndAt: payload.learningEndAt,
     learningPoints: clone(payload.learningPoints),
+    learningOutcomes: clone(payload.learningOutcomes),
     recommendedFor: clone(payload.recommendedFor),
     checklists: clone(payload.checklists),
     summaryItems: clone(payload.summaryItems),

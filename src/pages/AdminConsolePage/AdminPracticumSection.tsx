@@ -703,11 +703,6 @@ const AdminPracticumSection = () => {
                                   ) : (
                                     <span className={styles['badgeDanger']}>강의 미완료</span>
                                   )}
-                                  {reservation.quizAttempted ? (
-                                    <span className={styles['badgeSuccess']}>퀴즈 제출</span>
-                                  ) : (
-                                    <span className={styles['badgeDanger']}>퀴즈 미제출</span>
-                                  )}
                                   <span className={styles['badge']}>
                                     {reservation.status === 'ACTIVE' ? '예약중' : '취소'}
                                   </span>

@@ -6,6 +6,7 @@ import type {
   AdminProgramCategoryTreeItem,
   AdminProgramDetail,
   AdminProgramListItem,
+  AdminProgramSummaryInfoItem,
   AdminProgramUpsertPayload,
 } from '@/types/adminProgramsLive';
 import type { ApiEnvelope } from '@/types/auth';
@@ -42,6 +43,33 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const normalizeStructuredItems = (
+  items: readonly (
+    | { content?: string; label?: string; title?: string; value?: string }
+    | null
+    | undefined
+  )[],
+): AdminProgramSummaryInfoItem[] => {
+  return items.map((item) => {
+    if (!item) {
+      return { label: '', value: '' };
+    }
+
+    return {
+      label: item.label || item.title || '',
+      value: item.value || item.content || '',
+    };
+  });
+};
+
+const normalizeAdminProgramDetail = (detail: AdminProgramDetail): AdminProgramDetail => {
+  return {
+    ...detail,
+    learningOutcomes: normalizeStructuredItems(detail.learningOutcomes),
+    summaryItems: normalizeStructuredItems(detail.summaryItems),
+  };
+};
+
 export const fetchAdminProgramCategories = async (): Promise<AdminProgramCategoryOption[]> => {
   try {
     const tree = await http.get<AdminProgramCategoryTreeItem[]>('/api/v1/admin/categories/tree');
@@ -70,7 +98,7 @@ export const fetchAdminProgramDetailLive = async (
     const response = await axiosInstance.get<ApiEnvelope<AdminProgramDetail>>(
       `/api/v1/admin/programs/${String(programId)}`,
     );
-    return unwrapApiEnvelope(response.data);
+    return normalizeAdminProgramDetail(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '프로그램 상세를 불러오지 못했습니다.');
   }
@@ -86,6 +114,10 @@ const normalizeUpsertPayload = (payload: AdminProgramUpsertPayload) => {
     instructorName: toNullableString(payload.instructorName),
     learningEndAt: toNullableString(payload.learningEndAt),
     learningPoints: payload.learningPoints,
+    learningOutcomes: payload.learningOutcomes.map((item) => ({
+      content: item.value,
+      title: item.label,
+    })),
     learningStartAt: toNullableString(payload.learningStartAt),
     maxStudents: payload.maxStudents,
     recommendedFor: payload.recommendedFor,
@@ -93,8 +125,8 @@ const normalizeUpsertPayload = (payload: AdminProgramUpsertPayload) => {
     salePrice: payload.salePrice,
     saleStartAt: toNullableString(payload.saleStartAt),
     summaryItems: payload.summaryItems.map((item) => ({
-      label: item.label,
-      value: item.value,
+      content: item.value,
+      title: item.label,
     })),
     thumbnailUrl: toNullableString(payload.thumbnailUrl),
   };
@@ -108,7 +140,7 @@ export const createAdminProgramLive = async (
       '/api/v1/admin/programs',
       normalizeUpsertPayload(payload),
     );
-    return unwrapApiEnvelope(response.data);
+    return normalizeAdminProgramDetail(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '프로그램 등록에 실패했습니다.');
   }
@@ -123,7 +155,7 @@ export const updateAdminProgramLive = async (
       `/api/v1/admin/programs/${String(programId)}`,
       normalizeUpsertPayload(payload),
     );
-    return unwrapApiEnvelope(response.data);
+    return normalizeAdminProgramDetail(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '프로그램 수정에 실패했습니다.');
   }

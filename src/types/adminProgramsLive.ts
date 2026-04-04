@@ -1,4 +1,4 @@
-export type AdminProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID';
+export type AdminProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID' | 'PROBLEM_SOLVING';
 export type AdminProgramLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 export type AdminProgramCatalogStatus = 'OPEN' | 'SCHEDULED' | 'CLOSED' | 'FULL';
 export type AdminProgramAccessPolicy = 'COHORT' | 'FIXED_DURATION' | 'UNLIMITED';
@@ -74,6 +74,8 @@ export interface AdminProgramDocument {
   fileSize: number;
   fileUrl: string;
   id: number;
+  lectureId: number | null;
+  lectureTitle: string | null;
   mimeType: string | null;
   programId: number | null;
   programTitle: string | null;
@@ -109,11 +111,12 @@ export interface AdminProgramDetail {
   learningStartAt: string | null;
   learningEndAt: string | null;
   learningPoints: string[];
+  learningOutcomes: AdminProgramSummaryInfoItem[];
   recommendedFor: string[];
   checklists: string[];
   summaryItems: AdminProgramSummaryInfoItem[];
   faqs: AdminProgramFaqItem[];
-  tags: AdminProgramTag[];
+  tags?: AdminProgramTag[] | undefined;
   documents: AdminProgramDocument[];
   deletable?: boolean;
   deleteBlockedReason?: string | null;
@@ -139,6 +142,7 @@ export interface AdminProgramUpsertPayload {
   learningStartAt: string | null;
   learningEndAt: string | null;
   learningPoints: string[];
+  learningOutcomes: AdminProgramSummaryInfoItem[];
   recommendedFor: string[];
   checklists: string[];
   summaryItems: AdminProgramSummaryInfoItem[];

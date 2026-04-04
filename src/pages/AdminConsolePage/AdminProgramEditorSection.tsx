@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import {
   createAdminProgramLive,
@@ -18,7 +18,6 @@ import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import AdminProgramCurriculumSection from '@/pages/AdminConsolePage/AdminProgramCurriculumSection';
 import AdminProgramQuizzesSection from '@/pages/AdminConsolePage/AdminProgramQuizzesSection';
 import AdminProgramResourcesSection from '@/pages/AdminConsolePage/AdminProgramResourcesSection';
-import AdminProgramTagsSection from '@/pages/AdminConsolePage/AdminProgramTagsSection';
 import {
   adminCategoriesTreeQueryKey,
   useAdminCategoriesTreeQuery,
@@ -42,7 +41,7 @@ import styles from './AdminConsolePage.module.scss';
 
 interface AdminProgramEditorSectionProps {
   mode: 'create' | 'duplicate' | 'edit';
-  view?: 'curriculum' | 'details' | 'quizzes' | 'resources' | 'tags';
+  view?: 'curriculum' | 'details' | 'quizzes' | 'resources';
 }
 
 interface AdminProgramSummaryFormItem {
@@ -65,7 +64,7 @@ interface AdminProgramFormState {
   instructorBio: string;
   instructorName: string;
   learningEndAt: string;
-  learningPoints: string[];
+  learningOutcomes: AdminProgramSummaryFormItem[];
   learningStartAt: string;
   level: '' | AdminProgramLevel;
   maxStudents: string;
@@ -91,7 +90,7 @@ const INITIAL_FORM_STATE: AdminProgramFormState = {
   instructorBio: '',
   instructorName: '',
   learningEndAt: '',
-  learningPoints: [],
+  learningOutcomes: [],
   learningStartAt: '',
   level: '',
   maxStudents: '',
@@ -296,7 +295,16 @@ const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormS
     instructorBio: detail.instructorBio ?? '',
     instructorName: detail.instructorName ?? '',
     learningEndAt: toDateTimeLocal(detail.learningEndAt),
-    learningPoints: [...detail.learningPoints],
+    learningOutcomes:
+      detail.learningOutcomes.length > 0
+        ? detail.learningOutcomes.map((item) => ({
+            label: item.label,
+            value: item.value,
+          }))
+        : detail.learningPoints.map((item, index) => ({
+            label: `학습 성과 ${String(index + 1)}`,
+            value: item,
+          })),
     learningStartAt: toDateTimeLocal(detail.learningStartAt),
     level: detail.level ?? '',
     maxStudents: detail.maxStudents === null ? '' : String(detail.maxStudents),
@@ -372,7 +380,8 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
     instructorBio: formState.instructorBio.trim() || null,
     instructorName: formState.instructorName.trim() || null,
     learningEndAt: resolvedLearningEndAt,
-    learningPoints: sanitizeStringList(formState.learningPoints),
+    learningOutcomes: sanitizeSummaryItems(formState.learningOutcomes),
+    learningPoints: [],
     learningStartAt: resolvedLearningStartAt,
     level: formState.level || null,
     maxStudents: formState.maxStudents.trim() ? Number(formState.maxStudents) : null,
@@ -452,7 +461,17 @@ const validateFormState = (formState: AdminProgramFormState): string | null => {
   });
 
   if (summaryErrors) {
-    return '요약 항목명과 내용을 모두 입력해 주세요.';
+    return '핵심 포인트 제목과 설명을 모두 입력해 주세요.';
+  }
+
+  const learningOutcomeErrors = formState.learningOutcomes.some((item) => {
+    const hasLabel = item.label.trim().length > 0;
+    const hasValue = item.value.trim().length > 0;
+    return hasLabel !== hasValue;
+  });
+
+  if (learningOutcomeErrors) {
+    return '학습 성과 제목과 설명을 모두 입력해 주세요.';
   }
 
   return null;
@@ -471,9 +490,6 @@ const buildEditorTitle = (
   }
   if (view === 'quizzes') {
     return detail ? `${detail.title} 퀴즈` : '강의 퀴즈';
-  }
-  if (view === 'tags') {
-    return detail ? `${detail.title} 태그` : '태그 관리';
   }
   if (view === 'resources') {
     return detail ? `${detail.title} 자료` : '프로그램 자료';
@@ -507,6 +523,7 @@ const programTypeLabel: Record<AdminProgramType, string> = {
   HYBRID: '하이브리드',
   OFFLINE: '오프라인',
   ONLINE: '온라인',
+  PROBLEM_SOLVING: '문제풀이',
 };
 
 const accessPolicyLabel: Record<AdminProgramAccessPolicy, string> = {
@@ -525,13 +542,14 @@ const catalogStatusLabel: Record<'CLOSED' | 'FULL' | 'OPEN' | 'SCHEDULED', strin
 const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEditorSectionProps) => {
   const params = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const normalizedView = view === 'quizzes' || view === 'resources' ? 'curriculum' : view;
   const showToast = useToastStore((state) => state.showToast);
-  const isCurriculumView = view === 'curriculum';
-  const isQuizzesView = view === 'quizzes';
-  const isTagsView = view === 'tags';
-  const isResourcesView = view === 'resources';
-  const isDetailView = !isCurriculumView && !isQuizzesView && !isTagsView && !isResourcesView;
+  const isCurriculumView = normalizedView === 'curriculum';
+  const isDetailView = !isCurriculumView;
+  const quizzesSectionRef = useRef<HTMLDivElement | null>(null);
+  const resourcesSectionRef = useRef<HTMLDivElement | null>(null);
   const editingProgramId = mode === 'edit' ? Number(params['programId']) : null;
   const duplicateSourceProgramId = mode === 'duplicate' ? Number(params['sourceProgramId']) : null;
   const targetProgramId = mode === 'edit' ? editingProgramId : duplicateSourceProgramId;
@@ -562,6 +580,21 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       setFormState(normalizeFormState(duplicatedState));
     });
   }, [detailQuery.data, mode]);
+
+  const openLectureWorkspace = (lectureId: number, target: 'quiz' | 'resource') => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('lectureId', String(lectureId));
+    setSearchParams(nextSearchParams, { replace: true });
+
+    window.requestAnimationFrame(() => {
+      const targetNode =
+        target === 'quiz' ? quizzesSectionRef.current : resourcesSectionRef.current;
+      targetNode?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  };
 
   const invalidateProgramQueries = async (programId?: number) => {
     await Promise.all([
@@ -650,8 +683,8 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
   });
 
   const editorTitle = useMemo(
-    () => buildEditorTitle(mode, detailQuery.data ?? null, view),
-    [detailQuery.data, mode, view],
+    () => buildEditorTitle(mode, detailQuery.data ?? null, normalizedView),
+    [detailQuery.data, mode, normalizedView],
   );
 
   const isLoading =
@@ -684,7 +717,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
   };
 
   const updateStringListItem = (
-    field: 'learningPoints' | 'recommendedFor' | 'checklists',
+    field: 'recommendedFor' | 'checklists',
     index: number,
     value: string,
   ) => {
@@ -694,47 +727,45 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     }));
   };
 
-  const addStringListItem = (field: 'learningPoints' | 'recommendedFor' | 'checklists') => {
+  const addStringListItem = (field: 'recommendedFor' | 'checklists') => {
     setFormState((current) => ({
       ...current,
       [field]: [...current[field], ''],
     }));
   };
 
-  const removeStringListItem = (
-    field: 'learningPoints' | 'recommendedFor' | 'checklists',
-    index: number,
-  ) => {
+  const removeStringListItem = (field: 'recommendedFor' | 'checklists', index: number) => {
     setFormState((current) => ({
       ...current,
       [field]: current[field].filter((_, itemIndex) => itemIndex !== index),
     }));
   };
 
-  const updateSummaryItem = (
+  const updateStructuredInfoItem = (
+    field: 'learningOutcomes' | 'summaryItems',
     index: number,
     key: keyof AdminProgramSummaryFormItem,
     value: string,
   ) => {
     setFormState((current) => ({
       ...current,
-      summaryItems: current.summaryItems.map((item, itemIndex) =>
+      [field]: current[field].map((item, itemIndex) =>
         itemIndex === index ? { ...item, [key]: value } : item,
       ),
     }));
   };
 
-  const addSummaryItem = () => {
+  const addStructuredInfoItem = (field: 'learningOutcomes' | 'summaryItems') => {
     setFormState((current) => ({
       ...current,
-      summaryItems: [...current.summaryItems, { label: '', value: '' }],
+      [field]: [...current[field], { label: '', value: '' }],
     }));
   };
 
-  const removeSummaryItem = (index: number) => {
+  const removeStructuredInfoItem = (field: 'learningOutcomes' | 'summaryItems', index: number) => {
     setFormState((current) => ({
       ...current,
-      summaryItems: current.summaryItems.filter((_, itemIndex) => itemIndex !== index),
+      [field]: current[field].filter((_, itemIndex) => itemIndex !== index),
     }));
   };
 
@@ -781,14 +812,8 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
         <h1 className={styles['stateTitle']}>프로그램 편집 화면을 준비하는 중입니다.</h1>
         <p className={styles['stateDescription']}>
           {isCurriculumView
-            ? '프로그램 상세와 커리큘럼을 불러오고 있습니다.'
-            : isQuizzesView
-              ? '프로그램 상세와 강의 퀴즈를 불러오고 있습니다.'
-              : isTagsView
-                ? '프로그램 상세와 태그 목록을 불러오고 있습니다.'
-                : isResourcesView
-                  ? '프로그램 상세와 자료 목록을 불러오고 있습니다.'
-                  : '카테고리와 프로그램 상세를 불러오고 있습니다.'}
+            ? '프로그램 상세와 커리큘럼, 강의별 퀴즈/자료를 불러오고 있습니다.'
+            : '카테고리와 프로그램 상세를 불러오고 있습니다.'}
         </p>
       </section>
     );
@@ -899,27 +924,6 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
               to={routePaths.adminProgramCurriculum(String(currentDetail.id))}
             >
               커리큘럼
-            </Link>
-            <Link
-              aria-current={isQuizzesView ? 'page' : undefined}
-              className={isQuizzesView ? styles['workspaceTabActive'] : styles['workspaceTab']}
-              to={routePaths.adminProgramQuizzes(String(currentDetail.id))}
-            >
-              퀴즈
-            </Link>
-            <Link
-              aria-current={isTagsView ? 'page' : undefined}
-              className={isTagsView ? styles['workspaceTabActive'] : styles['workspaceTab']}
-              to={routePaths.adminProgramTags(String(currentDetail.id))}
-            >
-              태그
-            </Link>
-            <Link
-              aria-current={isResourcesView ? 'page' : undefined}
-              className={isResourcesView ? styles['workspaceTabActive'] : styles['workspaceTab']}
-              to={routePaths.adminProgramResources(String(currentDetail.id))}
-            >
-              자료
             </Link>
           </nav>
         ) : null}
@@ -1165,26 +1169,90 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                 ) : null}
 
                 <AdminFieldArray
-                  addLabel='학습 포인트 추가'
-                  emptyMessage='등록된 학습 포인트가 없습니다.'
-                  helperText='사용자에게 보여줄 핵심 학습 포인트를 항목별로 추가합니다.'
-                  items={formState.learningPoints}
-                  label='학습 포인트'
+                  addLabel='핵심 포인트 추가'
+                  emptyMessage='등록된 핵심 포인트가 없습니다.'
+                  helperText='강의 소개 첫 영역에 노출할 제목과 설명 카드를 입력합니다.'
+                  items={formState.summaryItems}
+                  label='핵심 포인트'
                   onAdd={() => {
-                    addStringListItem('learningPoints');
+                    addStructuredInfoItem('summaryItems');
                   }}
                   onRemove={(index) => {
-                    removeStringListItem('learningPoints', index);
+                    removeStructuredInfoItem('summaryItems', index);
                   }}
                   renderItem={(item, index) => (
-                    <TextField
-                      label={`학습 포인트 ${String(index + 1)}`}
-                      name={`learning-point-${String(index)}`}
-                      onChange={(event) => {
-                        updateStringListItem('learningPoints', index, event.target.value);
-                      }}
-                      value={item}
-                    />
+                    <div className={styles['inlineFieldGrid']}>
+                      <TextField
+                        label='핵심 포인트 제목'
+                        name={`summary-label-${String(index)}`}
+                        onChange={(event) => {
+                          updateStructuredInfoItem(
+                            'summaryItems',
+                            index,
+                            'label',
+                            event.target.value,
+                          );
+                        }}
+                        value={item.label}
+                      />
+                      <TextField
+                        label='핵심 포인트 설명'
+                        name={`summary-value-${String(index)}`}
+                        onChange={(event) => {
+                          updateStructuredInfoItem(
+                            'summaryItems',
+                            index,
+                            'value',
+                            event.target.value,
+                          );
+                        }}
+                        value={item.value}
+                      />
+                    </div>
+                  )}
+                />
+
+                <AdminFieldArray
+                  addLabel='학습 성과 추가'
+                  emptyMessage='등록된 학습 성과가 없습니다.'
+                  helperText='이 강의를 듣고 나면 할 수 있게 되는 제목과 설명을 입력합니다.'
+                  items={formState.learningOutcomes}
+                  label='학습 성과'
+                  onAdd={() => {
+                    addStructuredInfoItem('learningOutcomes');
+                  }}
+                  onRemove={(index) => {
+                    removeStructuredInfoItem('learningOutcomes', index);
+                  }}
+                  renderItem={(item, index) => (
+                    <div className={styles['inlineFieldGrid']}>
+                      <TextField
+                        label='학습 성과 제목'
+                        name={`learning-outcome-label-${String(index)}`}
+                        onChange={(event) => {
+                          updateStructuredInfoItem(
+                            'learningOutcomes',
+                            index,
+                            'label',
+                            event.target.value,
+                          );
+                        }}
+                        value={item.label}
+                      />
+                      <TextField
+                        label='학습 성과 설명'
+                        name={`learning-outcome-value-${String(index)}`}
+                        onChange={(event) => {
+                          updateStructuredInfoItem(
+                            'learningOutcomes',
+                            index,
+                            'value',
+                            event.target.value,
+                          );
+                        }}
+                        value={item.value}
+                      />
+                    </div>
                   )}
                 />
 
@@ -1237,36 +1305,6 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                 />
 
                 <AdminFieldArray
-                  addLabel='요약 항목 추가'
-                  emptyMessage='등록된 요약 항목이 없습니다.'
-                  helperText='항목명과 내용을 각각 입력해 카드 형태 요약 정보를 구성합니다.'
-                  items={formState.summaryItems}
-                  label='요약 항목'
-                  onAdd={addSummaryItem}
-                  onRemove={removeSummaryItem}
-                  renderItem={(item, index) => (
-                    <div className={styles['inlineFieldGrid']}>
-                      <TextField
-                        label='항목명'
-                        name={`summary-label-${String(index)}`}
-                        onChange={(event) => {
-                          updateSummaryItem(index, 'label', event.target.value);
-                        }}
-                        value={item.label}
-                      />
-                      <TextField
-                        label='내용'
-                        name={`summary-value-${String(index)}`}
-                        onChange={(event) => {
-                          updateSummaryItem(index, 'value', event.target.value);
-                        }}
-                        value={item.value}
-                      />
-                    </div>
-                  )}
-                />
-
-                <AdminFieldArray
                   addLabel='FAQ 추가'
                   emptyMessage='등록된 FAQ가 없습니다.'
                   helperText='질문과 답변을 각각 입력해 자주 묻는 질문 영역을 구성합니다.'
@@ -1307,40 +1345,35 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                 </div>
               </div>
             </div>
-          ) : isCurriculumView ? (
-            <AdminProgramCurriculumSection
-              embedded
-              enabled={isEditMode}
-              programId={isEditMode && currentDetail ? currentDetail.id : null}
-            />
-          ) : isQuizzesView ? (
-            <AdminProgramQuizzesSection
-              enabled={isEditMode}
-              programId={isEditMode && currentDetail ? currentDetail.id : null}
-            />
-          ) : isTagsView ? (
-            <AdminProgramTagsSection
-              enabled={isEditMode}
-              initialTags={currentDetail?.tags ?? []}
-              key={
-                currentDetail
-                  ? `${String(currentDetail.id)}:${currentDetail.tags.map((tag) => String(tag.id)).join(',')}`
-                  : 'program-tags-empty'
-              }
-              programId={isEditMode && currentDetail ? currentDetail.id : null}
-            />
-          ) : isResourcesView ? (
-            <AdminProgramResourcesSection
-              enabled={isEditMode}
-              initialDocuments={currentDetail?.documents ?? []}
-              key={
-                currentDetail
-                  ? `${String(currentDetail.id)}:${currentDetail.documents.map((document) => String(document.id)).join(',')}`
-                  : 'program-documents-empty'
-              }
-              programId={isEditMode && currentDetail ? currentDetail.id : null}
-            />
-          ) : null}
+          ) : (
+            <div className={styles['stackList']}>
+              <AdminProgramCurriculumSection
+                embedded
+                enabled={isEditMode}
+                onOpenLectureWorkspace={openLectureWorkspace}
+                programType={currentDetail?.programType ?? null}
+                programId={isEditMode && currentDetail ? currentDetail.id : null}
+              />
+              <div ref={quizzesSectionRef}>
+                <AdminProgramQuizzesSection
+                  enabled={isEditMode}
+                  programId={isEditMode && currentDetail ? currentDetail.id : null}
+                />
+              </div>
+              <div ref={resourcesSectionRef}>
+                <AdminProgramResourcesSection
+                  enabled={isEditMode}
+                  initialDocuments={currentDetail?.documents ?? []}
+                  key={
+                    currentDetail
+                      ? `${String(currentDetail.id)}:${currentDetail.documents.map((document) => String(document.id)).join(',')}`
+                      : 'program-documents-empty'
+                  }
+                  programId={isEditMode && currentDetail ? currentDetail.id : null}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </section>

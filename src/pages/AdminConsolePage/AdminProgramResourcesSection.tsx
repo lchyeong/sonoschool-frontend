@@ -1,6 +1,7 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 
 import {
   createAdminResource,
@@ -9,6 +10,7 @@ import {
 } from '@/api/adminResources';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import { adminCurriculumQueryKey, useAdminCurriculumQuery } from '@/query/useAdminCurriculumQuery';
 import { adminProgramDetailLiveQueryKey } from '@/query/useAdminProgramsLiveQuery';
 import { adminResourcesQueryKey } from '@/query/useAdminResourcesQuery';
 import { useToastStore } from '@/stores/useToastStore';
@@ -39,46 +41,49 @@ interface ResourceFormState {
   visibility: AdminResourceVisibility;
 }
 
-type EditorTab = 'create' | 'edit';
+interface LectureOption {
+  id: number;
+  sectionTitle: string;
+  title: string;
+}
 
-const EMPTY_FORM: ResourceFormState = {
+const createEmptyForm = (sortOrder: number): ResourceFormState => ({
   description: '',
   fileName: '',
   fileSize: '0',
   fileUrl: '',
   mimeType: '',
-  sortOrder: '0',
+  sortOrder: String(sortOrder),
   title: '',
   visibility: 'ENROLLED_ONLY',
-};
+});
+
+const createFormState = (document: AdminProgramDocument): ResourceFormState => ({
+  description: document.description ?? '',
+  fileName: document.fileName,
+  fileSize: String(document.fileSize),
+  fileUrl: document.fileUrl,
+  mimeType: document.mimeType ?? '',
+  sortOrder: String(document.sortOrder),
+  title: document.title,
+  visibility: document.visibility,
+});
 
 const visibilityLabelByValue: Record<AdminResourceVisibility, string> = {
   ENROLLED_ONLY: '수강생 전용',
   PUBLIC: '전체 공개',
 };
 
+const visibilityOptions = [
+  { label: '수강생 전용', value: 'ENROLLED_ONLY' },
+  { label: '전체 공개', value: 'PUBLIC' },
+] as const;
+
 const formatDateTime = (value: string): string => {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
-};
-
-const createFormState = (document?: AdminProgramDocument | null): ResourceFormState => {
-  if (!document) {
-    return EMPTY_FORM;
-  }
-
-  return {
-    description: document.description ?? '',
-    fileName: document.fileName,
-    fileSize: String(document.fileSize),
-    fileUrl: document.fileUrl,
-    mimeType: document.mimeType ?? '',
-    sortOrder: String(document.sortOrder),
-    title: document.title,
-    visibility: document.visibility,
-  };
 };
 
 const validateForm = (formState: ResourceFormState): string | null => {
@@ -110,7 +115,7 @@ const validateForm = (formState: ResourceFormState): string | null => {
 };
 
 const confirmResourceDelete = (): boolean => {
-  return window.confirm('프로그램 자료를 삭제하면 되돌릴 수 없습니다. 계속하시겠습니까?');
+  return window.confirm('강의 자료를 삭제하면 되돌릴 수 없습니다. 계속하시겠습니까?');
 };
 
 const AdminProgramResourcesSection = ({
@@ -120,78 +125,113 @@ const AdminProgramResourcesSection = ({
 }: AdminProgramResourcesSectionProps) => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
-  const [documents, setDocuments] = useState<readonly AdminProgramDocument[]>(initialDocuments);
-  const [editorTab, setEditorTab] = useState<EditorTab>('create');
-  const [editingDocumentId, setEditingDocumentId] = useState<number | null>(null);
-  const [formState, setFormState] = useState<ResourceFormState>(EMPTY_FORM);
-  const [searchTerm, setSearchTerm] = useState('');
-  const deferredSearchTerm = useDeferredValue(searchTerm.trim().toLowerCase());
+  const [searchParams] = useSearchParams();
+  const curriculumQuery = useAdminCurriculumQuery(programId, enabled && programId !== null);
+  const [editForms, setEditForms] = useState<Record<number, ResourceFormState>>({});
+  const [createForms, setCreateForms] = useState<Record<number, ResourceFormState>>({});
+  const requestedLectureParam = searchParams.get('lectureId');
+  const requestedLectureId = requestedLectureParam === null ? null : Number(requestedLectureParam);
 
-  useEffect(() => {
-    setDocuments(initialDocuments);
-  }, [initialDocuments]);
+  const lectureOptions = useMemo<LectureOption[]>(() => {
+    const options = (curriculumQuery.data ?? []).flatMap((section) =>
+      section.lectures.map((lecture) => ({
+        id: lecture.id,
+        sectionTitle: section.title,
+        title: lecture.title,
+      })),
+    );
 
-  const editingDocument = documents.find((document) => document.id === editingDocumentId) ?? null;
-
-  const filteredDocuments = useMemo(() => {
-    if (!deferredSearchTerm) {
-      return documents;
+    if (
+      requestedLectureId === null ||
+      !options.some((lecture) => lecture.id === requestedLectureId)
+    ) {
+      return options;
     }
 
-    return documents.filter((document) => {
-      return [document.title, document.fileName, visibilityLabelByValue[document.visibility]].some(
-        (value) => value.toLowerCase().includes(deferredSearchTerm),
-      );
+    return [...options].sort((left, right) => {
+      if (left.id === requestedLectureId) {
+        return -1;
+      }
+      if (right.id === requestedLectureId) {
+        return 1;
+      }
+      return 0;
     });
-  }, [deferredSearchTerm, documents]);
+  }, [curriculumQuery.data, requestedLectureId]);
 
   const refreshProgram = async () => {
     await Promise.all([
+      queryClient.invalidateQueries({ queryKey: adminCurriculumQueryKey(programId) }),
       queryClient.invalidateQueries({ queryKey: adminProgramDetailLiveQueryKey(programId) }),
       queryClient.invalidateQueries({ queryKey: adminResourcesQueryKey() }),
     ]);
   };
 
-  const resetCreateForm = () => {
-    setEditorTab('create');
-    setEditingDocumentId(null);
-    setFormState(EMPTY_FORM);
+  const updateEditForm = (
+    documentId: number,
+    updater: (current: ResourceFormState) => ResourceFormState,
+  ) => {
+    setEditForms((current) => {
+      const nextCurrent =
+        current[documentId] ??
+        createFormState(
+          initialDocuments.find((document) => document.id === documentId) as AdminProgramDocument,
+        );
+      return {
+        ...current,
+        [documentId]: updater(nextCurrent),
+      };
+    });
   };
 
-  const openEditTab = (document: AdminProgramDocument) => {
-    setEditingDocumentId(document.id);
-    setEditorTab('edit');
-    setFormState(createFormState(document));
+  const updateCreateForm = (
+    lectureId: number,
+    sortOrder: number,
+    updater: (current: ResourceFormState) => ResourceFormState,
+  ) => {
+    setCreateForms((current) => ({
+      ...current,
+      [lectureId]: updater(current[lectureId] ?? createEmptyForm(sortOrder)),
+    }));
   };
 
-  const toPayload = (): AdminResourceUpsertPayload => {
-    return {
-      description: formState.description.trim() || null,
-      fileName: formState.fileName.trim(),
-      fileSize: Number(formState.fileSize),
-      fileUrl: formState.fileUrl.trim(),
-      mimeType: formState.mimeType.trim() || null,
-      programId,
-      scope: 'PROGRAM',
-      sortOrder: Number(formState.sortOrder),
-      title: formState.title.trim(),
-      visibility: formState.visibility,
-    };
+  const resetCreateForm = (lectureId: number, sortOrder: number) => {
+    setCreateForms((current) => ({
+      ...current,
+      [lectureId]: createEmptyForm(sortOrder),
+    }));
   };
+
+  const toPayload = (
+    lectureId: number,
+    formState: ResourceFormState,
+  ): AdminResourceUpsertPayload => ({
+    description: formState.description.trim() || null,
+    fileName: formState.fileName.trim(),
+    fileSize: Number(formState.fileSize),
+    fileUrl: formState.fileUrl.trim(),
+    lectureId,
+    mimeType: formState.mimeType.trim() || null,
+    programId,
+    scope: 'PROGRAM',
+    sortOrder: Number(formState.sortOrder),
+    title: formState.title.trim(),
+    visibility: formState.visibility,
+  });
 
   const createMutation = useMutation({
     mutationFn: (payload: AdminResourceUpsertPayload) => createAdminResource(payload),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '프로그램 자료를 등록하지 못했습니다.',
+        message: error instanceof Error ? error.message : '강의 자료를 등록하지 못했습니다.',
         variant: 'error',
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (document) => {
       await refreshProgram();
-      resetCreateForm();
+      resetCreateForm(document.lectureId as number, document.sortOrder + 1);
       showToast({
-        message: '프로그램 자료를 등록했습니다.',
+        message: '강의 자료를 등록했습니다.',
         variant: 'success',
       });
     },
@@ -207,14 +247,14 @@ const AdminProgramResourcesSection = ({
     }) => updateAdminResource(documentId, payload),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '프로그램 자료를 수정하지 못했습니다.',
+        message: error instanceof Error ? error.message : '강의 자료를 수정하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await refreshProgram();
       showToast({
-        message: '프로그램 자료를 수정했습니다.',
+        message: '강의 자료를 수정했습니다.',
         variant: 'success',
       });
     },
@@ -224,18 +264,18 @@ const AdminProgramResourcesSection = ({
     mutationFn: (documentId: number) => deleteAdminResource(documentId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '프로그램 자료를 삭제하지 못했습니다.',
+        message: error instanceof Error ? error.message : '강의 자료를 삭제하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async (_, documentId) => {
       await refreshProgram();
-      setDocuments((current) => current.filter((document) => document.id !== documentId));
-      if (editingDocumentId === documentId) {
-        resetCreateForm();
-      }
+      setEditForms((current) => {
+        const { [documentId]: _removed, ...next } = current;
+        return next;
+      });
       showToast({
-        message: '프로그램 자료를 삭제했습니다.',
+        message: '강의 자료를 삭제했습니다.',
         variant: 'success',
       });
     },
@@ -243,283 +283,373 @@ const AdminProgramResourcesSection = ({
 
   if (!enabled || programId === null) {
     return (
-      <p className={styles['helperText']}>자료는 프로그램을 먼저 저장한 뒤 관리할 수 있습니다.</p>
+      <p className={styles['helperText']}>
+        자료는 프로그램을 먼저 저장한 뒤 강의 단위로 관리할 수 있습니다.
+      </p>
     );
   }
 
-  const handleSubmit = () => {
-    const validationMessage = validateForm(formState);
+  if (curriculumQuery.isPending) {
+    return <p className={styles['helperText']}>강의 목록을 불러오는 중입니다.</p>;
+  }
 
-    if (validationMessage) {
-      showToast({
-        message: validationMessage,
-        variant: 'error',
-      });
-      return;
-    }
+  if (curriculumQuery.isError) {
+    return (
+      <p className={styles['helperText']}>
+        {curriculumQuery.error instanceof Error
+          ? curriculumQuery.error.message
+          : '강의 목록을 불러오지 못했습니다.'}
+      </p>
+    );
+  }
 
-    const payload = toPayload();
-
-    if (editorTab === 'edit' && editingDocumentId !== null) {
-      updateMutation.mutate({ documentId: editingDocumentId, payload });
-      return;
-    }
-
-    createMutation.mutate(payload);
-  };
-
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  if (!lectureOptions.length) {
+    return <p className={styles['helperText']}>먼저 커리큘럼에 강의를 추가해 주세요.</p>;
+  }
 
   return (
     <div className={styles['stackList']}>
-      <section className={styles['panel']}>
+      <article className={styles['panel']}>
         <div className={styles['panelToolbar']}>
           <div>
-            <h2 className={styles['panelTitle']}>프로그램 자료 목록</h2>
-            <p className={styles['metaText']}>총 {filteredDocuments.length}개</p>
+            <h3 className={styles['panelTitle']}>강의 자료</h3>
+            <p className={styles['metaText']}>
+              강의와 직접 연결되는 자료는 여기에서만 등록, 수정, 삭제합니다.
+            </p>
           </div>
-
-          <label className={styles['searchField']}>
-            <span className={styles['searchLabel']}>검색</span>
-            <input
-              aria-label='프로그램 자료 검색'
-              className={styles['searchInput']}
-              onChange={(event) => {
-                setSearchTerm(event.target.value);
-              }}
-              placeholder='자료명, 파일명 검색'
-              type='search'
-              value={searchTerm}
-            />
-          </label>
         </div>
 
-        <div className={styles['tableWrap']}>
-          <table className={`${styles['table']} ${styles['resourceTable']}`}>
-            <thead>
-              <tr>
-                <th scope='col'>자료명</th>
-                <th scope='col'>공개 범위</th>
-                <th scope='col'>파일</th>
-                <th scope='col'>정렬</th>
-                <th scope='col'>등록일</th>
-                <th scope='col'>관리</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDocuments.length > 0 ? (
-                filteredDocuments.map((document) => (
-                  <tr
-                    className={
-                      document.id === editingDocumentId && editorTab === 'edit'
-                        ? styles['resourceTableRowSelected']
-                        : undefined
-                    }
-                    key={document.id}
-                  >
-                    <td>
-                      <button
-                        className={styles['resourceTitleButton']}
+        <p className={styles['helperText']}>{RESOURCE_DOCUMENT_POLICY_HINT}</p>
+
+        <div className={styles['stackList']}>
+          {lectureOptions.map((lecture) => {
+            const lectureDocuments = initialDocuments.filter(
+              (document) => document.lectureId === lecture.id,
+            );
+            const createForm = createForms[lecture.id] ?? createEmptyForm(lectureDocuments.length);
+            const isRequestedLecture = lecture.id === requestedLectureId;
+
+            return (
+              <article
+                className={styles['panel']}
+                data-selected={isRequestedLecture}
+                id={`program-resource-lecture-${String(lecture.id)}`}
+                key={`lecture-resource-${String(lecture.id)}`}
+              >
+                <div className={styles['panelToolbar']}>
+                  <div>
+                    <h4 className={styles['panelTitle']}>{lecture.title}</h4>
+                    <p className={styles['metaText']}>
+                      {lecture.sectionTitle}
+                      {isRequestedLecture ? ' · 현재 선택한 강의' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className={styles['stackListCompact']}>
+                  {lectureDocuments.length ? (
+                    lectureDocuments.map((document) => {
+                      const formState = editForms[document.id] ?? createFormState(document);
+
+                      return (
+                        <article
+                          className={styles['panel']}
+                          key={`resource-document-${String(document.id)}`}
+                        >
+                          <div className={styles['panelToolbar']}>
+                            <div>
+                              <h5 className={styles['panelTitle']}>{document.title}</h5>
+                              <p className={styles['metaText']}>
+                                {visibilityLabelByValue[document.visibility]} ·{' '}
+                                {formatFileSizeLabel(document.fileSize)} ·{' '}
+                                {formatDateTime(document.createdAt)}
+                              </p>
+                            </div>
+                            <div className={styles['actionRow']}>
+                              <Button
+                                onClick={() => {
+                                  const validationMessage = validateForm(formState);
+                                  if (validationMessage) {
+                                    showToast({ message: validationMessage, variant: 'error' });
+                                    return;
+                                  }
+                                  updateMutation.mutate({
+                                    documentId: document.id,
+                                    payload: toPayload(lecture.id, formState),
+                                  });
+                                }}
+                                type='button'
+                                variant='secondary'
+                              >
+                                수정 저장
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  if (!confirmResourceDelete()) {
+                                    return;
+                                  }
+                                  deleteMutation.mutate(document.id);
+                                }}
+                                type='button'
+                                variant='danger'
+                              >
+                                삭제
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className={styles['inlineFieldGrid']}>
+                            <TextField
+                              label='자료 제목'
+                              name={`resource-title-${String(document.id)}`}
+                              onChange={(event) => {
+                                updateEditForm(document.id, (current) => ({
+                                  ...current,
+                                  title: event.target.value,
+                                }));
+                              }}
+                              value={formState.title}
+                            />
+                            <TextField
+                              label='정렬 순서'
+                              name={`resource-sort-order-${String(document.id)}`}
+                              onChange={(event) => {
+                                updateEditForm(document.id, (current) => ({
+                                  ...current,
+                                  sortOrder: event.target.value,
+                                }));
+                              }}
+                              value={formState.sortOrder}
+                            />
+                          </div>
+
+                          <TextAreaField
+                            label='자료 설명'
+                            name={`resource-description-${String(document.id)}`}
+                            onChange={(event) => {
+                              updateEditForm(document.id, (current) => ({
+                                ...current,
+                                description: event.target.value,
+                              }));
+                            }}
+                            value={formState.description}
+                          />
+
+                          <div className={styles['inlineFieldGrid']}>
+                            <TextField
+                              label='파일명'
+                              name={`resource-file-name-${String(document.id)}`}
+                              onChange={(event) => {
+                                updateEditForm(document.id, (current) => ({
+                                  ...current,
+                                  fileName: event.target.value,
+                                }));
+                              }}
+                              value={formState.fileName}
+                            />
+                            <TextField
+                              label='파일 크기(bytes)'
+                              name={`resource-file-size-${String(document.id)}`}
+                              onChange={(event) => {
+                                updateEditForm(document.id, (current) => ({
+                                  ...current,
+                                  fileSize: event.target.value,
+                                }));
+                              }}
+                              value={formState.fileSize}
+                            />
+                          </div>
+
+                          <div className={styles['inlineFieldGrid']}>
+                            <TextField
+                              label='파일 주소'
+                              name={`resource-file-url-${String(document.id)}`}
+                              onChange={(event) => {
+                                updateEditForm(document.id, (current) => ({
+                                  ...current,
+                                  fileUrl: event.target.value,
+                                }));
+                              }}
+                              value={formState.fileUrl}
+                            />
+                            <TextField
+                              label='MIME 타입'
+                              name={`resource-mime-type-${String(document.id)}`}
+                              onChange={(event) => {
+                                updateEditForm(document.id, (current) => ({
+                                  ...current,
+                                  mimeType: event.target.value,
+                                }));
+                              }}
+                              value={formState.mimeType}
+                            />
+                          </div>
+
+                          <div className={styles['compactFieldRow']}>
+                            {visibilityOptions.map((option) => (
+                              <label className={styles['checkboxField']} key={option.value}>
+                                <input
+                                  checked={formState.visibility === option.value}
+                                  onChange={() => {
+                                    updateEditForm(document.id, (current) => ({
+                                      ...current,
+                                      visibility: option.value,
+                                    }));
+                                  }}
+                                  type='radio'
+                                />
+                                {option.label}
+                              </label>
+                            ))}
+                          </div>
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <p className={styles['helperText']}>등록된 강의 자료가 없습니다.</p>
+                  )}
+
+                  <article className={styles['panel']}>
+                    <div className={styles['panelToolbar']}>
+                      <div>
+                        <h5 className={styles['panelTitle']}>새 강의 자료 등록</h5>
+                        <p className={styles['metaText']}>
+                          이 강의에만 연결되는 자료를 추가합니다.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={styles['inlineFieldGrid']}>
+                      <TextField
+                        label='자료 제목'
+                        name={`resource-create-title-${String(lecture.id)}`}
+                        onChange={(event) => {
+                          updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
+                            ...current,
+                            title: event.target.value,
+                          }));
+                        }}
+                        value={createForm.title}
+                      />
+                      <TextField
+                        label='정렬 순서'
+                        name={`resource-create-sort-order-${String(lecture.id)}`}
+                        onChange={(event) => {
+                          updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
+                            ...current,
+                            sortOrder: event.target.value,
+                          }));
+                        }}
+                        value={createForm.sortOrder}
+                      />
+                    </div>
+
+                    <TextAreaField
+                      label='자료 설명'
+                      name={`resource-create-description-${String(lecture.id)}`}
+                      onChange={(event) => {
+                        updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
+                          ...current,
+                          description: event.target.value,
+                        }));
+                      }}
+                      value={createForm.description}
+                    />
+
+                    <div className={styles['inlineFieldGrid']}>
+                      <TextField
+                        label='파일명'
+                        name={`resource-create-file-name-${String(lecture.id)}`}
+                        onChange={(event) => {
+                          updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
+                            ...current,
+                            fileName: event.target.value,
+                          }));
+                        }}
+                        value={createForm.fileName}
+                      />
+                      <TextField
+                        label='파일 크기(bytes)'
+                        name={`resource-create-file-size-${String(lecture.id)}`}
+                        onChange={(event) => {
+                          updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
+                            ...current,
+                            fileSize: event.target.value,
+                          }));
+                        }}
+                        value={createForm.fileSize}
+                      />
+                    </div>
+
+                    <div className={styles['inlineFieldGrid']}>
+                      <TextField
+                        label='파일 주소'
+                        name={`resource-create-file-url-${String(lecture.id)}`}
+                        onChange={(event) => {
+                          updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
+                            ...current,
+                            fileUrl: event.target.value,
+                          }));
+                        }}
+                        value={createForm.fileUrl}
+                      />
+                      <TextField
+                        label='MIME 타입'
+                        name={`resource-create-mime-type-${String(lecture.id)}`}
+                        onChange={(event) => {
+                          updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
+                            ...current,
+                            mimeType: event.target.value,
+                          }));
+                        }}
+                        value={createForm.mimeType}
+                      />
+                    </div>
+
+                    <div className={styles['compactFieldRow']}>
+                      {visibilityOptions.map((option) => (
+                        <label
+                          className={styles['checkboxField']}
+                          key={`create-${String(lecture.id)}-${option.value}`}
+                        >
+                          <input
+                            checked={createForm.visibility === option.value}
+                            onChange={() => {
+                              updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
+                                ...current,
+                                visibility: option.value,
+                              }));
+                            }}
+                            type='radio'
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className={styles['actionRow']}>
+                      <Button
                         onClick={() => {
-                          openEditTab(document);
+                          const validationMessage = validateForm(createForm);
+                          if (validationMessage) {
+                            showToast({ message: validationMessage, variant: 'error' });
+                            return;
+                          }
+                          createMutation.mutate(toPayload(lecture.id, createForm));
                         }}
                         type='button'
+                        variant='secondary'
                       >
-                        {document.title}
-                      </button>
-                    </td>
-                    <td>{visibilityLabelByValue[document.visibility]}</td>
-                    <td>
-                      <div className={styles['stackListCompact']}>
-                        <span>{document.fileName}</span>
-                        <span className={styles['metaText']}>
-                          {formatFileSizeLabel(document.fileSize)}
-                        </span>
-                      </div>
-                    </td>
-                    <td>{document.sortOrder}</td>
-                    <td>{formatDateTime(document.createdAt)}</td>
-                    <td>
-                      <div className={styles['tableActionGroup']}>
-                        <button
-                          className={styles['tableActionButton']}
-                          onClick={() => {
-                            openEditTab(document);
-                          }}
-                          type='button'
-                        >
-                          수정
-                        </button>
-                        <button
-                          className={styles['tableActionButtonDanger']}
-                          onClick={() => {
-                            if (!confirmResourceDelete()) {
-                              return;
-                            }
-                            deleteMutation.mutate(document.id);
-                          }}
-                          type='button'
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className={styles['helperText']} colSpan={6}>
-                    등록된 프로그램 자료가 없습니다.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                        자료 등록
+                      </Button>
+                    </div>
+                  </article>
+                </div>
+              </article>
+            );
+          })}
         </div>
-      </section>
-
-      <section className={styles['panel']}>
-        <div className={styles['editorTabs']}>
-          <button
-            className={editorTab === 'create' ? styles['editorTabActive'] : styles['editorTab']}
-            onClick={() => {
-              resetCreateForm();
-            }}
-            type='button'
-          >
-            새 자료 등록
-          </button>
-          <button
-            className={editorTab === 'edit' ? styles['editorTabActive'] : styles['editorTab']}
-            disabled={!editingDocument}
-            onClick={() => {
-              if (!editingDocument) {
-                return;
-              }
-              setEditorTab('edit');
-              setFormState(createFormState(editingDocument));
-            }}
-            type='button'
-          >
-            {editingDocument ? `${editingDocument.title} 수정` : '자료 수정'}
-          </button>
-        </div>
-
-        <div className={styles['editorTabBody']}>
-          {editorTab === 'edit' && !editingDocument ? (
-            <p className={styles['helperText']}>상단 목록에서 수정할 자료를 선택해 주세요.</p>
-          ) : (
-            <div className={styles['form']}>
-              <div className={styles['compactFieldRow']}>
-                <TextField
-                  label='자료명'
-                  name='programResourceTitle'
-                  onChange={(event) => {
-                    setFormState((current) => ({ ...current, title: event.target.value }));
-                  }}
-                  value={formState.title}
-                />
-                <TextField
-                  label='정렬 순서'
-                  name='programResourceSortOrder'
-                  onChange={(event) => {
-                    setFormState((current) => ({ ...current, sortOrder: event.target.value }));
-                  }}
-                  value={formState.sortOrder}
-                />
-              </div>
-
-              <div className={styles['compactFieldRow']}>
-                <Button
-                  onClick={() => {
-                    setFormState((current) => ({ ...current, visibility: 'PUBLIC' }));
-                  }}
-                  type='button'
-                  variant={formState.visibility === 'PUBLIC' ? 'primary' : 'secondary'}
-                >
-                  전체 공개
-                </Button>
-                <Button
-                  onClick={() => {
-                    setFormState((current) => ({ ...current, visibility: 'ENROLLED_ONLY' }));
-                  }}
-                  type='button'
-                  variant={formState.visibility === 'ENROLLED_ONLY' ? 'primary' : 'secondary'}
-                >
-                  수강생 전용
-                </Button>
-              </div>
-
-              <TextAreaField
-                label='설명'
-                name='programResourceDescription'
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, description: event.target.value }));
-                }}
-                value={formState.description}
-              />
-
-              <div className={styles['compactFieldRow']}>
-                <TextField
-                  label='파일명'
-                  name='programResourceFileName'
-                  onChange={(event) => {
-                    setFormState((current) => ({ ...current, fileName: event.target.value }));
-                  }}
-                  value={formState.fileName}
-                />
-                <TextField
-                  label='파일 크기(byte)'
-                  name='programResourceFileSize'
-                  onChange={(event) => {
-                    setFormState((current) => ({ ...current, fileSize: event.target.value }));
-                  }}
-                  value={formState.fileSize}
-                />
-              </div>
-
-              <TextField
-                label='파일 주소'
-                name='programResourceFileUrl'
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, fileUrl: event.target.value }));
-                }}
-                value={formState.fileUrl}
-              />
-
-              <TextField
-                label='MIME 타입'
-                name='programResourceMimeType'
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, mimeType: event.target.value }));
-                }}
-                value={formState.mimeType}
-              />
-
-              <p className={styles['helperText']}>{RESOURCE_DOCUMENT_POLICY_HINT}</p>
-
-              <div className={styles['actionRow']}>
-                <Button disabled={isSubmitting} onClick={handleSubmit} type='button'>
-                  {editorTab === 'edit' ? '자료 저장' : '자료 등록'}
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (editorTab === 'edit' && editingDocument) {
-                      setFormState(createFormState(editingDocument));
-                      return;
-                    }
-                    resetCreateForm();
-                  }}
-                  type='button'
-                  variant='secondary'
-                >
-                  {editorTab === 'edit' ? '변경 취소' : '초기화'}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
+      </article>
     </div>
   );
 };

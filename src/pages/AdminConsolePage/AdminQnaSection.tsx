@@ -111,7 +111,7 @@ const AdminQnaSection = () => {
         <div className={styles['heroCopy']}>
           <h1 className={styles['title']}>문의 답변 관리</h1>
           <p className={styles['description']}>
-            운영 Q&A와 과정 Q&A를 한 화면에서 확인하고, 답변 대기 질문부터 처리합니다.
+            운영 Q&A로 접수된 질문을 확인하고, 답변 대기 문의부터 순차적으로 처리합니다.
           </p>
         </div>
         <div className={styles['heroActionGroup']}>
@@ -127,7 +127,7 @@ const AdminQnaSection = () => {
           <section className={styles['qnaListPanel']}>
             <header className={styles['qnaPanelHeader']}>
               <h2 className={styles['qnaPanelTitle']}>전체 질문</h2>
-              <p className={styles['qnaPanelMeta']}>운영/과정 질문 통합 목록</p>
+              <p className={styles['qnaPanelMeta']}>운영 Q&A 목록</p>
             </header>
 
             <div className={styles['qnaList']}>
@@ -145,9 +145,7 @@ const AdminQnaSection = () => {
                     type='button'
                   >
                     <div className={styles['qnaListItemHeader']}>
-                      <span className={styles['qnaScopeBadge']}>
-                        {question.scope === 'GLOBAL' ? '운영 Q&A' : '과정 Q&A'}
-                      </span>
+                      <span className={styles['qnaScopeBadge']}>운영 Q&A</span>
                       <span
                         className={styles['qnaStatusBadge']}
                         data-tone={question.answered ? 'answered' : 'waiting'}
@@ -173,9 +171,7 @@ const AdminQnaSection = () => {
               <>
                 <header className={styles['qnaPanelHeader']}>
                   <div className={styles['qnaDetailHeader']}>
-                    <span className={styles['qnaScopeBadge']}>
-                      {selectedQuestion.scope === 'GLOBAL' ? '운영 Q&A' : '과정 Q&A'}
-                    </span>
+                    <span className={styles['qnaScopeBadge']}>운영 Q&A</span>
                     <span
                       className={styles['qnaStatusBadge']}
                       data-tone={selectedQuestion.answered ? 'answered' : 'waiting'}

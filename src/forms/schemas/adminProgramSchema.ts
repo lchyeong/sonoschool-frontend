@@ -156,7 +156,7 @@ export const adminProgramSchema = z
     learningEndDate: nullableDateStringSchema,
     learningPoints: z
       .array(programListItemSchema)
-      .min(1, '핵심 학습 포인트는 최소 1개 이상 추가해 주세요.'),
+      .min(1, '학습 성과는 최소 1개 이상 추가해 주세요.'),
     learningStartDate: nullableDateStringSchema,
     originalPrice: numericStringSchema,
     parentCollectionPath: z.string().trim().min(1, '등록 위치를 선택해 주세요.'),

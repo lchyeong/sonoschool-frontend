@@ -8,6 +8,8 @@ export interface AdminResourceItem {
   fileSize: number;
   fileUrl: string;
   id: number;
+  lectureId: number | null;
+  lectureTitle: string | null;
   mimeType: string | null;
   programId: number | null;
   programTitle: string | null;
@@ -22,6 +24,7 @@ export interface AdminResourceUpsertPayload {
   fileName: string;
   fileSize: number;
   fileUrl: string;
+  lectureId: number | null;
   mimeType: string | null;
   programId: number | null;
   scope: AdminResourceScope;
