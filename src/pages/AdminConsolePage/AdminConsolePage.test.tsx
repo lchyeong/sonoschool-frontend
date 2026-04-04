@@ -72,6 +72,83 @@ const createAdminCouponFixture = (count: number) => {
   });
 };
 
+const createAdminProgramDraftDetailFixture = () => {
+  return {
+    createdAt: '2026-03-27T09:00:00Z',
+    finalProgramId: null,
+    id: 91001,
+    payload: {
+      basicInfo: {
+        accessDays: null,
+        accessPolicy: 'UNLIMITED',
+        categoryId: null,
+        checklists: [],
+        description: null,
+        faqs: [],
+        instructorBio: null,
+        instructorName: null,
+        learningEndAt: null,
+        learningPoints: [],
+        learningStartAt: null,
+        level: null,
+        maxStudents: null,
+        price: null,
+        programType: 'ONLINE',
+        recommendedFor: [],
+        saleEndAt: null,
+        salePrice: null,
+        saleStartAt: null,
+        slug: null,
+        summaryItems: [],
+        thumbnailUrl: null,
+        title: null,
+      },
+      quizzes: [],
+      resources: [],
+      sections: [
+        {
+          description: null,
+          key: 'section-1',
+          lectures: [
+            {
+              description: null,
+              durationSeconds: null,
+              key: 'lecture-1',
+              practicumEnabled: false,
+              preview: false,
+              published: false,
+              sortOrder: 0,
+              title: null,
+              videoId: null,
+            },
+          ],
+          sortOrder: 0,
+          title: null,
+        },
+      ],
+    },
+    status: 'ACTIVE',
+    titlePreview: null,
+    updatedAt: '2026-03-27T09:00:00Z',
+  };
+};
+
+const mockProgramDraftApis = () => {
+  const draftDetail = createAdminProgramDraftDetailFixture();
+
+  server.use(
+    http.get('*/api/v1/admin/program-drafts', () => {
+      return HttpResponse.json({ data: [] });
+    }),
+    http.post('*/api/v1/admin/program-drafts', () => {
+      return HttpResponse.json({ data: draftDetail });
+    }),
+    http.get('*/api/v1/admin/program-drafts/:draftId', () => {
+      return HttpResponse.json({ data: draftDetail });
+    }),
+  );
+};
+
 const getClosestButton = (text: string): HTMLButtonElement => {
   const button = screen.getByText(text).closest('button');
 
@@ -111,6 +188,8 @@ const renderAdminConsolePage = (
 
 const renderAdminConsoleRoute = (initialEntry = '/admin/programs') => {
   const queryClient = createTestQueryClient();
+
+  mockProgramDraftApis();
 
   useAdminAuthStore.setState({
     accessToken: 'admin-token',
@@ -173,6 +252,8 @@ describe('AdminConsolePage', () => {
   });
 
   it('keeps the admin shell visible when the program list API fails', async () => {
+    mockProgramDraftApis();
+
     server.use(
       http.get('*/api/v1/admin/programs', () => {
         return HttpResponse.json({ message: 'program list failed' }, { status: 500 });
@@ -188,6 +269,14 @@ describe('AdminConsolePage', () => {
   });
 
   it('moves from the program list to the dedicated create page', async () => {
+    mockProgramDraftApis();
+
+    server.use(
+      http.get('*/api/v1/admin/tags', () => {
+        return HttpResponse.json({ data: createAdminTagFixture(3) });
+      }),
+    );
+
     renderAdminConsoleRoute('/admin/programs');
 
     expect(
@@ -198,7 +287,7 @@ describe('AdminConsolePage', () => {
     fireEvent.click(screen.getByRole('button', { name: '새 프로그램 등록' }));
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '새 프로그램 등록' }),
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
     ).toBeInTheDocument();
   });
 
@@ -233,22 +322,57 @@ describe('AdminConsolePage', () => {
     expect(screen.getByText('등록된 프로그램 자료가 없습니다.')).toBeInTheDocument();
   });
 
+  it('moves from the notice list to dedicated create and edit pages', async () => {
+    renderAdminConsoleRoute('/admin/notices');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '공지사항 관리' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('전역 공지 목록')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '새 공지 등록' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 공지 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '공지사항 관리' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: '수정' })[0]);
+
+    expect(await screen.findByRole('heading', { level: 1, name: '공지 수정' })).toBeInTheDocument();
+    expect(screen.getByLabelText('공지 제목')).toHaveValue('관리자 내부 초안 공지');
+  });
+
+  it('renders popup management as an image-only workflow', async () => {
+    renderAdminConsoleRoute('/admin/popups');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '팝업 관리' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('팝업 이미지 파일')).toBeInTheDocument();
+    expect(screen.queryByLabelText('팝업 제목')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('팝업 본문')).not.toBeInTheDocument();
+  });
+
   it('renders the qna management section with pending threads first', async () => {
     renderAdminConsoleRoute('/admin/qna');
 
-    expect(await screen.findByText('답변 대기 2건')).toBeInTheDocument();
-    expect(screen.getByText('오프라인 핸즈온 과정 환불 기준이 궁금합니다.')).toBeInTheDocument();
+    expect(await screen.findByText('답변 대기 1건')).toBeInTheDocument();
+    expect(screen.getAllByText('오프라인 핸즈온 과정 환불 기준이 궁금합니다.').length).toBe(2);
     expect(screen.getAllByText('답변 대기').length).toBeGreaterThan(0);
   });
 
   it('deletes an admin qna reply from the selected thread', async () => {
     renderAdminConsoleRoute('/admin/qna');
 
-    await screen.findByText('복부 실전 워크숍은 사전 복습이 필요한가요?');
+    await screen.findByText('회원가입 후 본인인증 문자가 오지 않을 때는 어떻게 하나요?');
 
-    fireEvent.click(getClosestButton('복부 실전 워크숍은 사전 복습이 필요한가요?'));
+    fireEvent.click(getClosestButton('회원가입 후 본인인증 문자가 오지 않을 때는 어떻게 하나요?'));
     expect(
-      await screen.findByText(/기본 스캔 루틴 영상은 미리 한번 보고 오시는 것을 권장합니다./),
+      await screen.findByText(/통신사 스팸 차단과 번호 입력 형식을 먼저 확인해 주세요./),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole('button', { name: '삭제' })[0]);
@@ -491,7 +615,7 @@ describe('AdminConsolePage', () => {
     expect(screen.getByLabelText('쿠폰 코드')).toHaveValue('COUPON-9');
   });
 
-  it('renders searchable paginated resources with a dedicated edit tab', async () => {
+  it('shows only global resources in the resource library and uses dedicated create and edit pages', async () => {
     server.use(
       http.get('*/api/v1/admin/resources', () => {
         return HttpResponse.json({
@@ -505,25 +629,38 @@ describe('AdminConsolePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: '자료실 관리' }),
     ).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: '자료 1' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '2' }));
-
-    expect(await screen.findByRole('button', { name: '자료 9' })).toBeInTheDocument();
+    expect(await screen.findByText('전체 공개 자료 목록')).toBeInTheDocument();
+    expect(screen.getByText('자료 1')).toBeInTheDocument();
+    expect(screen.queryByText('자료 2')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('프로그램 자료는 프로그램 등록/수정 화면에서만 관리합니다.'),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole('searchbox', { name: '자료 검색' }), {
       target: { value: 'resource-9' },
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '자료 9' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: '자료 1' })).not.toBeInTheDocument();
+      expect(screen.getByText('자료 9')).toBeInTheDocument();
+      expect(screen.queryByText('자료 1')).not.toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: '수정' }));
+    fireEvent.click(screen.getByRole('button', { name: '새 자료 등록' }));
 
-    expect(await screen.findByRole('button', { name: '자료 9 수정' })).toBeInTheDocument();
-    expect(screen.getByLabelText('파일명')).toHaveValue('resource-9.pdf');
-    expect(screen.getByLabelText('파일 주소')).toHaveValue('https://example.com/resource-9.pdf');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 자료 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '자료실 관리' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: '수정' })[0]);
+
+    expect(await screen.findByRole('heading', { level: 1, name: '자료 수정' })).toBeInTheDocument();
+    expect(screen.getByLabelText('파일명')).toHaveValue('resource-1.pdf');
+    expect(screen.getByLabelText('파일 주소')).toHaveValue('https://example.com/resource-1.pdf');
   });
 });

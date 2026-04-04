@@ -33,7 +33,7 @@ const renderAdminLoginPage = () => {
       <MemoryRouter initialEntries={[routePaths.adminLogin]}>
         <Routes>
           <Route element={<AdminLoginPage />} path={routePaths.adminLogin} />
-          <Route element={<div>admin destination</div>} path={routePaths.adminVideos} />
+          <Route element={<div>admin destination</div>} path={routePaths.adminPrograms} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,

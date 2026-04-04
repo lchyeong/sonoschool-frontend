@@ -92,13 +92,6 @@ export const AdminDashboardSection = () => {
       value: paymentsQuery.data ? `${String(paymentsQuery.data.length)}건` : '확인 중',
     },
     {
-      description: 'S3 업로드와 인코딩 시작, 강의 연결 작업을 실제 흐름으로 점검합니다.',
-      id: 'videos',
-      label: '영상 업로드',
-      tone: 'brand',
-      value: '실연동',
-    },
-    {
       description: '리뷰 운영 화면이 다음 구현 대상으로 남아 있습니다.',
       id: 'gaps',
       label: '추가 구현',
@@ -142,24 +135,6 @@ export const AdminDashboardSection = () => {
       to: routePaths.adminQna,
     },
     {
-      countLabel: '분류 마스터',
-      description: '프로그램 태그 마스터를 만들고 활성/비활성 상태를 관리합니다.',
-      title: '태그 관리',
-      to: routePaths.adminTags,
-    },
-    {
-      countLabel: '실연동',
-      description: '쿠폰 등록, 수정, 활성화와 비활성화를 실제 쿠폰 API로 관리합니다.',
-      title: '쿠폰 관리',
-      to: routePaths.adminCoupons,
-    },
-    {
-      countLabel: '업로드 가능',
-      description: '실제 영상 업로드 세션 생성과 인코딩 상태를 확인합니다.',
-      title: '영상 업로드',
-      to: routePaths.adminVideos,
-    },
-    {
       countLabel: paymentsQuery.data ? `${String(paymentsQuery.data.length)}건` : '확인 중',
       description: '결제 상태와 취소 처리 내역을 운영자 기준으로 확인합니다.',
       title: '결제 관리',
@@ -191,8 +166,7 @@ export const AdminDashboardSection = () => {
         <div className={styles['heroCopy']}>
           <h1 className={styles['title']}>운영 개요</h1>
           <p className={styles['description']}>
-            공지, 문의, 프로그램, 자료, 수강, 영상, 결제 관리의 현재 운영 상태를 한곳에서
-            확인합니다.
+            공지, 문의, 프로그램, 자료, 수강, 결제 관리의 현재 운영 상태를 한곳에서 확인합니다.
           </p>
         </div>
       </header>

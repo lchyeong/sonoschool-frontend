@@ -3,39 +3,47 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
+  createAdminPopupMediaUploadTarget,
+  uploadAdminPopupMediaFile,
+} from '@/api/adminPopupMedia';
+import {
   createAdminPopupLive,
   deleteAdminPopupLive,
   publishAdminPopupLive,
   unpublishAdminPopupLive,
   updateAdminPopupLive,
-} from '@/api/notices';
+} from '@/api/popups';
 import Button from '@/components/ui/Button/Button';
-import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import { TextField } from '@/components/ui/TextField/TextField';
 import {
   adminPopupsQueryKey,
   globalPopupsQueryKey,
   useAdminPopupsQuery,
-} from '@/query/useNoticeQueries';
+} from '@/query/usePopupQueries';
 import { useToastStore } from '@/stores/useToastStore';
-import type { AdminPopupCreatePayload, AdminPopupUpdatePayload, NoticeItem } from '@/types/notice';
+import type { AdminPopupCreatePayload, AdminPopupUpdatePayload, PopupItem } from '@/types/popup';
 
 import styles from './AdminConsolePage.module.scss';
 
 interface PopupFormState {
-  content: string;
+  imageAlt: string;
+  imageAssetId: number | null;
+  imageUrl: string;
   published: boolean;
-  title: string;
+  sortOrder: number;
   visibleEndAt: string;
   visibleStartAt: string;
 }
 
-const EMPTY_FORM: PopupFormState = {
-  content: '',
+const createEmptyForm = (sortOrder = 0): PopupFormState => ({
+  imageAlt: '',
+  imageAssetId: null,
+  imageUrl: '',
   published: true,
-  title: '',
+  sortOrder,
   visibleEndAt: '',
   visibleStartAt: '',
-};
+});
 
 const formatDateTime = (value: string | null): string => {
   if (!value) {
@@ -74,31 +82,27 @@ const toIsoStringOrNull = (value: string): string | null => {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
-const createFormState = (popup?: NoticeItem | null): PopupFormState => {
+const buildPopupLabelFromFilename = (filename: string): string => {
+  return filename.replace(/\.[^.]+$/, '').trim() || '홈 팝업';
+};
+
+const createFormState = (popup?: PopupItem | null): PopupFormState => {
   if (!popup) {
-    return EMPTY_FORM;
+    return createEmptyForm();
   }
 
   return {
-    content: popup.content,
+    imageAlt: popup.altText,
+    imageAssetId: popup.imageAssetId,
+    imageUrl: popup.imageUrl,
     published: popup.published,
-    title: popup.title,
+    sortOrder: popup.sortOrder,
     visibleEndAt: formatDateTimeInputValue(popup.visibleEndAt),
     visibleStartAt: formatDateTimeInputValue(popup.visibleStartAt),
   };
 };
 
-const getNoticePreview = (content: string): string => {
-  const normalized = content.replace(/\s+/g, ' ').trim();
-
-  if (!normalized) {
-    return '본문이 없습니다.';
-  }
-
-  return normalized.length > 110 ? `${normalized.slice(0, 110)}...` : normalized;
-};
-
-const formatVisibilityWindow = (popup: NoticeItem): string => {
+const formatVisibilityWindow = (popup: PopupItem): string => {
   if (!popup.visibleStartAt && !popup.visibleEndAt) {
     return '상시 노출';
   }
@@ -114,13 +118,22 @@ const formatVisibilityWindow = (popup: NoticeItem): string => {
   return `${formatDateTime(popup.visibleEndAt)}까지`;
 };
 
+const getNextSortOrder = (popups: PopupItem[]): number => {
+  if (!popups.length) {
+    return 0;
+  }
+
+  return Math.max(...popups.map((popup) => popup.sortOrder)) + 1;
+};
+
 const AdminPopupsSection = () => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const popupsQuery = useAdminPopupsQuery();
   const [selectedPopupIdState, setSelectedPopupId] = useState<number | null>(null);
   const [editingPopupIdState, setEditingPopupId] = useState<number | null>(null);
-  const [formState, setFormState] = useState<PopupFormState>(EMPTY_FORM);
+  const [formState, setFormState] = useState<PopupFormState>(createEmptyForm());
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const popups = useMemo(() => popupsQuery.data ?? [], [popupsQuery.data]);
   const firstPopup = popups.at(0) ?? null;
@@ -152,7 +165,8 @@ const AdminPopupsSection = () => {
     },
     onSuccess: async (popup) => {
       await refreshPopups();
-      setFormState(EMPTY_FORM);
+      setEditingPopupId(null);
+      setFormState(createEmptyForm(popup.sortOrder + 1));
       setSelectedPopupId(popup.id);
       showToast({
         message: '팝업을 등록했습니다.',
@@ -162,7 +176,7 @@ const AdminPopupsSection = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ popupId, payload }: { popupId: number; payload: AdminPopupUpdatePayload }) =>
+    mutationFn: ({ payload, popupId }: { payload: AdminPopupUpdatePayload; popupId: number }) =>
       updateAdminPopupLive(popupId, payload),
     onError: (error: unknown) => {
       showToast({
@@ -173,7 +187,7 @@ const AdminPopupsSection = () => {
     onSuccess: async (popup) => {
       await refreshPopups();
       setEditingPopupId(null);
-      setFormState(EMPTY_FORM);
+      setFormState(createEmptyForm(getNextSortOrder(popups)));
       setSelectedPopupId(popup.id);
       showToast({
         message: '팝업을 수정했습니다.',
@@ -232,7 +246,7 @@ const AdminPopupsSection = () => {
       }
       if (editingPopupId === popupId) {
         setEditingPopupId(null);
-        setFormState(EMPTY_FORM);
+        setFormState(createEmptyForm(getNextSortOrder(popups)));
       }
 
       showToast({
@@ -244,28 +258,71 @@ const AdminPopupsSection = () => {
 
   const startCreate = () => {
     setEditingPopupId(null);
-    setFormState(EMPTY_FORM);
+    setFormState(createEmptyForm(getNextSortOrder(popups)));
   };
 
-  const startEdit = (popup: NoticeItem) => {
+  const startEdit = (popup: PopupItem) => {
     setSelectedPopupId(popup.id);
     setEditingPopupId(popup.id);
     setFormState(createFormState(popup));
   };
 
-  const handleSubmit = () => {
-    const title = formState.title.trim();
-    const content = formState.content.trim();
-    const visibleStartAt = toIsoStringOrNull(formState.visibleStartAt);
-    const visibleEndAt = toIsoStringOrNull(formState.visibleEndAt);
-
-    if (!title) {
-      showToast({ message: '팝업 제목을 입력해 주세요.', variant: 'error' });
+  const handleImageFileChange = async (file: File | null) => {
+    if (!file) {
       return;
     }
 
-    if (!content) {
-      showToast({ message: '팝업 본문을 입력해 주세요.', variant: 'error' });
+    setIsUploadingImage(true);
+
+    try {
+      const uploadTarget = await createAdminPopupMediaUploadTarget({
+        contentType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        filename: file.name,
+      });
+
+      await uploadAdminPopupMediaFile(uploadTarget.uploadUrl, file);
+
+      setFormState((current) => ({
+        ...current,
+        imageAlt: current.imageAlt.trim()
+          ? current.imageAlt
+          : buildPopupLabelFromFilename(file.name),
+        imageAssetId: uploadTarget.assetId,
+        imageUrl: uploadTarget.previewUrl,
+      }));
+
+      showToast({
+        message: '팝업 이미지를 업로드했습니다.',
+        variant: 'success',
+      });
+    } catch (error: unknown) {
+      showToast({
+        message: error instanceof Error ? error.message : '팝업 이미지 업로드에 실패했습니다.',
+        variant: 'error',
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    const imageAlt = formState.imageAlt.trim();
+    const visibleStartAt = toIsoStringOrNull(formState.visibleStartAt);
+    const visibleEndAt = toIsoStringOrNull(formState.visibleEndAt);
+
+    if (formState.imageAssetId === null || !formState.imageUrl.trim()) {
+      showToast({ message: '팝업 이미지를 첨부해 주세요.', variant: 'error' });
+      return;
+    }
+
+    if (!imageAlt) {
+      showToast({ message: '이미지 설명을 입력해 주세요.', variant: 'error' });
+      return;
+    }
+
+    if (formState.sortOrder < 0) {
+      showToast({ message: '정렬 순서는 0 이상이어야 합니다.', variant: 'error' });
       return;
     }
 
@@ -274,31 +331,33 @@ const AdminPopupsSection = () => {
       return;
     }
 
+    const payload = {
+      altText: imageAlt,
+      imageAssetId: formState.imageAssetId,
+      sortOrder: formState.sortOrder,
+      visibleEndAt,
+      visibleStartAt,
+    };
+
     if (editingPopupId === null) {
       createMutation.mutate({
-        content,
+        ...payload,
         published: formState.published,
-        title,
-        visibleEndAt,
-        visibleStartAt,
       });
       return;
     }
 
     updateMutation.mutate({
+      payload,
       popupId: editingPopupId,
-      payload: {
-        content,
-        title,
-        visibleEndAt,
-        visibleStartAt,
-      },
     });
   };
 
   const summary = {
     publishedCount: popups.filter((popup) => popup.published).length,
-    scheduledCount: popups.filter((popup) => popup.visibleStartAt !== null).length,
+    scheduledCount: popups.filter(
+      (popup) => popup.visibleStartAt !== null || popup.visibleEndAt !== null,
+    ).length,
     totalCount: popups.length,
   };
 
@@ -331,18 +390,20 @@ const AdminPopupsSection = () => {
           <p className={styles['summaryLabel']}>전체 팝업</p>
           <strong className={styles['summaryValue']}>{String(summary.totalCount)}건</strong>
           <p className={styles['summaryDescription']}>
-            홈 진입 시 노출되는 팝업 항목을 따로 관리합니다.
+            홈 진입 시 순차 노출할 이미지 팝업 목록입니다.
           </p>
         </article>
         <article className={styles['summaryCard']} data-tone='accent'>
           <p className={styles['summaryLabel']}>게시 중</p>
           <strong className={styles['summaryValue']}>{String(summary.publishedCount)}건</strong>
-          <p className={styles['summaryDescription']}>홈에서 실제 노출 가능한 팝업 수입니다.</p>
+          <p className={styles['summaryDescription']}>게시 상태인 팝업 수입니다.</p>
         </article>
         <article className={styles['summaryCard']} data-tone='neutral'>
           <p className={styles['summaryLabel']}>노출 기간 설정</p>
           <strong className={styles['summaryValue']}>{String(summary.scheduledCount)}건</strong>
-          <p className={styles['summaryDescription']}>시작/종료 시각이 지정된 팝업 수입니다.</p>
+          <p className={styles['summaryDescription']}>
+            시작 또는 종료 시각이 지정된 팝업 수입니다.
+          </p>
         </article>
       </section>
 
@@ -355,25 +416,68 @@ const AdminPopupsSection = () => {
           </header>
 
           <div className={styles['form']}>
+            <div className={styles['mediaField']}>
+              <div className={styles['mediaFieldHeader']}>
+                <div className={styles['mediaFieldCopy']}>
+                  <p className={styles['fieldLabel']}>팝업 이미지</p>
+                  <p className={styles['fieldHint']}>
+                    텍스트 없이 이미지 한 장만 팝업으로 노출합니다.
+                  </p>
+                </div>
+              </div>
+
+              <TextField
+                accept='image/*'
+                disabled={isUploadingImage}
+                label={isUploadingImage ? '팝업 이미지 업로드 중' : '팝업 이미지 파일'}
+                name='popupImageFile'
+                onChange={(event) => {
+                  void handleImageFileChange(event.target.files?.[0] ?? null);
+                  event.currentTarget.value = '';
+                }}
+                type='file'
+              />
+
+              {formState.imageUrl ? (
+                <div className={styles['thumbnailPreview']}>
+                  <img
+                    alt={formState.imageAlt || '팝업 이미지 미리보기'}
+                    className={styles['thumbnailPreviewImage']}
+                    src={formState.imageUrl}
+                  />
+                </div>
+              ) : (
+                <div className={styles['thumbnailEmptyState']}>
+                  업로드한 이미지가 여기에 미리보기로 표시됩니다.
+                </div>
+              )}
+            </div>
+
             <TextField
-              label='팝업 제목'
-              name='popupTitle'
+              label='이미지 설명'
+              name='popupImageAlt'
               onChange={(event) => {
-                setFormState((current) => ({ ...current, title: event.target.value }));
+                setFormState((current) => ({ ...current, imageAlt: event.target.value }));
               }}
-              placeholder='홈에서 띄울 팝업 제목을 입력해 주세요.'
-              value={formState.title}
+              placeholder='접근성용 설명입니다. 비워 두지 않는 편이 좋습니다.'
+              value={formState.imageAlt}
             />
-            <TextAreaField
-              label='팝업 본문'
-              name='popupContent'
-              onChange={(event) => {
-                setFormState((current) => ({ ...current, content: event.target.value }));
-              }}
-              rows={8}
-              value={formState.content}
-            />
+
             <div className={styles['compactFieldRow']}>
+              <TextField
+                label='정렬 순서'
+                min={0}
+                name='popupSortOrder'
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value);
+                  setFormState((current) => ({
+                    ...current,
+                    sortOrder: Number.isFinite(nextValue) ? nextValue : 0,
+                  }));
+                }}
+                type='number'
+                value={String(formState.sortOrder)}
+              />
               <TextField
                 label='노출 시작'
                 name='popupVisibleStartAt'
@@ -413,7 +517,7 @@ const AdminPopupsSection = () => {
 
             <div className={styles['actionRow']}>
               <Button
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending || isUploadingImage}
                 onClick={handleSubmit}
                 type='button'
               >
@@ -426,6 +530,22 @@ const AdminPopupsSection = () => {
               <Button onClick={startCreate} type='button' variant='secondary'>
                 새 팝업 작성
               </Button>
+              {formState.imageUrl ? (
+                <Button
+                  onClick={() => {
+                    setFormState((current) => ({
+                      ...current,
+                      imageAlt: '',
+                      imageAssetId: null,
+                      imageUrl: '',
+                    }));
+                  }}
+                  type='button'
+                  variant='secondary'
+                >
+                  이미지 제거
+                </Button>
+              ) : null}
             </div>
           </div>
         </article>
@@ -444,12 +564,20 @@ const AdminPopupsSection = () => {
                   ) : (
                     <span className={styles['badgeDanger']}>비공개</span>
                   )}
-                  <span className={styles['badgeAccent']}>홈 팝업</span>
+                  <span className={styles['badgeAccent']}>
+                    정렬 {String(selectedPopup.sortOrder)}
+                  </span>
                 </div>
-                <h3 className={styles['itemTitle']}>{selectedPopup.title}</h3>
-                <p className={styles['itemDescription']}>
-                  {getNoticePreview(selectedPopup.content)}
-                </p>
+
+                <div className={styles['thumbnailPreview']}>
+                  <img
+                    alt={selectedPopup.altText || '팝업 이미지'}
+                    className={styles['thumbnailPreviewImage']}
+                    src={selectedPopup.imageUrl}
+                  />
+                </div>
+
+                <p className={styles['metaText']}>이미지 설명 {selectedPopup.altText}</p>
                 <p className={styles['metaText']}>
                   노출 기간 {formatVisibilityWindow(selectedPopup)}
                 </p>
@@ -496,7 +624,7 @@ const AdminPopupsSection = () => {
             <section className={styles['stateSection']}>
               <h3 className={styles['stateTitle']}>등록된 팝업이 없습니다.</h3>
               <p className={styles['stateDescription']}>
-                첫 팝업을 등록하면 홈 진입 시 팝업 노출 소스로 바로 연결됩니다.
+                첫 팝업을 등록하면 홈 진입 시 노출 순서대로 바로 연결됩니다.
               </p>
             </section>
           )}
@@ -518,7 +646,8 @@ const AdminPopupsSection = () => {
             <table className={styles['table']}>
               <thead>
                 <tr>
-                  <th scope='col'>제목</th>
+                  <th scope='col'>이미지 설명</th>
+                  <th scope='col'>정렬</th>
                   <th scope='col'>게시 상태</th>
                   <th scope='col'>노출 기간</th>
                   <th scope='col'>등록일</th>
@@ -532,12 +661,13 @@ const AdminPopupsSection = () => {
                     <tr key={popup.id}>
                       <td>
                         <div className={styles['cellStack']}>
-                          <span className={styles['cellPrimary']}>{popup.title}</span>
-                          <span className={styles['cellSecondary']}>
-                            {getNoticePreview(popup.content)}
+                          <span className={styles['cellPrimary']}>
+                            {popup.altText || '홈 팝업'}
                           </span>
+                          <span className={styles['cellSecondary']}>이미지 팝업</span>
                         </div>
                       </td>
+                      <td>{String(popup.sortOrder)}</td>
                       <td>{popup.published ? '게시 중' : '비공개'}</td>
                       <td>{formatVisibilityWindow(popup)}</td>
                       <td>{formatDateTime(popup.createdAt)}</td>

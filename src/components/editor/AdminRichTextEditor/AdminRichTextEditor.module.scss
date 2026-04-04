@@ -1,0 +1,181 @@
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.labelRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.hint {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.shell {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.toolbarGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.toolbarButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.toolbarButton:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.toolbarButtonActive {
+  border-color: var(--color-brand-darken-10);
+  background: var(--color-brand-lighten-45);
+  color: var(--color-brand-darken-10);
+}
+
+.toolbarButtonDanger {
+  color: var(--color-error);
+}
+
+.toolbarSelect {
+  height: 36px;
+  min-width: 112px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.colorInput {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.editor {
+  min-height: 320px;
+  padding: var(--space-4);
+}
+
+/* stylelint-disable selector-class-pattern */
+.editor :global(.ProseMirror) {
+  min-height: 288px;
+  outline: none;
+  color: var(--color-text-primary);
+  line-height: 1.8;
+}
+
+.editor :global(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-text-tertiary);
+}
+
+.editor :global(.ProseMirror h1),
+.editor :global(.ProseMirror h2),
+.editor :global(.ProseMirror h3) {
+  margin: 1.2em 0 0.6em;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+.editor :global(.ProseMirror p),
+.editor :global(.ProseMirror ul),
+.editor :global(.ProseMirror ol),
+.editor :global(.ProseMirror blockquote),
+.editor :global(.ProseMirror table) {
+  margin: 0.75em 0;
+}
+
+.editor :global(.ProseMirror ul),
+.editor :global(.ProseMirror ol) {
+  padding-left: 1.4rem;
+}
+
+.editor :global(.ProseMirror blockquote) {
+  padding-left: 1rem;
+  border-left: 3px solid rgba(52, 178, 159, 0.35);
+  color: var(--color-text-secondary);
+}
+
+.editor :global(.ProseMirror table) {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.editor :global(.ProseMirror td),
+.editor :global(.ProseMirror th) {
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.editor :global(.ProseMirror img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem auto;
+  border-radius: var(--radius-md);
+}
+/* stylelint-enable selector-class-pattern */
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.status {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.error {
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+}

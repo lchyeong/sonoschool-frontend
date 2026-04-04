@@ -156,6 +156,62 @@ describe('router layouts', () => {
     );
   });
 
+  it('keeps the notice navigation active on nested admin notice create routes', async () => {
+    useAdminAuthStore.setState({
+      accessToken: 'admin-token',
+      adminDisplayName: '소노스쿨 운영 관리자',
+      expiresAt: ACTIVE_SESSION_EXPIRES_AT,
+      isAuthenticated: true,
+      loginId: 'admin',
+      role: 'ROLE_ADMIN',
+      tokenType: 'Bearer',
+    });
+
+    const queryClient = createTestQueryClient();
+    const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
+      initialEntries: ['/admin/notices/new'],
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 공지 등록' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '공지사항' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('keeps the resource navigation active on nested admin resource create routes', async () => {
+    useAdminAuthStore.setState({
+      accessToken: 'admin-token',
+      adminDisplayName: '소노스쿨 운영 관리자',
+      expiresAt: ACTIVE_SESSION_EXPIRES_AT,
+      isAuthenticated: true,
+      loginId: 'admin',
+      role: 'ROLE_ADMIN',
+      tokenType: 'Bearer',
+    });
+
+    const queryClient = createTestQueryClient();
+    const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
+      initialEntries: ['/admin/resources/new'],
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 자료 등록' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '자료실' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('redirects guest users from mypage to the login page', async () => {
     const queryClient = createTestQueryClient();
     const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {

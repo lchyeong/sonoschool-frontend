@@ -1,13 +1,14 @@
-.content {
-  display: grid;
-  gap: var(--space-3);
+.imageWrap {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
 }
 
-.paragraph {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-relaxed);
+.image {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .actionRow {
@@ -15,18 +16,4 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   margin-top: var(--space-4);
-}
-
-.detailLink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 var(--space-5);
-  border: 1px solid rgba(52, 178, 159, 0.2);
-  color: var(--color-brand-darken-10);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
-  background: rgba(52, 178, 159, 0.08);
 }

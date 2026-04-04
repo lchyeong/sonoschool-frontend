@@ -48,18 +48,6 @@ const adminNavigationItems = [
     to: routePaths.adminProgramMenus,
   },
   {
-    label: '태그 관리',
-    to: routePaths.adminTags,
-  },
-  {
-    label: '쿠폰 관리',
-    to: routePaths.adminCoupons,
-  },
-  {
-    label: '영상 업로드',
-    to: routePaths.adminVideos,
-  },
-  {
     label: '결제 관리',
     to: routePaths.adminPayments,
   },

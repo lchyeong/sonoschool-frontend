@@ -1,7 +1,10 @@
+import { useMemo } from 'react';
+
 import { Link, useParams } from 'react-router-dom';
 
 import { useNoticeDetailQuery } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
+import { sanitizeRichTextHtml } from '@/utils/htmlContent';
 
 import styles from './NoticeDetailPage.module.scss';
 
@@ -16,18 +19,15 @@ const formatDate = (value: string | null): string => {
   }).format(new Date(value));
 };
 
-const splitContentParagraphs = (content: string): string[] => {
-  return content
-    .split(/\n+/)
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0);
-};
-
 const NoticeDetailPage = () => {
   const params = useParams();
   const noticeId = Number(params['noticeId']);
   const resolvedNoticeId = Number.isInteger(noticeId) && noticeId > 0 ? noticeId : null;
   const noticeQuery = useNoticeDetailQuery(resolvedNoticeId);
+  const notice = noticeQuery.data;
+  const sanitizedContent = useMemo(() => {
+    return notice ? sanitizeRichTextHtml(notice.content) : '';
+  }, [notice]);
 
   if (resolvedNoticeId === null) {
     return (
@@ -50,7 +50,7 @@ const NoticeDetailPage = () => {
     );
   }
 
-  if (noticeQuery.isError || !noticeQuery.data) {
+  if (noticeQuery.isError || !notice) {
     return (
       <section className={styles['stateSection']}>
         <h1 className={styles['stateTitle']}>공지 상세를 불러오지 못했습니다.</h1>
@@ -66,8 +66,6 @@ const NoticeDetailPage = () => {
     );
   }
 
-  const notice = noticeQuery.data;
-
   return (
     <div className={styles['container']}>
       <div className={styles['hero']}>
@@ -76,7 +74,6 @@ const NoticeDetailPage = () => {
         </Link>
         <div className={styles['metaRow']}>
           {notice.pinned ? <span className={styles['badge']}>필독</span> : null}
-          {notice.popup ? <span className={styles['badgeAccent']}>팝업 공지</span> : null}
           <span className={styles['metaText']}>등록일 {formatDate(notice.createdAt)}</span>
         </div>
         <h1 className={styles['title']}>{notice.title}</h1>
@@ -86,13 +83,10 @@ const NoticeDetailPage = () => {
       </div>
 
       <article className={styles['contentCard']}>
-        {splitContentParagraphs(notice.content).map((paragraph) => {
-          return (
-            <p className={styles['paragraph']} key={paragraph}>
-              {paragraph}
-            </p>
-          );
-        })}
+        <div
+          className={styles['richContent']}
+          dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+        />
       </article>
     </div>
   );

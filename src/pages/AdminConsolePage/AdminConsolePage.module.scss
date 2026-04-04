@@ -1032,6 +1032,274 @@
   gap: 4px;
 }
 
+.uploadBlockingSummary {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid #f0c9a8;
+  background: #fff8f1;
+}
+
+.curriculumSectionCard,
+.curriculumLectureCard {
+  display: grid;
+  gap: var(--space-4);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  padding: var(--space-4);
+}
+
+.curriculumSectionCard {
+  border-left: 4px solid #2f6f67;
+  background: linear-gradient(180deg, rgba(47, 111, 103, 0.07) 0%, #ffffff 14rem);
+}
+
+.curriculumLectureCard {
+  border-left: 4px solid #7a9ab1;
+  background: linear-gradient(180deg, rgba(122, 154, 177, 0.1) 0%, #ffffff 12rem);
+}
+
+.curriculumHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.curriculumSummary {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 24rem;
+}
+
+.curriculumBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.curriculumLevelBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  border: 1px solid currentColor;
+  padding: 0 0.65rem;
+  font-size: 0.72rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+}
+
+.curriculumLevelBadge[data-level='section'] {
+  background: rgba(47, 111, 103, 0.12);
+  color: #1f5a53;
+}
+
+.curriculumLevelBadge[data-level='lecture'] {
+  background: rgba(122, 154, 177, 0.14);
+  color: #4e6d83;
+}
+
+.curriculumLevelHint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.curriculumActionColumn {
+  display: flex;
+  flex-wrap: wrap;
+  place-content: flex-start flex-end;
+  gap: var(--space-2);
+  padding: 0.5rem;
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.curriculumStatGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-2);
+}
+
+.curriculumStatCard {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--admin-border);
+  background: rgba(47, 65, 85, 0.03);
+  padding: 0.75rem 0.875rem;
+}
+
+.curriculumStatLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.curriculumStatValue {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.45;
+}
+
+.curriculumBody {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--admin-border);
+}
+
+.curriculumWorkspace,
+.curriculumWorkspaceHeader {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.curriculumLectureList {
+  display: grid;
+  gap: var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 2px dashed rgba(47, 111, 103, 0.24);
+}
+
+.curriculumWorkspaceTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.curriculumWorkspaceTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  border: 1px solid var(--admin-border);
+  background: #ffffff;
+  padding: 0.55rem 0.9rem;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+}
+
+.curriculumWorkspaceTab[data-active='true'] {
+  border-color: #2f6f67;
+  background: rgba(47, 111, 103, 0.12);
+  color: #1f5a53;
+}
+
+.lectureTypePickerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.lectureTypePickerButton {
+  display: grid;
+  gap: var(--space-2);
+  min-height: 148px;
+  padding: var(--space-4);
+  border: 1px solid var(--admin-border);
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.lectureTypePickerButton:hover,
+.lectureTypePickerButton:focus-visible {
+  border-color: #2f6f67;
+  background: rgba(47, 111, 103, 0.08);
+  outline: none;
+}
+
+.lectureTypePickerLabel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.4;
+}
+
+.lectureTypePickerDescription {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.questionMediaRow {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.questionMediaActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.quizOptionHeader {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.quizOptionHeaderLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.quizOptionRow {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.quizOptionCheckbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-height: 40px;
+  align-self: end;
+}
+
+.quizOptionCheckbox input {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #7a9ab1;
+  border-radius: 4px;
+  background: #ffffff;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.quizOptionCheckbox input:checked {
+  border-color: #2f6f67;
+  background: #2f6f67;
+  box-shadow: inset 0 0 0 3px #ffffff;
+}
+
+.panel[data-focused='true'] {
+  border-left: 4px solid #2f6f67;
+}
+
 .table.resourceTable th:nth-child(1),
 .table.resourceTable td:nth-child(1) {
   width: 18%;

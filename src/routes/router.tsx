@@ -55,6 +55,18 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='notices' />;
   }),
+  adminNoticeCreate: createLazyRoute(async () => {
+    const { default: AdminNoticeWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminNoticeWorkspace'
+    );
+    return <AdminNoticeWorkspace mode='create' />;
+  }),
+  adminNoticeEdit: createLazyRoute(async () => {
+    const { default: AdminNoticeWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminNoticeWorkspace'
+    );
+    return <AdminNoticeWorkspace mode='edit' />;
+  }),
   adminPopups: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='popups' />;
@@ -66,6 +78,18 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
   adminResources: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='resources' />;
+  }),
+  adminResourceCreate: createLazyRoute(async () => {
+    const { default: AdminResourceWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminResourceWorkspace'
+    );
+    return <AdminResourceWorkspace mode='create' />;
+  }),
+  adminResourceEdit: createLazyRoute(async () => {
+    const { default: AdminResourceWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminResourceWorkspace'
+    );
+    return <AdminResourceWorkspace mode='edit' />;
   }),
   adminEnrollments: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
@@ -79,19 +103,33 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='reviews' />;
   }),
-  adminCoupons: createLazyRoute(async () => {
-    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
-    return <AdminConsolePage section='coupons' />;
-  }),
   adminPrograms: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='programs' />;
   }),
   adminProgramCreate: createLazyRoute(async () => {
-    const { default: AdminProgramEditorSection } = await import(
-      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    const { default: AdminProgramCreateWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
     );
-    return <AdminProgramEditorSection mode='create' />;
+    return <AdminProgramCreateWorkspace />;
+  }),
+  adminProgramCreateCurriculum: createLazyRoute(async () => {
+    const { default: AdminProgramCreateWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
+    );
+    return <AdminProgramCreateWorkspace view='curriculum' />;
+  }),
+  adminProgramCreateQuizzes: createLazyRoute(async () => {
+    const { default: AdminProgramCreateWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
+    );
+    return <AdminProgramCreateWorkspace view='quizzes' />;
+  }),
+  adminProgramCreateResources: createLazyRoute(async () => {
+    const { default: AdminProgramCreateWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
+    );
+    return <AdminProgramCreateWorkspace view='resources' />;
   }),
   adminProgramEdit: createLazyRoute(async () => {
     const { default: AdminProgramEditorSection } = await import(
@@ -111,12 +149,6 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     );
     return <AdminProgramEditorSection mode='edit' view='quizzes' />;
   }),
-  adminProgramTags: createLazyRoute(async () => {
-    const { default: AdminProgramEditorSection } = await import(
-      '@/pages/AdminConsolePage/AdminProgramEditorSection'
-    );
-    return <AdminProgramEditorSection mode='edit' view='tags' />;
-  }),
   adminProgramResources: createLazyRoute(async () => {
     const { default: AdminProgramEditorSection } = await import(
       '@/pages/AdminConsolePage/AdminProgramEditorSection'
@@ -132,10 +164,6 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
   adminProgramMenus: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='programMenus' />;
-  }),
-  adminTags: createLazyRoute(async () => {
-    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
-    return <AdminConsolePage section='tags' />;
   }),
   adminVideos: createLazyRoute(async () => {
     const { default: AdminVideoUploadPage } = await import(
@@ -246,23 +274,27 @@ const adminAuthRouteKeys = ['adminLogin'] as const satisfies readonly AppRouteKe
 const adminConsoleRouteKeys = [
   'admin',
   'adminNotices',
+  'adminNoticeCreate',
+  'adminNoticeEdit',
   'adminPopups',
   'adminQna',
   'adminResources',
+  'adminResourceCreate',
+  'adminResourceEdit',
   'adminEnrollments',
   'adminPracticum',
   'adminReviews',
-  'adminCoupons',
   'adminPrograms',
   'adminProgramCreate',
+  'adminProgramCreateCurriculum',
+  'adminProgramCreateQuizzes',
+  'adminProgramCreateResources',
   'adminProgramEdit',
   'adminProgramCurriculum',
   'adminProgramQuizzes',
-  'adminProgramTags',
   'adminProgramResources',
   'adminProgramDuplicate',
   'adminProgramMenus',
-  'adminTags',
   'adminVideos',
   'adminPayments',
 ] as const satisfies readonly AppRouteKey[];

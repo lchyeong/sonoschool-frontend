@@ -3,6 +3,8 @@ import { useEffect, useId, useRef } from 'react';
 
 import { createPortal } from 'react-dom';
 
+import { classNames } from '@/utils/classNames';
+
 import styles from './Modal.module.scss';
 
 const FOCUSABLE_SELECTOR = [
@@ -26,6 +28,7 @@ interface ModalProps {
   title: string;
   description?: string | undefined;
   children: ReactNode;
+  hideTitle?: boolean | undefined;
   onClose: () => void;
   initialFocusRef?: RefObject<HTMLElement | null> | undefined;
   restoreFocusElement?: HTMLElement | null | undefined;
@@ -34,6 +37,7 @@ interface ModalProps {
 const Modal = ({
   children,
   description,
+  hideTitle = false,
   initialFocusRef,
   onClose,
   restoreFocusElement,
@@ -135,7 +139,7 @@ const Modal = ({
         <div className={styles['header']}>
           <div className={styles['headingGroup']}>
             <h2 className={styles['title']} id={titleId}>
-              {title}
+              <span className={classNames(hideTitle && styles['titleHidden'])}>{title}</span>
             </h2>
             {description ? (
               <p className={styles['description']} id={descriptionId}>

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 
 import { useGlobalNoticesQuery } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
+import { summarizeHtmlContent } from '@/utils/htmlContent';
 
 import styles from './HomeNoticeSection.module.scss';
 
@@ -9,16 +10,6 @@ const formatDate = (value: string): string => {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'short',
   }).format(new Date(value));
-};
-
-const buildSummary = (content: string): string => {
-  const normalized = content.replace(/\s+/g, ' ').trim();
-
-  if (normalized.length <= 92) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, 92)}...`;
 };
 
 const HomeNoticeSection = () => {
@@ -73,7 +64,9 @@ const HomeNoticeSection = () => {
 
                     <div className={styles['noticeContent']}>
                       <h3 className={styles['noticeCardTitle']}>{item.title}</h3>
-                      <p className={styles['noticeSummary']}>{buildSummary(item.content)}</p>
+                      <p className={styles['noticeSummary']}>
+                        {summarizeHtmlContent(item.content, 92)}
+                      </p>
                     </div>
 
                     <span aria-hidden='true' className={styles['noticeArrow']}>

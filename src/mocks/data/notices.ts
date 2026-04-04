@@ -2,22 +2,6 @@ import type { NoticeItem } from '@/types/notice';
 
 const initialNotices: NoticeItem[] = [
   {
-    id: 1,
-    scope: 'GLOBAL',
-    programId: null,
-    programTitle: null,
-    title: '2026 상반기 교육 일정 안내',
-    content:
-      '2026년 상반기 정규과정과 핸즈온 일정이 확정되었습니다.\n세부 일정과 신청 가능 시점은 각 과정 상세페이지와 함께 순차 안내드립니다.',
-    pinned: true,
-    popup: true,
-    published: true,
-    visibleStartAt: '2026-03-01T00:00:00Z',
-    visibleEndAt: null,
-    createdAt: '2026-03-01T09:00:00Z',
-    updatedAt: '2026-03-01T09:00:00Z',
-  },
-  {
     id: 2,
     scope: 'GLOBAL',
     programId: null,
@@ -26,10 +10,7 @@ const initialNotices: NoticeItem[] = [
     content:
       '장바구니에서 결제를 완료한 뒤 바로 내 강의로 이동할 수 있습니다.\n결제 후에는 마이페이지에서 영수증과 수강 내역을 확인해 주세요.',
     pinned: false,
-    popup: false,
     published: true,
-    visibleStartAt: '2026-03-07T00:00:00Z',
-    visibleEndAt: null,
     createdAt: '2026-03-07T05:00:00Z',
     updatedAt: '2026-03-07T05:00:00Z',
   },
@@ -42,10 +23,7 @@ const initialNotices: NoticeItem[] = [
     content:
       '강의별 복습 자료와 실습 참고 문서는 수강 상태에 따라 자료실에서 내려받을 수 있습니다.\n자료 업데이트가 있을 때마다 공지사항에서도 함께 안내합니다.',
     pinned: false,
-    popup: false,
     published: true,
-    visibleStartAt: '2026-03-12T00:00:00Z',
-    visibleEndAt: null,
     createdAt: '2026-03-12T08:30:00Z',
     updatedAt: '2026-03-12T08:30:00Z',
   },
@@ -57,10 +35,7 @@ const initialNotices: NoticeItem[] = [
     title: '관리자 내부 초안 공지',
     content: '이 공지는 비공개 상태라 사용자 목록에는 노출되지 않습니다.',
     pinned: false,
-    popup: false,
     published: false,
-    visibleStartAt: null,
-    visibleEndAt: null,
     createdAt: '2026-03-18T03:00:00Z',
     updatedAt: '2026-03-18T03:00:00Z',
   },
@@ -73,10 +48,7 @@ const initialNotices: NoticeItem[] = [
     content:
       '주말 새벽 2시부터 3시까지 홈페이지 점검이 예정되어 있습니다.\n점검 시간에는 로그인과 결제 기능이 일시적으로 지연될 수 있습니다.',
     pinned: false,
-    popup: false,
     published: true,
-    visibleStartAt: '2026-03-15T00:00:00Z',
-    visibleEndAt: null,
     createdAt: '2026-03-15T06:00:00Z',
     updatedAt: '2026-03-15T06:00:00Z',
   },
@@ -95,23 +67,11 @@ const sortNotices = (items: NoticeItem[]): NoticeItem[] => {
 };
 
 export const getMockPublishedGlobalNotices = (): NoticeItem[] => {
-  return sortNotices(
-    notices.filter((notice) => notice.scope === 'GLOBAL' && notice.published && !notice.popup),
-  );
+  return sortNotices(notices.filter((notice) => notice.scope === 'GLOBAL' && notice.published));
 };
 
 export const getMockAdminNotices = (): NoticeItem[] => {
-  return sortNotices(notices.filter((notice) => notice.scope === 'GLOBAL' && !notice.popup));
-};
-
-export const getMockPublishedGlobalPopups = (): NoticeItem[] => {
-  return sortNotices(
-    notices.filter((notice) => notice.scope === 'GLOBAL' && notice.published && notice.popup),
-  );
-};
-
-export const getMockAdminPopups = (): NoticeItem[] => {
-  return sortNotices(notices.filter((notice) => notice.scope === 'GLOBAL' && notice.popup));
+  return sortNotices(notices.filter((notice) => notice.scope === 'GLOBAL'));
 };
 
 export const getMockNoticeById = (noticeId: number): NoticeItem | null => {

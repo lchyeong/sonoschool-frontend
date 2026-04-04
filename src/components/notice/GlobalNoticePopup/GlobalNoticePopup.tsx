@@ -1,21 +1,12 @@
 import { useMemo, useState } from 'react';
 
-import { Link } from 'react-router-dom';
-
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
-import { useGlobalPopupsQuery } from '@/query/useNoticeQueries';
-import { routePaths } from '@/routes/routeRegistry';
+import { useGlobalPopupsQuery } from '@/query/usePopupQueries';
 
 import styles from './GlobalNoticePopup.module.scss';
 
-const DISMISS_STORAGE_PREFIX = 'notice-popup-dismissed';
-
-const formatDate = (value: string): string => {
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'medium',
-  }).format(new Date(value));
-};
+const DISMISS_STORAGE_PREFIX = 'popup-banner-dismissed';
 
 const buildTodayLabel = (): string => {
   const now = new Date();
@@ -26,85 +17,68 @@ const buildTodayLabel = (): string => {
   return `${String(year)}-${month}-${day}`;
 };
 
-const buildStorageKey = (noticeId: number): string =>
-  `${DISMISS_STORAGE_PREFIX}:${String(noticeId)}`;
+const buildStorageKey = (popupId: number): string => `${DISMISS_STORAGE_PREFIX}:${String(popupId)}`;
 
-const hasDismissedToday = (noticeId: number): boolean => {
+const hasDismissedToday = (popupId: number): boolean => {
   if (typeof window === 'undefined') {
     return false;
   }
 
-  return window.localStorage.getItem(buildStorageKey(noticeId)) === buildTodayLabel();
+  return window.localStorage.getItem(buildStorageKey(popupId)) === buildTodayLabel();
 };
 
-const dismissForToday = (noticeId: number) => {
+const dismissForToday = (popupId: number) => {
   if (typeof window === 'undefined') {
     return;
   }
 
-  window.localStorage.setItem(buildStorageKey(noticeId), buildTodayLabel());
-};
-
-const splitContentParagraphs = (content: string): string[] => {
-  return content
-    .split(/\n+/)
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0);
+  window.localStorage.setItem(buildStorageKey(popupId), buildTodayLabel());
 };
 
 const GlobalNoticePopup = () => {
   const popupsQuery = useGlobalPopupsQuery();
-  const [closedPopupId, setClosedPopupId] = useState<number | null>(null);
+  const [closedPopupIds, setClosedPopupIds] = useState<number[]>([]);
 
-  const activePopupNotice = useMemo(() => {
-    const notices = popupsQuery.data ?? [];
+  const activePopup = useMemo(() => {
+    const popups = popupsQuery.data ?? [];
 
     return (
-      notices.find((notice) => {
-        return !hasDismissedToday(notice.id);
+      popups.find((popup) => {
+        return !closedPopupIds.includes(popup.id) && !hasDismissedToday(popup.id);
       }) ?? null
     );
-  }, [popupsQuery.data]);
+  }, [closedPopupIds, popupsQuery.data]);
 
-  const isClosed = activePopupNotice !== null && closedPopupId === activePopupNotice.id;
-
-  if (popupsQuery.isPending || popupsQuery.isError || !activePopupNotice || isClosed) {
+  if (popupsQuery.isPending || popupsQuery.isError || !activePopup) {
     return null;
   }
 
+  const closePopup = () => {
+    setClosedPopupIds((current) => [...current, activePopup.id]);
+  };
+
   return (
-    <Modal
-      description={`등록일 ${formatDate(activePopupNotice.createdAt)} · 운영 공지`}
-      onClose={() => {
-        setClosedPopupId(activePopupNotice.id);
-      }}
-      title={activePopupNotice.title}
-    >
-      <div className={styles['content']}>
-        {splitContentParagraphs(activePopupNotice.content).map((paragraph) => {
-          return (
-            <p className={styles['paragraph']} key={paragraph}>
-              {paragraph}
-            </p>
-          );
-        })}
+    <Modal hideTitle onClose={closePopup} title={activePopup.altText || '홈 팝업'}>
+      <div className={styles['imageWrap']}>
+        <img
+          alt={activePopup.altText || '홈 팝업'}
+          className={styles['image']}
+          src={activePopup.imageUrl}
+        />
       </div>
       <div className={styles['actionRow']}>
-        <Link
-          className={styles['detailLink']}
-          to={routePaths.noticeDetail(String(activePopupNotice.id))}
-        >
-          공지 자세히 보기
-        </Link>
         <Button
           onClick={() => {
-            dismissForToday(activePopupNotice.id);
-            setClosedPopupId(activePopupNotice.id);
+            dismissForToday(activePopup.id);
+            closePopup();
           }}
           type='button'
           variant='secondary'
         >
           오늘은 닫기
+        </Button>
+        <Button onClick={closePopup} type='button'>
+          닫기
         </Button>
       </div>
     </Modal>

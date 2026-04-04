@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 
 import { useGlobalNoticesQuery } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
+import { extractTextFromHtml, summarizeHtmlContent } from '@/utils/htmlContent';
 
 import styles from './NoticesPage.module.scss';
 
@@ -13,16 +14,6 @@ const formatDate = (value: string): string => {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'short',
   }).format(new Date(value));
-};
-
-const buildSummary = (value: string): string => {
-  const normalized = value.replace(/\s+/g, ' ').trim();
-
-  if (normalized.length <= 88) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, 88)}...`;
 };
 
 const NoticesPage = () => {
@@ -40,9 +31,11 @@ const NoticesPage = () => {
         return true;
       }
 
-      return [notice.title, notice.content, notice.programTitle ?? ''].some((field) => {
-        return field.toLowerCase().includes(normalizedSearchTerm);
-      });
+      return [notice.title, extractTextFromHtml(notice.content), notice.programTitle ?? ''].some(
+        (field) => {
+          return field.toLowerCase().includes(normalizedSearchTerm);
+        },
+      );
     });
   }, [notices, searchTerm]);
 
@@ -143,7 +136,7 @@ const NoticesPage = () => {
                                 <span className={styles['titleText']}>{notice.title}</span>
                               </span>
                               <span className={styles['previewText']}>
-                                {buildSummary(notice.content)}
+                                {summarizeHtmlContent(notice.content, 88)}
                               </span>
                             </Link>
                           </td>

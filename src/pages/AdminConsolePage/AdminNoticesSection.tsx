@@ -1,47 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 import {
-  createAdminNoticeLive,
   deleteAdminNoticeLive,
   publishAdminNoticeLive,
   unpublishAdminNoticeLive,
-  updateAdminNoticeLive,
 } from '@/api/notices';
 import Button from '@/components/ui/Button/Button';
-import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import {
   adminNoticesQueryKey,
   globalNoticesQueryKey,
   useAdminNoticesQuery,
 } from '@/query/useNoticeQueries';
+import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
-import type {
-  AdminNoticeCreatePayload,
-  AdminNoticeUpdatePayload,
-  NoticeItem,
-} from '@/types/notice';
+import { summarizeHtmlContent } from '@/utils/htmlContent';
 
 import styles from './AdminConsolePage.module.scss';
-
-interface NoticeFormState {
-  content: string;
-  pinned: boolean;
-  published: boolean;
-  title: string;
-  visibleEndAt: string;
-  visibleStartAt: string;
-}
-
-const EMPTY_FORM: NoticeFormState = {
-  content: '',
-  pinned: false,
-  published: true,
-  title: '',
-  visibleEndAt: '',
-  visibleStartAt: '',
-};
 
 const formatDateTime = (value: string | null): string => {
   if (!value) {
@@ -54,97 +31,15 @@ const formatDateTime = (value: string | null): string => {
   }).format(new Date(value));
 };
 
-const formatDateTimeInputValue = (value: string | null): string => {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-
-  return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
-};
-
-const toIsoStringOrNull = (value: string): string | null => {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return null;
-  }
-
-  const date = new Date(trimmed);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-};
-
-const createFormState = (notice?: NoticeItem | null): NoticeFormState => {
-  if (!notice) {
-    return EMPTY_FORM;
-  }
-
-  return {
-    content: notice.content,
-    pinned: notice.pinned,
-    published: notice.published,
-    title: notice.title,
-    visibleEndAt: formatDateTimeInputValue(notice.visibleEndAt),
-    visibleStartAt: formatDateTimeInputValue(notice.visibleStartAt),
-  };
-};
-
-const getNoticePreview = (content: string): string => {
-  const normalized = content.replace(/\s+/g, ' ').trim();
-
-  if (!normalized) {
-    return '본문이 없습니다.';
-  }
-
-  return normalized.length > 110 ? `${normalized.slice(0, 110)}...` : normalized;
-};
-
-const formatVisibilityWindow = (notice: NoticeItem): string => {
-  if (!notice.visibleStartAt && !notice.visibleEndAt) {
-    return '상시 노출';
-  }
-
-  if (notice.visibleStartAt && notice.visibleEndAt) {
-    return `${formatDateTime(notice.visibleStartAt)} ~ ${formatDateTime(notice.visibleEndAt)}`;
-  }
-
-  if (notice.visibleStartAt) {
-    return `${formatDateTime(notice.visibleStartAt)}부터`;
-  }
-
-  return `${formatDateTime(notice.visibleEndAt)}까지`;
-};
-
 const AdminNoticesSection = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const noticesQuery = useAdminNoticesQuery();
-  const [selectedNoticeIdState, setSelectedNoticeId] = useState<number | null>(null);
-  const [editingNoticeIdState, setEditingNoticeId] = useState<number | null>(null);
-  const [formState, setFormState] = useState<NoticeFormState>(EMPTY_FORM);
 
   const globalNotices = useMemo(() => {
     return (noticesQuery.data ?? []).filter((notice) => notice.scope === 'GLOBAL');
   }, [noticesQuery.data]);
-  const firstNotice = globalNotices.at(0) ?? null;
-
-  const selectedNoticeId =
-    selectedNoticeIdState !== null &&
-    globalNotices.some((notice) => notice.id === selectedNoticeIdState)
-      ? selectedNoticeIdState
-      : (firstNotice?.id ?? null);
-  const editingNoticeId =
-    editingNoticeIdState !== null &&
-    globalNotices.some((notice) => notice.id === editingNoticeIdState)
-      ? editingNoticeIdState
-      : null;
-  const selectedNotice = globalNotices.find((notice) => notice.id === selectedNoticeId) ?? null;
 
   const refreshNotices = async () => {
     await Promise.all([
@@ -152,46 +47,6 @@ const AdminNoticesSection = () => {
       queryClient.invalidateQueries({ queryKey: globalNoticesQueryKey() }),
     ]);
   };
-
-  const createMutation = useMutation({
-    mutationFn: (payload: AdminNoticeCreatePayload) => createAdminNoticeLive(payload),
-    onError: (error: unknown) => {
-      showToast({
-        message: error instanceof Error ? error.message : '공지사항 등록에 실패했습니다.',
-        variant: 'error',
-      });
-    },
-    onSuccess: async (notice) => {
-      await refreshNotices();
-      setFormState(EMPTY_FORM);
-      setSelectedNoticeId(notice.id);
-      showToast({
-        message: '공지사항을 등록했습니다.',
-        variant: 'success',
-      });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ noticeId, payload }: { noticeId: number; payload: AdminNoticeUpdatePayload }) =>
-      updateAdminNoticeLive(noticeId, payload),
-    onError: (error: unknown) => {
-      showToast({
-        message: error instanceof Error ? error.message : '공지사항 수정에 실패했습니다.',
-        variant: 'error',
-      });
-    },
-    onSuccess: async (notice) => {
-      await refreshNotices();
-      setEditingNoticeId(null);
-      setFormState(EMPTY_FORM);
-      setSelectedNoticeId(notice.id);
-      showToast({
-        message: '공지사항을 수정했습니다.',
-        variant: 'success',
-      });
-    },
-  });
 
   const publishMutation = useMutation({
     mutationFn: (noticeId: number) => publishAdminNoticeLive(noticeId),
@@ -235,83 +90,14 @@ const AdminNoticesSection = () => {
         variant: 'error',
       });
     },
-    onSuccess: async (_, noticeId) => {
+    onSuccess: async () => {
       await refreshNotices();
-
-      if (selectedNoticeId === noticeId) {
-        setSelectedNoticeId(null);
-      }
-      if (editingNoticeId === noticeId) {
-        setEditingNoticeId(null);
-        setFormState(EMPTY_FORM);
-      }
-
       showToast({
         message: '공지사항을 삭제했습니다.',
         variant: 'success',
       });
     },
   });
-
-  const startCreate = () => {
-    setEditingNoticeId(null);
-    setFormState(EMPTY_FORM);
-  };
-
-  const startEdit = (notice: NoticeItem) => {
-    setSelectedNoticeId(notice.id);
-    setEditingNoticeId(notice.id);
-    setFormState(createFormState(notice));
-  };
-
-  const handleSubmit = () => {
-    const title = formState.title.trim();
-    const content = formState.content.trim();
-    const visibleStartAt = toIsoStringOrNull(formState.visibleStartAt);
-    const visibleEndAt = toIsoStringOrNull(formState.visibleEndAt);
-
-    if (!title) {
-      showToast({ message: '공지 제목을 입력해 주세요.', variant: 'error' });
-      return;
-    }
-
-    if (!content) {
-      showToast({ message: '공지 본문을 입력해 주세요.', variant: 'error' });
-      return;
-    }
-
-    if (visibleStartAt && visibleEndAt && new Date(visibleStartAt) > new Date(visibleEndAt)) {
-      showToast({ message: '노출 시작은 종료보다 늦을 수 없습니다.', variant: 'error' });
-      return;
-    }
-
-    if (editingNoticeId === null) {
-      createMutation.mutate({
-        content,
-        pinned: formState.pinned,
-        programId: null,
-        published: formState.published,
-        scope: 'GLOBAL',
-        title,
-        visibleEndAt,
-        visibleStartAt,
-      });
-      return;
-    }
-
-    updateMutation.mutate({
-      noticeId: editingNoticeId,
-      payload: {
-        content,
-        pinned: formState.pinned,
-        programId: null,
-        scope: 'GLOBAL',
-        title,
-        visibleEndAt,
-        visibleStartAt,
-      },
-    });
-  };
 
   const summary = {
     pinnedCount: globalNotices.filter((notice) => notice.pinned).length,
@@ -365,178 +151,21 @@ const AdminNoticesSection = () => {
         </article>
       </section>
 
-      <div className={styles['contentGrid']}>
-        <article className={styles['panel']}>
-          <header className={styles['panelHeader']}>
-            <h2 className={styles['panelTitle']}>
-              {editingNoticeId === null ? '새 공지 등록' : '공지 수정'}
-            </h2>
-          </header>
-
-          <div className={styles['form']}>
-            <TextField
-              label='공지 제목'
-              name='noticeTitle'
-              onChange={(event) => {
-                setFormState((current) => ({ ...current, title: event.target.value }));
-              }}
-              placeholder='운영 공지 제목을 입력해 주세요.'
-              value={formState.title}
-            />
-            <TextAreaField
-              label='공지 본문'
-              name='noticeContent'
-              onChange={(event) => {
-                setFormState((current) => ({ ...current, content: event.target.value }));
-              }}
-              rows={8}
-              value={formState.content}
-            />
-            <div className={styles['compactFieldRow']}>
-              <TextField
-                label='노출 시작'
-                name='visibleStartAt'
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, visibleStartAt: event.target.value }));
-                }}
-                type='datetime-local'
-                value={formState.visibleStartAt}
-              />
-              <TextField
-                label='노출 종료'
-                name='visibleEndAt'
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, visibleEndAt: event.target.value }));
-                }}
-                type='datetime-local'
-                value={formState.visibleEndAt}
-              />
-            </div>
-
-            <label className={styles['checkboxRow']}>
-              <input
-                checked={formState.pinned}
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, pinned: event.target.checked }));
-                }}
-                type='checkbox'
-              />
-              상단 고정 공지로 노출
-            </label>
-
-            {editingNoticeId === null ? (
-              <label className={styles['checkboxRow']}>
-                <input
-                  checked={formState.published}
-                  onChange={(event) => {
-                    setFormState((current) => ({ ...current, published: event.target.checked }));
-                  }}
-                  type='checkbox'
-                />
-                등록과 동시에 게시
-              </label>
-            ) : (
-              <p className={styles['fieldHint']}>
-                게시 상태는 목록 또는 우측 미리보기의 게시/중지 액션으로 관리합니다.
-              </p>
-            )}
-
-            <div className={styles['actionRow']}>
-              <Button
-                disabled={createMutation.isPending || updateMutation.isPending}
-                onClick={handleSubmit}
-                type='button'
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? '저장 중...'
-                  : editingNoticeId === null
-                    ? '공지 등록'
-                    : '공지 수정'}
-              </Button>
-              <Button onClick={startCreate} type='button' variant='secondary'>
-                새 공지 작성
-              </Button>
-            </div>
+      <section className={styles['panelWide']}>
+        <div className={styles['panelToolbar']}>
+          <div>
+            <h2 className={styles['panelTitle']}>전역 공지 목록</h2>
+            <p className={styles['metaText']}>작성과 수정은 별도 페이지에서 처리합니다.</p>
           </div>
-        </article>
-
-        <article className={styles['panel']}>
-          <header className={styles['panelHeader']}>
-            <h2 className={styles['panelTitle']}>선택한 공지</h2>
-          </header>
-
-          {selectedNotice ? (
-            <div className={styles['stackList']}>
-              <article className={styles['stackItem']}>
-                <div className={styles['metaRow']}>
-                  {selectedNotice.published ? (
-                    <span className={styles['badgeSuccess']}>게시 중</span>
-                  ) : (
-                    <span className={styles['badgeDanger']}>비공개</span>
-                  )}
-                  {selectedNotice.pinned && <span className={styles['badge']}>고정</span>}
-                </div>
-                <h3 className={styles['itemTitle']}>{selectedNotice.title}</h3>
-                <p className={styles['itemDescription']}>
-                  {getNoticePreview(selectedNotice.content)}
-                </p>
-                <p className={styles['metaText']}>
-                  노출 기간 {formatVisibilityWindow(selectedNotice)}
-                </p>
-                <p className={styles['metaText']}>
-                  등록일 {formatDateTime(selectedNotice.createdAt)} · 수정일{' '}
-                  {formatDateTime(selectedNotice.updatedAt)}
-                </p>
-                <div className={styles['actionRow']}>
-                  <Button
-                    onClick={() => {
-                      startEdit(selectedNotice);
-                    }}
-                    type='button'
-                    variant='secondary'
-                  >
-                    공지 수정
-                  </Button>
-                  {selectedNotice.published ? (
-                    <Button
-                      disabled={unpublishMutation.isPending}
-                      onClick={() => {
-                        unpublishMutation.mutate(selectedNotice.id);
-                      }}
-                      type='button'
-                      variant='secondary'
-                    >
-                      게시 중지
-                    </Button>
-                  ) : (
-                    <Button
-                      disabled={publishMutation.isPending}
-                      onClick={() => {
-                        publishMutation.mutate(selectedNotice.id);
-                      }}
-                      type='button'
-                    >
-                      게시하기
-                    </Button>
-                  )}
-                </div>
-              </article>
-            </div>
-          ) : (
-            <section className={styles['stateSection']}>
-              <h3 className={styles['stateTitle']}>등록된 전역 공지가 없습니다.</h3>
-              <p className={styles['stateDescription']}>
-                첫 공지를 등록하면 공개 목록, 홈 최신 공지, 팝업 노출까지 같은 데이터로 연결됩니다.
-              </p>
-            </section>
-          )}
-        </article>
-      </div>
-
-      <article className={styles['panelWide']}>
-        <header className={styles['panelHeader']}>
-          <h2 className={styles['panelTitle']}>전역 공지 목록</h2>
-        </header>
+          <Button
+            onClick={() => {
+              void navigate(routePaths.adminNoticeCreate);
+            }}
+            type='button'
+          >
+            새 공지 등록
+          </Button>
+        </div>
 
         {!globalNotices.length ? (
           <section className={styles['stateSection']}>
@@ -551,7 +180,6 @@ const AdminNoticesSection = () => {
                   <th scope='col'>제목</th>
                   <th scope='col'>게시 상태</th>
                   <th scope='col'>고정</th>
-                  <th scope='col'>노출 기간</th>
                   <th scope='col'>등록일</th>
                   <th scope='col'>수정일</th>
                   <th scope='col'>관리</th>
@@ -565,13 +193,12 @@ const AdminNoticesSection = () => {
                         <div className={styles['cellStack']}>
                           <span className={styles['cellPrimary']}>{notice.title}</span>
                           <span className={styles['cellSecondary']}>
-                            {getNoticePreview(notice.content)}
+                            {summarizeHtmlContent(notice.content, 110)}
                           </span>
                         </div>
                       </td>
                       <td>{notice.published ? '게시 중' : '비공개'}</td>
                       <td>{notice.pinned ? '고정' : '-'}</td>
-                      <td>{formatVisibilityWindow(notice)}</td>
                       <td>{formatDateTime(notice.createdAt)}</td>
                       <td>{formatDateTime(notice.updatedAt)}</td>
                       <td>
@@ -579,8 +206,7 @@ const AdminNoticesSection = () => {
                           <button
                             className={styles['tableActionButton']}
                             onClick={() => {
-                              setSelectedNoticeId(notice.id);
-                              startEdit(notice);
+                              void navigate(routePaths.adminNoticeEdit(String(notice.id)));
                             }}
                             type='button'
                           >
@@ -629,7 +255,7 @@ const AdminNoticesSection = () => {
             </table>
           </div>
         )}
-      </article>
+      </section>
     </section>
   );
 };

@@ -9,8 +9,6 @@ export type AdminConsoleSection =
   | 'programs'
   | 'practicum'
   | 'payments'
-  | 'coupons'
-  | 'tags'
   | 'qna'
   | 'enrollments'
   | 'resources'
@@ -104,16 +102,6 @@ export const sectionContent = {
     description: '',
     eyebrow: '',
     title: '결제 관리',
-  },
-  coupons: {
-    description: '',
-    eyebrow: '',
-    title: '쿠폰 관리',
-  },
-  tags: {
-    description: '',
-    eyebrow: '',
-    title: '태그 관리',
   },
   qna: {
     description: '',
