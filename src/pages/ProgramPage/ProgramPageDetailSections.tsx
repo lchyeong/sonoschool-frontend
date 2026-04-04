@@ -1,14 +1,12 @@
 import { Link } from 'react-router-dom';
 
-import Button from '@/components/ui/Button/Button';
-import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import ProgramCommunityPanel from '@/components/community/ProgramCommunityPanel';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import type {
   ProgramCurriculumSection,
   ProgramDetailPageResponse,
   ProgramReviewItem,
 } from '@/types/programCatalog';
-import type { QuestionItem } from '@/types/qna';
 import { classNames } from '@/utils/classNames';
 
 import styles from './ProgramPageDetail.module.scss';
@@ -60,7 +58,6 @@ interface CurriculumWeekRowProps {
 interface ProgramPageDetailHeroProps {
   data: ProgramDetailPageResponse;
   heroInfoPills: ProgramPageDetailViewModel['heroInfoPills'];
-  supportTags: string[];
 }
 
 interface ProgramPageDetailMainContentProps {
@@ -68,18 +65,8 @@ interface ProgramPageDetailMainContentProps {
   data: ProgramDetailPageResponse;
   handleReviewCarouselScroll: ProgramPageDetailViewModel['handleReviewCarouselScroll'];
   handleTabClick: ProgramPageDetailViewModel['handleTabClick'];
-  isAuthenticated: boolean;
-  isQuestionSubmitting: boolean;
-  isQuestionsLoading: boolean;
-  onQuestionContentChange: (value: string) => void;
-  onQuestionSubmit: () => void;
-  onQuestionTitleChange: (value: string) => void;
   openCurriculumRows: ProgramPageDetailViewModel['openCurriculumRows'];
   openFaqId: ProgramPageDetailViewModel['openFaqId'];
-  programQuestions: QuestionItem[];
-  questionContent: string;
-  questionErrorMessage: string | null;
-  questionTitle: string;
   reviewCarouselRef: ProgramPageDetailViewModel['reviewCarouselRef'];
   reviewSortOrder: ProgramPageDetailViewModel['reviewSortOrder'];
   sectionRefHandlers: ProgramPageDetailViewModel['sectionRefHandlers'];
@@ -268,18 +255,7 @@ const CurriculumWeekRow = ({ isOpen, onToggle, section, sectionIndex }: Curricul
   );
 };
 
-const formatDateTime = (value: string): string => {
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-};
-
-export const ProgramPageDetailHero = ({
-  data,
-  heroInfoPills,
-  supportTags,
-}: ProgramPageDetailHeroProps) => {
+export const ProgramPageDetailHero = ({ data, heroInfoPills }: ProgramPageDetailHeroProps) => {
   return (
     <section className={styles['heroSection']}>
       <div className={styles['heroBackground']}>
@@ -310,16 +286,6 @@ export const ProgramPageDetailHero = ({
             })}
           </ol>
         </nav>
-
-        <div className={styles['heroHashTagRow']}>
-          {supportTags.slice(0, 3).map((tag) => {
-            return (
-              <span className={styles['heroHashTag']} key={tag}>
-                #{tag}
-              </span>
-            );
-          })}
-        </div>
 
         <h1 className={styles['heroTitle']}>{data.title}</h1>
 
@@ -352,18 +318,8 @@ export const ProgramPageDetailMainContent = ({
   data,
   handleReviewCarouselScroll,
   handleTabClick,
-  isAuthenticated,
-  isQuestionSubmitting,
-  isQuestionsLoading,
-  onQuestionContentChange,
-  onQuestionSubmit,
-  onQuestionTitleChange,
   openCurriculumRows,
   openFaqId,
-  programQuestions,
-  questionContent,
-  questionErrorMessage,
-  questionTitle,
   reviewCarouselRef,
   reviewSortOrder,
   sectionRefHandlers,
@@ -455,18 +411,18 @@ export const ProgramPageDetailMainContent = ({
         <div className={styles['introductionSectionGroup']}>
           <section>
             <IntroductionBlockHeader
-              subtitle='이론을 넘어 실제 적용 포인트를 구조적으로 익히는 핵심 요소'
-              title='실전력을 극대화하는 핵심 학습 포인트'
+              subtitle='이론을 넘어 진단 사고력을 키우는 핵심 차별점을 정리했습니다.'
+              title='핵심 포인트'
             />
 
             <div className={styles['sectionBlockBody']}>
               <div className={styles['infoBoxListGroup']}>
-                {data.learningPoints.map((learningPoint, index) => {
+                {data.stats.map((corePoint) => {
                   return (
                     <IntroductionInfoBox
-                      content={learningPoint}
-                      key={learningPoint}
-                      title={`핵심 포인트 ${String(index + 1)}`}
+                      content={corePoint.value}
+                      key={`${corePoint.label}-${corePoint.value}`}
+                      title={corePoint.label}
                     />
                   );
                 })}
@@ -476,13 +432,19 @@ export const ProgramPageDetailMainContent = ({
 
           <section>
             <IntroductionBlockHeader
-              subtitle='수강 후 바로 체감할 수 있는 학습 변화'
-              title='수강 후 달라지는 학습 성과'
+              subtitle='이 강의를 통해 기대할 수 있는 실전 변화와 성장 포인트를 정리했습니다.'
+              title='이 강의를 듣고 나면 이렇게 달라집니다'
             />
 
             <div className={styles['sectionBlockBody']}>
               <div className={styles['checkItemGroup']}>
-                {data.stats.slice(0, 3).map((statItem) => {
+                {(
+                  data.learningOutcomes ??
+                  (data.learningPoints ?? []).map((item, index) => ({
+                    label: `변화 포인트 ${String(index + 1)}`,
+                    value: item,
+                  }))
+                ).map((statItem) => {
                   return (
                     <div className={styles['checkBlock']} key={statItem.label}>
                       <div className={styles['checkBlockTitleRow']}>
@@ -656,107 +618,6 @@ export const ProgramPageDetailMainContent = ({
 
       <section
         className={styles['contentSection']}
-        id='course-qna'
-        ref={sectionRefHandlers['course-qna']}
-      >
-        <h2 className={styles['sectionTitle']}>Q&A</h2>
-
-        <div className={styles['qnaSectionHeader']}>
-          <p className={styles['qnaSectionDescription']}>
-            과정 운영, 준비물, 사전 학습처럼 이 강의에 특화된 질문을 남길 수 있습니다.
-          </p>
-          <span className={styles['qnaSectionMeta']}>
-            전체 {String(programQuestions.length)}건
-          </span>
-        </div>
-
-        <div className={styles['qnaForm']}>
-          <TextField
-            label='질문 제목'
-            name='program-question-title'
-            onChange={(event) => {
-              onQuestionTitleChange(event.target.value);
-            }}
-            placeholder='예: 사전 복습이 꼭 필요한가요?'
-            value={questionTitle}
-          />
-          <TextAreaField
-            label='질문 내용'
-            name='program-question-content'
-            onChange={(event) => {
-              onQuestionContentChange(event.target.value);
-            }}
-            placeholder='과정 관련 궁금한 점을 구체적으로 남겨 주세요.'
-            rows={4}
-            value={questionContent}
-          />
-          <div className={styles['qnaFormActionRow']}>
-            <p className={styles['qnaFormHint']}>
-              {isAuthenticated
-                ? '답변은 관리자 확인 후 순차적으로 등록됩니다.'
-                : '로그인 후 질문을 남길 수 있습니다.'}
-            </p>
-            <Button disabled={isQuestionSubmitting} onClick={onQuestionSubmit} type='button'>
-              {isQuestionSubmitting ? '등록 중...' : isAuthenticated ? '질문 등록' : '로그인 후 질문'}
-            </Button>
-          </div>
-        </div>
-
-        {isQuestionsLoading ? <p className={styles['qnaEmptyState']}>Q&A를 불러오는 중입니다.</p> : null}
-        {questionErrorMessage ? <p className={styles['qnaEmptyState']}>{questionErrorMessage}</p> : null}
-
-        {!isQuestionsLoading && !questionErrorMessage ? (
-          <div className={styles['qnaList']}>
-            {programQuestions.length ? (
-              programQuestions.map((question) => {
-                return (
-                  <article className={styles['qnaCard']} key={question.id}>
-                    <div className={styles['qnaCardHeader']}>
-                      <div>
-                        <h3 className={styles['qnaCardTitle']}>{question.title}</h3>
-                        <p className={styles['qnaCardMeta']}>
-                          {question.authorName} · {formatDateTime(question.createdAt)}
-                        </p>
-                      </div>
-                      <span
-                        className={styles['qnaCardStatus']}
-                        data-tone={question.answered ? 'answered' : 'waiting'}
-                      >
-                        {question.answered ? '답변 완료' : '답변 대기'}
-                      </span>
-                    </div>
-
-                    <p className={styles['qnaCardContent']}>{question.content}</p>
-
-                    <div className={styles['qnaReplies']}>
-                      {question.replies.map((reply) => {
-                        return (
-                          <div className={styles['qnaReplyCard']} key={reply.id}>
-                            <div className={styles['qnaReplyCardHeader']}>
-                              <span className={styles['qnaReplyCardAuthor']}>{reply.authorName}</span>
-                              <span className={styles['qnaReplyCardBadge']}>
-                                {reply.adminReply ? '운영 답변' : '답변'}
-                              </span>
-                            </div>
-                            <p className={styles['qnaReplyCardContent']}>{reply.content}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </article>
-                );
-              })
-            ) : (
-              <p className={styles['qnaEmptyState']}>
-                아직 등록된 질문이 없습니다. 첫 질문을 남겨 보세요.
-              </p>
-            )}
-          </div>
-        ) : null}
-      </section>
-
-      <section
-        className={styles['contentSection']}
         id='course-faq'
         ref={sectionRefHandlers['course-faq']}
       >
@@ -798,6 +659,19 @@ export const ProgramPageDetailMainContent = ({
             );
           })}
         </div>
+      </section>
+
+      <section
+        className={styles['contentSection']}
+        id='course-community'
+        ref={sectionRefHandlers['course-community']}
+      >
+        <ProgramCommunityPanel
+          enabled={activeSectionId === 'course-community'}
+          programId={data.programId ?? null}
+          programThreadCount={data.communitySummary?.totalThreadCount ?? null}
+          title='커뮤니티'
+        />
       </section>
     </div>
   );

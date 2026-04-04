@@ -365,6 +365,36 @@ export const addMyCartItem = async (payload: AddToCartPayload): Promise<CartSumm
   }
 };
 
+export interface MergeMyCartItemsResult {
+  cart: CartSummary;
+  mergedCount: number;
+  skippedCount: number;
+  skippedProgramIds: number[];
+}
+
+export const mergeMyCartItems = async (programIds: number[]): Promise<MergeMyCartItemsResult> => {
+  if (!isStudentAuthenticated()) {
+    return {
+      cart: getGuestCart(),
+      mergedCount: 0,
+      skippedCount: 0,
+      skippedProgramIds: [],
+    };
+  }
+
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<MergeMyCartItemsResult>>(
+      '/api/v1/cart/merge',
+      {
+        programIds,
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '장바구니를 로그인 계정에 옮기지 못했습니다.');
+  }
+};
+
 export const applyMyCartCoupon = async (couponCode: string): Promise<CartSummary> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<CartSummary>>('/api/v1/cart/coupon', {

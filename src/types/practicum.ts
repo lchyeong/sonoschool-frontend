@@ -3,6 +3,7 @@ export type PracticumSlotStatus = 'OPEN' | 'BLOCKED' | 'CLOSED';
 export interface PracticumSlot {
   id: number;
   lectureId: number;
+  practicumTitle: string | null;
   startAt: string;
   endAt: string;
   location: string | null;
@@ -27,12 +28,13 @@ export interface PracticumReservation {
 export interface LecturePracticum {
   lectureId: number;
   lectureTitle: string;
+  practicumTitle: string | null;
   enabled: boolean;
   eligible: boolean;
   lectureCompleted: boolean;
-  quizAttempted: boolean;
   blockedReason: string | null;
   currentReservation: PracticumReservation | null;
+  currentReservations: PracticumReservation[];
   slots: PracticumSlot[];
 }
 
@@ -69,7 +71,6 @@ export interface AdminPracticumReservationItem {
   lectureCompleted: boolean;
   loginId: string;
   phoneNumber: string;
-  quizAttempted: boolean;
   reservationId: number;
   reservedAt: string;
   status: string;
@@ -82,6 +83,7 @@ export interface AdminPracticumSlotManagementItem {
   full: boolean;
   lectureId: number;
   lectureTitle: string;
+  practicumTitle: string | null;
   location: string | null;
   maxCapacity: number;
   programId: number;

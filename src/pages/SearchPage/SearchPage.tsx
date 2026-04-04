@@ -21,9 +21,7 @@ const normalizeSearchText = (value: string): string => {
 // 백엔드 검색 API가 아직 없으므로,
 // 프런트에서 받은 인덱스 데이터를 최대한 넓게 검색할 수 있게 문자열을 합쳐 둡니다.
 const buildProgramSearchableText = (item: ProgramSearchItem): string => {
-  return normalizeSearchText(
-    `${item.title} ${item.description} ${item.categoryLabel} ${item.tags.join(' ')}`,
-  );
+  return normalizeSearchText(`${item.title} ${item.description} ${item.categoryLabel}`);
 };
 
 const SearchPage = () => {
@@ -121,16 +119,6 @@ const SearchPage = () => {
                       </Link>
                     </h2>
                     <p className={styles['cardDescription']}>{item.description}</p>
-
-                    <ul className={styles['tagList']}>
-                      {item.tags.map((tag) => {
-                        return (
-                          <li className={styles['tagItem']} key={tag}>
-                            {tag}
-                          </li>
-                        );
-                      })}
-                    </ul>
                   </div>
                 </article>
               );

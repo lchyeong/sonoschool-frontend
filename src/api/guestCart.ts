@@ -70,10 +70,8 @@ const buildCartSummary = (items: CartItem[]): CartSummary => {
   return {
     items: clone(items),
     itemCount: items.length,
-    totalDiscountAmount: totalOriginalPrice - totalPayablePrice,
     totalOriginalPrice,
     totalPayablePrice,
-    appliedCoupon: null,
   };
 };
 

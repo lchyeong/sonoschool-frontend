@@ -543,13 +543,13 @@ const MyEnrollmentPracticumPage = () => {
                             <div>
                               <p className={styles['lectureSection']}>{lecture.sectionTitle}</p>
                               <h3 className={styles['lectureTitle']}>{lecture.lectureTitle}</h3>
+                              {lecture.practicumTitle ? (
+                                <p className={styles['lectureMeta']}>{lecture.practicumTitle}</p>
+                              ) : null}
                             </div>
                             <div className={styles['lectureBadges']}>
                               <span className={styles['statusChip']}>
                                 {lecture.lectureCompleted ? '강의 완료' : '강의 미완료'}
-                              </span>
-                              <span className={styles['statusChip']}>
-                                {lecture.quizAttempted ? '퀴즈 응시 완료' : '퀴즈 미응시'}
                               </span>
                               <span className={styles['statusChip']}>
                                 {lecture.eligible ? '예약 가능' : '예약 불가'}

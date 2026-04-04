@@ -19,7 +19,6 @@ import {
   myEnrollmentDetailQueryKey,
   myEnrollmentsQueryKey,
   myProfileQueryKey,
-  useMyCouponsQuery,
   useMyEnrollmentDetailQuery,
   useMyEnrollmentsQuery,
   useMyPaymentHistoryQuery,
@@ -31,7 +30,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import type { SmsSendResponse } from '@/types/auth';
-import type { EnrollmentReviewPayload, UserCoupon } from '@/types/mypage';
+import type { EnrollmentReviewPayload } from '@/types/mypage';
 import { formatPaymentMethodLabel, paymentStatusLabels, type PaymentStatus } from '@/types/payment';
 import { classNames } from '@/utils/classNames';
 
@@ -40,7 +39,6 @@ import styles from './MyPagePage.module.scss';
 type MyPageViewKey =
   | 'learning-courses'
   | 'orders-history'
-  | 'orders-coupons'
   | 'orders-refunds'
   | 'profile-basic'
   | 'support-inquiry';
@@ -71,7 +69,6 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     label: '주문/결제',
     items: [
       { key: 'orders-history', label: '결제 내역' },
-      { key: 'orders-coupons', label: '나의 쿠폰' },
       { key: 'orders-refunds', label: '취소/환불 내역' },
     ],
   },
@@ -97,11 +94,6 @@ const REFUND_STATUS_LABELS: Record<string, string> = {
   REFUND_REQUESTED: '환불 진행 중',
   REFUNDED: '환불 완료',
   CANCELLED: '취소 완료',
-};
-
-const DISCOUNT_TYPE_LABELS: Record<string, string> = {
-  FIXED_AMOUNT: '정액 할인',
-  PERCENTAGE: '정률 할인',
 };
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
@@ -143,26 +135,6 @@ const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원
 
 const formatStatusLabel = (value: string, labels: Record<string, string>) => {
   return labels[value] ?? '상태 확인 필요';
-};
-
-const formatDiscountLabel = (discountType: string, discountValue: number) => {
-  if (discountType === 'PERCENTAGE') {
-    return `${String(discountValue)}%`;
-  }
-
-  if (discountType === 'FIXED_AMOUNT') {
-    return `${currencyFormatter.format(discountValue)}원`;
-  }
-
-  return DISCOUNT_TYPE_LABELS[discountType] ?? '할인 적용';
-};
-
-const formatCouponAppliesTo = (coupon: UserCoupon) => {
-  if (coupon.appliesTo === 'ALL') {
-    return '전체 과정';
-  }
-
-  return coupon.appliesTo === 'ONLINE' ? '온라인 전용' : '오프라인 전용';
 };
 
 const MY_COURSE_PAGE_SIZE = 6;
@@ -332,7 +304,6 @@ const MyPagePage = () => {
   const paginatedEnrollments = paginateItems(filteredEnrollments, coursePage, MY_COURSE_PAGE_SIZE);
   const paymentHistoryQuery = useMyPaymentHistoryQuery(activeView === 'orders-history');
   const refundsQuery = useMyRefundsQuery(activeView === 'orders-refunds');
-  const couponsQuery = useMyCouponsQuery(activeView === 'orders-coupons');
   const enrollmentDetailQuery = useMyEnrollmentDetailQuery(
     selectedEnrollmentId,
     selectedEnrollmentId !== null,
@@ -1025,99 +996,6 @@ const MyPagePage = () => {
     );
   };
 
-  const renderOrderCoupons = () => {
-    const usableCoupons = (couponsQuery.data ?? []).filter((coupon) => coupon.usable);
-
-    return (
-      <section className={styles['contentSection']}>
-        <div className={sharedStyles['sectionHeader']}>
-          <h2 className={sharedStyles['sectionTitle']}>나의 쿠폰</h2>
-          <p className={sharedStyles['sectionDescription']}>
-            보유 쿠폰 {couponsQuery.data?.length ?? 0}장 중 사용 가능한 쿠폰은{' '}
-            {usableCoupons.length}
-            장입니다.
-          </p>
-        </div>
-
-        {couponsQuery.isLoading ? (
-          <p className={sharedStyles['mutedText']}>쿠폰 목록을 불러오는 중입니다.</p>
-        ) : null}
-
-        {couponsQuery.isError ? (
-          <p className={styles['errorText']}>
-            {couponsQuery.error instanceof Error
-              ? couponsQuery.error.message
-              : '쿠폰 목록을 불러오지 못했습니다.'}
-          </p>
-        ) : null}
-
-        {!couponsQuery.isLoading && !couponsQuery.isError && usableCoupons.length ? (
-          <div className={styles['summaryGrid']}>
-            <div className={styles['summaryItem']}>
-              <span className={styles['summaryLabel']}>사용 가능</span>
-              <strong className={styles['summaryValue']}>{usableCoupons.length}장</strong>
-            </div>
-            <div className={styles['summaryItem']}>
-              <span className={styles['summaryLabel']}>온라인 전용</span>
-              <strong className={styles['summaryValue']}>
-                {usableCoupons.filter((coupon) => coupon.appliesTo === 'ONLINE').length}장
-              </strong>
-            </div>
-            <div className={styles['summaryItem']}>
-              <span className={styles['summaryLabel']}>오프라인 전용</span>
-              <strong className={styles['summaryValue']}>
-                {usableCoupons.filter((coupon) => coupon.appliesTo === 'OFFLINE').length}장
-              </strong>
-            </div>
-          </div>
-        ) : null}
-
-        {!couponsQuery.isLoading && !couponsQuery.isError && couponsQuery.data?.length ? (
-          <div className={styles['couponList']}>
-            {couponsQuery.data.map((coupon) => (
-              <article className={styles['couponCard']} key={coupon.id}>
-                <div className={styles['couponCardHeader']}>
-                  <div className={styles['couponCardTitleGroup']}>
-                    <strong className={styles['couponCardTitle']}>{coupon.name}</strong>
-                    <p className={styles['couponCardDescription']}>{coupon.description}</p>
-                  </div>
-                  <span className={styles['statusChip']}>
-                    {coupon.usable ? '사용 가능' : '사용 불가'}
-                  </span>
-                </div>
-                <div className={styles['couponCardMetaGrid']}>
-                  <div className={styles['couponCardMetaItem']}>
-                    <span className={styles['summaryLabel']}>할인</span>
-                    <strong className={styles['couponCardMetaValue']}>
-                      {formatDiscountLabel(coupon.discountType, coupon.discountValue)}
-                    </strong>
-                  </div>
-                  <div className={styles['couponCardMetaItem']}>
-                    <span className={styles['summaryLabel']}>사용 조건</span>
-                    <strong className={styles['couponCardMetaValue']}>
-                      {formatCouponAppliesTo(coupon)} · 최소{' '}
-                      {formatCurrency(coupon.minimumOrderAmount)}
-                    </strong>
-                  </div>
-                  <div className={styles['couponCardMetaItem']}>
-                    <span className={styles['summaryLabel']}>유효 기간</span>
-                    <strong className={styles['couponCardMetaValue']}>
-                      {formatDate(coupon.issuedAt)} ~ {formatDate(coupon.expiresAt)}
-                    </strong>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : null}
-
-        {!couponsQuery.isLoading && !couponsQuery.isError && !couponsQuery.data?.length ? (
-          <p className={sharedStyles['mutedText']}>보유한 쿠폰이 없습니다.</p>
-        ) : null}
-      </section>
-    );
-  };
-
   const renderOrderRefunds = () => {
     const refundCount = refundsQuery.data?.length ?? 0;
 
@@ -1397,8 +1275,6 @@ const MyPagePage = () => {
         return renderLearningCourses();
       case 'orders-history':
         return renderOrderHistory();
-      case 'orders-coupons':
-        return renderOrderCoupons();
       case 'orders-refunds':
         return renderOrderRefunds();
       case 'profile-basic':

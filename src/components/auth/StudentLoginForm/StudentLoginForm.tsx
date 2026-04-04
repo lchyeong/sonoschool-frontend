@@ -7,7 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { loginStudent, verifyStudentLoginSms } from '@/api/auth';
 import { clearGuestCart, getGuestCart, retainGuestCartPrograms } from '@/api/guestCart';
-import { addMyCartItem, fetchMyCart } from '@/api/mypage';
+import { mergeMyCartItems } from '@/api/mypage';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { myCartQueryKey, myCouponsQueryKey } from '@/query/useMyPageQueries';
@@ -83,7 +83,7 @@ const StudentLoginForm = ({
     const guestCart = getGuestCart();
 
     if (!guestCart.items.length) {
-      return { failedCount: 0, serverCart: null as Awaited<ReturnType<typeof fetchMyCart>> | null };
+      return { failedCount: 0, serverCart: null as ReturnType<typeof getGuestCart> | null };
     }
 
     const currentSelection = useCartSelectionStore.getState().selectedItemIds;
@@ -92,36 +92,19 @@ const StudentLoginForm = ({
         .filter((item) => currentSelection.includes(item.id))
         .map((item) => item.programId),
     );
-    const failedProgramIds = new Set<number>();
-
-    for (const item of guestCart.items) {
-      try {
-        await addMyCartItem({
-          instructorName: item.instructorName,
-          originalPrice: item.originalPrice,
-          payablePrice: item.payablePrice,
-          programId: item.programId,
-          programType: item.programType,
-          salePrice: item.salePrice,
-          sourcePath: item.detailPath,
-          thumbnailUrl: item.thumbnailUrl,
-          title: item.title,
-        });
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : '';
-
-        if (!message.includes('이미 장바구니에 담긴 강의')) {
-          failedProgramIds.add(item.programId);
-        }
-      }
-    }
-
-    const serverCart = await fetchMyCart();
+    const mergeResult = await mergeMyCartItems(guestCart.items.map((item) => item.programId));
+    const serverCart = mergeResult.cart;
+    const mergedProgramIds = new Set(serverCart.items.map((item) => item.programId));
+    const failedProgramIds = new Set(
+      guestCart.items
+        .map((item) => item.programId)
+        .filter((programId) => !mergedProgramIds.has(programId)),
+    );
     const selectedItemIds = serverCart.items
       .filter((item) => selectedProgramIds.has(item.programId))
       .map((item) => item.id);
 
-    replaceSelection(selectedItemIds, null);
+    replaceSelection(selectedItemIds);
 
     if (failedProgramIds.size > 0) {
       retainGuestCartPrograms([...failedProgramIds]);

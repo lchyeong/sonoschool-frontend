@@ -539,17 +539,6 @@ describe('MyPagePage', () => {
     expect(screen.getByText(/환불 금액 99,000원/)).toBeInTheDocument();
   });
 
-  it('shows coupon cards when the coupons item is selected', async () => {
-    renderMyPage();
-
-    fireEvent.click(screen.getByRole('button', { name: '나의 쿠폰' }));
-
-    expect(await screen.findByText('봄맞이 할인')).toBeInTheDocument();
-    expect(screen.getByText('온라인 집중 10%')).toBeInTheDocument();
-    expect(screen.getAllByText('사용 가능').length).toBeGreaterThan(0);
-    expect(screen.getByText(/전체 과정 · 최소 150,000원/)).toBeInTheDocument();
-  });
-
   it('creates a review from my course card', async () => {
     renderMyPage();
 

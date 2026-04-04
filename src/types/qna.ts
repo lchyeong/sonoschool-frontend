@@ -1,4 +1,4 @@
-export type QuestionScope = 'GLOBAL' | 'PROGRAM';
+export type QuestionScope = 'GLOBAL';
 
 export interface QuestionReplyItem {
   id: number;

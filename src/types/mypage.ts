@@ -101,6 +101,13 @@ export interface LearningPlayerLessonProgress {
   completedAt: string | null;
 }
 
+export interface LearningPlayerCommunityContext {
+  programId: number;
+  currentLectureId: number | null;
+  programThreadCount: number;
+  currentLectureThreadCount: number;
+}
+
 export interface EnrollmentDetail {
   id: number;
   programId: number;
@@ -134,6 +141,7 @@ export interface LearningPlayerSnapshot {
   completedLessonIds: string[];
   lessonPlaybackById: Record<string, LearningPlayerSource>;
   lessonProgressByLessonId?: Record<string, LearningPlayerLessonProgress>;
+  communityContext?: LearningPlayerCommunityContext | undefined;
   lastPlaybackAt: string | null;
   resumeAtSeconds: number;
 }
@@ -195,9 +203,9 @@ export interface CartSummary {
   items: CartItem[];
   itemCount: number;
   totalOriginalPrice: number;
-  totalDiscountAmount: number;
+  totalDiscountAmount?: number | undefined;
   totalPayablePrice: number;
-  appliedCoupon: AppliedCoupon | null;
+  appliedCoupon?: AppliedCoupon | null | undefined;
 }
 
 export interface ApplicationSummaryItem {
@@ -214,7 +222,7 @@ export interface ApplicationSummary {
   onlinePayablePrice: number;
   offlineItemCount: number;
   hasOnlineCheckout: boolean;
-  appliedCoupon: AppliedCoupon | null;
+  appliedCoupon?: AppliedCoupon | null | undefined;
 }
 
 export interface RefundHistory {

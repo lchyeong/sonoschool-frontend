@@ -24,7 +24,6 @@ const homeHeroLectureSlideSchema = z.object({
   description: z.string().min(1),
   thumbnailSrc: z.string().min(1),
   thumbnailAlt: z.string().min(1),
-  tags: z.array(z.string().trim().min(1)).min(1).max(6),
 });
 
 const homeHeroSlidesResponseSchema = z.object({

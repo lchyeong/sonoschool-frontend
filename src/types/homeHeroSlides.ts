@@ -12,7 +12,7 @@ export interface HomeHeroLectureSlide {
   description: string;
   thumbnailSrc: string;
   thumbnailAlt: string;
-  tags: string[];
+  tags?: string[] | undefined;
 }
 
 export type HomeHeroSlide = HomeHeroBannerSlide | HomeHeroLectureSlide;

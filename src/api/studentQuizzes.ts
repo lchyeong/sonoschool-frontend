@@ -6,6 +6,8 @@ import type { ApiEnvelope } from '@/types/auth';
 import type {
   StudentQuiz,
   StudentQuizAttemptResult,
+  StudentQuizSession,
+  StudentQuizSessionSavePayload,
   StudentQuizSubmitPayload,
 } from '@/types/studentQuizzes';
 
@@ -40,5 +42,20 @@ export const submitStudentQuiz = async (
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '퀴즈를 제출하지 못했습니다.');
+  }
+};
+
+export const saveStudentQuizSession = async (
+  quizId: number,
+  payload: StudentQuizSessionSavePayload,
+): Promise<StudentQuizSession> => {
+  try {
+    const response = await axiosInstance.put<ApiEnvelope<StudentQuizSession>>(
+      `/api/v1/quizzes/${String(quizId)}/session`,
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '문제 풀이 상태를 저장하지 못했습니다.');
   }
 };

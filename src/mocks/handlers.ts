@@ -34,10 +34,8 @@ import {
   createMockNotice,
   deleteMockNotice,
   getMockAdminNotices,
-  getMockAdminPopups,
   getMockNoticeById,
   getMockPublishedGlobalNotices,
-  getMockPublishedGlobalPopups,
   updateMockNotice,
 } from '@/mocks/data/notices';
 import {
@@ -46,24 +44,31 @@ import {
   getMockPaymentResultByToken,
 } from '@/mocks/data/payments';
 import {
+  createMockPopup,
+  deleteMockPopup,
+  getMockAdminPopups,
+  getMockPublishedGlobalPopups,
+  updateMockPopup,
+} from '@/mocks/data/popups';
+import {
   getMockProgramPage,
   getMockProgramSearchLectureItems,
   getMockProgramsOverview,
 } from '@/mocks/data/programCatalog';
+import {
+  createMockProgramCommunityReply,
+  createMockProgramCommunityThread,
+  getMockProgramCommunity,
+} from '@/mocks/data/programCommunity';
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import {
   createMockAdminReply,
   createMockGlobalQuestion,
   deleteMockAdminReply,
-  createMockProgramQuestion,
   getMockAdminQuestions,
   getMockGlobalQuestions,
-  getMockProgramQuestions,
 } from '@/mocks/data/qna';
-import {
-  getMockGlobalResourceById,
-  getMockGlobalResources,
-} from '@/mocks/data/resources';
+import { getMockGlobalResourceById, getMockGlobalResources } from '@/mocks/data/resources';
 import { getMockSiteNavigation } from '@/mocks/data/siteNavigation';
 import {
   getMockRegistrationTerms,
@@ -79,7 +84,13 @@ import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
 import type { AddToCartPayload } from '@/types/mypage';
 import type { NoticeItem } from '@/types/notice';
+import type { KcpPcPrepareResponse } from '@/types/payment';
+import type { PopupItem } from '@/types/popup';
 import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
+import type {
+  ProgramCommunityReplyCreatePayload,
+  ProgramCommunityThreadCreatePayload,
+} from '@/types/programCommunity';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
 import type { QuestionCreatePayload, QuestionReplyCreatePayload } from '@/types/qna';
 import type { ResourceItem } from '@/types/resource';
@@ -827,6 +838,91 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(createMockGlobalQuestion(body)), { status: 201 });
   }),
+  http.post('*/api/v1/payments/checkout/kcp/pc/prepare', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as {
+      cartItemIds?: number[];
+      paymentMethod?: string;
+    } | null;
+
+    const response: KcpPcPrepareResponse = {
+      buyrMail: 'mock-user@sonoschool.test',
+      buyrName: '목 사용자',
+      buyrTel2: '01012341234',
+      currency: '410',
+      goodExpr: '0',
+      goodMny: 590000,
+      goodName: '복부 실전 과정',
+      jsUrl: 'https://mock-kcp.example/script.js',
+      orderReference: `mock-checkout-${String(body?.cartItemIds?.[0] ?? '0')}`,
+      ordrIdxx: 'mock-order-20260404',
+      payMethod: body?.paymentMethod ?? 'CARD',
+      paymentId: 501,
+      shopUserId: 'mock-user',
+      siteCd: 'T0000',
+      siteName: 'SONO SCHOOL',
+    };
+
+    return HttpResponse.json(createApiEnvelope(response), { status: 200 });
+  }),
+  http.get('*/api/v1/programs/:programId/community', ({ params, request }) => {
+    const programId = Number(params['programId']);
+    const url = new URL(request.url);
+    const lectureIdParam = url.searchParams.get('lectureId');
+    const lectureId = lectureIdParam ? Number(lectureIdParam) : null;
+
+    if (!Number.isInteger(programId) || programId <= 0) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(getMockProgramCommunity(programId, lectureId)));
+  }),
+  http.post('*/api/v1/programs/:programId/community', async ({ params, request }) => {
+    const programId = Number(params['programId']);
+    const body = (await request
+      .json()
+      .catch(() => null)) as ProgramCommunityThreadCreatePayload | null;
+
+    if (
+      !Number.isInteger(programId) ||
+      programId <= 0 ||
+      !body ||
+      typeof body.title !== 'string' ||
+      typeof body.content !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(createMockProgramCommunityThread(programId, body)), {
+      status: 201,
+    });
+  }),
+  http.post(
+    '*/api/v1/programs/:programId/community/:questionId/replies',
+    async ({ params, request }) => {
+      const programId = Number(params['programId']);
+      const questionId = Number(params['questionId']);
+      const body = (await request
+        .json()
+        .catch(() => null)) as ProgramCommunityReplyCreatePayload | null;
+
+      if (
+        !Number.isInteger(programId) ||
+        !Number.isInteger(questionId) ||
+        !body ||
+        typeof body.content !== 'string'
+      ) {
+        return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+      }
+
+      const reply = createMockProgramCommunityReply(programId, questionId, body);
+
+      if (!reply) {
+        return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+      }
+
+      return HttpResponse.json(createApiEnvelope(reply), { status: 201 });
+    },
+  ),
   http.get('*/api/v1/notices/:noticeId', ({ params }) => {
     const noticeId = Number(params['noticeId']);
     const notice = getMockNoticeById(noticeId);
@@ -855,14 +951,11 @@ export const handlers = [
     const notice = createMockNotice({
       content: body['content'],
       pinned: Boolean(body['pinned']),
-      popup: false,
       programId: null,
       programTitle: null,
       published: Boolean(body['published']),
       scope: 'GLOBAL',
       title: body['title'],
-      visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
-      visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
     });
 
     return HttpResponse.json(createApiEnvelope(notice), { status: 201 });
@@ -883,11 +976,8 @@ export const handlers = [
     const notice = updateMockNotice(noticeId, {
       content: body['content'],
       pinned: Boolean(body['pinned']),
-      popup: false,
       scope: 'GLOBAL',
       title: body['title'],
-      visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
-      visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
     });
 
     if (!notice) {
@@ -929,42 +1019,97 @@ export const handlers = [
   http.get('*/api/v1/admin/popups', () => {
     return HttpResponse.json(createApiEnvelope(getMockAdminPopups()));
   }),
-  http.post('*/api/v1/admin/popups', async ({ request }) => {
-    const body = (await request.json().catch(() => null)) as Partial<NoticeItem> | null;
+  http.post('*/api/v1/admin/popups/upload-targets', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 
-    if (!body || typeof body['title'] !== 'string' || typeof body['content'] !== 'string') {
+    if (
+      !body ||
+      typeof body['filename'] !== 'string' ||
+      typeof body['contentType'] !== 'string' ||
+      typeof body['fileSize'] !== 'number'
+    ) {
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
-    const popup = createMockNotice({
-      content: body['content'],
-      pinned: false,
-      popup: true,
-      programId: null,
-      programTitle: null,
+    const assetId = Date.now();
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        assetId,
+        expiresInSeconds: 900,
+        mediaType: 'IMAGE',
+        previewUrl: `https://cdn.mock/popups/${String(assetId)}.png`,
+        uploadUrl: `https://upload.mock/popups/${String(assetId)}`,
+      }),
+    );
+  }),
+  http.post('*/api/v1/admin/resources/upload-targets', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+
+    if (
+      !body ||
+      typeof body['filename'] !== 'string' ||
+      typeof body['contentType'] !== 'string' ||
+      typeof body['fileSize'] !== 'number'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const assetId = Date.now();
+    const safeName = encodeURIComponent(body['filename']);
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        assetId,
+        expiresInSeconds: 900,
+        fileUrl: `s3://mock-bucket/assets/resources/${String(assetId)}/${safeName}`,
+        uploadUrl: `https://upload.mock/resources/${String(assetId)}`,
+      }),
+      { status: 201 },
+    );
+  }),
+  http.post('*/api/v1/admin/popups', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Partial<PopupItem> | null;
+
+    if (
+      !body ||
+      typeof body['imageAssetId'] !== 'number' ||
+      typeof body['altText'] !== 'string' ||
+      typeof body['sortOrder'] !== 'number'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const popup = createMockPopup({
+      altText: body['altText'],
+      imageAssetId: body['imageAssetId'],
+      imageUrl: `https://cdn.mock/popups/${String(body['imageAssetId'])}.png`,
       published: Boolean(body['published']),
-      scope: 'GLOBAL',
-      title: body['title'],
       visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
       visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
+      sortOrder: body['sortOrder'],
     });
 
     return HttpResponse.json(createApiEnvelope(popup), { status: 201 });
   }),
   http.put('*/api/v1/admin/popups/:popupId', async ({ params, request }) => {
     const popupId = Number(params['popupId']);
-    const body = (await request.json().catch(() => null)) as Partial<NoticeItem> | null;
+    const body = (await request.json().catch(() => null)) as Partial<PopupItem> | null;
 
-    if (!body || typeof body['title'] !== 'string' || typeof body['content'] !== 'string') {
+    if (
+      !body ||
+      typeof body['imageAssetId'] !== 'number' ||
+      typeof body['altText'] !== 'string' ||
+      typeof body['sortOrder'] !== 'number'
+    ) {
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
-    const popup = updateMockNotice(popupId, {
-      content: body['content'],
-      pinned: false,
-      popup: true,
-      scope: 'GLOBAL',
-      title: body['title'],
+    const popup = updateMockPopup(popupId, {
+      altText: body['altText'],
+      imageAssetId: body['imageAssetId'],
+      imageUrl: `https://cdn.mock/popups/${String(body['imageAssetId'])}.png`,
+      sortOrder: body['sortOrder'],
       visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
       visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
     });
@@ -977,7 +1122,7 @@ export const handlers = [
   }),
   http.post('*/api/v1/admin/popups/:popupId/publish', ({ params }) => {
     const popupId = Number(params['popupId']);
-    const popup = updateMockNotice(popupId, { published: true, popup: true });
+    const popup = updateMockPopup(popupId, { published: true });
 
     if (!popup) {
       return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
@@ -987,7 +1132,7 @@ export const handlers = [
   }),
   http.post('*/api/v1/admin/popups/:popupId/unpublish', ({ params }) => {
     const popupId = Number(params['popupId']);
-    const popup = updateMockNotice(popupId, { published: false, popup: true });
+    const popup = updateMockPopup(popupId, { published: false });
 
     if (!popup) {
       return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
@@ -997,30 +1142,13 @@ export const handlers = [
   }),
   http.delete('*/api/v1/admin/popups/:popupId', ({ params }) => {
     const popupId = Number(params['popupId']);
-    const deleted = deleteMockNotice(popupId);
+    const deleted = deleteMockPopup(popupId);
 
     if (!deleted) {
       return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
     }
 
     return new HttpResponse(null, { status: 204 });
-  }),
-  http.get('*/api/v1/programs/:programId/questions', ({ params }) => {
-    const programId = Number(params['programId']);
-
-    return HttpResponse.json(createApiEnvelope(getMockProgramQuestions(programId)));
-  }),
-  http.post('*/api/v1/programs/:programId/questions', async ({ params, request }) => {
-    const programId = Number(params['programId']);
-    const body = (await request.json().catch(() => null)) as QuestionCreatePayload | null;
-
-    if (!body || typeof body.title !== 'string' || typeof body.content !== 'string') {
-      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
-    }
-
-    return HttpResponse.json(createApiEnvelope(createMockProgramQuestion(programId, body)), {
-      status: 201,
-    });
   }),
   http.get('*/api/v1/admin/qna', () => {
     return HttpResponse.json(createApiEnvelope(getMockAdminQuestions()));
@@ -1242,6 +1370,7 @@ export const handlers = [
           full: false,
           lectureId: 9101,
           lectureTitle: '복부 기본 실습',
+          practicumTitle: '복부 기본 프로브 핸들링',
           location: '서울 강의실 A',
           maxCapacity: 2,
           programId: 2001,
@@ -1253,7 +1382,6 @@ export const handlers = [
               lectureCompleted: true,
               loginId: 'minji01',
               phoneNumber: '010-1111-2222',
-              quizAttempted: true,
               reservationId: 8101,
               reservedAt: '2026-03-28T10:00:00Z',
               status: 'ACTIVE',

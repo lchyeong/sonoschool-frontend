@@ -128,16 +128,6 @@ export const ProgramCollectionCardItem = ({ item }: ProgramCollectionCardItemPro
           </Link>
         </h3>
         <p className={styles['collectionDescription']}>{item.description}</p>
-
-        <ul className={styles['inlineTagList']}>
-          {item.tags.map((tag) => {
-            return (
-              <li className={styles['inlineTagItem']} key={tag}>
-                {tag}
-              </li>
-            );
-          })}
-        </ul>
       </div>
     </article>
   );
@@ -192,16 +182,6 @@ export const ProgramLectureCardItem = ({ item }: ProgramLectureCardItemProps) =>
             <dd>{item.difficultyLabel}</dd>
           </div>
         </dl>
-
-        <ul className={styles['inlineTagList']}>
-          {item.tags.map((tag) => {
-            return (
-              <li className={styles['inlineTagItem']} key={tag}>
-                {tag}
-              </li>
-            );
-          })}
-        </ul>
       </div>
     </article>
   );
@@ -253,18 +233,6 @@ export const ProgramArchiveLectureCardItem = ({ item }: ProgramArchiveLectureCar
           ) : null}
 
           <p className={styles['archiveLectureSchedule']}>{item.scheduleLabel}</p>
-
-          {item.hashtagLabels.length ? (
-            <ul aria-label='강의 해시태그' className={styles['archiveLectureHashtagList']}>
-              {item.hashtagLabels.map((hashtagLabel) => {
-                return (
-                  <li className={styles['archiveLectureHashtagItem']} key={hashtagLabel}>
-                    #{hashtagLabel}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
         </div>
       </div>
     </article>

@@ -1,4 +1,4 @@
-import { getMockMyCart, getMockMyCoupons } from '@/mocks/data/mypage';
+import { getMockMyCart } from '@/mocks/data/mypage';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import type {
   MockCheckoutRedirectPayload,
@@ -25,17 +25,11 @@ const cloneData = <T>(value: T): T => {
 
 const createOrderName = (): string => {
   const cart = getMockMyCart();
-  const coupons = getMockMyCoupons();
   const selection = useCartSelectionStore.getState();
   const selectedItemIds = selection.selectedItemIds.length
     ? selection.selectedItemIds
     : cart.items.map((item) => item.id);
-  const pricing = calculateSelectedCartPricing(
-    cart,
-    selectedItemIds,
-    coupons,
-    selection.selectedCouponId ?? cart.appliedCoupon?.id ?? null,
-  );
+  const pricing = calculateSelectedCartPricing(cart, selectedItemIds);
 
   if (!pricing.selectedItems.length) {
     return '손오스쿨 결제';
@@ -52,17 +46,11 @@ const createOrderName = (): string => {
 
 const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
   const cart = getMockMyCart();
-  const coupons = getMockMyCoupons();
   const selection = useCartSelectionStore.getState();
   const selectedItemIds = selection.selectedItemIds.length
     ? selection.selectedItemIds
     : cart.items.map((item) => item.id);
-  const pricing = calculateSelectedCartPricing(
-    cart,
-    selectedItemIds,
-    coupons,
-    selection.selectedCouponId ?? cart.appliedCoupon?.id ?? null,
-  );
+  const pricing = calculateSelectedCartPricing(cart, selectedItemIds);
 
   return {
     amount: pricing.totalPayablePrice,

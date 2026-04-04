@@ -32,29 +32,6 @@ export const createGlobalQuestion = async (
   }
 };
 
-export const fetchProgramQuestions = async (programId: number): Promise<QuestionItem[]> => {
-  try {
-    return await http.get<QuestionItem[]>(`/api/v1/programs/${String(programId)}/questions`);
-  } catch (error: unknown) {
-    throw toApiError(error, '과정 Q&A를 불러오지 못했습니다.');
-  }
-};
-
-export const createProgramQuestion = async (
-  programId: number,
-  payload: QuestionCreatePayload,
-): Promise<QuestionItem> => {
-  try {
-    const response = await axiosInstance.post<ApiEnvelope<QuestionItem>>(
-      `/api/v1/programs/${String(programId)}/questions`,
-      payload,
-    );
-    return unwrapApiEnvelope(response.data);
-  } catch (error: unknown) {
-    throw toApiError(error, '과정 Q&A 등록에 실패했습니다.');
-  }
-};
-
 export const fetchAdminQuestions = async (): Promise<QuestionItem[]> => {
   try {
     const response = await axiosInstance.get<ApiEnvelope<QuestionItem[]>>('/api/v1/admin/qna');

@@ -30,10 +30,26 @@ export interface StudentQuiz {
   description: string | null;
   passScore: number;
   questions: StudentQuizQuestion[];
+  session: StudentQuizSession | null;
+}
+
+export interface StudentQuizSession {
+  status: 'IN_PROGRESS' | 'SUBMITTED';
+  answers: Record<number, number[]>;
+  flaggedQuestionIds: number[];
+  currentQuestionIndex: number;
+  elapsedSeconds: number;
 }
 
 export interface StudentQuizSubmitPayload {
   answers: Record<number, number[]>;
+}
+
+export interface StudentQuizSessionSavePayload {
+  answers: Record<number, number[]>;
+  flaggedQuestionIds: number[];
+  currentQuestionIndex: number;
+  elapsedSeconds: number;
 }
 
 export interface StudentQuizQuestionResult {

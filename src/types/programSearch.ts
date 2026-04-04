@@ -9,7 +9,7 @@ export interface ProgramSearchItem {
   title: string;
   description: string;
   categoryLabel: string;
-  tags: string[];
+  tags?: string[] | undefined;
   thumbnailSrc: string;
   thumbnailAlt: string;
 }

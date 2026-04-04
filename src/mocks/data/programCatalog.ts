@@ -4132,7 +4132,7 @@ const getMissingFieldLabelsForEditableProgram = (
     missingLabels.push('정원');
   }
   if (!program.tags.length) missingLabels.push('분류 태그');
-  if (!program.learningPoints.length) missingLabels.push('학습 포인트');
+  if (!program.learningPoints.length) missingLabels.push('학습 성과');
   if (!program.recommendedFor.length) missingLabels.push('추천 대상');
   if (!program.preparationChecklist.length) missingLabels.push('체크리스트');
   if (program.stats.length < 2) missingLabels.push('요약 정보');

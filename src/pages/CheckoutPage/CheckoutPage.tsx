@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { useEffect, useRef, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,11 +11,9 @@ import {
 } from '@/api/payments';
 import {
   myCartQueryKey,
-  myCouponsQueryKey,
   myEnrollmentsQueryKey,
   myPaymentHistoryQueryKey,
   useMyCartQuery,
-  useMyCouponsQuery,
   useMyProfileQuery,
 } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
@@ -45,14 +44,12 @@ const pcPaymentApproveErrorMessage = '결제 승인에 실패했습니다. 잠�
 const pcPaymentCancelledMessage = '결제가 취소되었습니다. 다시 결제를 진행해 주세요.';
 const pcPaymentClosedMessage = '결제창이 닫혀 결제가 완료되지 않았습니다. 다시 시도해 주세요.';
 const pcPaymentReturnGraceMs = 1200;
-let kcpScrollLockSnapshot:
-  | {
-      bodyOverflow: string;
-      bodyTouchAction: string;
-      htmlOverflow: string;
-      htmlOverscrollBehavior: string;
-    }
-  | null = null;
+let kcpScrollLockSnapshot: {
+  bodyOverflow: string;
+  bodyTouchAction: string;
+  htmlOverflow: string;
+  htmlOverscrollBehavior: string;
+} | null = null;
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
 
@@ -240,14 +237,12 @@ const isUserCancelledPcPayment = (resCd: string, resMsg: string | null) => {
 const buildPcPrepareKey = (
   cartItemIds: number[],
   paymentMethod: CheckoutPaymentMethod,
-  selectedCouponId: number | null,
   prepareVersion: number,
 ) => {
   return JSON.stringify({
     cartItemIds,
     paymentMethod,
     prepareVersion,
-    selectedCouponId,
   });
 };
 
@@ -302,29 +297,16 @@ const CheckoutPage = () => {
   const pcAttemptRecoveryTimerRef = useRef<number | null>(null);
 
   const selectedItemIds = useCartSelectionStore((state) => state.selectedItemIds);
-  const selectedCouponId = useCartSelectionStore((state) => state.selectedCouponId);
   const hydrateSelection = useCartSelectionStore((state) => state.hydrate);
   const cartQuery = useMyCartQuery();
-  const couponsQuery = useMyCouponsQuery();
   const profileQuery = useMyProfileQuery();
 
   const cart = cartQuery.data;
-  const coupons = couponsQuery.data;
   const profile = profileQuery.data;
-  const pricing = calculateSelectedCartPricing(
-    cart,
-    selectedItemIds,
-    coupons ?? [],
-    selectedCouponId,
-  );
+  const pricing = calculateSelectedCartPricing(cart, selectedItemIds);
   const isMobilePayment = isMobileBrowser();
   const selectedCartItemIds = pricing.selectedItems.map((item) => item.id);
-  const pcPrepareKey = buildPcPrepareKey(
-    selectedCartItemIds,
-    paymentMethod,
-    selectedCouponId,
-    pcPrepareVersion,
-  );
+  const pcPrepareKey = buildPcPrepareKey(selectedCartItemIds, paymentMethod, pcPrepareVersion);
 
   const clearPcAttemptRecoveryTimer = () => {
     if (pcAttemptRecoveryTimerRef.current !== null) {
@@ -355,8 +337,8 @@ const CheckoutPage = () => {
       return;
     }
 
-    hydrateSelection(cart, coupons ?? []);
-  }, [cart, coupons, hydrateSelection]);
+    hydrateSelection(cart);
+  }, [cart, hydrateSelection]);
 
   useEffect(() => {
     resetPcPreparedPayment();
@@ -383,7 +365,6 @@ const CheckoutPage = () => {
         const prepare = await prepareKcpPcCheckoutPayment({
           cartItemIds: selectedCartItemIds,
           paymentMethod,
-          selectedCouponId,
         });
 
         if (cancelled) {
@@ -537,7 +518,6 @@ const CheckoutPage = () => {
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: myCartQueryKey(cartScope) }),
-          queryClient.invalidateQueries({ queryKey: myCouponsQueryKey(cartScope) }),
           queryClient.invalidateQueries({ queryKey: myEnrollmentsQueryKey }),
           queryClient.invalidateQueries({ queryKey: myPaymentHistoryQueryKey }),
         ]);
@@ -588,7 +568,6 @@ const CheckoutPage = () => {
     const checkoutPayload = {
       cartItemIds: selectedCartItemIds,
       paymentMethod,
-      selectedCouponId,
     };
 
     try {
@@ -610,7 +589,12 @@ const CheckoutPage = () => {
         throw new Error(pcPaymentOpenErrorMessage);
       }
 
-      if (!isPcPaymentReady || !latestPrepareRef.current || !window.jsf__pay || !window.KCP_Pay_Execute_Web) {
+      if (
+        !isPcPaymentReady ||
+        !latestPrepareRef.current ||
+        !window.jsf__pay ||
+        !window.KCP_Pay_Execute_Web
+      ) {
         throw new Error(pcPaymentOpenErrorMessage);
       }
 
@@ -675,7 +659,7 @@ const CheckoutPage = () => {
             <input name='buyr_mail' type='hidden' />
           </form>
 
-          {cartQuery.isLoading || couponsQuery.isLoading || profileQuery.isLoading ? (
+          {cartQuery.isLoading || profileQuery.isLoading ? (
             <p className={sharedStyles['mutedText']}>결제 정보를 불러오는 중입니다.</p>
           ) : null}
 
@@ -684,14 +668,6 @@ const CheckoutPage = () => {
               {cartQuery.error instanceof Error
                 ? cartQuery.error.message
                 : '결제 정보를 불러오지 못했습니다.'}
-            </p>
-          ) : null}
-
-          {couponsQuery.isError ? (
-            <p className={styles['errorText']}>
-              {couponsQuery.error instanceof Error
-                ? couponsQuery.error.message
-                : '쿠폰 정보를 불러오지 못했습니다.'}
             </p>
           ) : null}
 
@@ -781,7 +757,7 @@ const CheckoutPage = () => {
                   <div className={sharedStyles['sectionHeader']}>
                     <h2 className={sharedStyles['sectionTitle']}>선택한 주문 항목</h2>
                     <p className={sharedStyles['sectionDescription']}>
-                      모바일에서는 KCP 결제창으로 이동하며, 서버가 선택 항목과 쿠폰 기준 최종 금액을
+                      모바일에서는 KCP 결제창으로 이동하며, 서버가 선택 항목 기준 최종 금액을
                       확정합니다.
                     </p>
                   </div>
@@ -827,19 +803,6 @@ const CheckoutPage = () => {
                       <span className={sharedStyles['metaValue']}>
                         {formatCurrency(pricing.itemDiscountAmount)}
                       </span>
-                    </div>
-                    <div
-                      className={classNames(sharedStyles['metaItem'], styles['couponSummaryItem'])}
-                    >
-                      <span className={sharedStyles['metaLabel']}>쿠폰 할인</span>
-                      <div className={styles['couponDiscountRow']}>
-                        <span className={sharedStyles['metaValue']}>
-                          {formatCurrency(pricing.couponDiscountAmount)}
-                        </span>
-                        <span className={styles['couponSummaryBox']}>
-                          {pricing.appliedCoupon?.name ?? '쿠폰 미적용'}
-                        </span>
-                      </div>
                     </div>
                     <div className={sharedStyles['metaItem']}>
                       <span className={sharedStyles['metaLabel']}>결제 수단</span>

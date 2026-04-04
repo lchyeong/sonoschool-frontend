@@ -47,16 +47,6 @@ const ProgramsPage = () => {
           <h1 className={styles['title']}>{data.title}</h1>
           <p className={styles['description']}>{data.description}</p>
 
-          <ul className={styles['heroTagList']}>
-            {data.heroTags.map((heroTag) => {
-              return (
-                <li className={styles['heroTagItem']} key={heroTag}>
-                  {heroTag}
-                </li>
-              );
-            })}
-          </ul>
-
           <div className={styles['actionRow']}>
             <Link className={styles['primaryActionLink']} to={`${routePaths.search}?scope=lecture`}>
               강의 검색하기

@@ -35,7 +35,6 @@ const lectureCardSchema = z.object({
   difficultyLabel: z.string().min(1),
   durationLabel: z.string().min(1),
   formatLabel: z.string().min(1),
-  hashtagLabels: z.array(z.string().trim().min(1)).max(8),
   id: z.string().min(1),
   programId: z.number().int().positive().optional(),
   priceLabel: z.string().min(1),
@@ -43,7 +42,6 @@ const lectureCardSchema = z.object({
   remainingSeatsLabel: z.string().min(1).optional(),
   scheduleLabel: z.string().min(1),
   summary: z.string().min(1),
-  tags: z.array(z.string().trim().min(1)).min(1).max(8),
   thumbnailAlt: z.string().min(1),
   thumbnailSrc: z.string().min(1),
   title: z.string().min(1),
@@ -57,7 +55,6 @@ const collectionCardSchema = z.object({
   formatLabels: z.array(z.string().trim().min(1)).max(4),
   id: z.string().min(1),
   lectureCount: z.number().int().nonnegative(),
-  tags: z.array(z.string().trim().min(1)).max(6),
   title: z.string().min(1),
   to: z.string().min(1),
 });
@@ -71,6 +68,12 @@ const faqItemSchema = z.object({
   answer: z.string().min(1),
   id: z.string().min(1),
   question: z.string().min(1),
+});
+
+const communitySummarySchema = z.object({
+  answeredThreadCount: z.number().int().nonnegative(),
+  latestThreadCreatedAt: z.string().min(1).nullable(),
+  totalThreadCount: z.number().int().nonnegative(),
 });
 
 const reviewItemSchema = z.object({
@@ -112,7 +115,6 @@ const programsOverviewResponseSchema = z.object({
   categories: z.array(collectionCardSchema).min(1).max(10),
   description: z.string().min(1),
   featuredLectures: z.array(lectureCardSchema).max(8),
-  heroTags: z.array(z.string().trim().min(1)).min(1).max(8),
   instructor: instructorSchema,
   stats: z.array(programStatSchema).min(1).max(6),
   title: z.string().min(1),
@@ -123,7 +125,6 @@ const programCollectionPageResponseSchema = z.object({
   childCollections: z.array(collectionCardSchema).max(20),
   curatorNote: z.string().min(1),
   description: z.string().min(1),
-  focusTags: z.array(z.string().trim().min(1)).max(8),
   heroImageAlt: z.string().min(1),
   heroImageSrc: z.string().min(1),
   instructor: instructorSchema,
@@ -144,13 +145,14 @@ const programDetailPageResponseSchema = z.object({
   discountedPriceLabel: z.string().min(1),
   durationLabel: z.string().min(1),
   faqItems: z.array(faqItemSchema).min(1).max(8),
+  communitySummary: communitySummarySchema.optional(),
   formatLabel: z.string().min(1),
-  hashtagLabels: z.array(z.string().trim().min(1)).max(8),
   heroImageAlt: z.string().min(1),
   heroImageSrc: z.string().min(1),
   instructor: instructorSchema,
   kicker: z.string().min(1),
-  learningPoints: z.array(z.string().trim().min(1)).min(1).max(8),
+  learningOutcomes: z.array(infoItemSchema).min(1).max(8).optional(),
+  learningPoints: z.array(z.string().trim().min(1)).min(1).max(8).optional(),
   monthlyInstallmentLabel: z.string().min(1),
   operationPeriodLabel: z.string().min(1).optional(),
   originalPriceLabel: z.string().min(1),
@@ -166,7 +168,6 @@ const programDetailPageResponseSchema = z.object({
   reviews: z.array(reviewItemSchema).max(20),
   scheduleLabel: z.string().min(1),
   stats: z.array(infoItemSchema).min(1).max(8),
-  tags: z.array(z.string().trim().min(1)).min(1).max(8),
   title: z.string().min(1),
   tuitionLabel: z.string().min(1),
 });

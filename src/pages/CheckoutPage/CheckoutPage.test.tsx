@@ -152,7 +152,6 @@ describe('CheckoutPage', () => {
     expect(await screen.findByText('선택 상품 수')).toBeInTheDocument();
     expect(screen.getByText('9개')).toBeInTheDocument();
     expect(screen.getByText('1,301,000원')).toBeInTheDocument();
-    expect(screen.getByText('쿠폰 미적용')).toBeInTheDocument();
     expect(
       screen.getByText(
         '현재는 카드 결제를 지원하며, 선택한 장바구니 항목 전체가 한 번에 결제됩니다.',
@@ -161,9 +160,8 @@ describe('CheckoutPage', () => {
     expect(screen.getByRole('button', { name: '실결제 진행' })).toBeEnabled();
   });
 
-  it('sends all selected cart item ids and the selected coupon to checkout prepare', async () => {
+  it('sends all selected cart item ids to checkout prepare', async () => {
     useCartSelectionStore.setState({
-      selectedCouponId: 10,
       selectedItemIds: [55, 100, 101],
     });
     prepareKcpPcCheckoutPaymentMock.mockResolvedValue({
@@ -197,7 +195,6 @@ describe('CheckoutPage', () => {
       expect(prepareKcpPcCheckoutPaymentMock).toHaveBeenCalledWith({
         cartItemIds: [55, 100, 101],
         paymentMethod: 'CARD',
-        selectedCouponId: 10,
       });
     });
 
@@ -366,10 +363,13 @@ describe('CheckoutPage', () => {
 
     window.dispatchEvent(new Event('focus'));
 
-    await waitFor(() => {
-      expect(prepareKcpPcCheckoutPaymentMock).toHaveBeenCalledTimes(2);
-      expect(document.body.style.overflow).toBe('');
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(prepareKcpPcCheckoutPaymentMock).toHaveBeenCalledTimes(2);
+        expect(document.body.style.overflow).toBe('');
+      },
+      { timeout: 3000 },
+    );
     expect(useToastStore.getState().toasts.at(-1)?.message).toBe(
       '결제창이 닫혀 결제가 완료되지 않았습니다. 다시 시도해 주세요.',
     );

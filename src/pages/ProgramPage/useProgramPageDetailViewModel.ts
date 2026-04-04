@@ -10,7 +10,6 @@ import {
   formatPriceLabel,
   getOptionList,
   getScrollBehavior,
-  getSupportTags,
   parsePriceAmount,
   reviewCarouselScrollAmountPx,
   reviewPreviewVisibilityTolerancePx,
@@ -37,7 +36,6 @@ export interface ProgramPageDetailViewModel {
   setShowOptionList: Dispatch<SetStateAction<boolean>>;
   showOptionList: boolean;
   sortedReviews: ProgramDetailPageResponse['reviews'];
-  supportTags: string[];
   toggleCurriculumRow: (rowKey: string) => void;
   totalPriceLabel: string;
   visiblePreviewReviewIds: string[];
@@ -46,10 +44,10 @@ export interface ProgramPageDetailViewModel {
 }
 
 const createSectionRefMap = (): Record<DetailSectionId, HTMLElement | null> => ({
+  'course-community': null,
   'course-curriculum': null,
   'course-faq': null,
   'course-introduction': null,
-  'course-qna': null,
   'course-reviews': null,
 });
 
@@ -79,7 +77,6 @@ export const useProgramPageDetailViewModel = (
   const reviewCarouselRef = useRef<HTMLDivElement | null>(null);
   const sectionRefs = useRef<Record<DetailSectionId, HTMLElement | null>>(createSectionRefMap());
 
-  const supportTags = useMemo(() => getSupportTags(data), [data]);
   const optionList = useMemo(() => getOptionList(data), [data]);
   const heroInfoPills = useMemo(() => buildHeroInfoPills(data), [data]);
   const originalPriceAmount = useMemo(() => parsePriceAmount(data.originalPriceLabel), [data]);
@@ -197,6 +194,9 @@ export const useProgramPageDetailViewModel = (
 
   const sectionRefHandlers = useMemo<Record<DetailSectionId, RefCallback<HTMLElement>>>(() => {
     return {
+      'course-community': (element) => {
+        sectionRefs.current['course-community'] = element;
+      },
       'course-curriculum': (element) => {
         sectionRefs.current['course-curriculum'] = element;
       },
@@ -205,9 +205,6 @@ export const useProgramPageDetailViewModel = (
       },
       'course-introduction': (element) => {
         sectionRefs.current['course-introduction'] = element;
-      },
-      'course-qna': (element) => {
-        sectionRefs.current['course-qna'] = element;
       },
       'course-reviews': (element) => {
         sectionRefs.current['course-reviews'] = element;
@@ -272,7 +269,6 @@ export const useProgramPageDetailViewModel = (
     setShowOptionList,
     showOptionList,
     sortedReviews,
-    supportTags,
     toggleCurriculumRow,
     totalPriceLabel,
     visiblePreviewReviewIds,

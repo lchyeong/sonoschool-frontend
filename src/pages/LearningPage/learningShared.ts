@@ -87,7 +87,7 @@ export const flattenPlayerItems = (
       title: lesson.title,
     };
 
-    if (!lesson.hasQuiz) {
+    if (lesson.deliveryType === 'quiz' || !lesson.hasQuiz) {
       return [lessonItem];
     }
 

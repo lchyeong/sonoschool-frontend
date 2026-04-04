@@ -18,7 +18,6 @@ const programSearchItemSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   categoryLabel: z.string().min(1),
-  tags: z.array(z.string().trim().min(1)).max(8),
   thumbnailSrc: z.string().min(1),
   thumbnailAlt: z.string().min(1),
 });
@@ -38,7 +37,6 @@ const backendProgramSearchItemSchema = z.object({
   thumbnailUrl: z.string().min(1).nullable().optional(),
   instructorName: z.string().nullable().optional(),
   catalogStatus: z.string().min(1),
-  tagNames: z.array(z.string().trim().min(1)).max(8),
   detailPath: z.string().min(1),
 });
 
@@ -69,7 +67,6 @@ export const fetchProgramSearchIndex = async (): Promise<ProgramSearchIndexRespo
       title: item.title,
       description: item.description?.trim() || `${item.categoryName} 강의`,
       categoryLabel: item.categoryName,
-      tags: item.tagNames,
       thumbnailSrc: item.thumbnailUrl || '/SRDMS_OG.png',
       thumbnailAlt: `${item.title} 썸네일`,
     })),

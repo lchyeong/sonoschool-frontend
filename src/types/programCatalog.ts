@@ -24,7 +24,7 @@ export interface ProgramCollectionCard {
   description: string;
   lectureCount: number;
   formatLabels: string[];
-  tags: string[];
+  tags?: string[] | undefined;
   coverImageSrc: string;
   coverImageAlt: string;
 }
@@ -42,9 +42,9 @@ export interface ProgramLectureCard {
   priceLabel: string;
   remainingSeatsCount?: number | undefined;
   remainingSeatsLabel?: string | undefined;
-  hashtagLabels: string[];
+  hashtagLabels?: string[] | undefined;
   scheduleLabel: string;
-  tags: string[];
+  tags?: string[] | undefined;
   thumbnailSrc: string;
   thumbnailAlt: string;
 }
@@ -61,11 +61,11 @@ export interface ProgramCollectionPageResponse {
   curatorNote: string;
   childCollections: ProgramCollectionCard[];
   lectures: ProgramLectureCard[];
-  focusTags: string[];
+  focusTags?: string[] | undefined;
   instructor: ProgramInstructorProfile;
 }
 
-export type ProgramCurriculumLessonDeliveryType = 'online' | 'offline';
+export type ProgramCurriculumLessonDeliveryType = 'online' | 'offline' | 'quiz';
 
 export interface ProgramCurriculumLesson {
   deliveryType: ProgramCurriculumLessonDeliveryType;
@@ -109,6 +109,12 @@ export interface ProgramFaqItem {
   answer: string;
 }
 
+export interface ProgramCommunitySummary {
+  totalThreadCount: number;
+  answeredThreadCount: number;
+  latestThreadCreatedAt: string | null;
+}
+
 export interface ProgramReviewItem {
   id: string;
   authorName: string;
@@ -138,15 +144,17 @@ export interface ProgramDetailPageResponse {
   operationPeriodLabel?: string | undefined;
   remainingSeatsLabel?: string | undefined;
   registrationPeriodLabel: string;
-  hashtagLabels: string[];
+  hashtagLabels?: string[] | undefined;
   scheduleLabel: string;
-  tags: string[];
+  tags?: string[] | undefined;
   stats: ProgramInfoItem[];
-  learningPoints: string[];
+  learningOutcomes?: ProgramInfoItem[] | undefined;
+  learningPoints?: string[] | undefined;
   recommendedFor: string[];
   curriculumTrack: ProgramCurriculumTrack;
   preparationChecklist: string[];
   faqItems: ProgramFaqItem[];
+  communitySummary?: ProgramCommunitySummary | undefined;
   overallRating: number;
   reviewCount: number;
   reviews: ProgramReviewItem[];
@@ -159,7 +167,7 @@ export type ProgramPageResponse = ProgramCollectionPageResponse | ProgramDetailP
 export interface ProgramsOverviewResponse {
   title: string;
   description: string;
-  heroTags: string[];
+  heroTags?: string[] | undefined;
   stats: ProgramStat[];
   categories: ProgramCollectionCard[];
   featuredLectures: ProgramLectureCard[];

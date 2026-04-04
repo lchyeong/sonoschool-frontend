@@ -19,7 +19,6 @@ export interface PaymentInitiatePayload {
 
 export interface CheckoutPaymentInitiatePayload {
   cartItemIds: number[];
-  selectedCouponId: number | null;
   paymentMethod: CheckoutPaymentMethod;
 }
 

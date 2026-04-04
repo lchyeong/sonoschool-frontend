@@ -9,13 +9,18 @@ import type {
   LectureProgressSaveResponse,
   ProtectedLectureStream,
 } from '@/types/mypage';
-import type { StudentQuiz, StudentQuizAttemptResult } from '@/types/studentQuizzes';
+import type {
+  StudentQuiz,
+  StudentQuizAttemptResult,
+  StudentQuizSession,
+} from '@/types/studentQuizzes';
 
 const {
   createdHlsConfigs,
   fetchLectureStreamMock,
   fetchMyLearningPlayerSnapshotMock,
   fetchStudentQuizMock,
+  saveStudentQuizSessionMock,
   saveLectureProgressMock,
   sendLectureProgressBeaconMock,
   submitStudentQuizMock,
@@ -27,6 +32,8 @@ const {
   fetchMyLearningPlayerSnapshotMock:
     vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>(),
   fetchStudentQuizMock: vi.fn<(lectureId: number) => Promise<StudentQuiz | null>>(),
+  saveStudentQuizSessionMock:
+    vi.fn<(quizId: number, payload: Record<string, unknown>) => Promise<StudentQuizSession>>(),
   saveLectureProgressMock:
     vi.fn<
       (
@@ -105,6 +112,8 @@ vi.mock('@/api/mypage', () => ({
 
 vi.mock('@/api/studentQuizzes', () => ({
   fetchStudentQuiz: (lectureId: number) => fetchStudentQuizMock(lectureId),
+  saveStudentQuizSession: (quizId: number, payload: Record<string, unknown>) =>
+    saveStudentQuizSessionMock(quizId, payload),
   submitStudentQuiz: (quizId: number, payload: { answers: Record<number, number[]> }) =>
     submitStudentQuizMock(quizId, payload),
 }));
@@ -282,6 +291,7 @@ const testQuiz: StudentQuiz = {
       sortOrder: 0,
     },
   ],
+  session: null,
   title: '복부초음파 기초 2강 확인 퀴즈',
 };
 
@@ -309,6 +319,13 @@ const originalPlay = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype,
 beforeEach(() => {
   HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve(undefined));
   fetchStudentQuizMock.mockResolvedValue(null);
+  saveStudentQuizSessionMock.mockResolvedValue({
+    answers: {},
+    currentQuestionIndex: 0,
+    elapsedSeconds: 0,
+    flaggedQuestionIds: [],
+    status: 'IN_PROGRESS',
+  });
   submitStudentQuizMock.mockResolvedValue({
     id: 9001,
     passScore: 80,
@@ -548,6 +565,6 @@ describe('PlayerPage', () => {
     expect(await screen.findByText('채점 결과')).toBeInTheDocument();
     expect(screen.getByText('정답')).toBeInTheDocument();
     expect(screen.getByText(/정답 해설입니다/)).toBeInTheDocument();
-    expect(screen.getByText('퀴즈 완료')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: '문제 네비게이터' })).toBeInTheDocument();
   });
 });

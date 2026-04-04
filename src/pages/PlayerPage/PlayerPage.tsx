@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition, @typescript-eslint/restrict-template-expressions */
 import type { CSSProperties } from 'react';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
@@ -6,10 +7,11 @@ import Hls from 'hls.js/light';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { fetchLectureStream, saveLectureProgress, sendLectureProgressBeacon } from '@/api/mypage';
-import { fetchStudentQuiz, submitStudentQuiz } from '@/api/studentQuizzes';
+import { fetchStudentQuiz, saveStudentQuizSession, submitStudentQuiz } from '@/api/studentQuizzes';
 import iconCheck from '@/assets/icons/icon_check.png';
 import iconNextPlay from '@/assets/icons/icon_next_play_48.png';
 import iconBack from '@/assets/icons/icons8-왼쪽-64.png';
+import ProgramCommunityPanel from '@/components/community/ProgramCommunityPanel';
 import Button from '@/components/ui/Button/Button';
 import {
   myLearningPlayerQueryKey,
@@ -26,6 +28,7 @@ import {
   flattenLessons,
   flattenPlayerItems,
   formatDateRange,
+  formatSeconds,
   getDefaultPlayerItemId,
 } from '../LearningPage/learningShared';
 
@@ -40,11 +43,14 @@ interface QualityOption {
   levelIndex: number | 'auto';
 }
 
+type SidebarPanel = 'community' | 'curriculum';
+
 const PLAYBACK_SPEED_OPTIONS = [0.8, 1, 1.25, 1.5] as const;
 const DEFAULT_QUALITY_OPTIONS: QualityOption[] = [{ label: '자동', levelIndex: 'auto' }];
 const PROGRESS_SAVE_INTERVAL_SECONDS = 30;
 const PROGRESS_SAVE_MIN_DELTA_SECONDS = 20;
 const PROGRESS_EXIT_SAVE_MIN_DELTA_SECONDS = 5;
+const QUIZ_SESSION_SAVE_INTERVAL_SECONDS = 10;
 
 type HlsLoaderConstructor = typeof Hls.DefaultConfig.loader;
 type HlsLoaderInstance = InstanceType<HlsLoaderConstructor>;
@@ -135,6 +141,14 @@ const normalizeQuizAnswers = (answers: Record<number, number[]>) => {
   ) as Record<number, number[]>;
 };
 
+const clampQuestionIndex = (index: number, questionCount: number) => {
+  if (questionCount <= 0) {
+    return 0;
+  }
+
+  return Math.min(Math.max(index, 0), questionCount - 1);
+};
+
 const PlayerPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -170,6 +184,7 @@ const PlayerPage = () => {
   const [qualityOptions, setQualityOptions] = useState<QualityOption[]>(DEFAULT_QUALITY_OPTIONS);
   const [selectedQualityLevel, setSelectedQualityLevel] = useState<number | 'auto'>('auto');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeSidebarPanel, setActiveSidebarPanel] = useState<SidebarPanel>('curriculum');
   const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
   const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
   const [lessonProgressByLessonId, setLessonProgressByLessonId] = useState<
@@ -177,6 +192,10 @@ const PlayerPage = () => {
   >({});
   const [quizAttemptedLessonIds, setQuizAttemptedLessonIds] = useState<Set<string>>(new Set());
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number[]>>({});
+  const [quizFlaggedQuestionIds, setQuizFlaggedQuestionIds] = useState<Set<number>>(new Set());
+  const [quizCurrentQuestionIndex, setQuizCurrentQuestionIndex] = useState(0);
+  const [quizElapsedSeconds, setQuizElapsedSeconds] = useState(0);
+  const [showFlaggedOnlyQuestions, setShowFlaggedOnlyQuestions] = useState(false);
   const [quizAttemptResult, setQuizAttemptResult] = useState<StudentQuizAttemptResult | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -184,6 +203,9 @@ const PlayerPage = () => {
   const lastSavedProgressRef = useRef<Record<number, number>>({});
   const saveInFlightRef = useRef<Record<number, boolean>>({});
   const progressTimerRef = useRef<number | null>(null);
+  const quizElapsedTimerRef = useRef<number | null>(null);
+  const quizSessionDirtyRef = useRef(false);
+  const quizSessionSaveInFlightRef = useRef(false);
   const defaultPlayerItemId = getDefaultPlayerItemId(snapshot, playerItems);
   const resolvedItemId = playerItems.some((item) => item.id === params.lessonId)
     ? params.lessonId
@@ -211,6 +233,8 @@ const PlayerPage = () => {
     ? snapshot?.lessonPlaybackById[selectedLesson.id] || null
     : null;
   const isQuizItem = selectedItem?.kind === 'quiz';
+  const isQuizLesson = selectedLesson?.deliveryType === 'quiz';
+  const isQuizMode = Boolean(selectedItem) && (isQuizItem || isQuizLesson);
   const isLessonItem = selectedItem?.kind === 'lesson';
   const selectedLectureId = selectedSource?.lectureId ?? null;
   const selectedLessonHasStream =
@@ -245,8 +269,31 @@ const PlayerPage = () => {
   const quizQuery = useQuery<StudentQuiz | null>({
     queryKey: ['student-quiz', selectedLectureId],
     queryFn: () => fetchStudentQuiz(selectedLectureId as number),
-    enabled: selectedLectureId !== null && isSelectedLessonCompleted && isQuizItem,
+    enabled:
+      selectedLectureId !== null &&
+      isQuizMode &&
+      (isQuizLesson || (isQuizItem && isSelectedLessonCompleted)),
     retry: false,
+  });
+  const saveQuizSessionMutation = useMutation({
+    mutationFn: ({
+      payload,
+      quizId,
+    }: {
+      quizId: number;
+      payload: {
+        answers: Record<number, number[]>;
+        currentQuestionIndex: number;
+        elapsedSeconds: number;
+        flaggedQuestionIds: number[];
+      };
+    }) => saveStudentQuizSession(quizId, payload),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '문제 풀이 상태를 저장하지 못했습니다.',
+        variant: 'error',
+      });
+    },
   });
   const submitQuizMutation = useMutation({
     mutationFn: ({ answers, quizId }: { answers: Record<number, number[]>; quizId: number }) =>
@@ -261,8 +308,12 @@ const PlayerPage = () => {
       if (selectedLesson?.id) {
         setQuizAttemptedLessonIds((current) => new Set([...current, selectedLesson.id]));
       }
+      quizSessionDirtyRef.current = false;
       void queryClient.invalidateQueries({
         queryKey: myLearningPlayerQueryKey(resolvedEnrollmentId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['student-quiz', selectedLectureId],
       });
       setQuizAttemptResult(result);
       showToast({
@@ -281,6 +332,12 @@ const PlayerPage = () => {
     (selectedLesson ? playbackErrorsByLessonId[selectedLesson.id] : null) || streamErrorMessage;
   const selectedQualityLabel =
     qualityOptions.find((quality) => quality.levelIndex === selectedQualityLevel)?.label || '자동';
+  const communityContext = snapshot?.communityContext ?? null;
+  const communityProgramId = enrollmentState?.programId ?? communityContext?.programId ?? null;
+  const selectedLectureThreadCount =
+    selectedLectureId !== null && selectedLectureId === communityContext?.currentLectureId
+      ? communityContext.currentLectureThreadCount
+      : null;
 
   const persistProgress = useEffectEvent(
     async (
@@ -371,6 +428,40 @@ const PlayerPage = () => {
     return queued;
   });
 
+  const persistQuizSession = useEffectEvent(async (force = false) => {
+    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+      return;
+    }
+
+    if (!force && !quizSessionDirtyRef.current) {
+      return;
+    }
+
+    if (quizSessionSaveInFlightRef.current) {
+      return;
+    }
+
+    quizSessionSaveInFlightRef.current = true;
+
+    try {
+      await saveQuizSessionMutation.mutateAsync({
+        payload: {
+          answers: normalizeQuizAnswers(quizAnswers),
+          currentQuestionIndex: clampQuestionIndex(
+            quizCurrentQuestionIndex,
+            quizQuery.data.questions.length,
+          ),
+          elapsedSeconds: Math.max(0, quizElapsedSeconds),
+          flaggedQuestionIds: [...quizFlaggedQuestionIds].sort((left, right) => left - right),
+        },
+        quizId: quizQuery.data.id,
+      });
+      quizSessionDirtyRef.current = false;
+    } finally {
+      quizSessionSaveInFlightRef.current = false;
+    }
+  });
+
   useEffect(() => {
     const initialProgress: Record<number, number> = {};
     Object.values(snapshot?.lessonProgressByLessonId ?? {}).forEach((progress) => {
@@ -396,8 +487,104 @@ const PlayerPage = () => {
 
   useEffect(() => {
     setQuizAnswers({});
+    setQuizFlaggedQuestionIds(new Set());
+    setQuizCurrentQuestionIndex(0);
+    setQuizElapsedSeconds(0);
+    setShowFlaggedOnlyQuestions(false);
+    quizSessionDirtyRef.current = false;
     setQuizAttemptResult(null);
   }, [selectedItem?.id]);
+
+  useEffect(() => {
+    if (!quizQuery.data || !isQuizMode || quizAttemptResult) {
+      return;
+    }
+
+    const session = quizQuery.data.session;
+    setQuizAnswers(session?.answers ?? {});
+    setQuizFlaggedQuestionIds(new Set(session?.flaggedQuestionIds ?? []));
+    setQuizCurrentQuestionIndex(
+      clampQuestionIndex(session?.currentQuestionIndex ?? 0, quizQuery.data.questions.length),
+    );
+    setQuizElapsedSeconds(session?.elapsedSeconds ?? 0);
+    quizSessionDirtyRef.current = false;
+  }, [isQuizMode, quizAttemptResult, quizQuery.data]);
+
+  useEffect(() => {
+    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setQuizElapsedSeconds((current) => current + 1);
+    }, 1000);
+    quizElapsedTimerRef.current = timerId;
+
+    return () => {
+      window.clearInterval(timerId);
+      quizElapsedTimerRef.current = null;
+    };
+  }, [isQuizMode, quizAttemptResult, quizQuery.data]);
+
+  useEffect(() => {
+    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void persistQuizSession(true);
+    }, QUIZ_SESSION_SAVE_INTERVAL_SECONDS * 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isQuizMode, persistQuizSession, quizAttemptResult, quizQuery.data]);
+
+  useEffect(() => {
+    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void persistQuizSession();
+    }, 600);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    isQuizMode,
+    persistQuizSession,
+    quizAnswers,
+    quizAttemptResult,
+    quizCurrentQuestionIndex,
+    quizFlaggedQuestionIds,
+    quizQuery.data,
+  ]);
+
+  useEffect(() => {
+    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+      return;
+    }
+
+    const flushQuizSession = () => {
+      void persistQuizSession(true);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushQuizSession();
+      }
+    };
+
+    window.addEventListener('pagehide', flushQuizSession);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pagehide', flushQuizSession);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isQuizMode, persistQuizSession, quizAttemptResult, quizQuery.data]);
 
   useEffect(() => {
     setProgressSaveError(null);
@@ -420,6 +607,10 @@ const PlayerPage = () => {
   useEffect(() => {
     setIsSettingsOpen(false);
   }, [selectedLesson?.id]);
+
+  useEffect(() => {
+    setActiveSidebarPanel('curriculum');
+  }, [selectedItem?.id]);
 
   useEffect(() => {
     if (!isSettingsOpen) {
@@ -654,6 +845,7 @@ const PlayerPage = () => {
     optionId: number,
     questionType: StudentQuiz['questions'][number]['questionType'],
   ) => {
+    quizSessionDirtyRef.current = true;
     setQuizAnswers((current) => {
       if (questionType === 'MULTIPLE') {
         const currentOptionIds = current[questionId] ?? [];
@@ -673,6 +865,41 @@ const PlayerPage = () => {
       };
     });
   };
+
+  const moveToQuizQuestion = (nextQuestionIndex: number) => {
+    const questionCount = quizQuery.data?.questions.length ?? 0;
+    quizSessionDirtyRef.current = true;
+    setQuizCurrentQuestionIndex(clampQuestionIndex(nextQuestionIndex, questionCount));
+  };
+
+  const toggleQuizFlaggedQuestion = (questionId: number) => {
+    quizSessionDirtyRef.current = true;
+    setQuizFlaggedQuestionIds((current) => {
+      const next = new Set(current);
+      if (next.has(questionId)) {
+        next.delete(questionId);
+      } else {
+        next.add(questionId);
+      }
+      return next;
+    });
+  };
+
+  const quizQuestions = quizQuery.data?.questions ?? [];
+  const resolvedQuizQuestionIndex = clampQuestionIndex(
+    quizCurrentQuestionIndex,
+    quizQuestions.length,
+  );
+  const currentQuizQuestion = quizQuestions[resolvedQuizQuestionIndex] ?? null;
+  const answeredQuizQuestionCount = quizQuestions.filter(
+    (question) => (quizAnswers[question.id] ?? []).length > 0,
+  ).length;
+  const flaggedQuizQuestionCount = quizQuestions.filter((question) =>
+    quizFlaggedQuestionIds.has(question.id),
+  ).length;
+  const visibleQuizQuestions = showFlaggedOnlyQuestions
+    ? quizQuestions.filter((question) => quizFlaggedQuestionIds.has(question.id))
+    : quizQuestions;
 
   const handleQuizSubmit = () => {
     const quiz = quizQuery.data;
@@ -756,7 +983,7 @@ const PlayerPage = () => {
           !isPlaybackBlocked ? (
             <div className={styles['layout']}>
               <section className={styles['viewerColumn']}>
-                {isLessonItem ? (
+                {isLessonItem && !isQuizMode ? (
                   <>
                     <section className={styles['stageCard']}>
                       <div className={styles['stageHeader']}>
@@ -988,47 +1215,33 @@ const PlayerPage = () => {
                         </div>
                       </div>
                     </section>
-
                   </>
                 ) : null}
 
-                {isQuizItem ? (
+                {isQuizMode ? (
                   <section className={styles['quizWorkspace']}>
                     <div className={styles['quizWorkspaceHeader']}>
                       <div className={styles['stageCopy']}>
-                        <p className={styles['stageEyebrow']}>QUIZ STEP</p>
+                        <p className={styles['stageEyebrow']}>
+                          {isQuizLesson ? 'PROBLEM SOLVING' : 'QUIZ STEP'}
+                        </p>
                         <h1 className={styles['lessonTitle']}>
                           {quizQuery.data?.title ?? selectedItem.title}
                         </h1>
                         <p className={styles['quizDescription']}>
-                          {selectedLesson?.title}을 마친 뒤 이어지는 확인 단계입니다.
+                          {isQuizLesson
+                            ? '문제만으로 구성된 강의입니다. 번호판과 red flag를 이용해 필요한 문제로 바로 이동할 수 있습니다.'
+                            : `${selectedLesson?.title}을 마친 뒤 이어지는 확인 단계입니다.`}
                         </p>
                       </div>
                       <div className={styles['sequenceGroup']}>
-                        <Button
-                          onClick={() => {
-                            if (selectedLesson) {
-                              void navigate(
-                                routePaths.learningLesson(
-                                  String(resolvedEnrollmentId),
-                                  selectedLesson.id,
-                                ),
-                              );
-                            }
-                          }}
-                          size='sm'
-                          type='button'
-                          variant='secondary'
-                        >
-                          강의로 돌아가기
-                        </Button>
-                        {nextItem ? (
+                        {isQuizItem && selectedLesson ? (
                           <Button
                             onClick={() => {
                               void navigate(
                                 routePaths.learningLesson(
                                   String(resolvedEnrollmentId),
-                                  nextItem.id,
+                                  selectedLesson.id,
                                 ),
                               );
                             }}
@@ -1036,13 +1249,13 @@ const PlayerPage = () => {
                             type='button'
                             variant='secondary'
                           >
-                            다음 단계
+                            강의로 돌아가기
                           </Button>
                         ) : null}
                       </div>
                     </div>
 
-                    {!isSelectedLessonCompleted ? (
+                    {!isQuizLesson && !isSelectedLessonCompleted ? (
                       <div className={styles['quizSummary']}>
                         <strong className={styles['quizSummaryTitle']}>
                           강의를 먼저 완료해 주세요.
@@ -1060,14 +1273,14 @@ const PlayerPage = () => {
                           : '퀴즈 정보를 불러오지 못했습니다.'}
                       </p>
                     ) : !quizQuery.data ? (
-                      <p className={styles['quizMutedText']}>이 강의에는 등록된 퀴즈가 없습니다.</p>
+                      <p className={styles['quizMutedText']}>이 강의에는 등록된 문제가 없습니다.</p>
                     ) : (
                       <>
                         <div className={styles['quizSummary']}>
                           <div>
                             <strong className={styles['quizSummaryTitle']}>
-                              문항 {quizQuery.data.questions.length}개 · 통과 기준{' '}
-                              {quizQuery.data.passScore}점
+                              총 {quizQuestions.length}문제 · 응답 완료 {answeredQuizQuestionCount}
+                              개 · red flag {flaggedQuizQuestionCount}개
                             </strong>
                             {quizQuery.data.description ? (
                               <p className={styles['quizSummaryMeta']}>
@@ -1077,89 +1290,135 @@ const PlayerPage = () => {
                           </div>
                         </div>
 
-                        <div className={styles['quizQuestionList']}>
-                          {quizQuery.data.questions.map((question, questionIndex) => (
-                            <section className={styles['quizQuestionCard']} key={question.id}>
-                              <div className={styles['quizQuestionHeader']}>
-                                <strong className={styles['quizQuestionTitle']}>
-                                  {questionIndex + 1}. {question.questionText}
-                                </strong>
-                                <span className={styles['quizQuestionType']}>
-                                  {question.questionType === 'SINGLE'
-                                    ? '객관식 단일선택'
-                                    : question.questionType === 'MULTIPLE'
-                                      ? '객관식 복수선택'
-                                      : '참/거짓'}
-                                </span>
-                              </div>
+                        {quizAttemptResult ? null : currentQuizQuestion ? (
+                          <section className={styles['quizQuestionCard']}>
+                            <div className={styles['quizQuestionHeader']}>
+                              <strong className={styles['quizQuestionTitle']}>
+                                문제 {resolvedQuizQuestionIndex + 1}.{' '}
+                                {currentQuizQuestion.questionText}
+                              </strong>
+                              <span className={styles['quizQuestionType']}>
+                                {currentQuizQuestion.questionType === 'MULTIPLE'
+                                  ? '복수 정답'
+                                  : currentQuizQuestion.questionType === 'TRUE_FALSE'
+                                    ? '참/거짓'
+                                    : '단일 정답'}
+                              </span>
+                            </div>
 
-                              {renderQuizMedia(
-                                question.mediaType,
-                                question.mediaPreviewUrl,
-                                question.mediaUrl,
-                                `${String(questionIndex + 1)}번 문항 미디어`,
-                                styles['quizMediaImage'],
-                              )}
+                            {renderQuizMedia(
+                              currentQuizQuestion.mediaType,
+                              currentQuizQuestion.mediaPreviewUrl,
+                              currentQuizQuestion.mediaUrl,
+                              `${String(resolvedQuizQuestionIndex + 1)}번 문항 미디어`,
+                              styles['quizMediaImage'],
+                            )}
 
-                              <div className={styles['quizOptionList']}>
-                                {question.options.map((option, optionIndex) => {
-                                  const selectedOptionIds = quizAnswers[question.id] ?? [];
-                                  const checked = selectedOptionIds.includes(option.id);
+                            <div className={styles['quizOptionList']}>
+                              {currentQuizQuestion.options.map((option, optionIndex) => {
+                                const selectedOptionIds = quizAnswers[currentQuizQuestion.id] ?? [];
+                                const checked = selectedOptionIds.includes(option.id);
 
-                                  return (
-                                    <label
-                                      className={classNames(
-                                        styles['quizOptionRow'],
-                                        checked && styles['quizOptionRowSelected'],
+                                return (
+                                  <label
+                                    className={classNames(
+                                      styles['quizOptionRow'],
+                                      checked && styles['quizOptionRowSelected'],
+                                    )}
+                                    key={option.id}
+                                  >
+                                    <input
+                                      checked={checked}
+                                      aria-label={`${String(optionIndex + 1)}. ${option.optionText}`}
+                                      name={`quiz-question-${String(currentQuizQuestion.id)}`}
+                                      onChange={() => {
+                                        updateQuizAnswer(
+                                          currentQuizQuestion.id,
+                                          option.id,
+                                          currentQuizQuestion.questionType,
+                                        );
+                                      }}
+                                      type={
+                                        currentQuizQuestion.questionType === 'MULTIPLE'
+                                          ? 'checkbox'
+                                          : 'radio'
+                                      }
+                                    />
+                                    <div className={styles['quizOptionContent']}>
+                                      <span className={styles['quizOptionLabel']}>
+                                        {optionIndex + 1}. {option.optionText}
+                                      </span>
+                                      {renderQuizMedia(
+                                        option.mediaType,
+                                        option.mediaPreviewUrl,
+                                        option.mediaUrl,
+                                        `${String(resolvedQuizQuestionIndex + 1)}번 문항 ${String(optionIndex + 1)}번 보기 미디어`,
+                                        styles['quizOptionMedia'],
                                       )}
-                                      key={option.id}
-                                    >
-                                      <input
-                                        checked={checked}
-                                        aria-label={`${String(optionIndex + 1)}. ${option.optionText}`}
-                                        name={`quiz-question-${String(question.id)}`}
-                                        onChange={() => {
-                                          updateQuizAnswer(
-                                            question.id,
-                                            option.id,
-                                            question.questionType,
-                                          );
-                                        }}
-                                        type={
-                                          question.questionType === 'MULTIPLE'
-                                            ? 'checkbox'
-                                            : 'radio'
-                                        }
-                                      />
-                                      <div className={styles['quizOptionContent']}>
-                                        <span className={styles['quizOptionLabel']}>
-                                          {optionIndex + 1}. {option.optionText}
-                                        </span>
-                                        {renderQuizMedia(
-                                          option.mediaType,
-                                          option.mediaPreviewUrl,
-                                          option.mediaUrl,
-                                          `${String(questionIndex + 1)}번 문항 ${String(optionIndex + 1)}번 보기 미디어`,
-                                          styles['quizOptionMedia'],
-                                        )}
-                                      </div>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </section>
-                          ))}
-                        </div>
+                                    </div>
+                                  </label>
+                                );
+                              })}
+                            </div>
 
-                        <div className={styles['quizActionRow']}>
-                          <Button
-                            disabled={submitQuizMutation.isPending}
-                            onClick={handleQuizSubmit}
-                            type='button'
-                          >
-                            {submitQuizMutation.isPending ? '제출 중...' : '정답 제출'}
-                          </Button>
-                        </div>
+                            <div className={styles['quizControlBar']}>
+                              <Button
+                                disabled={resolvedQuizQuestionIndex === 0}
+                                onClick={() => {
+                                  moveToQuizQuestion(resolvedQuizQuestionIndex - 1);
+                                }}
+                                size='sm'
+                                type='button'
+                                variant='secondary'
+                              >
+                                Prev
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  toggleQuizFlaggedQuestion(currentQuizQuestion.id);
+                                }}
+                                size='sm'
+                                type='button'
+                                variant={
+                                  quizFlaggedQuestionIds.has(currentQuizQuestion.id)
+                                    ? 'primary'
+                                    : 'secondary'
+                                }
+                              >
+                                {quizFlaggedQuestionIds.has(currentQuizQuestion.id)
+                                  ? 'Red Flag 해제'
+                                  : 'Red Flag'}
+                              </Button>
+                              <div className={styles['quizControlTime']}>
+                                <span className={styles['quizControlTimeLabel']}>Time</span>
+                                <strong>{formatSeconds(quizElapsedSeconds)}</strong>
+                              </div>
+                              {resolvedQuizQuestionIndex + 1 < quizQuestions.length ? (
+                                <Button
+                                  onClick={() => {
+                                    moveToQuizQuestion(resolvedQuizQuestionIndex + 1);
+                                  }}
+                                  size='sm'
+                                  type='button'
+                                  variant='secondary'
+                                >
+                                  Next
+                                </Button>
+                              ) : (
+                                <Button
+                                  disabled={submitQuizMutation.isPending}
+                                  onClick={handleQuizSubmit}
+                                  size='sm'
+                                  type='button'
+                                >
+                                  {submitQuizMutation.isPending ? '제출 중...' : '정답 제출'}
+                                </Button>
+                              )}
+                            </div>
+                          </section>
+                        ) : (
+                          <p className={styles['quizMutedText']}>등록된 문제가 없습니다.</p>
+                        )}
 
                         {quizAttemptResult ? (
                           <div className={styles['quizResultCard']}>
@@ -1233,100 +1492,254 @@ const PlayerPage = () => {
                 ) : null}
               </section>
 
-              <aside className={styles['curriculumPanel']}>
-                <div className={styles['curriculumHeader']}>
-                  <div className={styles['curriculumHeaderCopy']}>
-                    <h2 className={styles['curriculumTitle']}>커리큘럼</h2>
-                  </div>
-                  <div className={styles['progressPanel']}>
-                    <div className={styles['progressSummary']}>
-                      <strong className={styles['progressValue']}>{completedRatio}%</strong>
-                      <span className={styles['progressText']}>
-                        {completedLessonCount} / {totalLessonCount} 완료
-                      </span>
+              {isQuizMode ? (
+                <aside className={styles['quizNavigatorPanel']}>
+                  <div className={styles['curriculumHeader']}>
+                    <div className={styles['curriculumHeaderCopy']}>
+                      <h2 className={styles['curriculumTitle']}>문제 네비게이터</h2>
+                      <p className={styles['curriculumDescription']}>
+                        문제 번호를 누르면 바로 이동합니다.
+                      </p>
                     </div>
-                    <div aria-hidden='true' className={styles['progressTrack']}>
-                      <span
-                        className={styles['progressFill']}
-                        style={{ width: `${String(completedRatio)}%` }}
+                    <div className={styles['progressPanel']}>
+                      <div className={styles['progressSummary']}>
+                        <strong className={styles['progressValue']}>
+                          {answeredQuizQuestionCount}/{quizQuestions.length}
+                        </strong>
+                        <span className={styles['progressText']}>응답 완료</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles['quizNavigatorMeta']}>
+                    <span className={styles['summaryChip']}>전체 {quizQuestions.length}</span>
+                    <span className={styles['summaryChip']}>
+                      응답 완료 {answeredQuizQuestionCount}
+                    </span>
+                    <span className={styles['summaryChip']}>
+                      Red Flag {flaggedQuizQuestionCount}
+                    </span>
+                  </div>
+
+                  <div className={styles['quizNavigatorActions']}>
+                    <Button
+                      onClick={() => {
+                        setShowFlaggedOnlyQuestions((current) => !current);
+                      }}
+                      size='sm'
+                      type='button'
+                      variant={showFlaggedOnlyQuestions ? 'primary' : 'secondary'}
+                    >
+                      {showFlaggedOnlyQuestions ? '전체 보기' : 'Flagged만 보기'}
+                    </Button>
+                  </div>
+
+                  {visibleQuizQuestions.length > 0 ? (
+                    <div className={styles['quizNavigatorGrid']}>
+                      {visibleQuizQuestions.map((question) => {
+                        const absoluteIndex = quizQuestions.findIndex(
+                          (item) => item.id === question.id,
+                        );
+                        const isCurrentQuestion = question.id === currentQuizQuestion?.id;
+                        const isAnswered = (quizAnswers[question.id] ?? []).length > 0;
+                        const isFlagged = quizFlaggedQuestionIds.has(question.id);
+
+                        return (
+                          <button
+                            className={classNames(
+                              styles['quizNavigatorButton'],
+                              isCurrentQuestion && styles['quizNavigatorButtonCurrent'],
+                              isAnswered && styles['quizNavigatorButtonAnswered'],
+                              isFlagged && styles['quizNavigatorButtonFlagged'],
+                            )}
+                            key={question.id}
+                            onClick={() => {
+                              moveToQuizQuestion(absoluteIndex);
+                            }}
+                            type='button'
+                          >
+                            {absoluteIndex + 1}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className={styles['quizMutedText']}>
+                      red flag로 표시한 문제가 아직 없습니다.
+                    </p>
+                  )}
+                </aside>
+              ) : (
+                <aside className={styles['curriculumPanel']}>
+                  <div className={styles['curriculumHeader']}>
+                    <div className={styles['curriculumHeaderCopy']}>
+                      <h2 className={styles['curriculumTitle']}>
+                        {activeSidebarPanel === 'curriculum' ? '커리큘럼' : '커뮤니티'}
+                      </h2>
+                    </div>
+                    <div className={styles['panelSwitchRow']}>
+                      <button
+                        aria-label='커리큘럼 패널'
+                        className={classNames(
+                          styles['panelSwitchButton'],
+                          activeSidebarPanel === 'curriculum' && styles['panelSwitchButtonActive'],
+                        )}
+                        onClick={() => {
+                          setActiveSidebarPanel('curriculum');
+                        }}
+                        type='button'
+                      >
+                        <span className={styles['panelSwitchLabel']}>목록</span>
+                      </button>
+                      <button
+                        aria-label='커뮤니티 패널'
+                        className={classNames(
+                          styles['panelSwitchButton'],
+                          activeSidebarPanel === 'community' && styles['panelSwitchButtonActive'],
+                        )}
+                        onClick={() => {
+                          setActiveSidebarPanel('community');
+                        }}
+                        type='button'
+                      >
+                        <svg
+                          aria-hidden='true'
+                          className={styles['panelSwitchIcon']}
+                          fill='none'
+                          viewBox='0 0 24 24'
+                        >
+                          <path
+                            d='M7 8.75h10M7 12h6m-6 3.25h4m7 3.25-3.6-2H7.8A2.8 2.8 0 0 1 5 13.7V7.8A2.8 2.8 0 0 1 7.8 5h8.4A2.8 2.8 0 0 1 19 7.8v10.65Z'
+                            stroke='currentColor'
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth='1.8'
+                          />
+                        </svg>
+                        <span className={styles['panelSwitchLabel']}>Q&A</span>
+                        <span className={styles['panelSwitchCount']}>
+                          {String(snapshot.communityContext?.programThreadCount ?? 0)}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {activeSidebarPanel === 'curriculum' ? (
+                    <>
+                      <div className={styles['progressPanel']}>
+                        <div className={styles['progressSummary']}>
+                          <strong className={styles['progressValue']}>{completedRatio}%</strong>
+                          <span className={styles['progressText']}>
+                            {completedLessonCount} / {totalLessonCount} 완료
+                          </span>
+                        </div>
+                        <div aria-hidden='true' className={styles['progressTrack']}>
+                          <span
+                            className={styles['progressFill']}
+                            style={{ width: `${String(completedRatio)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className={styles['curriculumBody']}>
+                        {snapshot.curriculumTrack.sections.map((section) => (
+                          <section className={styles['sectionBlock']} key={section.id}>
+                            <div className={styles['sectionHeader']}>
+                              <h3 className={styles['sectionTitle']}>{section.title}</h3>
+                              <span className={styles['sectionMeta']}>{section.durationLabel}</span>
+                            </div>
+
+                            <div className={styles['lessonList']}>
+                              {flattenPlayerItems([
+                                {
+                                  id: section.id,
+                                  lessons: section.lessons,
+                                  title: section.title,
+                                },
+                              ]).map((item) => {
+                                const lesson = item.lesson;
+                                const isCurrent = item.id === selectedItem.id;
+                                const isCompleted = completedLessonIds.has(lesson.id);
+                                const isQuizCompleted = quizAttemptedLessonIds.has(lesson.id);
+                                const isItemCompleted =
+                                  item.kind === 'quiz' ? isQuizCompleted : isCompleted;
+
+                                return (
+                                  <Link
+                                    className={classNames(
+                                      styles['lessonLink'],
+                                      item.kind === 'quiz' && styles['lessonLinkQuiz'],
+                                      isCurrent && styles['lessonLinkCurrent'],
+                                    )}
+                                    key={item.id}
+                                    to={routePaths.learningLesson(
+                                      String(resolvedEnrollmentId),
+                                      item.id,
+                                    )}
+                                  >
+                                    <span
+                                      aria-hidden='true'
+                                      className={classNames(
+                                        styles['lessonStatusIcon'],
+                                        item.kind === 'quiz' && styles['lessonStatusIconQuiz'],
+                                        isItemCompleted && styles['lessonStatusIconCompleted'],
+                                        isCurrent && styles['lessonStatusIconCurrent'],
+                                      )}
+                                      style={isItemCompleted ? completedStatusStyle : undefined}
+                                    />
+                                    <div className={styles['lessonLinkHeader']}>
+                                      <strong className={styles['lessonLinkTitle']}>
+                                        {item.title}
+                                      </strong>
+                                      <div className={styles['lessonLinkMeta']}>
+                                        {item.kind === 'lesson' ? (
+                                          <>
+                                            <span className={styles['lessonLinkDuration']}>
+                                              {lesson.deliveryType === 'quiz'
+                                                ? '문제 풀이'
+                                                : lesson.durationLabel}
+                                            </span>
+                                            {lesson.deliveryType ===
+                                            'quiz' ? null : lesson.hasQuiz ? (
+                                              <span className={styles['lessonLinkDuration']}>
+                                                퀴즈 포함
+                                              </span>
+                                            ) : null}
+                                          </>
+                                        ) : (
+                                          <span
+                                            className={classNames(
+                                              styles['lessonQuizBadge'],
+                                              isQuizCompleted && styles['lessonQuizBadgeCompleted'],
+                                            )}
+                                          >
+                                            {isQuizCompleted ? '퀴즈 완료' : '확인 퀴즈'}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </section>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className={styles['communityPanelBody']}>
+                      <ProgramCommunityPanel
+                        enabled
+                        lectureId={selectedLectureId}
+                        lectureThreadCount={selectedLectureThreadCount}
+                        programId={communityProgramId}
+                        programThreadCount={communityContext?.programThreadCount ?? null}
+                        title='수강 커뮤니티'
                       />
                     </div>
-                  </div>
-                </div>
-
-                <div className={styles['curriculumBody']}>
-                  {snapshot.curriculumTrack.sections.map((section) => (
-                    <section className={styles['sectionBlock']} key={section.id}>
-                      <div className={styles['sectionHeader']}>
-                        <h3 className={styles['sectionTitle']}>{section.title}</h3>
-                        <span className={styles['sectionMeta']}>{section.durationLabel}</span>
-                      </div>
-
-                      <div className={styles['lessonList']}>
-                        {flattenPlayerItems([
-                          {
-                            id: section.id,
-                            lessons: section.lessons,
-                            title: section.title,
-                          },
-                        ]).map((item) => {
-                          const lesson = item.lesson;
-                          const isCurrent = item.id === selectedItem.id;
-                          const isCompleted = completedLessonIds.has(lesson.id);
-                          const isQuizCompleted = quizAttemptedLessonIds.has(lesson.id);
-                          const isItemCompleted =
-                            item.kind === 'quiz' ? isQuizCompleted : isCompleted;
-
-                          return (
-                            <Link
-                              className={classNames(
-                                styles['lessonLink'],
-                                item.kind === 'quiz' && styles['lessonLinkQuiz'],
-                                isCurrent && styles['lessonLinkCurrent'],
-                              )}
-                              key={item.id}
-                              to={routePaths.learningLesson(String(resolvedEnrollmentId), item.id)}
-                            >
-                              <span
-                                aria-hidden='true'
-                                className={classNames(
-                                  styles['lessonStatusIcon'],
-                                  item.kind === 'quiz' && styles['lessonStatusIconQuiz'],
-                                  isItemCompleted && styles['lessonStatusIconCompleted'],
-                                  isCurrent && styles['lessonStatusIconCurrent'],
-                                )}
-                                style={isItemCompleted ? completedStatusStyle : undefined}
-                              />
-                              <div className={styles['lessonLinkHeader']}>
-                                <strong className={styles['lessonLinkTitle']}>{item.title}</strong>
-                                <div className={styles['lessonLinkMeta']}>
-                                  {item.kind === 'lesson' ? (
-                                    <span className={styles['lessonLinkDuration']}>
-                                      {lesson.durationLabel}
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className={classNames(
-                                        styles['lessonQuizBadge'],
-                                        isQuizCompleted && styles['lessonQuizBadgeCompleted'],
-                                      )}
-                                    >
-                                      {isQuizCompleted ? '퀴즈 완료' : '확인 퀴즈'}
-                                    </span>
-                                  )}
-                                  {item.kind === 'lesson' && lesson.hasQuiz ? (
-                                    <span className={styles['lessonLinkDuration']}>퀴즈 포함</span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              </aside>
+                  )}
+                </aside>
+              )}
             </div>
           ) : (
             <section className={styles['blockedCard']}>

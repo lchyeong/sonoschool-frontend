@@ -164,7 +164,8 @@ describe('ProgramPage', () => {
     expect(await screen.findByRole('heading', { name: '복부 Basic 스캔 6주' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '먼저 경험한 수강생들 후기' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '커리큘럼' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Q&A' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '커뮤니티' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '자주하는 질문' })).toBeInTheDocument();
     expect(screen.getByText('운영 기간')).toBeInTheDocument();
     expect(screen.getByText('2026.03.01 - 2026.04.30')).toBeInTheDocument();
   });
@@ -180,9 +181,8 @@ describe('ProgramPage', () => {
     expect(screen.getByRole('heading', { name: '먼저 경험한 수강생들 후기' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '커리큘럼' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '강의 소개' })).toBeInTheDocument();
-    expect(
-      screen.getByText('과정 운영, 준비물, 사전 학습처럼 이 강의에 특화된 질문을 남길 수 있습니다.'),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '커뮤니티' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '자주하는 질문' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '예약하기' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '수강 신청 하기' })).toBeInTheDocument();
   });

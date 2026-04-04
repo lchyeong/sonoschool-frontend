@@ -1,11 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { addMyCartItem, fetchMyCart } from '@/api/mypage';
-import { createProgramQuestion } from '@/api/qna';
 import { myCartQueryKey } from '@/query/useMyPageQueries';
-import { programQuestionsQueryKey, useProgramQuestionsQuery } from '@/query/useQnaQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
@@ -28,7 +25,9 @@ interface ProgramPageDetailProps {
 
 const inferProgramType = (data: ProgramDetailPageResponse): ProgramType => {
   const hasOnlineLesson = data.curriculumTrack.sections.some((section) => {
-    return section.lessons.some((lesson) => lesson.deliveryType === 'online');
+    return section.lessons.some(
+      (lesson) => lesson.deliveryType === 'online' || lesson.deliveryType === 'quiz',
+    );
   });
   const hasOfflineLesson = data.curriculumTrack.sections.some((section) => {
     return section.lessons.some((lesson) => lesson.deliveryType === 'offline');
@@ -81,9 +80,6 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const selectSingleCartItem = useCartSelectionStore((state) => state.selectSingleItem);
   const showToast = useToastStore((state) => state.showToast);
   const cartScope = resolveCartQueryScope(isAuthenticated);
-  const [questionTitle, setQuestionTitle] = useState('');
-  const [questionContent, setQuestionContent] = useState('');
-  const programQuestionsQuery = useProgramQuestionsQuery(data.programId ?? null);
   const viewModel = useProgramPageDetailViewModel(data);
   const {
     activeSectionId,
@@ -105,7 +101,6 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     setShowOptionList,
     showOptionList,
     sortedReviews,
-    supportTags,
     toggleCurriculumRow,
     totalPriceLabel,
     visiblePreviewReviewIds,
@@ -113,12 +108,6 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
 
   const addToCartMutation = useMutation({
     mutationFn: addMyCartItem,
-  });
-
-  const createQuestionMutation = useMutation({
-    mutationFn: ({ content, programId, title }: { programId: number; title: string; content: string }) => {
-      return createProgramQuestion(programId, { content, title });
-    },
   });
 
   const handleAddToCart = () => {
@@ -219,57 +208,9 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     void handleEnrollNow();
   };
 
-  const handleCreateQuestion = () => {
-    const programId = data.programId;
-    const trimmedTitle = questionTitle.trim();
-    const trimmedContent = questionContent.trim();
-
-    if (!programId) {
-      showToast({
-        message: '질문을 등록할 과정 정보를 확인하지 못했습니다.',
-        variant: 'error',
-      });
-      return;
-    }
-
-    if (!isAuthenticated) {
-      void navigate(routePaths.login);
-      return;
-    }
-
-    if (!trimmedTitle || !trimmedContent) {
-      showToast({
-        message: '질문 제목과 내용을 모두 입력해 주세요.',
-        variant: 'error',
-      });
-      return;
-    }
-
-    void createQuestionMutation.mutateAsync(
-      { content: trimmedContent, programId, title: trimmedTitle },
-      {
-        onError: (error: unknown) => {
-          showToast({
-            message: error instanceof Error ? error.message : '질문 등록에 실패했습니다.',
-            variant: 'error',
-          });
-        },
-        onSuccess: async () => {
-          setQuestionTitle('');
-          setQuestionContent('');
-          await queryClient.invalidateQueries({ queryKey: programQuestionsQueryKey(programId) });
-          showToast({
-            message: '질문을 등록했습니다.',
-            variant: 'success',
-          });
-        },
-      },
-    );
-  };
-
   return (
     <div className={styles['page']}>
-      <ProgramPageDetailHero data={data} heroInfoPills={heroInfoPills} supportTags={supportTags} />
+      <ProgramPageDetailHero data={data} heroInfoPills={heroInfoPills} />
 
       <div className={styles['detailShell']}>
         <div className={styles['contentLayout']}>
@@ -280,18 +221,6 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
             handleTabClick={handleTabClick}
             openCurriculumRows={openCurriculumRows}
             openFaqId={openFaqId}
-            isAuthenticated={isAuthenticated}
-            isQuestionSubmitting={createQuestionMutation.isPending}
-            isQuestionsLoading={programQuestionsQuery.isLoading}
-            onQuestionContentChange={setQuestionContent}
-            onQuestionSubmit={handleCreateQuestion}
-            onQuestionTitleChange={setQuestionTitle}
-            programQuestions={programQuestionsQuery.data ?? []}
-            questionContent={questionContent}
-            questionErrorMessage={
-              programQuestionsQuery.isError ? '과정 Q&A를 불러오지 못했습니다.' : null
-            }
-            questionTitle={questionTitle}
             reviewCarouselRef={reviewCarouselRef}
             reviewSortOrder={reviewSortOrder}
             sectionRefHandlers={sectionRefHandlers}

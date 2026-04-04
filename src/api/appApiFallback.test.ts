@@ -168,8 +168,6 @@ describe('app API fallback', () => {
         published: false,
         scope: 'GLOBAL',
         title: 'fallback notice',
-        visibleEndAt: null,
-        visibleStartAt: null,
       }),
     ).rejects.toBeTruthy();
   });

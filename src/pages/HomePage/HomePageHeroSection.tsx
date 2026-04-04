@@ -143,17 +143,6 @@ const HomePageHeroSection = ({
             <div className={styles['lectureLayout']}>
               <div className={styles['lectureCopyColumn']}>
                 <div className={styles['lectureCopyBlock']}>
-                  {/* 태그 목록은 배열을 순회해 chip 형태로 렌더링합니다. */}
-                  <ul className={styles['tagList']}>
-                    {activeSlide.tags.map((tag) => {
-                      return (
-                        <li className={styles['tagItem']} key={tag}>
-                          {tag}
-                        </li>
-                      );
-                    })}
-                  </ul>
-
                   <h2 className={styles['lectureTitle']}>{activeSlide.title}</h2>
                   <p className={styles['lectureDescription']}>{activeSlide.description}</p>
                 </div>
