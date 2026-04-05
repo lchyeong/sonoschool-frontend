@@ -6,7 +6,7 @@ export interface AdminVideoUploadPart {
 export interface AdminVideoProgramSummary {
   categoryName: string;
   id: string;
-  programType: 'ONLINE' | 'OFFLINE' | 'HYBRID';
+  programType: 'ONLINE' | 'OFFLINE' | 'HYBRID' | 'PROBLEM_SOLVING';
   title: string;
 }
 

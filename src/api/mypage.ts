@@ -16,7 +16,6 @@ import type {
   LearningPlayerSnapshot,
   ProtectedLectureStream,
   RefundHistory,
-  UserCoupon,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
@@ -326,19 +325,6 @@ export const fetchMyCart = async (): Promise<CartSummary> => {
   }
 };
 
-export const fetchMyCoupons = async (): Promise<UserCoupon[]> => {
-  if (!isStudentAuthenticated()) {
-    return [];
-  }
-
-  try {
-    const response = await axiosInstance.get<ApiEnvelope<UserCoupon[]>>('/api/v1/my/coupons');
-    return unwrapApiEnvelope(response.data);
-  } catch (error: unknown) {
-    throw toApiError(error, '쿠폰 목록을 불러오지 못했습니다.');
-  }
-};
-
 export const fetchMyApplicationSummary = async (): Promise<ApplicationSummary> => {
   try {
     const response = await axiosInstance.get<ApiEnvelope<ApplicationSummary>>(
@@ -392,26 +378,6 @@ export const mergeMyCartItems = async (programIds: number[]): Promise<MergeMyCar
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '장바구니를 로그인 계정에 옮기지 못했습니다.');
-  }
-};
-
-export const applyMyCartCoupon = async (couponCode: string): Promise<CartSummary> => {
-  try {
-    const response = await axiosInstance.post<ApiEnvelope<CartSummary>>('/api/v1/cart/coupon', {
-      code: couponCode,
-    });
-    return unwrapApiEnvelope(response.data);
-  } catch (error: unknown) {
-    throw toApiError(error, '쿠폰을 적용하지 못했습니다.');
-  }
-};
-
-export const clearMyCartCoupon = async (): Promise<CartSummary> => {
-  try {
-    const response = await axiosInstance.delete<ApiEnvelope<CartSummary>>('/api/v1/cart/coupon');
-    return unwrapApiEnvelope(response.data);
-  } catch (error: unknown) {
-    throw toApiError(error, '쿠폰 적용을 해제하지 못했습니다.');
   }
 };
 

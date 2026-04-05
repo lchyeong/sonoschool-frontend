@@ -26,8 +26,6 @@ export interface AdminCurriculumLecture {
   } | null;
   preview: boolean;
   practicumEnabled?: boolean;
-  practicumDescription: string | null;
-  practicumTitle: string | null;
   published: boolean;
   quizOnly?: boolean;
   sectionId: number;
@@ -56,8 +54,6 @@ export interface AdminLectureUpsertPayload {
   lectureType: AdminLectureType;
   preview: boolean;
   practicumEnabled?: boolean;
-  practicumDescription: string | null;
-  practicumTitle: string | null;
   quizOnly?: boolean;
   sortOrder: number;
   title: string;

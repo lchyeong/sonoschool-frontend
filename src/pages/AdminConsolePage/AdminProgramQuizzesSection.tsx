@@ -80,8 +80,8 @@ const questionTypeOptions = [
 
 const lectureFilterOptions: ReadonlyArray<{ label: string; value: QuizLectureFilter }> = [
   { label: '전체 강의', value: 'all' },
-  { label: '퀴즈 있음', value: 'withQuiz' },
-  { label: '퀴즈 없음', value: 'withoutQuiz' },
+  { label: '문제 있음', value: 'withQuiz' },
+  { label: '문제 없음', value: 'withoutQuiz' },
   { label: '응시 있음', value: 'attempted' },
 ];
 
@@ -220,7 +220,7 @@ const createFormState = (quiz: AdminQuiz | null): QuizFormState => {
         mediaFile: null,
         mediaPreviewUrl: question.mediaPreviewUrl ?? question.mediaUrl ?? '',
         mediaType: question.mediaType ?? null,
-        mediaUrl: question.mediaAssetId ? '' : question.mediaUrl ?? '',
+        mediaUrl: question.mediaAssetId ? '' : (question.mediaUrl ?? ''),
         options: [...question.options]
           .sort((left, right) => left.sortOrder - right.sortOrder)
           .map((option) => ({
@@ -258,7 +258,7 @@ const toPayload = (formState: QuizFormState): AdminQuizUpsertPayload => ({
 
 const validateForm = (formState: QuizFormState): string | null => {
   if (!formState.title.trim()) {
-    return '퀴즈 제목을 입력해 주세요.';
+    return '문제 제목을 입력해 주세요.';
   }
 
   if (!formState.passScore.trim() || Number.isNaN(Number(formState.passScore))) {
@@ -303,7 +303,7 @@ const validateForm = (formState: QuizFormState): string | null => {
 };
 
 const confirmQuizDelete = () => {
-  return window.confirm('퀴즈를 삭제하면 되돌릴 수 없습니다. 계속하시겠습니까?');
+  return window.confirm('문제를 삭제하면 되돌릴 수 없습니다. 계속하시겠습니까?');
 };
 
 const QuizAttemptsPanel = ({ quizId }: { quizId: number | null }) => {
@@ -320,7 +320,7 @@ const QuizAttemptsPanel = ({ quizId }: { quizId: number | null }) => {
     return (
       <div className={styles['quizEmptyState']}>
         <strong className={styles['itemTitle']}>응시 결과가 없습니다.</strong>
-        <p className={styles['helperText']}>퀴즈를 먼저 등록해야 응시 결과를 집계할 수 있습니다.</p>
+        <p className={styles['helperText']}>문제를 먼저 등록해야 응시 결과를 집계할 수 있습니다.</p>
       </div>
     );
   }
@@ -396,7 +396,7 @@ const QuizAttemptsPanel = ({ quizId }: { quizId: number | null }) => {
               </table>
             </div>
           ) : (
-            <p className={styles['helperText']}>아직 제출된 퀴즈 응시 기록이 없습니다.</p>
+            <p className={styles['helperText']}>아직 제출된 문제 응시 기록이 없습니다.</p>
           )
         ) : null}
       </section>
@@ -447,14 +447,14 @@ const QuizEditor = ({
     mutationFn: (payload: AdminQuizUpsertPayload) => createAdminQuiz(lectureId, payload),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '퀴즈를 등록하지 못했습니다.',
+        message: error instanceof Error ? error.message : '문제를 등록하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await refreshQuiz();
       showToast({
-        message: '퀴즈를 등록했습니다.',
+        message: '문제를 등록했습니다.',
         variant: 'success',
       });
     },
@@ -465,14 +465,14 @@ const QuizEditor = ({
       updateAdminQuiz(quizId, payload),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '퀴즈를 수정하지 못했습니다.',
+        message: error instanceof Error ? error.message : '문제를 수정하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await refreshQuiz();
       showToast({
-        message: '퀴즈를 수정했습니다.',
+        message: '문제를 수정했습니다.',
         variant: 'success',
       });
     },
@@ -482,14 +482,14 @@ const QuizEditor = ({
     mutationFn: (quizId: number) => deleteAdminQuiz(quizId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '퀴즈를 삭제하지 못했습니다.',
+        message: error instanceof Error ? error.message : '문제를 삭제하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await refreshQuiz();
       showToast({
-        message: '퀴즈를 삭제했습니다.',
+        message: '문제를 삭제했습니다.',
         variant: 'success',
       });
     },
@@ -562,7 +562,7 @@ const QuizEditor = ({
       createMutation.mutate(payload);
     } catch (error) {
       showToast({
-        message: error instanceof Error ? error.message : '퀴즈 미디어 업로드에 실패했습니다.',
+        message: error instanceof Error ? error.message : '문제 미디어 업로드에 실패했습니다.',
         variant: 'error',
       });
     } finally {
@@ -577,11 +577,11 @@ const QuizEditor = ({
       <div className={styles['panel']}>
         <div className={styles['panelToolbar']}>
           <div>
-            <h3 className={styles['panelTitle']}>퀴즈 기본 정보</h3>
+            <h3 className={styles['panelTitle']}>문제 기본 정보</h3>
             <p className={styles['metaText']}>
               {quiz
-                ? '현재 등록된 퀴즈를 수정하는 화면입니다.'
-                : '선택한 강의에 새 퀴즈를 등록합니다.'}
+                ? '현재 등록된 문제를 수정하는 화면입니다.'
+                : '선택한 강의에 새 문제를 등록합니다.'}
             </p>
           </div>
           <div className={styles['actionRow']}>
@@ -591,8 +591,8 @@ const QuizEditor = ({
                   ? '저장 중...'
                   : '등록 중...'
                 : quiz
-                  ? '퀴즈 저장'
-                  : '퀴즈 등록'}
+                  ? '문제 저장'
+                  : '문제 등록'}
             </Button>
             {quiz ? (
               <Button
@@ -614,7 +614,7 @@ const QuizEditor = ({
 
         <div className={styles['stackListCompact']}>
           <TextField
-            label='퀴즈 제목'
+            label='문제 제목'
             name='quiz-title'
             onChange={(event) => {
               setFormState((current) => ({
@@ -625,7 +625,7 @@ const QuizEditor = ({
             value={formState.title}
           />
           <TextAreaField
-            label='퀴즈 설명'
+            label='문제 설명'
             name='quiz-description'
             onChange={(event) => {
               setFormState((current) => ({
@@ -1175,12 +1175,12 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
 
   if (!enabled || programId === null) {
     return (
-      <p className={styles['helperText']}>퀴즈는 프로그램을 먼저 저장한 뒤 관리할 수 있습니다.</p>
+      <p className={styles['helperText']}>문제는 프로그램을 먼저 저장한 뒤 관리할 수 있습니다.</p>
     );
   }
 
   if (curriculumQuery.isPending || summariesQuery.isPending) {
-    return <p className={styles['helperText']}>퀴즈 관리 화면을 준비하는 중입니다.</p>;
+    return <p className={styles['helperText']}>문제 관리 화면을 준비하는 중입니다.</p>;
   }
 
   if (curriculumQuery.isError) {
@@ -1198,7 +1198,7 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
       <p className={styles['helperText']}>
         {summariesQuery.error instanceof Error
           ? summariesQuery.error.message
-          : '퀴즈 현황을 불러오지 못했습니다.'}
+          : '문제 현황을 불러오지 못했습니다.'}
       </p>
     );
   }
@@ -1212,7 +1212,7 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
       <section className={styles['panel']}>
         <div className={styles['panelToolbar']}>
           <div>
-            <h2 className={styles['panelTitle']}>강의별 퀴즈 현황</h2>
+            <h2 className={styles['panelTitle']}>강의별 문제 현황</h2>
             <p className={styles['metaText']}>
               프로그램 안의 강의를 한 번에 보고, 필요한 강의만 아래에서 상세 관리합니다.
             </p>
@@ -1261,9 +1261,9 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
                     </div>
                     <div className={styles['metaRow']}>
                       {lecture.hasQuiz ? (
-                        <span className={styles['badgeSuccess']}>퀴즈 있음</span>
+                        <span className={styles['badgeSuccess']}>문제 있음</span>
                       ) : (
-                        <span className={styles['badge']}>퀴즈 없음</span>
+                        <span className={styles['badge']}>문제 없음</span>
                       )}
                       {lecture.attemptCount > 0 ? (
                         <span className={styles['badgeAccent']}>
@@ -1356,12 +1356,12 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
             <div className={styles['editorTabBody']}>
               {visibleActiveTab === 'editor' ? (
                 quizQuery.isPending ? (
-                  <p className={styles['helperText']}>퀴즈를 불러오는 중입니다.</p>
+                  <p className={styles['helperText']}>문제를 불러오는 중입니다.</p>
                 ) : quizQuery.isError ? (
                   <p className={styles['helperText']}>
                     {quizQuery.error instanceof Error
                       ? quizQuery.error.message
-                      : '퀴즈를 불러오지 못했습니다.'}
+                      : '문제를 불러오지 못했습니다.'}
                   </p>
                 ) : (
                   <QuizEditor

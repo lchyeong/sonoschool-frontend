@@ -26,7 +26,7 @@ interface ProgramPageDetailProps {
 const inferProgramType = (data: ProgramDetailPageResponse): ProgramType => {
   const hasOnlineLesson = data.curriculumTrack.sections.some((section) => {
     return section.lessons.some(
-      (lesson) => lesson.deliveryType === 'online' || lesson.deliveryType === 'quiz',
+      (lesson) => lesson.deliveryType === 'online' || lesson.deliveryType === 'problem',
     );
   });
   const hasOfflineLesson = data.curriculumTrack.sections.some((section) => {
@@ -37,7 +37,15 @@ const inferProgramType = (data: ProgramDetailPageResponse): ProgramType => {
     return 'HYBRID';
   }
 
-  return hasOfflineLesson ? 'OFFLINE' : 'ONLINE';
+  if (!hasOnlineLesson) {
+    return 'OFFLINE';
+  }
+
+  return data.curriculumTrack.sections.every((section) =>
+    section.lessons.every((lesson) => lesson.deliveryType === 'problem'),
+  )
+    ? 'PROBLEM_SOLVING'
+    : 'ONLINE';
 };
 
 const deriveProgramId = (sourcePath: string): number => {

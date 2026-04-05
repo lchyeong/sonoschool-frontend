@@ -106,7 +106,7 @@ export const AdminDashboardSection = () => {
         ? `${String(programsQuery.data.length)}개 프로그램`
         : '확인 중',
       description:
-        '프로그램 등록, 기본정보, 커리큘럼, 퀴즈와 공개 상태를 실제 데이터로 관리합니다.',
+        '프로그램 등록, 기본정보, 커리큘럼, 문제와 공개 상태를 실제 데이터로 관리합니다.',
       title: '프로그램 관리',
       to: routePaths.adminPrograms,
     },

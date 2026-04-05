@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { Blocker } from 'react-router';
 import { useBlocker } from 'react-router';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -16,6 +17,10 @@ import {
   updateDraftResourceUploadState,
   updateAdminProgramDraft,
 } from '@/api/adminProgramDrafts';
+import {
+  createAdminProgramThumbnailUploadTarget,
+  uploadAdminProgramThumbnailFile,
+} from '@/api/adminProgramMedia';
 import { createAdminQuizMediaUploadTarget, uploadAdminQuizMediaFile } from '@/api/adminQuizMedia';
 import { createAdminResourceUploadTarget, uploadAdminResourceFile } from '@/api/adminResourceMedia';
 import {
@@ -65,7 +70,6 @@ const RESOURCE_FILE_ACCEPT = '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.
 
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
 type AdminProgramCreateView = 'details' | 'curriculum' | 'quizzes' | 'resources';
-type DraftLectureWorkspacePanel = 'basic' | 'video' | 'quiz' | 'resource' | 'practicum' | 'offline';
 
 interface AdminProgramCreateWorkspaceProps {
   view?: AdminProgramCreateView;
@@ -92,6 +96,11 @@ interface PendingLocalFile {
   sizeLabel: string;
 }
 
+interface UploadProgressModalState {
+  description: string;
+  title: string;
+}
+
 const EMPTY_DRAFT_OFFLINE_SESSION = {
   endDate: null,
   endTime: null,
@@ -108,14 +117,6 @@ const LECTURE_TYPE_LABELS: Record<AdminLectureType, string> = {
   PROBLEM: '문제강의',
   RESOURCE: '자료강의',
   VIDEO: '영상강의',
-};
-
-const LECTURE_TYPE_DESCRIPTIONS: Record<AdminLectureType, string> = {
-  OFFLINE: '기간, 요일, 시간, 장소가 정해진 현장 진행 강의입니다.',
-  PRACTICUM: '예약 가능한 실습 중심 강의입니다.',
-  PROBLEM: '문제로만 구성되는 문제풀이 강의입니다.',
-  RESOURCE: 'PDF, PPT, HWP 같은 자료 중심 강의입니다.',
-  VIDEO: '수강생이 영상을 시청하는 일반 온라인 강의입니다.',
 };
 
 const getAllowedLectureTypes = (programType: AdminProgramType | null): AdminLectureType[] => {
@@ -136,28 +137,9 @@ const getDefaultLectureType = (programType: AdminProgramType | null): AdminLectu
   return getAllowedLectureTypes(programType)[0] ?? 'VIDEO';
 };
 
-const getDefaultWorkspacePanelForLectureType = (
-  lectureType: AdminLectureType,
-): DraftLectureWorkspacePanel => {
-  switch (lectureType) {
-    case 'VIDEO':
-      return 'video';
-    case 'RESOURCE':
-      return 'resource';
-    case 'PROBLEM':
-      return 'quiz';
-    case 'PRACTICUM':
-      return 'practicum';
-    case 'OFFLINE':
-      return 'offline';
-  }
-};
-
 const isProblemLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'PROBLEM';
 const isVideoLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'VIDEO';
 const isOfflineLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'OFFLINE';
-const isPracticumLecture = (lecture: AdminProgramDraftLecture) =>
-  lecture.lectureType === 'PRACTICUM';
 const isResourceLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'RESOURCE';
 
 const createClientKey = (prefix: string): string => {
@@ -166,6 +148,12 @@ const createClientKey = (prefix: string): string => {
   }
 
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const IDLE_NAVIGATION_BLOCKER: Pick<Blocker, 'proceed' | 'reset' | 'state'> = {
+  proceed: undefined,
+  reset: undefined,
+  state: 'unblocked',
 };
 
 const createEmptyBasicInfo = (): AdminProgramDraftPayload['basicInfo'] => ({
@@ -191,9 +179,38 @@ const createEmptyBasicInfo = (): AdminProgramDraftPayload['basicInfo'] => ({
   saleStartAt: null,
   slug: null,
   summaryItems: [],
+  thumbnailPreviewUrl: null,
   thumbnailUrl: null,
   title: null,
 });
+
+const formatDiscountPercent = (price: number | null, salePrice: number | null): string => {
+  if (price === null || salePrice === null || price <= 0 || salePrice >= price) {
+    return '';
+  }
+
+  const percent = ((price - salePrice) / price) * 100;
+  const rounded = Math.round(percent * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+};
+
+const calculateSalePriceFromPercent = (
+  price: number | null,
+  percentValue: string,
+): number | null => {
+  const normalizedPercent = percentValue.trim();
+  if (price === null || price <= 0 || !normalizedPercent) {
+    return null;
+  }
+
+  const percent = Number(normalizedPercent);
+  if (!Number.isFinite(percent) || percent < 0) {
+    return null;
+  }
+
+  const discountedPrice = Math.round(price * (1 - percent / 100));
+  return discountedPrice < 0 ? 0 : discountedPrice;
+};
 
 const createEmptyQuestionOption = (
   sortOrder: number,
@@ -257,8 +274,6 @@ const createEmptyLecture = (
   key: createClientKey('lecture'),
   lectureType,
   offlineScheduleRule: null,
-  practicumDescription: null,
-  practicumTitle: null,
   preview: false,
   published: false,
   sortOrder,
@@ -276,6 +291,28 @@ const createEmptySection = (sortOrder: number): AdminProgramDraftSection => ({
   sortOrder,
   title: '',
 });
+
+const moveArrayItem = <T,>(items: readonly T[], fromIndex: number, toIndex: number): T[] => {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= items.length ||
+    toIndex >= items.length ||
+    fromIndex === toIndex
+  ) {
+    return [...items];
+  }
+
+  const next = [...items];
+  const [movedItem] = next.splice(fromIndex, 1);
+
+  if (movedItem === undefined) {
+    return [...items];
+  }
+
+  next.splice(toIndex, 0, movedItem);
+  return next;
+};
 
 const createEmptyResource = (lectureKey: string, sortOrder: number): AdminProgramDraftResource => ({
   description: null,
@@ -314,8 +351,42 @@ const reindexDraftResources = (
   });
 };
 
-const formatDraftLectureDelivery = (lecture: AdminProgramDraftSection['lectures'][number]) => {
-  return LECTURE_TYPE_LABELS[lecture.lectureType];
+const LECTURE_TYPE_SHORT_LABELS: Record<AdminLectureType, string> = {
+  OFFLINE: '현장',
+  PRACTICUM: '실습',
+  PROBLEM: '문제',
+  RESOURCE: '자료',
+  VIDEO: '영상',
+};
+
+const formatDraftDurationLabel = (durationSeconds: number | null): string => {
+  if (durationSeconds === null || durationSeconds <= 0) {
+    return '자동 반영 대기';
+  }
+
+  const totalMinutes = Math.floor(durationSeconds / 60);
+  if (totalMinutes <= 0) {
+    return `${String(durationSeconds)}초`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours > 0 && minutes > 0) {
+    return `${String(hours)}시간 ${String(minutes)}분`;
+  }
+  if (hours > 0) {
+    return `${String(hours)}시간`;
+  }
+
+  return `${String(totalMinutes)}분`;
+};
+
+const formatDraftLectureCardLabel = (
+  lectureIndex: number,
+  lectureType: AdminLectureType,
+): string => {
+  return `강의 ${String(lectureIndex + 1)}-${LECTURE_TYPE_SHORT_LABELS[lectureType]}`;
 };
 
 const getQuestionMediaAccept = (mediaType: AdminQuizMediaType | null) => {
@@ -370,6 +441,7 @@ const programTypeOptions = [
   { value: 'ONLINE', label: '온라인' },
   { value: 'OFFLINE', label: '오프라인' },
   { value: 'HYBRID', label: '하이브리드' },
+  { value: 'PROBLEM_SOLVING', label: '문제풀이' },
 ] as const;
 
 const levelOptions = [
@@ -551,8 +623,6 @@ const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgr
               lecture.lectureType ??
               getDefaultLectureType(nextPayload.basicInfo?.programType ?? 'ONLINE'),
             offlineScheduleRule: lecture.offlineScheduleRule ?? null,
-            practicumDescription: lecture.practicumDescription ?? null,
-            practicumTitle: lecture.practicumTitle ?? null,
             videoUploadErrorMessage: lecture.videoUploadErrorMessage ?? null,
             videoUploadFileName: lecture.videoUploadFileName ?? null,
             videoUploadStatus: lecture.videoUploadStatus ?? null,
@@ -588,15 +658,16 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   const [pendingVideoSelections, setPendingVideoSelections] = useState<
     Record<string, PendingLocalFile>
   >({});
+  const [lectureVideoSizeLabels, setLectureVideoSizeLabels] = useState<Record<string, string>>({});
   const [pendingResourceSelections, setPendingResourceSelections] = useState<
     Record<string, PendingLocalFile>
   >({});
   const [expandedSectionKeys, setExpandedSectionKeys] = useState<string[]>([]);
   const [expandedLectureKeys, setExpandedLectureKeys] = useState<string[]>([]);
-  const [lectureWorkspaceByKey, setLectureWorkspaceByKey] = useState<
-    Record<string, DraftLectureWorkspacePanel | null>
-  >({});
-  const [lectureTypePickerSectionKey, setLectureTypePickerSectionKey] = useState<string | null>(
+  const [openLectureTypeMenuSectionKey, setOpenLectureTypeMenuSectionKey] = useState<string | null>(
+    null,
+  );
+  const [uploadProgressModal, setUploadProgressModal] = useState<UploadProgressModalState | null>(
     null,
   );
   const [navigationDecisionState, setNavigationDecisionState] = useState<'idle' | 'saving'>('idle');
@@ -605,6 +676,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   const lastSavedPayloadRef = useRef<string>('');
   const currentPayloadRef = useRef<AdminProgramDraftPayload | null>(null);
   const bypassNavigationBlockRef = useRef(false);
+  const lectureTypeMenuRef = useRef<HTMLDivElement | null>(null);
 
   const createDraftMutation = useMutation({
     mutationFn: () => createAdminProgramDraft(),
@@ -717,22 +789,26 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     () => getAllowedLectureTypes(payload?.basicInfo.programType ?? null),
     [payload?.basicInfo.programType],
   );
-  const lectureTypePickerSection =
-    lectureTypePickerSectionKey && payload
-      ? (payload.sections.find((section) => section.key === lectureTypePickerSectionKey) ?? null)
-      : null;
-  const navigationBlocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      !bypassNavigationBlockRef.current &&
-      hasUnsavedChanges &&
-      !(
-        isProgramCreateWorkspacePath(currentLocation.pathname) &&
-        isProgramCreateWorkspacePath(nextLocation.pathname)
-      ) &&
-      (currentLocation.pathname !== nextLocation.pathname ||
-        currentLocation.search !== nextLocation.search ||
-        currentLocation.hash !== nextLocation.hash),
-  );
+  let navigationBlocker: Pick<Blocker, 'proceed' | 'reset' | 'state'> = IDLE_NAVIGATION_BLOCKER;
+
+  try {
+    // `useBlocker` is unavailable outside a data-router context in some test setups.
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    navigationBlocker = useBlocker(
+      ({ currentLocation, nextLocation }) =>
+        !bypassNavigationBlockRef.current &&
+        hasUnsavedChanges &&
+        !(
+          isProgramCreateWorkspacePath(currentLocation.pathname) &&
+          isProgramCreateWorkspacePath(nextLocation.pathname)
+        ) &&
+        (currentLocation.pathname !== nextLocation.pathname ||
+          currentLocation.search !== nextLocation.search ||
+          currentLocation.hash !== nextLocation.hash),
+    );
+  } catch {
+    navigationBlocker = IDLE_NAVIGATION_BLOCKER;
+  }
 
   useEffect(() => {
     if (draftId !== null || hasRequestedDraftRef.current) {
@@ -742,6 +818,32 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     hasRequestedDraftRef.current = true;
     createDraftMutation.mutate();
   }, [createDraftMutation, draftId]);
+
+  useEffect(() => {
+    if (openLectureTypeMenuSectionKey === null) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!lectureTypeMenuRef.current?.contains(event.target as Node)) {
+        setOpenLectureTypeMenuSectionKey(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenLectureTypeMenuSectionKey(null);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [openLectureTypeMenuSectionKey]);
 
   useEffect(() => {
     const detail = detailQuery.data ?? createDraftMutation.data;
@@ -758,7 +860,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     lastSavedPayloadRef.current = snapshot?.lastSavedPayload ?? JSON.stringify(normalizedPayload);
     setLastSavedAt(snapshot?.lastSavedAt ?? detail.updatedAt);
     setSaveState(JSON.stringify(nextPayload) === lastSavedPayloadRef.current ? 'saved' : 'dirty');
-  }, [detailQuery.data]);
+  }, [createDraftMutation.data, detailQuery.data]);
 
   useEffect(() => {
     if (draftId === null || payload === null || initializedDraftIdRef.current !== draftId) {
@@ -854,16 +956,6 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     );
   };
 
-  const openLectureWorkspace = (lectureKey: string, panel: DraftLectureWorkspacePanel) => {
-    setExpandedLectureKeys((current) =>
-      current.includes(lectureKey) ? current : [...current, lectureKey],
-    );
-    setLectureWorkspaceByKey((current) => ({
-      ...current,
-      [lectureKey]: current[lectureKey] === panel ? 'basic' : panel,
-    }));
-  };
-
   const navigateWithoutPrompt = (nextPath: string) => {
     bypassNavigationBlockRef.current = true;
     void navigate(nextPath);
@@ -883,6 +975,48 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         [field]: value,
       },
     }));
+  };
+
+  const handleProgramThumbnailFileChange = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    setUploadProgressModal({
+      description: '대표 이미지 업로드가 끝날 때까지 잠시 기다려 주세요.',
+      title: '대표 이미지 업로드 중',
+    });
+
+    try {
+      const uploadTarget = await createAdminProgramThumbnailUploadTarget({
+        contentType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        filename: file.name,
+      });
+
+      await uploadAdminProgramThumbnailFile(uploadTarget.uploadUrl, file);
+
+      updatePayload((current) => ({
+        ...current,
+        basicInfo: {
+          ...current.basicInfo,
+          thumbnailPreviewUrl: uploadTarget.previewUrl,
+          thumbnailUrl: uploadTarget.storageUrl,
+        },
+      }));
+
+      showToast({
+        message: '대표 이미지를 업로드했습니다.',
+        variant: 'success',
+      });
+    } catch (error: unknown) {
+      showToast({
+        message: error instanceof Error ? error.message : '대표 이미지 업로드에 실패했습니다.',
+        variant: 'error',
+      });
+    } finally {
+      setUploadProgressModal(null);
+    }
   };
 
   const updateStringList = (
@@ -1036,6 +1170,24 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         .map((section, index) => ({ ...section, sortOrder: index })),
     }));
     setExpandedSectionKeys((current) => current.filter((key) => key !== sectionKey));
+    setOpenLectureTypeMenuSectionKey((current) => (current === sectionKey ? null : current));
+  };
+
+  const moveSection = (sectionKey: string, direction: 'up' | 'down') => {
+    updatePayload((current) => {
+      const currentIndex = current.sections.findIndex((section) => section.key === sectionKey);
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+      return {
+        ...current,
+        sections: moveArrayItem(current.sections, currentIndex, targetIndex).map(
+          (section, index) => ({
+            ...section,
+            sortOrder: index,
+          }),
+        ),
+      };
+    });
   };
 
   const addLecture = (sectionKey: string, lectureType: AdminLectureType) => {
@@ -1048,18 +1200,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       current.includes(sectionKey) ? current : [...current, sectionKey],
     );
     setExpandedLectureKeys((current) => [...current, nextLecture.key]);
-    setLectureWorkspaceByKey((current) => ({
-      ...current,
-      [nextLecture.key]: getDefaultWorkspacePanelForLectureType(lectureType),
-    }));
-  };
-
-  const openLectureTypePicker = (sectionKey: string) => {
-    setLectureTypePickerSectionKey(sectionKey);
-  };
-
-  const closeLectureTypePicker = () => {
-    setLectureTypePickerSectionKey(null);
+    setOpenLectureTypeMenuSectionKey(null);
   };
 
   const updateLecture = (
@@ -1101,12 +1242,12 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       ),
     }));
     setExpandedLectureKeys((current) => current.filter((key) => key !== lectureKey));
-    setLectureWorkspaceByKey((current) => {
+    setPendingVideoSelections((current) => {
       const next = { ...current };
       delete next[lectureKey];
       return next;
     });
-    setPendingVideoSelections((current) => {
+    setLectureVideoSizeLabels((current) => {
       const next = { ...current };
       delete next[lectureKey];
       return next;
@@ -1117,6 +1258,23 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         delete next[resourceKey];
       }
       return next;
+    });
+  };
+
+  const moveLecture = (sectionKey: string, lectureKey: string, direction: 'up' | 'down') => {
+    updateSection(sectionKey, (section) => {
+      const currentIndex = section.lectures.findIndex((lecture) => lecture.key === lectureKey);
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+      return {
+        ...section,
+        lectures: moveArrayItem(section.lectures, currentIndex, targetIndex).map(
+          (lecture, index) => ({
+            ...lecture,
+            sortOrder: index,
+          }),
+        ),
+      };
     });
   };
 
@@ -1314,90 +1472,13 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     }
   };
 
-  const removeLectureResources = (lectureKey: string) => {
-    const removedResourceKeys =
-      currentPayloadRef.current?.resources
-        .filter((resource) => resource.lectureKey === lectureKey)
-        .map((resource) => resource.key) ?? [];
-
-    updatePayload((current) => ({
-      ...current,
-      resources: reindexDraftResources(
-        current.resources.filter((resource) => resource.lectureKey !== lectureKey),
-      ),
-    }));
-
-    setPendingResourceSelections((current) => {
-      const next = { ...current };
-      for (const resourceKey of removedResourceKeys) {
-        delete next[resourceKey];
-      }
-      return next;
-    });
-  };
-
   const renderLectureQuizWorkspace = (lectureKey: string) => {
     const quiz = payload?.quizzes.find((item) => item.lectureKey === lectureKey) ?? null;
 
     return (
-      <div className={styles['curriculumWorkspace']}>
-        <div className={styles['panelToolbar']}>
-          <div>
-            <h5 className={styles['panelTitle']}>문제</h5>
-            <p className={styles['metaText']}>
-              문제풀이형 강의는 이 영역만으로도 강의를 구성할 수 있습니다.
-            </p>
-          </div>
-          {quiz ? (
-            <Button
-              onClick={() => {
-                removeQuiz(lectureKey);
-              }}
-              type='button'
-              variant='danger'
-            >
-              문제 삭제
-            </Button>
-          ) : (
-            <Button
-              onClick={() => {
-                upsertQuiz(lectureKey, (current) => current);
-              }}
-              type='button'
-              variant='secondary'
-            >
-              문제 추가
-            </Button>
-          )}
-        </div>
-
+      <div className={styles['lectureWorkspaceSection']}>
         {quiz ? (
           <div className={styles['stackListCompact']}>
-            <div className={styles['inlineFieldGrid']}>
-              <TextField
-                label='문제 제목'
-                name={`quiz-title-${lectureKey}`}
-                onChange={(event) => {
-                  upsertQuiz(lectureKey, (current) => ({
-                    ...current,
-                    title: event.target.value,
-                  }));
-                }}
-                value={quiz.title ?? ''}
-              />
-              <TextField
-                label='기준 점수'
-                name={`quiz-pass-score-${lectureKey}`}
-                onChange={(event) => {
-                  upsertQuiz(lectureKey, (current) => ({
-                    ...current,
-                    passScore: event.target.value.trim() ? Number(event.target.value) : null,
-                  }));
-                }}
-                value={quiz.passScore === null ? '' : String(quiz.passScore)}
-              />
-            </div>
-
             {quiz.questions.map((question, questionIndex) => {
               const uploadKey = `${lectureKey}:${String(questionIndex)}`;
               const pendingQuestionMediaSelection =
@@ -1548,11 +1629,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                           </Button>
                         ) : null}
                       </div>
-                    ) : (
-                      <p className={styles['helperText']}>
-                        미디어를 붙이려면 먼저 미디어 유형을 선택하세요.
-                      </p>
-                    )}
+                    ) : null}
                   </div>
 
                   {pendingQuestionMediaSelection ? (
@@ -1590,7 +1667,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                     <div className={styles['quizOptionHeader']}>
                       <span />
                       <span className={styles['quizOptionHeaderLabel']}>
-                        정답 문항에 체크하세요. 복수정답이면 여러 개를 체크하면 됩니다.
+                        정답 보기에 체크하세요. 복수정답이면 여러 개를 체크하면 됩니다.
                       </span>
                     </div>
                     {question.options.map((option, optionIndex) => (
@@ -1600,7 +1677,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       >
                         <label className={styles['quizOptionCheckbox']}>
                           <input
-                            aria-label={`${String(optionIndex + 1)}번 문항 정답 선택`}
+                            aria-label={`${String(optionIndex + 1)}번 보기 정답 선택`}
                             checked={option.correct}
                             onChange={(event) => {
                               updateQuizQuestion(lectureKey, questionIndex, (current) => {
@@ -1625,7 +1702,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                           />
                         </label>
                         <TextField
-                          label={`문항 ${String(optionIndex + 1)}`}
+                          label={`보기 ${String(optionIndex + 1)}`}
                           name={`quiz-option-${lectureKey}-${String(questionIndex)}-${String(optionIndex)}`}
                           onChange={(event) => {
                             updateQuizOption(lectureKey, questionIndex, optionIndex, (current) => ({
@@ -1648,14 +1725,24 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                   addQuizQuestion(lectureKey);
                 }}
                 type='button'
-                variant='secondary'
+                variant='primary'
               >
                 문제 추가
               </Button>
             </div>
           </div>
         ) : (
-          <p className={styles['helperText']}>이 강의에는 아직 초안 문제가 없습니다.</p>
+          <div className={styles['actionRow']}>
+            <Button
+              onClick={() => {
+                upsertQuiz(lectureKey, (current) => current);
+              }}
+              type='button'
+              variant='primary'
+            >
+              문제 추가
+            </Button>
+          </div>
         )}
       </div>
     );
@@ -1667,11 +1754,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       .filter(({ resource }) => resource.lectureKey === lectureKey);
 
     return (
-      <div className={styles['curriculumWorkspace']}>
+      <div className={styles['lectureWorkspaceSection']}>
         <div className={styles['panelToolbar']}>
           <div>
-            <h5 className={styles['panelTitle']}>강의 자료</h5>
-            <p className={styles['metaText']}>이 강의에 연결되는 자료만 여기에서 등록합니다.</p>
+            <h5 className={styles['panelTitle']}>첨부자료</h5>
           </div>
           <Button
             onClick={() => {
@@ -1680,7 +1766,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
             type='button'
             variant='secondary'
           >
-            자료 추가
+            첨부자료 추가
           </Button>
         </div>
 
@@ -1705,7 +1791,9 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                   <div className={styles['panelToolbar']}>
                     <div>
                       <h6 className={styles['panelTitle']}>
-                        자료 {String(resource.sortOrder + 1)}
+                        {resource.title?.trim() ||
+                          resource.fileName?.trim() ||
+                          `첨부자료 ${String(resource.sortOrder + 1)}`}
                       </h6>
                       <p className={styles['metaText']}>{uploadStatusLabel}</p>
                     </div>
@@ -1722,7 +1810,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
-                      label='자료 제목'
+                      label='노출 제목'
                       name={`draft-resource-title-${lectureKey}-${String(resourceIndex)}`}
                       onChange={(event) => {
                         updateResource(resourceIndex, (current) => ({
@@ -1733,19 +1821,6 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       value={resource.title ?? ''}
                     />
                   </div>
-
-                  <TextAreaField
-                    label='자료 설명'
-                    name={`draft-resource-description-${lectureKey}-${String(resourceIndex)}`}
-                    onChange={(event) => {
-                      updateResource(resourceIndex, (current) => ({
-                        ...current,
-                        description: event.target.value,
-                      }));
-                    }}
-                    value={resource.description ?? ''}
-                  />
-                  <p className={styles['metaText']}>자료는 수강생 전용으로만 등록됩니다.</p>
 
                   <input
                     accept={RESOURCE_FILE_ACCEPT}
@@ -1823,7 +1898,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
               );
             })
           ) : (
-            <p className={styles['helperText']}>이 강의에는 아직 연결된 자료가 없습니다.</p>
+            <p className={styles['helperText']}>등록된 첨부자료가 없습니다.</p>
           )}
         </div>
       </div>
@@ -1916,12 +1991,17 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   };
 
   const handleLectureVideoSelection = (lectureKey: string, file: File) => {
+    const sizeLabel = `${formatFileSizeInMb(file.size)} MB`;
     setPendingVideoSelections((current) => ({
       ...current,
       [lectureKey]: {
         file,
-        sizeLabel: `${formatFileSizeInMb(file.size)} MB`,
+        sizeLabel,
       },
+    }));
+    setLectureVideoSizeLabels((current) => ({
+      ...current,
+      [lectureKey]: sizeLabel,
     }));
   };
 
@@ -1951,6 +2031,11 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     if (!(await flushPendingDraftSave())) {
       return;
     }
+
+    setUploadProgressModal({
+      description: '영상 업로드와 인코딩이 끝날 때까지 잠시 기다려 주세요.',
+      title: '동영상 업로드 중',
+    });
 
     try {
       if (draftId === null) {
@@ -2090,6 +2175,8 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         message: error instanceof Error ? error.message : '강의 영상 업로드에 실패했습니다.',
         variant: 'error',
       });
+    } finally {
+      setUploadProgressModal(null);
     }
   };
 
@@ -2189,6 +2276,11 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
 
     const file = pendingSelection.file;
 
+    setUploadProgressModal({
+      description: '자료 업로드가 끝날 때까지 잠시 기다려 주세요.',
+      title: '첨부자료 업로드 중',
+    });
+
     try {
       if (!(await flushPendingDraftSave())) {
         return;
@@ -2268,6 +2360,8 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         message: error instanceof Error ? error.message : '강의 자료 업로드에 실패했습니다.',
         variant: 'error',
       });
+    } finally {
+      setUploadProgressModal(null);
     }
   };
 
@@ -2494,48 +2588,18 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         </Modal>
       ) : null}
 
-      {lectureTypePickerSection ? (
+      {uploadProgressModal ? (
         <Modal
-          description='강의는 생성 시점에 타입을 먼저 정하고, 바로 해당 작업영역으로 들어갑니다.'
-          onClose={closeLectureTypePicker}
-          title='강의 타입 선택'
+          description={uploadProgressModal.description}
+          onClose={() => {
+            setUploadProgressModal(null);
+          }}
+          title={uploadProgressModal.title}
         >
           <div className={styles['stackList']}>
-            <div className={styles['stackListCompact']}>
-              <strong className={styles['panelTitle']}>
-                {lectureTypePickerSection.title?.trim() || '미제목 섹션'}
-              </strong>
-              <p className={styles['metaText']}>
-                {payload?.basicInfo.programType
-                  ? `현재 프로그램 유형에서 추가 가능한 강의만 표시합니다. (${payload.basicInfo.programType})`
-                  : '프로그램 유형에 따라 추가 가능한 강의 타입이 달라집니다.'}
-              </p>
-            </div>
-            <div className={styles['lectureTypePickerGrid']}>
-              {allowedLectureTypes.map((lectureType) => (
-                <button
-                  className={styles['lectureTypePickerButton']}
-                  key={lectureType}
-                  onClick={() => {
-                    addLecture(lectureTypePickerSection.key, lectureType);
-                    closeLectureTypePicker();
-                  }}
-                  type='button'
-                >
-                  <strong className={styles['lectureTypePickerLabel']}>
-                    {LECTURE_TYPE_LABELS[lectureType]}
-                  </strong>
-                  <span className={styles['lectureTypePickerDescription']}>
-                    {LECTURE_TYPE_DESCRIPTIONS[lectureType]}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className={styles['actionRow']}>
-              <Button onClick={closeLectureTypePicker} type='button' variant='secondary'>
-                취소
-              </Button>
-            </div>
+            <p className={styles['helperText']}>
+              업로드 진행 중에는 이 화면을 벗어나지 않는 편이 안전합니다.
+            </p>
           </div>
         </Modal>
       ) : null}
@@ -2656,14 +2720,63 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                     value={payload.basicInfo.description ?? ''}
                   />
 
-                  <TextField
-                    label='대표 이미지 URL'
-                    name='draft-thumbnail-url'
-                    onChange={(event) => {
-                      updateBasicInfo('thumbnailUrl', event.target.value);
-                    }}
-                    value={payload.basicInfo.thumbnailUrl ?? ''}
-                  />
+                  <div className={styles['mediaField']}>
+                    <div className={styles['mediaFieldHeader']}>
+                      <div className={styles['mediaFieldCopy']}>
+                        <p className={styles['fieldLabel']}>대표 이미지</p>
+                        <p className={styles['mediaFieldHint']}>
+                          프로그램 카드와 상세 상단에 노출될 이미지를 업로드합니다.
+                        </p>
+                      </div>
+                      {payload.basicInfo.thumbnailPreviewUrl ? (
+                        <button
+                          className={styles['tableActionButton']}
+                          onClick={() => {
+                            updatePayload((current) => ({
+                              ...current,
+                              basicInfo: {
+                                ...current.basicInfo,
+                                thumbnailPreviewUrl: null,
+                                thumbnailUrl: null,
+                              },
+                            }));
+                          }}
+                          type='button'
+                        >
+                          이미지 제거
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <TextField
+                      accept='image/*'
+                      label='대표 이미지 파일'
+                      name='draft-thumbnail-file'
+                      onChange={(event) => {
+                        void handleProgramThumbnailFileChange(event.target.files?.[0] ?? null);
+                        event.currentTarget.value = '';
+                      }}
+                      type='file'
+                    />
+
+                    {payload.basicInfo.thumbnailPreviewUrl ? (
+                      <div className={styles['thumbnailPreview']}>
+                        <img
+                          alt={
+                            payload.basicInfo.title
+                              ? `${payload.basicInfo.title} 대표 이미지`
+                              : '프로그램 대표 이미지'
+                          }
+                          className={styles['thumbnailPreviewImage']}
+                          src={payload.basicInfo.thumbnailPreviewUrl}
+                        />
+                      </div>
+                    ) : (
+                      <div className={styles['thumbnailEmptyState']}>
+                        등록된 대표 이미지가 없습니다.
+                      </div>
+                    )}
+                  </div>
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
@@ -2699,19 +2812,21 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       }
                     />
                     <TextField
-                      label='할인가'
-                      name='draft-sale-price'
+                      label='할인율(%)'
+                      name='draft-discount-percent'
                       onChange={(event) => {
                         updateBasicInfo(
                           'salePrice',
-                          event.target.value.trim() ? Number(event.target.value) : null,
+                          calculateSalePriceFromPercent(
+                            payload.basicInfo.price,
+                            event.target.value,
+                          ),
                         );
                       }}
-                      value={
-                        payload.basicInfo.salePrice === null
-                          ? ''
-                          : String(payload.basicInfo.salePrice)
-                      }
+                      value={formatDiscountPercent(
+                        payload.basicInfo.price,
+                        payload.basicInfo.salePrice,
+                      )}
                     />
                   </div>
 
@@ -2969,7 +3084,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       안에서 영상/현장강의/문제풀이/자료를 연결합니다.
                     </p>
                   </div>
-                  <Button onClick={addSection} type='button' variant='secondary'>
+                  <Button onClick={addSection} type='button' variant='primary'>
                     섹션 추가
                   </Button>
                 </div>
@@ -2990,85 +3105,77 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                 커리큘럼 최상위 단위
                               </span>
                             </div>
-                            <h3 className={styles['panelTitle']}>
-                              {section.title?.trim() || '미제목 섹션'}
-                            </h3>
+                            <div className={styles['curriculumTitleRow']}>
+                              <h3 className={styles['panelTitle']}>
+                                {section.title?.trim() || '미제목 섹션'}
+                              </h3>
+                              <div className={styles['curriculumActionColumn']}>
+                                <div className={styles['curriculumActionGrid']}>
+                                  <Button
+                                    className={styles['curriculumActionButton']}
+                                    disabled={sectionIndex === 0}
+                                    onClick={() => {
+                                      moveSection(section.key, 'up');
+                                    }}
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    위로 이동
+                                  </Button>
+                                  <Button
+                                    className={styles['curriculumActionButton']}
+                                    disabled={sectionIndex === payload.sections.length - 1}
+                                    onClick={() => {
+                                      moveSection(section.key, 'down');
+                                    }}
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    아래로 이동
+                                  </Button>
+                                  <Button
+                                    className={styles['curriculumActionButton']}
+                                    onClick={() => {
+                                      toggleSectionExpanded(section.key);
+                                    }}
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    {sectionExpanded ? '섹션 접기' : '섹션 펼치기'}
+                                  </Button>
+                                  <Button
+                                    className={styles['curriculumActionButton']}
+                                    onClick={() => {
+                                      removeSection(section.key);
+                                    }}
+                                    type='button'
+                                    variant='danger'
+                                  >
+                                    섹션 삭제
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
                             <p className={styles['metaText']}>
                               {section.description?.trim() || '섹션 설명이 아직 없습니다.'}
                             </p>
-                            <div className={styles['curriculumStatGrid']}>
-                              <div className={styles['curriculumStatCard']}>
-                                <span className={styles['curriculumStatLabel']}>포함 강의</span>
-                                <strong className={styles['curriculumStatValue']}>
-                                  {`강의 ${String(section.lectures.length)}개`}
-                                </strong>
-                              </div>
-                              <div className={styles['curriculumStatCard']}>
-                                <span className={styles['curriculumStatLabel']}>정렬</span>
-                                <strong className={styles['curriculumStatValue']}>
-                                  {`${String(section.sortOrder + 1)}번째 섹션`}
-                                </strong>
-                              </div>
-                            </div>
-                          </div>
-                          <div className={styles['curriculumActionColumn']}>
-                            <Button
-                              onClick={() => {
-                                toggleSectionExpanded(section.key);
-                              }}
-                              type='button'
-                              variant='secondary'
-                            >
-                              {sectionExpanded ? '섹션 접기' : '섹션 펼치기'}
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                openLectureTypePicker(section.key);
-                              }}
-                              type='button'
-                              variant='secondary'
-                            >
-                              새 강의 추가
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                removeSection(section.key);
-                              }}
-                              type='button'
-                              variant='danger'
-                            >
-                              섹션 삭제
-                            </Button>
                           </div>
                         </div>
 
                         {sectionExpanded ? (
                           <div className={styles['curriculumBody']}>
                             <div className={styles['curriculumWorkspace']}>
-                              <div className={styles['inlineFieldGrid']}>
-                                <TextField
-                                  label='섹션명'
-                                  name={`section-title-${section.key}`}
-                                  onChange={(event) => {
-                                    updateSection(section.key, (current) => ({
-                                      ...current,
-                                      title: event.target.value,
-                                    }));
-                                  }}
-                                  value={section.title ?? ''}
-                                />
-                                <TextField
-                                  label='정렬 순서'
-                                  name={`section-sort-order-${section.key}`}
-                                  onChange={(event) => {
-                                    updateSection(section.key, (current) => ({
-                                      ...current,
-                                      sortOrder: Number(event.target.value || 0),
-                                    }));
-                                  }}
-                                  value={String(section.sortOrder)}
-                                />
-                              </div>
+                              <TextField
+                                label='섹션명'
+                                name={`section-title-${section.key}`}
+                                onChange={(event) => {
+                                  updateSection(section.key, (current) => ({
+                                    ...current,
+                                    title: event.target.value,
+                                  }));
+                                }}
+                                value={section.title ?? ''}
+                              />
                               <TextAreaField
                                 label='섹션 설명'
                                 name={`section-description-${section.key}`}
@@ -3082,16 +3189,65 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                               />
                             </div>
 
+                            <div className={styles['curriculumSectionToolbar']}>
+                              <div
+                                className={styles['curriculumActionDropdown']}
+                                ref={
+                                  openLectureTypeMenuSectionKey === section.key
+                                    ? lectureTypeMenuRef
+                                    : undefined
+                                }
+                              >
+                                <button
+                                  aria-expanded={openLectureTypeMenuSectionKey === section.key}
+                                  aria-haspopup='menu'
+                                  className={styles['curriculumDropdownTrigger']}
+                                  onClick={() => {
+                                    setOpenLectureTypeMenuSectionKey((current) =>
+                                      current === section.key ? null : section.key,
+                                    );
+                                  }}
+                                  type='button'
+                                >
+                                  새 강의 추가
+                                </button>
+                                {openLectureTypeMenuSectionKey === section.key ? (
+                                  <div
+                                    aria-label='강의 유형 선택'
+                                    className={styles['curriculumDropdownMenu']}
+                                    role='menu'
+                                  >
+                                    {allowedLectureTypes.map((lectureType) => (
+                                      <button
+                                        className={styles['curriculumDropdownOption']}
+                                        key={lectureType}
+                                        onClick={() => {
+                                          addLecture(section.key, lectureType);
+                                        }}
+                                        role='menuitem'
+                                        type='button'
+                                      >
+                                        <span className={styles['curriculumDropdownOptionLabel']}>
+                                          {LECTURE_TYPE_LABELS[lectureType]}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+
                             <div className={styles['curriculumLectureList']}>
                               {section.lectures.map((lecture, lectureIndex) => {
                                 const lectureExpanded = expandedLectureKeys.includes(lecture.key);
-                                const activeLecturePanel =
-                                  lectureWorkspaceByKey[lecture.key] ?? 'basic';
                                 const supportsVideo = isVideoLecture(lecture);
                                 const supportsResource = isResourceLecture(lecture);
                                 const supportsProblem = isProblemLecture(lecture);
-                                const supportsPracticum = isPracticumLecture(lecture);
                                 const supportsOffline = isOfflineLecture(lecture);
+                                const lectureQuiz =
+                                  payload?.quizzes.find(
+                                    (item) => item.lectureKey === lecture.key,
+                                  ) ?? null;
                                 const pendingVideoSelection =
                                   pendingVideoSelections[lecture.key] ?? null;
                                 const lectureVideoStatus = pendingVideoSelection
@@ -3107,6 +3263,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                   pendingVideoSelection?.file.name ??
                                   lecture.videoUploadFileName ??
                                   null;
+                                const videoFileSizeLabel =
+                                  pendingVideoSelection?.sizeLabel ??
+                                  lectureVideoSizeLabels[lecture.key] ??
+                                  null;
 
                                 return (
                                   <article
@@ -3120,197 +3280,91 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                             className={styles['curriculumLevelBadge']}
                                             data-level='lecture'
                                           >
-                                            {`강의 ${String(lectureIndex + 1)}`}
-                                          </span>
-                                          <span className={styles['curriculumLevelHint']}>
-                                            섹션 안 학습 단위
+                                            {formatDraftLectureCardLabel(
+                                              lectureIndex,
+                                              lecture.lectureType,
+                                            )}
                                           </span>
                                         </div>
-                                        <h4 className={styles['panelTitle']}>
-                                          {lecture.title?.trim() || '미제목 강의'}
-                                        </h4>
+                                        <div className={styles['curriculumTitleRow']}>
+                                          <h4 className={styles['panelTitle']}>
+                                            {lecture.title?.trim() || '미제목 강의'}
+                                          </h4>
+                                          <div className={styles['curriculumActionColumn']}>
+                                            <div className={styles['curriculumActionGrid']}>
+                                              <Button
+                                                className={styles['curriculumActionButton']}
+                                                disabled={lectureIndex === 0}
+                                                onClick={() => {
+                                                  moveLecture(section.key, lecture.key, 'up');
+                                                }}
+                                                type='button'
+                                                variant='secondary'
+                                              >
+                                                위로 이동
+                                              </Button>
+                                              <Button
+                                                className={styles['curriculumActionButton']}
+                                                disabled={
+                                                  lectureIndex === section.lectures.length - 1
+                                                }
+                                                onClick={() => {
+                                                  moveLecture(section.key, lecture.key, 'down');
+                                                }}
+                                                type='button'
+                                                variant='secondary'
+                                              >
+                                                아래로 이동
+                                              </Button>
+                                              <Button
+                                                className={styles['curriculumActionButton']}
+                                                onClick={() => {
+                                                  toggleLectureExpanded(lecture.key);
+                                                }}
+                                                type='button'
+                                                variant='secondary'
+                                              >
+                                                {lectureExpanded ? '강의 접기' : '강의 펼치기'}
+                                              </Button>
+                                              <Button
+                                                className={styles['curriculumActionButton']}
+                                                onClick={() => {
+                                                  removeLecture(section.key, lecture.key);
+                                                }}
+                                                type='button'
+                                                variant='danger'
+                                              >
+                                                강의 삭제
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </div>
                                         <p className={styles['metaText']}>
                                           {lecture.description?.trim() ||
                                             '강의 설명이 아직 없습니다.'}
                                         </p>
-                                        <div className={styles['curriculumStatGrid']}>
-                                          <div className={styles['curriculumStatCard']}>
-                                            <span className={styles['curriculumStatLabel']}>
-                                              전달 방식
-                                            </span>
-                                            <strong className={styles['curriculumStatValue']}>
-                                              {formatDraftLectureDelivery(lecture)}
-                                            </strong>
-                                          </div>
-                                          <div className={styles['curriculumStatCard']}>
-                                            <span className={styles['curriculumStatLabel']}>
-                                              영상 상태
-                                            </span>
-                                            <strong className={styles['curriculumStatValue']}>
-                                              {lectureVideoStatus}
-                                            </strong>
-                                          </div>
-                                          <div className={styles['curriculumStatCard']}>
-                                            <span className={styles['curriculumStatLabel']}>
-                                              강의 요약
-                                            </span>
-                                            <strong className={styles['curriculumStatValue']}>
-                                              {supportsProblem
-                                                ? '문제로 구성'
-                                                : supportsPracticum
-                                                  ? lecture.practicumTitle?.trim() || '실습 강의'
-                                                  : LECTURE_TYPE_LABELS[lecture.lectureType]}
-                                            </strong>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <div className={styles['curriculumActionColumn']}>
-                                        <Button
-                                          onClick={() => {
-                                            toggleLectureExpanded(lecture.key);
-                                          }}
-                                          type='button'
-                                          variant='secondary'
-                                        >
-                                          {lectureExpanded ? '강의 접기' : '강의 펼치기'}
-                                        </Button>
-                                        <Button
-                                          onClick={() => {
-                                            removeLecture(section.key, lecture.key);
-                                          }}
-                                          type='button'
-                                          variant='danger'
-                                        >
-                                          강의 삭제
-                                        </Button>
                                       </div>
                                     </div>
 
                                     {lectureExpanded ? (
                                       <div className={styles['curriculumBody']}>
-                                        <div className={styles['curriculumWorkspaceHeader']}>
-                                          <p className={styles['metaText']}>
-                                            강의 하나당 작업영역 하나만 열립니다. 자료와 문제는 아래
-                                            연결된 강의별 관리 영역으로 바로 이동합니다.
-                                          </p>
-                                          <div className={styles['curriculumWorkspaceTabs']}>
-                                            <button
-                                              className={styles['curriculumWorkspaceTab']}
-                                              data-active={activeLecturePanel === 'basic'}
-                                              onClick={() => {
-                                                openLectureWorkspace(lecture.key, 'basic');
+                                        <div className={styles['curriculumWorkspace']}>
+                                          <div className={styles['lectureWorkspaceSection']}>
+                                            <TextField
+                                              label='강의명'
+                                              name={`lecture-title-${lecture.key}`}
+                                              onChange={(event) => {
+                                                updateLecture(
+                                                  section.key,
+                                                  lecture.key,
+                                                  (current) => ({
+                                                    ...current,
+                                                    title: event.target.value,
+                                                  }),
+                                                );
                                               }}
-                                              type='button'
-                                            >
-                                              강의 정보
-                                            </button>
-                                            {supportsVideo ? (
-                                              <button
-                                                className={styles['curriculumWorkspaceTab']}
-                                                data-active={activeLecturePanel === 'video'}
-                                                onClick={() => {
-                                                  openLectureWorkspace(lecture.key, 'video');
-                                                }}
-                                                type='button'
-                                              >
-                                                {activeLecturePanel === 'video'
-                                                  ? '영상 추가 취소'
-                                                  : '영상 추가'}
-                                              </button>
-                                            ) : null}
-                                            {supportsResource ? (
-                                              <button
-                                                className={styles['curriculumWorkspaceTab']}
-                                                data-active={activeLecturePanel === 'resource'}
-                                                onClick={() => {
-                                                  openLectureWorkspace(lecture.key, 'resource');
-                                                }}
-                                                type='button'
-                                              >
-                                                {activeLecturePanel === 'resource'
-                                                  ? '첨부자료 추가 취소'
-                                                  : '첨부자료 추가'}
-                                              </button>
-                                            ) : null}
-                                            {supportsProblem ? (
-                                              <button
-                                                className={styles['curriculumWorkspaceTab']}
-                                                data-active={activeLecturePanel === 'quiz'}
-                                                onClick={() => {
-                                                  openLectureWorkspace(lecture.key, 'quiz');
-                                                }}
-                                                type='button'
-                                              >
-                                                {activeLecturePanel === 'quiz'
-                                                  ? '문제 추가 취소'
-                                                  : '문제 추가'}
-                                              </button>
-                                            ) : null}
-                                            {supportsPracticum ? (
-                                              <button
-                                                className={styles['curriculumWorkspaceTab']}
-                                                data-active={activeLecturePanel === 'practicum'}
-                                                onClick={() => {
-                                                  openLectureWorkspace(lecture.key, 'practicum');
-                                                }}
-                                                type='button'
-                                              >
-                                                {activeLecturePanel === 'practicum'
-                                                  ? '실습 추가 취소'
-                                                  : '실습 추가'}
-                                              </button>
-                                            ) : null}
-                                            {supportsOffline ? (
-                                              <button
-                                                className={styles['curriculumWorkspaceTab']}
-                                                data-active={activeLecturePanel === 'offline'}
-                                                onClick={() => {
-                                                  openLectureWorkspace(lecture.key, 'offline');
-                                                }}
-                                                type='button'
-                                              >
-                                                {activeLecturePanel === 'offline'
-                                                  ? '현장강의 추가 취소'
-                                                  : '현장강의 추가'}
-                                              </button>
-                                            ) : null}
-                                          </div>
-                                        </div>
-
-                                        {activeLecturePanel === 'basic' ? (
-                                          <div className={styles['curriculumWorkspace']}>
-                                            <div className={styles['inlineFieldGrid']}>
-                                              <TextField
-                                                label='강의명'
-                                                name={`lecture-title-${lecture.key}`}
-                                                onChange={(event) => {
-                                                  updateLecture(
-                                                    section.key,
-                                                    lecture.key,
-                                                    (current) => ({
-                                                      ...current,
-                                                      title: event.target.value,
-                                                    }),
-                                                  );
-                                                }}
-                                                value={lecture.title ?? ''}
-                                              />
-                                              <TextField
-                                                label='정렬 순서'
-                                                name={`lecture-sort-order-${lecture.key}`}
-                                                onChange={(event) => {
-                                                  updateLecture(
-                                                    section.key,
-                                                    lecture.key,
-                                                    (current) => ({
-                                                      ...current,
-                                                      sortOrder: Number(event.target.value || 0),
-                                                    }),
-                                                  );
-                                                }}
-                                                value={String(lecture.sortOrder)}
-                                              />
-                                            </div>
+                                              value={lecture.title ?? ''}
+                                            />
 
                                             <TextAreaField
                                               label='강의 설명'
@@ -3328,312 +3382,338 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                               value={lecture.description ?? ''}
                                             />
 
-                                            <div className={styles['compactFieldRow']}>
-                                              <div className={styles['compactTextField']}>
+                                            {supportsProblem || supportsOffline ? (
+                                              <div className={styles['compactFieldRow']}>
+                                                <div className={styles['compactTextField']}>
+                                                  <TextField
+                                                    label={
+                                                      supportsProblem ? '제한시간(초)' : '길이(초)'
+                                                    }
+                                                    name={`lecture-duration-${lecture.key}`}
+                                                    onChange={(event) => {
+                                                      updateLecture(
+                                                        section.key,
+                                                        lecture.key,
+                                                        (current) => ({
+                                                          ...current,
+                                                          durationSeconds: event.target.value.trim()
+                                                            ? Number(event.target.value)
+                                                            : null,
+                                                        }),
+                                                      );
+                                                    }}
+                                                    value={
+                                                      lecture.durationSeconds === null
+                                                        ? ''
+                                                        : String(lecture.durationSeconds)
+                                                    }
+                                                  />
+                                                </div>
+                                                {supportsProblem ? (
+                                                  <div className={styles['compactTextField']}>
+                                                    <TextField
+                                                      label='기준 점수'
+                                                      name={`quiz-pass-score-${lecture.key}`}
+                                                      onChange={(event) => {
+                                                        upsertQuiz(lecture.key, (current) => ({
+                                                          ...current,
+                                                          passScore: event.target.value.trim()
+                                                            ? Number(event.target.value)
+                                                            : null,
+                                                        }));
+                                                      }}
+                                                      value={
+                                                        lectureQuiz?.passScore === null ||
+                                                        lectureQuiz?.passScore === undefined
+                                                          ? ''
+                                                          : String(lectureQuiz.passScore)
+                                                      }
+                                                    />
+                                                  </div>
+                                                ) : null}
+                                              </div>
+                                            ) : null}
+                                          </div>
+
+                                          {supportsVideo ? (
+                                            <div className={styles['lectureWorkspaceSection']}>
+                                              <h5 className={styles['panelTitle']}>영상</h5>
+                                              <div className={styles['curriculumStatGrid']}>
+                                                <div className={styles['curriculumStatCard']}>
+                                                  <span className={styles['curriculumStatLabel']}>
+                                                    현재 상태
+                                                  </span>
+                                                  <strong className={styles['curriculumStatValue']}>
+                                                    {lectureVideoStatus}
+                                                  </strong>
+                                                </div>
+                                                <div className={styles['curriculumStatCard']}>
+                                                  <span className={styles['curriculumStatLabel']}>
+                                                    영상 파일
+                                                  </span>
+                                                  <strong className={styles['curriculumStatValue']}>
+                                                    {uploadedVideoName ??
+                                                      '아직 업로드한 파일이 없습니다.'}
+                                                  </strong>
+                                                </div>
+                                                <div className={styles['curriculumStatCard']}>
+                                                  <span className={styles['curriculumStatLabel']}>
+                                                    파일 크기
+                                                  </span>
+                                                  <strong className={styles['curriculumStatValue']}>
+                                                    {videoFileSizeLabel ?? '미확인'}
+                                                  </strong>
+                                                </div>
+                                                <div className={styles['curriculumStatCard']}>
+                                                  <span className={styles['curriculumStatLabel']}>
+                                                    영상 길이
+                                                  </span>
+                                                  <strong className={styles['curriculumStatValue']}>
+                                                    {formatDraftDurationLabel(
+                                                      lecture.durationSeconds,
+                                                    )}
+                                                  </strong>
+                                                </div>
+                                              </div>
+                                              <input
+                                                hidden
+                                                id={`lecture-video-upload-${lecture.key}`}
+                                                onChange={(event) => {
+                                                  const file = event.target.files?.[0];
+                                                  if (!file) {
+                                                    return;
+                                                  }
+                                                  handleLectureVideoSelection(lecture.key, file);
+                                                  event.currentTarget.value = '';
+                                                }}
+                                                type='file'
+                                              />
+                                              <div className={styles['actionRow']}>
+                                                <Button
+                                                  onClick={() => {
+                                                    document
+                                                      .getElementById(
+                                                        `lecture-video-upload-${lecture.key}`,
+                                                      )
+                                                      ?.click();
+                                                  }}
+                                                  type='button'
+                                                  variant='primary'
+                                                >
+                                                  {pendingVideoSelection ||
+                                                  lecture.videoUploadFileName
+                                                    ? '파일 변경'
+                                                    : '파일 선택'}
+                                                </Button>
+                                                {pendingVideoSelection ? (
+                                                  <Button
+                                                    onClick={() => {
+                                                      void handleLectureVideoUpload(
+                                                        section.key,
+                                                        lecture.key,
+                                                      );
+                                                    }}
+                                                    type='button'
+                                                    variant='secondary'
+                                                  >
+                                                    업로드 시작
+                                                  </Button>
+                                                ) : null}
+                                                {pendingVideoSelection ? (
+                                                  <Button
+                                                    onClick={() => {
+                                                      setPendingVideoSelections((current) => {
+                                                        const next = { ...current };
+                                                        delete next[lecture.key];
+                                                        return next;
+                                                      });
+                                                      setLectureVideoSizeLabels((current) => {
+                                                        const next = { ...current };
+                                                        delete next[lecture.key];
+                                                        return next;
+                                                      });
+                                                    }}
+                                                    type='button'
+                                                    variant='secondary'
+                                                  >
+                                                    선택 취소
+                                                  </Button>
+                                                ) : null}
+                                                {lecture.videoId && !pendingVideoSelection ? (
+                                                  <Button
+                                                    onClick={() => {
+                                                      updateLecture(
+                                                        section.key,
+                                                        lecture.key,
+                                                        (current) => ({
+                                                          ...current,
+                                                          durationSeconds: null,
+                                                          videoId: null,
+                                                          videoUploadErrorMessage: null,
+                                                          videoUploadFileName: null,
+                                                          videoUploadStatus: null,
+                                                        }),
+                                                      );
+                                                      setLectureVideoSizeLabels((current) => {
+                                                        const next = { ...current };
+                                                        delete next[lecture.key];
+                                                        return next;
+                                                      });
+                                                    }}
+                                                    type='button'
+                                                    variant='secondary'
+                                                  >
+                                                    영상 연결 해제
+                                                  </Button>
+                                                ) : null}
+                                              </div>
+                                            </div>
+                                          ) : null}
+
+                                          {supportsResource
+                                            ? renderLectureResourceWorkspace(lecture.key)
+                                            : null}
+
+                                          {supportsProblem
+                                            ? renderLectureQuizWorkspace(lecture.key)
+                                            : null}
+
+                                          {supportsOffline ? (
+                                            <div className={styles['lectureWorkspaceSection']}>
+                                              <h5 className={styles['panelTitle']}>현장강의</h5>
+                                              <div className={styles['inlineFieldGrid']}>
                                                 <TextField
-                                                  label='길이(초)'
-                                                  name={`lecture-duration-${lecture.key}`}
+                                                  label='시작일'
+                                                  name={`lecture-offline-start-date-${lecture.key}`}
                                                   onChange={(event) => {
                                                     updateLecture(
                                                       section.key,
                                                       lecture.key,
                                                       (current) => ({
                                                         ...current,
-                                                        durationSeconds: event.target.value.trim()
-                                                          ? Number(event.target.value)
-                                                          : null,
+                                                        offlineScheduleRule: {
+                                                          ...(current.offlineScheduleRule ??
+                                                            EMPTY_DRAFT_OFFLINE_SESSION),
+                                                          startDate: event.target.value,
+                                                        },
+                                                      }),
+                                                    );
+                                                  }}
+                                                  type='date'
+                                                  value={
+                                                    lecture.offlineScheduleRule?.startDate ?? ''
+                                                  }
+                                                />
+                                                <TextField
+                                                  label='종료일'
+                                                  name={`lecture-offline-end-date-${lecture.key}`}
+                                                  onChange={(event) => {
+                                                    updateLecture(
+                                                      section.key,
+                                                      lecture.key,
+                                                      (current) => ({
+                                                        ...current,
+                                                        offlineScheduleRule: {
+                                                          ...(current.offlineScheduleRule ??
+                                                            EMPTY_DRAFT_OFFLINE_SESSION),
+                                                          endDate: event.target.value,
+                                                        },
+                                                      }),
+                                                    );
+                                                  }}
+                                                  type='date'
+                                                  value={lecture.offlineScheduleRule?.endDate ?? ''}
+                                                />
+                                              </div>
+                                              <div className={styles['inlineFieldGrid']}>
+                                                <TextField
+                                                  label='시작 시간'
+                                                  name={`lecture-offline-start-time-${lecture.key}`}
+                                                  onChange={(event) => {
+                                                    updateLecture(
+                                                      section.key,
+                                                      lecture.key,
+                                                      (current) => ({
+                                                        ...current,
+                                                        offlineScheduleRule: {
+                                                          ...(current.offlineScheduleRule ??
+                                                            EMPTY_DRAFT_OFFLINE_SESSION),
+                                                          startTime: event.target.value,
+                                                        },
+                                                      }),
+                                                    );
+                                                  }}
+                                                  type='time'
+                                                  value={
+                                                    lecture.offlineScheduleRule?.startTime ?? ''
+                                                  }
+                                                />
+                                                <TextField
+                                                  label='종료 시간'
+                                                  name={`lecture-offline-end-time-${lecture.key}`}
+                                                  onChange={(event) => {
+                                                    updateLecture(
+                                                      section.key,
+                                                      lecture.key,
+                                                      (current) => ({
+                                                        ...current,
+                                                        offlineScheduleRule: {
+                                                          ...(current.offlineScheduleRule ??
+                                                            EMPTY_DRAFT_OFFLINE_SESSION),
+                                                          endTime: event.target.value,
+                                                        },
+                                                      }),
+                                                    );
+                                                  }}
+                                                  type='time'
+                                                  value={lecture.offlineScheduleRule?.endTime ?? ''}
+                                                />
+                                              </div>
+                                              <div className={styles['inlineFieldGrid']}>
+                                                <TextField
+                                                  label='장소'
+                                                  name={`lecture-offline-location-${lecture.key}`}
+                                                  onChange={(event) => {
+                                                    updateLecture(
+                                                      section.key,
+                                                      lecture.key,
+                                                      (current) => ({
+                                                        ...current,
+                                                        offlineScheduleRule: {
+                                                          ...(current.offlineScheduleRule ??
+                                                            EMPTY_DRAFT_OFFLINE_SESSION),
+                                                          location: event.target.value,
+                                                        },
                                                       }),
                                                     );
                                                   }}
                                                   value={
-                                                    lecture.durationSeconds === null
-                                                      ? ''
-                                                      : String(lecture.durationSeconds)
+                                                    lecture.offlineScheduleRule?.location ?? ''
                                                   }
                                                 />
-                                              </div>
-                                              <AdminDropdownField
-                                                compact
-                                                label='강의 종류'
-                                                onChange={(nextValue) => {
-                                                  const lectureType = nextValue;
-                                                  const nextWorkspacePanel =
-                                                    getDefaultWorkspacePanelForLectureType(
-                                                      lectureType,
-                                                    );
-                                                  updateLecture(
-                                                    section.key,
-                                                    lecture.key,
-                                                    (current) => ({
-                                                      ...current,
-                                                      lectureType,
-                                                      offlineScheduleRule:
-                                                        lectureType === 'OFFLINE'
-                                                          ? current.offlineScheduleRule
-                                                          : null,
-                                                      practicumDescription:
-                                                        lectureType === 'PRACTICUM'
-                                                          ? current.practicumDescription
-                                                          : null,
-                                                      practicumTitle:
-                                                        lectureType === 'PRACTICUM'
-                                                          ? current.practicumTitle
-                                                          : null,
-                                                      videoId:
-                                                        lectureType === 'VIDEO'
-                                                          ? current.videoId
-                                                          : null,
-                                                      videoUploadErrorMessage:
-                                                        lectureType === 'VIDEO'
-                                                          ? current.videoUploadErrorMessage
-                                                          : null,
-                                                      videoUploadFileName:
-                                                        lectureType === 'VIDEO'
-                                                          ? current.videoUploadFileName
-                                                          : null,
-                                                      videoUploadStatus:
-                                                        lectureType === 'VIDEO'
-                                                          ? current.videoUploadStatus
-                                                          : null,
-                                                    }),
-                                                  );
-                                                  if (lectureType !== 'VIDEO') {
-                                                    setPendingVideoSelections((current) => {
-                                                      const next = { ...current };
-                                                      delete next[lecture.key];
-                                                      return next;
-                                                    });
-                                                  }
-                                                  if (lectureType !== 'PROBLEM') {
-                                                    removeQuiz(lecture.key);
-                                                  }
-                                                  if (lectureType !== 'RESOURCE') {
-                                                    removeLectureResources(lecture.key);
-                                                  }
-                                                  setLectureWorkspaceByKey((current) => {
-                                                    const activePanel =
-                                                      current[lecture.key] ?? 'basic';
-                                                    if (
-                                                      activePanel === 'basic' ||
-                                                      activePanel === nextWorkspacePanel
-                                                    ) {
-                                                      return current;
-                                                    }
-
-                                                    return {
-                                                      ...current,
-                                                      [lecture.key]: nextWorkspacePanel,
-                                                    };
-                                                  });
-                                                }}
-                                                options={allowedLectureTypes.map((lectureType) => ({
-                                                  label: LECTURE_TYPE_LABELS[lectureType],
-                                                  value: lectureType,
-                                                }))}
-                                                value={lecture.lectureType}
-                                              />
-                                            </div>
-
-                                            <div className={styles['compactFieldRow']}>
-                                              <label className={styles['checkboxField']}>
-                                                <input
-                                                  checked={lecture.preview}
+                                                <TextField
+                                                  label='비고'
+                                                  name={`lecture-offline-notes-${lecture.key}`}
                                                   onChange={(event) => {
                                                     updateLecture(
                                                       section.key,
                                                       lecture.key,
                                                       (current) => ({
                                                         ...current,
-                                                        preview: event.target.checked,
+                                                        offlineScheduleRule: {
+                                                          ...(current.offlineScheduleRule ??
+                                                            EMPTY_DRAFT_OFFLINE_SESSION),
+                                                          notes: event.target.value,
+                                                        },
                                                       }),
                                                     );
                                                   }}
-                                                  type='checkbox'
+                                                  value={lecture.offlineScheduleRule?.notes ?? ''}
                                                 />
-                                                미리보기 공개
-                                              </label>
-                                              <label className={styles['checkboxField']}>
-                                                <input
-                                                  checked={lecture.published}
-                                                  onChange={(event) => {
-                                                    updateLecture(
-                                                      section.key,
-                                                      lecture.key,
-                                                      (current) => ({
-                                                        ...current,
-                                                        published: event.target.checked,
-                                                      }),
-                                                    );
-                                                  }}
-                                                  type='checkbox'
-                                                />
-                                                강의 공개
-                                              </label>
-                                            </div>
-                                          </div>
-                                        ) : null}
-
-                                        {supportsVideo && activeLecturePanel === 'video' ? (
-                                          <div className={styles['curriculumWorkspace']}>
-                                            <p className={styles['metaText']}>
-                                              영상강의는 업로드 완료된 영상이 연결되어야 합니다.
-                                            </p>
-                                            <div className={styles['curriculumStatGrid']}>
-                                              <div className={styles['curriculumStatCard']}>
-                                                <span className={styles['curriculumStatLabel']}>
-                                                  현재 상태
-                                                </span>
-                                                <strong className={styles['curriculumStatValue']}>
-                                                  {lectureVideoStatus}
-                                                </strong>
                                               </div>
-                                              <div className={styles['curriculumStatCard']}>
-                                                <span className={styles['curriculumStatLabel']}>
-                                                  업로드 파일
-                                                </span>
-                                                <strong className={styles['curriculumStatValue']}>
-                                                  {uploadedVideoName ??
-                                                    '아직 업로드한 파일이 없습니다.'}
-                                                </strong>
-                                              </div>
-                                            </div>
-                                            <input
-                                              hidden
-                                              id={`lecture-video-upload-${lecture.key}`}
-                                              onChange={(event) => {
-                                                const file = event.target.files?.[0];
-                                                if (!file) {
-                                                  return;
-                                                }
-                                                handleLectureVideoSelection(lecture.key, file);
-                                                event.currentTarget.value = '';
-                                              }}
-                                              type='file'
-                                            />
-                                            <div className={styles['actionRow']}>
-                                              <Button
-                                                onClick={() => {
-                                                  document
-                                                    .getElementById(
-                                                      `lecture-video-upload-${lecture.key}`,
-                                                    )
-                                                    ?.click();
-                                                }}
-                                                type='button'
-                                                variant='secondary'
-                                              >
-                                                {pendingVideoSelection ||
-                                                lecture.videoUploadFileName
-                                                  ? '파일 변경'
-                                                  : '파일 선택'}
-                                              </Button>
-                                              {pendingVideoSelection ? (
-                                                <Button
-                                                  onClick={() => {
-                                                    void handleLectureVideoUpload(
-                                                      section.key,
-                                                      lecture.key,
-                                                    );
-                                                  }}
-                                                  type='button'
-                                                  variant='secondary'
-                                                >
-                                                  업로드 시작
-                                                </Button>
-                                              ) : null}
-                                              {pendingVideoSelection ? (
-                                                <Button
-                                                  onClick={() => {
-                                                    setPendingVideoSelections((current) => {
-                                                      const next = { ...current };
-                                                      delete next[lecture.key];
-                                                      return next;
-                                                    });
-                                                  }}
-                                                  type='button'
-                                                  variant='secondary'
-                                                >
-                                                  선택 취소
-                                                </Button>
-                                              ) : null}
-                                              {lecture.videoId && !pendingVideoSelection ? (
-                                                <Button
-                                                  onClick={() => {
-                                                    updateLecture(
-                                                      section.key,
-                                                      lecture.key,
-                                                      (current) => ({
-                                                        ...current,
-                                                        videoId: null,
-                                                        videoUploadErrorMessage: null,
-                                                        videoUploadFileName: null,
-                                                        videoUploadStatus: null,
-                                                      }),
-                                                    );
-                                                  }}
-                                                  type='button'
-                                                  variant='secondary'
-                                                >
-                                                  영상 연결 해제
-                                                </Button>
-                                              ) : null}
-                                            </div>
-                                          </div>
-                                        ) : null}
-
-                                        {supportsResource && activeLecturePanel === 'resource'
-                                          ? renderLectureResourceWorkspace(lecture.key)
-                                          : null}
-
-                                        {supportsProblem && activeLecturePanel === 'quiz'
-                                          ? renderLectureQuizWorkspace(lecture.key)
-                                          : null}
-
-                                        {supportsPracticum && activeLecturePanel === 'practicum' ? (
-                                          <div className={styles['curriculumWorkspace']}>
-                                            <TextField
-                                              label='실습명'
-                                              name={`lecture-practicum-title-${lecture.key}`}
-                                              onChange={(event) => {
-                                                updateLecture(
-                                                  section.key,
-                                                  lecture.key,
-                                                  (current) => ({
-                                                    ...current,
-                                                    practicumTitle: event.target.value,
-                                                  }),
-                                                );
-                                              }}
-                                              value={lecture.practicumTitle ?? ''}
-                                            />
-                                            <TextAreaField
-                                              label='실습 설명'
-                                              name={`lecture-practicum-description-${lecture.key}`}
-                                              onChange={(event) => {
-                                                updateLecture(
-                                                  section.key,
-                                                  lecture.key,
-                                                  (current) => ({
-                                                    ...current,
-                                                    practicumDescription: event.target.value,
-                                                  }),
-                                                );
-                                              }}
-                                              value={lecture.practicumDescription ?? ''}
-                                            />
-                                          </div>
-                                        ) : null}
-
-                                        {supportsOffline && activeLecturePanel === 'offline' ? (
-                                          <div className={styles['curriculumWorkspace']}>
-                                            <p className={styles['metaText']}>
-                                              현장강의는 강의 단위로 기간, 요일, 시간, 장소를
-                                              설정합니다.
-                                            </p>
-                                            <div className={styles['inlineFieldGrid']}>
                                               <TextField
-                                                label='시작일'
-                                                name={`lecture-offline-start-date-${lecture.key}`}
+                                                label='요일'
+                                                name={`lecture-offline-weekdays-${lecture.key}`}
                                                 onChange={(event) => {
                                                   updateLecture(
                                                     section.key,
@@ -3643,143 +3723,23 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                       offlineScheduleRule: {
                                                         ...(current.offlineScheduleRule ??
                                                           EMPTY_DRAFT_OFFLINE_SESSION),
-                                                        startDate: event.target.value,
+                                                        weekdays: event.target.value
+                                                          .split(',')
+                                                          .map((value) =>
+                                                            value.trim().toUpperCase(),
+                                                          )
+                                                          .filter(Boolean),
                                                       },
                                                     }),
                                                   );
                                                 }}
-                                                type='date'
-                                                value={lecture.offlineScheduleRule?.startDate ?? ''}
-                                              />
-                                              <TextField
-                                                label='종료일'
-                                                name={`lecture-offline-end-date-${lecture.key}`}
-                                                onChange={(event) => {
-                                                  updateLecture(
-                                                    section.key,
-                                                    lecture.key,
-                                                    (current) => ({
-                                                      ...current,
-                                                      offlineScheduleRule: {
-                                                        ...(current.offlineScheduleRule ??
-                                                          EMPTY_DRAFT_OFFLINE_SESSION),
-                                                        endDate: event.target.value,
-                                                      },
-                                                    }),
-                                                  );
-                                                }}
-                                                type='date'
-                                                value={lecture.offlineScheduleRule?.endDate ?? ''}
+                                                value={(
+                                                  lecture.offlineScheduleRule?.weekdays ?? []
+                                                ).join(', ')}
                                               />
                                             </div>
-                                            <div className={styles['inlineFieldGrid']}>
-                                              <TextField
-                                                label='시작 시간'
-                                                name={`lecture-offline-start-time-${lecture.key}`}
-                                                onChange={(event) => {
-                                                  updateLecture(
-                                                    section.key,
-                                                    lecture.key,
-                                                    (current) => ({
-                                                      ...current,
-                                                      offlineScheduleRule: {
-                                                        ...(current.offlineScheduleRule ??
-                                                          EMPTY_DRAFT_OFFLINE_SESSION),
-                                                        startTime: event.target.value,
-                                                      },
-                                                    }),
-                                                  );
-                                                }}
-                                                type='time'
-                                                value={lecture.offlineScheduleRule?.startTime ?? ''}
-                                              />
-                                              <TextField
-                                                label='종료 시간'
-                                                name={`lecture-offline-end-time-${lecture.key}`}
-                                                onChange={(event) => {
-                                                  updateLecture(
-                                                    section.key,
-                                                    lecture.key,
-                                                    (current) => ({
-                                                      ...current,
-                                                      offlineScheduleRule: {
-                                                        ...(current.offlineScheduleRule ??
-                                                          EMPTY_DRAFT_OFFLINE_SESSION),
-                                                        endTime: event.target.value,
-                                                      },
-                                                    }),
-                                                  );
-                                                }}
-                                                type='time'
-                                                value={lecture.offlineScheduleRule?.endTime ?? ''}
-                                              />
-                                            </div>
-                                            <div className={styles['inlineFieldGrid']}>
-                                              <TextField
-                                                label='장소'
-                                                name={`lecture-offline-location-${lecture.key}`}
-                                                onChange={(event) => {
-                                                  updateLecture(
-                                                    section.key,
-                                                    lecture.key,
-                                                    (current) => ({
-                                                      ...current,
-                                                      offlineScheduleRule: {
-                                                        ...(current.offlineScheduleRule ??
-                                                          EMPTY_DRAFT_OFFLINE_SESSION),
-                                                        location: event.target.value,
-                                                      },
-                                                    }),
-                                                  );
-                                                }}
-                                                value={lecture.offlineScheduleRule?.location ?? ''}
-                                              />
-                                              <TextField
-                                                label='비고'
-                                                name={`lecture-offline-notes-${lecture.key}`}
-                                                onChange={(event) => {
-                                                  updateLecture(
-                                                    section.key,
-                                                    lecture.key,
-                                                    (current) => ({
-                                                      ...current,
-                                                      offlineScheduleRule: {
-                                                        ...(current.offlineScheduleRule ??
-                                                          EMPTY_DRAFT_OFFLINE_SESSION),
-                                                        notes: event.target.value,
-                                                      },
-                                                    }),
-                                                  );
-                                                }}
-                                                value={lecture.offlineScheduleRule?.notes ?? ''}
-                                              />
-                                            </div>
-                                            <TextField
-                                              label='요일'
-                                              name={`lecture-offline-weekdays-${lecture.key}`}
-                                              onChange={(event) => {
-                                                updateLecture(
-                                                  section.key,
-                                                  lecture.key,
-                                                  (current) => ({
-                                                    ...current,
-                                                    offlineScheduleRule: {
-                                                      ...(current.offlineScheduleRule ??
-                                                        EMPTY_DRAFT_OFFLINE_SESSION),
-                                                      weekdays: event.target.value
-                                                        .split(',')
-                                                        .map((value) => value.trim().toUpperCase())
-                                                        .filter(Boolean),
-                                                    },
-                                                  }),
-                                                );
-                                              }}
-                                              value={(
-                                                lecture.offlineScheduleRule?.weekdays ?? []
-                                              ).join(', ')}
-                                            />
-                                          </div>
-                                        ) : null}
+                                          ) : null}
+                                        </div>
                                       </div>
                                     ) : null}
                                   </article>

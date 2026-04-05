@@ -65,7 +65,7 @@ export interface ProgramCollectionPageResponse {
   instructor: ProgramInstructorProfile;
 }
 
-export type ProgramCurriculumLessonDeliveryType = 'online' | 'offline' | 'quiz';
+export type ProgramCurriculumLessonDeliveryType = 'online' | 'offline' | 'problem';
 
 export interface ProgramCurriculumLesson {
   deliveryType: ProgramCurriculumLessonDeliveryType;

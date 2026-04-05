@@ -12,25 +12,6 @@ import { useToastStore } from '@/stores/useToastStore';
 
 const ACTIVE_SESSION_EXPIRES_AT = '2099-01-01T00:00:00Z';
 
-const createAdminTagFixture = (count: number) => {
-  const tagTypes = ['TOPIC', 'TARGET', 'FORMAT', 'LEVEL', 'FEATURE'] as const;
-
-  return Array.from({ length: count }, (_, index) => {
-    const order = index + 1;
-
-    return {
-      active: order % 2 === 1,
-      createdAt: '2026-03-27T09:00:00Z',
-      id: order,
-      name: `태그 ${String(order)}`,
-      slug: `tag-${String(order)}`,
-      sortOrder: order,
-      type: tagTypes[index % tagTypes.length],
-      updatedAt: '2026-03-27T09:00:00Z',
-    };
-  });
-};
-
 const createAdminResourceFixture = (count: number) => {
   return Array.from({ length: count }, (_, index) => {
     const order = index + 1;
@@ -53,25 +34,6 @@ const createAdminResourceFixture = (count: number) => {
   });
 };
 
-const createAdminCouponFixture = (count: number) => {
-  return Array.from({ length: count }, (_, index) => {
-    const order = index + 1;
-
-    return {
-      active: order % 2 === 1,
-      code: `COUPON-${String(order)}`,
-      discountType: order % 2 === 0 ? 'PERCENTAGE' : 'FIXED_AMOUNT',
-      discountValue: order % 2 === 0 ? 10 : order * 1000,
-      id: order,
-      maxDiscountAmount: order % 2 === 0 ? 30000 : null,
-      minOrderAmount: order * 10000,
-      name: `쿠폰 ${String(order)}`,
-      validFrom: '2026-03-27T09:00:00Z',
-      validUntil: '2026-12-31T14:59:59Z',
-    };
-  });
-};
-
 const createAdminProgramDraftDetailFixture = () => {
   return {
     createdAt: '2026-03-27T09:00:00Z',
@@ -88,6 +50,7 @@ const createAdminProgramDraftDetailFixture = () => {
         instructorBio: null,
         instructorName: null,
         learningEndAt: null,
+        learningOutcomes: [],
         learningPoints: [],
         learningStartAt: null,
         level: null,
@@ -114,12 +77,16 @@ const createAdminProgramDraftDetailFixture = () => {
               description: null,
               durationSeconds: null,
               key: 'lecture-1',
-              practicumEnabled: false,
+              lectureType: 'VIDEO',
+              offlineScheduleRule: null,
               preview: false,
               published: false,
               sortOrder: 0,
               title: null,
               videoId: null,
+              videoUploadErrorMessage: null,
+              videoUploadFileName: null,
+              videoUploadStatus: null,
             },
           ],
           sortOrder: 0,
@@ -145,6 +112,42 @@ const mockProgramDraftApis = () => {
     }),
     http.get('*/api/v1/admin/program-drafts/:draftId', () => {
       return HttpResponse.json({ data: draftDetail });
+    }),
+  );
+};
+
+const mockProgramEditorApis = () => {
+  server.use(
+    http.get('*/api/v1/admin/programs/:programId/sections', () => {
+      return HttpResponse.json({
+        data: [
+          {
+            description: '기본 흐름',
+            id: 501,
+            lectures: [
+              {
+                description: '입문 강의',
+                durationSeconds: 300,
+                id: 9101,
+                preview: true,
+                published: true,
+                sectionId: 501,
+                sortOrder: 0,
+                title: '오리엔테이션',
+                videoId: 7001,
+              },
+            ],
+            sortOrder: 0,
+            title: '입문',
+          },
+        ],
+      });
+    }),
+    http.get('*/api/v1/admin/programs/:programId/quiz-summaries', () => {
+      return HttpResponse.json({ data: [] });
+    }),
+    http.get('*/api/v1/admin/lectures/:lectureId/quiz', () => {
+      return HttpResponse.json({ data: null });
     }),
   );
 };
@@ -190,6 +193,7 @@ const renderAdminConsoleRoute = (initialEntry = '/admin/programs') => {
   const queryClient = createTestQueryClient();
 
   mockProgramDraftApis();
+  mockProgramEditorApis();
 
   useAdminAuthStore.setState({
     accessToken: 'admin-token',
@@ -269,14 +273,6 @@ describe('AdminConsolePage', () => {
   });
 
   it('moves from the program list to the dedicated create page', async () => {
-    mockProgramDraftApis();
-
-    server.use(
-      http.get('*/api/v1/admin/tags', () => {
-        return HttpResponse.json({ data: createAdminTagFixture(3) });
-      }),
-    );
-
     renderAdminConsoleRoute('/admin/programs');
 
     expect(
@@ -291,17 +287,45 @@ describe('AdminConsolePage', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the student column in the program list with offline capacity only for offline programs', async () => {
+    renderAdminConsoleRoute('/admin/programs');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 관리' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('columnheader', { name: '수강생' })).toBeInTheDocument();
+    expect(await screen.findByText('12명')).toBeInTheDocument();
+    expect(screen.getByText('6 / 20')).toBeInTheDocument();
+  });
+
+  it('keeps lecture type fixed and shows video duration as readonly in the create curriculum workspace', async () => {
+    renderAdminConsoleRoute('/admin/programs/new/curriculum?draftId=91001');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '강의 펼치기' }));
+
+    expect(screen.getByText('강의 1-영상')).toBeInTheDocument();
+    expect(screen.getByText('영상 길이')).toBeInTheDocument();
+    expect(screen.queryByLabelText('강의 종류')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('길이(초)')).not.toBeInTheDocument();
+  });
+
   it('edits a program on the dedicated edit page and saves it', async () => {
     renderAdminConsoleRoute('/admin/programs/2001/edit');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 기본정보' }),
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 수정' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('현재 수강생 12명')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('프로그램 소개'), {
       target: { value: '프로그램 소개 문구를 관리자에서 수정한 테스트입니다.' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '기본정보 저장' }));
+    fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
 
     await waitFor(() => {
       expect(
@@ -312,14 +336,24 @@ describe('AdminConsolePage', () => {
     });
   });
 
+  it('shows offline programs with current students against capacity on the dedicated edit page', async () => {
+    renderAdminConsoleRoute('/admin/programs/2002/edit');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'FAST 집중 실습 수정' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('현재 수강생 6/20명')).toBeInTheDocument();
+  });
+
   it('renders the dedicated program resources workspace tab', async () => {
     renderAdminConsoleRoute('/admin/programs/2001/resources');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 자료' }),
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 커리큘럼' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '새 자료 등록' })).toBeInTheDocument();
-    expect(screen.getByText('등록된 프로그램 자료가 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('강의 자료')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '자료 등록' })).toBeInTheDocument();
+    expect(screen.getByText('등록된 강의 자료가 없습니다.')).toBeInTheDocument();
   });
 
   it('moves from the notice list to dedicated create and edit pages', async () => {
@@ -505,7 +539,7 @@ describe('AdminConsolePage', () => {
                 sortOrder: 0,
               },
             ],
-            title: '오리엔테이션 퀴즈',
+            title: '오리엔테이션 문제',
           },
         });
       }),
@@ -519,20 +553,13 @@ describe('AdminConsolePage', () => {
     renderAdminConsoleRoute('/admin/programs/2001/quizzes?lectureId=9101');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 퀴즈' }),
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 커리큘럼' }),
     ).toBeInTheDocument();
-    expect(await screen.findByText('강의별 퀴즈 현황')).toBeInTheDocument();
+    expect(await screen.findByText('강의별 문제 현황')).toBeInTheDocument();
     expect(screen.queryByLabelText('강의 검색')).not.toBeInTheDocument();
-    expect(await screen.findAllByText('오리엔테이션')).toHaveLength(2);
-    expect(await screen.findByText('상세 관리')).toBeInTheDocument();
-    expect(await screen.findByText('운영중')).toBeInTheDocument();
-
-    expect(await screen.findByLabelText('퀴즈 제목')).toHaveValue('오리엔테이션 퀴즈');
-    expect(await screen.findByLabelText('합격 점수')).toHaveValue('60');
-
-    fireEvent.click(screen.getByRole('button', { name: '응시 결과' }));
-
-    expect(await screen.findByText('수강생 응시 결과')).toBeInTheDocument();
+    expect(await screen.findAllByText('오리엔테이션')).toHaveLength(3);
+    expect(await screen.findByLabelText('문제 제목')).toBeInTheDocument();
+    expect(await screen.findByLabelText('합격 점수')).toBeInTheDocument();
   });
 
   it('renders the category management section with category code fields', async () => {
@@ -547,72 +574,6 @@ describe('AdminConsolePage', () => {
     fireEvent.click(screen.getByRole('tab', { name: '새 카테고리' }));
 
     expect(screen.getAllByLabelText('카테고리 코드')[0]).toHaveValue('');
-  });
-
-  it('renders searchable paginated tags with a dedicated edit tab', async () => {
-    server.use(
-      http.get('*/api/v1/admin/tags', () => {
-        return HttpResponse.json({
-          data: createAdminTagFixture(9),
-        });
-      }),
-    );
-
-    renderAdminConsoleRoute('/admin/tags');
-
-    expect(await screen.findByRole('heading', { level: 1, name: '태그 관리' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: '태그 1' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '2' }));
-
-    expect(await screen.findByRole('button', { name: '태그 9' })).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole('searchbox', { name: '태그 검색' }), {
-      target: { value: 'tag-9' },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: '태그 9' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: '태그 1' })).not.toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: '수정' }));
-
-    expect(await screen.findByRole('button', { name: '태그 9 수정' })).toBeInTheDocument();
-    expect(screen.getByLabelText('태그 코드')).toHaveValue('tag-9');
-  });
-
-  it('renders searchable paginated coupons with a dedicated edit tab', async () => {
-    server.use(
-      http.get('*/api/v1/admin/coupons', () => {
-        return HttpResponse.json({
-          data: createAdminCouponFixture(9),
-        });
-      }),
-    );
-
-    renderAdminConsoleRoute('/admin/coupons');
-
-    expect(await screen.findByRole('heading', { level: 1, name: '쿠폰 관리' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: '쿠폰 1' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '2' }));
-
-    expect(await screen.findByRole('button', { name: '쿠폰 9' })).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole('searchbox', { name: '쿠폰 검색' }), {
-      target: { value: 'COUPON-9' },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: '쿠폰 9' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: '쿠폰 1' })).not.toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: '수정' }));
-
-    expect(await screen.findByRole('button', { name: '쿠폰 9 수정' })).toBeInTheDocument();
-    expect(screen.getByLabelText('쿠폰 코드')).toHaveValue('COUPON-9');
   });
 
   it('shows only global resources in the resource library and uses dedicated create and edit pages', async () => {

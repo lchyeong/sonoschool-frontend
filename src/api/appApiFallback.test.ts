@@ -35,13 +35,7 @@ vi.mock('@/api/axiosInstance', () => {
 
 import { fetchRegistrationTerms, loginStudent } from '@/api/auth';
 import { fetchAdminProgramsLive } from '@/api/adminProgramsLive';
-import {
-  addMyCartItem,
-  fetchMyCoupons,
-  fetchMyProfile,
-  removeMyCartItem,
-  updateMyProfile,
-} from '@/api/mypage';
+import { addMyCartItem, fetchMyProfile, removeMyCartItem, updateMyProfile } from '@/api/mypage';
 import { createAdminNoticeLive } from '@/api/notices';
 import { fetchPaymentResult, fetchPaymentResultByToken } from '@/api/payments';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -139,8 +133,6 @@ describe('app API fallback', () => {
     ).rejects.toBeTruthy();
 
     await expect(removeMyCartItem(55)).rejects.toBeTruthy();
-
-    await expect(fetchMyCoupons()).rejects.toBeTruthy();
   });
 
   it('keeps admin read requests failing when live endpoints are unavailable', async () => {

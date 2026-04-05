@@ -11,7 +11,6 @@ import type {
   EnrollmentDetail,
   EnrollmentSummary,
   RefundHistory,
-  UserCoupon,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
@@ -27,7 +26,6 @@ const updateMyEnrollmentReviewMock =
   vi.fn<(reviewId: number, payload: { content: string; rating: number }) => Promise<void>>();
 const verifyMyPhoneChangeMock = vi.fn<(payload: SmsVerifyPayload) => Promise<UserProfile>>();
 const fetchMyEnrollmentsMock = vi.fn<() => Promise<EnrollmentSummary[]>>();
-const fetchMyCouponsMock = vi.fn<() => Promise<UserCoupon[]>>();
 const fetchPaymentHistoryMock = vi.fn<() => Promise<PaymentResult[]>>();
 const fetchMyRefundsMock = vi.fn<() => Promise<RefundHistory[]>>();
 const logoutStudentMock = vi.fn<() => Promise<void>>();
@@ -35,7 +33,6 @@ const logoutStudentMock = vi.fn<() => Promise<void>>();
 vi.mock('@/api/mypage', () => ({
   createMyEnrollmentReview: (programId: number, payload: { content: string; rating: number }) =>
     createMyEnrollmentReviewMock(programId, payload),
-  fetchMyCoupons: () => fetchMyCouponsMock(),
   fetchMyEnrollmentDetail: (enrollmentId: number) => fetchMyEnrollmentDetailMock(enrollmentId),
   fetchMyEnrollments: () => fetchMyEnrollmentsMock(),
   fetchMyProfile: () => fetchMyProfileMock(),
@@ -213,37 +210,6 @@ const testEnrollmentDetails: Record<number, EnrollmentDetail> = {
   },
 };
 
-const testCoupons: UserCoupon[] = [
-  {
-    appliesTo: 'ALL',
-    code: 'SPRING',
-    description: '장바구니 전체 결제에 바로 적용할 수 있는 시즌 쿠폰입니다.',
-    discountType: 'FIXED_AMOUNT',
-    discountValue: 25000,
-    expiresAt: '2026-04-05T14:59:59Z',
-    id: 10,
-    issuedAt: '2026-03-12T09:00:00Z',
-    minimumOrderAmount: 150000,
-    name: '봄맞이 할인',
-    usable: true,
-    validFromAt: '2026-03-12T09:00:00Z',
-  },
-  {
-    appliesTo: 'ONLINE',
-    code: 'ONLINE10',
-    description: '온라인 강의 20만원 이상 선택 시 10% 할인을 제공합니다.',
-    discountType: 'PERCENTAGE',
-    discountValue: 10,
-    expiresAt: '2026-03-31T14:59:59Z',
-    id: 11,
-    issuedAt: '2026-03-10T09:00:00Z',
-    minimumOrderAmount: 200000,
-    name: '온라인 집중 10%',
-    usable: true,
-    validFromAt: '2026-03-10T09:00:00Z',
-  },
-];
-
 const testRefunds: RefundHistory[] = [
   {
     id: 880,
@@ -375,7 +341,6 @@ beforeEach(() => {
   fetchMyEnrollmentDetailMock.mockImplementation((enrollmentId: number) =>
     Promise.resolve(testEnrollmentDetails[enrollmentId]),
   );
-  fetchMyCouponsMock.mockResolvedValue(testCoupons);
   fetchPaymentHistoryMock.mockResolvedValue(testPaymentHistory);
   fetchMyRefundsMock.mockResolvedValue(testRefunds);
   logoutStudentMock.mockResolvedValue(undefined);
@@ -415,7 +380,6 @@ describe('MyPagePage', () => {
     expect(screen.getByText('내 정보')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '내 강의' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '결제 내역' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '나의 쿠폰' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '장바구니' })).not.toBeInTheDocument();
 
     expect(await screen.findByText('복부초음파 기초')).toBeInTheDocument();

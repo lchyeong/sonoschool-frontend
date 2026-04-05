@@ -30,6 +30,7 @@ export interface AdminProgramListItem {
   title: string;
   slug: string;
   thumbnailUrl: string | null;
+  thumbnailPreviewUrl?: string | null;
   programType: AdminProgramType;
   level: AdminProgramLevel | null;
   instructorName: string | null;
@@ -93,6 +94,7 @@ export interface AdminProgramDetail {
   slug: string;
   description: string | null;
   thumbnailUrl: string | null;
+  thumbnailPreviewUrl?: string | null;
   programType: AdminProgramType;
   level: AdminProgramLevel | null;
   instructorName: string | null;

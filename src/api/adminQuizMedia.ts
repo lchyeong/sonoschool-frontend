@@ -18,7 +18,7 @@ export const createAdminQuizMediaUploadTarget = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '퀴즈 미디어 업로드 준비에 실패했습니다.');
+    throw toApiError(error, '문제 미디어 업로드 준비에 실패했습니다.');
   }
 };
 
@@ -32,6 +32,6 @@ export const uploadAdminQuizMediaFile = async (uploadUrl: string, file: File): P
   });
 
   if (!response.ok) {
-    throw new Error(`퀴즈 미디어 업로드에 실패했습니다. (${String(response.status)})`);
+    throw new Error(`문제 미디어 업로드에 실패했습니다. (${String(response.status)})`);
   }
 };

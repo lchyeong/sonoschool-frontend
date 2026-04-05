@@ -35,8 +35,6 @@ const normalizeLecturePayload = (payload: AdminLectureUpsertPayload): AdminLectu
     ...payload,
     description: normalizeDescription(payload.description),
     lectureType: payload.lectureType,
-    practicumDescription: normalizeDescription(payload.practicumDescription),
-    practicumTitle: normalizeDescription(payload.practicumTitle),
   };
 };
 

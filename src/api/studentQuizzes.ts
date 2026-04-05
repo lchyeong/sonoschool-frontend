@@ -26,7 +26,7 @@ export const fetchStudentQuiz = async (lectureId: number): Promise<StudentQuiz |
       return null;
     }
 
-    throw toApiError(error, '퀴즈 정보를 불러오지 못했습니다.');
+    throw toApiError(error, '문제 정보를 불러오지 못했습니다.');
   }
 };
 
@@ -41,7 +41,7 @@ export const submitStudentQuiz = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '퀴즈를 제출하지 못했습니다.');
+    throw toApiError(error, '문제를 제출하지 못했습니다.');
   }
 };
 

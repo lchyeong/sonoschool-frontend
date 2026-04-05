@@ -87,7 +87,7 @@ export const flattenPlayerItems = (
       title: lesson.title,
     };
 
-    if (lesson.deliveryType === 'quiz' || !lesson.hasQuiz) {
+    if (lesson.deliveryType === 'problem' || !lesson.hasQuiz) {
       return [lessonItem];
     }
 
@@ -100,7 +100,7 @@ export const flattenPlayerItems = (
         sectionId: lesson.sectionId,
         sectionIndex: lesson.sectionIndex,
         sectionTitle: lesson.sectionTitle,
-        title: `${lesson.title} 확인 퀴즈`,
+        title: `${lesson.title} 확인 문제`,
       } satisfies FlattenedQuizItem,
     ];
   });

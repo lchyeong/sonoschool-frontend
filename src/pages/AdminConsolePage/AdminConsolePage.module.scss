@@ -427,12 +427,20 @@
 
 .workspaceTabs {
   display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
   gap: 0;
   width: 100%;
   min-width: 0;
   padding: 0 var(--space-5);
   border-bottom: 1px solid var(--admin-border-strong);
   background: var(--admin-surface);
+}
+
+.workspaceTabGroup {
+  display: flex;
+  gap: 0;
+  min-width: 0;
 }
 
 .workspaceTab,
@@ -492,6 +500,24 @@
 .workspaceTab[aria-current='page'],
 .workspaceTabActive[aria-current='page'] {
   color: var(--color-brand-darken-10);
+}
+
+.workspaceTabStat {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  margin-top: var(--space-3);
+  margin-left: var(--space-3);
+  padding: 0 var(--space-6);
+  border: 1px solid var(--admin-border-strong);
+  border-bottom: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  background: color-mix(in srgb, var(--color-brand-main) 8%, #ffffff);
+  white-space: nowrap;
 }
 
 .inlineFieldGrid {
@@ -1074,6 +1100,14 @@
   flex: 1 1 24rem;
 }
 
+.curriculumTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .curriculumBadgeRow {
   display: flex;
   flex-wrap: wrap;
@@ -1110,12 +1144,112 @@
 
 .curriculumActionColumn {
   display: flex;
-  flex-wrap: wrap;
-  place-content: flex-start flex-end;
-  gap: var(--space-2);
-  padding: 0.5rem;
-  border: 1px solid var(--admin-border);
-  background: rgba(255, 255, 255, 0.78);
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.curriculumActionGrid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  width: auto;
+}
+
+.curriculumActionButton,
+.curriculumDropdownTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 7rem;
+  min-height: 2.45rem;
+  padding: 0.42rem 0.72rem;
+  border: 1px solid #2f6f67;
+  background: #5faea4;
+  color: #ffffff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.01em;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    opacity 140ms ease;
+}
+
+.curriculumActionButton:hover:not(:disabled),
+.curriculumDropdownTrigger:hover,
+.curriculumActionButton:focus-visible,
+.curriculumDropdownTrigger:focus-visible {
+  border-color: #1f5a53;
+  background: #4b9b91;
+  outline: none;
+}
+
+.curriculumActionButton:disabled {
+  border-color: rgba(47, 111, 103, 0.18);
+  background: #d7e7e3;
+  color: rgba(31, 58, 55, 0.46);
+  cursor: not-allowed;
+}
+
+.curriculumSectionToolbar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.curriculumActionDropdown {
+  position: relative;
+  flex: 0 0 7rem;
+  width: 7rem;
+}
+
+.curriculumDropdownTrigger {
+  appearance: none;
+}
+
+.curriculumDropdownMenu {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  display: grid;
+  width: 100%;
+  padding: 0;
+  border: 1px solid rgba(47, 111, 103, 0.22);
+  background: #ffffff;
+  box-shadow: 0 10px 20px rgba(24, 46, 43, 0.12);
+  overflow: hidden;
+}
+
+.curriculumDropdownOption {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.75rem 0.85rem;
+  border: 0;
+  border-top: 1px solid rgba(47, 111, 103, 0.14);
+  background: #ffffff;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.curriculumDropdownOption:first-child {
+  border-top: 0;
+}
+
+.curriculumDropdownOption:hover,
+.curriculumDropdownOption:focus-visible {
+  background: rgba(95, 174, 164, 0.12);
+  outline: none;
+}
+
+.curriculumDropdownOptionLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
 }
 
 .curriculumStatGrid {
@@ -1161,6 +1295,13 @@
   background: rgba(255, 255, 255, 0.76);
 }
 
+.lectureWorkspaceSection {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--admin-border);
+}
+
 .curriculumLectureList {
   display: grid;
   gap: var(--space-3);
@@ -1192,46 +1333,6 @@
   border-color: #2f6f67;
   background: rgba(47, 111, 103, 0.12);
   color: #1f5a53;
-}
-
-.lectureTypePickerGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3);
-}
-
-.lectureTypePickerButton {
-  display: grid;
-  gap: var(--space-2);
-  min-height: 148px;
-  padding: var(--space-4);
-  border: 1px solid var(--admin-border);
-  background: #ffffff;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 140ms ease,
-    background-color 140ms ease;
-}
-
-.lectureTypePickerButton:hover,
-.lectureTypePickerButton:focus-visible {
-  border-color: #2f6f67;
-  background: rgba(47, 111, 103, 0.08);
-  outline: none;
-}
-
-.lectureTypePickerLabel {
-  color: var(--color-text-primary);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  line-height: 1.4;
-}
-
-.lectureTypePickerDescription {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-relaxed);
 }
 
 .questionMediaRow {
@@ -2089,6 +2190,11 @@
     align-items: stretch;
   }
 
+  .curriculumActionColumn {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .dropdownFieldCompact,
   .compactTextField {
     width: 100%;
@@ -2115,6 +2221,22 @@
   .programFieldGrid,
   .dateTimeFieldRow {
     grid-template-columns: 1fr;
+  }
+
+  .curriculumActionGrid {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .curriculumActionButton,
+  .curriculumActionDropdown,
+  .curriculumDropdownTrigger {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .curriculumSectionToolbar {
+    justify-content: stretch;
   }
 
   .dateTimeDateField,
@@ -2426,16 +2548,30 @@
 }
 
 @media (width <= 1024px) {
+  .workspaceTabs {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    padding-top: var(--space-3);
+  }
+
+  .workspaceTabGroup {
+    flex-wrap: wrap;
+  }
+
+  .workspaceTabStat {
+    margin-top: 0;
+    margin-left: 0;
+    border-bottom: 1px solid var(--admin-border-strong);
+  }
+
   .editorToolbar {
     align-items: stretch;
   }
 
   .editorToolbarActions {
     justify-content: flex-start;
-  }
-
-  .workspaceTabs {
-    width: 100%;
   }
 
   .panelToolbar {

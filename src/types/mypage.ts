@@ -2,9 +2,7 @@ import type { ProgramCurriculumTrack } from '@/types/programCatalog';
 
 export type EnrollmentStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
 export type RefundStatus = 'REFUND_REQUESTED' | 'REFUNDED' | 'CANCELLED';
-export type ProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID';
-export type CouponDiscountType = 'FIXED_AMOUNT' | 'PERCENTAGE';
-export type CouponAppliesTo = 'ALL' | 'ONLINE' | 'OFFLINE';
+export type ProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID' | 'PROBLEM_SOLVING';
 
 export interface AddToCartPayload {
   instructorName: string | null;
@@ -159,30 +157,6 @@ export interface ProtectedLectureStream {
   playbackSessionToken: string;
 }
 
-export interface AppliedCoupon {
-  id: number;
-  code: string;
-  name: string;
-  discountType: CouponDiscountType;
-  discountValue: number;
-  discountAmount: number;
-}
-
-export interface UserCoupon {
-  id: number;
-  code: string;
-  name: string;
-  description: string;
-  discountType: CouponDiscountType;
-  discountValue: number;
-  minimumOrderAmount: number;
-  appliesTo: CouponAppliesTo;
-  validFromAt: string | null;
-  expiresAt: string;
-  issuedAt: string;
-  usable: boolean;
-}
-
 export interface CartItem {
   id: number;
   programId: number;
@@ -203,9 +177,7 @@ export interface CartSummary {
   items: CartItem[];
   itemCount: number;
   totalOriginalPrice: number;
-  totalDiscountAmount?: number | undefined;
   totalPayablePrice: number;
-  appliedCoupon?: AppliedCoupon | null | undefined;
 }
 
 export interface ApplicationSummaryItem {
@@ -222,7 +194,6 @@ export interface ApplicationSummary {
   onlinePayablePrice: number;
   offlineItemCount: number;
   hasOnlineCheckout: boolean;
-  appliedCoupon?: AppliedCoupon | null | undefined;
 }
 
 export interface RefundHistory {

@@ -10,7 +10,7 @@ import { clearGuestCart, getGuestCart, retainGuestCartPrograms } from '@/api/gue
 import { mergeMyCartItems } from '@/api/mypage';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
-import { myCartQueryKey, myCouponsQueryKey } from '@/query/useMyPageQueries';
+import { myCartQueryKey } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
@@ -144,7 +144,6 @@ const StudentLoginForm = ({
 
     if (mergeResult.serverCart) {
       queryClient.setQueryData(myCartQueryKey(cartScope), mergeResult.serverCart);
-      queryClient.setQueryData(myCouponsQueryKey(cartScope), []);
     }
 
     if (mergeResult.failedCount > 0) {

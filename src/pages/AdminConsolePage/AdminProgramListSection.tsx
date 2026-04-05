@@ -46,6 +46,14 @@ const catalogStatusLabel: Record<AdminProgramCatalogStatus, string> = {
   SCHEDULED: '판매 예정',
 };
 
+const formatStudentCountLabel = (item: AdminProgramListItem): string => {
+  if (item.programType === 'OFFLINE' && item.maxStudents !== null) {
+    return `${String(item.currentStudents)} / ${String(item.maxStudents)}`;
+  }
+
+  return `${String(item.currentStudents)}명`;
+};
+
 const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('ko-KR', {
     currency: 'KRW',
@@ -323,7 +331,7 @@ const AdminProgramListSection = () => {
                     <th scope='col'>카테고리</th>
                     <th scope='col'>형태</th>
                     <th scope='col'>가격</th>
-                    <th scope='col'>정원</th>
+                    <th scope='col'>수강생</th>
                     <th scope='col'>판매 상태</th>
                     <th scope='col'>공개 상태</th>
                     <th scope='col'>관리</th>
@@ -353,11 +361,7 @@ const AdminProgramListSection = () => {
                             ) : null}
                           </div>
                         </td>
-                        <td>
-                          {item.maxStudents === null
-                            ? '제한 없음'
-                            : `${String(item.currentStudents)} / ${String(item.maxStudents)}`}
-                        </td>
+                        <td>{formatStudentCountLabel(item)}</td>
                         <td>
                           <div className={styles['cellStack']}>
                             <span className={styles['cellPrimary']}>
@@ -380,7 +384,7 @@ const AdminProgramListSection = () => {
                               }}
                               type='button'
                             >
-                              기본정보
+                              수정
                             </button>
                             <button
                               className={styles['tableActionButton']}

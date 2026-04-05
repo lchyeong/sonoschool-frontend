@@ -85,12 +85,14 @@ const reviewItemSchema = z.object({
 });
 
 const curriculumLessonSchema = z.object({
-  deliveryType: z.enum(['online', 'offline']),
+  deliveryType: z.enum(['online', 'offline', 'problem']),
   description: z.string().trim().optional(),
   durationLabel: z.string().min(1),
   durationMinutes: z.number().int().nonnegative().nullable(),
   endDate: z.string().min(1).nullable(),
+  hasQuiz: z.boolean().optional(),
   id: z.string().min(1),
+  quizAttempted: z.boolean().optional(),
   startDate: z.string().min(1).nullable(),
   title: z.string().min(1),
 });

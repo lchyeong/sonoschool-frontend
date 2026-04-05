@@ -64,7 +64,7 @@ export const fetchAdminQuiz = async (lectureId: number): Promise<AdminQuiz | nul
       return null;
     }
 
-    throw toApiError(error, '퀴즈를 불러오지 못했습니다.');
+    throw toApiError(error, '문제를 불러오지 못했습니다.');
   }
 };
 
@@ -79,7 +79,7 @@ export const createAdminQuiz = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '퀴즈를 등록하지 못했습니다.');
+    throw toApiError(error, '문제를 등록하지 못했습니다.');
   }
 };
 
@@ -94,7 +94,7 @@ export const updateAdminQuiz = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '퀴즈를 수정하지 못했습니다.');
+    throw toApiError(error, '문제를 수정하지 못했습니다.');
   }
 };
 
@@ -102,6 +102,6 @@ export const deleteAdminQuiz = async (quizId: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/api/v1/admin/quizzes/${String(quizId)}`);
   } catch (error: unknown) {
-    throw toApiError(error, '퀴즈를 삭제하지 못했습니다.');
+    throw toApiError(error, '문제를 삭제하지 못했습니다.');
   }
 };

@@ -23,7 +23,7 @@ interface PageResponse<TItem> {
 interface RawAdminVideoProgramSummary {
   categoryName: string;
   id: number;
-  programType: 'ONLINE' | 'OFFLINE' | 'HYBRID';
+  programType: 'ONLINE' | 'OFFLINE' | 'HYBRID' | 'PROBLEM_SOLVING';
   title: string;
 }
 

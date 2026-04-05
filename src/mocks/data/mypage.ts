@@ -13,7 +13,6 @@ import type {
   LearningPlayerSnapshot,
   ProtectedLectureStream,
   RefundHistory,
-  UserCoupon,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
@@ -470,14 +469,6 @@ const mockEnrollmentDetails = new Map<number, EnrollmentDetail>([
 ]);
 
 const mockCart: CartSummary = {
-  appliedCoupon: {
-    code: 'SPRING',
-    discountAmount: 25000,
-    discountType: 'FIXED_AMOUNT',
-    discountValue: 25000,
-    id: 10,
-    name: '봄맞이 할인',
-  },
   itemCount: 4,
   items: [
     {
@@ -541,86 +532,11 @@ const mockCart: CartSummary = {
       title: '복부초음파 증례 해설 세션',
     },
   ],
-  totalDiscountAmount: 108000,
   totalOriginalPrice: 670000,
   totalPayablePrice: 562000,
 };
 
-const mockCoupons: UserCoupon[] = [
-  {
-    appliesTo: 'ALL',
-    code: 'SPRING',
-    description: '장바구니 전체 결제에 바로 적용할 수 있는 시즌 쿠폰입니다.',
-    discountType: 'FIXED_AMOUNT',
-    discountValue: 25000,
-    expiresAt: '2026-04-05T14:59:59Z',
-    id: 10,
-    issuedAt: '2026-03-12T09:00:00Z',
-    minimumOrderAmount: 150000,
-    name: '봄맞이 할인',
-    usable: true,
-    validFromAt: '2026-03-12T09:00:00Z',
-  },
-  {
-    appliesTo: 'ONLINE',
-    code: 'ONLINE10',
-    description: '온라인 강의 20만원 이상 선택 시 10% 할인을 제공합니다.',
-    discountType: 'PERCENTAGE',
-    discountValue: 10,
-    expiresAt: '2026-03-31T14:59:59Z',
-    id: 11,
-    issuedAt: '2026-03-10T09:00:00Z',
-    minimumOrderAmount: 200000,
-    name: '온라인 집중 10%',
-    usable: true,
-    validFromAt: '2026-03-10T09:00:00Z',
-  },
-  {
-    appliesTo: 'OFFLINE',
-    code: 'HANDSON30',
-    description: '오프라인 실습 과정 전용 정액 할인 쿠폰입니다.',
-    discountType: 'FIXED_AMOUNT',
-    discountValue: 30000,
-    expiresAt: '2026-04-12T14:59:59Z',
-    id: 12,
-    issuedAt: '2026-03-14T09:00:00Z',
-    minimumOrderAmount: 180000,
-    name: '핸즈온 3만원 할인',
-    usable: true,
-    validFromAt: '2026-03-14T09:00:00Z',
-  },
-  {
-    appliesTo: 'ALL',
-    code: 'WELCOME7',
-    description: '첫 결제 고객 대상 7% 할인 쿠폰입니다.',
-    discountType: 'PERCENTAGE',
-    discountValue: 7,
-    expiresAt: '2026-04-30T14:59:59Z',
-    id: 13,
-    issuedAt: '2026-03-01T09:00:00Z',
-    minimumOrderAmount: 100000,
-    name: '웰컴 7%',
-    usable: true,
-    validFromAt: '2026-03-01T09:00:00Z',
-  },
-  {
-    appliesTo: 'ONLINE',
-    code: 'VIP50000',
-    description: '고액 온라인 결제 전용 VIP 쿠폰입니다.',
-    discountType: 'FIXED_AMOUNT',
-    discountValue: 50000,
-    expiresAt: '2026-03-24T14:59:59Z',
-    id: 14,
-    issuedAt: '2026-03-18T09:00:00Z',
-    minimumOrderAmount: 500000,
-    name: 'VIP 5만원',
-    usable: true,
-    validFromAt: '2026-03-18T09:00:00Z',
-  },
-];
-
 const mockApplicationSummary: ApplicationSummary = {
-  appliedCoupon: mockCart.appliedCoupon,
   hasOnlineCheckout: true,
   offlineItemCount: 1,
   offlineItems: [
@@ -1261,7 +1177,6 @@ const extendMockMyPageData = (): void => {
     0,
   );
   mockCart.totalPayablePrice = mockCart.items.reduce((total, item) => total + item.payablePrice, 0);
-  mockCart.totalDiscountAmount = mockCart.totalOriginalPrice - mockCart.totalPayablePrice;
 
   mockApplicationSummary.offlineItemCount = mockApplicationSummary.offlineItems.length;
   mockApplicationSummary.onlinePayablePrice = mockApplicationSummary.onlineItems.reduce(
@@ -1279,7 +1194,6 @@ const initialEnrollmentDetailsSnapshot = Array.from(mockEnrollmentDetails.entrie
   },
 );
 const initialCartSnapshot = cloneData(mockCart);
-const initialCouponsSnapshot = cloneData(mockCoupons);
 const initialApplicationSummarySnapshot = cloneData(mockApplicationSummary);
 const initialRefundsSnapshot = cloneData(mockRefunds);
 
@@ -1311,7 +1225,6 @@ const recalculateCartDerivedState = (): void => {
     0,
   );
   mockCart.totalPayablePrice = mockCart.items.reduce((total, item) => total + item.payablePrice, 0);
-  mockCart.totalDiscountAmount = mockCart.totalOriginalPrice - mockCart.totalPayablePrice;
 
   mockApplicationSummary.onlineItems = mockCart.items
     .filter((item) => isOnlineProgramType(item.programType))
@@ -1489,10 +1402,7 @@ export const resetMockMyPageData = (): void => {
   mockCart.items.splice(0, mockCart.items.length, ...cloneData(initialCartSnapshot.items));
   mockCart.itemCount = initialCartSnapshot.itemCount;
   mockCart.totalOriginalPrice = initialCartSnapshot.totalOriginalPrice;
-  mockCart.totalDiscountAmount = initialCartSnapshot.totalDiscountAmount;
   mockCart.totalPayablePrice = initialCartSnapshot.totalPayablePrice;
-  mockCart.appliedCoupon = cloneData(initialCartSnapshot.appliedCoupon);
-  mockCoupons.splice(0, mockCoupons.length, ...cloneData(initialCouponsSnapshot));
   mockApplicationSummary.onlineItems.splice(
     0,
     mockApplicationSummary.onlineItems.length,
@@ -1506,7 +1416,6 @@ export const resetMockMyPageData = (): void => {
   mockApplicationSummary.onlinePayablePrice = initialApplicationSummarySnapshot.onlinePayablePrice;
   mockApplicationSummary.offlineItemCount = initialApplicationSummarySnapshot.offlineItemCount;
   mockApplicationSummary.hasOnlineCheckout = initialApplicationSummarySnapshot.hasOnlineCheckout;
-  mockApplicationSummary.appliedCoupon = cloneData(initialApplicationSummarySnapshot.appliedCoupon);
   mockRefunds.splice(0, mockRefunds.length, ...cloneData(initialRefundsSnapshot));
   profileState = createInitialProfile();
   pendingPhoneVerification = null;
@@ -1593,10 +1502,6 @@ export const getMockLearningPlayerSnapshot = (
 
 export const getMockMyCart = (): CartSummary => {
   return cloneData(mockCart);
-};
-
-export const getMockMyCoupons = (): UserCoupon[] => {
-  return cloneData(mockCoupons);
 };
 
 export const getMockMyApplicationSummary = (): ApplicationSummary => {

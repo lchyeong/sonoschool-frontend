@@ -261,7 +261,7 @@ const AdminEnrollmentsSection = () => {
               <th scope='col'>프로그램</th>
               <th scope='col'>형태</th>
               <th scope='col'>진도</th>
-              <th scope='col'>퀴즈</th>
+              <th scope='col'>문제</th>
               <th scope='col'>실습</th>
               <th scope='col'>수강 기간</th>
               <th scope='col'>상태</th>
@@ -601,7 +601,7 @@ const AdminEnrollmentsSection = () => {
                 <div>
                   <h2 className={styles['panelTitle']}>현재 수강 목록</h2>
                   <p className={styles['metaText']}>
-                    회원별 진도, 퀴즈 응시, 실습 예약 여부를 함께 확인합니다.
+                    회원별 진도, 문제 응시, 실습 예약 여부를 함께 확인합니다.
                   </p>
                 </div>
                 <label className={styles['searchField']}>

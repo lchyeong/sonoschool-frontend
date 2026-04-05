@@ -6,10 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
 import { resetCartSelectionState, useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type { CartSummary, UserCoupon, UserProfile } from '@/types/mypage';
+import type { CartSummary, UserProfile } from '@/types/mypage';
 
 const testCart: CartSummary = {
-  appliedCoupon: null,
   itemCount: 9,
   items: [
     {
@@ -43,27 +42,9 @@ const testCart: CartSummary = {
       title: `테스트 강의 ${String(index + 1)}`,
     })),
   ],
-  totalDiscountAmount: 25000,
   totalOriginalPrice: 1326000,
   totalPayablePrice: 1301000,
 };
-
-const testCoupons: UserCoupon[] = [
-  {
-    appliesTo: 'ALL',
-    code: 'SPRING',
-    description: '테스트 쿠폰',
-    discountType: 'FIXED_AMOUNT',
-    discountValue: 25000,
-    expiresAt: '2026-04-05T14:59:59Z',
-    id: 10,
-    issuedAt: '2026-03-12T09:00:00Z',
-    minimumOrderAmount: 150000,
-    name: '봄맞이 할인',
-    usable: true,
-    validFromAt: '2026-03-12T09:00:00Z',
-  },
-];
 
 const testProfile: UserProfile = {
   displayName: '홍길동',
@@ -84,7 +65,6 @@ const approveKcpPcPaymentMock = vi.hoisted(() => vi.fn());
 vi.mock('@/api/mypage', () => ({
   fetchMyApplicationSummary: vi.fn(),
   fetchMyCart: vi.fn(() => Promise.resolve(testCart)),
-  fetchMyCoupons: vi.fn(() => Promise.resolve(testCoupons)),
   fetchMyEnrollmentDetail: vi.fn(),
   fetchMyEnrollments: vi.fn(),
   fetchMyLearningPlayerSnapshot: vi.fn(),

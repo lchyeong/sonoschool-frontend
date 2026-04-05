@@ -5,26 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CartPage from '@/pages/CartPage/CartPage';
 import { resetCartSelectionState } from '@/stores/useCartSelectionStore';
-import type { AppliedCoupon, CartItem, CartSummary, UserCoupon } from '@/types/mypage';
+import type { CartItem, CartSummary } from '@/types/mypage';
 
 const cloneData = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-
-const testCoupons: UserCoupon[] = [
-  {
-    appliesTo: 'ALL',
-    code: 'ONLINE10',
-    description: '온라인 집중 10%',
-    discountType: 'PERCENTAGE',
-    discountValue: 10,
-    expiresAt: '2026-04-05T14:59:59Z',
-    id: 10,
-    issuedAt: '2026-03-12T09:00:00Z',
-    minimumOrderAmount: 150000,
-    name: '온라인 집중 10%',
-    usable: true,
-    validFromAt: '2026-03-12T09:00:00Z',
-  },
-];
 
 const initialCartItems: CartItem[] = [
   {
@@ -74,66 +57,30 @@ const initialCartItems: CartItem[] = [
   },
 ];
 
-const toAppliedCoupon = (coupon: UserCoupon, discountAmount: number): AppliedCoupon => ({
-  code: coupon.code,
-  discountAmount,
-  discountType: coupon.discountType,
-  discountValue: coupon.discountValue,
-  id: coupon.id,
-  name: coupon.name,
-});
-
-const buildCart = (items: CartItem[], appliedCoupon: AppliedCoupon | null = null): CartSummary => {
+const buildCart = (items: CartItem[]): CartSummary => {
   const totalOriginalPrice = items.reduce((sum, item) => sum + item.originalPrice, 0);
   const subtotal = items.reduce((sum, item) => sum + item.payablePrice, 0);
-  const couponDiscountAmount = appliedCoupon?.discountAmount ?? 0;
 
   return {
-    appliedCoupon,
     itemCount: items.length,
     items,
-    totalDiscountAmount: totalOriginalPrice - subtotal + couponDiscountAmount,
     totalOriginalPrice,
-    totalPayablePrice: subtotal - couponDiscountAmount,
+    totalPayablePrice: subtotal,
   };
 };
 
 let currentCart = buildCart(cloneData(initialCartItems));
 
 vi.mock('@/api/mypage', () => ({
-  applyMyCartCoupon: vi.fn((couponCode: string) => {
-    const coupon = testCoupons.find((item) => item.code === couponCode) ?? null;
-    const onlineItems = currentCart.items.filter((item) => item.programType === 'ONLINE');
-    const onlineSubtotal = onlineItems.reduce((sum, item) => sum + item.payablePrice, 0);
-    const discountAmount =
-      coupon && coupon.discountType === 'PERCENTAGE'
-        ? Math.floor((onlineSubtotal * coupon.discountValue) / 100)
-        : 0;
-
-    currentCart = buildCart(
-      currentCart.items,
-      coupon ? toAppliedCoupon(coupon, discountAmount) : null,
-    );
-
-    return Promise.resolve(currentCart);
-  }),
-  clearMyCartCoupon: vi.fn(() => {
-    currentCart = buildCart(currentCart.items);
-    return Promise.resolve(currentCart);
-  }),
   fetchMyApplicationSummary: vi.fn(),
   fetchMyCart: vi.fn(() => Promise.resolve(currentCart)),
-  fetchMyCoupons: vi.fn(() => Promise.resolve(testCoupons)),
   fetchMyEnrollmentDetail: vi.fn(),
   fetchMyEnrollments: vi.fn(),
   fetchMyLearningPlayerSnapshot: vi.fn(),
   fetchMyProfile: vi.fn(),
   fetchMyRefunds: vi.fn(),
   removeMyCartItem: vi.fn((cartItemId: number) => {
-    currentCart = buildCart(
-      currentCart.items.filter((item) => item.id !== cartItemId),
-      currentCart.appliedCoupon,
-    );
+    currentCart = buildCart(currentCart.items.filter((item) => item.id !== cartItemId));
     return Promise.resolve(currentCart);
   }),
 }));
@@ -197,7 +144,7 @@ describe('CartPage', () => {
     expect(screen.queryByText('POCUS 워크숍')).not.toBeInTheDocument();
   });
 
-  it('updates the total when a cart item is unchecked and a coupon is changed', async () => {
+  it('updates the total when a cart item is unchecked', async () => {
     renderCartPage();
 
     expect(await screen.findByText('1,301,000원')).toBeInTheDocument();
@@ -205,10 +152,5 @@ describe('CartPage', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: '복부초음파 오프라인 핸즈온 선택' }));
 
     expect(await screen.findByText('1,103,000원')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '쿠폰 선택' }));
-    fireEvent.click(screen.getByRole('option', { name: /온라인 집중 10%/ }));
-
-    expect(await screen.findByText('992,700원')).toBeInTheDocument();
   });
 });

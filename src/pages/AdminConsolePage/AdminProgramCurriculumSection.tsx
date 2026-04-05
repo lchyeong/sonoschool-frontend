@@ -67,8 +67,6 @@ interface LectureFormState {
   preview: boolean;
   quizOnly: boolean;
   practicumEnabled: boolean;
-  practicumDescription: string;
-  practicumTitle: string;
   title: string;
 }
 
@@ -99,8 +97,6 @@ const EMPTY_LECTURE_FORM: LectureFormState = {
   preview: false,
   quizOnly: false,
   practicumEnabled: false,
-  practicumDescription: '',
-  practicumTitle: '',
   title: '',
 };
 
@@ -156,10 +152,6 @@ const validateLectureForm = (formState: LectureFormState): string | null => {
     return '강의 길이는 0 이상의 숫자로 입력해 주세요.';
   }
 
-  if (formState.practicumEnabled && !formState.practicumTitle.trim()) {
-    return '실습명을 입력해 주세요.';
-  }
-
   return null;
 };
 
@@ -185,19 +177,14 @@ const toLecturePayload = (
       : 'VIDEO';
   return {
     description: normalizeDescription(formState.description),
-    durationSeconds: parseDurationSeconds(formState.durationSeconds),
+    durationSeconds:
+      !formState.quizOnly && formState.practicumEnabled
+        ? null
+        : parseDurationSeconds(formState.durationSeconds),
     lectureType,
-    preview: formState.preview,
+    preview: false,
     quizOnly: formState.quizOnly,
     practicumEnabled: formState.quizOnly ? false : formState.practicumEnabled,
-    practicumDescription:
-      !formState.quizOnly && formState.practicumEnabled
-        ? normalizeDescription(formState.practicumDescription)
-        : null,
-    practicumTitle:
-      !formState.quizOnly && formState.practicumEnabled
-        ? normalizeDescription(formState.practicumTitle)
-        : null,
     sortOrder,
     title: formState.title.trim(),
   };
@@ -350,7 +337,7 @@ const getLecturePanelLabel = (
     case 'resource':
       return '첨부자료 연결';
     case 'quiz':
-      return lecture.quizOnly ? '문제풀이 퀴즈 구성' : '퀴즈 연결';
+      return lecture.quizOnly ? '문제풀이 문제 구성' : '문제 연결';
     case 'practicum':
       return '실습 예약 구성';
     case 'offline':
@@ -447,8 +434,6 @@ const LectureCard = ({
     preview: lecture.preview,
     quizOnly: lecture.quizOnly ?? false,
     practicumEnabled: lecture.practicumEnabled ?? false,
-    practicumDescription: lecture.practicumDescription ?? '',
-    practicumTitle: lecture.practicumTitle ?? '',
     title: lecture.title,
   });
   const [practicumSlotForm, setPracticumSlotForm] =
@@ -548,9 +533,9 @@ const LectureCard = ({
               <span className={styles['summaryLabel']}>실습</span>
               <strong className={styles['summaryValue']}>
                 {lecture.quizOnly
-                  ? '퀴즈로 구성'
+                  ? '문제로 구성'
                   : lecture.practicumEnabled
-                    ? lecture.practicumTitle?.trim() || '실습 예약 사용'
+                    ? '실습 예약 사용'
                     : '실습 예약 없음'}
               </strong>
             </div>
@@ -713,7 +698,7 @@ const LectureCard = ({
                 }}
                 type='button'
               >
-                {activePanel === 'quiz' ? '퀴즈 닫기' : '퀴즈 추가'}
+                {activePanel === 'quiz' ? '문제 닫기' : '문제 추가'}
               </button>
               {allowPracticum && supportsDeliveryPanels ? (
                 <button
@@ -741,7 +726,7 @@ const LectureCard = ({
               ) : null}
             </div>
             <p className={styles['helperText']}>
-              강의 카드 안에서는 한 번에 하나의 작업만 엽니다. 자료와 퀴즈는 연결된 관리 영역으로
+              강의 카드 안에서는 한 번에 하나의 작업만 엽니다. 자료와 문제는 연결된 관리 영역으로
               바로 이동합니다.
             </p>
           </div>
@@ -760,9 +745,7 @@ const LectureCard = ({
                       const nextQuizOnly = event.target.value === 'QUIZ_ONLY';
                       setFormState((current) => ({
                         ...current,
-                        practicumDescription: nextQuizOnly ? '' : current.practicumDescription,
                         practicumEnabled: nextQuizOnly ? false : current.practicumEnabled,
-                        practicumTitle: nextQuizOnly ? '' : current.practicumTitle,
                         quizOnly: nextQuizOnly,
                       }));
                     }}
@@ -796,59 +779,19 @@ const LectureCard = ({
                   rows={3}
                   value={formState.description}
                 />
-                <TextField
-                  label='강의 길이(초)'
-                  name={`lecture-duration-${String(lecture.id)}`}
-                  onChange={(event) => {
-                    setFormState((current) => ({
-                      ...current,
-                      durationSeconds: event.target.value,
-                    }));
-                  }}
-                  value={formState.durationSeconds}
-                />
-
-                {allowPracticum && !formState.quizOnly ? (
-                  <>
-                    <TextField
-                      label='실습명'
-                      name={`lecture-practicum-title-${String(lecture.id)}`}
-                      onChange={(event) => {
-                        setFormState((current) => ({
-                          ...current,
-                          practicumTitle: event.target.value,
-                        }));
-                      }}
-                      value={formState.practicumTitle}
-                    />
-                    <TextAreaField
-                      label='실습 설명'
-                      name={`lecture-practicum-description-${String(lecture.id)}`}
-                      onChange={(event) => {
-                        setFormState((current) => ({
-                          ...current,
-                          practicumDescription: event.target.value,
-                        }));
-                      }}
-                      rows={3}
-                      value={formState.practicumDescription}
-                    />
-                  </>
-                ) : null}
-
-                <label className={styles['checkboxRow']}>
-                  <input
-                    checked={formState.preview}
+                {!formState.practicumEnabled || formState.quizOnly ? (
+                  <TextField
+                    label='강의 길이(초)'
+                    name={`lecture-duration-${String(lecture.id)}`}
                     onChange={(event) => {
                       setFormState((current) => ({
                         ...current,
-                        preview: event.target.checked,
+                        durationSeconds: event.target.value,
                       }));
                     }}
-                    type='checkbox'
+                    value={formState.durationSeconds}
                   />
-                  미리보기 허용
-                </label>
+                ) : null}
 
                 {allowPracticum && !formState.quizOnly ? (
                   <label className={styles['checkboxRow']}>
@@ -1015,10 +958,10 @@ const LectureCard = ({
           {activePanel === 'quiz' ? (
             <div className={styles['managementPanel']}>
               <div className={styles['panelHeader']}>
-                <h5 className={styles['subsectionTitle']}>퀴즈 관리</h5>
+                <h5 className={styles['subsectionTitle']}>문제 관리</h5>
               </div>
               <p className={styles['helperText']}>
-                이 강의의 퀴즈 작업영역으로 이동했습니다. 아래 연결된 퀴즈 관리 영역에서 등록/수정할
+                이 강의의 문제 작업영역으로 이동했습니다. 아래 연결된 문제 관리 영역에서 등록/수정할
                 수 있습니다.
               </p>
             </div>
@@ -1458,9 +1401,7 @@ const SectionCard = ({
                       const nextQuizOnly = event.target.value === 'QUIZ_ONLY';
                       setNewLectureForm((current) => ({
                         ...current,
-                        practicumDescription: nextQuizOnly ? '' : current.practicumDescription,
                         practicumEnabled: nextQuizOnly ? false : current.practicumEnabled,
-                        practicumTitle: nextQuizOnly ? '' : current.practicumTitle,
                         quizOnly: nextQuizOnly,
                       }));
                     }}
@@ -1493,59 +1434,19 @@ const SectionCard = ({
                   rows={3}
                   value={newLectureForm.description}
                 />
-                <TextField
-                  label='새 강의 길이(초)'
-                  name={`new-lecture-duration-${String(section.id)}`}
-                  onChange={(event) => {
-                    setNewLectureForm((current) => ({
-                      ...current,
-                      durationSeconds: event.target.value,
-                    }));
-                  }}
-                  value={newLectureForm.durationSeconds}
-                />
-
-                {allowPracticum && !newLectureForm.quizOnly ? (
-                  <>
-                    <TextField
-                      label='새 실습명'
-                      name={`new-lecture-practicum-title-${String(section.id)}`}
-                      onChange={(event) => {
-                        setNewLectureForm((current) => ({
-                          ...current,
-                          practicumTitle: event.target.value,
-                        }));
-                      }}
-                      value={newLectureForm.practicumTitle}
-                    />
-                    <TextAreaField
-                      label='새 실습 설명'
-                      name={`new-lecture-practicum-description-${String(section.id)}`}
-                      onChange={(event) => {
-                        setNewLectureForm((current) => ({
-                          ...current,
-                          practicumDescription: event.target.value,
-                        }));
-                      }}
-                      rows={3}
-                      value={newLectureForm.practicumDescription}
-                    />
-                  </>
-                ) : null}
-
-                <label className={styles['checkboxRow']}>
-                  <input
-                    checked={newLectureForm.preview}
+                {!newLectureForm.practicumEnabled || newLectureForm.quizOnly ? (
+                  <TextField
+                    label='새 강의 길이(초)'
+                    name={`new-lecture-duration-${String(section.id)}`}
                     onChange={(event) => {
                       setNewLectureForm((current) => ({
                         ...current,
-                        preview: event.target.checked,
+                        durationSeconds: event.target.value,
                       }));
                     }}
-                    type='checkbox'
+                    value={newLectureForm.durationSeconds}
                   />
-                  미리보기 허용
-                </label>
+                ) : null}
 
                 {allowPracticum && !newLectureForm.quizOnly ? (
                   <label className={styles['checkboxRow']}>
@@ -1888,8 +1789,6 @@ const AdminProgramCurriculumSection = ({
       preview: payload.preview,
       quizOnly: payload.quizOnly ?? false,
       practicumEnabled: payload.practicumEnabled ?? false,
-      practicumDescription: payload.practicumDescription ?? '',
-      practicumTitle: payload.practicumTitle ?? '',
       title: payload.title,
     });
 
@@ -1912,8 +1811,6 @@ const AdminProgramCurriculumSection = ({
       preview: payload.preview,
       quizOnly: payload.quizOnly ?? false,
       practicumEnabled: payload.practicumEnabled ?? false,
-      practicumDescription: payload.practicumDescription ?? '',
-      practicumTitle: payload.practicumTitle ?? '',
       title: payload.title,
     });
 

@@ -4,6 +4,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import {
+  createAdminProgramThumbnailUploadTarget,
+  uploadAdminProgramThumbnailFile,
+} from '@/api/adminProgramMedia';
+import {
   createAdminProgramLive,
   deleteAdminProgramLive,
   publishAdminProgramLive,
@@ -59,6 +63,7 @@ interface AdminProgramFormState {
   accessPolicy: AdminProgramAccessPolicy;
   categoryId: string;
   checklists: string[];
+  discountPercent: string;
   description: string;
   faqs: AdminProgramFaqFormItem[];
   instructorBio: string;
@@ -72,10 +77,10 @@ interface AdminProgramFormState {
   programType: AdminProgramType;
   recommendedFor: string[];
   saleEndAt: string;
-  salePrice: string;
   saleStartAt: string;
   slug: string;
   summaryItems: AdminProgramSummaryFormItem[];
+  thumbnailPreviewUrl: string;
   thumbnailUrl: string;
   title: string;
 }
@@ -85,6 +90,7 @@ const INITIAL_FORM_STATE: AdminProgramFormState = {
   accessPolicy: 'UNLIMITED',
   categoryId: '',
   checklists: [],
+  discountPercent: '',
   description: '',
   faqs: [],
   instructorBio: '',
@@ -98,12 +104,40 @@ const INITIAL_FORM_STATE: AdminProgramFormState = {
   programType: 'ONLINE',
   recommendedFor: [],
   saleEndAt: '',
-  salePrice: '',
   saleStartAt: '',
   slug: '',
   summaryItems: [],
+  thumbnailPreviewUrl: '',
   thumbnailUrl: '',
   title: '',
+};
+
+const resolveDiscountPercent = (price: number | null, salePrice: number | null): string => {
+  if (price === null || salePrice === null || price <= 0 || salePrice >= price) {
+    return '';
+  }
+
+  const percent = ((price - salePrice) / price) * 100;
+  const rounded = Math.round(percent * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+};
+
+const resolveSalePriceFromPercent = (priceValue: string, percentValue: string): number | null => {
+  const normalizedPrice = priceValue.trim();
+  const normalizedPercent = percentValue.trim();
+
+  if (!normalizedPrice || !normalizedPercent) {
+    return null;
+  }
+
+  const price = Number(normalizedPrice);
+  const percent = Number(normalizedPercent);
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(percent) || percent < 0) {
+    return null;
+  }
+
+  const discountedPrice = Math.round(price * (1 - percent / 100));
+  return discountedPrice < 0 ? 0 : discountedPrice;
 };
 
 const confirmProgramDelete = (): boolean => {
@@ -287,6 +321,7 @@ const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormS
     accessPolicy: detail.accessPolicy ?? 'UNLIMITED',
     categoryId: String(detail.categoryId),
     checklists: [...detail.checklists],
+    discountPercent: resolveDiscountPercent(detail.price, detail.salePrice),
     description: detail.description ?? '',
     faqs: detail.faqs.map((item) => ({
       answer: item.answer,
@@ -312,13 +347,13 @@ const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormS
     programType: detail.programType,
     recommendedFor: [...detail.recommendedFor],
     saleEndAt: toDateTimeLocal(detail.saleEndAt),
-    salePrice: detail.salePrice === null ? '' : String(detail.salePrice),
     saleStartAt: toDateTimeLocal(detail.saleStartAt),
     slug: detail.slug,
     summaryItems: detail.summaryItems.map((item) => ({
       label: item.label,
       value: item.value,
     })),
+    thumbnailPreviewUrl: detail.thumbnailPreviewUrl ?? detail.thumbnailUrl ?? '',
     thumbnailUrl: detail.thumbnailUrl ?? '',
     title: detail.title,
   };
@@ -389,7 +424,7 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
     programType: formState.programType,
     recommendedFor: sanitizeStringList(formState.recommendedFor),
     saleEndAt: toIsoStringOrNull(formState.saleEndAt),
-    salePrice: formState.salePrice.trim() ? Number(formState.salePrice) : null,
+    salePrice: resolveSalePriceFromPercent(formState.price, formState.discountPercent),
     saleStartAt: toIsoStringOrNull(formState.saleStartAt),
     slug: formState.slug.trim(),
     summaryItems: sanitizeSummaryItems(formState.summaryItems),
@@ -408,8 +443,11 @@ const validateFormState = (formState: AdminProgramFormState): string | null => {
   if (!formState.price.trim() || Number(formState.price) < 0) {
     return '가격을 올바르게 입력해 주세요.';
   }
-  if (formState.salePrice.trim() && Number(formState.salePrice) < 0) {
-    return '할인가를 올바르게 입력해 주세요.';
+  if (formState.discountPercent.trim()) {
+    const discountPercent = Number(formState.discountPercent);
+    if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
+      return '할인율을 0 이상 100 이하로 입력해 주세요.';
+    }
   }
   if (formState.maxStudents.trim() && Number(formState.maxStudents) < 1) {
     return '정원은 1 이상이어야 합니다.';
@@ -489,7 +527,7 @@ const buildEditorTitle = (
     return detail ? `${detail.title} 커리큘럼` : '커리큘럼 관리';
   }
   if (view === 'quizzes') {
-    return detail ? `${detail.title} 퀴즈` : '강의 퀴즈';
+    return detail ? `${detail.title} 문제` : '강의 문제';
   }
   if (view === 'resources') {
     return detail ? `${detail.title} 자료` : '프로그램 자료';
@@ -497,13 +535,14 @@ const buildEditorTitle = (
   if (mode === 'duplicate') {
     return detail ? `${detail.title} 복제` : '프로그램 복제';
   }
-  return detail ? `${detail.title} 기본정보` : '프로그램 기본정보';
+  return detail ? `${detail.title} 수정` : '프로그램 수정';
 };
 
 const programTypeOptions = [
   { value: 'ONLINE', label: '온라인' },
   { value: 'OFFLINE', label: '오프라인' },
   { value: 'HYBRID', label: '하이브리드' },
+  { value: 'PROBLEM_SOLVING', label: '문제풀이' },
 ] as const;
 
 const levelOptions = [
@@ -539,6 +578,14 @@ const catalogStatusLabel: Record<'CLOSED' | 'FULL' | 'OPEN' | 'SCHEDULED', strin
   SCHEDULED: '판매 예정',
 };
 
+const formatCurrentStudentStatus = (detail: AdminProgramDetail): string => {
+  if (detail.programType === 'OFFLINE' && detail.maxStudents !== null) {
+    return `현재 수강생 ${String(detail.currentStudents)}/${String(detail.maxStudents)}명`;
+  }
+
+  return `현재 수강생 ${String(detail.currentStudents)}명`;
+};
+
 const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEditorSectionProps) => {
   const params = useParams();
   const navigate = useNavigate();
@@ -559,6 +606,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     mode !== 'create',
   );
   const [formState, setFormState] = useState<AdminProgramFormState>(INITIAL_FORM_STATE);
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
 
   useEffect(() => {
     if (!detailQuery.data) {
@@ -792,6 +840,42 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     }));
   };
 
+  const handleThumbnailFileChange = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    setIsUploadingThumbnail(true);
+
+    try {
+      const uploadTarget = await createAdminProgramThumbnailUploadTarget({
+        contentType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        filename: file.name,
+      });
+
+      await uploadAdminProgramThumbnailFile(uploadTarget.uploadUrl, file);
+
+      setFormState((current) => ({
+        ...current,
+        thumbnailPreviewUrl: uploadTarget.previewUrl,
+        thumbnailUrl: uploadTarget.storageUrl,
+      }));
+
+      showToast({
+        message: '대표 이미지를 업로드했습니다.',
+        variant: 'success',
+      });
+    } catch (error: unknown) {
+      showToast({
+        message: error instanceof Error ? error.message : '대표 이미지 업로드에 실패했습니다.',
+        variant: 'error',
+      });
+    } finally {
+      setIsUploadingThumbnail(false);
+    }
+  };
+
   const handleSubmit = () => {
     const validationMessage = validateFormState(formState);
 
@@ -812,7 +896,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
         <h1 className={styles['stateTitle']}>프로그램 편집 화면을 준비하는 중입니다.</h1>
         <p className={styles['stateDescription']}>
           {isCurriculumView
-            ? '프로그램 상세와 커리큘럼, 강의별 퀴즈/자료를 불러오고 있습니다.'
+            ? '프로그램 상세와 커리큘럼, 강의별 문제/자료를 불러오고 있습니다.'
             : '카테고리와 프로그램 상세를 불러오고 있습니다.'}
         </p>
       </section>
@@ -911,20 +995,25 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       <section className={styles['editorWorkspacePanel']}>
         {isEditMode && currentDetail ? (
           <nav aria-label='프로그램 편집 보기' className={styles['workspaceTabs']}>
-            <Link
-              aria-current={isDetailView ? 'page' : undefined}
-              className={isDetailView ? styles['workspaceTabActive'] : styles['workspaceTab']}
-              to={routePaths.adminProgramEdit(String(currentDetail.id))}
-            >
-              기본정보
-            </Link>
-            <Link
-              aria-current={isCurriculumView ? 'page' : undefined}
-              className={isCurriculumView ? styles['workspaceTabActive'] : styles['workspaceTab']}
-              to={routePaths.adminProgramCurriculum(String(currentDetail.id))}
-            >
-              커리큘럼
-            </Link>
+            <div className={styles['workspaceTabGroup']}>
+              <Link
+                aria-current={isDetailView ? 'page' : undefined}
+                className={isDetailView ? styles['workspaceTabActive'] : styles['workspaceTab']}
+                to={routePaths.adminProgramEdit(String(currentDetail.id))}
+              >
+                수정
+              </Link>
+              <Link
+                aria-current={isCurriculumView ? 'page' : undefined}
+                className={isCurriculumView ? styles['workspaceTabActive'] : styles['workspaceTab']}
+                to={routePaths.adminProgramCurriculum(String(currentDetail.id))}
+              >
+                커리큘럼
+              </Link>
+            </div>
+            <div className={styles['workspaceTabStat']} role='status'>
+              {formatCurrentStudentStatus(currentDetail)}
+            </div>
           </nav>
         ) : null}
 
@@ -1011,14 +1100,18 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                     <div className={styles['mediaFieldCopy']}>
                       <p className={styles['fieldLabel']}>대표 이미지</p>
                       <p className={styles['mediaFieldHint']}>
-                        운영 화면에는 이미지 주소를 노출하지 않고 현재 연결된 이미지만 보여줍니다.
+                        프로그램 카드와 상세 상단에 노출될 이미지를 업로드합니다.
                       </p>
                     </div>
-                    {formState.thumbnailUrl ? (
+                    {formState.thumbnailPreviewUrl ? (
                       <button
                         className={styles['tableActionButton']}
                         onClick={() => {
-                          updateField('thumbnailUrl', '');
+                          setFormState((current) => ({
+                            ...current,
+                            thumbnailPreviewUrl: '',
+                            thumbnailUrl: '',
+                          }));
                         }}
                         type='button'
                       >
@@ -1027,7 +1120,19 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                     ) : null}
                   </div>
 
-                  {formState.thumbnailUrl ? (
+                  <TextField
+                    accept='image/*'
+                    disabled={isUploadingThumbnail}
+                    label={isUploadingThumbnail ? '대표 이미지 업로드 중' : '대표 이미지 파일'}
+                    name='program-thumbnail-file'
+                    onChange={(event) => {
+                      void handleThumbnailFileChange(event.target.files?.[0] ?? null);
+                      event.currentTarget.value = '';
+                    }}
+                    type='file'
+                  />
+
+                  {formState.thumbnailPreviewUrl ? (
                     <div className={styles['thumbnailPreview']}>
                       <img
                         alt={
@@ -1036,7 +1141,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                             : '프로그램 대표 이미지'
                         }
                         className={styles['thumbnailPreviewImage']}
-                        src={formState.thumbnailUrl}
+                        src={formState.thumbnailPreviewUrl}
                       />
                     </div>
                   ) : (
@@ -1076,12 +1181,12 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                     value={formState.price}
                   />
                   <TextField
-                    label='할인가'
-                    name='salePrice'
+                    label='할인율(%)'
+                    name='discountPercent'
                     onChange={(event) => {
-                      updateField('salePrice', event.target.value);
+                      updateField('discountPercent', event.target.value);
                     }}
-                    value={formState.salePrice}
+                    value={formState.discountPercent}
                   />
                 </div>
 
@@ -1339,7 +1444,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                     {saveMutation.isPending
                       ? '저장 중...'
                       : mode === 'edit'
-                        ? '기본정보 저장'
+                        ? '수정 저장'
                         : '프로그램 등록'}
                   </Button>
                 </div>

@@ -4,7 +4,6 @@ import {
   addMockMyCartItem,
   getMockMyApplicationSummary,
   getMockMyCart,
-  getMockMyCoupons,
   getMockMyEnrollmentDetail,
   getMockMyEnrollments,
   getMockLearningPlayerSnapshot,
@@ -33,7 +32,6 @@ describe('mypage mock data', () => {
 
     expect(cart.itemCount).toBe(9);
     expect(cart.totalOriginalPrice).toBe(1574000);
-    expect(cart.totalDiscountAmount).toBe(248000);
     expect(cart.totalPayablePrice).toBe(1326000);
     expect(cart.items[0]?.detailPath).toBe('/programs/doctor-course/pocus/fast/2026-mar-apr');
 
@@ -98,13 +96,9 @@ describe('mypage mock data', () => {
 
   it('provides editable profile fields and refund fixtures', () => {
     const profile = getMockMyProfile();
-    const coupons = getMockMyCoupons();
     const refunds = getMockMyRefunds();
 
     expect(profile.email).toBe('student01@example.com');
-    expect(coupons).toHaveLength(5);
-    expect(coupons[0]?.name).toBe('봄맞이 할인');
-
     expect(refunds).toHaveLength(6);
     expect(refunds.map((item) => item.status)).toEqual([
       'REFUNDED',

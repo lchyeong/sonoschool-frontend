@@ -211,6 +211,8 @@ const toListItem = (program: AdminProgramStateItem): AdminProgramListItem => ({
   title: program.title,
   slug: program.slug,
   thumbnailUrl: program.thumbnailUrl,
+  thumbnailPreviewUrl:
+    program.thumbnailPreviewUrl ?? resolveMockThumbnailPreviewUrl(program.thumbnailUrl),
   programType: program.programType,
   level: program.level,
   instructorName: program.instructorName,
@@ -225,7 +227,25 @@ const toListItem = (program: AdminProgramStateItem): AdminProgramListItem => ({
   saleEndAt: program.saleEndAt,
 });
 
-const toDetail = (program: AdminProgramStateItem): AdminProgramDetail => clone(program);
+const toDetail = (program: AdminProgramStateItem): AdminProgramDetail =>
+  clone({
+    ...program,
+    thumbnailPreviewUrl:
+      program.thumbnailPreviewUrl ?? resolveMockThumbnailPreviewUrl(program.thumbnailUrl),
+  });
+
+const resolveMockThumbnailPreviewUrl = (thumbnailUrl: string | null): string | null => {
+  if (!thumbnailUrl) {
+    return null;
+  }
+
+  if (!thumbnailUrl.startsWith('s3://mock-bucket/assets/programs/thumbnails/')) {
+    return thumbnailUrl;
+  }
+
+  const objectKey = thumbnailUrl.replace('s3://mock-bucket/assets/programs/thumbnails/', '');
+  return `https://cdn.mock/programs/${objectKey}`;
+};
 
 const toStateItem = (
   id: number,
@@ -242,6 +262,7 @@ const toStateItem = (
     slug: payload.slug,
     description: payload.description,
     thumbnailUrl: payload.thumbnailUrl,
+    thumbnailPreviewUrl: resolveMockThumbnailPreviewUrl(payload.thumbnailUrl),
     programType: payload.programType,
     level: payload.level,
     instructorName: payload.instructorName,

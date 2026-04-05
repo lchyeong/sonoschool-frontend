@@ -499,7 +499,7 @@ const AdminPracticumSection = () => {
                   선택 날짜 - {formatDate(resolvedSelectedDate)}
                 </h3>
                 <p className={styles['metaText']}>
-                  시간별 슬롯, 예약자, 강의 완료 여부와 퀴즈 응시 여부를 같이 확인합니다.
+                  시간별 슬롯, 예약자, 강의 완료 여부와 문제 응시 여부를 같이 확인합니다.
                 </p>
               </div>
 

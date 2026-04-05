@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   fetchMyApplicationSummary,
   fetchMyCart,
-  fetchMyCoupons,
   fetchMyEnrollmentDetail,
   fetchMyEnrollmentPracticumOverview,
   fetchMyEnrollments,
@@ -25,8 +24,6 @@ export const myEnrollmentPracticumQueryKey = (enrollmentId: number | null) =>
   ['mypage', 'enrollmentPracticum', enrollmentId] as const;
 export const myCartQueryKey = (scope: 'authenticated' | 'guest') =>
   ['mypage', 'cart', scope] as const;
-export const myCouponsQueryKey = (scope: 'authenticated' | 'guest') =>
-  ['mypage', 'coupons', scope] as const;
 export const myApplicationSummaryQueryKey = ['mypage', 'applicationSummary'] as const;
 export const myPaymentHistoryQueryKey = ['mypage', 'paymentHistory'] as const;
 export const myRefundsQueryKey = ['mypage', 'refunds'] as const;
@@ -88,19 +85,6 @@ export const useMyCartQuery = (enabled = true) => {
     gcTime: 10 * 60 * 1000,
     queryFn: fetchMyCart,
     queryKey: myCartQueryKey(scope),
-    staleTime: 60 * 1000,
-  });
-};
-
-export const useMyCouponsQuery = (enabled = true) => {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const scope = resolveCartQueryScope(isAuthenticated);
-
-  return useQuery({
-    enabled,
-    gcTime: 10 * 60 * 1000,
-    queryFn: fetchMyCoupons,
-    queryKey: myCouponsQueryKey(scope),
     staleTime: 60 * 1000,
   });
 };

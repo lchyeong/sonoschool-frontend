@@ -36,6 +36,7 @@ export interface AdminProgramDraftBasicInfo {
   slug: string | null;
   summaryItems: AdminProgramSummaryInfoItem[];
   thumbnailUrl: string | null;
+  thumbnailPreviewUrl?: string | null;
   title: string | null;
 }
 
@@ -45,8 +46,6 @@ export interface AdminProgramDraftLecture {
   key: string;
   lectureType: AdminLectureType;
   offlineScheduleRule: AdminProgramDraftLectureOfflineScheduleRule | null;
-  practicumDescription: string | null;
-  practicumTitle: string | null;
   preview: boolean;
   published: boolean;
   sortOrder: number;

@@ -21,7 +21,6 @@ import {
   addMockMyCartItem,
   getMockMyApplicationSummary,
   getMockMyCart,
-  getMockMyCoupons,
   getMockLectureStream,
   getMockMyProfile,
   getMockMyRefunds,
@@ -184,6 +183,72 @@ const createApiEnvelope = <T>(data: T): ApiEnvelope<T> => {
   return {
     data,
     timestamp: new Date().toISOString(),
+  };
+};
+
+const createMockAdminProgramDraftDetail = () => {
+  return {
+    createdAt: '2026-03-27T09:00:00Z',
+    finalProgramId: null,
+    id: 91001,
+    payload: {
+      basicInfo: {
+        accessDays: null,
+        accessPolicy: 'UNLIMITED',
+        categoryId: null,
+        checklists: [],
+        description: null,
+        faqs: [],
+        instructorBio: null,
+        instructorName: null,
+        learningEndAt: null,
+        learningOutcomes: [],
+        learningPoints: [],
+        learningStartAt: null,
+        level: null,
+        maxStudents: null,
+        price: null,
+        programType: 'ONLINE',
+        recommendedFor: [],
+        saleEndAt: null,
+        salePrice: null,
+        saleStartAt: null,
+        slug: null,
+        summaryItems: [],
+        thumbnailUrl: null,
+        title: null,
+      },
+      quizzes: [],
+      resources: [],
+      sections: [
+        {
+          description: null,
+          key: 'section-1',
+          lectures: [
+            {
+              description: null,
+              durationSeconds: null,
+              key: 'lecture-1',
+              lectureType: 'VIDEO',
+              offlineScheduleRule: null,
+              preview: false,
+              published: false,
+              sortOrder: 0,
+              title: null,
+              videoId: null,
+              videoUploadErrorMessage: null,
+              videoUploadFileName: null,
+              videoUploadStatus: null,
+            },
+          ],
+          sortOrder: 0,
+          title: null,
+        },
+      ],
+    },
+    status: 'ACTIVE',
+    titlePreview: null,
+    updatedAt: '2026-03-27T09:00:00Z',
   };
 };
 
@@ -517,9 +582,6 @@ export const handlers = [
   http.get('*/api/v1/cart', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyCart()));
   }),
-  http.get('*/api/v1/my/coupons', () => {
-    return HttpResponse.json(createApiEnvelope(getMockMyCoupons()));
-  }),
   http.get('*/api/v1/cart/application-summary', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyApplicationSummary()));
   }),
@@ -688,6 +750,35 @@ export const handlers = [
         content: getMockAdminProgramsLive(),
       }),
     );
+  }),
+  ...createAdminGetHandlers('/program-drafts', () => {
+    const draftDetail = createMockAdminProgramDraftDetail();
+    return HttpResponse.json(
+      createApiEnvelope([
+        {
+          createdAt: draftDetail.createdAt,
+          finalProgramId: draftDetail.finalProgramId,
+          id: draftDetail.id,
+          status: draftDetail.status,
+          titlePreview: draftDetail.titlePreview,
+          updatedAt: draftDetail.updatedAt,
+        },
+      ]),
+    );
+  }),
+  ...createAdminPostHandlers('/program-drafts', () => {
+    return HttpResponse.json(createApiEnvelope(createMockAdminProgramDraftDetail()), {
+      status: 201,
+    });
+  }),
+  ...createAdminGetHandlers('/program-drafts/:draftId', ({ params }) => {
+    const draftId = Number(params['draftId']);
+
+    if (!Number.isInteger(draftId) || draftId <= 0) {
+      return HttpResponse.json({ message: 'Draft not found' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(createMockAdminProgramDraftDetail()));
   }),
   ...createAdminGetHandlers('/programs/:programId', ({ params }) => {
     const programId = Number(params['programId']);
@@ -1043,6 +1134,33 @@ export const handlers = [
       }),
     );
   }),
+  http.post('*/api/v1/admin/programs/thumbnail-upload-targets', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+
+    if (
+      !body ||
+      typeof body['filename'] !== 'string' ||
+      typeof body['contentType'] !== 'string' ||
+      typeof body['fileSize'] !== 'number'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const assetId = Date.now();
+    const safeName = encodeURIComponent(body['filename']);
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        assetId,
+        expiresInSeconds: 900,
+        mediaType: 'IMAGE',
+        previewUrl: `https://cdn.mock/programs/${String(assetId)}.png`,
+        storageUrl: `s3://mock-bucket/assets/programs/thumbnails/${String(assetId)}/${safeName}`,
+        uploadUrl: `https://upload.mock/programs/${String(assetId)}`,
+      }),
+      { status: 201 },
+    );
+  }),
   http.post('*/api/v1/admin/resources/upload-targets', async ({ request }) => {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 
@@ -1370,7 +1488,6 @@ export const handlers = [
           full: false,
           lectureId: 9101,
           lectureTitle: '복부 기본 실습',
-          practicumTitle: '복부 기본 프로브 핸들링',
           location: '서울 강의실 A',
           maxCapacity: 2,
           programId: 2001,

@@ -14,6 +14,6 @@ export const fetchAdminQuizLectureSummaries = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '퀴즈 현황을 불러오지 못했습니다.');
+    throw toApiError(error, '문제 현황을 불러오지 못했습니다.');
   }
 };

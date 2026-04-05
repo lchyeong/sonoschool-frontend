@@ -47,8 +47,7 @@ const normalizeDraftDetail = (detail: AdminProgramDraftDetail): AdminProgramDraf
           ...lecture,
           lectureType: lecture.lectureType,
           offlineScheduleRule: lecture.offlineScheduleRule,
-          practicumDescription: lecture.practicumDescription,
-          practicumTitle: lecture.practicumTitle,
+          preview: false,
           videoUploadErrorMessage: lecture.videoUploadErrorMessage,
           videoUploadFileName: lecture.videoUploadFileName,
           videoUploadStatus: lecture.videoUploadStatus,
@@ -70,6 +69,7 @@ const normalizeDraftPayload = (payload: AdminProgramDraftPayload) => {
     ...payload,
     basicInfo: {
       ...payload.basicInfo,
+      thumbnailPreviewUrl: null,
       learningOutcomes: payload.basicInfo.learningOutcomes.map((item) => ({
         content: item.value,
         title: item.label,
@@ -79,6 +79,13 @@ const normalizeDraftPayload = (payload: AdminProgramDraftPayload) => {
         title: item.label,
       })),
     },
+    sections: payload.sections.map((section) => ({
+      ...section,
+      lectures: section.lectures.map((lecture) => ({
+        ...lecture,
+        preview: false,
+      })),
+    })),
   };
 };
 

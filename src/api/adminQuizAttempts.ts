@@ -20,6 +20,6 @@ export const fetchAdminQuizAttempts = async (quizId: number): Promise<AdminQuizA
       return [];
     }
 
-    throw toApiError(error, '퀴즈 응시 내역을 불러오지 못했습니다.');
+    throw toApiError(error, '문제 응시 내역을 불러오지 못했습니다.');
   }
 };

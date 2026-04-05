@@ -924,7 +924,7 @@ const MyPagePage = () => {
                 <div className={styles['paymentMetaGrid']}>
                   <div className={styles['paymentMetaItem']}>
                     <span className={styles['summaryLabel']}>결제일</span>
-                    <strong className={styles['couponCardMetaValue']}>
+                    <strong className={styles['paymentMetaValue']}>
                       {formatDateTime(
                         payment.paidAt ||
                           payment.cancelledAt ||
@@ -935,13 +935,13 @@ const MyPagePage = () => {
                   </div>
                   <div className={styles['paymentMetaItem']}>
                     <span className={styles['summaryLabel']}>결제 수단</span>
-                    <strong className={styles['couponCardMetaValue']}>
+                    <strong className={styles['paymentMetaValue']}>
                       {formatPaymentMethodLabel(payment.paymentMethod)}
                     </strong>
                   </div>
                   <div className={styles['paymentMetaItem']}>
                     <span className={styles['summaryLabel']}>결제 금액</span>
-                    <strong className={styles['couponCardMetaValue']}>
+                    <strong className={styles['paymentMetaValue']}>
                       {formatCurrency(payment.amount)}
                     </strong>
                   </div>

@@ -233,7 +233,7 @@ const PlayerPage = () => {
     ? snapshot?.lessonPlaybackById[selectedLesson.id] || null
     : null;
   const isQuizItem = selectedItem?.kind === 'quiz';
-  const isQuizLesson = selectedLesson?.deliveryType === 'quiz';
+  const isQuizLesson = selectedLesson?.deliveryType === 'problem';
   const isQuizMode = Boolean(selectedItem) && (isQuizItem || isQuizLesson);
   const isLessonItem = selectedItem?.kind === 'lesson';
   const selectedLectureId = selectedSource?.lectureId ?? null;
@@ -300,7 +300,7 @@ const PlayerPage = () => {
       submitStudentQuiz(quizId, { answers }),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '퀴즈 제출에 실패했습니다.',
+        message: error instanceof Error ? error.message : '문제 제출에 실패했습니다.',
         variant: 'error',
       });
     },
@@ -317,7 +317,7 @@ const PlayerPage = () => {
       });
       setQuizAttemptResult(result);
       showToast({
-        message: result.passed ? '퀴즈를 통과했습니다.' : '퀴즈 제출을 완료했습니다.',
+        message: result.passed ? '문제를 통과했습니다.' : '문제 제출을 완료했습니다.',
         variant: 'success',
       });
     },
@@ -538,7 +538,7 @@ const PlayerPage = () => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [isQuizMode, persistQuizSession, quizAttemptResult, quizQuery.data]);
+  }, [isQuizMode, quizAttemptResult, quizQuery.data]);
 
   useEffect(() => {
     if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
@@ -554,7 +554,6 @@ const PlayerPage = () => {
     };
   }, [
     isQuizMode,
-    persistQuizSession,
     quizAnswers,
     quizAttemptResult,
     quizCurrentQuestionIndex,
@@ -584,7 +583,7 @@ const PlayerPage = () => {
       window.removeEventListener('pagehide', flushQuizSession);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isQuizMode, persistQuizSession, quizAttemptResult, quizQuery.data]);
+  }, [isQuizMode, quizAttemptResult, quizQuery.data]);
 
   useEffect(() => {
     setProgressSaveError(null);
@@ -1261,16 +1260,16 @@ const PlayerPage = () => {
                           강의를 먼저 완료해 주세요.
                         </strong>
                         <p className={styles['quizMutedText']}>
-                          퀴즈는 강의 시청 완료 후에만 열립니다.
+                          문제는 강의 시청 완료 후에만 열립니다.
                         </p>
                       </div>
                     ) : quizQuery.isLoading ? (
-                      <p className={styles['quizMutedText']}>퀴즈 정보를 불러오는 중입니다.</p>
+                      <p className={styles['quizMutedText']}>문제 정보를 불러오는 중입니다.</p>
                     ) : quizQuery.isError ? (
                       <p className={styles['quizErrorText']}>
                         {quizQuery.error instanceof Error
                           ? quizQuery.error.message
-                          : '퀴즈 정보를 불러오지 못했습니다.'}
+                          : '문제 정보를 불러오지 못했습니다.'}
                       </p>
                     ) : !quizQuery.data ? (
                       <p className={styles['quizMutedText']}>이 강의에는 등록된 문제가 없습니다.</p>
@@ -1695,14 +1694,14 @@ const PlayerPage = () => {
                                         {item.kind === 'lesson' ? (
                                           <>
                                             <span className={styles['lessonLinkDuration']}>
-                                              {lesson.deliveryType === 'quiz'
+                                              {lesson.deliveryType === 'problem'
                                                 ? '문제 풀이'
                                                 : lesson.durationLabel}
                                             </span>
                                             {lesson.deliveryType ===
-                                            'quiz' ? null : lesson.hasQuiz ? (
+                                            'problem' ? null : lesson.hasQuiz ? (
                                               <span className={styles['lessonLinkDuration']}>
-                                                퀴즈 포함
+                                                문제 포함
                                               </span>
                                             ) : null}
                                           </>
@@ -1713,7 +1712,7 @@ const PlayerPage = () => {
                                               isQuizCompleted && styles['lessonQuizBadgeCompleted'],
                                             )}
                                           >
-                                            {isQuizCompleted ? '퀴즈 완료' : '확인 퀴즈'}
+                                            {isQuizCompleted ? '문제 완료' : '확인 문제'}
                                           </span>
                                         )}
                                       </div>

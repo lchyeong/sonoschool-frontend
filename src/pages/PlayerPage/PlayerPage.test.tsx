@@ -292,7 +292,7 @@ const testQuiz: StudentQuiz = {
     },
   ],
   session: null,
-  title: '복부초음파 기초 2강 확인 퀴즈',
+  title: '복부초음파 기초 2강 확인 문제',
 };
 
 const renderPlayerPage = (initialEntry = '/mypage/learning/101/lesson/enrollment-101-lesson-2') => {
@@ -541,13 +541,13 @@ describe('PlayerPage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
     ).toBeInTheDocument();
-    expect(screen.queryByText('이 강의 확인 퀴즈')).not.toBeInTheDocument();
+    expect(screen.queryByText('이 강의 확인 문제')).not.toBeInTheDocument();
 
     cleanup();
     renderPlayerPage('/mypage/learning/101/lesson/enrollment-101-lesson-2__quiz');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 2강 확인 퀴즈' }),
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 2강 확인 문제' }),
     ).toBeInTheDocument();
     expect(await screen.findByAltText('1번 문항 미디어')).toBeInTheDocument();
     expect(await screen.findByAltText('1번 문항 2번 보기 미디어')).toBeInTheDocument();
