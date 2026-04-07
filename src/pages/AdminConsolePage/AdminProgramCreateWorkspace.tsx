@@ -32,6 +32,7 @@ import {
 import AdminCategoryPicker from '@/components/admin/AdminCategoryPicker/AdminCategoryPicker';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import AdminFieldArray from '@/components/admin/AdminFieldArray/AdminFieldArray';
+import { LoadingSpinner } from '@/components/feedback/Loading/LoadingSpinner';
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
@@ -48,6 +49,7 @@ import type { AdminLectureType } from '@/types/adminCurriculum';
 import type {
   AdminDraftUploadStatus,
   AdminProgramDraftDetail,
+  AdminProgramDraftLectureOfflineSchedule,
   AdminProgramDraftLecture,
   AdminProgramDraftPayload,
   AdminProgramDraftQuiz,
@@ -64,6 +66,10 @@ import type {
 import type { AdminQuizMediaType } from '@/types/adminQuizzes';
 
 import styles from './AdminConsolePage.module.scss';
+import {
+  PROGRAM_THUMBNAIL_FILE_ACCEPT,
+  validateProgramThumbnailFile,
+} from './adminConsolePageShared';
 
 const TARGET_PART_SIZE_BYTES = 8 * 1024 * 1024;
 const RESOURCE_FILE_ACCEPT = '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
@@ -101,15 +107,23 @@ interface UploadProgressModalState {
   title: string;
 }
 
-const EMPTY_DRAFT_OFFLINE_SESSION = {
-  endDate: null,
+const EMPTY_DRAFT_OFFLINE_SCHEDULE: AdminProgramDraftLectureOfflineSchedule = {
+  date: null,
   endTime: null,
   location: null,
   notes: null,
-  startDate: null,
   startTime: null,
-  weekdays: [] as string[],
 };
+
+const HOURLY_TIME_VALUES = Array.from(
+  { length: 24 },
+  (_, index) => `${String(index).padStart(2, '0')}:00`,
+);
+
+const OFFLINE_START_TIME_OPTIONS = HOURLY_TIME_VALUES.slice(0, -1).map((value) => ({
+  label: value,
+  value,
+}));
 
 const LECTURE_TYPE_LABELS: Record<AdminLectureType, string> = {
   OFFLINE: '현장강의',
@@ -273,7 +287,7 @@ const createEmptyLecture = (
   durationSeconds: null,
   key: createClientKey('lecture'),
   lectureType,
-  offlineScheduleRule: null,
+  offlineSchedules: [],
   preview: false,
   published: false,
   sortOrder,
@@ -334,6 +348,61 @@ const createEmptyPayload = (): AdminProgramDraftPayload => ({
   quizzes: [],
   resources: [],
   sections: [createEmptySection(0)],
+});
+
+const normalizeLegacyOfflineSchedules = (
+  lecture: AdminProgramDraftLecture & {
+    offlineScheduleRule?: {
+      endTime?: string | null;
+      location?: string | null;
+      notes?: string | null;
+      startDate?: string | null;
+      startTime?: string | null;
+    } | null;
+  },
+): AdminProgramDraftLectureOfflineSchedule[] => {
+  const currentSchedules = Array.isArray(lecture.offlineSchedules) ? lecture.offlineSchedules : [];
+  if (currentSchedules.length > 0) {
+    return currentSchedules;
+  }
+
+  const legacyRule = lecture.offlineScheduleRule;
+  if (!legacyRule) {
+    return [];
+  }
+
+  const migratedSchedule: AdminProgramDraftLectureOfflineSchedule = {
+    date: legacyRule.startDate ?? null,
+    endTime: legacyRule.endTime ?? null,
+    location: legacyRule.location ?? null,
+    notes: legacyRule.notes ?? null,
+    startTime: legacyRule.startTime ?? null,
+  };
+
+  if (
+    !migratedSchedule.date &&
+    !migratedSchedule.startTime &&
+    !migratedSchedule.endTime &&
+    !migratedSchedule.location &&
+    !migratedSchedule.notes
+  ) {
+    return [];
+  }
+
+  return [migratedSchedule];
+};
+
+const normalizeDraftPayloadShape = (
+  payload: AdminProgramDraftPayload,
+): AdminProgramDraftPayload => ({
+  ...payload,
+  sections: payload.sections.map((section) => ({
+    ...section,
+    lectures: section.lectures.map((lecture) => ({
+      ...lecture,
+      offlineSchedules: normalizeLegacyOfflineSchedules(lecture),
+    })),
+  })),
 });
 
 const reindexDraftResources = (
@@ -479,6 +548,35 @@ const toDateTimeLocal = (value: string | null): string => {
   return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
 };
 
+const toDateInputValue = (value: string | null): string => {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${String(year)}-${month}-${day}`;
+};
+
+const createEmptyOfflineSchedule = (): AdminProgramDraftLectureOfflineSchedule => ({
+  ...EMPTY_DRAFT_OFFLINE_SCHEDULE,
+});
+
+const buildOfflineEndTimeOptions = (startTime: string | null) => {
+  return HOURLY_TIME_VALUES.slice(1).map((value) => ({
+    disabled: startTime !== null && value <= startTime,
+    label: value,
+    value,
+  }));
+};
+
 const toIsoStringOrNull = (value: string): string | null => {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -587,7 +685,7 @@ const buildVideoChunks = (
 };
 
 const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgramDraftPayload => {
-  const nextPayload = detail.payload ?? createEmptyPayload();
+  const nextPayload = normalizeDraftPayloadShape(detail.payload ?? createEmptyPayload());
   return {
     ...nextPayload,
     basicInfo: {
@@ -622,7 +720,7 @@ const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgr
             lectureType:
               lecture.lectureType ??
               getDefaultLectureType(nextPayload.basicInfo?.programType ?? 'ONLINE'),
-            offlineScheduleRule: lecture.offlineScheduleRule ?? null,
+            offlineSchedules: lecture.offlineSchedules ?? [],
             videoUploadErrorMessage: lecture.videoUploadErrorMessage ?? null,
             videoUploadFileName: lecture.videoUploadFileName ?? null,
             videoUploadStatus: lecture.videoUploadStatus ?? null,
@@ -667,6 +765,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   const [openLectureTypeMenuSectionKey, setOpenLectureTypeMenuSectionKey] = useState<string | null>(
     null,
   );
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [uploadProgressModal, setUploadProgressModal] = useState<UploadProgressModalState | null>(
     null,
   );
@@ -677,6 +776,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   const currentPayloadRef = useRef<AdminProgramDraftPayload | null>(null);
   const bypassNavigationBlockRef = useRef(false);
   const lectureTypeMenuRef = useRef<HTMLDivElement | null>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
 
   const createDraftMutation = useMutation({
     mutationFn: () => createAdminProgramDraft(),
@@ -689,7 +789,9 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     onSuccess: (detail) => {
       const normalizedPayload = normalizePayloadFromDetail(detail);
       const snapshot = loadCreateWorkspaceSnapshot(detail.id);
-      const nextPayload = snapshot?.payload ?? normalizedPayload;
+      const nextPayload = snapshot
+        ? normalizeDraftPayloadShape(snapshot.payload)
+        : normalizedPayload;
       setPayload(nextPayload);
       currentPayloadRef.current = nextPayload;
       initializedDraftIdRef.current = detail.id;
@@ -789,6 +891,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     () => getAllowedLectureTypes(payload?.basicInfo.programType ?? null),
     [payload?.basicInfo.programType],
   );
+  const offlineScheduleMinDate = toDateInputValue(payload?.basicInfo.learningStartAt ?? null);
+  const offlineScheduleMaxDate = toDateInputValue(payload?.basicInfo.learningEndAt ?? null);
+  const hasOfflineSchedulePeriod =
+    offlineScheduleMinDate.length > 0 && offlineScheduleMaxDate.length > 0;
   let navigationBlocker: Pick<Blocker, 'proceed' | 'reset' | 'state'> = IDLE_NAVIGATION_BLOCKER;
 
   try {
@@ -853,7 +959,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
 
     const normalizedPayload = normalizePayloadFromDetail(detail);
     const snapshot = loadCreateWorkspaceSnapshot(detail.id);
-    const nextPayload = snapshot?.payload ?? normalizedPayload;
+    const nextPayload = snapshot ? normalizeDraftPayloadShape(snapshot.payload) : normalizedPayload;
     setPayload(nextPayload);
     currentPayloadRef.current = nextPayload;
     initializedDraftIdRef.current = detail.id;
@@ -982,6 +1088,16 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       return;
     }
 
+    const validationMessage = validateProgramThumbnailFile(file);
+    if (validationMessage) {
+      showToast({
+        message: validationMessage,
+        variant: 'error',
+      });
+      return;
+    }
+
+    setIsUploadingThumbnail(true);
     setUploadProgressModal({
       description: '대표 이미지 업로드가 끝날 때까지 잠시 기다려 주세요.',
       title: '대표 이미지 업로드 중',
@@ -1015,6 +1131,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         variant: 'error',
       });
     } finally {
+      setIsUploadingThumbnail(false);
       setUploadProgressModal(null);
     }
   };
@@ -1215,6 +1332,40 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       lectures: section.lectures.map((lecture) =>
         lecture.key === lectureKey ? updater(lecture) : lecture,
       ),
+    }));
+  };
+
+  const updateLectureOfflineSchedule = (
+    sectionKey: string,
+    lectureKey: string,
+    scheduleIndex: number,
+    updater: (
+      schedule: AdminProgramDraftLectureOfflineSchedule,
+    ) => AdminProgramDraftLectureOfflineSchedule,
+  ) => {
+    updateLecture(sectionKey, lectureKey, (lecture) => ({
+      ...lecture,
+      offlineSchedules: lecture.offlineSchedules.map((schedule, index) =>
+        index === scheduleIndex ? updater(schedule) : schedule,
+      ),
+    }));
+  };
+
+  const addLectureOfflineSchedule = (sectionKey: string, lectureKey: string) => {
+    updateLecture(sectionKey, lectureKey, (lecture) => ({
+      ...lecture,
+      offlineSchedules: [...lecture.offlineSchedules, createEmptyOfflineSchedule()],
+    }));
+  };
+
+  const removeLectureOfflineSchedule = (
+    sectionKey: string,
+    lectureKey: string,
+    scheduleIndex: number,
+  ) => {
+    updateLecture(sectionKey, lectureKey, (lecture) => ({
+      ...lecture,
+      offlineSchedules: lecture.offlineSchedules.filter((_, index) => index !== scheduleIndex),
     }));
   };
 
@@ -2592,38 +2743,39 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         <Modal
           description={uploadProgressModal.description}
           onClose={() => {
-            setUploadProgressModal(null);
+            return;
           }}
           title={uploadProgressModal.title}
         >
-          <div className={styles['stackList']}>
-            <p className={styles['helperText']}>
-              업로드 진행 중에는 이 화면을 벗어나지 않는 편이 안전합니다.
-            </p>
+          <div className={styles['loadingModalBody']}>
+            <LoadingSpinner />
+            <p className={styles['loadingModalText']}>{uploadProgressModal.description}</p>
           </div>
         </Modal>
       ) : null}
 
       <section className={styles['editorWorkspacePanel']}>
         <nav aria-label='새 프로그램 등록 섹션' className={styles['workspaceTabs']}>
-          {createTabs.map((tab) => (
-            <button
-              aria-current={activeView === tab.key ? 'page' : undefined}
-              className={
-                activeView === tab.key ? styles['workspaceTabActive'] : styles['workspaceTab']
-              }
-              key={tab.key}
-              onClick={() => {
-                if (activeView === tab.key) {
-                  return;
+          <div className={styles['workspaceTabGroup']}>
+            {createTabs.map((tab) => (
+              <button
+                aria-current={activeView === tab.key ? 'page' : undefined}
+                className={
+                  activeView === tab.key ? styles['workspaceTabActive'] : styles['workspaceTab']
                 }
-                handleDraftNavigation(tab.path);
-              }}
-              type='button'
-            >
-              {tab.label}
-            </button>
-          ))}
+                key={tab.key}
+                onClick={() => {
+                  if (activeView === tab.key) {
+                    return;
+                  }
+                  handleDraftNavigation(tab.path);
+                }}
+                type='button'
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </nav>
 
         <div className={styles['workspaceBody']}>
@@ -2728,54 +2880,80 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                           프로그램 카드와 상세 상단에 노출될 이미지를 업로드합니다.
                         </p>
                       </div>
-                      {payload.basicInfo.thumbnailPreviewUrl ? (
-                        <button
-                          className={styles['tableActionButton']}
-                          onClick={() => {
-                            updatePayload((current) => ({
-                              ...current,
-                              basicInfo: {
-                                ...current.basicInfo,
-                                thumbnailPreviewUrl: null,
-                                thumbnailUrl: null,
-                              },
-                            }));
-                          }}
-                          type='button'
-                        >
-                          이미지 제거
-                        </button>
-                      ) : null}
                     </div>
-
-                    <TextField
-                      accept='image/*'
-                      label='대표 이미지 파일'
+                    <input
+                      accept={PROGRAM_THUMBNAIL_FILE_ACCEPT}
+                      className={styles['thumbnailFileInput']}
                       name='draft-thumbnail-file'
                       onChange={(event) => {
                         void handleProgramThumbnailFileChange(event.target.files?.[0] ?? null);
                         event.currentTarget.value = '';
                       }}
+                      ref={thumbnailInputRef}
                       type='file'
                     />
 
-                    {payload.basicInfo.thumbnailPreviewUrl ? (
-                      <div className={styles['thumbnailPreview']}>
-                        <img
-                          alt={
-                            payload.basicInfo.title
-                              ? `${payload.basicInfo.title} 대표 이미지`
-                              : '프로그램 대표 이미지'
-                          }
-                          className={styles['thumbnailPreviewImage']}
-                          src={payload.basicInfo.thumbnailPreviewUrl}
-                        />
+                    <div className={styles['thumbnailUploadPanel']}>
+                      <div className={styles['thumbnailPreviewPanel']}>
+                        {payload.basicInfo.thumbnailPreviewUrl ? (
+                          <div className={styles['thumbnailPreview']}>
+                            <img
+                              alt={
+                                payload.basicInfo.title
+                                  ? `${payload.basicInfo.title} 대표 이미지`
+                                  : '프로그램 대표 이미지'
+                              }
+                              className={styles['thumbnailPreviewImage']}
+                              src={payload.basicInfo.thumbnailPreviewUrl}
+                            />
+                          </div>
+                        ) : (
+                          <div className={styles['thumbnailEmptyState']}>
+                            등록된 대표 이미지가 없습니다.
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className={styles['thumbnailEmptyState']}>
-                        등록된 대표 이미지가 없습니다.
+
+                      <div className={styles['thumbnailPreviewMeta']}>
+                        <p className={styles['thumbnailPreviewTitle']}>대표 이미지 미리보기</p>
+                        <div className={styles['thumbnailActionRow']}>
+                          <Button
+                            disabled={isUploadingThumbnail}
+                            onClick={() => {
+                              thumbnailInputRef.current?.click();
+                            }}
+                            size='sm'
+                            type='button'
+                            variant='primary'
+                          >
+                            {isUploadingThumbnail ? '업로드 중...' : '파일 선택'}
+                          </Button>
+                          {payload.basicInfo.thumbnailPreviewUrl ? (
+                            <Button
+                              disabled={isUploadingThumbnail}
+                              onClick={() => {
+                                updatePayload((current) => ({
+                                  ...current,
+                                  basicInfo: {
+                                    ...current.basicInfo,
+                                    thumbnailPreviewUrl: null,
+                                    thumbnailUrl: null,
+                                  },
+                                }));
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              이미지 제거
+                            </Button>
+                          ) : null}
+                        </div>
+                        <p className={styles['thumbnailFileCaption']}>
+                          허용 형식 · {PROGRAM_THUMBNAIL_FILE_ACCEPT.replaceAll(',', ', ')}
+                        </p>
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   <div className={styles['inlineFieldGrid']}>
@@ -2883,6 +3061,12 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       value={toDateTimeLocal(payload.basicInfo.saleEndAt)}
                     />
                   </div>
+
+                  <p className={styles['policyHint']}>
+                    {payload.basicInfo.programType === 'OFFLINE'
+                      ? '오프라인 프로그램은 개강일이 지나면 관리자 화면에서 개강됨 상태로 표시됩니다.'
+                      : '온라인·하이브리드 프로그램은 판매 종료일을 비워 두면 상시 판매로 운영할 수 있습니다.'}
+                  </p>
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
@@ -3581,162 +3765,159 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                           {supportsOffline ? (
                                             <div className={styles['lectureWorkspaceSection']}>
                                               <h5 className={styles['panelTitle']}>현장강의</h5>
-                                              <div className={styles['inlineFieldGrid']}>
-                                                <TextField
-                                                  label='시작일'
-                                                  name={`lecture-offline-start-date-${lecture.key}`}
-                                                  onChange={(event) => {
-                                                    updateLecture(
-                                                      section.key,
-                                                      lecture.key,
-                                                      (current) => ({
-                                                        ...current,
-                                                        offlineScheduleRule: {
-                                                          ...(current.offlineScheduleRule ??
-                                                            EMPTY_DRAFT_OFFLINE_SESSION),
-                                                          startDate: event.target.value,
-                                                        },
-                                                      }),
-                                                    );
-                                                  }}
-                                                  type='date'
-                                                  value={
-                                                    lecture.offlineScheduleRule?.startDate ?? ''
-                                                  }
-                                                />
-                                                <TextField
-                                                  label='종료일'
-                                                  name={`lecture-offline-end-date-${lecture.key}`}
-                                                  onChange={(event) => {
-                                                    updateLecture(
-                                                      section.key,
-                                                      lecture.key,
-                                                      (current) => ({
-                                                        ...current,
-                                                        offlineScheduleRule: {
-                                                          ...(current.offlineScheduleRule ??
-                                                            EMPTY_DRAFT_OFFLINE_SESSION),
-                                                          endDate: event.target.value,
-                                                        },
-                                                      }),
-                                                    );
-                                                  }}
-                                                  type='date'
-                                                  value={lecture.offlineScheduleRule?.endDate ?? ''}
-                                                />
+                                              <p className={styles['helperText']}>
+                                                프로그램 기간 안에서 날짜를 고르고, 시간은 1시간
+                                                단위로만 선택합니다. 장소와 비고는 선택 입력입니다.
+                                              </p>
+                                              {!hasOfflineSchedulePeriod ? (
+                                                <p className={styles['helperText']}>
+                                                  먼저 기본정보에서 학습 시작일과 종료일을 입력해
+                                                  주세요.
+                                                </p>
+                                              ) : null}
+                                              {lecture.offlineSchedules.length === 0 ? (
+                                                <p className={styles['helperText']}>
+                                                  등록된 현장 일정이 없습니다.
+                                                </p>
+                                              ) : null}
+                                              <div className={styles['offlineScheduleDraftList']}>
+                                                {lecture.offlineSchedules.map(
+                                                  (schedule, scheduleIndex) => (
+                                                    <div
+                                                      className={styles['offlineScheduleDraftCard']}
+                                                      key={`${lecture.key}-offline-schedule-${String(scheduleIndex)}`}
+                                                    >
+                                                      <div className={styles['actionRow']}>
+                                                        <strong>
+                                                          일정 {String(scheduleIndex + 1)}
+                                                        </strong>
+                                                        <Button
+                                                          onClick={() => {
+                                                            removeLectureOfflineSchedule(
+                                                              section.key,
+                                                              lecture.key,
+                                                              scheduleIndex,
+                                                            );
+                                                          }}
+                                                          size='sm'
+                                                          type='button'
+                                                          variant='secondary'
+                                                        >
+                                                          일정 제거
+                                                        </Button>
+                                                      </div>
+                                                      <div className={styles['inlineFieldGrid']}>
+                                                        <TextField
+                                                          label='날짜'
+                                                          max={offlineScheduleMaxDate}
+                                                          min={offlineScheduleMinDate}
+                                                          name={`lecture-offline-date-${lecture.key}-${String(scheduleIndex)}`}
+                                                          onChange={(event) => {
+                                                            updateLectureOfflineSchedule(
+                                                              section.key,
+                                                              lecture.key,
+                                                              scheduleIndex,
+                                                              (current) => ({
+                                                                ...current,
+                                                                date: event.target.value || null,
+                                                              }),
+                                                            );
+                                                          }}
+                                                          type='date'
+                                                          value={schedule.date ?? ''}
+                                                        />
+                                                        <AdminDropdownField
+                                                          compact
+                                                          label='시작 시간'
+                                                          onChange={(value) => {
+                                                            updateLectureOfflineSchedule(
+                                                              section.key,
+                                                              lecture.key,
+                                                              scheduleIndex,
+                                                              (current) => ({
+                                                                ...current,
+                                                                startTime: value,
+                                                              }),
+                                                            );
+                                                          }}
+                                                          options={OFFLINE_START_TIME_OPTIONS}
+                                                          value={schedule.startTime ?? ''}
+                                                        />
+                                                      </div>
+                                                      <div className={styles['inlineFieldGrid']}>
+                                                        <AdminDropdownField
+                                                          compact
+                                                          label='종료 시간'
+                                                          onChange={(value) => {
+                                                            updateLectureOfflineSchedule(
+                                                              section.key,
+                                                              lecture.key,
+                                                              scheduleIndex,
+                                                              (current) => ({
+                                                                ...current,
+                                                                endTime: value,
+                                                              }),
+                                                            );
+                                                          }}
+                                                          options={buildOfflineEndTimeOptions(
+                                                            schedule.startTime,
+                                                          )}
+                                                          value={schedule.endTime ?? ''}
+                                                        />
+                                                        <TextField
+                                                          label='장소'
+                                                          name={`lecture-offline-location-${lecture.key}-${String(scheduleIndex)}`}
+                                                          onChange={(event) => {
+                                                            updateLectureOfflineSchedule(
+                                                              section.key,
+                                                              lecture.key,
+                                                              scheduleIndex,
+                                                              (current) => ({
+                                                                ...current,
+                                                                location:
+                                                                  event.target.value || null,
+                                                              }),
+                                                            );
+                                                          }}
+                                                          value={schedule.location ?? ''}
+                                                        />
+                                                      </div>
+                                                      <TextAreaField
+                                                        label='비고'
+                                                        name={`lecture-offline-notes-${lecture.key}-${String(scheduleIndex)}`}
+                                                        onChange={(event) => {
+                                                          updateLectureOfflineSchedule(
+                                                            section.key,
+                                                            lecture.key,
+                                                            scheduleIndex,
+                                                            (current) => ({
+                                                              ...current,
+                                                              notes: event.target.value || null,
+                                                            }),
+                                                          );
+                                                        }}
+                                                        rows={3}
+                                                        value={schedule.notes ?? ''}
+                                                      />
+                                                    </div>
+                                                  ),
+                                                )}
                                               </div>
-                                              <div className={styles['inlineFieldGrid']}>
-                                                <TextField
-                                                  label='시작 시간'
-                                                  name={`lecture-offline-start-time-${lecture.key}`}
-                                                  onChange={(event) => {
-                                                    updateLecture(
+                                              <div className={styles['actionRow']}>
+                                                <Button
+                                                  disabled={!hasOfflineSchedulePeriod}
+                                                  onClick={() => {
+                                                    addLectureOfflineSchedule(
                                                       section.key,
                                                       lecture.key,
-                                                      (current) => ({
-                                                        ...current,
-                                                        offlineScheduleRule: {
-                                                          ...(current.offlineScheduleRule ??
-                                                            EMPTY_DRAFT_OFFLINE_SESSION),
-                                                          startTime: event.target.value,
-                                                        },
-                                                      }),
                                                     );
                                                   }}
-                                                  type='time'
-                                                  value={
-                                                    lecture.offlineScheduleRule?.startTime ?? ''
-                                                  }
-                                                />
-                                                <TextField
-                                                  label='종료 시간'
-                                                  name={`lecture-offline-end-time-${lecture.key}`}
-                                                  onChange={(event) => {
-                                                    updateLecture(
-                                                      section.key,
-                                                      lecture.key,
-                                                      (current) => ({
-                                                        ...current,
-                                                        offlineScheduleRule: {
-                                                          ...(current.offlineScheduleRule ??
-                                                            EMPTY_DRAFT_OFFLINE_SESSION),
-                                                          endTime: event.target.value,
-                                                        },
-                                                      }),
-                                                    );
-                                                  }}
-                                                  type='time'
-                                                  value={lecture.offlineScheduleRule?.endTime ?? ''}
-                                                />
+                                                  type='button'
+                                                  variant='secondary'
+                                                >
+                                                  일정 추가
+                                                </Button>
                                               </div>
-                                              <div className={styles['inlineFieldGrid']}>
-                                                <TextField
-                                                  label='장소'
-                                                  name={`lecture-offline-location-${lecture.key}`}
-                                                  onChange={(event) => {
-                                                    updateLecture(
-                                                      section.key,
-                                                      lecture.key,
-                                                      (current) => ({
-                                                        ...current,
-                                                        offlineScheduleRule: {
-                                                          ...(current.offlineScheduleRule ??
-                                                            EMPTY_DRAFT_OFFLINE_SESSION),
-                                                          location: event.target.value,
-                                                        },
-                                                      }),
-                                                    );
-                                                  }}
-                                                  value={
-                                                    lecture.offlineScheduleRule?.location ?? ''
-                                                  }
-                                                />
-                                                <TextField
-                                                  label='비고'
-                                                  name={`lecture-offline-notes-${lecture.key}`}
-                                                  onChange={(event) => {
-                                                    updateLecture(
-                                                      section.key,
-                                                      lecture.key,
-                                                      (current) => ({
-                                                        ...current,
-                                                        offlineScheduleRule: {
-                                                          ...(current.offlineScheduleRule ??
-                                                            EMPTY_DRAFT_OFFLINE_SESSION),
-                                                          notes: event.target.value,
-                                                        },
-                                                      }),
-                                                    );
-                                                  }}
-                                                  value={lecture.offlineScheduleRule?.notes ?? ''}
-                                                />
-                                              </div>
-                                              <TextField
-                                                label='요일'
-                                                name={`lecture-offline-weekdays-${lecture.key}`}
-                                                onChange={(event) => {
-                                                  updateLecture(
-                                                    section.key,
-                                                    lecture.key,
-                                                    (current) => ({
-                                                      ...current,
-                                                      offlineScheduleRule: {
-                                                        ...(current.offlineScheduleRule ??
-                                                          EMPTY_DRAFT_OFFLINE_SESSION),
-                                                        weekdays: event.target.value
-                                                          .split(',')
-                                                          .map((value) =>
-                                                            value.trim().toUpperCase(),
-                                                          )
-                                                          .filter(Boolean),
-                                                      },
-                                                    }),
-                                                  );
-                                                }}
-                                                value={(
-                                                  lecture.offlineScheduleRule?.weekdays ?? []
-                                                ).join(', ')}
-                                              />
                                             </div>
                                           ) : null}
                                         </div>

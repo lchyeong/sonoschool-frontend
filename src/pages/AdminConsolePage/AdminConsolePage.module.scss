@@ -656,6 +656,10 @@
   background: var(--admin-surface);
 }
 
+.thumbnailFileInput {
+  display: none;
+}
+
 .mediaFieldHeader {
   display: flex;
   flex-wrap: wrap;
@@ -669,8 +673,21 @@
   gap: var(--space-1);
 }
 
+.thumbnailUploadPanel {
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.thumbnailPreviewPanel {
+  min-width: 0;
+}
+
 .thumbnailPreview {
-  width: min(100%, 360px);
+  display: grid;
+  place-items: center;
+  width: 100%;
   overflow: hidden;
   border: 1px solid var(--admin-border);
   background: var(--admin-surface);
@@ -679,16 +696,65 @@
 .thumbnailPreviewImage {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+  height: auto;
+  max-height: 320px;
+  object-fit: contain;
 }
 
 .thumbnailEmptyState {
+  display: grid;
+  align-items: center;
+  min-height: 204px;
   padding: var(--space-4);
   border: 1px dashed var(--admin-border);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
+  background: color-mix(in srgb, var(--color-brand-main) 4%, #ffffff);
+}
+
+.thumbnailPreviewMeta {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--admin-border);
+  background: color-mix(in srgb, var(--color-brand-main) 4%, #ffffff);
+}
+
+.thumbnailPreviewTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.thumbnailFileCaption {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+}
+
+.thumbnailActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.loadingModalBody {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+
+.loadingModalText {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  text-align: center;
 }
 
 .faqFieldGrid {
@@ -824,6 +890,7 @@
   position: relative;
   display: block;
   width: 100%;
+  min-height: 48px;
   border: 1px solid var(--admin-border);
   background: var(--admin-surface);
   overflow: hidden;
@@ -871,7 +938,7 @@
 }
 
 .select {
-  min-height: 42px;
+  min-height: 48px;
   padding: 0 56px 0 12px;
   border: 0;
   background: transparent;
@@ -996,6 +1063,15 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   line-height: 1.4;
+}
+
+.cellNumeric {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cellNoWrap {
+  white-space: nowrap;
 }
 
 .itemTitle {
@@ -1302,6 +1378,19 @@
   border-top: 1px solid var(--admin-border);
 }
 
+.offlineScheduleDraftList {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.offlineScheduleDraftCard {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.82);
+}
+
 .curriculumLectureList {
   display: grid;
   gap: var(--space-3);
@@ -1563,6 +1652,46 @@
   font-size: var(--font-size-sm);
 }
 
+.programTable th:nth-child(1),
+.programTable td:nth-child(1) {
+  width: 18%;
+}
+
+.programTable th:nth-child(2),
+.programTable td:nth-child(2) {
+  width: 12%;
+}
+
+.programTable th:nth-child(3),
+.programTable td:nth-child(3) {
+  width: 8%;
+}
+
+.programTable th:nth-child(4),
+.programTable td:nth-child(4) {
+  width: 10%;
+}
+
+.programTable th:nth-child(5),
+.programTable td:nth-child(5) {
+  width: 9%;
+}
+
+.programTable th:nth-child(6),
+.programTable td:nth-child(6) {
+  width: 15%;
+}
+
+.programTable th:nth-child(7),
+.programTable td:nth-child(7) {
+  width: 8%;
+}
+
+.programTable th:nth-child(8),
+.programTable td:nth-child(8) {
+  width: 20%;
+}
+
 .table th:nth-child(1),
 .table td:nth-child(1) {
   width: 17%;
@@ -1607,8 +1736,42 @@
   padding-right: calc(var(--space-4) + 10px);
 }
 
+.table.programEnrollmentTable th:nth-child(1),
+.table.programEnrollmentTable td:nth-child(1) {
+  width: 17%;
+}
+
+.table.programEnrollmentTable th:nth-child(2),
+.table.programEnrollmentTable td:nth-child(2) {
+  width: 13%;
+}
+
+.table.programEnrollmentTable th:nth-child(3),
+.table.programEnrollmentTable td:nth-child(3) {
+  width: 10%;
+}
+
+.table.programEnrollmentTable th:nth-child(4),
+.table.programEnrollmentTable td:nth-child(4) {
+  width: 14%;
+}
+
+.table.programEnrollmentTable th:nth-child(5),
+.table.programEnrollmentTable td:nth-child(5) {
+  width: 24%;
+}
+
+.table.programEnrollmentTable th:nth-child(6),
+.table.programEnrollmentTable td:nth-child(6) {
+  width: 22%;
+}
+
 .table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.programRowWarning td:first-child {
+  background: #fff8f1;
 }
 
 .tagTableRowSelected td {
@@ -1706,11 +1869,37 @@
   color: #b91c1c;
 }
 
+.programStatusPeriod {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: normal;
+}
+
+.adminPracticumTopActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
 .adminInlineFilters {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   gap: var(--space-3);
+  width: 100%;
+}
+
+.adminInlineFilterField {
+  flex: 0 0 160px;
+}
+
+.adminInlineSearchField {
+  flex: 1 1 280px;
+  min-width: 280px;
 }
 
 .adminPracticumList {
@@ -1835,33 +2024,37 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
   align-content: start;
+  border-top: 1px solid var(--admin-border);
+  border-left: 1px solid var(--admin-border);
 }
 
 .practicumCalendarEmptyCell {
-  min-height: 128px;
-  border: 1px solid transparent;
-  background: transparent;
+  min-height: 148px;
+  border-right: 1px solid var(--admin-border);
+  border-bottom: 1px solid var(--admin-border);
+  background: #ffffff;
 }
 
 .practicumCalendarDay {
   display: grid;
   gap: var(--space-2);
   align-content: start;
-  min-height: 128px;
+  min-height: 148px;
   padding: var(--space-3);
-  border: 1px solid var(--admin-border);
+  border: 0;
+  border-right: 1px solid var(--admin-border);
+  border-bottom: 1px solid var(--admin-border);
   background: #ffffff;
   text-align: left;
   box-shadow: inset 0 0 0 0 transparent;
 }
 
 .practicumCalendarDay[data-selected='true'] {
-  border-color: var(--color-primary);
-  box-shadow: inset 0 0 0 1px var(--color-primary);
+  box-shadow: inset 0 0 0 2px var(--color-primary);
 }
 
 .practicumCalendarDay[data-has-items='true'] {
-  border-color: var(--admin-border-strong);
+  background: #fcfdff;
 }
 
 .practicumCalendarDayHeader {
@@ -1886,16 +2079,31 @@
 .practicumCalendarPreviewList {
   display: grid;
   gap: 6px;
+  align-content: start;
+}
+
+.practicumCalendarPreviewButton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.practicumCalendarPreviewButton:hover .practicumCalendarPreviewItem {
+  color: var(--color-text-primary);
 }
 
 .practicumCalendarPreviewItem {
-  display: block;
+  display: -webkit-box;
   overflow: hidden;
   color: var(--color-text-secondary);
   font-size: 11px;
   line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: keep-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .practicumCalendarEmptyText {
@@ -1908,6 +2116,26 @@
   gap: var(--space-4);
 }
 
+.practicumDetailHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.practicumDetailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-start;
+}
+
+.practicumDetailActionSecondary {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .practicumOperationPanel {
   display: grid;
   gap: var(--space-4);
@@ -1916,9 +2144,106 @@
   background: #ffffff;
 }
 
+.practicumDetailModal {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.practicumDetailSummary {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 10px var(--space-3);
+}
+
+.practicumDetailSummary span {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+}
+
+.practicumDetailSummary strong {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+}
+
+.practicumDetailReservationList {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.practicumDayOverviewModal {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.practicumDayOverviewSection {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.practicumDayOverviewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.practicumDayOverviewTitle {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.practicumDayOverviewList {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.practicumDayOverviewCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.practicumDetailReservationItem {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-3);
+  border: 1px solid var(--admin-border);
+  background: #ffffff;
+}
+
+.practicumDetailReservationItem span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+}
+
+.practicumOperationSection {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.practicumOperationSubheading {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
 .practicumOperationFields {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-3);
 }
 
@@ -1946,6 +2271,12 @@
   border-color: #d47a1f;
   box-shadow: inset 0 0 0 1px #d47a1f;
   color: #9a4f00;
+}
+
+.adminPracticumToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .paginationBar {
@@ -2591,6 +2922,10 @@
   }
 
   .quizQuestionWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .thumbnailUploadPanel {
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -1,8 +1,9 @@
 export type AdminProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID' | 'PROBLEM_SOLVING';
 export type AdminProgramLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
-export type AdminProgramCatalogStatus = 'OPEN' | 'SCHEDULED' | 'CLOSED' | 'FULL';
+export type AdminProgramCatalogStatus = 'OPEN' | 'SCHEDULED' | 'STARTED' | 'CLOSED' | 'FULL';
 export type AdminProgramAccessPolicy = 'COHORT' | 'FIXED_DURATION' | 'UNLIMITED';
 export type AdminProgramTagType = 'FEATURE' | 'FORMAT' | 'LEVEL' | 'TARGET' | 'TOPIC';
+export type AdminProgramOperationStatus = 'NORMAL' | 'CLOSURE_CONFIRMED';
 
 export interface AdminProgramCategoryTreeItem {
   id: number;
@@ -38,8 +39,13 @@ export interface AdminProgramListItem {
   salePrice: number | null;
   maxStudents: number | null;
   currentStudents: number;
+  activeEnrollmentCount?: number | null;
   full: boolean;
   published: boolean;
+  operationStatus?: AdminProgramOperationStatus | null;
+  closedAt?: string | null;
+  closureCandidate?: boolean;
+  closureCandidateReason?: string | null;
   catalogStatus: AdminProgramCatalogStatus;
   saleStartAt: string | null;
   saleEndAt: string | null;
@@ -103,8 +109,15 @@ export interface AdminProgramDetail {
   salePrice: number | null;
   maxStudents: number | null;
   currentStudents: number;
+  activeEnrollmentCount?: number | null;
   full: boolean;
   published: boolean;
+  operationStatus?: AdminProgramOperationStatus | null;
+  closedAt?: string | null;
+  closeReason?: string | null;
+  closeMemo?: string | null;
+  closureCandidate?: boolean;
+  closureCandidateReason?: string | null;
   catalogStatus: AdminProgramCatalogStatus;
   saleStartAt: string | null;
   saleEndAt: string | null;

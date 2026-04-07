@@ -3,10 +3,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import { cancelAdminPayment } from '@/api/adminPayments';
 import {
   createAdminProgramThumbnailUploadTarget,
   uploadAdminProgramThumbnailFile,
 } from '@/api/adminProgramMedia';
+import { cancelAdminEnrollment, closeAdminProgram } from '@/api/adminProgramOperations';
 import {
   createAdminProgramLive,
   deleteAdminProgramLive,
@@ -17,6 +19,8 @@ import {
 import AdminCategoryPicker from '@/components/admin/AdminCategoryPicker/AdminCategoryPicker';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import AdminFieldArray from '@/components/admin/AdminFieldArray/AdminFieldArray';
+import { LoadingSpinner } from '@/components/feedback/Loading/LoadingSpinner';
+import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import AdminProgramCurriculumSection from '@/pages/AdminConsolePage/AdminProgramCurriculumSection';
@@ -26,6 +30,11 @@ import {
   adminCategoriesTreeQueryKey,
   useAdminCategoriesTreeQuery,
 } from '@/query/useAdminCategoriesQuery';
+import { adminPaymentsQueryKey } from '@/query/useAdminPaymentsQuery';
+import {
+  adminProgramEnrollmentsQueryKey,
+  useAdminProgramEnrollmentsQuery,
+} from '@/query/useAdminProgramOperationsQuery';
 import {
   adminProgramDetailLiveQueryKey,
   adminProgramsLiveQueryKey,
@@ -37,11 +46,17 @@ import type {
   AdminProgramAccessPolicy,
   AdminProgramDetail,
   AdminProgramLevel,
+  AdminProgramOperationStatus,
   AdminProgramType,
   AdminProgramUpsertPayload,
 } from '@/types/adminProgramsLive';
+import { paymentStatusLabels } from '@/types/payment';
 
 import styles from './AdminConsolePage.module.scss';
+import {
+  PROGRAM_THUMBNAIL_FILE_ACCEPT,
+  validateProgramThumbnailFile,
+} from './adminConsolePageShared';
 
 interface AdminProgramEditorSectionProps {
   mode: 'create' | 'duplicate' | 'edit';
@@ -56,6 +71,11 @@ interface AdminProgramSummaryFormItem {
 interface AdminProgramFaqFormItem {
   answer: string;
   question: string;
+}
+
+interface UploadProgressModalState {
+  description: string;
+  title: string;
 }
 
 interface AdminProgramFormState {
@@ -159,6 +179,17 @@ const toDateTimeLocal = (value: string | null): string => {
   const minutes = String(date.getMinutes()).padStart(2, '0');
 
   return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const formatDateTime = (value: string | null): string => {
+  if (!value) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
 };
 
 const extractDatePart = (value: string): string => {
@@ -571,19 +602,41 @@ const accessPolicyLabel: Record<AdminProgramAccessPolicy, string> = {
   UNLIMITED: '무제한',
 };
 
-const catalogStatusLabel: Record<'CLOSED' | 'FULL' | 'OPEN' | 'SCHEDULED', string> = {
+const catalogStatusLabel: Record<'CLOSED' | 'FULL' | 'OPEN' | 'SCHEDULED' | 'STARTED', string> = {
   CLOSED: '판매 종료',
   FULL: '정원 마감',
   OPEN: '판매중',
   SCHEDULED: '판매 예정',
+  STARTED: '개강됨',
+};
+
+const enrollmentStatusLabel: Record<'ACTIVE' | 'CANCELLED' | 'EXPIRED', string> = {
+  ACTIVE: '수강중',
+  CANCELLED: '취소',
+  EXPIRED: '만료',
+};
+
+const operationStatusLabel: Record<AdminProgramOperationStatus, string> = {
+  CLOSURE_CONFIRMED: '폐강',
+  NORMAL: '정상 운영',
+};
+
+const formatEnrollmentStatusLabel = (value: string): string => {
+  if (Object.prototype.hasOwnProperty.call(enrollmentStatusLabel, value)) {
+    return enrollmentStatusLabel[value as keyof typeof enrollmentStatusLabel];
+  }
+
+  return value;
 };
 
 const formatCurrentStudentStatus = (detail: AdminProgramDetail): string => {
+  const activeEnrollmentCount = detail.activeEnrollmentCount ?? detail.currentStudents;
+
   if (detail.programType === 'OFFLINE' && detail.maxStudents !== null) {
-    return `현재 수강생 ${String(detail.currentStudents)}/${String(detail.maxStudents)}명`;
+    return `수강생 ${String(activeEnrollmentCount)}/${String(detail.maxStudents)}명`;
   }
 
-  return `현재 수강생 ${String(detail.currentStudents)}명`;
+  return `수강생 ${String(activeEnrollmentCount)}명`;
 };
 
 const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEditorSectionProps) => {
@@ -605,8 +658,21 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     Number.isFinite(targetProgramId) ? targetProgramId : null,
     mode !== 'create',
   );
+  const managedProgramId =
+    mode === 'edit' && editingProgramId !== null && Number.isFinite(editingProgramId)
+      ? editingProgramId
+      : null;
+  const programEnrollmentsQuery = useAdminProgramEnrollmentsQuery(
+    managedProgramId,
+    mode === 'edit',
+  );
   const [formState, setFormState] = useState<AdminProgramFormState>(INITIAL_FORM_STATE);
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const [uploadProgressModal, setUploadProgressModal] = useState<UploadProgressModalState | null>(
+    null,
+  );
+  const [memberActionReason, setMemberActionReason] = useState('사용자 요청 취소');
+  const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!detailQuery.data) {
@@ -651,6 +717,15 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       programId !== undefined
         ? queryClient.invalidateQueries({ queryKey: adminProgramDetailLiveQueryKey(programId) })
         : Promise.resolve(),
+    ]);
+  };
+
+  const invalidateProgramOperationQueries = async (programId: number) => {
+    await Promise.all([
+      invalidateProgramQueries(programId),
+      queryClient.invalidateQueries({ queryKey: adminProgramEnrollmentsQueryKey(programId) }),
+      queryClient.invalidateQueries({ queryKey: adminPaymentsQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: ['adminEnrollments'] }),
     ]);
   };
 
@@ -730,6 +805,71 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     },
   });
 
+  const cancelPaymentMutation = useMutation({
+    mutationFn: ({ paymentId, reason }: { paymentId: number; reason: string }) =>
+      cancelAdminPayment(paymentId, { reason }),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '결제 취소 처리에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      if (managedProgramId !== null) {
+        await invalidateProgramOperationQueries(managedProgramId);
+      }
+      showToast({
+        message: '결제 취소를 반영했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const cancelEnrollmentMutation = useMutation({
+    mutationFn: ({ enrollmentId, reason }: { enrollmentId: number; reason: string }) =>
+      cancelAdminEnrollment(enrollmentId, { reason }),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '수강 취소 처리에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      if (managedProgramId !== null) {
+        await invalidateProgramOperationQueries(managedProgramId);
+      }
+      showToast({
+        message: '수강 취소를 반영했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const closeProgramMutation = useMutation({
+    mutationFn: () => {
+      if (managedProgramId === null) {
+        throw new Error('프로그램 정보를 확인할 수 없습니다.');
+      }
+
+      return closeAdminProgram(managedProgramId);
+    },
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '프로그램 폐강 처리에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      if (managedProgramId !== null) {
+        await invalidateProgramOperationQueries(managedProgramId);
+      }
+      showToast({
+        message: '프로그램을 폐강 처리했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
   const editorTitle = useMemo(
     () => buildEditorTitle(mode, detailQuery.data ?? null, normalizedView),
     [detailQuery.data, mode, normalizedView],
@@ -749,8 +889,16 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
   const isEditMode =
     mode === 'edit' && editingProgramId !== null && Number.isFinite(editingProgramId);
   const currentDetail = detailQuery.data ?? null;
+  const currentEnrollments = useMemo(
+    () => programEnrollmentsQuery.data ?? [],
+    [programEnrollmentsQuery.data],
+  );
   const deleteBlockedReason = currentDetail?.deleteBlockedReason ?? null;
   const deletable = currentDetail?.deletable !== false;
+  const activeEnrollmentCount =
+    currentDetail?.activeEnrollmentCount ?? currentDetail?.currentStudents ?? 0;
+  const operationStatus = currentDetail?.operationStatus ?? 'NORMAL';
+  const isClosureConfirmed = operationStatus === 'CLOSURE_CONFIRMED';
 
   const updateField = <T extends keyof AdminProgramFormState>(
     field: T,
@@ -845,7 +993,20 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       return;
     }
 
+    const validationMessage = validateProgramThumbnailFile(file);
+    if (validationMessage) {
+      showToast({
+        message: validationMessage,
+        variant: 'error',
+      });
+      return;
+    }
+
     setIsUploadingThumbnail(true);
+    setUploadProgressModal({
+      description: '대표 이미지 업로드가 끝날 때까지 잠시 기다려 주세요.',
+      title: '대표 이미지 업로드 중',
+    });
 
     try {
       const uploadTarget = await createAdminProgramThumbnailUploadTarget({
@@ -873,6 +1034,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       });
     } finally {
       setIsUploadingThumbnail(false);
+      setUploadProgressModal(null);
     }
   };
 
@@ -888,6 +1050,40 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     }
 
     saveMutation.mutate(toProgramPayload(formState));
+  };
+
+  const handleCancelPayment = (paymentId: number) => {
+    if (!memberActionReason.trim()) {
+      showToast({
+        message: '취소 사유를 입력해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    cancelPaymentMutation.mutate({
+      paymentId,
+      reason: memberActionReason.trim(),
+    });
+  };
+
+  const handleCancelEnrollment = (enrollmentId: number) => {
+    if (!memberActionReason.trim()) {
+      showToast({
+        message: '취소 사유를 입력해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    cancelEnrollmentMutation.mutate({
+      enrollmentId,
+      reason: memberActionReason.trim(),
+    });
+  };
+
+  const handleCloseProgram = () => {
+    closeProgramMutation.mutate();
   };
 
   if (isLoading) {
@@ -977,6 +1173,17 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
               <span className={styles['badgeAccent']}>
                 {catalogStatusLabel[currentDetail.catalogStatus]}
               </span>
+              <span
+                className={
+                  currentDetail.operationStatus === 'CLOSURE_CONFIRMED'
+                    ? styles['badgeDanger']
+                    : styles['badge']
+                }
+              >
+                {currentDetail.operationStatus === 'CLOSURE_CONFIRMED'
+                  ? '폐강'
+                  : operationStatusLabel[currentDetail.operationStatus ?? 'NORMAL']}
+              </span>
               <span className={styles['badge']}>{programTypeLabel[currentDetail.programType]}</span>
               <span className={styles['badge']}>
                 {currentDetail.accessPolicy
@@ -993,6 +1200,21 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       </section>
 
       <section className={styles['editorWorkspacePanel']}>
+        {uploadProgressModal ? (
+          <Modal
+            description={uploadProgressModal.description}
+            onClose={() => {
+              return;
+            }}
+            title={uploadProgressModal.title}
+          >
+            <div className={styles['loadingModalBody']}>
+              <LoadingSpinner />
+              <p className={styles['loadingModalText']}>{uploadProgressModal.description}</p>
+            </div>
+          </Modal>
+        ) : null}
+
         {isEditMode && currentDetail ? (
           <nav aria-label='프로그램 편집 보기' className={styles['workspaceTabs']}>
             <div className={styles['workspaceTabGroup']}>
@@ -1019,443 +1241,677 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
 
         <div className={styles['workspaceBody']}>
           {isDetailView ? (
-            <div className={styles['formShell']}>
-              <div className={styles['form']}>
-                <AdminCategoryPicker
-                  helperText='프로그램 카테고리 관리와 같은 3단 구조에서 가장 하위 카테고리를 선택해 주세요.'
-                  label='카테고리'
-                  onChange={(nextValue) => {
-                    updateField('categoryId', nextValue);
-                  }}
-                  tree={categoriesTreeQuery.data ?? []}
-                  value={formState.categoryId}
-                />
-
-                <div className={styles['inlineFieldGrid']}>
-                  <TextField
-                    label='프로그램명'
-                    name='title'
-                    onChange={(event) => {
-                      updateField('title', event.target.value);
-                    }}
-                    value={formState.title}
-                  />
-                  <div className={styles['metaNotice']}>
-                    <p className={styles['metaNoticeLabel']}>주소 식별자</p>
-                    <p className={styles['metaNoticeText']}>
-                      프로그램 저장 시 서버에서 자동으로 관리합니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div className={styles['compactFieldRow']}>
-                  <AdminDropdownField
-                    compact
-                    label='프로그램 형태'
+            <>
+              <div className={styles['formShell']}>
+                <div className={styles['form']}>
+                  <AdminCategoryPicker
+                    helperText='프로그램 카테고리 관리와 같은 3단 구조에서 가장 하위 카테고리를 선택해 주세요.'
+                    label='카테고리'
                     onChange={(nextValue) => {
-                      updateField('programType', nextValue as AdminProgramType);
+                      updateField('categoryId', nextValue);
                     }}
-                    options={programTypeOptions}
-                    value={formState.programType}
+                    tree={categoriesTreeQuery.data ?? []}
+                    value={formState.categoryId}
                   />
-                  <AdminDropdownField
-                    compact
-                    label='난이도'
-                    onChange={(nextValue) => {
-                      updateField('level', nextValue as AdminProgramFormState['level']);
-                    }}
-                    options={levelOptions}
-                    value={formState.level}
-                  />
-                  <AdminDropdownField
-                    compact
-                    disabled={formState.programType === 'OFFLINE'}
-                    label='수강 정책'
-                    onChange={(nextValue) => {
-                      const policy = nextValue as AdminProgramAccessPolicy;
-                      setFormState((current) => ({
-                        ...current,
-                        accessDays: policy === 'FIXED_DURATION' ? current.accessDays : '',
-                        accessPolicy: policy,
-                        learningEndAt: policy === 'COHORT' ? current.learningEndAt : '',
-                        learningStartAt: policy === 'COHORT' ? current.learningStartAt : '',
-                      }));
-                    }}
-                    options={accessPolicyOptions}
-                    value={formState.programType === 'OFFLINE' ? 'COHORT' : formState.accessPolicy}
-                  />
-                </div>
 
-                <TextAreaField
-                  label='프로그램 소개'
-                  name='description'
-                  onChange={(event) => {
-                    updateField('description', event.target.value);
-                  }}
-                  value={formState.description}
-                />
-
-                <div className={styles['mediaField']}>
-                  <div className={styles['mediaFieldHeader']}>
-                    <div className={styles['mediaFieldCopy']}>
-                      <p className={styles['fieldLabel']}>대표 이미지</p>
-                      <p className={styles['mediaFieldHint']}>
-                        프로그램 카드와 상세 상단에 노출될 이미지를 업로드합니다.
+                  <div className={styles['inlineFieldGrid']}>
+                    <TextField
+                      label='프로그램명'
+                      name='title'
+                      onChange={(event) => {
+                        updateField('title', event.target.value);
+                      }}
+                      value={formState.title}
+                    />
+                    <div className={styles['metaNotice']}>
+                      <p className={styles['metaNoticeLabel']}>주소 식별자</p>
+                      <p className={styles['metaNoticeText']}>
+                        프로그램 저장 시 서버에서 자동으로 관리합니다.
                       </p>
                     </div>
-                    {formState.thumbnailPreviewUrl ? (
-                      <button
-                        className={styles['tableActionButton']}
-                        onClick={() => {
-                          setFormState((current) => ({
-                            ...current,
-                            thumbnailPreviewUrl: '',
-                            thumbnailUrl: '',
-                          }));
+                  </div>
+
+                  <div className={styles['compactFieldRow']}>
+                    <AdminDropdownField
+                      compact
+                      label='프로그램 형태'
+                      onChange={(nextValue) => {
+                        updateField('programType', nextValue as AdminProgramType);
+                      }}
+                      options={programTypeOptions}
+                      value={formState.programType}
+                    />
+                    <AdminDropdownField
+                      compact
+                      label='난이도'
+                      onChange={(nextValue) => {
+                        updateField('level', nextValue as AdminProgramFormState['level']);
+                      }}
+                      options={levelOptions}
+                      value={formState.level}
+                    />
+                    <AdminDropdownField
+                      compact
+                      disabled={formState.programType === 'OFFLINE'}
+                      label='수강 정책'
+                      onChange={(nextValue) => {
+                        const policy = nextValue as AdminProgramAccessPolicy;
+                        setFormState((current) => ({
+                          ...current,
+                          accessDays: policy === 'FIXED_DURATION' ? current.accessDays : '',
+                          accessPolicy: policy,
+                          learningEndAt: policy === 'COHORT' ? current.learningEndAt : '',
+                          learningStartAt: policy === 'COHORT' ? current.learningStartAt : '',
+                        }));
+                      }}
+                      options={accessPolicyOptions}
+                      value={
+                        formState.programType === 'OFFLINE' ? 'COHORT' : formState.accessPolicy
+                      }
+                    />
+                  </div>
+
+                  <TextAreaField
+                    label='프로그램 소개'
+                    name='description'
+                    onChange={(event) => {
+                      updateField('description', event.target.value);
+                    }}
+                    value={formState.description}
+                  />
+
+                  <div className={styles['mediaField']}>
+                    <div className={styles['mediaFieldHeader']}>
+                      <div className={styles['mediaFieldCopy']}>
+                        <p className={styles['fieldLabel']}>대표 이미지</p>
+                        <p className={styles['mediaFieldHint']}>
+                          프로그램 카드와 상세 상단에 노출될 이미지를 업로드합니다.
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      accept={PROGRAM_THUMBNAIL_FILE_ACCEPT}
+                      className={styles['thumbnailFileInput']}
+                      name='program-thumbnail-file'
+                      onChange={(event) => {
+                        void handleThumbnailFileChange(event.target.files?.[0] ?? null);
+                        event.currentTarget.value = '';
+                      }}
+                      ref={thumbnailInputRef}
+                      type='file'
+                    />
+
+                    <div className={styles['thumbnailUploadPanel']}>
+                      <div className={styles['thumbnailPreviewPanel']}>
+                        {formState.thumbnailPreviewUrl ? (
+                          <div className={styles['thumbnailPreview']}>
+                            <img
+                              alt={
+                                formState.title
+                                  ? `${formState.title} 대표 이미지`
+                                  : '프로그램 대표 이미지'
+                              }
+                              className={styles['thumbnailPreviewImage']}
+                              src={formState.thumbnailPreviewUrl}
+                            />
+                          </div>
+                        ) : (
+                          <div className={styles['thumbnailEmptyState']}>
+                            등록된 대표 이미지가 없습니다.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className={styles['thumbnailPreviewMeta']}>
+                        <p className={styles['thumbnailPreviewTitle']}>대표 이미지 미리보기</p>
+                        <div className={styles['thumbnailActionRow']}>
+                          <Button
+                            disabled={isUploadingThumbnail}
+                            onClick={() => {
+                              thumbnailInputRef.current?.click();
+                            }}
+                            size='sm'
+                            type='button'
+                            variant='primary'
+                          >
+                            {isUploadingThumbnail ? '업로드 중...' : '파일 선택'}
+                          </Button>
+                          {formState.thumbnailPreviewUrl ? (
+                            <Button
+                              disabled={isUploadingThumbnail}
+                              onClick={() => {
+                                setFormState((current) => ({
+                                  ...current,
+                                  thumbnailPreviewUrl: '',
+                                  thumbnailUrl: '',
+                                }));
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              이미지 제거
+                            </Button>
+                          ) : null}
+                        </div>
+                        <p className={styles['thumbnailFileCaption']}>
+                          허용 형식 · {PROGRAM_THUMBNAIL_FILE_ACCEPT.replaceAll(',', ', ')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles['inlineFieldGrid']}>
+                    <TextField
+                      label='강사명'
+                      name='instructorName'
+                      onChange={(event) => {
+                        updateField('instructorName', event.target.value);
+                      }}
+                      value={formState.instructorName}
+                    />
+                  </div>
+
+                  <TextAreaField
+                    label='강사 소개'
+                    name='instructorBio'
+                    onChange={(event) => {
+                      updateField('instructorBio', event.target.value);
+                    }}
+                    value={formState.instructorBio}
+                  />
+
+                  <div className={styles['inlineFieldGrid']}>
+                    <TextField
+                      label='정가'
+                      name='price'
+                      onChange={(event) => {
+                        updateField('price', event.target.value);
+                      }}
+                      value={formState.price}
+                    />
+                    <TextField
+                      label='할인율(%)'
+                      name='discountPercent'
+                      onChange={(event) => {
+                        updateField('discountPercent', event.target.value);
+                      }}
+                      value={formState.discountPercent}
+                    />
+                  </div>
+
+                  <div className={styles['compactFieldRow']}>
+                    <div className={styles['compactTextField']}>
+                      <TextField
+                        label='정원'
+                        name='maxStudents'
+                        onChange={(event) => {
+                          updateField('maxStudents', event.target.value);
                         }}
-                        type='button'
-                      >
-                        이미지 제거
-                      </button>
+                        value={formState.maxStudents}
+                      />
+                    </div>
+                    {formState.accessPolicy === 'FIXED_DURATION' ? (
+                      <div className={styles['compactTextField']}>
+                        <TextField
+                          label='수강일수'
+                          name='accessDays'
+                          onChange={(event) => {
+                            updateField('accessDays', event.target.value);
+                          }}
+                          value={formState.accessDays}
+                        />
+                      </div>
                     ) : null}
                   </div>
 
-                  <TextField
-                    accept='image/*'
-                    disabled={isUploadingThumbnail}
-                    label={isUploadingThumbnail ? '대표 이미지 업로드 중' : '대표 이미지 파일'}
-                    name='program-thumbnail-file'
-                    onChange={(event) => {
-                      void handleThumbnailFileChange(event.target.files?.[0] ?? null);
-                      event.currentTarget.value = '';
-                    }}
-                    type='file'
-                  />
-
-                  {formState.thumbnailPreviewUrl ? (
-                    <div className={styles['thumbnailPreview']}>
-                      <img
-                        alt={
-                          formState.title
-                            ? `${formState.title} 대표 이미지`
-                            : '프로그램 대표 이미지'
-                        }
-                        className={styles['thumbnailPreviewImage']}
-                        src={formState.thumbnailPreviewUrl}
-                      />
-                    </div>
-                  ) : (
-                    <div className={styles['thumbnailEmptyState']}>
-                      등록된 대표 이미지가 없습니다.
-                    </div>
-                  )}
-                </div>
-
-                <div className={styles['inlineFieldGrid']}>
-                  <TextField
-                    label='강사명'
-                    name='instructorName'
-                    onChange={(event) => {
-                      updateField('instructorName', event.target.value);
-                    }}
-                    value={formState.instructorName}
-                  />
-                </div>
-
-                <TextAreaField
-                  label='강사 소개'
-                  name='instructorBio'
-                  onChange={(event) => {
-                    updateField('instructorBio', event.target.value);
-                  }}
-                  value={formState.instructorBio}
-                />
-
-                <div className={styles['inlineFieldGrid']}>
-                  <TextField
-                    label='정가'
-                    name='price'
-                    onChange={(event) => {
-                      updateField('price', event.target.value);
-                    }}
-                    value={formState.price}
-                  />
-                  <TextField
-                    label='할인율(%)'
-                    name='discountPercent'
-                    onChange={(event) => {
-                      updateField('discountPercent', event.target.value);
-                    }}
-                    value={formState.discountPercent}
-                  />
-                </div>
-
-                <div className={styles['compactFieldRow']}>
-                  <div className={styles['compactTextField']}>
-                    <TextField
-                      label='정원'
-                      name='maxStudents'
-                      onChange={(event) => {
-                        updateField('maxStudents', event.target.value);
-                      }}
-                      value={formState.maxStudents}
-                    />
-                  </div>
-                  {formState.accessPolicy === 'FIXED_DURATION' ? (
-                    <div className={styles['compactTextField']}>
-                      <TextField
-                        label='수강일수'
-                        name='accessDays'
-                        onChange={(event) => {
-                          updateField('accessDays', event.target.value);
-                        }}
-                        value={formState.accessDays}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className={styles['dateTimeRow']}>
-                  <div className={styles['dateTimeGroup']}>
-                    <p className={styles['dateTimeGroupTitle']}>판매 기간</p>
-                    <DateTimeSplitField
-                      dateLabel='판매 시작일'
-                      onChange={(nextValue) => {
-                        updateField('saleStartAt', nextValue);
-                      }}
-                      timeLabel='시작 시간'
-                      value={formState.saleStartAt}
-                    />
-                    <DateTimeSplitField
-                      dateLabel='판매 종료일'
-                      onChange={(nextValue) => {
-                        updateField('saleEndAt', nextValue);
-                      }}
-                      timeLabel='종료 시간'
-                      value={formState.saleEndAt}
-                    />
-                  </div>
-
-                  {formState.accessPolicy === 'COHORT' ? (
+                  <div className={styles['dateTimeRow']}>
                     <div className={styles['dateTimeGroup']}>
-                      <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
+                      <p className={styles['dateTimeGroupTitle']}>판매 기간</p>
                       <DateTimeSplitField
-                        dateLabel='수강 시작일'
+                        dateLabel='판매 시작일'
                         onChange={(nextValue) => {
-                          updateField('learningStartAt', nextValue);
+                          updateField('saleStartAt', nextValue);
                         }}
                         timeLabel='시작 시간'
-                        value={formState.learningStartAt}
+                        value={formState.saleStartAt}
                       />
                       <DateTimeSplitField
-                        dateLabel='수강 종료일'
+                        dateLabel='판매 종료일'
                         onChange={(nextValue) => {
-                          updateField('learningEndAt', nextValue);
+                          updateField('saleEndAt', nextValue);
                         }}
                         timeLabel='종료 시간'
-                        value={formState.learningEndAt}
+                        value={formState.saleEndAt}
                       />
                     </div>
+
+                    {formState.accessPolicy === 'COHORT' ? (
+                      <div className={styles['dateTimeGroup']}>
+                        <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
+                        <DateTimeSplitField
+                          dateLabel='수강 시작일'
+                          onChange={(nextValue) => {
+                            updateField('learningStartAt', nextValue);
+                          }}
+                          timeLabel='시작 시간'
+                          value={formState.learningStartAt}
+                        />
+                        <DateTimeSplitField
+                          dateLabel='수강 종료일'
+                          onChange={(nextValue) => {
+                            updateField('learningEndAt', nextValue);
+                          }}
+                          timeLabel='종료 시간'
+                          value={formState.learningEndAt}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <p className={styles['policyHint']}>
+                    {formState.programType === 'OFFLINE'
+                      ? '오프라인 프로그램은 개강일이 지나면 관리자 화면에서 개강됨 상태로 표시됩니다.'
+                      : '온라인·하이브리드 프로그램은 판매 종료일을 비워 두면 상시 판매로 운영할 수 있습니다.'}
+                  </p>
+
+                  {formState.accessPolicy === 'UNLIMITED' ? (
+                    <p className={styles['policyHint']}>
+                      무제한 수강은 수강일수와 수강 기간을 따로 입력하지 않습니다.
+                    </p>
                   ) : null}
-                </div>
+                  {formState.accessPolicy === 'FIXED_DURATION' ? (
+                    <p className={styles['policyHint']}>고정 기간 수강은 수강일수만 입력합니다.</p>
+                  ) : null}
+                  {formState.accessPolicy === 'COHORT' ? (
+                    <p className={styles['policyHint']}>
+                      기수형 수강은 시작일과 종료일을 함께 지정합니다.
+                    </p>
+                  ) : null}
 
-                {formState.accessPolicy === 'UNLIMITED' ? (
-                  <p className={styles['policyHint']}>
-                    무제한 수강은 수강일수와 수강 기간을 따로 입력하지 않습니다.
-                  </p>
-                ) : null}
-                {formState.accessPolicy === 'FIXED_DURATION' ? (
-                  <p className={styles['policyHint']}>고정 기간 수강은 수강일수만 입력합니다.</p>
-                ) : null}
-                {formState.accessPolicy === 'COHORT' ? (
-                  <p className={styles['policyHint']}>
-                    기수형 수강은 시작일과 종료일을 함께 지정합니다.
-                  </p>
-                ) : null}
+                  <AdminFieldArray
+                    addLabel='핵심 포인트 추가'
+                    emptyMessage='등록된 핵심 포인트가 없습니다.'
+                    helperText='강의 소개 첫 영역에 노출할 제목과 설명 카드를 입력합니다.'
+                    items={formState.summaryItems}
+                    label='핵심 포인트'
+                    onAdd={() => {
+                      addStructuredInfoItem('summaryItems');
+                    }}
+                    onRemove={(index) => {
+                      removeStructuredInfoItem('summaryItems', index);
+                    }}
+                    renderItem={(item, index) => (
+                      <div className={styles['inlineFieldGrid']}>
+                        <TextField
+                          label='핵심 포인트 제목'
+                          name={`summary-label-${String(index)}`}
+                          onChange={(event) => {
+                            updateStructuredInfoItem(
+                              'summaryItems',
+                              index,
+                              'label',
+                              event.target.value,
+                            );
+                          }}
+                          value={item.label}
+                        />
+                        <TextField
+                          label='핵심 포인트 설명'
+                          name={`summary-value-${String(index)}`}
+                          onChange={(event) => {
+                            updateStructuredInfoItem(
+                              'summaryItems',
+                              index,
+                              'value',
+                              event.target.value,
+                            );
+                          }}
+                          value={item.value}
+                        />
+                      </div>
+                    )}
+                  />
 
-                <AdminFieldArray
-                  addLabel='핵심 포인트 추가'
-                  emptyMessage='등록된 핵심 포인트가 없습니다.'
-                  helperText='강의 소개 첫 영역에 노출할 제목과 설명 카드를 입력합니다.'
-                  items={formState.summaryItems}
-                  label='핵심 포인트'
-                  onAdd={() => {
-                    addStructuredInfoItem('summaryItems');
-                  }}
-                  onRemove={(index) => {
-                    removeStructuredInfoItem('summaryItems', index);
-                  }}
-                  renderItem={(item, index) => (
-                    <div className={styles['inlineFieldGrid']}>
+                  <AdminFieldArray
+                    addLabel='학습 성과 추가'
+                    emptyMessage='등록된 학습 성과가 없습니다.'
+                    helperText='이 강의를 듣고 나면 할 수 있게 되는 제목과 설명을 입력합니다.'
+                    items={formState.learningOutcomes}
+                    label='학습 성과'
+                    onAdd={() => {
+                      addStructuredInfoItem('learningOutcomes');
+                    }}
+                    onRemove={(index) => {
+                      removeStructuredInfoItem('learningOutcomes', index);
+                    }}
+                    renderItem={(item, index) => (
+                      <div className={styles['inlineFieldGrid']}>
+                        <TextField
+                          label='학습 성과 제목'
+                          name={`learning-outcome-label-${String(index)}`}
+                          onChange={(event) => {
+                            updateStructuredInfoItem(
+                              'learningOutcomes',
+                              index,
+                              'label',
+                              event.target.value,
+                            );
+                          }}
+                          value={item.label}
+                        />
+                        <TextField
+                          label='학습 성과 설명'
+                          name={`learning-outcome-value-${String(index)}`}
+                          onChange={(event) => {
+                            updateStructuredInfoItem(
+                              'learningOutcomes',
+                              index,
+                              'value',
+                              event.target.value,
+                            );
+                          }}
+                          value={item.value}
+                        />
+                      </div>
+                    )}
+                  />
+
+                  <AdminFieldArray
+                    addLabel='추천 대상 추가'
+                    emptyMessage='등록된 추천 대상이 없습니다.'
+                    helperText='이 프로그램을 추천할 대상 유형을 하나씩 정리합니다.'
+                    items={formState.recommendedFor}
+                    label='추천 대상'
+                    onAdd={() => {
+                      addStringListItem('recommendedFor');
+                    }}
+                    onRemove={(index) => {
+                      removeStringListItem('recommendedFor', index);
+                    }}
+                    renderItem={(item, index) => (
                       <TextField
-                        label='핵심 포인트 제목'
-                        name={`summary-label-${String(index)}`}
+                        label={`추천 대상 ${String(index + 1)}`}
+                        name={`recommended-for-${String(index)}`}
                         onChange={(event) => {
-                          updateStructuredInfoItem(
-                            'summaryItems',
-                            index,
-                            'label',
-                            event.target.value,
-                          );
+                          updateStringListItem('recommendedFor', index, event.target.value);
                         }}
-                        value={item.label}
+                        value={item}
                       />
+                    )}
+                  />
+
+                  <AdminFieldArray
+                    addLabel='체크리스트 추가'
+                    emptyMessage='등록된 체크리스트가 없습니다.'
+                    helperText='수강 전 준비사항을 체크리스트로 추가합니다.'
+                    items={formState.checklists}
+                    label='수강 체크리스트'
+                    onAdd={() => {
+                      addStringListItem('checklists');
+                    }}
+                    onRemove={(index) => {
+                      removeStringListItem('checklists', index);
+                    }}
+                    renderItem={(item, index) => (
                       <TextField
-                        label='핵심 포인트 설명'
-                        name={`summary-value-${String(index)}`}
+                        label={`체크리스트 ${String(index + 1)}`}
+                        name={`checklist-${String(index)}`}
                         onChange={(event) => {
-                          updateStructuredInfoItem(
-                            'summaryItems',
-                            index,
-                            'value',
-                            event.target.value,
-                          );
+                          updateStringListItem('checklists', index, event.target.value);
                         }}
-                        value={item.value}
+                        value={item}
                       />
-                    </div>
-                  )}
-                />
+                    )}
+                  />
 
-                <AdminFieldArray
-                  addLabel='학습 성과 추가'
-                  emptyMessage='등록된 학습 성과가 없습니다.'
-                  helperText='이 강의를 듣고 나면 할 수 있게 되는 제목과 설명을 입력합니다.'
-                  items={formState.learningOutcomes}
-                  label='학습 성과'
-                  onAdd={() => {
-                    addStructuredInfoItem('learningOutcomes');
-                  }}
-                  onRemove={(index) => {
-                    removeStructuredInfoItem('learningOutcomes', index);
-                  }}
-                  renderItem={(item, index) => (
-                    <div className={styles['inlineFieldGrid']}>
-                      <TextField
-                        label='학습 성과 제목'
-                        name={`learning-outcome-label-${String(index)}`}
-                        onChange={(event) => {
-                          updateStructuredInfoItem(
-                            'learningOutcomes',
-                            index,
-                            'label',
-                            event.target.value,
-                          );
-                        }}
-                        value={item.label}
-                      />
-                      <TextField
-                        label='학습 성과 설명'
-                        name={`learning-outcome-value-${String(index)}`}
-                        onChange={(event) => {
-                          updateStructuredInfoItem(
-                            'learningOutcomes',
-                            index,
-                            'value',
-                            event.target.value,
-                          );
-                        }}
-                        value={item.value}
-                      />
-                    </div>
-                  )}
-                />
+                  <AdminFieldArray
+                    addLabel='FAQ 추가'
+                    emptyMessage='등록된 FAQ가 없습니다.'
+                    helperText='질문과 답변을 각각 입력해 자주 묻는 질문 영역을 구성합니다.'
+                    items={formState.faqs}
+                    label='FAQ'
+                    onAdd={addFaqItem}
+                    onRemove={removeFaqItem}
+                    renderItem={(item, index) => (
+                      <div className={styles['faqFieldGrid']}>
+                        <TextField
+                          label='질문'
+                          name={`faq-question-${String(index)}`}
+                          onChange={(event) => {
+                            updateFaqItem(index, 'question', event.target.value);
+                          }}
+                          value={item.question}
+                        />
+                        <TextAreaField
+                          label='답변'
+                          name={`faq-answer-${String(index)}`}
+                          onChange={(event) => {
+                            updateFaqItem(index, 'answer', event.target.value);
+                          }}
+                          value={item.answer}
+                        />
+                      </div>
+                    )}
+                  />
 
-                <AdminFieldArray
-                  addLabel='추천 대상 추가'
-                  emptyMessage='등록된 추천 대상이 없습니다.'
-                  helperText='이 프로그램을 추천할 대상 유형을 하나씩 정리합니다.'
-                  items={formState.recommendedFor}
-                  label='추천 대상'
-                  onAdd={() => {
-                    addStringListItem('recommendedFor');
-                  }}
-                  onRemove={(index) => {
-                    removeStringListItem('recommendedFor', index);
-                  }}
-                  renderItem={(item, index) => (
-                    <TextField
-                      label={`추천 대상 ${String(index + 1)}`}
-                      name={`recommended-for-${String(index)}`}
-                      onChange={(event) => {
-                        updateStringListItem('recommendedFor', index, event.target.value);
-                      }}
-                      value={item}
-                    />
-                  )}
-                />
-
-                <AdminFieldArray
-                  addLabel='체크리스트 추가'
-                  emptyMessage='등록된 체크리스트가 없습니다.'
-                  helperText='수강 전 준비사항을 체크리스트로 추가합니다.'
-                  items={formState.checklists}
-                  label='수강 체크리스트'
-                  onAdd={() => {
-                    addStringListItem('checklists');
-                  }}
-                  onRemove={(index) => {
-                    removeStringListItem('checklists', index);
-                  }}
-                  renderItem={(item, index) => (
-                    <TextField
-                      label={`체크리스트 ${String(index + 1)}`}
-                      name={`checklist-${String(index)}`}
-                      onChange={(event) => {
-                        updateStringListItem('checklists', index, event.target.value);
-                      }}
-                      value={item}
-                    />
-                  )}
-                />
-
-                <AdminFieldArray
-                  addLabel='FAQ 추가'
-                  emptyMessage='등록된 FAQ가 없습니다.'
-                  helperText='질문과 답변을 각각 입력해 자주 묻는 질문 영역을 구성합니다.'
-                  items={formState.faqs}
-                  label='FAQ'
-                  onAdd={addFaqItem}
-                  onRemove={removeFaqItem}
-                  renderItem={(item, index) => (
-                    <div className={styles['faqFieldGrid']}>
-                      <TextField
-                        label='질문'
-                        name={`faq-question-${String(index)}`}
-                        onChange={(event) => {
-                          updateFaqItem(index, 'question', event.target.value);
-                        }}
-                        value={item.question}
-                      />
-                      <TextAreaField
-                        label='답변'
-                        name={`faq-answer-${String(index)}`}
-                        onChange={(event) => {
-                          updateFaqItem(index, 'answer', event.target.value);
-                        }}
-                        value={item.answer}
-                      />
-                    </div>
-                  )}
-                />
-
-                <div className={styles['actionRow']}>
-                  <Button disabled={saveMutation.isPending} onClick={handleSubmit} type='button'>
-                    {saveMutation.isPending
-                      ? '저장 중...'
-                      : mode === 'edit'
-                        ? '수정 저장'
-                        : '프로그램 등록'}
-                  </Button>
+                  <div className={styles['actionRow']}>
+                    <Button disabled={saveMutation.isPending} onClick={handleSubmit} type='button'>
+                      {saveMutation.isPending
+                        ? '저장 중...'
+                        : mode === 'edit'
+                          ? '수정 저장'
+                          : '프로그램 등록'}
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {isEditMode && currentDetail ? (
+                <div className={styles['stackList']}>
+                  <section className={styles['panelWide']}>
+                    <div className={styles['panelToolbar']}>
+                      <div>
+                        <h2 className={styles['panelTitle']}>현재 수강생</h2>
+                        <p className={styles['metaText']}>
+                          전화 CS 후 결제 취소 또는 수강 취소를 바로 처리할 수 있습니다.
+                        </p>
+                      </div>
+                      <div className={styles['metaRow']}>
+                        <span className={styles['badgeAccent']}>
+                          {String(activeEnrollmentCount)}명
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={styles['replyComposer']}>
+                      <p className={styles['helperText']}>
+                        회원별 취소 처리 전에 공통 취소 사유를 먼저 입력해 주세요.
+                      </p>
+                      <TextAreaField
+                        label='취소 사유'
+                        name='memberActionReason'
+                        onChange={(event) => {
+                          setMemberActionReason(event.target.value);
+                        }}
+                        value={memberActionReason}
+                      />
+                    </div>
+
+                    {programEnrollmentsQuery.isPending ? (
+                      <p className={styles['helperText']}>현재 수강생 목록을 불러오는 중입니다.</p>
+                    ) : null}
+
+                    {programEnrollmentsQuery.isError ? (
+                      <p className={styles['helperText']}>
+                        {programEnrollmentsQuery.error instanceof Error
+                          ? programEnrollmentsQuery.error.message
+                          : '현재 수강생 목록을 불러오지 못했습니다.'}
+                      </p>
+                    ) : null}
+
+                    {!programEnrollmentsQuery.isPending && !programEnrollmentsQuery.isError ? (
+                      currentEnrollments.length > 0 ? (
+                        <div className={styles['tableWrap']}>
+                          <table
+                            className={`${styles['table']} ${styles['programEnrollmentTable']}`}
+                          >
+                            <thead>
+                              <tr>
+                                <th scope='col'>회원</th>
+                                <th scope='col'>연락처</th>
+                                <th scope='col'>수강 상태</th>
+                                <th scope='col'>결제 상태</th>
+                                <th scope='col'>수강 기간</th>
+                                <th scope='col'>처리</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {currentEnrollments.map((item) => (
+                                <tr key={item.enrollmentId}>
+                                  <td>
+                                    <div className={styles['cellStack']}>
+                                      <strong className={styles['cellPrimary']}>
+                                        {item.userName}
+                                      </strong>
+                                      <span className={styles['cellSecondary']}>
+                                        아이디 {item.loginId}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td>{item.phoneNumber}</td>
+                                  <td>
+                                    <span className={styles['badgeSuccess']}>
+                                      {formatEnrollmentStatusLabel(item.enrollmentStatus)}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div className={styles['cellStack']}>
+                                      {item.paymentId ? (
+                                        <>
+                                          <span className={styles['badgeAccent']}>
+                                            {item.paymentStatus
+                                              ? paymentStatusLabels[item.paymentStatus]
+                                              : '결제 정보 확인 필요'}
+                                          </span>
+                                          <span className={styles['cellSecondary']}>
+                                            결제 ID {String(item.paymentId)}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span className={styles['cellSecondary']}>
+                                          결제 정보 없음
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <div className={styles['cellStack']}>
+                                      <span
+                                        className={`${styles['cellSecondary']} ${styles['cellNoWrap']}`}
+                                      >
+                                        {formatDateTime(item.enrolledAt)} ~{' '}
+                                        {formatDateTime(item.expireAt)}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <div className={styles['tableActionGroup']}>
+                                      {item.canCancelPayment && item.paymentId !== null ? (
+                                        <Button
+                                          disabled={cancelPaymentMutation.isPending}
+                                          onClick={() => {
+                                            handleCancelPayment(item.paymentId as number);
+                                          }}
+                                          size='sm'
+                                          type='button'
+                                          variant='danger'
+                                        >
+                                          결제 취소
+                                        </Button>
+                                      ) : null}
+                                      {item.canCancelEnrollment ? (
+                                        <Button
+                                          disabled={cancelEnrollmentMutation.isPending}
+                                          onClick={() => {
+                                            handleCancelEnrollment(item.enrollmentId);
+                                          }}
+                                          size='sm'
+                                          type='button'
+                                          variant='danger'
+                                        >
+                                          수강 취소
+                                        </Button>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className={styles['helperText']}>현재 수강 중인 회원이 없습니다.</p>
+                      )
+                    ) : null}
+                  </section>
+
+                  <section className={styles['replyCard']}>
+                    <p className={styles['replyLabel']}>폐강 처리</p>
+                    <p className={styles['itemTitle']}>{currentDetail.title}</p>
+                    <div className={styles['metaRow']}>
+                      <span
+                        className={isClosureConfirmed ? styles['badgeDanger'] : styles['badge']}
+                      >
+                        {isClosureConfirmed ? '폐강' : operationStatusLabel[operationStatus]}
+                      </span>
+                      <span className={styles['badgeAccent']}>
+                        신청 수강생 {String(activeEnrollmentCount)}명
+                      </span>
+                    </div>
+                    <p className={styles['itemDescription']}>
+                      모집 종료 후 신청 수강생이 2명 미만이면 매일 새벽 3시 10분에 자동 폐강됩니다.
+                    </p>
+                    <p className={styles['itemDescription']}>
+                      자동 처리 전에도 필요하면 여기서 바로 수동 폐강할 수 있습니다.
+                    </p>
+                    {currentDetail.closedAt ? (
+                      <p className={styles['itemDescription']}>
+                        폐강 일시 {formatDateTime(currentDetail.closedAt)}
+                      </p>
+                    ) : null}
+
+                    <div className={styles['replyComposer']}>
+                      <Button
+                        disabled={
+                          closeProgramMutation.isPending ||
+                          currentDetail.programType !== 'OFFLINE' ||
+                          isClosureConfirmed
+                        }
+                        onClick={handleCloseProgram}
+                        type='button'
+                        variant='danger'
+                      >
+                        {closeProgramMutation.isPending ? '폐강 처리 중...' : '프로그램 폐강 처리'}
+                      </Button>
+                      {currentDetail.programType !== 'OFFLINE' ? (
+                        <p className={styles['helperText']}>
+                          오프라인 프로그램만 폐강 처리할 수 있습니다.
+                        </p>
+                      ) : null}
+                    </div>
+                  </section>
+                </div>
+              ) : null}
+            </>
           ) : (
             <div className={styles['stackList']}>
               <AdminProgramCurriculumSection
                 embedded
                 enabled={isEditMode}
                 onOpenLectureWorkspace={openLectureWorkspace}
+                programLearningEndAt={currentDetail?.learningEndAt ?? null}
+                programLearningStartAt={currentDetail?.learningStartAt ?? null}
                 programType={currentDetail?.programType ?? null}
                 programId={isEditMode && currentDetail ? currentDetail.id : null}
               />

@@ -45,7 +45,7 @@ export interface AdminProgramDraftLecture {
   durationSeconds: number | null;
   key: string;
   lectureType: AdminLectureType;
-  offlineScheduleRule: AdminProgramDraftLectureOfflineScheduleRule | null;
+  offlineSchedules: AdminProgramDraftLectureOfflineSchedule[];
   preview: boolean;
   published: boolean;
   sortOrder: number;
@@ -56,14 +56,12 @@ export interface AdminProgramDraftLecture {
   videoUploadStatus: AdminDraftUploadStatus | null;
 }
 
-export interface AdminProgramDraftLectureOfflineScheduleRule {
-  endDate: string | null;
+export interface AdminProgramDraftLectureOfflineSchedule {
+  date: string | null;
   endTime: string | null;
   location: string | null;
   notes: string | null;
-  startDate: string | null;
   startTime: string | null;
-  weekdays: string[];
 }
 
 export interface AdminProgramDraftSection {

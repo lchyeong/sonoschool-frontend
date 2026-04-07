@@ -2,16 +2,9 @@ import axios from 'axios';
 import { z } from 'zod';
 
 import axiosInstance from '@/api/axiosInstance';
+import { toApiResponseValidationError } from '@/api/errors';
 import type { AdminLoginRequest, AdminLoginResponse } from '@/types/adminAuth';
 import { getOrCreateAuthDeviceId } from '@/utils/authDeviceId';
-
-const toZodErrorMessage = (error: z.ZodError): string => {
-  const issues = error.issues
-    .map((issue) => `- ${issue.path.join('.')}: ${issue.message}`)
-    .join('\n');
-
-  return issues ? `\n${issues}` : '';
-};
 
 const adminLoginResponseSchema = z.object({
   status: z.enum(['COMPLETED', 'SMS_REQUIRED']),
@@ -76,7 +69,11 @@ export const loginAdmin = async (payload: AdminLoginRequest): Promise<AdminLogin
     const parsed = adminLoginResponseSchema.safeParse(response.data.data);
 
     if (!parsed.success) {
-      throw new Error(`[adminAuth] Invalid login response.${toZodErrorMessage(parsed.error)}`);
+      throw toApiResponseValidationError({
+        source: 'adminAuth.login',
+        userMessage: '관리자 로그인 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        zodError: parsed.error,
+      });
     }
 
     if (parsed.data.role !== 'ROLE_ADMIN') {

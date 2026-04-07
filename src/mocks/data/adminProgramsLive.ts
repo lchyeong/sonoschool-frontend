@@ -182,14 +182,30 @@ const findCategoryName = (categoryId: number): string => {
 const deriveCatalogStatus = (
   program: Pick<
     AdminProgramStateItem,
-    'maxStudents' | 'currentStudents' | 'saleStartAt' | 'saleEndAt'
+    | 'maxStudents'
+    | 'currentStudents'
+    | 'saleStartAt'
+    | 'saleEndAt'
+    | 'programType'
+    | 'learningStartAt'
   >,
 ): AdminProgramStateItem['catalogStatus'] => {
+  const now = Date.now();
+  const learningStartAt = program.learningStartAt ? Date.parse(program.learningStartAt) : null;
+
+  if (
+    program.programType === 'OFFLINE' &&
+    learningStartAt !== null &&
+    Number.isFinite(learningStartAt) &&
+    learningStartAt <= now
+  ) {
+    return 'STARTED';
+  }
+
   if (program.maxStudents !== null && program.currentStudents >= program.maxStudents) {
     return 'FULL';
   }
 
-  const now = Date.now();
   const saleStartAt = program.saleStartAt ? Date.parse(program.saleStartAt) : null;
   const saleEndAt = program.saleEndAt ? Date.parse(program.saleEndAt) : null;
 
@@ -222,7 +238,14 @@ const toListItem = (program: AdminProgramStateItem): AdminProgramListItem => ({
   currentStudents: program.currentStudents,
   full: program.full,
   published: program.published,
-  catalogStatus: program.catalogStatus,
+  catalogStatus: deriveCatalogStatus({
+    learningStartAt: program.learningStartAt,
+    currentStudents: program.currentStudents,
+    maxStudents: program.maxStudents,
+    programType: program.programType,
+    saleEndAt: program.saleEndAt,
+    saleStartAt: program.saleStartAt,
+  }),
   saleStartAt: program.saleStartAt,
   saleEndAt: program.saleEndAt,
 });
@@ -230,6 +253,14 @@ const toListItem = (program: AdminProgramStateItem): AdminProgramListItem => ({
 const toDetail = (program: AdminProgramStateItem): AdminProgramDetail =>
   clone({
     ...program,
+    catalogStatus: deriveCatalogStatus({
+      learningStartAt: program.learningStartAt,
+      currentStudents: program.currentStudents,
+      maxStudents: program.maxStudents,
+      programType: program.programType,
+      saleEndAt: program.saleEndAt,
+      saleStartAt: program.saleStartAt,
+    }),
     thumbnailPreviewUrl:
       program.thumbnailPreviewUrl ?? resolveMockThumbnailPreviewUrl(program.thumbnailUrl),
   });
@@ -274,8 +305,10 @@ const toStateItem = (
     full: maxStudents !== null ? currentStudents >= maxStudents : false,
     published,
     catalogStatus: deriveCatalogStatus({
+      learningStartAt: payload.learningStartAt,
       currentStudents,
       maxStudents,
+      programType: payload.programType,
       saleEndAt: payload.saleEndAt,
       saleStartAt: payload.saleStartAt,
     }),

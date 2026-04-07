@@ -44,14 +44,17 @@ const catalogStatusLabel: Record<AdminProgramCatalogStatus, string> = {
   FULL: '정원 마감',
   OPEN: '판매중',
   SCHEDULED: '판매 예정',
+  STARTED: '개강됨',
 };
 
 const formatStudentCountLabel = (item: AdminProgramListItem): string => {
+  const activeEnrollmentCount = item.activeEnrollmentCount ?? item.currentStudents;
+
   if (item.programType === 'OFFLINE' && item.maxStudents !== null) {
-    return `${String(item.currentStudents)} / ${String(item.maxStudents)}`;
+    return `${String(activeEnrollmentCount)} / ${String(item.maxStudents)}`;
   }
 
-  return `${String(item.currentStudents)}명`;
+  return `${String(activeEnrollmentCount)}명`;
 };
 
 const formatCurrency = (value: number): string => {
@@ -74,6 +77,22 @@ const formatDate = (value: string | null): string => {
 
 const buildProgramVisibilityLabel = (item: AdminProgramListItem): string => {
   return item.published ? '공개중' : '숨김';
+};
+
+const buildProgramWarningLabel = (
+  item: AdminProgramListItem,
+): {
+  label: string;
+  reason: string | null;
+} | null => {
+  if (item.operationStatus === 'CLOSURE_CONFIRMED') {
+    return {
+      label: '폐강',
+      reason: item.closedAt ? `폐강 ${formatDate(item.closedAt)}` : null,
+    };
+  }
+
+  return null;
 };
 
 const visibilityOptions = [
@@ -324,7 +343,7 @@ const AdminProgramListSection = () => {
             </div>
 
             <div className={styles['tableWrap']}>
-              <table className={styles['table']}>
+              <table className={`${styles['table']} ${styles['programTable']}`}>
                 <thead>
                   <tr>
                     <th scope='col'>프로그램명</th>
@@ -341,11 +360,30 @@ const AdminProgramListSection = () => {
                   {paginatedItems.map((item) => {
                     const deleteBlockedReason = item.deleteBlockedReason ?? undefined;
                     const deletable = isProgramDeletable(item);
+                    const warning = buildProgramWarningLabel(item);
 
                     return (
-                      <tr key={item.id}>
+                      <tr
+                        className={warning ? styles['programRowWarning'] : undefined}
+                        key={item.id}
+                      >
                         <td>
-                          <strong className={styles['cellPrimary']}>{item.title}</strong>
+                          <div className={styles['cellStack']}>
+                            {warning ? (
+                              <div className={styles['metaRow']}>
+                                <span
+                                  className={styles['badgeDanger']}
+                                  title={warning.reason ?? undefined}
+                                >
+                                  {warning.label}
+                                </span>
+                              </div>
+                            ) : null}
+                            <strong className={styles['cellPrimary']}>{item.title}</strong>
+                            {warning?.reason ? (
+                              <span className={styles['cellSecondary']}>{warning.reason}</span>
+                            ) : null}
+                          </div>
                         </td>
                         <td>{item.categoryName}</td>
                         <td>{programTypeLabel[item.programType]}</td>
@@ -361,20 +399,40 @@ const AdminProgramListSection = () => {
                             ) : null}
                           </div>
                         </td>
-                        <td>{formatStudentCountLabel(item)}</td>
                         <td>
                           <div className={styles['cellStack']}>
-                            <span className={styles['cellPrimary']}>
-                              {catalogStatusLabel[item.catalogStatus]}
-                            </span>
-                            <span
-                              className={`${styles['cellSecondary']} ${styles['cellSecondaryInline']}`}
-                            >
-                              {formatDate(item.saleStartAt)} ~ {formatDate(item.saleEndAt)}
+                            <span className={`${styles['cellPrimary']} ${styles['cellNumeric']}`}>
+                              {formatStudentCountLabel(item)}
                             </span>
                           </div>
                         </td>
-                        <td>{buildProgramVisibilityLabel(item)}</td>
+                        <td>
+                          <div className={styles['cellStack']}>
+                            <div className={styles['metaRow']}>
+                              <span className={styles['badgeAccent']}>
+                                {catalogStatusLabel[item.catalogStatus]}
+                              </span>
+                            </div>
+                            <span
+                              className={`${styles['cellSecondary']} ${styles['programStatusPeriod']}`}
+                            >
+                              <span className={styles['cellNumeric']}>
+                                {formatDate(item.saleStartAt)}
+                              </span>
+                              <span aria-hidden='true'>~</span>
+                              <span className={styles['cellNumeric']}>
+                                {formatDate(item.saleEndAt)}
+                              </span>
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            className={item.published ? styles['badgeSuccess'] : styles['badge']}
+                          >
+                            {buildProgramVisibilityLabel(item)}
+                          </span>
+                        </td>
                         <td>
                           <div className={styles['tableActionGroup']}>
                             <button

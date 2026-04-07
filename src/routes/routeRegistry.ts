@@ -155,6 +155,15 @@ const appLeafRouteDefinitions = {
     routePath: 'admin/enrollments',
     absolutePath: '/admin/enrollments',
   }),
+  adminUserDetail: defineDynamicRoute({
+    key: 'adminUserDetail',
+    access: 'admin',
+    routePath: 'admin/enrollments/:userId',
+    absolutePathPattern: '/admin/enrollments/:userId',
+    buildPath: ({ userId }: { userId: string }) => {
+      return generatePath('/admin/enrollments/:userId', { userId });
+    },
+  }),
   adminPracticum: defineStaticRoute({
     key: 'adminPracticum',
     access: 'admin',
@@ -433,6 +442,7 @@ const appChildRouteKeys = [
   'adminResourceCreate',
   'adminResourceEdit',
   'adminEnrollments',
+  'adminUserDetail',
   'adminPracticum',
   'adminReviews',
   'adminPrograms',
@@ -504,6 +514,7 @@ export const routePaths = {
   adminResourceCreate: routes.adminResourceCreate.absolutePath,
   adminResourceEdit: (resourceId: string) => routes.adminResourceEdit.buildPath({ resourceId }),
   adminEnrollments: routes.adminEnrollments.absolutePath,
+  adminUserDetail: (userId: string) => routes.adminUserDetail.buildPath({ userId }),
   adminPracticum: routes.adminPracticum.absolutePath,
   adminReviews: routes.adminReviews.absolutePath,
   adminPrograms: routes.adminPrograms.absolutePath,

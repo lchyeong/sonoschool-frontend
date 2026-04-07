@@ -180,6 +180,25 @@ export interface CartSummary {
   totalPayablePrice: number;
 }
 
+export type UserCouponDiscountType = 'FIXED_AMOUNT' | 'PERCENTAGE';
+export type UserCouponAppliesTo = 'ALL' | 'ONLINE' | 'OFFLINE';
+
+export interface UserCoupon {
+  appliesTo: UserCouponAppliesTo;
+  code: string;
+  description: string | null;
+  discountType: UserCouponDiscountType;
+  discountValue: number;
+  expiresAt: string | null;
+  id: number;
+  issuedAt: string;
+  maxDiscountAmount?: number | null;
+  minimumOrderAmount: number;
+  name: string;
+  usable: boolean;
+  validFromAt: string | null;
+}
+
 export interface ApplicationSummaryItem {
   cartItemId: number;
   programId: number;

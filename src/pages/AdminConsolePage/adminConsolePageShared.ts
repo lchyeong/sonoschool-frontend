@@ -96,7 +96,7 @@ export const sectionContent = {
   practicum: {
     description: '',
     eyebrow: '',
-    title: '실습일정관리',
+    title: '일정관리',
   },
   payments: {
     description: '',
@@ -111,7 +111,7 @@ export const sectionContent = {
   enrollments: {
     description: '',
     eyebrow: '',
-    title: '수강관리',
+    title: '회원관리',
   },
   resources: {
     description: '',
@@ -138,4 +138,23 @@ export const formatFileSizeLabel = (size: number): string => {
   }
 
   return `${String(Math.max(1, Math.round(size / 1024)))} KB`;
+};
+
+export const PROGRAM_THUMBNAIL_FILE_ACCEPT = '.jpg,.jpeg,.png,.webp';
+
+const PROGRAM_THUMBNAIL_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const PROGRAM_THUMBNAIL_FILE_NAME_PATTERN = /\.(jpe?g|png|webp)$/i;
+
+export const validateProgramThumbnailFile = (file: File): string | null => {
+  const normalizedType = file.type.trim().toLowerCase();
+
+  if (normalizedType && PROGRAM_THUMBNAIL_MIME_TYPES.has(normalizedType)) {
+    return null;
+  }
+
+  if (PROGRAM_THUMBNAIL_FILE_NAME_PATTERN.test(file.name)) {
+    return null;
+  }
+
+  return '대표 이미지는 JPG, PNG, WEBP 파일만 업로드할 수 있습니다.';
 };

@@ -400,6 +400,48 @@
   line-height: var(--line-height-relaxed);
 }
 
+.offlineRuleList {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.offlineRuleCard {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--color-brand-lighten-35);
+  background: rgba(47, 65, 85, 0.03);
+  padding: var(--space-3);
+}
+
+.offlineWeekdayRow {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.offlineWeekdayOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.offlineWeekdayOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  border: 1px solid var(--color-brand-lighten-35);
+  background: #ffffff;
+  padding: 0.35rem 0.7rem;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.offlineWeekdayOption input {
+  width: 1rem;
+  height: 1rem;
+}
+
 .errorText {
   margin: 0;
   color: #b42318;

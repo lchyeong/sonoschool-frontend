@@ -1,5 +1,7 @@
 export const calendarWeekdays = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
+const SEOUL_TIME_ZONE = 'Asia/Seoul';
+
 export interface CalendarCell {
   date: string | null;
   isCurrentMonth: boolean;
@@ -82,7 +84,8 @@ export const buildCalendarCells = (monthValue: string): CalendarCell[] => {
 export const formatDate = (value: string): string => {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
-  }).format(new Date(`${value}T00:00:00`));
+    timeZone: SEOUL_TIME_ZONE,
+  }).format(new Date(`${value}T00:00:00+09:00`));
 };
 
 export const formatMonthLabel = (value: string): string => {
@@ -93,11 +96,19 @@ export const formatMonthLabel = (value: string): string => {
 export const formatTimeRange = (startAt: string, endAt: string): string => {
   const timeFormatter = new Intl.DateTimeFormat('ko-KR', {
     hour: '2-digit',
+    hour12: false,
     minute: '2-digit',
+    timeZone: SEOUL_TIME_ZONE,
   });
   return `${timeFormatter.format(new Date(startAt))} - ${timeFormatter.format(new Date(endAt))}`;
 };
 
 export const getSlotDateKey = (value: string): string => {
-  return toDateInputValue(new Date(value));
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: SEOUL_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(new Date(value));
 };

@@ -230,7 +230,7 @@ const createMockAdminProgramDraftDetail = () => {
               durationSeconds: null,
               key: 'lecture-1',
               lectureType: 'VIDEO',
-              offlineScheduleRule: null,
+              offlineSchedules: [],
               preview: false,
               published: false,
               sortOrder: 0,
@@ -1395,6 +1395,259 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(filteredUsers));
   }),
+  http.get('*/api/v1/admin/users/:userId', ({ params }) => {
+    const userId = Number(params['userId']);
+
+    const userDetails = {
+      101: {
+        active: true,
+        activeEnrollmentCount: 2,
+        displayName: '김민지',
+        email: 'minji@example.com',
+        marketingConsent: {
+          agreed: true,
+          agreedAt: '2026-01-10T09:05:00Z',
+          revokedAt: null,
+          termVersion: '2026.01',
+        },
+        enrollments: [
+          {
+            attemptedProblemLectureCount: 1,
+            completedLectureCount: 2,
+            completionRate: 66,
+            current: true,
+            enrolledAt: '2026-03-01T09:00:00Z',
+            enrollmentId: 7001,
+            enrollmentStatus: 'ACTIVE',
+            expireAt: '2026-06-01T09:00:00Z',
+            firstLearningAt: '2026-03-02T09:00:00Z',
+            lastLearningAt: '2026-03-04T09:00:00Z',
+            lectures: [
+              {
+                completed: true,
+                completedAt: '2026-03-02T09:00:00Z',
+                durationSeconds: 300,
+                lastWatchedAt: '2026-03-02T09:00:00Z',
+                lectureId: 9101,
+                lectureSortOrder: 1,
+                lectureTitle: '오리엔테이션',
+                lectureType: 'VIDEO',
+                progressRate: 100,
+                quiz: null,
+                sectionId: 501,
+                sectionSortOrder: 1,
+                sectionTitle: '입문',
+                watchedSeconds: 300,
+              },
+              {
+                completed: false,
+                completedAt: null,
+                durationSeconds: 900,
+                lastWatchedAt: '2026-03-03T09:00:00Z',
+                lectureId: 9102,
+                lectureSortOrder: 2,
+                lectureTitle: '복부 스캔 기본기',
+                lectureType: 'VIDEO',
+                progressRate: 40,
+                quiz: null,
+                sectionId: 501,
+                sectionSortOrder: 1,
+                sectionTitle: '입문',
+                watchedSeconds: 360,
+              },
+              {
+                completed: true,
+                completedAt: '2026-03-04T09:00:00Z',
+                durationSeconds: null,
+                lastWatchedAt: '2026-03-04T09:00:00Z',
+                lectureId: 9103,
+                lectureSortOrder: 3,
+                lectureTitle: '혈액가스 문제 풀이',
+                lectureType: 'PROBLEM',
+                progressRate: 100,
+                quiz: {
+                  attemptCount: 2,
+                  attempted: true,
+                  attempts: [
+                    {
+                      attemptId: 8101,
+                      correctAnswerCount: 1,
+                      passScore: 80,
+                      passed: true,
+                      questionCount: 1,
+                      questionResults: [
+                        {
+                          correct: true,
+                          correctOptions: [
+                            {
+                              optionId: 1,
+                              optionText: '대사성 알칼리증',
+                            },
+                          ],
+                          explanation: 'HCO3 상승과 pH 상승 조합입니다.',
+                          questionId: 5001,
+                          questionText: '이 결과에 해당하는 상태는?',
+                          questionType: 'SINGLE',
+                          submittedOptions: [
+                            {
+                              optionId: 1,
+                              optionText: '대사성 알칼리증',
+                            },
+                          ],
+                        },
+                      ],
+                      score: 100,
+                      submittedAt: '2026-03-04T09:00:00Z',
+                    },
+                    {
+                      attemptId: 8100,
+                      correctAnswerCount: 0,
+                      passScore: 80,
+                      passed: false,
+                      questionCount: 1,
+                      questionResults: [
+                        {
+                          correct: false,
+                          correctOptions: [
+                            {
+                              optionId: 1,
+                              optionText: '대사성 알칼리증',
+                            },
+                          ],
+                          explanation: 'HCO3 상승과 pH 상승 조합입니다.',
+                          questionId: 5001,
+                          questionText: '이 결과에 해당하는 상태는?',
+                          questionType: 'SINGLE',
+                          submittedOptions: [
+                            {
+                              optionId: 2,
+                              optionText: '호흡성 산증',
+                            },
+                          ],
+                        },
+                      ],
+                      score: 0,
+                      submittedAt: '2026-03-03T09:00:00Z',
+                    },
+                  ],
+                  bestScore: 100,
+                  lastSubmittedAt: '2026-03-04T09:00:00Z',
+                  latestCorrectAnswerCount: 1,
+                  latestScore: 100,
+                  passScore: 80,
+                  questionCount: 1,
+                  quizId: 4001,
+                  title: '혈액가스 퀴즈',
+                },
+                sectionId: 502,
+                sectionSortOrder: 2,
+                sectionTitle: '문제풀이',
+                watchedSeconds: 0,
+              },
+            ],
+            payment: {
+              amount: 1200000,
+              approvedAmount: 1200000,
+              cancelledAt: null,
+              paidAt: '2026-03-01T09:00:00Z',
+              paymentId: 6001,
+              paymentMethod: 'CARD',
+              paymentStatus: 'COMPLETED',
+              programId: 2001,
+              programTitle: '복부초음파 기초',
+              requestedAt: '2026-03-01T08:55:00Z',
+            },
+            programId: 2001,
+            programTitle: '복부초음파 기초',
+            programType: 'HYBRID',
+            totalLectureCount: 3,
+            totalProblemLectureCount: 1,
+          },
+        ],
+        id: 101,
+        joinedAt: '2026-01-10T09:00:00Z',
+        loginId: 'minji01',
+        name: '김민지',
+        nickname: null,
+        paymentSummary: {
+          cancelledPaymentCount: 1,
+          completedPaymentCount: 1,
+          lastPaidAt: '2026-03-01T09:00:00Z',
+          totalCancelledAmount: 300000,
+          totalPaidAmount: 1500000,
+        },
+        payments: [
+          {
+            amount: 1200000,
+            approvedAmount: 1200000,
+            cancelledAt: null,
+            paidAt: '2026-03-01T09:00:00Z',
+            paymentId: 6001,
+            paymentMethod: 'CARD',
+            paymentStatus: 'COMPLETED',
+            programId: 2001,
+            programTitle: '복부초음파 기초',
+            requestedAt: '2026-03-01T08:55:00Z',
+          },
+          {
+            amount: 300000,
+            approvedAmount: 300000,
+            cancelledAt: '2026-02-01T10:00:00Z',
+            paidAt: '2026-01-22T10:00:00Z',
+            paymentId: 6000,
+            paymentMethod: 'CARD',
+            paymentStatus: 'CANCELLED',
+            programId: 1999,
+            programTitle: '경부초음파 입문',
+            requestedAt: '2026-01-22T09:55:00Z',
+          },
+        ],
+        phoneNumber: '010-1111-2222',
+        phoneVerifiedAt: '2026-01-10T09:00:00Z',
+        questions: [
+          {
+            answered: true,
+            content: '복부 스캔 기본기 강의에서 간문맥 구분 기준이 궁금합니다.',
+            createdAt: '2026-03-03T10:00:00Z',
+            latestReplyAt: '2026-03-03T13:00:00Z',
+            lectureId: 9102,
+            lectureTitle: '복부 스캔 기본기',
+            lectureType: 'VIDEO',
+            programId: 2001,
+            programTitle: '복부초음파 기초',
+            questionId: 3001,
+            replyCount: 1,
+            scope: 'PROGRAM',
+            title: '간문맥과 담관 구분 기준',
+          },
+          {
+            answered: false,
+            content: '현금영수증 발급 여부를 확인하고 싶습니다.',
+            createdAt: '2026-03-05T11:00:00Z',
+            latestReplyAt: null,
+            lectureId: null,
+            lectureTitle: null,
+            lectureType: null,
+            programId: null,
+            programTitle: null,
+            questionId: 3002,
+            replyCount: 0,
+            scope: 'GLOBAL',
+            title: '결제 영수증 문의',
+          },
+        ],
+        upcomingPracticumCount: 1,
+      },
+    } as const;
+
+    if (!(userId in userDetails)) {
+      return HttpResponse.json({ message: '회원을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    const detail = userDetails[userId as keyof typeof userDetails];
+
+    return HttpResponse.json(createApiEnvelope(detail));
+  }),
   http.get('*/api/v1/admin/enrollments', ({ request }) => {
     const keyword = (new URL(request.url).searchParams.get('keyword') ?? '').trim().toLowerCase();
 
@@ -1515,7 +1768,120 @@ export const handlers = [
       ]),
     );
   }),
+  http.get('*/api/v1/admin/practicum/offline-schedules', () => {
+    return HttpResponse.json(
+      createApiEnvelope([
+        {
+          activeEnrollmentCount: 12,
+          endAt: '2026-03-30T07:00:00Z',
+          lectureId: 9301,
+          lectureTitle: '오프라인 집중 실습',
+          location: '서울 강남 공용 실습실',
+          programId: 2101,
+          programTitle: 'GI tract 마스터 과정',
+          ruleId: 9901,
+          sectionTitle: '2주차',
+          startAt: '2026-03-30T05:00:00Z',
+        },
+      ]),
+    );
+  }),
+  http.get('*/api/v1/admin/practicum/operating-hours', () => {
+    return HttpResponse.json(
+      createApiEnvelope([
+        {
+          id: 1,
+          location: '서울 강의실 A',
+          openFromHour: 9,
+          openToHour: 18,
+          weekday: 'MONDAY',
+        },
+        {
+          id: 2,
+          location: '서울 강의실 A',
+          openFromHour: 9,
+          openToHour: 18,
+          weekday: 'TUESDAY',
+        },
+        {
+          id: 3,
+          location: '서울 강의실 A',
+          openFromHour: 9,
+          openToHour: 18,
+          weekday: 'WEDNESDAY',
+        },
+        {
+          id: 4,
+          location: '서울 강의실 A',
+          openFromHour: 9,
+          openToHour: 18,
+          weekday: 'THURSDAY',
+        },
+        {
+          id: 5,
+          location: '서울 강의실 A',
+          openFromHour: 9,
+          openToHour: 18,
+          weekday: 'FRIDAY',
+        },
+      ]),
+    );
+  }),
+  http.put('*/api/v1/admin/practicum/operating-hours/apply', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.put('*/api/v1/admin/practicum/daily-operations', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.get('*/api/v1/admin/practicum/operation-exceptions', () => {
+    return HttpResponse.json(
+      createApiEnvelope([
+        {
+          endAt: '2026-03-29T04:00:00Z',
+          id: 9101,
+          location: null,
+          startAt: '2026-03-29T03:00:00Z',
+          title: '관리자 개인 일정',
+          type: 'ADMIN_SCHEDULE',
+        },
+      ]),
+    );
+  }),
+  http.post('*/api/v1/admin/practicum/operation-exceptions', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as {
+      endAt?: string;
+      location?: string | null;
+      startAt?: string;
+      title?: string;
+      type?: string;
+    } | null;
+
+    if (!body || !body.startAt || !body.endAt || !body.title || !body.type) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        endAt: body.endAt,
+        id: 9200,
+        location: body.location ?? null,
+        startAt: body.startAt,
+        title: body.title,
+        type: body.type,
+      }),
+      { status: 201 },
+    );
+  }),
+  http.patch('*/api/v1/admin/practicum-slots/status', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as {
+      slotIds?: number[];
+      status?: string;
+    } | null;
+
+    if (!body || !Array.isArray(body.slotIds) || body.slotIds.length === 0 || !body.status) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
     return new HttpResponse(null, { status: 204 });
   }),
   http.patch('*/api/v1/admin/practicum-slots/:slotId/status', async ({ params, request }) => {

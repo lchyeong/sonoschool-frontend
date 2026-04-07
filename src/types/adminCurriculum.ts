@@ -1,14 +1,12 @@
 export type AdminLectureType = 'VIDEO' | 'OFFLINE' | 'PRACTICUM' | 'PROBLEM' | 'RESOURCE';
 
-export interface AdminLectureOfflineScheduleRule {
-  endDate: string;
+export interface AdminLectureOfflineSchedule {
+  date: string;
   endTime: string;
   id: number;
   location: string | null;
   notes: string | null;
-  startDate: string;
   startTime: string;
-  weekdays: string[];
 }
 
 export interface AdminCurriculumLecture {
@@ -16,14 +14,7 @@ export interface AdminCurriculumLecture {
   durationSeconds: number | null;
   id: number;
   lectureType: AdminLectureType;
-  offlineScheduleRule: AdminLectureOfflineScheduleRule | null;
-  offlineSession?: {
-    endAt: string;
-    id?: number;
-    location: string | null;
-    notes: string | null;
-    startAt: string;
-  } | null;
+  offlineSchedules: AdminLectureOfflineSchedule[];
   preview: boolean;
   practicumEnabled?: boolean;
   published: boolean;
@@ -59,14 +50,16 @@ export interface AdminLectureUpsertPayload {
   title: string;
 }
 
-export interface AdminLectureOfflineScheduleRuleUpsertPayload {
-  endDate: string;
+export interface AdminLectureOfflineScheduleUpsertPayload {
+  date: string;
   endTime: string;
   location: string | null;
   notes: string | null;
-  startDate: string;
   startTime: string;
-  weekdays: string[];
+}
+
+export interface AdminLectureOfflineSchedulesReplacePayload {
+  offlineSchedules: AdminLectureOfflineScheduleUpsertPayload[];
 }
 
 export interface AdminSortOrderItem {

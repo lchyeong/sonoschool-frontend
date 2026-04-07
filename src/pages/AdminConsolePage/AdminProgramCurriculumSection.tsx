@@ -6,12 +6,12 @@ import {
   createAdminLecture,
   createAdminSection,
   deleteAdminLecture,
-  deleteAdminLectureOfflineScheduleRule,
+  deleteAdminLectureOfflineSchedules,
   deleteAdminSection,
   publishAdminLecture,
+  replaceAdminLectureOfflineSchedules,
   reorderAdminLectures,
   reorderAdminSections,
-  upsertAdminLectureOfflineScheduleRule,
   unpublishAdminLecture,
   updateAdminLecture,
   updateAdminSection,
@@ -34,7 +34,8 @@ import { adminCurriculumQueryKey, useAdminCurriculumQuery } from '@/query/useAdm
 import { useToastStore } from '@/stores/useToastStore';
 import type {
   AdminCurriculumLecture,
-  AdminLectureOfflineScheduleRuleUpsertPayload,
+  AdminLectureOfflineSchedule,
+  AdminLectureOfflineSchedulesReplacePayload,
   AdminCurriculumSection,
   AdminLectureUpsertPayload,
   AdminSectionUpsertPayload,
@@ -52,6 +53,8 @@ interface AdminProgramCurriculumSectionProps {
   embedded?: boolean;
   enabled: boolean;
   onOpenLectureWorkspace?: (lectureId: number, target: 'quiz' | 'resource') => void;
+  programLearningEndAt?: string | null;
+  programLearningStartAt?: string | null;
   programType?: AdminProgramType | null;
   programId: number | null;
 }
@@ -75,11 +78,12 @@ interface PracticumSlotFormState {
   startAt: string;
 }
 
-interface OfflineSessionFormState {
-  endAt: string;
+interface OfflineScheduleFormState {
+  date: string;
+  endTime: string;
   location: string;
   notes: string;
-  startAt: string;
+  startTime: string;
 }
 
 type LectureWorkspacePanel = 'basic' | 'video' | 'resource' | 'quiz' | 'practicum' | 'offline';
@@ -102,13 +106,6 @@ const EMPTY_LECTURE_FORM: LectureFormState = {
 
 const EMPTY_PRACTICUM_SLOT_FORM: PracticumSlotFormState = {
   location: '',
-  startAt: '',
-};
-
-const EMPTY_OFFLINE_SESSION_FORM: OfflineSessionFormState = {
-  endAt: '',
-  location: '',
-  notes: '',
   startAt: '',
 };
 
@@ -190,27 +187,36 @@ const toLecturePayload = (
   };
 };
 
-const createOfflineSessionFormState = (
-  lecture: AdminCurriculumLecture,
-): OfflineSessionFormState => ({
-  endAt: lecture.offlineSession?.endAt ? lecture.offlineSession.endAt.slice(0, 16) : '',
-  location: lecture.offlineSession?.location ?? '',
-  notes: lecture.offlineSession?.notes ?? '',
-  startAt: lecture.offlineSession?.startAt ? lecture.offlineSession.startAt.slice(0, 16) : '',
+const createOfflineScheduleFormState = (
+  schedule?: AdminLectureOfflineSchedule,
+): OfflineScheduleFormState => ({
+  date: schedule?.date ?? '',
+  endTime: schedule?.endTime ?? '',
+  location: schedule?.location ?? '',
+  notes: schedule?.notes ?? '',
+  startTime: schedule?.startTime ?? '',
 });
 
-const toOfflineSessionPayload = (
-  formState: OfflineSessionFormState,
-): AdminLectureOfflineScheduleRuleUpsertPayload => ({
-  endDate: formState.endAt.slice(0, 10),
-  endTime: formState.endAt.slice(11, 16),
-  location: normalizeDescription(formState.location),
-  notes: normalizeDescription(formState.notes),
-  startDate: formState.startAt.slice(0, 10),
-  startTime: formState.startAt.slice(11, 16),
-  weekdays: formState.startAt
-    ? [new Date(formState.startAt).toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()]
-    : [],
+const createOfflineScheduleFormStates = (
+  lecture: AdminCurriculumLecture,
+): OfflineScheduleFormState[] => {
+  if (lecture.offlineSchedules.length > 0) {
+    return lecture.offlineSchedules.map((schedule) => createOfflineScheduleFormState(schedule));
+  }
+
+  return [createOfflineScheduleFormState()];
+};
+
+const toOfflineSchedulesPayload = (
+  formStates: OfflineScheduleFormState[],
+): AdminLectureOfflineSchedulesReplacePayload => ({
+  offlineSchedules: formStates.map((formState) => ({
+    date: formState.date,
+    endTime: formState.endTime,
+    location: normalizeDescription(formState.location),
+    notes: normalizeDescription(formState.notes),
+    startTime: formState.startTime,
+  })),
 });
 
 const adminPracticumSlotsQueryKey = (lectureId: number) =>
@@ -252,6 +258,23 @@ const formatPracticumDateTime = (value: string) => {
   });
 };
 
+const toDateInputValue = (value: string | null | undefined): string => {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${String(year)}-${month}-${day}`;
+};
+
 const buildReorderItems = (
   items: ReadonlyArray<{ id: number }>,
   targetId: number,
@@ -282,6 +305,10 @@ const formatLectureMeta = (lecture: AdminCurriculumLecture): string => {
   return `영상 ID ${String(lecture.videoId)}`;
 };
 
+const formatOfflineScheduleLabel = (schedule: AdminLectureOfflineSchedule): string => {
+  return `${schedule.date} ${schedule.startTime}~${schedule.endTime}`;
+};
+
 const formatDurationLabel = (durationSeconds: number | null): string => {
   if (durationSeconds === null || durationSeconds <= 0) {
     return '길이 미설정';
@@ -310,12 +337,12 @@ const formatLectureDelivery = (lecture: AdminCurriculumLecture): string => {
     return '문제풀이 강의';
   }
   const hasVideo = lecture.videoId !== null;
-  const hasOfflineSession = lecture.offlineSession !== null;
+  const hasOfflineSchedule = lecture.offlineSchedules.length > 0;
 
-  if (hasVideo && hasOfflineSession) {
+  if (hasVideo && hasOfflineSchedule) {
     return '온라인 + 현장 강의';
   }
-  if (hasOfflineSession) {
+  if (hasOfflineSchedule) {
     return '현장 강의';
   }
   if (hasVideo) {
@@ -399,33 +426,37 @@ const LectureCard = ({
   canMoveDown,
   canMoveUp,
   lecture,
-  onDeleteOfflineSession,
+  onDeleteOfflineSchedules,
   onDelete,
   onManageResource,
   onManageQuiz,
-  onSaveOfflineSession,
+  onSaveOfflineSchedules,
   onUploadVideo,
   onMove,
   onSave,
   onTogglePublish,
+  programLearningEndAt,
+  programLearningStartAt,
   videoUploadStatus,
 }: {
   allowPracticum: boolean;
   canMoveDown: boolean;
   canMoveUp: boolean;
   lecture: AdminCurriculumLecture;
-  onDeleteOfflineSession: (lectureId: number) => void;
+  onDeleteOfflineSchedules: (lectureId: number) => void;
   onDelete: (lectureId: number) => void;
   onManageResource: (lectureId: number) => void;
   onManageQuiz: (lectureId: number) => void;
-  onSaveOfflineSession: (
+  onSaveOfflineSchedules: (
     lectureId: number,
-    payload: AdminLectureOfflineScheduleRuleUpsertPayload,
+    payload: AdminLectureOfflineSchedulesReplacePayload,
   ) => void;
   onUploadVideo: (lectureId: number, file: File) => void;
   onMove: (lectureId: number, direction: 'up' | 'down') => void;
   onSave: (lectureId: number, payload: AdminLectureUpsertPayload) => void;
   onTogglePublish: (lectureId: number, published: boolean) => void;
+  programLearningEndAt: string | null;
+  programLearningStartAt: string | null;
   videoUploadStatus: string | null;
 }) => {
   const [formState, setFormState] = useState<LectureFormState>({
@@ -438,14 +469,24 @@ const LectureCard = ({
   });
   const [practicumSlotForm, setPracticumSlotForm] =
     useState<PracticumSlotFormState>(EMPTY_PRACTICUM_SLOT_FORM);
-  const [offlineSessionForm, setOfflineSessionForm] = useState<OfflineSessionFormState>(
-    createOfflineSessionFormState(lecture),
+  const [offlineScheduleForms, setOfflineScheduleForms] = useState<OfflineScheduleFormState[]>(
+    createOfflineScheduleFormStates(lecture),
   );
   const [expanded, setExpanded] = useState(false);
   const [activePanel, setActivePanel] = useState<LectureWorkspacePanel | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const showToast = useToastStore((state) => state.showToast);
   const queryClient = useQueryClient();
+  const offlineScheduleMinDate = toDateInputValue(programLearningStartAt);
+  const offlineScheduleMaxDate = toDateInputValue(programLearningEndAt);
+  const offlineSchedulePeriodLabel =
+    offlineScheduleMinDate && offlineScheduleMaxDate
+      ? `${offlineScheduleMinDate} ~ ${offlineScheduleMaxDate}`
+      : offlineScheduleMinDate
+        ? `${offlineScheduleMinDate} 이후`
+        : offlineScheduleMaxDate
+          ? `${offlineScheduleMaxDate} 이전`
+          : null;
   const practicumSlotsQuery = useQuery({
     enabled: Boolean(lecture.practicumEnabled),
     queryFn: () => fetchAdminPracticumSlots(lecture.id),
@@ -553,13 +594,15 @@ const LectureCard = ({
             >
               {lecture.published ? '공개중' : '비공개'}
             </span>
-            {lecture.offlineSession ? (
-              <span className={styles['statusBadge']} data-tone='neutral'>
-                {`${formatPracticumDateTime(lecture.offlineSession.startAt)} ~ ${formatPracticumDateTime(
-                  lecture.offlineSession.endAt,
-                )}`}
+            {lecture.offlineSchedules.map((schedule) => (
+              <span
+                className={styles['statusBadge']}
+                data-tone='neutral'
+                key={`offline-schedule-${String(lecture.id)}-${String(schedule.id)}`}
+              >
+                {formatOfflineScheduleLabel(schedule)}
               </span>
-            ) : null}
+            ))}
           </div>
         </div>
 
@@ -859,86 +902,170 @@ const LectureCard = ({
               <div className={styles['panelHeader']}>
                 <h5 className={styles['subsectionTitle']}>현장 강의 일정</h5>
               </div>
-              <div className={styles['fieldGrid']}>
-                <TextField
-                  label='현장 강의 시작 시각'
-                  name={`lecture-offline-start-${String(lecture.id)}`}
-                  onChange={(event) => {
-                    setOfflineSessionForm((current) => ({
+              <p className={styles['helperText']}>
+                강의별로 실제 진행 일자와 시간을 직접 등록합니다. 저장된 일정만 공유 일정표에 자동
+                반영됩니다. 시간은 1시간 단위로만 입력할 수 있습니다.
+              </p>
+              {offlineSchedulePeriodLabel ? (
+                <p className={styles['helperText']}>
+                  일정 날짜는 프로그램 수강 기간인 {offlineSchedulePeriodLabel} 안에서만 등록할 수
+                  있습니다.
+                </p>
+              ) : null}
+              <div className={styles['offlineRuleList']}>
+                {offlineScheduleForms.map((scheduleForm, index) => (
+                  <div
+                    className={styles['offlineRuleCard']}
+                    key={`offline-rule-form-${String(lecture.id)}-${String(index)}`}
+                  >
+                    <div className={styles['panelHeader']}>
+                      <strong className={styles['subsectionTitle']}>일정 {index + 1}</strong>
+                      {offlineScheduleForms.length > 1 ? (
+                        <Button
+                          onClick={() => {
+                            setOfflineScheduleForms((current) =>
+                              current.filter((_, currentIndex) => currentIndex !== index),
+                            );
+                          }}
+                          size='sm'
+                          type='button'
+                          variant='danger'
+                        >
+                          일정 제거
+                        </Button>
+                      ) : null}
+                    </div>
+                    <div className={styles['fieldGrid']}>
+                      <TextField
+                        label='일자'
+                        max={offlineScheduleMaxDate || undefined}
+                        min={offlineScheduleMinDate || undefined}
+                        name={`lecture-offline-date-${String(lecture.id)}-${String(index)}`}
+                        onChange={(event) => {
+                          setOfflineScheduleForms((current) =>
+                            current.map((item, currentIndex) =>
+                              currentIndex === index ? { ...item, date: event.target.value } : item,
+                            ),
+                          );
+                        }}
+                        type='date'
+                        value={scheduleForm.date}
+                      />
+                      <TextField
+                        label='시작 시간'
+                        name={`lecture-offline-start-time-${String(lecture.id)}-${String(index)}`}
+                        onChange={(event) => {
+                          setOfflineScheduleForms((current) =>
+                            current.map((item, currentIndex) =>
+                              currentIndex === index
+                                ? { ...item, startTime: event.target.value }
+                                : item,
+                            ),
+                          );
+                        }}
+                        step={3600}
+                        type='time'
+                        value={scheduleForm.startTime}
+                      />
+                      <TextField
+                        label='종료 시간'
+                        name={`lecture-offline-end-time-${String(lecture.id)}-${String(index)}`}
+                        onChange={(event) => {
+                          setOfflineScheduleForms((current) =>
+                            current.map((item, currentIndex) =>
+                              currentIndex === index
+                                ? { ...item, endTime: event.target.value }
+                                : item,
+                            ),
+                          );
+                        }}
+                        step={3600}
+                        type='time'
+                        value={scheduleForm.endTime}
+                      />
+                      <TextField
+                        label='장소'
+                        name={`lecture-offline-location-${String(lecture.id)}-${String(index)}`}
+                        onChange={(event) => {
+                          setOfflineScheduleForms((current) =>
+                            current.map((item, currentIndex) =>
+                              currentIndex === index
+                                ? { ...item, location: event.target.value }
+                                : item,
+                            ),
+                          );
+                        }}
+                        value={scheduleForm.location}
+                      />
+                      <TextAreaField
+                        label='비고'
+                        name={`lecture-offline-notes-${String(lecture.id)}-${String(index)}`}
+                        onChange={(event) => {
+                          setOfflineScheduleForms((current) =>
+                            current.map((item, currentIndex) =>
+                              currentIndex === index
+                                ? { ...item, notes: event.target.value }
+                                : item,
+                            ),
+                          );
+                        }}
+                        rows={3}
+                        value={scheduleForm.notes}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className={styles['buttonRow']}>
+                <Button
+                  onClick={() => {
+                    setOfflineScheduleForms((current) => [
                       ...current,
-                      startAt: event.target.value,
-                    }));
+                      createOfflineScheduleFormState(),
+                    ]);
                   }}
-                  type='datetime-local'
-                  value={offlineSessionForm.startAt}
-                />
-                <TextField
-                  label='현장 강의 종료 시각'
-                  name={`lecture-offline-end-${String(lecture.id)}`}
-                  onChange={(event) => {
-                    setOfflineSessionForm((current) => ({
-                      ...current,
-                      endAt: event.target.value,
-                    }));
+                  size='sm'
+                  type='button'
+                  variant='secondary'
+                >
+                  일정 추가
+                </Button>
+                <Button
+                  onClick={() => {
+                    const hasEmptySchedule = offlineScheduleForms.some(
+                      (schedule) => !schedule.date || !schedule.startTime || !schedule.endTime,
+                    );
+                    if (hasEmptySchedule) {
+                      showToast({
+                        message: '일정마다 날짜, 시작 시간, 종료 시간을 모두 입력해 주세요.',
+                        variant: 'error',
+                      });
+                      return;
+                    }
+                    onSaveOfflineSchedules(
+                      lecture.id,
+                      toOfflineSchedulesPayload(offlineScheduleForms),
+                    );
                   }}
-                  type='datetime-local'
-                  value={offlineSessionForm.endAt}
-                />
-                <TextField
-                  label='장소'
-                  name={`lecture-offline-location-${String(lecture.id)}`}
-                  onChange={(event) => {
-                    setOfflineSessionForm((current) => ({
-                      ...current,
-                      location: event.target.value,
-                    }));
-                  }}
-                  value={offlineSessionForm.location}
-                />
-                <TextAreaField
-                  label='비고'
-                  name={`lecture-offline-notes-${String(lecture.id)}`}
-                  onChange={(event) => {
-                    setOfflineSessionForm((current) => ({
-                      ...current,
-                      notes: event.target.value,
-                    }));
-                  }}
-                  rows={3}
-                  value={offlineSessionForm.notes}
-                />
-                <div className={styles['buttonRow']}>
+                  size='sm'
+                  type='button'
+                >
+                  일정 저장
+                </Button>
+                {lecture.offlineSchedules.length > 0 ? (
                   <Button
                     onClick={() => {
-                      if (!offlineSessionForm.startAt || !offlineSessionForm.endAt) {
-                        showToast({
-                          message: '현장 강의 시작/종료 시각을 입력해 주세요.',
-                          variant: 'error',
-                        });
-                        return;
-                      }
-                      onSaveOfflineSession(lecture.id, toOfflineSessionPayload(offlineSessionForm));
+                      onDeleteOfflineSchedules(lecture.id);
+                      setOfflineScheduleForms([createOfflineScheduleFormState()]);
+                      setActivePanel(null);
                     }}
                     size='sm'
                     type='button'
+                    variant='danger'
                   >
-                    현장 강의 저장
+                    일정 전체 삭제
                   </Button>
-                  {lecture.offlineSession ? (
-                    <Button
-                      onClick={() => {
-                        onDeleteOfflineSession(lecture.id);
-                        setOfflineSessionForm(EMPTY_OFFLINE_SESSION_FORM);
-                        setActivePanel(null);
-                      }}
-                      size='sm'
-                      type='button'
-                      variant='danger'
-                    >
-                      현장 강의 삭제
-                    </Button>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -1048,6 +1175,7 @@ const LectureCard = ({
                       startAt: event.target.value,
                     }));
                   }}
+                  step={3600}
                   type='datetime-local'
                   value={practicumSlotForm.startAt}
                 />
@@ -1095,18 +1223,20 @@ const SectionCard = ({
   canMoveDown,
   canMoveUp,
   onCreateLecture,
-  onDeleteLectureOfflineSession,
+  onDeleteLectureOfflineSchedules,
   onDeleteLecture,
   onDeleteSection,
   onManageLectureResource,
   onManageLectureQuiz,
-  onSaveLectureOfflineSession,
+  onSaveLectureOfflineSchedules,
   onUploadLectureVideo,
   onMoveLecture,
   onMoveSection,
   onSaveLecture,
   onSaveSection,
   onToggleLecturePublish,
+  programLearningEndAt,
+  programLearningStartAt,
   section,
   videoUploadStatusByLectureId,
 }: {
@@ -1114,14 +1244,14 @@ const SectionCard = ({
   canMoveDown: boolean;
   canMoveUp: boolean;
   onCreateLecture: (sectionId: number, payload: AdminLectureUpsertPayload) => boolean;
-  onDeleteLectureOfflineSession: (lectureId: number) => void;
+  onDeleteLectureOfflineSchedules: (lectureId: number) => void;
   onDeleteLecture: (lectureId: number) => void;
   onDeleteSection: (sectionId: number) => void;
   onManageLectureResource: (lectureId: number) => void;
   onManageLectureQuiz: (lectureId: number) => void;
-  onSaveLectureOfflineSession: (
+  onSaveLectureOfflineSchedules: (
     lectureId: number,
-    payload: AdminLectureOfflineScheduleRuleUpsertPayload,
+    payload: AdminLectureOfflineSchedulesReplacePayload,
   ) => void;
   onUploadLectureVideo: (lectureId: number, file: File) => void;
   onMoveLecture: (sectionId: number, lectureId: number, direction: 'up' | 'down') => void;
@@ -1129,6 +1259,8 @@ const SectionCard = ({
   onSaveLecture: (lectureId: number, payload: AdminLectureUpsertPayload) => void;
   onSaveSection: (sectionId: number, payload: AdminSectionUpsertPayload) => void;
   onToggleLecturePublish: (lectureId: number, published: boolean) => void;
+  programLearningEndAt: string | null;
+  programLearningStartAt: string | null;
   section: AdminCurriculumSection;
   videoUploadStatusByLectureId: Record<number, string>;
 }) => {
@@ -1366,7 +1498,7 @@ const SectionCard = ({
                       canMoveUp={index > 0}
                       key={lecture.id}
                       lecture={lecture}
-                      onDeleteOfflineSession={onDeleteLectureOfflineSession}
+                      onDeleteOfflineSchedules={onDeleteLectureOfflineSchedules}
                       onDelete={onDeleteLecture}
                       onManageQuiz={onManageLectureQuiz}
                       onManageResource={onManageLectureResource}
@@ -1374,9 +1506,11 @@ const SectionCard = ({
                         onMoveLecture(section.id, lectureId, direction);
                       }}
                       onSave={onSaveLecture}
-                      onSaveOfflineSession={onSaveLectureOfflineSession}
+                      onSaveOfflineSchedules={onSaveLectureOfflineSchedules}
                       onTogglePublish={onToggleLecturePublish}
                       onUploadVideo={onUploadLectureVideo}
+                      programLearningEndAt={programLearningEndAt}
+                      programLearningStartAt={programLearningStartAt}
                       videoUploadStatus={videoUploadStatusByLectureId[lecture.id] ?? null}
                     />
                   ))}
@@ -1495,6 +1629,8 @@ const AdminProgramCurriculumSection = ({
   embedded = false,
   enabled,
   onOpenLectureWorkspace,
+  programLearningEndAt = null,
+  programLearningStartAt = null,
   programType = null,
   programId,
 }: AdminProgramCurriculumSectionProps) => {
@@ -1693,14 +1829,14 @@ const AdminProgramCurriculumSection = ({
     },
   });
 
-  const upsertOfflineSessionMutation = useMutation({
+  const replaceOfflineSchedulesMutation = useMutation({
     mutationFn: ({
       lectureId,
       payload,
     }: {
       lectureId: number;
-      payload: AdminLectureOfflineScheduleRuleUpsertPayload;
-    }) => upsertAdminLectureOfflineScheduleRule(lectureId, payload),
+      payload: AdminLectureOfflineSchedulesReplacePayload;
+    }) => replaceAdminLectureOfflineSchedules(lectureId, payload),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '현장 강의 일정을 저장하지 못했습니다.',
@@ -1716,8 +1852,8 @@ const AdminProgramCurriculumSection = ({
     },
   });
 
-  const deleteOfflineSessionMutation = useMutation({
-    mutationFn: (lectureId: number) => deleteAdminLectureOfflineScheduleRule(lectureId),
+  const deleteOfflineSchedulesMutation = useMutation({
+    mutationFn: (lectureId: number) => deleteAdminLectureOfflineSchedules(lectureId),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '현장 강의 일정을 삭제하지 못했습니다.',
@@ -2032,8 +2168,8 @@ const AdminProgramCurriculumSection = ({
                   canMoveUp={index > 0}
                   key={section.id}
                   onCreateLecture={handleCreateLecture}
-                  onDeleteLectureOfflineSession={(lectureId) => {
-                    deleteOfflineSessionMutation.mutate(lectureId);
+                  onDeleteLectureOfflineSchedules={(lectureId) => {
+                    deleteOfflineSchedulesMutation.mutate(lectureId);
                   }}
                   onDeleteLecture={(lectureId) => {
                     deleteLectureMutation.mutate(lectureId);
@@ -2044,8 +2180,8 @@ const AdminProgramCurriculumSection = ({
                   onManageLectureResource={(lectureId) => {
                     onOpenLectureWorkspace?.(lectureId, 'resource');
                   }}
-                  onSaveLectureOfflineSession={(lectureId, payload) => {
-                    upsertOfflineSessionMutation.mutate({ lectureId, payload });
+                  onSaveLectureOfflineSchedules={(lectureId, payload) => {
+                    replaceOfflineSchedulesMutation.mutate({ lectureId, payload });
                   }}
                   onUploadLectureVideo={(lectureId, file) => {
                     void handleUploadLectureVideo(lectureId, file);
@@ -2060,6 +2196,8 @@ const AdminProgramCurriculumSection = ({
                   onToggleLecturePublish={(lectureId, published) => {
                     toggleLecturePublishMutation.mutate({ lectureId, published });
                   }}
+                  programLearningEndAt={programLearningEndAt}
+                  programLearningStartAt={programLearningStartAt}
                   section={section}
                   videoUploadStatusByLectureId={videoUploadStatusByLectureId}
                 />

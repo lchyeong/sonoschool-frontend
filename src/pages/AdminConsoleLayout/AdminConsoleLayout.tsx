@@ -32,11 +32,11 @@ const adminNavigationItems = [
     to: routePaths.adminResources,
   },
   {
-    label: '수강관리',
+    label: '회원관리',
     to: routePaths.adminEnrollments,
   },
   {
-    label: '실습일정관리',
+    label: '일정관리',
     to: routePaths.adminPracticum,
   },
   {

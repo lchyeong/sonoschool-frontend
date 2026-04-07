@@ -1,4 +1,6 @@
 export type PracticumSlotStatus = 'OPEN' | 'BLOCKED' | 'CLOSED';
+export type AdminPracticumSearchCategory = 'PROGRAM' | 'LECTURE' | 'STUDENT';
+export type AdminPracticumOperationExceptionType = 'ADMIN_SCHEDULE';
 
 export interface PracticumSlot {
   id: number;
@@ -62,6 +64,52 @@ export interface AdminPracticumDailyOperationPayload {
   openToHour: number;
   blockedHours: number[];
   location: string | null;
+}
+
+export interface AdminPracticumOperatingHourApplyPayload {
+  date: string;
+  openFromHour: number;
+  openToHour: number;
+  blockedHours: number[];
+  location: string | null;
+}
+
+export interface AdminPracticumOperatingHour {
+  id: number;
+  weekday: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+  openFromHour: number;
+  openToHour: number;
+  location: string | null;
+}
+
+export interface AdminPracticumOperationException {
+  id: number;
+  type: AdminPracticumOperationExceptionType;
+  title: string;
+  startAt: string;
+  endAt: string;
+  location: string | null;
+}
+
+export interface AdminPracticumOperationExceptionPayload {
+  type: AdminPracticumOperationExceptionType;
+  title: string;
+  startAt: string;
+  endAt: string;
+  location: string | null;
+}
+
+export interface AdminPracticumOfflineScheduleOccurrence {
+  ruleId: number;
+  lectureId: number;
+  lectureTitle: string;
+  sectionTitle: string;
+  programId: number;
+  programTitle: string;
+  startAt: string;
+  endAt: string;
+  location: string | null;
+  activeEnrollmentCount: number;
 }
 
 export interface AdminPracticumReservationItem {

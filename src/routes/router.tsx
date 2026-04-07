@@ -95,6 +95,12 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='enrollments' />;
   }),
+  adminUserDetail: createLazyRoute(async () => {
+    const { default: AdminUserDetailSection } = await import(
+      '@/pages/AdminConsolePage/AdminUserDetailSection'
+    );
+    return <AdminUserDetailSection />;
+  }),
   adminPracticum: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='practicum' />;
@@ -282,6 +288,7 @@ const adminConsoleRouteKeys = [
   'adminResourceCreate',
   'adminResourceEdit',
   'adminEnrollments',
+  'adminUserDetail',
   'adminPracticum',
   'adminReviews',
   'adminPrograms',

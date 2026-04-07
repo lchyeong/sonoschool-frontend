@@ -62,10 +62,16 @@ export const verifyStudentLoginSms = async (
 };
 
 export const registerStudent = async (payload: RegisterPayload): Promise<StudentSession> => {
+  const authDeviceId = getOrCreateAuthDeviceId();
   try {
     const response = await axiosInstance.post<ApiEnvelope<StudentSession>>(
       '/api/v1/auth/register',
       payload,
+      {
+        headers: {
+          'X-Auth-Device-Id': authDeviceId,
+        },
+      },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -109,11 +115,20 @@ export const verifySmsCode = async (payload: SmsVerifyPayload): Promise<SmsVerif
 };
 
 export const refreshStudentSession = async (): Promise<StudentSession> => {
+  const authDeviceId = getOrCreateAuthDeviceId();
   try {
-    const response = await axiosInstance.post<ApiEnvelope<StudentSession>>('/api/v1/auth/refresh');
+    const response = await axiosInstance.post<ApiEnvelope<StudentSession>>(
+      '/api/v1/auth/refresh',
+      undefined,
+      {
+        headers: {
+          'X-Auth-Device-Id': authDeviceId,
+        },
+      },
+    );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '세션을 갱신하지 못했습니다.');
+    throw toApiError(error, '로그인 정보가 확인되지 않아 다시 로그인이 필요합니다.');
   }
 };
 

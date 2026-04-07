@@ -1,14 +1,8 @@
 import { z } from 'zod';
 
+import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
 import type { SiteNavigationResponse } from '@/types/siteNavigation';
-
-const toZodErrorMessage = (error: z.ZodError): string => {
-  const issues = error.issues
-    .map((issue) => `- ${issue.path.join('.')}: ${issue.message}`)
-    .join('\n');
-  return issues ? `\n${issues}` : '';
-};
 
 interface SiteNavigationItemPayload {
   id: string;
@@ -76,7 +70,11 @@ export const fetchSiteNavigation = async (): Promise<SiteNavigationResponse> => 
   const parsed = siteNavigationResponseSchema.safeParse(responseData);
 
   if (!parsed.success) {
-    throw new Error(`[siteNavigation] Invalid response.${toZodErrorMessage(parsed.error)}`);
+    throw toApiResponseValidationError({
+      source: 'siteNavigation',
+      userMessage: '교육과정 메뉴를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      zodError: parsed.error,
+    });
   }
 
   const itemCount = countNavigationItems(parsed.data.items);
@@ -84,11 +82,19 @@ export const fetchSiteNavigation = async (): Promise<SiteNavigationResponse> => 
   const maxDepth = getMaxNavigationDepth(parsed.data.items);
 
   if (itemCount !== uniqueIdCount) {
-    throw new Error('[siteNavigation] Invalid response.\n- items: duplicate id detected');
+    throw toApiResponseValidationError({
+      details: ['items: duplicate id detected'],
+      source: 'siteNavigation',
+      userMessage: '교육과정 메뉴를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    });
   }
 
   if (maxDepth > 3) {
-    throw new Error('[siteNavigation] Invalid response.\n- items: maximum depth is 3');
+    throw toApiResponseValidationError({
+      details: ['items: maximum depth is 3'],
+      source: 'siteNavigation',
+      userMessage: '교육과정 메뉴를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    });
   }
 
   return parsed.data;

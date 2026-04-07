@@ -1,15 +1,8 @@
 import { z } from 'zod';
 
+import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
-
-const toZodErrorMessage = (error: z.ZodError): string => {
-  const issues = error.issues
-    .map((issue) => `- ${issue.path.join('.')}: ${issue.message}`)
-    .join('\n');
-
-  return issues ? `\n${issues}` : '';
-};
 
 const homeHistoryTimelineItemSchema = z.object({
   year: z.string().trim().min(1),
@@ -27,7 +20,11 @@ export const fetchHomeHistoryTimeline = async (): Promise<HomeHistoryTimelineRes
   const parsed = homeHistoryTimelineResponseSchema.safeParse(responseData);
 
   if (!parsed.success) {
-    throw new Error(`[homeHistoryTimeline] Invalid response.${toZodErrorMessage(parsed.error)}`);
+    throw toApiResponseValidationError({
+      source: 'homeHistoryTimeline',
+      userMessage: '연혁 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      zodError: parsed.error,
+    });
   }
 
   return parsed.data;

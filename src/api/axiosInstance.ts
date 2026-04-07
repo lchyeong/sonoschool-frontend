@@ -1,6 +1,7 @@
 import axios, { AxiosHeaders } from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 
+import { toApiError } from '@/api/errors';
 import { env } from '@/config/env';
 import { routePaths } from '@/routes/routeRegistry';
 import {
@@ -14,7 +15,9 @@ import {
   isStudentAuthenticated,
   setStudentSession,
 } from '@/stores/useAuthStore';
+import { useToastStore } from '@/stores/useToastStore';
 import type { ApiEnvelope, StudentSession } from '@/types/auth';
+import { getOrCreateAuthDeviceId } from '@/utils/authDeviceId';
 
 const baseURL = env.apiBaseUrl;
 
@@ -68,6 +71,14 @@ const redirectToLogin = (targetPath: string) => {
   window.location.replace(targetPath);
 };
 
+const showSessionEndedToast = (error: unknown) => {
+  const apiError = toApiError(error, '로그인 정보가 확인되지 않아 다시 로그인이 필요합니다.');
+  useToastStore.getState().showToast({
+    message: apiError.userMessage,
+    variant: 'error',
+  });
+};
+
 axiosInstance.interceptors.request.use((config) => {
   const accessToken = isAdminApiRequest(config.url)
     ? getAdminAccessToken()
@@ -113,8 +124,15 @@ axiosInstance.interceptors.response.use(
       requestConfig._retry = true;
 
       try {
-        const refreshResponse =
-          await refreshClient.post<ApiEnvelope<StudentSession>>('/api/v1/auth/refresh');
+        const refreshResponse = await refreshClient.post<ApiEnvelope<StudentSession>>(
+          '/api/v1/auth/refresh',
+          undefined,
+          {
+            headers: {
+              'X-Auth-Device-Id': getOrCreateAuthDeviceId(),
+            },
+          },
+        );
         const nextSession = refreshResponse.data.data;
         setStudentSession(nextSession);
         requestConfig.headers = AxiosHeaders.from(requestConfig.headers);
@@ -122,6 +140,7 @@ axiosInstance.interceptors.response.use(
         return await axiosInstance(requestConfig);
       } catch (refreshError: unknown) {
         clearStudentSession();
+        showSessionEndedToast(refreshError);
         redirectToLogin(routePaths.login);
         const normalizedRefreshError =
           refreshError instanceof Error

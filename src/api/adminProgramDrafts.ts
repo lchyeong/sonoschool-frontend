@@ -46,7 +46,7 @@ const normalizeDraftDetail = (detail: AdminProgramDraftDetail): AdminProgramDraf
         lectures: section.lectures.map((lecture) => ({
           ...lecture,
           lectureType: lecture.lectureType,
-          offlineScheduleRule: lecture.offlineScheduleRule,
+          offlineSchedules: lecture.offlineSchedules,
           preview: false,
           videoUploadErrorMessage: lecture.videoUploadErrorMessage,
           videoUploadFileName: lecture.videoUploadFileName,

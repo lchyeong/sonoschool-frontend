@@ -1,14 +1,8 @@
 import { z } from 'zod';
 
+import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
-
-const toZodErrorMessage = (error: z.ZodError): string => {
-  const issues = error.issues
-    .map((issue) => `- ${issue.path.join('.')}: ${issue.message}`)
-    .join('\n');
-  return issues ? `\n${issues}` : '';
-};
 
 const homeHeroBannerSlideSchema = z.object({
   id: z.string().min(1),
@@ -40,7 +34,11 @@ export const fetchHomeHeroSlides = async (): Promise<HomeHeroSlidesResponse> => 
   const parsed = homeHeroSlidesResponseSchema.safeParse(responseData);
 
   if (!parsed.success) {
-    throw new Error(`[homeHeroSlides] Invalid response.${toZodErrorMessage(parsed.error)}`);
+    throw toApiResponseValidationError({
+      source: 'homeHeroSlides',
+      userMessage: '슬라이드 정보가 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.',
+      zodError: parsed.error,
+    });
   }
 
   return parsed.data;

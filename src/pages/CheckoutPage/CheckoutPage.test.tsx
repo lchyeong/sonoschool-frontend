@@ -57,23 +57,32 @@ const testProfile: UserProfile = {
   role: 'ROLE_STUDENT',
 };
 
-const { prepareKcpPcCheckoutPaymentMock } = vi.hoisted(() => ({
+const {
+  completeFreeCheckoutPaymentMock,
+  fetchMyCartMock,
+  fetchMyProfileMock,
+  prepareKcpPcCheckoutPaymentMock,
+} = vi.hoisted(() => ({
+  completeFreeCheckoutPaymentMock: vi.fn(),
+  fetchMyCartMock: vi.fn(),
+  fetchMyProfileMock: vi.fn(),
   prepareKcpPcCheckoutPaymentMock: vi.fn(),
 }));
 const approveKcpPcPaymentMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/api/mypage', () => ({
   fetchMyApplicationSummary: vi.fn(),
-  fetchMyCart: vi.fn(() => Promise.resolve(testCart)),
+  fetchMyCart: fetchMyCartMock,
   fetchMyEnrollmentDetail: vi.fn(),
   fetchMyEnrollments: vi.fn(),
   fetchMyLearningPlayerSnapshot: vi.fn(),
-  fetchMyProfile: vi.fn(() => Promise.resolve(testProfile)),
+  fetchMyProfile: fetchMyProfileMock,
   fetchMyRefunds: vi.fn(),
 }));
 
 vi.mock('@/api/payments', () => ({
   approveKcpPcPayment: approveKcpPcPaymentMock,
+  completeFreeCheckoutPayment: completeFreeCheckoutPaymentMock,
   fetchPaymentHistory: vi.fn(),
   fetchPaymentResult: vi.fn(),
   fetchPaymentResultByToken: vi.fn(),
@@ -120,8 +129,13 @@ afterEach(() => {
 beforeEach(() => {
   resetCartSelectionState();
   window.localStorage.clear();
+  fetchMyCartMock.mockReset();
+  fetchMyProfileMock.mockReset();
   prepareKcpPcCheckoutPaymentMock.mockReset();
+  completeFreeCheckoutPaymentMock.mockReset();
   approveKcpPcPaymentMock.mockReset();
+  fetchMyCartMock.mockResolvedValue(testCart);
+  fetchMyProfileMock.mockResolvedValue(testProfile);
 });
 
 describe('CheckoutPage', () => {
@@ -179,6 +193,53 @@ describe('CheckoutPage', () => {
     });
 
     expect(window.KCP_Pay_Execute_Web).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the free checkout API when the total payable price is zero', async () => {
+    fetchMyCartMock.mockResolvedValueOnce({
+      ...testCart,
+      itemCount: 1,
+      items: [
+        {
+          ...testCart.items[0],
+          originalPrice: 0,
+          payablePrice: 0,
+          salePrice: 0,
+        },
+      ],
+      totalOriginalPrice: 0,
+      totalPayablePrice: 0,
+    });
+    completeFreeCheckoutPaymentMock.mockResolvedValue({
+      amount: 0,
+      approvedAmount: 0,
+      cancelReason: null,
+      cancelledAt: null,
+      failedAt: null,
+      id: 7001,
+      orderName: 'POCUS 워크숍',
+      orderNumber: 'ORD-FREE-7001',
+      orderType: 'CART_CHECKOUT',
+      paidAt: '2026-04-06T08:00:00Z',
+      paymentMethod: 'FREE',
+      receiptUrl: null,
+      registeredAt: null,
+      requestedAt: '2026-04-06T08:00:00Z',
+      status: 'COMPLETED',
+    });
+
+    renderCheckoutPage();
+
+    expect(await screen.findByRole('button', { name: '무료 신청' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '무료 신청' }));
+
+    await waitFor(() => {
+      expect(completeFreeCheckoutPaymentMock).toHaveBeenCalledWith({
+        cartItemIds: [55],
+        paymentMethod: 'FREE',
+      });
+    });
+    expect(prepareKcpPcCheckoutPaymentMock).not.toHaveBeenCalled();
   });
 
   it('waits for the delayed KCP executor before opening the payment layer', async () => {

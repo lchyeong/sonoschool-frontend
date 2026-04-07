@@ -1,0 +1,69 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+import { toApiError, toApiResponseValidationError } from '@/api/errors';
+
+describe('API errors', () => {
+  it('maps stale-session errors into a user-friendly re-login message', () => {
+    const apiError = toApiError(
+      {
+        isAxiosError: true,
+        message: 'Request failed with status code 401',
+        response: {
+          data: {
+            code: 'AUTH_401_SESSION',
+            message: 'Session is no longer valid.',
+          },
+          status: 401,
+        },
+      },
+      '세션을 갱신하지 못했습니다.',
+    );
+
+    expect(apiError.code).toBe('AUTH_401_SESSION');
+    expect(apiError.status).toBe(401);
+    expect(apiError.userMessage).toBe(
+      '보안을 위해 로그인 상태가 종료되었습니다. 다시 로그인해 주세요.',
+    );
+  });
+
+  it('keeps generic server messages when no friendly override is needed', () => {
+    const apiError = toApiError(
+      {
+        isAxiosError: true,
+        message: 'Request failed with status code 401',
+        response: {
+          data: {
+            code: 'AUTH_401',
+            message: 'Invalid username or password.',
+          },
+          status: 401,
+        },
+      },
+      '로그인에 실패했습니다.',
+    );
+
+    expect(apiError.code).toBe('AUTH_401');
+    expect(apiError.userMessage).toBe('Invalid username or password.');
+  });
+
+  it('keeps invalid response diagnostics out of the user-facing message', () => {
+    const parsed = z.object({ items: z.array(z.string()).min(1) }).safeParse({ items: [] });
+
+    if (parsed.success) {
+      throw new Error('Expected the fixture to fail validation.');
+    }
+
+    const apiError = toApiResponseValidationError({
+      source: 'homeHeroSlides',
+      userMessage: '슬라이드 정보가 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.',
+      zodError: parsed.error,
+    });
+
+    expect(apiError.message).toBe(
+      '슬라이드 정보가 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.',
+    );
+    expect(apiError.debugMessage).toContain('[homeHeroSlides] Invalid response.');
+    expect(apiError.debugMessage).toContain('items');
+  });
+});

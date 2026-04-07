@@ -1,15 +1,8 @@
 import { z } from 'zod';
 
+import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
 import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
-
-const toZodErrorMessage = (error: z.ZodError): string => {
-  const issues = error.issues
-    .map((issue) => `- ${issue.path.join('.')}: ${issue.message}`)
-    .join('\n');
-
-  return issues ? `\n${issues}` : '';
-};
 
 const programStatSchema = z.object({
   label: z.string().min(1),
@@ -185,9 +178,11 @@ export const fetchProgramsOverview = async (): Promise<ProgramsOverviewResponse>
   const parsed = programsOverviewResponseSchema.safeParse(responseData);
 
   if (!parsed.success) {
-    throw new Error(
-      `[programCatalog] Invalid overview response.${toZodErrorMessage(parsed.error)}`,
-    );
+    throw toApiResponseValidationError({
+      source: 'programCatalog.overview',
+      userMessage: '교육과정 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      zodError: parsed.error,
+    });
   }
 
   return parsed.data;
@@ -201,7 +196,11 @@ export const fetchProgramPage = async (path: string): Promise<ProgramPageRespons
   const parsed = programPageResponseSchema.safeParse(responseData);
 
   if (!parsed.success) {
-    throw new Error(`[programCatalog] Invalid page response.${toZodErrorMessage(parsed.error)}`);
+    throw toApiResponseValidationError({
+      source: 'programCatalog.page',
+      userMessage: '교육과정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      zodError: parsed.error,
+    });
   }
 
   return parsed.data;

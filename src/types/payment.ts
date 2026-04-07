@@ -1,5 +1,5 @@
 export type PaymentStatus = 'PENDING' | 'REGISTERED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-export type CheckoutPaymentMethod = 'CARD';
+export type CheckoutPaymentMethod = 'CARD' | 'FREE';
 export type PaymentMethodValue =
   | CheckoutPaymentMethod
   | 'BANK'
@@ -77,9 +77,13 @@ export interface MockCheckoutRedirectPayload {
   message: string;
 }
 
-export const paymentMethodLabels: Record<'BANK' | 'CARD' | 'GIFT' | 'MOBILE' | 'POINT', string> = {
+export const paymentMethodLabels: Record<
+  'BANK' | 'CARD' | 'FREE' | 'GIFT' | 'MOBILE' | 'POINT',
+  string
+> = {
   BANK: '계좌이체',
   CARD: '카드 결제',
+  FREE: '무료 신청',
   GIFT: '상품권',
   MOBILE: '휴대폰 결제',
   POINT: '포인트',

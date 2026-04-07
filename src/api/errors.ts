@@ -2,6 +2,7 @@
 // `axios.isAxiosError(...)` 같은 공식 타입 가드 유틸리티를 쓰기 위해서입니다.
 // 이 함수로 "지금 잡은 에러가 Axios 에러가 맞는지" 안전하게 판별할 수 있습니다.
 import axios from 'axios';
+import type { z } from 'zod';
 
 // `ApiError`는 이 프로젝트에서 API 요청 실패를 표현하는 공통 에러 클래스입니다.
 //
@@ -13,13 +14,19 @@ export class ApiError extends Error {
   // 예: 400, 401, 403, 500
   // 네트워크 오류처럼 상태 코드를 알 수 없으면 `null`이 됩니다.
   public readonly status: number | null;
+  public readonly code: string | null;
   // `userMessage`는 화면에서 바로 보여 줄 수 있는 사용자용 메시지입니다.
   // 서버 메시지가 있으면 그 값을 쓰고, 없으면 기본 안내 문구를 사용합니다.
   public readonly userMessage: string;
 
   // 생성자(constructor)는 `new ApiError(...)`를 호출할 때 처음 실행되는 부분입니다.
   // 여기서 우리가 원하는 속성들을 Error 객체에 채워 넣습니다.
-  public constructor(params: { userMessage: string; status: number | null; cause?: unknown }) {
+  public constructor(params: {
+    userMessage: string;
+    status: number | null;
+    code?: string | null;
+    cause?: unknown;
+  }) {
     // `super(...)`는 부모 클래스인 `Error`의 생성자를 호출합니다.
     // 기본 Error.message 값으로도 사용자 메시지를 저장해 두기 위해 사용합니다.
     super(params.userMessage);
@@ -29,10 +36,83 @@ export class ApiError extends Error {
     this.userMessage = params.userMessage;
     // 상태 코드도 함께 저장해 둡니다.
     this.status = params.status;
+    this.code = params.code ?? null;
     // 원래 에러 원인(cause)을 남겨 두면 나중에 디버깅할 때 추적이 쉬워집니다.
     this.cause = params.cause;
   }
 }
+
+export class ApiResponseValidationError extends ApiError {
+  public readonly debugMessage: string;
+
+  public constructor(params: { userMessage: string; debugMessage: string; cause?: unknown }) {
+    super({
+      userMessage: params.userMessage,
+      status: null,
+      code: 'API_INVALID_RESPONSE',
+      cause: params.cause,
+    });
+
+    this.name = 'ApiResponseValidationError';
+    this.debugMessage = params.debugMessage;
+  }
+}
+
+const toZodDebugMessage = (error: z.ZodError): string => {
+  const issues = error.issues
+    .map((issue) => `- ${issue.path.join('.') || 'response'}: ${issue.message}`)
+    .join('\n');
+
+  return issues ? `\n${issues}` : '';
+};
+
+export const toApiResponseValidationError = (params: {
+  source: string;
+  userMessage: string;
+  zodError?: z.ZodError | undefined;
+  details?: readonly string[] | undefined;
+  cause?: unknown;
+}): ApiResponseValidationError => {
+  const detailMessage = params.zodError
+    ? toZodDebugMessage(params.zodError)
+    : params.details?.length
+      ? `\n${params.details.map((detail) => `- ${detail}`).join('\n')}`
+      : '';
+
+  return new ApiResponseValidationError({
+    userMessage: params.userMessage,
+    debugMessage: `[${params.source}] Invalid response.${detailMessage}`,
+    cause: params.cause ?? params.zodError,
+  });
+};
+
+const resolveFriendlyApiErrorMessage = (
+  code: string | null,
+  serverMessage: string | null,
+  fallbackUserMessage: string,
+): string => {
+  if (code === 'AUTH_401_SESSION') {
+    return '보안을 위해 로그인 상태가 종료되었습니다. 다시 로그인해 주세요.';
+  }
+
+  if (code === 'AUTH_401_REFRESH') {
+    return '로그인 정보가 만료되었습니다. 다시 로그인해 주세요.';
+  }
+
+  return serverMessage ?? fallbackUserMessage;
+};
+
+const getAxiosErrorCode = (error: unknown): string | null => {
+  if (!axios.isAxiosError<unknown>(error)) return null;
+
+  const responseData = error.response?.data;
+  if (!responseData || typeof responseData !== 'object') {
+    return null;
+  }
+
+  const code = (responseData as Record<string, unknown>)['code'];
+  return typeof code === 'string' && code.trim() ? code.trim() : null;
+};
 
 // 이 함수는 "Axios 에러라면 사용자에게 보여 줄 만한 메시지를 최대한 추출한다"는 역할을 합니다.
 //
@@ -85,13 +165,15 @@ export const toApiError = (
     preferFallbackUserMessage?: boolean;
   },
 ): ApiError => {
+  const code = getAxiosErrorCode(error);
+  const extractedMessage = getAxiosErrorMessage(error);
   // 서버/axios 쪽에서 읽을 수 있는 메시지가 있으면 그 값을 사용하고,
   // 없으면 fallback 문구를 사용합니다.
   const userMessage = options?.preferFallbackUserMessage
     ? fallbackUserMessage
-    : (getAxiosErrorMessage(error) ?? fallbackUserMessage);
+    : resolveFriendlyApiErrorMessage(code, extractedMessage, fallbackUserMessage);
   // Axios 에러라면 상태 코드를 꺼내고, 아니면 `null`로 둡니다.
   const status = axios.isAxiosError(error) ? (error.response?.status ?? null) : null;
   // 최종적으로 프로젝트 공통 `ApiError` 인스턴스를 만들어 반환합니다.
-  return new ApiError({ userMessage, status, cause: error });
+  return new ApiError({ userMessage, status, code, cause: error });
 };

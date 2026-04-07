@@ -118,6 +118,22 @@ export const registerKcpMobileCheckoutPayment = async (
   }
 };
 
+export const completeFreeCheckoutPayment = async (
+  payload: CheckoutPaymentInitiatePayload,
+): Promise<PaymentResult> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<PaymentResult>>(
+      '/api/v1/payments/checkout/free/complete',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '무료 신청 처리에 실패했습니다.', {
+      preferFallbackUserMessage: true,
+    });
+  }
+};
+
 export const approveKcpPcPayment = async (payload: KcpPcApprovePayload): Promise<PaymentResult> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<PaymentResult>>(

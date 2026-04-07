@@ -3,7 +3,8 @@ import { toApiError } from '@/api/errors';
 import type {
   AdminCurriculumLecture,
   AdminCurriculumSection,
-  AdminLectureOfflineScheduleRuleUpsertPayload,
+  AdminLectureOfflineScheduleUpsertPayload,
+  AdminLectureOfflineSchedulesReplacePayload,
   AdminLectureUpsertPayload,
   AdminSectionUpsertPayload,
   AdminSortOrderItem,
@@ -38,14 +39,22 @@ const normalizeLecturePayload = (payload: AdminLectureUpsertPayload): AdminLectu
   };
 };
 
-const normalizeOfflineScheduleRulePayload = (
-  payload: AdminLectureOfflineScheduleRuleUpsertPayload,
-): AdminLectureOfflineScheduleRuleUpsertPayload => {
+const normalizeOfflineSchedulePayload = (
+  payload: AdminLectureOfflineScheduleUpsertPayload,
+): AdminLectureOfflineScheduleUpsertPayload => {
   return {
     ...payload,
+    date: payload.date.trim(),
     location: normalizeDescription(payload.location),
     notes: normalizeDescription(payload.notes),
-    weekdays: payload.weekdays.map((weekday) => weekday.trim()).filter(Boolean),
+  };
+};
+
+const normalizeOfflineSchedulesPayload = (
+  payload: AdminLectureOfflineSchedulesReplacePayload,
+): AdminLectureOfflineSchedulesReplacePayload => {
+  return {
+    offlineSchedules: payload.offlineSchedules.map(normalizeOfflineSchedulePayload),
   };
 };
 
@@ -60,15 +69,7 @@ export const fetchAdminCurriculum = async (
       ...section,
       lectures: section.lectures.map((lecture) => ({
         ...lecture,
-        offlineSession: lecture.offlineScheduleRule
-          ? {
-              endAt: `${lecture.offlineScheduleRule.endDate}T${lecture.offlineScheduleRule.endTime}`,
-              id: lecture.offlineScheduleRule.id,
-              location: lecture.offlineScheduleRule.location,
-              notes: lecture.offlineScheduleRule.notes,
-              startAt: `${lecture.offlineScheduleRule.startDate}T${lecture.offlineScheduleRule.startTime}`,
-            }
-          : null,
+        offlineSchedules: lecture.offlineSchedules,
         practicumEnabled: lecture.lectureType === 'PRACTICUM',
         quizOnly: lecture.lectureType === 'PROBLEM',
       })),
@@ -202,14 +203,14 @@ export const reorderAdminLectures = async (
   }
 };
 
-export const upsertAdminLectureOfflineScheduleRule = async (
+export const replaceAdminLectureOfflineSchedules = async (
   lectureId: number,
-  payload: AdminLectureOfflineScheduleRuleUpsertPayload,
+  payload: AdminLectureOfflineSchedulesReplacePayload,
 ): Promise<AdminCurriculumLecture> => {
   try {
     const response = await axiosInstance.put<ApiEnvelope<AdminCurriculumLecture>>(
-      `/api/v1/admin/lectures/${String(lectureId)}/offline-schedule-rule`,
-      normalizeOfflineScheduleRulePayload(payload),
+      `/api/v1/admin/lectures/${String(lectureId)}/offline-schedules`,
+      normalizeOfflineSchedulesPayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -217,12 +218,12 @@ export const upsertAdminLectureOfflineScheduleRule = async (
   }
 };
 
-export const deleteAdminLectureOfflineScheduleRule = async (
+export const deleteAdminLectureOfflineSchedules = async (
   lectureId: number,
 ): Promise<AdminCurriculumLecture> => {
   try {
     const response = await axiosInstance.delete<ApiEnvelope<AdminCurriculumLecture>>(
-      `/api/v1/admin/lectures/${String(lectureId)}/offline-schedule-rule`,
+      `/api/v1/admin/lectures/${String(lectureId)}/offline-schedules`,
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {

@@ -148,14 +148,14 @@ export const AdminDashboardSection = () => {
     },
     {
       countLabel: '운영 실행',
-      description: '회원과 수강 현황을 확인하고 수동 배정과 만료 정리를 운영합니다.',
-      title: '수강관리',
+      description: '회원과 수강 현황을 확인하고 수강 만료와 취소 처리를 운영합니다.',
+      title: '회원관리',
       to: routePaths.adminEnrollments,
     },
     {
       countLabel: '시간 운영',
       description: '하이브리드 실습 예약, 예약 제외 시간, 예약자 상태를 달력 기준으로 운영합니다.',
-      title: '실습일정관리',
+      title: '일정관리',
       to: routePaths.adminPracticum,
     },
   ] as const;
@@ -166,7 +166,7 @@ export const AdminDashboardSection = () => {
         <div className={styles['heroCopy']}>
           <h1 className={styles['title']}>운영 개요</h1>
           <p className={styles['description']}>
-            공지, 문의, 프로그램, 자료, 수강, 결제 관리의 현재 운영 상태를 한곳에서 확인합니다.
+            공지, 문의, 프로그램, 자료, 회원, 결제 관리의 현재 운영 상태를 한곳에서 확인합니다.
           </p>
         </div>
       </header>

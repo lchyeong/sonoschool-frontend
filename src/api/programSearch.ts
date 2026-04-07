@@ -1,15 +1,9 @@
 import { z } from 'zod';
 
+import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
 import { searchScopeValues } from '@/search/programSearchShared';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
-
-const toZodErrorMessage = (error: z.ZodError): string => {
-  const issues = error.issues
-    .map((issue) => `- ${issue.path.join('.')}: ${issue.message}`)
-    .join('\n');
-  return issues ? `\n${issues}` : '';
-};
 
 const programSearchItemSchema = z.object({
   id: z.string().min(1),
@@ -56,7 +50,11 @@ export const fetchProgramSearchIndex = async (): Promise<ProgramSearchIndexRespo
   const backendParsed = backendProgramSearchIndexResponseSchema.safeParse(responseData);
 
   if (!backendParsed.success) {
-    throw new Error(`[programSearch] Invalid response.${toZodErrorMessage(backendParsed.error)}`);
+    throw toApiResponseValidationError({
+      source: 'programSearch',
+      userMessage: '검색 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      zodError: backendParsed.error,
+    });
   }
 
   return {

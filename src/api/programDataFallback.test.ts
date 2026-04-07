@@ -13,6 +13,9 @@ vi.mock('@/api/http', () => {
   };
 });
 
+import { ApiResponseValidationError } from '@/api/errors';
+import { fetchHomeHeroSlides } from '@/api/homeHeroSlides';
+import { fetchHomeHistoryTimeline } from '@/api/homeHistoryTimeline';
 import { fetchProgramPage, fetchProgramsOverview } from '@/api/programCatalog';
 import { fetchProgramSearchIndex } from '@/api/programSearch';
 import { fetchSiteNavigation } from '@/api/siteNavigation';
@@ -61,5 +64,56 @@ describe('program data API fallback', () => {
     httpGetMock.mockRejectedValue(error);
 
     await expect(fetchProgramSearchIndex()).rejects.toBe(error);
+  });
+
+  it('hides home hero response validation details behind a friendly message', async () => {
+    httpGetMock.mockResolvedValue({
+      autoPlayDurationMs: 5000,
+      items: [],
+    });
+
+    let caughtError: unknown;
+
+    try {
+      await fetchHomeHeroSlides();
+    } catch (error: unknown) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeInstanceOf(ApiResponseValidationError);
+
+    if (!(caughtError instanceof ApiResponseValidationError)) {
+      throw new Error('Expected an API response validation error.');
+    }
+
+    expect(caughtError.message).toBe(
+      '슬라이드 정보가 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.',
+    );
+    expect(caughtError.debugMessage).toContain('[homeHeroSlides] Invalid response.');
+  });
+
+  it('hides home history response validation details behind a friendly message', async () => {
+    httpGetMock.mockResolvedValue({
+      items: [],
+    });
+
+    let caughtError: unknown;
+
+    try {
+      await fetchHomeHistoryTimeline();
+    } catch (error: unknown) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeInstanceOf(ApiResponseValidationError);
+
+    if (!(caughtError instanceof ApiResponseValidationError)) {
+      throw new Error('Expected an API response validation error.');
+    }
+
+    expect(caughtError.message).toBe(
+      '연혁 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    );
+    expect(caughtError.debugMessage).toContain('[homeHistoryTimeline] Invalid response.');
   });
 });
