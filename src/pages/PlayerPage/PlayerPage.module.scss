@@ -24,6 +24,11 @@
 .settingsSection,
 .settingsSectionHeader,
 .settingsOptionList,
+.practicumSection,
+.practicumSlotList,
+.practicumCard,
+.practicumCardHeader,
+.practicumNotice,
 .playerControlPanel,
 .playerControlHeader,
 .playerStatusGroup,
@@ -554,6 +559,32 @@
   align-items: center;
 }
 
+.practicumSection,
+.practicumSlotList {
+  gap: 12px;
+}
+
+.practicumCard,
+.practicumNotice {
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 4%);
+}
+
+.practicumCardHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.practicumNoticeTitle {
+  color: #ffffff;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+}
+
 .notesList {
   gap: 12px;
   padding: 0;
@@ -701,12 +732,11 @@
   padding-right: 4px;
 }
 
-.communityPanelBody {
+.qnaPanelBody {
   overflow-y: auto;
   padding-right: 4px;
 }
 
-.quizNavigatorMeta,
 .quizNavigatorActions {
   display: flex;
   flex-wrap: wrap;
@@ -714,56 +744,121 @@
   align-items: center;
 }
 
-.quizNavigatorGrid {
+.quizNavigatorStatGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.quizNavigatorStat {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid rgb(203 213 225);
+  background: #ffffff;
+  padding: 0.7rem;
+  color: rgb(71 85 105);
+  font-size: 0.78rem;
+}
+
+.quizNavigatorStat strong {
+  color: rgb(15 23 42);
+  font-size: 0.98rem;
+  font-weight: var(--font-weight-bold);
+}
+
+.quizNavigatorDetails {
+  display: grid;
   gap: 0.7rem;
 }
 
-.quizNavigatorButton {
-  min-height: 52px;
-  border: 1px solid rgb(203 213 225);
-  border-radius: 16px;
-  background: #ffffff;
-  color: rgb(51 65 85);
-  font-size: 0.95rem;
+.quizNavigatorSummary {
+  cursor: pointer;
+  color: rgb(15 23 42);
+  font-size: 0.9rem;
   font-weight: var(--font-weight-bold);
+  list-style: none;
+}
+
+.quizNavigatorSummary::-webkit-details-marker {
+  display: none;
+}
+
+.quizNavigatorList {
+  display: grid;
+  gap: 0.65rem;
+  max-height: min(52vh, 560px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.quizNavigatorListButton {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+  border: 1px solid rgb(203 213 225);
+  background: #ffffff;
+  padding: 0.75rem;
+  color: rgb(51 65 85);
+  text-align: left;
   transition:
-    transform 160ms ease,
     border-color 160ms ease,
     background-color 160ms ease,
     box-shadow 160ms ease;
 }
 
-.quizNavigatorButton:hover,
-.quizNavigatorButton:focus-visible {
+.quizNavigatorListButton:hover,
+.quizNavigatorListButton:focus-visible {
   border-color: rgb(148 163 184);
   background: rgb(248 250 252);
   box-shadow: 0 10px 20px rgb(15 23 42 / 8%);
   outline: none;
-  transform: translateY(-1px);
 }
 
-.quizNavigatorButtonCurrent {
+.quizNavigatorListButtonCurrent {
   border-color: rgb(14 165 233 / 80%);
   background: rgb(224 242 254);
-  color: rgb(3 105 161);
 }
 
-.quizNavigatorButtonAnswered {
+.quizNavigatorQuestionTitle {
+  color: rgb(3 105 161);
+  font-size: 0.88rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.45;
+}
+
+.quizNavigatorStateRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.quizNavigatorStateBadge,
+.quizNavigatorStateBadgeFlagged {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid rgb(203 213 225);
+  padding: 0.18rem 0.45rem;
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+  font-weight: var(--font-weight-semibold);
+}
+
+.quizNavigatorStateBadgeAnswered {
   border-color: rgb(45 212 191 / 48%);
   background: rgb(236 253 245);
   color: rgb(15 118 110);
 }
 
-.quizNavigatorButtonFlagged {
+.quizNavigatorStateBadgeFlagged {
   border-color: rgb(248 113 113 / 48%);
   background: rgb(254 242 242);
   color: rgb(185 28 28);
 }
 
-.quizNavigatorButtonCurrent.quizNavigatorButtonFlagged {
-  box-shadow: inset 0 0 0 2px rgb(14 165 233 / 36%);
+.quizNavigatorAnswer {
+  color: rgb(71 85 105);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .sectionTitle {
@@ -780,6 +875,15 @@
   align-items: flex-start;
 }
 
+.sectionHeader {
+  cursor: pointer;
+  list-style: none;
+}
+
+.sectionHeader::-webkit-details-marker {
+  display: none;
+}
+
 .lessonList {
   gap: 8px;
 }
@@ -792,6 +896,9 @@
   border-radius: 18px;
   background: #ffffff;
   color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
   text-decoration: none;
   transition:
     border-color 160ms ease,
@@ -812,10 +919,10 @@
   background: rgb(231 248 244);
 }
 
-.lessonLinkQuiz {
-  margin-left: 18px;
-  border-style: dashed;
-  background: rgb(246 250 252);
+.lessonLinkLocked {
+  border-color: rgb(226 232 240);
+  background: rgb(248 250 252);
+  color: rgb(100 116 139);
 }
 
 .lessonStatusIcon {
@@ -832,8 +939,9 @@
   box-shadow: inset 0 0 0 4px var(--color-primary);
 }
 
-.lessonStatusIconQuiz {
+.lessonStatusIconLocked {
   border-style: dashed;
+  background: rgb(241 245 249);
 }
 
 .lessonStatusIconCompleted {
@@ -861,6 +969,12 @@
   min-width: 0;
 }
 
+.lessonTitleGroup {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
 .lessonLinkTitle {
   min-width: 0;
   font-size: var(--font-size-sm);
@@ -875,21 +989,65 @@
   gap: 8px;
 }
 
-.lessonQuizBadge {
+.lessonTypeBadge,
+.lessonLockBadge,
+.lessonProblemBadgeCompleted,
+.lessonPracticumBadge {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(143, 168, 191, 0.18);
-  background: rgba(255, 255, 255, 0.08);
+  width: fit-content;
   padding: 0.18rem 0.45rem;
-  color: rgb(219 231 239);
+  border-radius: 8px;
   font-size: 0.7rem;
   font-weight: 700;
 }
 
-.lessonQuizBadgeCompleted {
+.lessonTypeBadge {
+  border: 1px solid rgba(14, 111, 77, 0.18);
+  background: rgba(14, 111, 77, 0.08);
+  color: rgb(14 111 77);
+}
+
+.lessonLockBadge {
+  border: 1px solid rgb(203 213 225);
+  background: rgb(241 245 249);
+  color: rgb(71 85 105);
+}
+
+.lessonProblemBadgeCompleted {
   border-color: rgba(14, 111, 77, 0.22);
   background: rgba(14, 111, 77, 0.14);
-  color: #75d0ad;
+  color: rgb(14 111 77);
+}
+
+.lessonPracticumBadge {
+  border: 1px solid rgba(240, 201, 129, 0.28);
+  background: rgba(255, 248, 236, 0.1);
+  color: rgb(248 213 164);
+}
+
+.lessonPracticumBadge[data-tone='cta'] {
+  border-color: rgba(125, 211, 192, 0.28);
+  background: rgba(20, 184, 166, 0.12);
+  color: rgb(153 246 228);
+}
+
+.lessonPracticumBadge[data-tone='scheduled'] {
+  border-color: rgba(125, 211, 252, 0.28);
+  background: rgba(14, 165, 233, 0.12);
+  color: rgb(186 230 253);
+}
+
+.lessonPracticumBadge[data-tone='completed'] {
+  border-color: rgba(125, 211, 192, 0.24);
+  background: rgba(16, 185, 129, 0.12);
+  color: rgb(167 243 208);
+}
+
+.lessonPracticumBadge[data-tone='noshow'] {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(239, 68, 68, 0.12);
+  color: rgb(254 202 202);
 }
 
 .blockedCard {
@@ -1015,6 +1173,253 @@
   font-weight: 700;
 }
 
+.practicumWorkspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.practicumCalendarPanel,
+.practicumDetailPanel {
+  border: 1px solid rgba(240, 201, 129, 0.18);
+  background: rgba(255, 248, 236, 0.96);
+  color: #38220f;
+}
+
+.practicumCalendarPanel {
+  overflow: hidden;
+}
+
+.practicumCalendarHeader,
+.practicumDetailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+}
+
+.practicumDetailPanel {
+  padding: 0 1.15rem 1.15rem;
+}
+
+.practicumPanelTitle {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.practicumPanelDescription {
+  margin: 0.35rem 0 0;
+  color: rgba(56, 34, 15, 0.72);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.practicumMonthInput {
+  min-height: 42px;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(56, 34, 15, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  color: #38220f;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.practicumCalendarWeekdays,
+.practicumCalendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.practicumCalendarWeekdays {
+  border-top: 1px solid rgba(56, 34, 15, 0.1);
+  border-bottom: 1px solid rgba(56, 34, 15, 0.1);
+}
+
+.practicumCalendarWeekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-right: 1px solid rgba(56, 34, 15, 0.08);
+  color: rgba(56, 34, 15, 0.62);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.practicumCalendarWeekday:last-child {
+  border-right: 0;
+}
+
+.practicumCalendarEmptyCell,
+.practicumCalendarDay {
+  min-height: 120px;
+  border-right: 1px solid rgba(56, 34, 15, 0.08);
+  border-bottom: 1px solid rgba(56, 34, 15, 0.08);
+}
+
+.practicumCalendarGrid > :nth-child(7n) {
+  border-right: 0;
+}
+
+.practicumCalendarGrid > :nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+
+.practicumCalendarEmptyCell {
+  background: rgba(56, 34, 15, 0.03);
+}
+
+.practicumCalendarDay {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.82);
+  text-align: left;
+}
+
+.practicumCalendarDay[data-has-items='true'] {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.practicumCalendarDay[data-selected='true'] {
+  box-shadow: inset 0 0 0 2px rgba(14, 111, 77, 0.75);
+}
+
+.practicumCalendarDay[data-reserved='true'] {
+  box-shadow: inset 0 0 0 2px rgba(240, 153, 48, 0.82);
+}
+
+.practicumCalendarDay[data-selected='true'][data-reserved='true'] {
+  box-shadow: inset 0 0 0 3px rgba(14, 111, 77, 0.88);
+}
+
+.practicumCalendarDayHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.practicumCalendarDayNumber {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.practicumCalendarDayCount,
+.practicumCalendarDayReservation {
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.practicumCalendarDayCount {
+  color: #0e6f4d;
+}
+
+.practicumCalendarDayReservation {
+  color: #b45309;
+}
+
+.practicumCalendarPreviewList {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.practicumCalendarPreviewReserved,
+.practicumCalendarPreviewOpen,
+.practicumCalendarPreviewEmpty {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.practicumCalendarPreviewReserved {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.practicumCalendarPreviewOpen {
+  color: #0e6f4d;
+}
+
+.practicumCalendarPreviewEmpty {
+  color: rgba(56, 34, 15, 0.4);
+}
+
+.practicumReservationSummary {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.practicumReservationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(56, 34, 15, 0.12);
+  background: rgba(255, 255, 255, 0.78);
+  padding: 0.9rem 1rem;
+}
+
+.practicumReservationTitle {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.practicumReservationMeta {
+  margin: 0.18rem 0 0;
+  color: rgba(56, 34, 15, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.practicumReservationStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 34, 15, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.practicumReservationStatus[data-tone='scheduled'] {
+  border-color: rgba(14, 165, 233, 0.22);
+  background: rgba(14, 165, 233, 0.1);
+  color: #0369a1;
+}
+
+.practicumReservationStatus[data-tone='completed'] {
+  border-color: rgba(16, 185, 129, 0.22);
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+}
+
+.practicumReservationStatus[data-tone='noshow'] {
+  border-color: rgba(239, 68, 68, 0.18);
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+}
+
+.practicumSlotMain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1 1 auto;
+  gap: 0.9rem;
+}
+
+.practicumSlotCapacity {
+  color: #0e6f4d;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .quizWorkspace {
   display: grid;
   gap: 1rem;
@@ -1070,6 +1475,23 @@
   display: block;
   color: #ffffff;
   font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.quizSummaryStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.quizSummaryStat {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(143, 168, 191, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.35rem 0.6rem;
+  color: rgb(219 231 239);
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
@@ -1133,7 +1555,7 @@
 
 .quizMediaImage,
 .quizOptionMedia {
-  border-radius: 18px;
+  border-radius: 8px;
   max-width: 100%;
   object-fit: cover;
 }
@@ -1187,6 +1609,17 @@
   gap: 0.75rem;
   align-items: center;
   justify-content: space-between;
+}
+
+.quizProgressPill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(143, 168, 191, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.4rem 0.7rem;
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-weight: var(--font-weight-bold);
 }
 
 .quizControlTime {

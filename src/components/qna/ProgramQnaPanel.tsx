@@ -1,55 +1,40 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import {
-  createProgramCommunityReply,
-  createProgramCommunityThread,
-  fetchProgramCommunity,
-  programCommunityQueryKey,
-} from '@/api/programCommunity';
+  createProgramQnaReply,
+  createProgramQnaThread,
+  fetchProgramQna,
+  programQnaQueryKey,
+} from '@/api/programQna';
 import Button from '@/components/ui/Button/Button';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type {
-  ProgramCommunityAuthorType,
-  ProgramCommunityThreadItem,
-} from '@/types/programCommunity';
+import type { ProgramQnaAuthorType, ProgramQnaThreadItem } from '@/types/programQna';
 import { classNames } from '@/utils/classNames';
 
-import styles from './ProgramCommunityPanel.module.scss';
+import styles from './ProgramQnaPanel.module.scss';
 
-type FilterScope = 'program' | 'lecture';
+type QnaVariant = 'board' | 'panel';
 
-interface ProgramCommunityPanelProps {
+interface ProgramQnaPanelProps {
   enabled?: boolean;
-  lectureId?: number | null;
-  lectureThreadCount?: number | null;
   programId: number | null;
   programThreadCount?: number | null;
   title?: string;
+  variant?: QnaVariant;
 }
 
-const AUTHOR_TYPE_LABELS: Record<ProgramCommunityAuthorType, string> = {
+const AUTHOR_TYPE_LABELS: Record<ProgramQnaAuthorType, string> = {
   ADMIN: '관리자',
   ENROLLED: '수강생',
   MEMBER: '회원',
 };
 
-const LECTURE_TYPE_LABELS: Record<
-  NonNullable<ProgramCommunityThreadItem['lectureType']>,
-  string
-> = {
-  OFFLINE: '오프라인',
-  PRACTICUM: '실습',
-  PROBLEM: '문제풀이',
-  RESOURCE: '자료',
-  VIDEO: '영상',
-};
-
-const formatRelativeDate = (value: string) => {
+const formatDateTime = (value: string) => {
   const timestamp = new Date(value).getTime();
 
   if (Number.isNaN(timestamp)) {
@@ -62,62 +47,66 @@ const formatRelativeDate = (value: string) => {
   }).format(timestamp);
 };
 
-export const ProgramCommunityPanel = ({
+const matchesSearchKeyword = (thread: ProgramQnaThreadItem, keyword: string) => {
+  if (!keyword) {
+    return true;
+  }
+
+  return `${thread.title} ${thread.content} ${thread.authorName} ${thread.programTitle ?? ''}`
+    .toLowerCase()
+    .includes(keyword);
+};
+
+export const ProgramQnaPanel = ({
   enabled = true,
-  lectureId = null,
-  lectureThreadCount = null,
   programId,
   programThreadCount = null,
-  title = '커뮤니티',
-}: ProgramCommunityPanelProps) => {
+  title = 'Q&A',
+  variant = 'panel',
+}: ProgramQnaPanelProps) => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const hasLectureContext = lectureId !== null;
-  const [filterScope, setFilterScope] = useState<FilterScope>(
-    hasLectureContext ? 'lecture' : 'program',
-  );
+  const isBoardVariant = variant === 'board';
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [threadTitle, setThreadTitle] = useState('');
   const [threadContent, setThreadContent] = useState('');
   const [openReplyThreadIds, setOpenReplyThreadIds] = useState<number[]>([]);
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
+  const deferredSearchKeyword = useDeferredValue(searchKeyword.trim().toLowerCase());
 
-  const activeFilterScope = hasLectureContext ? filterScope : 'program';
-  const activeLectureId = activeFilterScope === 'lecture' ? lectureId : null;
   const resolvedProgramId = programId ?? null;
 
-  const communityQuery = useQuery({
+  const qnaQuery = useQuery({
     enabled: enabled && resolvedProgramId !== null,
-    queryFn: () =>
-      fetchProgramCommunity(resolvedProgramId as number, {
-        lectureId: activeLectureId,
-        page: 0,
-        size: 20,
-      }),
-    queryKey: programCommunityQueryKey(resolvedProgramId, activeLectureId, activeFilterScope),
+    queryFn: () => fetchProgramQna(resolvedProgramId as number, { page: 0, size: 20 }),
+    queryKey: programQnaQueryKey(resolvedProgramId),
   });
+
+  const invalidateQna = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: programQnaQueryKey(resolvedProgramId),
+    });
+  };
 
   const createThreadMutation = useMutation({
     mutationFn: (payload: { content: string; title: string }) =>
-      createProgramCommunityThread(resolvedProgramId as number, {
+      createProgramQnaThread(resolvedProgramId as number, {
         content: payload.content,
-        lectureId: activeLectureId,
         title: payload.title,
       }),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '커뮤니티 글 등록에 실패했습니다.',
+        message: error instanceof Error ? error.message : 'Q&A 등록에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       setThreadTitle('');
       setThreadContent('');
-      await queryClient.invalidateQueries({
-        queryKey: programCommunityQueryKey(resolvedProgramId, activeLectureId, activeFilterScope),
-      });
+      await invalidateQna();
       showToast({
-        message: '커뮤니티 글을 등록했습니다.',
+        message: 'Q&A를 등록했습니다.',
         variant: 'success',
       });
     },
@@ -125,10 +114,10 @@ export const ProgramCommunityPanel = ({
 
   const createReplyMutation = useMutation({
     mutationFn: ({ content, threadId }: { content: string; threadId: number }) =>
-      createProgramCommunityReply(resolvedProgramId as number, threadId, { content }),
+      createProgramQnaReply(resolvedProgramId as number, threadId, { content }),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '커뮤니티 답글 등록에 실패했습니다.',
+        message: error instanceof Error ? error.message : 'Q&A 답글 등록에 실패했습니다.',
         variant: 'error',
       });
     },
@@ -137,9 +126,7 @@ export const ProgramCommunityPanel = ({
         ...current,
         [variables.threadId]: '',
       }));
-      await queryClient.invalidateQueries({
-        queryKey: programCommunityQueryKey(resolvedProgramId, activeLectureId, activeFilterScope),
-      });
+      await invalidateQna();
       showToast({
         message: '답글을 등록했습니다.',
         variant: 'success',
@@ -147,27 +134,20 @@ export const ProgramCommunityPanel = ({
     },
   });
 
-  const threads = communityQuery.data?.content ?? [];
-  const resolvedLectureThreadCount =
-    activeFilterScope === 'lecture'
-      ? (communityQuery.data?.totalElements ?? lectureThreadCount ?? null)
-      : null;
-  const resolvedProgramThreadCount =
-    activeFilterScope === 'program'
-      ? (communityQuery.data?.totalElements ?? programThreadCount ?? null)
-      : programThreadCount;
+  const threads = qnaQuery.data?.content ?? [];
+  const visibleThreads = useMemo(() => {
+    return threads.filter((thread) => matchesSearchKeyword(thread, deferredSearchKeyword));
+  }, [deferredSearchKeyword, threads]);
+
+  const resolvedProgramThreadCount = qnaQuery.data?.totalElements ?? programThreadCount ?? null;
 
   const headerMeta = useMemo(() => {
-    if (activeFilterScope === 'lecture' && resolvedLectureThreadCount !== null) {
-      return `현재 강의 질문 ${String(resolvedLectureThreadCount)}개`;
-    }
-
     if (resolvedProgramThreadCount !== null) {
-      return `프로그램 전체 질문 ${String(resolvedProgramThreadCount)}개`;
+      return `프로그램 전체 Q&A ${String(resolvedProgramThreadCount)}개`;
     }
 
-    return '프로그램별 질의응답을 확인할 수 있습니다.';
-  }, [activeFilterScope, resolvedLectureThreadCount, resolvedProgramThreadCount]);
+    return '프로그램별 Q&A를 확인할 수 있습니다.';
+  }, [resolvedProgramThreadCount]);
 
   const toggleReplyComposer = (threadId: number) => {
     setOpenReplyThreadIds((current) => {
@@ -178,61 +158,59 @@ export const ProgramCommunityPanel = ({
   };
 
   if (resolvedProgramId === null) {
-    return (
-      <p className={styles['emptyState']}>커뮤니티를 연결할 프로그램 정보를 찾지 못했습니다.</p>
-    );
+    return <p className={styles['emptyState']}>Q&A를 연결할 프로그램 정보를 찾지 못했습니다.</p>;
   }
 
   return (
-    <section className={styles['panel']}>
-      <header className={styles['header']}>
-        <div>
-          <h3 className={styles['title']}>{title}</h3>
-          <p className={styles['description']}>
-            비수강생과 수강생 모두 참여할 수 있으며, 작성자 구분이 함께 표시됩니다.
-          </p>
-        </div>
-        <p className={styles['meta']}>{headerMeta}</p>
-      </header>
+    <section className={classNames(styles['panel'], isBoardVariant && styles['panelBoard'])}>
+      {isBoardVariant ? (
+        <header className={styles['boardToolbar']}>
+          <div className={styles['boardIntro']}>
+            <div>
+              <p className={styles['boardIntroLabel']}>Q&A</p>
+              <h3 className={styles['boardIntroTitle']}>
+                프로그램 관련 질문을 게시판 형태로 한눈에 확인할 수 있습니다.
+              </h3>
+              <p className={styles['boardIntroDescription']}>
+                강의 내용, 준비물, 운영 방식에 대한 질문을 남기고 답변을 확인해 보세요.
+              </p>
+            </div>
+            <p className={styles['boardIntroMeta']}>{headerMeta}</p>
+          </div>
 
-      {hasLectureContext ? (
-        <div className={styles['filterTabs']}>
-          <button
-            className={classNames(
-              styles['filterButton'],
-              activeFilterScope === 'lecture' && styles['filterButtonActive'],
-            )}
-            onClick={() => {
-              setFilterScope('lecture');
-            }}
-            type='button'
-          >
-            현재 강의
-          </button>
-          <button
-            className={classNames(
-              styles['filterButton'],
-              activeFilterScope === 'program' && styles['filterButtonActive'],
-            )}
-            onClick={() => {
-              setFilterScope('program');
-            }}
-            type='button'
-          >
-            프로그램 전체
-          </button>
-        </div>
-      ) : null}
+          <label className={styles['boardSearchBox']}>
+            <span className={styles['srOnly']}>Q&A 검색</span>
+            <input
+              className={styles['boardSearchInput']}
+              onChange={(event) => {
+                setSearchKeyword(event.target.value);
+              }}
+              placeholder='궁금한 내용을 검색해 보세요!'
+              value={searchKeyword}
+            />
+          </label>
+        </header>
+      ) : (
+        <header className={styles['header']}>
+          <div>
+            <h3 className={styles['title']}>{title}</h3>
+            <p className={styles['description']}>
+              비수강생과 수강생 모두 참여할 수 있으며, 작성자 구분이 함께 표시됩니다.
+            </p>
+          </div>
+          <p className={styles['meta']}>{headerMeta}</p>
+        </header>
+      )}
 
       {!isAuthenticated ? (
         <div className={styles['loginPrompt']}>
-          <p className={styles['loginHint']}>글과 답글 등록은 로그인 후 사용할 수 있습니다.</p>
+          <p className={styles['loginHint']}>Q&A 작성과 답글 등록은 로그인 후 사용할 수 있습니다.</p>
           <div>
             <Link to={routePaths.login}>로그인하러 가기</Link>
           </div>
         </div>
       ) : (
-        <div className={styles['composer']}>
+        <div className={classNames(styles['composer'], isBoardVariant && styles['composerBoard'])}>
           <div className={styles['composerFields']}>
             <input
               className={styles['input']}
@@ -240,11 +218,7 @@ export const ProgramCommunityPanel = ({
               onChange={(event) => {
                 setThreadTitle(event.target.value);
               }}
-              placeholder={
-                filterScope === 'lecture'
-                  ? '현재 강의에서 궁금한 점을 한 줄 제목으로 남겨 주세요.'
-                  : '프로그램 전체와 관련된 질문 제목을 입력해 주세요.'
-              }
+              placeholder='프로그램에서 궁금한 점을 제목으로 남겨 주세요.'
               value={threadTitle}
             />
             <textarea
@@ -252,16 +226,12 @@ export const ProgramCommunityPanel = ({
               onChange={(event) => {
                 setThreadContent(event.target.value);
               }}
-              placeholder='상황과 질문 내용을 자세히 적어 주세요.'
+              placeholder='질문 배경과 궁금한 내용을 자세히 적어 주세요.'
               value={threadContent}
             />
           </div>
           <div className={styles['actionRow']}>
-            <p className={styles['fieldHint']}>
-              {filterScope === 'lecture'
-                ? '이 글은 현재 강의 문맥에 연결됩니다.'
-                : '이 글은 프로그램 전체 커뮤니티에 등록됩니다.'}
-            </p>
+            <p className={styles['fieldHint']}>이 글은 프로그램 Q&A 게시판에 등록됩니다.</p>
             <Button
               disabled={
                 createThreadMutation.isPending ||
@@ -283,28 +253,24 @@ export const ProgramCommunityPanel = ({
         </div>
       )}
 
-      {communityQuery.isLoading ? (
-        <p className={styles['emptyState']}>커뮤니티를 불러오는 중입니다.</p>
-      ) : null}
-      {communityQuery.isError ? (
+      {qnaQuery.isLoading ? <p className={styles['emptyState']}>Q&A를 불러오는 중입니다.</p> : null}
+      {qnaQuery.isError ? (
         <p className={styles['errorText']}>
-          {communityQuery.error instanceof Error
-            ? communityQuery.error.message
-            : '커뮤니티를 불러오지 못했습니다.'}
+          {qnaQuery.error instanceof Error ? qnaQuery.error.message : 'Q&A를 불러오지 못했습니다.'}
         </p>
       ) : null}
 
-      {!communityQuery.isLoading && !communityQuery.isError && threads.length === 0 ? (
+      {!qnaQuery.isLoading && !qnaQuery.isError && visibleThreads.length === 0 ? (
         <p className={styles['emptyState']}>
-          {filterScope === 'lecture'
-            ? '현재 강의에 등록된 질문이 아직 없습니다.'
-            : '이 프로그램에 등록된 질문이 아직 없습니다.'}
+          {deferredSearchKeyword
+            ? '검색 조건에 맞는 Q&A가 없습니다.'
+            : '이 프로그램에 등록된 Q&A가 아직 없습니다.'}
         </p>
       ) : null}
 
-      {threads.length > 0 ? (
+      {visibleThreads.length > 0 ? (
         <div className={styles['threadList']}>
-          {threads.map((thread) => {
+          {visibleThreads.map((thread) => {
             const isReplyComposerOpen = openReplyThreadIds.includes(thread.id);
 
             return (
@@ -318,18 +284,16 @@ export const ProgramCommunityPanel = ({
                       className={styles['statusBadge']}
                       data-tone={thread.answered ? 'answered' : 'waiting'}
                     >
-                      {thread.answered ? '답변 진행중' : '답변 대기'}
+                      {thread.answered ? '답변 완료' : '미해결'}
                     </span>
-                    {thread.lectureTitle && thread.lectureType ? (
-                      <span className={styles['lectureBadge']}>
-                        {LECTURE_TYPE_LABELS[thread.lectureType]} · {thread.lectureTitle}
-                      </span>
-                    ) : null}
                   </div>
                   <div className={styles['metaRow']}>
                     <p className={styles['threadMeta']}>
-                      {thread.authorName} · {formatRelativeDate(thread.createdAt)}
+                      {thread.authorName} · {formatDateTime(thread.createdAt)}
                     </p>
+                    {isBoardVariant ? (
+                      <p className={styles['threadMetaAux']}>댓글 {String(thread.replyCount)}</p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -351,11 +315,11 @@ export const ProgramCommunityPanel = ({
                               {AUTHOR_TYPE_LABELS[reply.authorType]}
                             </span>
                             {reply.adminReply ? (
-                              <span className={styles['lectureBadge']}>관리자 답글</span>
+                              <span className={styles['replyBadge']}>관리자 답글</span>
                             ) : null}
                           </div>
                           <p className={styles['replyMeta']}>
-                            {reply.authorName} · {formatRelativeDate(reply.createdAt)}
+                            {reply.authorName} · {formatDateTime(reply.createdAt)}
                           </p>
                         </div>
                         <p className={styles['replyBody']}>{reply.content}</p>
@@ -394,9 +358,7 @@ export const ProgramCommunityPanel = ({
                           value={replyDrafts[thread.id] ?? ''}
                         />
                         <div className={styles['actionRow']}>
-                          <span className={styles['fieldHint']}>
-                            현재 커뮤니티 글에 답글로 등록됩니다.
-                          </span>
+                          <span className={styles['fieldHint']}>현재 Q&A에 답글로 등록됩니다.</span>
                           <Button
                             disabled={
                               createReplyMutation.isPending ||
@@ -427,4 +389,4 @@ export const ProgramCommunityPanel = ({
   );
 };
 
-export default ProgramCommunityPanel;
+export default ProgramQnaPanel;

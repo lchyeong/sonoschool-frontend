@@ -246,6 +246,12 @@ const cloneData = <T>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T;
 };
 
+const deriveMockProgramNumericId = (value: string): number => {
+  return Array.from(value).reduce((accumulator, character) => {
+    return (accumulator * 31 + character.charCodeAt(0)) % 1_000_000_007;
+  }, 101);
+};
+
 const invalidateProgramCatalogBaseTreeCache = (siteKey?: string): void => {
   if (siteKey) {
     programCatalogBaseTreeCacheBySite.delete(siteKey);
@@ -670,8 +676,18 @@ const createDefaultStats = (
   ];
 };
 
-const getCurriculumSeedMode = (formatLabel: string): 'hybrid' | 'offline' | 'online' => {
-  if (formatLabel.includes('패키지') || formatLabel.includes('실습 포함')) {
+const getCurriculumSeedMode = (
+  formatLabel: string,
+): 'hybrid' | 'offline' | 'online' | 'problem' => {
+  if (formatLabel.includes('문제풀이')) {
+    return 'problem';
+  }
+
+  if (
+    formatLabel.includes('패키지') ||
+    formatLabel.includes('실습 포함') ||
+    formatLabel.includes('하이브리드')
+  ) {
     return 'hybrid';
   }
 
@@ -680,6 +696,40 @@ const getCurriculumSeedMode = (formatLabel: string): 'hybrid' | 'offline' | 'onl
   }
 
   return 'offline';
+};
+
+const getDefaultLessonDeliveryType = (
+  curriculumMode: 'hybrid' | 'offline' | 'online' | 'problem',
+  sectionIndex: number,
+  lessonIndex: number,
+): ProgramCurriculumLesson['deliveryType'] => {
+  const deliveryMatrix: Record<
+    'hybrid' | 'offline' | 'online' | 'problem',
+    ProgramCurriculumLesson['deliveryType'][][]
+  > = {
+    hybrid: [
+      ['online', 'practicum', 'resource'],
+      ['online', 'problem', 'practicum'],
+      ['online', 'resource', 'online'],
+    ],
+    offline: [
+      ['online', 'offline', 'resource'],
+      ['online', 'problem', 'offline'],
+      ['online', 'resource', 'problem'],
+    ],
+    online: [
+      ['online', 'problem', 'resource'],
+      ['online', 'problem', 'online'],
+      ['online', 'resource', 'online'],
+    ],
+    problem: [
+      ['problem', 'resource', 'problem'],
+      ['problem', 'problem', 'resource'],
+      ['problem', 'resource', 'problem'],
+    ],
+  };
+
+  return deliveryMatrix[curriculumMode][sectionIndex]?.[lessonIndex] ?? 'online';
 };
 
 const buildMockIsoDate = (year: number, month: number, day: number): string => {
@@ -793,6 +843,27 @@ const createDefaultCurriculumLesson = (
     return lesson;
   }
 
+  if (deliveryType === 'problem' || deliveryType === 'resource' || deliveryType === 'practicum') {
+    const lesson: ProgramCurriculumLesson = {
+      deliveryType,
+      description:
+        deliveryType === 'problem'
+          ? `${label}의 ${lessonTitle}를 문제 풀이 중심으로 정리합니다.`
+          : deliveryType === 'resource'
+            ? `${label}의 ${lessonTitle}를 첨부자료로 제공합니다.`
+            : `${label}의 ${lessonTitle}를 실습 예약과 피드백 중심으로 운영합니다.`,
+      durationLabel: '',
+      durationMinutes: null,
+      endDate: null,
+      id: `${label}-lesson-${String(sectionIndex + 1)}-${String(lessonIndex + 1)}`,
+      startDate: null,
+      title: lessonTitle,
+    };
+
+    lesson.durationLabel = deriveCurriculumLessonDurationLabel(lesson);
+    return lesson;
+  }
+
   const { endDate, startDate } = getDefaultCurriculumWindow(scheduleLabel);
   const absoluteLessonIndex = sectionIndex * 3 + lessonIndex;
   const lessonStartDate =
@@ -855,21 +926,10 @@ const createDefaultCurriculumSections = (
 
   sections.forEach((section, sectionIndex) => {
     section.lessons = lessonTitleGroups[sectionIndex].map((lessonTitle, lessonIndex) => {
-      if (curriculumMode === 'hybrid') {
-        return createDefaultCurriculumLesson(
-          label,
-          lessonTitle,
-          lessonIndex % 2 === 0 ? 'online' : 'offline',
-          sectionIndex,
-          lessonIndex,
-          scheduleLabel,
-        );
-      }
-
       return createDefaultCurriculumLesson(
         label,
         lessonTitle,
-        curriculumMode === 'online' ? 'online' : 'offline',
+        getDefaultLessonDeliveryType(curriculumMode, sectionIndex, lessonIndex),
         sectionIndex,
         lessonIndex,
         scheduleLabel,
@@ -1834,7 +1894,7 @@ function buildInitialManagedPrograms(): MockManagedProgramCatalogRecord[] {
       accessPolicy: 'cohort',
       capacity: 18,
       description:
-        'FAST 증례를 반복 검토하고 응급실 적용 포인트를 피드백하는 실습 포함 온라인 부트캠프입니다.',
+        'FAST 증례를 반복 검토하고 응급실 적용 포인트를 피드백하는 하이브리드 부트캠프입니다.',
       difficultyLabel: '중급',
       format: 'hybrid',
       imageIndex: 3,
@@ -3363,6 +3423,7 @@ const buildProgramPageResponse = (siteKey: string, path: string): ProgramPageRes
 
   if (matchedNode.kind === 'lecture') {
     const categoryLabel = getLastStructuralAncestor(matchedNode.ancestors)?.label ?? '교육과정';
+    const programId = deriveMockProgramNumericId(matchedNode.id);
 
     return {
       breadcrumbItems: createBreadcrumbItems([
@@ -3389,6 +3450,7 @@ const buildProgramPageResponse = (siteKey: string, path: string): ProgramPageRes
       originalPriceLabel: matchedNode.originalPriceLabel,
       overallRating: 5.0,
       pageKind: 'detail',
+      programId,
       preparationChecklist: matchedNode.preparationChecklist,
       remainingSeatsLabel: matchedNode.remainingSeatsLabel,
       registrationPeriodLabel: matchedNode.registrationPeriodLabel,

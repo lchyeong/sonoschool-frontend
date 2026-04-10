@@ -32,7 +32,7 @@ const testCartItems: CartItem[] = [
     salePrice: 150000,
     saleStartAt: null,
     thumbnailUrl: null,
-    title: '실습 포함 온라인 과정',
+    title: '하이브리드 과정',
   },
 ];
 

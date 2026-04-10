@@ -30,7 +30,7 @@ export interface AdminUserDetailQuestionResultItem {
   submittedOptions: AdminUserDetailOptionItem[];
 }
 
-export interface AdminUserDetailQuizAttemptItem {
+export interface AdminUserDetailProblemAttemptItem {
   attemptId: number;
   correctAnswerCount: number;
   passScore: number;
@@ -41,17 +41,17 @@ export interface AdminUserDetailQuizAttemptItem {
   submittedAt: string | null;
 }
 
-export interface AdminUserDetailQuizItem {
+export interface AdminUserDetailProblemItem {
   attemptCount: number;
   attempted: boolean;
-  attempts: AdminUserDetailQuizAttemptItem[];
+  attempts: AdminUserDetailProblemAttemptItem[];
   bestScore: number | null;
   lastSubmittedAt: string | null;
   latestCorrectAnswerCount: number | null;
   latestScore: number | null;
   passScore: number;
   questionCount: number;
-  quizId: number;
+  problemId: number;
   title: string;
 }
 
@@ -65,7 +65,7 @@ export interface AdminUserDetailLectureItem {
   lectureTitle: string;
   lectureType: string;
   progressRate: number;
-  quiz: AdminUserDetailQuizItem | null;
+  problem: AdminUserDetailProblemItem | null;
   sectionId: number;
   sectionSortOrder: number;
   sectionTitle: string;
@@ -125,9 +125,6 @@ export interface AdminUserDetailQuestionItem {
   content: string;
   createdAt: string | null;
   latestReplyAt: string | null;
-  lectureId: number | null;
-  lectureTitle: string | null;
-  lectureType: string | null;
   programId: number | null;
   programTitle: string | null;
   questionId: number;

@@ -11,12 +11,13 @@ import type {
   EnrollmentDetail,
   EnrollmentSummary,
   LearningPlayerSnapshot,
+  ProgramType,
   ProtectedLectureStream,
   RefundHistory,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
-import type { ProgramCurriculumTrack } from '@/types/programCatalog';
+import type { ProgramCurriculumLesson, ProgramCurriculumTrack } from '@/types/programCatalog';
 import { isOnlineProgramType } from '@/utils/programType';
 
 interface PendingPhoneVerification {
@@ -48,6 +49,137 @@ const enrollmentThumbnailByProgramId: Record<number, string> = {
   2021: homeLecture1Src,
   2022: homeLecture2Src,
   2023: homeLecture3Src,
+};
+
+const learningProgramTypeByProgramId: Partial<Record<number, ProgramType>> = {
+  2001: 'ONLINE',
+  2003: 'ONLINE',
+  2004: 'OFFLINE',
+  2005: 'ONLINE',
+  2006: 'ONLINE',
+  2007: 'PROBLEM_SOLVING',
+  2009: 'HYBRID',
+  2010: 'ONLINE',
+  2011: 'PROBLEM_SOLVING',
+  2012: 'ONLINE',
+  2013: 'PROBLEM_SOLVING',
+  2014: 'PROBLEM_SOLVING',
+  2018: 'ONLINE',
+  2019: 'HYBRID',
+  2020: 'PROBLEM_SOLVING',
+  2021: 'ONLINE',
+  2022: 'HYBRID',
+  2023: 'ONLINE',
+};
+
+const learningDeliverySequenceByProgramType: Record<
+  ProgramType,
+  ProgramCurriculumLesson['deliveryType'][]
+> = {
+  HYBRID: ['online', 'problem', 'practicum', 'resource'],
+  OFFLINE: ['online', 'problem', 'offline', 'resource'],
+  ONLINE: ['online', 'problem', 'resource'],
+  PROBLEM_SOLVING: ['problem', 'resource'],
+};
+
+const resolveLearningProgramType = (programId: number): ProgramType => {
+  return learningProgramTypeByProgramId[programId] ?? 'ONLINE';
+};
+
+const getLearningLessonDeliveryType = (
+  programType: ProgramType,
+  lessonIndex: number,
+): ProgramCurriculumLesson['deliveryType'] => {
+  const sequence = learningDeliverySequenceByProgramType[programType];
+  return sequence[lessonIndex % sequence.length] ?? 'online';
+};
+
+const formatMockOfflineDate = (value: Date) => {
+  return value.toISOString().slice(0, 10);
+};
+
+const createLearningLesson = (
+  detail: EnrollmentDetail,
+  lessonNumber: number,
+  lessonId: string,
+  deliveryType: ProgramCurriculumLesson['deliveryType'],
+): ProgramCurriculumLesson => {
+  if (deliveryType === 'offline') {
+    const startDate = new Date(`2026-04-${String(10 + lessonNumber).padStart(2, '0')}T00:00:00Z`);
+
+    return {
+      deliveryType,
+      description: `${detail.programTitle} 현장 일정 안내와 준비사항입니다.`,
+      durationLabel: '현장 일정',
+      durationMinutes: null,
+      endDate: formatMockOfflineDate(startDate),
+      id: lessonId,
+      offlineSchedules: [
+        {
+          date: formatMockOfflineDate(startDate),
+          endTime: '17:00',
+          location: '소노스쿨 실습실',
+          notes: '현장 등록은 시작 10분 전부터 가능합니다.',
+          startTime: '14:00',
+        },
+      ],
+      startDate: formatMockOfflineDate(startDate),
+      title: `${detail.programTitle} ${String(lessonNumber)}회차`,
+    };
+  }
+
+  if (deliveryType === 'problem') {
+    return {
+      deliveryType,
+      description: `${detail.programTitle} 핵심 포인트를 문제로 복습합니다.`,
+      durationLabel: '문제 풀이',
+      durationMinutes: null,
+      endDate: null,
+      id: lessonId,
+      problemAttempted: false,
+      problemTimeLimitSeconds: 30 * 60,
+      questionCount: 10,
+      startDate: null,
+      title: `${detail.programTitle} ${String(lessonNumber)}강 문제풀이`,
+    };
+  }
+
+  if (deliveryType === 'resource') {
+    return {
+      deliveryType,
+      description: `${detail.programTitle} 첨부자료와 체크리스트를 제공합니다.`,
+      durationLabel: '첨부자료',
+      durationMinutes: null,
+      endDate: null,
+      id: lessonId,
+      startDate: null,
+      title: `${detail.programTitle} ${String(lessonNumber)}강 첨부자료`,
+    };
+  }
+
+  if (deliveryType === 'practicum') {
+    return {
+      deliveryType,
+      description: `${detail.programTitle} 실습 예약 안내와 실습 목표를 확인합니다.`,
+      durationLabel: '실습 예약',
+      durationMinutes: null,
+      endDate: null,
+      id: lessonId,
+      startDate: null,
+      title: `${detail.programTitle} ${String(lessonNumber)}강 실습`,
+    };
+  }
+
+  return {
+    deliveryType,
+    description: `${detail.programTitle} ${String(lessonNumber)}강 학습 콘텐츠`,
+    durationLabel: `${String(25 + lessonNumber * 5)}분`,
+    durationMinutes: 25 + lessonNumber * 5,
+    endDate: null,
+    id: lessonId,
+    startDate: null,
+    title: `${detail.programTitle} ${String(lessonNumber)}강`,
+  };
 };
 
 const getLastLearningAtFromDetail = (detail: EnrollmentDetail): string | null => {
@@ -590,7 +722,7 @@ const mockRefunds: RefundHistory[] = [
   {
     id: 881,
     orderName: '심장초음파 실전 마스터 클래스',
-    paymentMethod: '무통장입금',
+    paymentMethod: '카드 결제',
     processedAt: null,
     programId: 2003,
     programTitle: '심장초음파 실전 마스터 클래스',
@@ -1148,7 +1280,7 @@ const extendMockMyPageData = (): void => {
     {
       id: 884,
       orderName: '근골격 초음파 실습 베이직',
-      paymentMethod: '가상계좌',
+      paymentMethod: '카드 결제',
       processedAt: '2026-03-03T04:20:00Z',
       programId: 2009,
       programTitle: '근골격 초음파 실습 베이직',
@@ -1254,6 +1386,7 @@ const recalculateCartDerivedState = (): void => {
 
 const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerSnapshot => {
   const lessonsPerSection = 3;
+  const programType = resolveLearningProgramType(detail.programId);
   const lessonIds = Array.from({ length: detail.totalLectures }, (_, index) => {
     return `enrollment-${String(detail.id)}-lesson-${String(index + 1)}`;
   });
@@ -1281,24 +1414,17 @@ const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerS
           id: `enrollment-${String(detail.id)}-section-${String(sectionIndex + 1)}`,
           lessons: Array.from({ length: lessonCount }, (_, lessonOffset) => {
             const lessonNumber = startLessonNumber + lessonOffset;
+            const lessonId = `enrollment-${String(detail.id)}-lesson-${String(lessonNumber)}`;
+            const deliveryType = getLearningLessonDeliveryType(programType, lessonNumber - 1);
 
-            return {
-              deliveryType: 'online',
-              description: `${detail.programTitle} ${String(lessonNumber)}강 학습 콘텐츠`,
-              durationLabel: `${String(25 + lessonNumber * 5)}분`,
-              durationMinutes: 25 + lessonNumber * 5,
-              endDate: null,
-              id: `enrollment-${String(detail.id)}-lesson-${String(lessonNumber)}`,
-              startDate: null,
-              title: `${detail.programTitle} ${String(lessonNumber)}강`,
-            };
+            return createLearningLesson(detail, lessonNumber, lessonId, deliveryType);
           }),
           title: `${String(sectionIndex + 1)}단계 학습`,
         };
       },
     ),
     summaryItems: [
-      `${String(detail.totalLectures)}개 강의`,
+      `${String(detail.totalLectures)}개 학습 항목`,
       `완료 ${String(detail.completedLectures)}개`,
       `진도율 ${String(detail.completionRate)}%`,
     ],
@@ -1331,7 +1457,10 @@ const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerS
           lessonId,
           {
             lectureId: lessonIndex + 1,
-            mimeType: 'application/x-mpegURL',
+            mimeType:
+              getLearningLessonDeliveryType(programType, lessonIndex) === 'online'
+                ? 'application/x-mpegURL'
+                : null,
             posterUrl: null,
           },
         ];

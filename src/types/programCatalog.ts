@@ -42,6 +42,7 @@ export interface ProgramLectureCard {
   priceLabel: string;
   remainingSeatsCount?: number | undefined;
   remainingSeatsLabel?: string | undefined;
+  catalogStatus?: ProgramCatalogStatus | undefined;
   hashtagLabels?: string[] | undefined;
   scheduleLabel: string;
   tags?: string[] | undefined;
@@ -65,7 +66,20 @@ export interface ProgramCollectionPageResponse {
   instructor: ProgramInstructorProfile;
 }
 
-export type ProgramCurriculumLessonDeliveryType = 'online' | 'offline' | 'problem';
+export type ProgramCurriculumLessonDeliveryType =
+  | 'online'
+  | 'offline'
+  | 'practicum'
+  | 'problem'
+  | 'resource';
+
+export interface ProgramCurriculumScheduleItem {
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  location?: string | undefined;
+  notes?: string | undefined;
+}
 
 export interface ProgramCurriculumLesson {
   deliveryType: ProgramCurriculumLessonDeliveryType;
@@ -75,6 +89,11 @@ export interface ProgramCurriculumLesson {
   endDate: string | null;
   hasQuiz?: boolean | undefined;
   id: string;
+  lectureId?: number | undefined;
+  offlineSchedules?: ProgramCurriculumScheduleItem[] | undefined;
+  problemAttempted?: boolean | undefined;
+  problemTimeLimitSeconds?: number | null | undefined;
+  questionCount?: number | undefined;
   quizAttempted?: boolean | undefined;
   startDate: string | null;
   title: string;
@@ -103,16 +122,18 @@ export interface ProgramInfoItem {
   value: string;
 }
 
+export type ProgramCatalogStatus = 'OPEN' | 'SCHEDULED' | 'STARTED' | 'CLOSED' | 'FULL';
+
 export interface ProgramFaqItem {
   id: string;
   question: string;
   answer: string;
 }
 
-export interface ProgramCommunitySummary {
+export interface ProgramQnaSummary {
   totalThreadCount: number;
   answeredThreadCount: number;
-  latestThreadCreatedAt: string | null;
+  latestThreadCreatedAt?: string | null | undefined;
 }
 
 export interface ProgramReviewItem {
@@ -143,6 +164,11 @@ export interface ProgramDetailPageResponse {
   monthlyInstallmentLabel: string;
   operationPeriodLabel?: string | undefined;
   remainingSeatsLabel?: string | undefined;
+  catalogStatus?: ProgramCatalogStatus | undefined;
+  applicationStatusLabel?: string | undefined;
+  applicationStatusDescription?: string | undefined;
+  enrollmentAvailable?: boolean | undefined;
+  availabilityAlertAvailable?: boolean | undefined;
   registrationPeriodLabel: string;
   hashtagLabels?: string[] | undefined;
   scheduleLabel: string;
@@ -154,7 +180,7 @@ export interface ProgramDetailPageResponse {
   curriculumTrack: ProgramCurriculumTrack;
   preparationChecklist: string[];
   faqItems: ProgramFaqItem[];
-  communitySummary?: ProgramCommunitySummary | undefined;
+  qnaSummary?: ProgramQnaSummary | undefined;
   overallRating: number;
   reviewCount: number;
   reviews: ProgramReviewItem[];

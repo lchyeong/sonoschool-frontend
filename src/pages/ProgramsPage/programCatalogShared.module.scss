@@ -7,6 +7,18 @@
   }
 }
 
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .statList {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -304,6 +316,104 @@
   font-weight: var(--font-weight-bold);
 }
 
+.lectureTopActionRow {
+  display: flex;
+  align-items: center;
+}
+
+.cardActionButton,
+.cardActionLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.cardActionButton {
+  cursor: pointer;
+}
+
+.cardActionLink {
+  box-sizing: border-box;
+}
+
+.cardIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid rgba(30, 51, 134, 0.12);
+  border-radius: 999px;
+  background: rgba(30, 51, 134, 0.04);
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.cardIconButtonPending,
+.cardIconButton:disabled {
+  cursor: default;
+  opacity: 0.6;
+  box-shadow: none;
+  transform: none;
+}
+
+.cardIconButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(52, 178, 159, 0.28);
+  background: rgba(52, 178, 159, 0.12);
+}
+
+.cardActionIcon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.cardActionPrimary {
+  color: #ffffff;
+  background: linear-gradient(135deg, #1f9d8d 0%, #33bda7 100%);
+  box-shadow: 0 14px 24px -18px rgba(31, 157, 141, 0.66);
+}
+
+.cardActionSecondary {
+  border: 1px solid rgba(30, 51, 134, 0.12);
+  color: var(--color-sub-brand-darken-5);
+  background: rgba(30, 51, 134, 0.04);
+}
+
+.cardActionDisabled {
+  color: var(--color-text-tertiary);
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.cardActionButton:disabled {
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+.cardActionButton:not(:disabled):hover,
+.cardActionLink:hover {
+  transform: translateY(-1px);
+}
+
 .archiveLectureCategory {
   display: inline-flex;
   align-items: center;
@@ -321,13 +431,6 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-}
-
-.archiveLectureSchedule {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-relaxed);
 }
 
 .archiveLectureAvailability {
@@ -362,6 +465,37 @@
   padding-top: var(--space-3);
 }
 
+.lectureScheduleText,
+.archiveLectureScheduleText {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.programMetaTagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.programMetaTagItem {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(190, 229, 225, 0.9);
+  border-radius: 999px;
+  color: #4d9b93;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.02em;
+  background: linear-gradient(180deg, rgba(242, 251, 250, 0.96) 0%, rgba(233, 247, 245, 0.92) 100%);
+}
+
 .archiveLectureHashtagList {
   display: flex;
   flex-wrap: wrap;
@@ -383,32 +517,6 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   background: rgba(52, 178, 159, 0.08);
-}
-
-.lectureInfoList {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin: 0;
-
-  div {
-    display: grid;
-    gap: 4px;
-    padding: var(--space-3);
-    border-radius: var(--radius-xl);
-    background: var(--color-bg-secondary);
-  }
-
-  dt {
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
-  }
-
-  dd {
-    margin: 0;
-    color: var(--color-text-primary);
-    font-weight: var(--font-weight-semibold);
-  }
 }
 
 .educatorCard {
@@ -464,7 +572,6 @@
 
 @media (width < 768px) {
   .statList,
-  .lectureInfoList,
   .educatorHeader {
     grid-template-columns: 1fr;
   }

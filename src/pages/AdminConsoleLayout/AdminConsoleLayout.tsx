@@ -12,10 +12,6 @@ import styles from './AdminConsoleLayout.module.scss';
 
 const adminNavigationItems = [
   {
-    label: '대시보드',
-    to: routePaths.admin,
-  },
-  {
     label: '공지사항',
     to: routePaths.adminNotices,
   },

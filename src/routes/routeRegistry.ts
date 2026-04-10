@@ -194,11 +194,11 @@ const appLeafRouteDefinitions = {
     routePath: 'admin/programs/new/curriculum',
     absolutePath: '/admin/programs/new/curriculum',
   }),
-  adminProgramCreateQuizzes: defineStaticRoute({
-    key: 'adminProgramCreateQuizzes',
+  adminProgramCreateProblems: defineStaticRoute({
+    key: 'adminProgramCreateProblems',
     access: 'admin',
-    routePath: 'admin/programs/new/quizzes',
-    absolutePath: '/admin/programs/new/quizzes',
+    routePath: 'admin/programs/new/problems',
+    absolutePath: '/admin/programs/new/problems',
   }),
   adminProgramCreateResources: defineStaticRoute({
     key: 'adminProgramCreateResources',
@@ -224,13 +224,13 @@ const appLeafRouteDefinitions = {
       return generatePath('/admin/programs/:programId/curriculum', { programId });
     },
   }),
-  adminProgramQuizzes: defineDynamicRoute({
-    key: 'adminProgramQuizzes',
+  adminProgramProblems: defineDynamicRoute({
+    key: 'adminProgramProblems',
     access: 'admin',
-    routePath: 'admin/programs/:programId/quizzes',
-    absolutePathPattern: '/admin/programs/:programId/quizzes',
+    routePath: 'admin/programs/:programId/problems',
+    absolutePathPattern: '/admin/programs/:programId/problems',
     buildPath: ({ programId }: { programId: string }) => {
-      return generatePath('/admin/programs/:programId/quizzes', { programId });
+      return generatePath('/admin/programs/:programId/problems', { programId });
     },
   }),
   adminProgramResources: defineDynamicRoute({
@@ -448,11 +448,11 @@ const appChildRouteKeys = [
   'adminPrograms',
   'adminProgramCreate',
   'adminProgramCreateCurriculum',
-  'adminProgramCreateQuizzes',
+  'adminProgramCreateProblems',
   'adminProgramCreateResources',
   'adminProgramEdit',
   'adminProgramCurriculum',
-  'adminProgramQuizzes',
+  'adminProgramProblems',
   'adminProgramResources',
   'adminProgramDuplicate',
   'adminProgramMenus',
@@ -520,12 +520,12 @@ export const routePaths = {
   adminPrograms: routes.adminPrograms.absolutePath,
   adminProgramCreate: routes.adminProgramCreate.absolutePath,
   adminProgramCreateCurriculum: routes.adminProgramCreateCurriculum.absolutePath,
-  adminProgramCreateQuizzes: routes.adminProgramCreateQuizzes.absolutePath,
+  adminProgramCreateProblems: routes.adminProgramCreateProblems.absolutePath,
   adminProgramCreateResources: routes.adminProgramCreateResources.absolutePath,
   adminProgramEdit: (programId: string) => routes.adminProgramEdit.buildPath({ programId }),
   adminProgramCurriculum: (programId: string) =>
     routes.adminProgramCurriculum.buildPath({ programId }),
-  adminProgramQuizzes: (programId: string) => routes.adminProgramQuizzes.buildPath({ programId }),
+  adminProgramProblems: (programId: string) => routes.adminProgramProblems.buildPath({ programId }),
   adminProgramResources: (programId: string) =>
     routes.adminProgramResources.buildPath({ programId }),
   adminProgramDuplicate: (sourceProgramId: string) =>

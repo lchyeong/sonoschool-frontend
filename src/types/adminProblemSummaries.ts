@@ -1,10 +1,10 @@
-export interface AdminQuizLectureSummary {
+export interface AdminProblemLectureSummary {
   attemptCount: number;
   averageScore: number | null;
-  hasQuiz: boolean;
+  hasProblem: boolean;
   lastSubmittedAt: string | null;
   lastUpdatedAt: string | null;
   lectureId: number;
   questionCount: number;
-  quizId: number | null;
+  problemId: number | null;
 }

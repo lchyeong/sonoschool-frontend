@@ -5,7 +5,7 @@ export const detailTabItems = [
   { id: 'course-curriculum', label: '커리큘럼' },
   { id: 'course-reviews', label: '수강평' },
   { id: 'course-faq', label: '자주하는 질문' },
-  { id: 'course-community', label: '커뮤니티' },
+  { id: 'course-qna', label: 'Q&A' },
 ] as const;
 
 export const featureCardTitles = ['학습 준비', '복습 자료', '시청 환경', '수료 기준'] as const;
@@ -56,13 +56,12 @@ export const buildHeroInfoPills = (
 ): Array<{ label: string; value: string }> => {
   return [
     { label: '난이도', value: data.difficultyLabel },
-    { label: '모집 기간', value: data.registrationPeriodLabel },
+    { label: '수업구분', value: data.formatLabel },
+    { label: '모집기간', value: data.registrationPeriodLabel },
     ...(data.operationPeriodLabel
-      ? [{ label: '운영 기간', value: data.operationPeriodLabel }]
+      ? [{ label: '운영기간', value: data.operationPeriodLabel }]
       : []),
-    { label: '강의 기간', value: data.durationLabel },
-    { label: '커리큘럼', value: `이론 및 실습 ${String(data.curriculumTrack.sections.length)}개` },
-    { label: '수업 구분', value: data.formatLabel },
+    { label: '과정구성', value: `${String(data.curriculumTrack.sections.length)}개 섹션` },
   ];
 };
 

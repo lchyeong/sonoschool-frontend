@@ -55,10 +55,10 @@ import {
   getMockProgramsOverview,
 } from '@/mocks/data/programCatalog';
 import {
-  createMockProgramCommunityReply,
-  createMockProgramCommunityThread,
-  getMockProgramCommunity,
-} from '@/mocks/data/programCommunity';
+  createMockProgramQnaReply,
+  createMockProgramQnaThread,
+  getMockProgramQna,
+} from '@/mocks/data/programQna';
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import {
   createMockAdminReply,
@@ -87,9 +87,9 @@ import type { KcpPcPrepareResponse } from '@/types/payment';
 import type { PopupItem } from '@/types/popup';
 import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
 import type {
-  ProgramCommunityReplyCreatePayload,
-  ProgramCommunityThreadCreatePayload,
-} from '@/types/programCommunity';
+  ProgramQnaReplyCreatePayload,
+  ProgramQnaThreadCreatePayload,
+} from '@/types/programQna';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
 import type { QuestionCreatePayload, QuestionReplyCreatePayload } from '@/types/qna';
 import type { ResourceItem } from '@/types/resource';
@@ -118,14 +118,23 @@ const inferProgramTypeFromPage = (page: ProgramPageResponse): AddToCartPayload['
     return 'ONLINE';
   }
 
-  const hasOnlineLesson = page.curriculumTrack.sections.some((section) => {
-    return section.lessons.some((lesson) => lesson.deliveryType === 'online');
-  });
+  const hasProblemOnly = page.curriculumTrack.sections.every((section) =>
+    section.lessons.every(
+      (lesson) => lesson.deliveryType === 'problem' || lesson.deliveryType === 'resource',
+    ),
+  );
   const hasOfflineLesson = page.curriculumTrack.sections.some((section) => {
     return section.lessons.some((lesson) => lesson.deliveryType === 'offline');
   });
+  const hasPracticumLesson = page.curriculumTrack.sections.some((section) => {
+    return section.lessons.some((lesson) => lesson.deliveryType === 'practicum');
+  });
 
-  if (hasOnlineLesson && hasOfflineLesson) {
+  if (hasProblemOnly) {
+    return 'PROBLEM_SOLVING';
+  }
+
+  if (hasPracticumLesson) {
     return 'HYBRID';
   }
 
@@ -218,7 +227,7 @@ const createMockAdminProgramDraftDetail = () => {
         thumbnailUrl: null,
         title: null,
       },
-      quizzes: [],
+      problems: [],
       resources: [],
       sections: [
         {
@@ -955,23 +964,18 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(response), { status: 200 });
   }),
-  http.get('*/api/v1/programs/:programId/community', ({ params, request }) => {
+  http.get('*/api/v1/programs/:programId/qna', ({ params }) => {
     const programId = Number(params['programId']);
-    const url = new URL(request.url);
-    const lectureIdParam = url.searchParams.get('lectureId');
-    const lectureId = lectureIdParam ? Number(lectureIdParam) : null;
 
     if (!Number.isInteger(programId) || programId <= 0) {
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
-    return HttpResponse.json(createApiEnvelope(getMockProgramCommunity(programId, lectureId)));
+    return HttpResponse.json(createApiEnvelope(getMockProgramQna(programId)));
   }),
-  http.post('*/api/v1/programs/:programId/community', async ({ params, request }) => {
+  http.post('*/api/v1/programs/:programId/qna', async ({ params, request }) => {
     const programId = Number(params['programId']);
-    const body = (await request
-      .json()
-      .catch(() => null)) as ProgramCommunityThreadCreatePayload | null;
+    const body = (await request.json().catch(() => null)) as ProgramQnaThreadCreatePayload | null;
 
     if (
       !Number.isInteger(programId) ||
@@ -983,37 +987,32 @@ export const handlers = [
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
-    return HttpResponse.json(createApiEnvelope(createMockProgramCommunityThread(programId, body)), {
+    return HttpResponse.json(createApiEnvelope(createMockProgramQnaThread(programId, body)), {
       status: 201,
     });
   }),
-  http.post(
-    '*/api/v1/programs/:programId/community/:questionId/replies',
-    async ({ params, request }) => {
-      const programId = Number(params['programId']);
-      const questionId = Number(params['questionId']);
-      const body = (await request
-        .json()
-        .catch(() => null)) as ProgramCommunityReplyCreatePayload | null;
+  http.post('*/api/v1/programs/:programId/qna/:questionId/replies', async ({ params, request }) => {
+    const programId = Number(params['programId']);
+    const questionId = Number(params['questionId']);
+    const body = (await request.json().catch(() => null)) as ProgramQnaReplyCreatePayload | null;
 
-      if (
-        !Number.isInteger(programId) ||
-        !Number.isInteger(questionId) ||
-        !body ||
-        typeof body.content !== 'string'
-      ) {
-        return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
-      }
+    if (
+      !Number.isInteger(programId) ||
+      !Number.isInteger(questionId) ||
+      !body ||
+      typeof body.content !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
 
-      const reply = createMockProgramCommunityReply(programId, questionId, body);
+    const reply = createMockProgramQnaReply(programId, questionId, body);
 
-      if (!reply) {
-        return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
-      }
+    if (!reply) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
 
-      return HttpResponse.json(createApiEnvelope(reply), { status: 201 });
-    },
-  ),
+    return HttpResponse.json(createApiEnvelope(reply), { status: 201 });
+  }),
   http.get('*/api/v1/notices/:noticeId', ({ params }) => {
     const noticeId = Number(params['noticeId']);
     const notice = getMockNoticeById(noticeId);
@@ -1268,8 +1267,24 @@ export const handlers = [
 
     return new HttpResponse(null, { status: 204 });
   }),
-  http.get('*/api/v1/admin/qna', () => {
-    return HttpResponse.json(createApiEnvelope(getMockAdminQuestions()));
+  http.get('*/api/v1/admin/qna', ({ request }) => {
+    const searchParams = new URL(request.url).searchParams;
+    const scope = searchParams.get('scope');
+    const programIdParam = searchParams.get('programId');
+    const answeredParam = searchParams.get('answered');
+    const keyword = searchParams.get('keyword');
+    const programId = programIdParam ? Number(programIdParam) : null;
+
+    return HttpResponse.json(
+      createApiEnvelope(
+        getMockAdminQuestions({
+          answered: answeredParam === 'true' ? true : answeredParam === 'false' ? false : null,
+          keyword,
+          programId: Number.isFinite(programId) ? programId : null,
+          scope: scope === 'GLOBAL' || scope === 'PROGRAM' ? scope : 'ALL',
+        }),
+      ),
+    );
   }),
   http.post('*/api/v1/admin/qna/:questionId/replies', async ({ params, request }) => {
     const questionId = Number(params['questionId']);
@@ -1433,7 +1448,7 @@ export const handlers = [
                 lectureTitle: '오리엔테이션',
                 lectureType: 'VIDEO',
                 progressRate: 100,
-                quiz: null,
+                problem: null,
                 sectionId: 501,
                 sectionSortOrder: 1,
                 sectionTitle: '입문',
@@ -1449,7 +1464,7 @@ export const handlers = [
                 lectureTitle: '복부 스캔 기본기',
                 lectureType: 'VIDEO',
                 progressRate: 40,
-                quiz: null,
+                problem: null,
                 sectionId: 501,
                 sectionSortOrder: 1,
                 sectionTitle: '입문',
@@ -1465,7 +1480,7 @@ export const handlers = [
                 lectureTitle: '혈액가스 문제 풀이',
                 lectureType: 'PROBLEM',
                 progressRate: 100,
-                quiz: {
+                problem: {
                   attemptCount: 2,
                   attempted: true,
                   attempts: [
@@ -1536,8 +1551,8 @@ export const handlers = [
                   latestScore: 100,
                   passScore: 80,
                   questionCount: 1,
-                  quizId: 4001,
-                  title: '혈액가스 퀴즈',
+                  problemId: 4001,
+                  title: '혈액가스 문제',
                 },
                 sectionId: 502,
                 sectionSortOrder: 2,
@@ -1610,9 +1625,6 @@ export const handlers = [
             content: '복부 스캔 기본기 강의에서 간문맥 구분 기준이 궁금합니다.',
             createdAt: '2026-03-03T10:00:00Z',
             latestReplyAt: '2026-03-03T13:00:00Z',
-            lectureId: 9102,
-            lectureTitle: '복부 스캔 기본기',
-            lectureType: 'VIDEO',
             programId: 2001,
             programTitle: '복부초음파 기초',
             questionId: 3001,
@@ -1625,9 +1637,6 @@ export const handlers = [
             content: '현금영수증 발급 여부를 확인하고 싶습니다.',
             createdAt: '2026-03-05T11:00:00Z',
             latestReplyAt: null,
-            lectureId: null,
-            lectureTitle: null,
-            lectureType: null,
             programId: null,
             programTitle: null,
             questionId: 3002,
@@ -1765,6 +1774,23 @@ export const handlers = [
           slotStatus: 'OPEN',
           startAt: '2026-03-29T01:00:00Z',
         },
+        {
+          endAt: '2026-03-31T07:00:00Z',
+          full: false,
+          lectureId: 9102,
+          lectureTitle: '복부 심화 실습',
+          location: '서울 강의실 A',
+          maxCapacity: 2,
+          programId: 2001,
+          programTitle: '복부초음파 기초',
+          remainingCapacity: 2,
+          reservations: [],
+          reservedCount: 0,
+          sectionTitle: '2주차',
+          slotId: 5002,
+          slotStatus: 'OPEN',
+          startAt: '2026-03-31T06:00:00Z',
+        },
       ]),
     );
   }),
@@ -1785,6 +1811,58 @@ export const handlers = [
         },
       ]),
     );
+  }),
+  http.get('*/api/v1/admin/practicum/offline-schedules/:ruleId', ({ params }) => {
+    const ruleId = Number(params['ruleId']);
+
+    if (!Number.isInteger(ruleId) || ruleId <= 0) {
+      return HttpResponse.json({ message: 'Invalid offline schedule id' }, { status: 400 });
+    }
+
+    if (ruleId !== 9901) {
+      return HttpResponse.json({ message: 'Offline schedule not found' }, { status: 404 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        activeEnrollmentCount: 12,
+        attendees: [
+          {
+            absent: false,
+            enrollmentId: 7201,
+            lectureCompleted: true,
+            loginId: 'minji01',
+            phoneNumber: '010-1111-2222',
+            userId: 101,
+            userName: '김민지',
+          },
+          {
+            absent: false,
+            enrollmentId: 7202,
+            lectureCompleted: false,
+            loginId: 'junseo02',
+            phoneNumber: '010-3333-4444',
+            userId: 102,
+            userName: '박준서',
+          },
+        ],
+        endAt: '2026-03-30T07:00:00Z',
+        lectureId: 9301,
+        lectureTitle: '오프라인 집중 실습',
+        location: '서울 강남 공용 실습실',
+        maxStudents: 16,
+        notes: '실습복 지참',
+        programId: 2101,
+        programTitle: 'GI tract 마스터 과정',
+        ruleId,
+        sectionTitle: '2주차',
+        startAt: '2026-03-30T05:00:00Z',
+        videoAttached: true,
+      }),
+    );
+  }),
+  http.patch('*/api/v1/admin/practicum/offline-schedules/:ruleId/attendees/:enrollmentId/absence', () => {
+    return new HttpResponse(null, { status: 204 });
   }),
   http.get('*/api/v1/admin/practicum/operating-hours', () => {
     return HttpResponse.json(
@@ -1837,6 +1915,7 @@ export const handlers = [
     return HttpResponse.json(
       createApiEnvelope([
         {
+          content: '센터 미팅 준비와 운영 점검을 진행합니다.',
           endAt: '2026-03-29T04:00:00Z',
           id: 9101,
           location: null,
@@ -1849,6 +1928,7 @@ export const handlers = [
   }),
   http.post('*/api/v1/admin/practicum/operation-exceptions', async ({ request }) => {
     const body = (await request.json().catch(() => null)) as {
+      content?: string | null;
       endAt?: string;
       location?: string | null;
       startAt?: string;
@@ -1862,6 +1942,7 @@ export const handlers = [
 
     return HttpResponse.json(
       createApiEnvelope({
+        content: body.content ?? null,
         endAt: body.endAt,
         id: 9200,
         location: body.location ?? null,
@@ -1871,6 +1952,49 @@ export const handlers = [
       }),
       { status: 201 },
     );
+  }),
+  http.put('*/api/v1/admin/practicum/operation-exceptions/:exceptionId', async ({ params, request }) => {
+    const exceptionId = Number(params['exceptionId']);
+    const body = (await request.json().catch(() => null)) as {
+      content?: string | null;
+      endAt?: string;
+      location?: string | null;
+      startAt?: string;
+      title?: string;
+      type?: string;
+    } | null;
+
+    if (
+      !Number.isFinite(exceptionId) ||
+      !body ||
+      !body.startAt ||
+      !body.endAt ||
+      !body.title ||
+      !body.type
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        content: body.content ?? null,
+        endAt: body.endAt,
+        id: exceptionId,
+        location: body.location ?? null,
+        startAt: body.startAt,
+        title: body.title,
+        type: body.type,
+      }),
+    );
+  }),
+  http.delete('*/api/v1/admin/practicum/operation-exceptions/:exceptionId', ({ params }) => {
+    const exceptionId = Number(params['exceptionId']);
+
+    if (!Number.isFinite(exceptionId)) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
   }),
   http.patch('*/api/v1/admin/practicum-slots/status', async ({ request }) => {
     const body = (await request.json().catch(() => null)) as {
@@ -1917,6 +2041,38 @@ export const handlers = [
 
     return new HttpResponse(null, { status: 204 });
   }),
+  http.patch('*/api/v1/admin/practicum-reservations/:reservationId/no-show', ({ params }) => {
+    const reservationId = Number(params['reservationId']);
+
+    if (!Number.isFinite(reservationId)) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.patch(
+    '*/api/v1/admin/practicum-reservations/:reservationId/move',
+    async ({ params, request }) => {
+      const reservationId = Number(params['reservationId']);
+      const body = (await request.json().catch(() => null)) as { slotId?: number } | null;
+
+      if (!Number.isFinite(reservationId) || !body?.slotId) {
+        return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+      }
+
+      return HttpResponse.json(
+        createApiEnvelope({
+          endAt: '2026-03-31T07:00:00Z',
+          id: reservationId,
+          lectureId: 9102,
+          location: '서울 강의실 A',
+          reservedAt: '2026-03-29T01:30:00Z',
+          slotId: body.slotId,
+          startAt: '2026-03-31T06:00:00Z',
+        }),
+      );
+    },
+  ),
   http.get('*/api/v1/home/hero-slides', () => {
     const response: HomeHeroSlidesResponse = getMockHomeHeroSlides();
 

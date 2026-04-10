@@ -10,6 +10,7 @@ import {
 
 import styles from './ProgramPage.module.scss';
 import ProgramPageDetail from './ProgramPageDetail';
+import { useProgramCatalogActions } from '../ProgramsPage/useProgramCatalogActions';
 
 const getCollectionEyebrow = (kicker: string, breadcrumbItems: { label: string }[]): string => {
   if (breadcrumbItems.length < 3) {
@@ -24,13 +25,21 @@ const ProgramPage = () => {
   // 그래서 params 조합 대신 `pathname` 자체를 API 조회 기준으로 사용합니다.
   const location = useLocation();
   const { data, isError, isPending } = useProgramPageQuery(location.pathname);
+  const {
+    handleAddToCart,
+    handleSubscribeAlert,
+    isAddToCartPending,
+    isAlertPending,
+    isAuthenticated,
+    subscribedProgramIds,
+  } = useProgramCatalogActions(data?.pageKind === 'collection' ? data.lectures : []);
 
   if (isPending) {
     return (
       <section aria-busy='true' className={styles['stateSection']}>
         <p className={styles['stateTitle']}>교육과정 페이지를 불러오는 중입니다.</p>
         <p className={styles['stateDescription']}>
-          선택하신 메뉴에 맞는 강의 목록 또는 강의 상세 정보를 준비하고 있습니다.
+          선택하신 메뉴에 맞는 과정 목록 또는 과정 상세 정보를 준비하고 있습니다.
         </p>
       </section>
     );
@@ -94,13 +103,26 @@ const ProgramPage = () => {
         <section className={styles['archiveLectureSection']}>
           <div className={styles['archiveLectureHeader']}>
             <p className={styles['archiveLectureLabel']}>
-              총 {String(data.lectures.length)}개 강의를 보여주고 있습니다.
+              총 {String(data.lectures.length)}개 과정을 보여주고 있습니다.
             </p>
           </div>
 
           <div className={styles['archiveLectureGrid']}>
             {data.lectures.map((lecture) => {
-              return <ProgramArchiveLectureCardItem item={lecture} key={lecture.id} />;
+              return (
+                <ProgramArchiveLectureCardItem
+                  isAlertPending={isAlertPending(lecture.programId)}
+                  isAlertSubscribed={
+                    typeof lecture.programId === 'number' && subscribedProgramIds.has(lecture.programId)
+                  }
+                  isAuthenticated={isAuthenticated}
+                  isCartPending={isAddToCartPending(lecture.programId)}
+                  item={lecture}
+                  key={lecture.id}
+                  onAddToCart={handleAddToCart}
+                  onSubscribeAlert={handleSubscribeAlert}
+                />
+              );
             })}
           </div>
         </section>

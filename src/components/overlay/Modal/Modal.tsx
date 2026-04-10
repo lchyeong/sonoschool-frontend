@@ -28,19 +28,25 @@ interface ModalProps {
   title: string;
   description?: string | undefined;
   children: ReactNode;
+  headerLeading?: ReactNode;
+  headerLeadingStacked?: boolean | undefined;
   hideTitle?: boolean | undefined;
   onClose: () => void;
   initialFocusRef?: RefObject<HTMLElement | null> | undefined;
   restoreFocusElement?: HTMLElement | null | undefined;
+  size?: 'md' | 'lg' | undefined;
 }
 
 const Modal = ({
   children,
   description,
+  headerLeading,
+  headerLeadingStacked = false,
   hideTitle = false,
   initialFocusRef,
   onClose,
   restoreFocusElement,
+  size = 'md',
   title,
 }: ModalProps) => {
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -130,22 +136,39 @@ const Modal = ({
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}
         aria-modal='true'
-        className={styles['panel']}
+        className={classNames(styles['panel'], size === 'lg' && styles['panelLg'])}
         onKeyDown={handlePanelKeyDown}
         ref={dialogRef}
         role='dialog'
         tabIndex={-1}
       >
         <div className={styles['header']}>
-          <div className={styles['headingGroup']}>
-            <h2 className={styles['title']} id={titleId}>
-              <span className={classNames(hideTitle && styles['titleHidden'])}>{title}</span>
-            </h2>
-            {description ? (
-              <p className={styles['description']} id={descriptionId}>
-                {description}
-              </p>
+          <div
+            className={classNames(
+              styles['headerMain'],
+              headerLeadingStacked && styles['headerMainStacked'],
+            )}
+          >
+            {headerLeading ? (
+              <div
+                className={classNames(
+                  styles['headerLeading'],
+                  headerLeadingStacked && styles['headerLeadingStacked'],
+                )}
+              >
+                {headerLeading}
+              </div>
             ) : null}
+            <div className={styles['headingGroup']}>
+              <h2 className={styles['title']} id={titleId}>
+                <span className={classNames(hideTitle && styles['titleHidden'])}>{title}</span>
+              </h2>
+              {description ? (
+                <p className={styles['description']} id={descriptionId}>
+                  {description}
+                </p>
+              ) : null}
+            </div>
           </div>
 
           <button

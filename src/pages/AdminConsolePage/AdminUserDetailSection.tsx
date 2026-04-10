@@ -10,9 +10,9 @@ import type {
   AdminUserDetailEnrollmentItem,
   AdminUserDetailLectureItem,
   AdminUserDetailPaymentItem,
+  AdminUserDetailProblemAttemptItem,
   AdminUserDetailQuestionItem,
   AdminUserDetailQuestionResultItem,
-  AdminUserDetailQuizAttemptItem,
 } from '@/types/adminUsers';
 
 import styles from './AdminConsolePage.module.scss';
@@ -27,7 +27,7 @@ const lectureTypeLabel: Record<string, string> = {
   OFFLINE: '오프라인',
   PRACTICUM: '실습',
   PROBLEM: '문제',
-  RESOURCE: '자료',
+  RESOURCE: '첨부자료',
   VIDEO: '영상',
 };
 
@@ -107,7 +107,7 @@ const AdminUserDetailSection = () => {
     return currentEnrollments
       .flatMap((enrollment) =>
         enrollment.lectures
-          .filter((lecture) => lecture.progressRate > 0 || lecture.quiz?.attempted)
+          .filter((lecture) => lecture.progressRate > 0 || lecture.problem?.attempted)
           .map((lecture) => ({
             enrollmentId: enrollment.enrollmentId,
             lastWatchedAt: lecture.lastWatchedAt,
@@ -297,9 +297,9 @@ const renderUserDetail = (
                     <td>{row.programTitle}</td>
                     <td>{lectureTypeLabel[row.lecture.lectureType] ?? row.lecture.lectureType}</td>
                     <td>
-                      {row.lecture.quiz
-                        ? `${String(row.lecture.quiz.latestCorrectAnswerCount ?? 0)} / ${String(
-                            row.lecture.quiz.questionCount,
+                      {row.lecture.problem
+                        ? `${String(row.lecture.problem.latestCorrectAnswerCount ?? 0)} / ${String(
+                            row.lecture.problem.questionCount,
                           )} 정답`
                         : `${String(row.lecture.progressRate)}%`}
                     </td>
@@ -435,10 +435,7 @@ const renderPaymentRow = (payment: AdminUserDetailPaymentItem) => {
 };
 
 const renderQuestionRow = (question: AdminUserDetailQuestionItem) => {
-  const locationText =
-    question.scope === 'GLOBAL'
-      ? '운영 Q&A'
-      : [question.programTitle, question.lectureTitle].filter(Boolean).join(' · ') || '-';
+  const locationText = question.scope === 'GLOBAL' ? '운영 Q&A' : question.programTitle || '-';
 
   return (
     <tr key={question.questionId}>
@@ -566,17 +563,17 @@ const renderEnrollmentCard = (enrollment: AdminUserDetailEnrollmentItem) => {
                   </div>
                 </td>
                 <td>
-                  {lecture.quiz ? (
+                  {lecture.problem ? (
                     <div className={styles['cellStack']}>
                       <span className={styles['cellPrimary']}>
-                        {String(lecture.quiz.latestCorrectAnswerCount ?? 0)} /{' '}
-                        {String(lecture.quiz.questionCount)} 정답
+                        {String(lecture.problem.latestCorrectAnswerCount ?? 0)} /{' '}
+                        {String(lecture.problem.questionCount)} 정답
                       </span>
                       <span className={styles['cellSecondary']}>
-                        {String(lecture.quiz.attemptCount)}회 응시 · 최고{' '}
-                        {lecture.quiz.bestScore === null
+                        {String(lecture.problem.attemptCount)}회 응시 · 최고{' '}
+                        {lecture.problem.bestScore === null
                           ? '-'
-                          : `${String(lecture.quiz.bestScore)}점`}
+                          : `${String(lecture.problem.bestScore)}점`}
                       </span>
                     </div>
                   ) : (
@@ -590,28 +587,29 @@ const renderEnrollmentCard = (enrollment: AdminUserDetailEnrollmentItem) => {
       </div>
 
       {enrollment.lectures
-        .filter((lecture) => lecture.quiz)
-        .map((lecture) => renderQuizHistory(lecture))}
+        .filter((lecture) => lecture.problem)
+        .map((lecture) => renderProblemHistory(lecture))}
     </article>
   );
 };
 
-const renderQuizHistory = (lecture: AdminUserDetailLectureItem) => {
-  if (!lecture.quiz) {
+const renderProblemHistory = (lecture: AdminUserDetailLectureItem) => {
+  if (!lecture.problem) {
     return null;
   }
 
   return (
-    <section className={styles['metaNotice']} key={`quiz-${String(lecture.lectureId)}`}>
+    <section className={styles['metaNotice']} key={`problem-${String(lecture.lectureId)}`}>
       <p className={styles['metaNoticeLabel']}>{lecture.lectureTitle} 문제 풀이 이력</p>
       <p className={styles['metaNoticeText']}>
-        {lecture.quiz.title} · 최근 제출 {formatDateTime(lecture.quiz.lastSubmittedAt)} · 기준 점수{' '}
-        {String(lecture.quiz.passScore)}점
+        {lecture.problem.title} · 최근 제출{' '}
+        {formatDateTime(lecture.problem.lastSubmittedAt)} · 기준 점수{' '}
+        {String(lecture.problem.passScore)}점
       </p>
 
-      {lecture.quiz.attempts.length ? (
+      {lecture.problem.attempts.length ? (
         <div className={styles['stackList']}>
-          {lecture.quiz.attempts.map((attempt) => renderQuizAttempt(attempt))}
+          {lecture.problem.attempts.map((attempt) => renderProblemAttempt(attempt))}
         </div>
       ) : (
         <p className={styles['metaNoticeText']}>아직 제출 이력이 없습니다.</p>
@@ -620,7 +618,7 @@ const renderQuizHistory = (lecture: AdminUserDetailLectureItem) => {
   );
 };
 
-const renderQuizAttempt = (attempt: AdminUserDetailQuizAttemptItem) => {
+const renderProblemAttempt = (attempt: AdminUserDetailProblemAttemptItem) => {
   return (
     <article className={styles['stackItem']} key={attempt.attemptId}>
       <div className={styles['metaRow']}>

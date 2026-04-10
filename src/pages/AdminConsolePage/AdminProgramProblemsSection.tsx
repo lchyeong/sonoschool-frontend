@@ -3,72 +3,76 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
-import { createAdminQuizMediaUploadTarget, uploadAdminQuizMediaFile } from '@/api/adminQuizMedia';
-import { createAdminQuiz, deleteAdminQuiz, updateAdminQuiz } from '@/api/adminQuizzes';
+import {
+  createAdminProblemMediaUploadTarget,
+  uploadAdminProblemMediaFile,
+} from '@/api/adminProblemMedia';
+import { createAdminProblem, deleteAdminProblem, updateAdminProblem } from '@/api/adminProblems';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { useAdminCurriculumQuery } from '@/query/useAdminCurriculumQuery';
 import {
-  adminQuizAttemptsQueryKey,
-  adminQuizLectureSummariesQueryKey,
-  adminQuizQueryKey,
-  useAdminQuizAttemptsQuery,
-  useAdminQuizLectureSummariesQuery,
-  useAdminQuizQuery,
-} from '@/query/useAdminQuizQuery';
+  adminProblemAttemptsQueryKey,
+  adminProblemLectureSummariesQueryKey,
+  adminProblemQueryKey,
+  useAdminProblemAttemptsQuery,
+  useAdminProblemLectureSummariesQuery,
+  useAdminProblemQuery,
+} from '@/query/useAdminProblemQuery';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AdminCurriculumLecture } from '@/types/adminCurriculum';
-import type { AdminQuizAttempt } from '@/types/adminQuizAttempts';
+import type { AdminProblemAttempt } from '@/types/adminProblemAttempts';
 import type {
-  AdminQuiz,
-  AdminQuizMediaType,
-  AdminQuizQuestionType,
-  AdminQuizUpsertPayload,
-} from '@/types/adminQuizzes';
+  AdminProblem,
+  AdminProblemMediaType,
+  AdminProblemQuestionType,
+  AdminProblemUpsertPayload,
+} from '@/types/adminProblems';
 
 import styles from './AdminConsolePage.module.scss';
 
-interface AdminProgramQuizzesSectionProps {
+interface AdminProgramProblemsSectionProps {
   enabled: boolean;
   programId: number | null;
 }
 
-type QuizWorkspaceTab = 'editor' | 'attempts';
-type QuizLectureFilter = 'all' | 'withQuiz' | 'withoutQuiz' | 'attempted';
+type ProblemWorkspaceTab = 'editor' | 'attempts';
+type ProblemLectureFilter = 'all' | 'withProblem' | 'withoutProblem' | 'attempted';
 
-interface QuizOptionFormState {
+interface ProblemOptionFormState {
   correct: boolean;
   optionText: string;
 }
 
-interface QuizQuestionFormState {
+interface ProblemQuestionFormState {
   explanation: string;
   mediaAssetId: number | null;
   mediaFile: File | null;
   mediaPreviewUrl: string;
-  mediaType: AdminQuizMediaType | null;
+  mediaType: AdminProblemMediaType | null;
   mediaUrl: string;
-  options: QuizOptionFormState[];
+  options: ProblemOptionFormState[];
   questionText: string;
-  questionType: AdminQuizQuestionType;
+  questionType: AdminProblemQuestionType;
 }
 
-interface QuizFormState {
+interface ProblemFormState {
   description: string;
   passScore: string;
-  questions: QuizQuestionFormState[];
+  questions: ProblemQuestionFormState[];
+  timeLimitMinutes: string;
   title: string;
 }
 
-interface LectureQuizListItem extends AdminCurriculumLecture {
+interface LectureProblemListItem extends AdminCurriculumLecture {
   attemptCount: number;
   averageScore: number | null;
-  hasQuiz: boolean;
+  hasProblem: boolean;
   lastSubmittedAt: string | null;
   lastUpdatedAt: string | null;
   questionCount: number;
-  quizId: number | null;
+  problemId: number | null;
   sectionTitle: string;
 }
 
@@ -78,25 +82,25 @@ const questionTypeOptions = [
   { label: 'O/X', value: 'TRUE_FALSE' },
 ] as const;
 
-const lectureFilterOptions: ReadonlyArray<{ label: string; value: QuizLectureFilter }> = [
+const lectureFilterOptions: ReadonlyArray<{ label: string; value: ProblemLectureFilter }> = [
   { label: '전체 강의', value: 'all' },
-  { label: '문제 있음', value: 'withQuiz' },
-  { label: '문제 없음', value: 'withoutQuiz' },
+  { label: '문제 있음', value: 'withProblem' },
+  { label: '문제 없음', value: 'withoutProblem' },
   { label: '응시 있음', value: 'attempted' },
 ];
 
-const questionTypeLabel: Record<AdminQuizQuestionType, string> = {
+const questionTypeLabel: Record<AdminProblemQuestionType, string> = {
   MULTIPLE: '복수 선택',
   SINGLE: '단일 선택',
   TRUE_FALSE: 'O/X',
 };
 
-const createEmptyOption = (correct = false): QuizOptionFormState => ({
+const createEmptyOption = (correct = false): ProblemOptionFormState => ({
   correct,
   optionText: '',
 });
 
-const createEmptyQuestion = (): QuizQuestionFormState => ({
+const createEmptyQuestion = (): ProblemQuestionFormState => ({
   explanation: '',
   mediaAssetId: null,
   mediaFile: null,
@@ -108,10 +112,11 @@ const createEmptyQuestion = (): QuizQuestionFormState => ({
   questionType: 'SINGLE',
 });
 
-const EMPTY_FORM: QuizFormState = {
+const EMPTY_FORM: ProblemFormState = {
   description: '',
   passScore: '60',
   questions: [createEmptyQuestion()],
+  timeLimitMinutes: '30',
   title: '',
 };
 
@@ -155,7 +160,7 @@ const formatAverageScore = (value: number | null) => {
 };
 
 const renderQuestionMediaPreview = (
-  mediaType: AdminQuizMediaType | null,
+  mediaType: AdminProblemMediaType | null,
   mediaUrl: string,
   alt: string,
 ) => {
@@ -200,19 +205,21 @@ const renderQuestionMediaPreview = (
   );
 };
 
-const hasQuestionMedia = (question: Pick<QuizQuestionFormState, 'mediaAssetId' | 'mediaUrl'>) => {
+const hasQuestionMedia = (
+  question: Pick<ProblemQuestionFormState, 'mediaAssetId' | 'mediaUrl'>,
+) => {
   return question.mediaAssetId !== null || Boolean(question.mediaUrl.trim());
 };
 
-const createFormState = (quiz: AdminQuiz | null): QuizFormState => {
-  if (!quiz) {
+const createFormState = (problem: AdminProblem | null): ProblemFormState => {
+  if (!problem) {
     return EMPTY_FORM;
   }
 
   return {
-    description: quiz.description ?? '',
-    passScore: String(quiz.passScore),
-    questions: [...quiz.questions]
+    description: problem.description ?? '',
+    passScore: String(problem.passScore),
+    questions: [...problem.questions]
       .sort((left, right) => left.sortOrder - right.sortOrder)
       .map((question) => ({
         explanation: question.explanation ?? '',
@@ -230,13 +237,19 @@ const createFormState = (quiz: AdminQuiz | null): QuizFormState => {
         questionText: question.questionText,
         questionType: question.questionType,
       })),
-    title: quiz.title,
+    timeLimitMinutes: problem.timeLimitSeconds
+      ? String(Math.ceil(problem.timeLimitSeconds / 60))
+      : '',
+    title: problem.title,
   };
 };
 
-const toPayload = (formState: QuizFormState): AdminQuizUpsertPayload => ({
+const toPayload = (formState: ProblemFormState): AdminProblemUpsertPayload => ({
   description: formState.description.trim() || null,
   passScore: Number(formState.passScore),
+  timeLimitSeconds: formState.timeLimitMinutes.trim()
+    ? Math.max(1, Math.floor(Number(formState.timeLimitMinutes) * 60))
+    : null,
   questions: formState.questions.map((question, questionIndex) => ({
     explanation: question.explanation.trim() || null,
     mediaAssetId: question.mediaAssetId,
@@ -256,7 +269,7 @@ const toPayload = (formState: QuizFormState): AdminQuizUpsertPayload => ({
   title: formState.title.trim(),
 });
 
-const validateForm = (formState: QuizFormState): string | null => {
+const validateForm = (formState: ProblemFormState): string | null => {
   if (!formState.title.trim()) {
     return '문제 제목을 입력해 주세요.';
   }
@@ -267,6 +280,13 @@ const validateForm = (formState: QuizFormState): string | null => {
 
   if (Number(formState.passScore) < 0) {
     return '합격 점수는 0 이상이어야 합니다.';
+  }
+
+  if (
+    formState.timeLimitMinutes.trim() &&
+    (Number.isNaN(Number(formState.timeLimitMinutes)) || Number(formState.timeLimitMinutes) <= 0)
+  ) {
+    return '제한시간은 비워두거나 1분 이상 숫자로 입력해 주세요.';
   }
 
   if (formState.questions.length < 1) {
@@ -306,8 +326,8 @@ const confirmQuizDelete = () => {
   return window.confirm('문제를 삭제하면 되돌릴 수 없습니다. 계속하시겠습니까?');
 };
 
-const QuizAttemptsPanel = ({ quizId }: { quizId: number | null }) => {
-  const attemptsQuery = useAdminQuizAttemptsQuery(quizId, quizId !== null);
+const ProblemAttemptsPanel = ({ problemId }: { problemId: number | null }) => {
+  const attemptsQuery = useAdminProblemAttemptsQuery(problemId, problemId !== null);
   const attempts = attemptsQuery.data ?? [];
   const topAttempt = attempts.at(0) ?? null;
   const passCount = attempts.filter((attempt) => attempt.passed).length;
@@ -316,7 +336,7 @@ const QuizAttemptsPanel = ({ quizId }: { quizId: number | null }) => {
       ? Math.round(attempts.reduce((sum, attempt) => sum + attempt.score, 0) / attempts.length)
       : 0;
 
-  if (quizId === null) {
+  if (problemId === null) {
     return (
       <div className={styles['quizEmptyState']}>
         <strong className={styles['itemTitle']}>응시 결과가 없습니다.</strong>
@@ -382,7 +402,7 @@ const QuizAttemptsPanel = ({ quizId }: { quizId: number | null }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {attempts.map((attempt: AdminQuizAttempt) => (
+                  {attempts.map((attempt: AdminProblemAttempt) => (
                     <tr key={attempt.id}>
                       <td>{attempt.displayName}</td>
                       <td>{attempt.loginId}</td>
@@ -404,28 +424,28 @@ const QuizAttemptsPanel = ({ quizId }: { quizId: number | null }) => {
   );
 };
 
-const QuizEditor = ({
+const ProblemEditor = ({
   lectureId,
   programId,
-  quiz,
+  problem,
 }: {
   lectureId: number;
   programId: number;
-  quiz: AdminQuiz | null;
+  problem: AdminProblem | null;
 }) => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
-  const [formState, setFormState] = useState<QuizFormState>(() => createFormState(quiz));
+  const [formState, setFormState] = useState<ProblemFormState>(() => createFormState(problem));
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
 
   useEffect(() => {
-    setFormState(createFormState(quiz));
-  }, [quiz]);
+    setFormState(createFormState(problem));
+  }, [problem]);
 
   useEffect(() => {
     setSelectedQuestionIndex(0);
-  }, [quiz?.id]);
+  }, [problem?.id]);
 
   useEffect(() => {
     if (selectedQuestionIndex >= formState.questions.length) {
@@ -435,16 +455,18 @@ const QuizEditor = ({
 
   const selectedQuestion = formState.questions.at(selectedQuestionIndex) ?? null;
 
-  const refreshQuiz = async () => {
+  const refreshProblem = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: adminQuizQueryKey(lectureId) }),
-      queryClient.invalidateQueries({ queryKey: adminQuizLectureSummariesQueryKey(programId) }),
-      queryClient.invalidateQueries({ queryKey: adminQuizAttemptsQueryKey(quiz?.id ?? null) }),
+      queryClient.invalidateQueries({ queryKey: adminProblemQueryKey(lectureId) }),
+      queryClient.invalidateQueries({ queryKey: adminProblemLectureSummariesQueryKey(programId) }),
+      queryClient.invalidateQueries({
+        queryKey: adminProblemAttemptsQueryKey(problem?.id ?? null),
+      }),
     ]);
   };
 
   const createMutation = useMutation({
-    mutationFn: (payload: AdminQuizUpsertPayload) => createAdminQuiz(lectureId, payload),
+    mutationFn: (payload: AdminProblemUpsertPayload) => createAdminProblem(lectureId, payload),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '문제를 등록하지 못했습니다.',
@@ -452,7 +474,7 @@ const QuizEditor = ({
       });
     },
     onSuccess: async () => {
-      await refreshQuiz();
+      await refreshProblem();
       showToast({
         message: '문제를 등록했습니다.',
         variant: 'success',
@@ -461,8 +483,13 @@ const QuizEditor = ({
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ payload, quizId }: { payload: AdminQuizUpsertPayload; quizId: number }) =>
-      updateAdminQuiz(quizId, payload),
+    mutationFn: ({
+      payload,
+      problemId,
+    }: {
+      payload: AdminProblemUpsertPayload;
+      problemId: number;
+    }) => updateAdminProblem(problemId, payload),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '문제를 수정하지 못했습니다.',
@@ -470,7 +497,7 @@ const QuizEditor = ({
       });
     },
     onSuccess: async () => {
-      await refreshQuiz();
+      await refreshProblem();
       showToast({
         message: '문제를 수정했습니다.',
         variant: 'success',
@@ -479,7 +506,7 @@ const QuizEditor = ({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (quizId: number) => deleteAdminQuiz(quizId),
+    mutationFn: (problemId: number) => deleteAdminProblem(problemId),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '문제를 삭제하지 못했습니다.',
@@ -487,7 +514,7 @@ const QuizEditor = ({
       });
     },
     onSuccess: async () => {
-      await refreshQuiz();
+      await refreshProblem();
       showToast({
         message: '문제를 삭제했습니다.',
         variant: 'success',
@@ -495,20 +522,20 @@ const QuizEditor = ({
     },
   });
 
-  const preparePayload = async (): Promise<AdminQuizUpsertPayload> => {
+  const preparePayload = async (): Promise<AdminProblemUpsertPayload> => {
     const nextQuestions = await Promise.all(
       formState.questions.map(async (question) => {
         if (!question.mediaFile) {
           return question;
         }
 
-        const uploadTarget = await createAdminQuizMediaUploadTarget({
+        const uploadTarget = await createAdminProblemMediaUploadTarget({
           contentType: question.mediaFile.type || 'application/octet-stream',
           fileSize: question.mediaFile.size,
           filename: question.mediaFile.name,
         });
 
-        await uploadAdminQuizMediaFile(uploadTarget.uploadUrl, question.mediaFile);
+        await uploadAdminProblemMediaFile(uploadTarget.uploadUrl, question.mediaFile);
 
         return {
           ...question,
@@ -554,8 +581,8 @@ const QuizEditor = ({
       setIsUploadingMedia(true);
       const payload = await preparePayload();
 
-      if (quiz) {
-        updateMutation.mutate({ payload, quizId: quiz.id });
+      if (problem) {
+        updateMutation.mutate({ payload, problemId: problem.id });
         return;
       }
 
@@ -579,7 +606,7 @@ const QuizEditor = ({
           <div>
             <h3 className={styles['panelTitle']}>문제 기본 정보</h3>
             <p className={styles['metaText']}>
-              {quiz
+              {problem
                 ? '현재 등록된 문제를 수정하는 화면입니다.'
                 : '선택한 강의에 새 문제를 등록합니다.'}
             </p>
@@ -587,21 +614,21 @@ const QuizEditor = ({
           <div className={styles['actionRow']}>
             <Button disabled={isSubmitting} onClick={() => void handleSubmit()} type='button'>
               {isSubmitting
-                ? quiz
+                ? problem
                   ? '저장 중...'
                   : '등록 중...'
-                : quiz
+                : problem
                   ? '문제 저장'
                   : '문제 등록'}
             </Button>
-            {quiz ? (
+            {problem ? (
               <Button
                 disabled={deleteMutation.isPending}
                 onClick={() => {
                   if (!confirmQuizDelete()) {
                     return;
                   }
-                  deleteMutation.mutate(quiz.id);
+                  deleteMutation.mutate(problem.id);
                 }}
                 type='button'
                 variant='danger'
@@ -615,7 +642,7 @@ const QuizEditor = ({
         <div className={styles['stackListCompact']}>
           <TextField
             label='문제 제목'
-            name='quiz-title'
+            name='problem-title'
             onChange={(event) => {
               setFormState((current) => ({
                 ...current,
@@ -626,7 +653,7 @@ const QuizEditor = ({
           />
           <TextAreaField
             label='문제 설명'
-            name='quiz-description'
+            name='problem-description'
             onChange={(event) => {
               setFormState((current) => ({
                 ...current,
@@ -640,7 +667,7 @@ const QuizEditor = ({
             <div className={styles['compactTextField']}>
               <TextField
                 label='합격 점수'
-                name='quiz-pass-score'
+                name='problem-pass-score'
                 onChange={(event) => {
                   setFormState((current) => ({
                     ...current,
@@ -648,6 +675,19 @@ const QuizEditor = ({
                   }));
                 }}
                 value={formState.passScore}
+              />
+            </div>
+            <div className={styles['compactTextField']}>
+              <TextField
+                label='제한시간(분)'
+                name='problem-time-limit-minutes'
+                onChange={(event) => {
+                  setFormState((current) => ({
+                    ...current,
+                    timeLimitMinutes: event.target.value,
+                  }));
+                }}
+                value={formState.timeLimitMinutes}
               />
             </div>
           </div>
@@ -791,7 +831,7 @@ const QuizEditor = ({
 
                 <TextAreaField
                   label='문항 내용'
-                  name={`quiz-question-text-${String(selectedQuestionIndex)}`}
+                  name={`problem-question-text-${String(selectedQuestionIndex)}`}
                   onChange={(event) => {
                     setFormState((current) => ({
                       ...current,
@@ -815,7 +855,7 @@ const QuizEditor = ({
                         ...current,
                         questions: current.questions.map((item, index) =>
                           index === selectedQuestionIndex
-                            ? { ...item, questionType: nextValue as AdminQuizQuestionType }
+                            ? { ...item, questionType: nextValue as AdminProblemQuestionType }
                             : item,
                         ),
                       }));
@@ -832,7 +872,7 @@ const QuizEditor = ({
                   </span>
                   <input
                     accept='image/*,video/*'
-                    name={`quiz-question-media-${String(selectedQuestionIndex)}`}
+                    name={`problem-question-media-${String(selectedQuestionIndex)}`}
                     onChange={(event) => {
                       const file = event.target.files?.[0] ?? null;
 
@@ -904,7 +944,7 @@ const QuizEditor = ({
 
                 <TextAreaField
                   label='해설'
-                  name={`quiz-question-explanation-${String(selectedQuestionIndex)}`}
+                  name={`problem-question-explanation-${String(selectedQuestionIndex)}`}
                   onChange={(event) => {
                     setFormState((current) => ({
                       ...current,
@@ -1026,7 +1066,7 @@ const QuizEditor = ({
 
                         <TextField
                           label='보기 내용'
-                          name={`quiz-option-text-${String(selectedQuestionIndex)}-${String(optionIndex)}`}
+                          name={`problem-option-text-${String(selectedQuestionIndex)}-${String(optionIndex)}`}
                           onChange={(event) => {
                             setFormState((current) => ({
                               ...current,
@@ -1100,12 +1140,12 @@ const QuizEditor = ({
   );
 };
 
-const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesSectionProps) => {
+const AdminProgramProblemsSection = ({ enabled, programId }: AdminProgramProblemsSectionProps) => {
   const curriculumQuery = useAdminCurriculumQuery(programId, enabled);
-  const summariesQuery = useAdminQuizLectureSummariesQuery(programId, enabled);
+  const summariesQuery = useAdminProblemLectureSummariesQuery(programId, enabled);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [filter, setFilter] = useState<QuizLectureFilter>('all');
-  const [activeTab, setActiveTab] = useState<QuizWorkspaceTab>('editor');
+  const [filter, setFilter] = useState<ProblemLectureFilter>('all');
+  const [activeTab, setActiveTab] = useState<ProblemWorkspaceTab>('editor');
   const [attemptsLectureId, setAttemptsLectureId] = useState<number | null>(null);
 
   const summariesByLectureId = useMemo(() => {
@@ -1114,7 +1154,7 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
     );
   }, [summariesQuery.data]);
 
-  const lectures = useMemo<LectureQuizListItem[]>(() => {
+  const lectures = useMemo<LectureProblemListItem[]>(() => {
     const sections = curriculumQuery.data ?? [];
 
     return sections.flatMap((section) =>
@@ -1124,11 +1164,11 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
           ...lecture,
           attemptCount: summary?.attemptCount ?? 0,
           averageScore: summary?.averageScore ?? null,
-          hasQuiz: summary?.hasQuiz ?? false,
+          hasProblem: summary?.hasProblem ?? false,
           lastSubmittedAt: summary?.lastSubmittedAt ?? null,
           lastUpdatedAt: summary?.lastUpdatedAt ?? null,
           questionCount: summary?.questionCount ?? 0,
-          quizId: summary?.quizId ?? null,
+          problemId: summary?.problemId ?? null,
           sectionTitle: section.title,
         };
       }),
@@ -1138,10 +1178,10 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
   const visibleLectures = useMemo(() => {
     return lectures.filter((lecture) => {
       switch (filter) {
-        case 'withQuiz':
-          return lecture.hasQuiz;
-        case 'withoutQuiz':
-          return !lecture.hasQuiz;
+        case 'withProblem':
+          return lecture.hasProblem;
+        case 'withoutProblem':
+          return !lecture.hasProblem;
         case 'attempted':
           return lecture.attemptCount > 0;
         default:
@@ -1161,7 +1201,10 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
     visibleLectures.find((lecture) => lecture.id === selectedLectureId) ?? null;
   const visibleActiveTab =
     activeTab === 'attempts' && attemptsLectureId === selectedLectureId ? 'attempts' : 'editor';
-  const quizQuery = useAdminQuizQuery(selectedLectureId, enabled && visibleActiveTab === 'editor');
+  const problemQuery = useAdminProblemQuery(
+    selectedLectureId,
+    enabled && visibleActiveTab === 'editor',
+  );
 
   useEffect(() => {
     if (!visibleLectures.length) {
@@ -1260,7 +1303,7 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
                       <span className={styles['cellSecondary']}>{lecture.sectionTitle}</span>
                     </div>
                     <div className={styles['metaRow']}>
-                      {lecture.hasQuiz ? (
+                      {lecture.hasProblem ? (
                         <span className={styles['badgeSuccess']}>문제 있음</span>
                       ) : (
                         <span className={styles['badge']}>문제 없음</span>
@@ -1315,7 +1358,7 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
               ) : (
                 <span className={styles['badge']}>비공개</span>
               )}
-              {selectedLecture.hasQuiz ? (
+              {selectedLecture.hasProblem ? (
                 <span className={styles['badgeAccent']}>운영중</span>
               ) : (
                 <span className={styles['badge']}>미구성</span>
@@ -1355,25 +1398,25 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
 
             <div className={styles['editorTabBody']}>
               {visibleActiveTab === 'editor' ? (
-                quizQuery.isPending ? (
+                problemQuery.isPending ? (
                   <p className={styles['helperText']}>문제를 불러오는 중입니다.</p>
-                ) : quizQuery.isError ? (
+                ) : problemQuery.isError ? (
                   <p className={styles['helperText']}>
-                    {quizQuery.error instanceof Error
-                      ? quizQuery.error.message
+                    {problemQuery.error instanceof Error
+                      ? problemQuery.error.message
                       : '문제를 불러오지 못했습니다.'}
                   </p>
                 ) : (
-                  <QuizEditor
+                  <ProblemEditor
                     lectureId={selectedLecture.id}
                     programId={programId}
-                    quiz={quizQuery.data ?? null}
+                    problem={problemQuery.data ?? null}
                   />
                 )
               ) : null}
 
               {visibleActiveTab === 'attempts' ? (
-                <QuizAttemptsPanel quizId={selectedLecture.quizId} />
+                <ProblemAttemptsPanel problemId={selectedLecture.problemId} />
               ) : null}
             </div>
           </>
@@ -1385,4 +1428,4 @@ const AdminProgramQuizzesSection = ({ enabled, programId }: AdminProgramQuizzesS
   );
 };
 
-export default AdminProgramQuizzesSection;
+export default AdminProgramProblemsSection;

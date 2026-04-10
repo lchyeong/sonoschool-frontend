@@ -1,14 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { server } from '@/mocks/server';
 import AdminConsolePage from '@/pages/AdminConsolePage/AdminConsolePage';
 import { adminConsoleRouteTree } from '@/routes/router';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
+import type { AdminProgramDraftDetail } from '@/types/adminProgramDrafts';
 
 const ACTIVE_SESSION_EXPIRES_AT = '2099-01-01T00:00:00Z';
 
@@ -34,7 +35,7 @@ const createAdminResourceFixture = (count: number) => {
   });
 };
 
-const createAdminProgramDraftDetailFixture = () => {
+const createAdminProgramDraftDetailFixture = (): AdminProgramDraftDetail => {
   return {
     createdAt: '2026-03-27T09:00:00Z',
     finalProgramId: null,
@@ -66,7 +67,7 @@ const createAdminProgramDraftDetailFixture = () => {
         thumbnailUrl: null,
         title: null,
       },
-      quizzes: [],
+      problems: [],
       resources: [],
       sections: [
         {
@@ -100,9 +101,7 @@ const createAdminProgramDraftDetailFixture = () => {
   };
 };
 
-const mockProgramDraftApis = () => {
-  const draftDetail = createAdminProgramDraftDetailFixture();
-
+const mockProgramDraftApis = (draftDetail = createAdminProgramDraftDetailFixture()) => {
   server.use(
     http.get('*/api/v1/admin/program-drafts', () => {
       return HttpResponse.json({ data: [] });
@@ -146,10 +145,10 @@ const mockProgramEditorApis = () => {
     http.get('*/api/v1/admin/programs/:programId/enrollments', () => {
       return HttpResponse.json({ data: [] });
     }),
-    http.get('*/api/v1/admin/programs/:programId/quiz-summaries', () => {
+    http.get('*/api/v1/admin/programs/:programId/problem-summaries', () => {
       return HttpResponse.json({ data: [] });
     }),
-    http.get('*/api/v1/admin/lectures/:lectureId/quiz', () => {
+    http.get('*/api/v1/admin/lectures/:lectureId/problem', () => {
       return HttpResponse.json({ data: null });
     }),
   );
@@ -179,7 +178,7 @@ const createTestQueryClient = () => {
 };
 
 const renderAdminConsolePage = (
-  section: 'dashboard' | 'programMenus' | 'programs' | 'practicum' = 'dashboard',
+  section: 'programMenus' | 'programs' | 'practicum' = 'programs',
 ) => {
   const queryClient = createTestQueryClient();
 
@@ -192,10 +191,15 @@ const renderAdminConsolePage = (
   );
 };
 
-const renderAdminConsoleRoute = (initialEntry = '/admin/programs') => {
+const renderAdminConsoleRoute = (
+  initialEntry = '/admin/programs',
+  options?: {
+    draftDetail?: ReturnType<typeof createAdminProgramDraftDetailFixture>;
+  },
+) => {
   const queryClient = createTestQueryClient();
 
-  mockProgramDraftApis();
+  mockProgramDraftApis(options?.draftDetail);
   mockProgramEditorApis();
 
   useAdminAuthStore.setState({
@@ -221,6 +225,8 @@ const renderAdminConsoleRoute = (initialEntry = '/admin/programs') => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
+  window.sessionStorage.clear();
   useAdminAuthStore.setState({
     accessToken: '',
     adminDisplayName: '',
@@ -234,28 +240,13 @@ afterEach(() => {
 });
 
 describe('AdminConsolePage', () => {
-  it('renders the admin dashboard shortcuts', async () => {
+  it('renders program management as the default admin console section', async () => {
     renderAdminConsolePage();
 
-    expect(await screen.findByRole('heading', { level: 1, name: '운영 개요' })).toBeInTheDocument();
-    expect(screen.getAllByText('결제 관리').length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: /공지사항 관리/i })).toHaveAttribute(
-      'href',
-      '/admin/notices',
-    );
-    expect(screen.getByRole('link', { name: /팝업 관리/i })).toHaveAttribute(
-      'href',
-      '/admin/popups',
-    );
-    expect(screen.getByRole('link', { name: /Q&A 관리/i })).toHaveAttribute('href', '/admin/qna');
-    expect(screen.getByRole('link', { name: /프로그램 관리/i })).toHaveAttribute(
-      'href',
-      '/admin/programs',
-    );
-    expect(screen.getByRole('link', { name: /결제 관리/i })).toHaveAttribute(
-      'href',
-      '/admin/payments',
-    );
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 관리' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: '운영 개요' })).not.toBeInTheDocument();
   });
 
   it('keeps the admin shell visible when the program list API fails', async () => {
@@ -273,6 +264,46 @@ describe('AdminConsolePage', () => {
       await screen.findByRole('heading', { level: 1, name: '프로그램 관리' }),
     ).toBeInTheDocument();
     expect(await screen.findByText('프로그램 목록을 불러오지 못했습니다.')).toBeInTheDocument();
+  });
+
+  it('renders the payment management table with order number and lecture progress', async () => {
+    renderAdminConsoleRoute('/admin/payments');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '결제 관리' })).toBeInTheDocument();
+    expect(await screen.findByRole('columnheader', { name: '프로그램명' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '주문번호' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '진도율' })).toBeInTheDocument();
+    expect(screen.getByText('월별 매출 차트')).toBeInTheDocument();
+    expect(screen.getByText('주별 매출 차트')).toBeInTheDocument();
+    expect(await screen.findByText('ORD-501')).toBeInTheDocument();
+    expect(screen.getAllByText('3/20강').length).toBeGreaterThan(0);
+  });
+
+  it('shows a selected monthly sales marker on the chart and supports date-range filtering in the table', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-04-08T09:00:00Z'));
+
+    renderAdminConsoleRoute('/admin/payments');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '결제 관리' })).toBeInTheDocument();
+    expect(await screen.findByText('월별 매출 차트')).toBeInTheDocument();
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: '2026년 3월 매출 보기' }));
+
+    expect(await screen.findByText(/2026년 3월 · ₩/)).toBeInTheDocument();
+    expect(screen.getByText('ORD-501')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '조회 기간 선택' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026. 4. 1.' }));
+    fireEvent.click(screen.getByRole('button', { name: '2026. 4. 30.' }));
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+
+    expect(await screen.findByText('선택한 기간에 결제 내역이 없습니다.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /2026\. 4\. 1\./ }));
+    fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+
+    expect(await screen.findByText('ORD-501')).toBeInTheDocument();
   });
 
   it('moves from the program list to the dedicated create page', async () => {
@@ -298,7 +329,7 @@ describe('AdminConsolePage', () => {
     ).toBeInTheDocument();
     expect(await screen.findByRole('columnheader', { name: '수강생' })).toBeInTheDocument();
     expect(await screen.findByText('12명')).toBeInTheDocument();
-    expect(screen.getByText('6 / 20')).toBeInTheDocument();
+    expect(screen.getByText('20 / 20')).toBeInTheDocument();
   });
 
   it('keeps lecture type fixed and shows video duration as readonly in the create curriculum workspace', async () => {
@@ -315,6 +346,88 @@ describe('AdminConsolePage', () => {
     expect(screen.getByText('영상 길이')).toBeInTheDocument();
     expect(screen.queryByLabelText('강의 종류')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('길이(초)')).not.toBeInTheDocument();
+  });
+
+  it('treats offline lecture duration as schedule-driven and exposes prelearning video metadata separately', async () => {
+    const draftDetail = createAdminProgramDraftDetailFixture();
+    draftDetail.payload.sections[0].lectures = [
+      {
+        description: '현장 실습 전 시청할 안내 영상이 있습니다.',
+        durationSeconds: 1800,
+        key: 'lecture-offline-1',
+        lectureType: 'OFFLINE',
+        offlineSchedules: [],
+        preview: false,
+        published: false,
+        sortOrder: 0,
+        title: '오프라인 실습 1회차',
+        videoId: 7001,
+        videoUploadErrorMessage: null,
+        videoUploadFileName: 'prelearning.mp4',
+        videoUploadStatus: 'READY',
+      },
+    ];
+
+    renderAdminConsoleRoute('/admin/programs/new/curriculum?draftId=91001', {
+      draftDetail,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '강의 펼치기' }));
+
+    expect(screen.getByText('선행 영상')).toBeInTheDocument();
+    expect(screen.getByText('선행 영상 파일')).toBeInTheDocument();
+    expect(screen.getByText('선행 영상 길이')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '현장강의 시간은 일정 시작/종료 시각으로 관리합니다. 선행 영상 길이는 출석 전 영상 확인 여부 검증에만 사용됩니다.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('길이(초)')).not.toBeInTheDocument();
+  });
+
+  it('limits lecture types in the create workspace for online programs', async () => {
+    renderAdminConsoleRoute('/admin/programs/new/curriculum?draftId=91001');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '새 강의 추가' }));
+
+    expect(screen.getByText('영상강의')).toBeInTheDocument();
+    expect(screen.getByText('문제강의')).toBeInTheDocument();
+    expect(screen.getByText('첨부자료')).toBeInTheDocument();
+    expect(screen.queryByText('현장강의')).not.toBeInTheDocument();
+    expect(screen.queryByText('실습강의')).not.toBeInTheDocument();
+  });
+
+  it('limits lecture types in the create workspace for problem solving programs', async () => {
+    const draftDetail = createAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.programType = 'PROBLEM_SOLVING';
+    draftDetail.payload.sections[0].lectures[0].lectureType = 'PROBLEM';
+
+    renderAdminConsoleRoute('/admin/programs/new/curriculum?draftId=91001', {
+      draftDetail,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '새 강의 추가' }));
+
+    expect(screen.getByText('문제강의')).toBeInTheDocument();
+    expect(screen.getByText('첨부자료')).toBeInTheDocument();
+    expect(screen.queryByText('영상강의')).not.toBeInTheDocument();
+    expect(screen.queryByText('현장강의')).not.toBeInTheDocument();
+    expect(screen.queryByText('실습강의')).not.toBeInTheDocument();
   });
 
   it('edits a program on the dedicated edit page and saves it', async () => {
@@ -345,7 +458,7 @@ describe('AdminConsolePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'FAST 집중 실습 수정' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('수강생 6/20명')).toBeInTheDocument();
+    expect(screen.getByText('수강생 20/20명')).toBeInTheDocument();
   });
 
   it('renders the dedicated program resources workspace tab', async () => {
@@ -443,7 +556,7 @@ describe('AdminConsolePage', () => {
     expect((await screen.findAllByRole('heading', { level: 3 })).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: '당일일정변경' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '운영시간 설정 변경' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '관리자 개인일정 추가' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '개인일정 추가' })).toBeInTheDocument();
   });
 
   it('opens a detail modal when a practicum or admin schedule entry is clicked', async () => {
@@ -458,7 +571,7 @@ describe('AdminConsolePage', () => {
     fireEvent.click(await screen.findByRole('button', { name: /실습$/ }));
 
     expect(await screen.findByRole('heading', { name: '실습 일정 상세' })).toBeInTheDocument();
-    expect(screen.getByText('김민지')).toBeInTheDocument();
+    expect(screen.getAllByText('김민지').length).toBeGreaterThan(0);
     expect(screen.getAllByText('복부초음파 기초 > 복부 기본 실습').length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: '모달 닫기' }));
@@ -471,6 +584,13 @@ describe('AdminConsolePage', () => {
 
     expect(await screen.findByRole('heading', { name: '개인일정 상세' })).toBeInTheDocument();
     expect(screen.getAllByText('관리자 개인 일정').length).toBeGreaterThan(0);
+    expect(screen.getByText('일정시간')).toBeInTheDocument();
+    expect(screen.getByText('일정내용')).toBeInTheDocument();
+    expect(screen.getByText('센터 미팅 준비와 운영 점검을 진행합니다.')).toBeInTheDocument();
+    expect(screen.getByText('진행상태')).toBeInTheDocument();
+    expect(screen.getByText(/일정(예정|완료)/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '일정변경' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '일정취소' })).toBeInTheDocument();
   });
 
   it('opens a daily overview modal when a calendar date is clicked', async () => {
@@ -495,12 +615,391 @@ describe('AdminConsolePage', () => {
     fireEvent.click(calendarDayButton);
 
     expect(await screen.findByRole('heading', { name: '일정관리 상세' })).toBeInTheDocument();
-    expect(screen.getByText('오프라인 강좌')).toBeInTheDocument();
+    expect(screen.getByText('오프라인 강의')).toBeInTheDocument();
     expect(screen.getByText('실습')).toBeInTheDocument();
-    expect(screen.getByText('관리자 개인일정')).toBeInTheDocument();
+    expect(screen.getByText('개인일정')).toBeInTheDocument();
   });
 
-  it('renders the dedicated program quizzes workspace tab', async () => {
+  it('supports moving between daily overview and detail modal with a back button', async () => {
+    renderAdminConsoleRoute('/admin/practicum');
+
+    await screen.findByRole('heading', { level: 1, name: '일정관리' });
+
+    fireEvent.change(screen.getByLabelText('조회 월'), {
+      target: { value: '2026-03' },
+    });
+
+    const calendarDayButton = (await screen.findAllByRole('button')).find(
+      (button): button is HTMLButtonElement => /일정 \d+건/.test(button.textContent || ''),
+    );
+
+    if (!calendarDayButton) {
+      throw new Error('일정 버튼을 찾지 못했습니다.');
+    }
+
+    fireEvent.click(calendarDayButton);
+
+    expect(await screen.findByRole('heading', { name: '일정관리 상세' })).toBeInTheDocument();
+
+    const practicumOverviewButton = screen
+      .getAllByRole('button')
+      .find(
+        (button): button is HTMLButtonElement =>
+          (button.textContent || '').includes('김민지') &&
+          (button.textContent || '').includes('활성 예약'),
+      );
+
+    if (!practicumOverviewButton) {
+      throw new Error('실습 일정 상세 버튼을 찾지 못했습니다.');
+    }
+
+    fireEvent.click(practicumOverviewButton);
+
+    expect(await screen.findByRole('heading', { name: '실습 일정 상세' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '일정 목록으로 돌아가기' }));
+
+    expect(await screen.findByRole('heading', { name: '일정관리 상세' })).toBeInTheDocument();
+  });
+
+  it('opens the offline schedule detail modal with attendee and prelearning status', async () => {
+    renderAdminConsoleRoute('/admin/practicum');
+
+    await screen.findByRole('heading', { level: 1, name: '일정관리' });
+
+    fireEvent.change(screen.getByLabelText('조회 월'), {
+      target: { value: '2026-03' },
+    });
+
+    const offlinePreviewButton = (await screen.findAllByRole('button', { name: /오프라인$/ })).find(
+      (button): button is HTMLButtonElement => button instanceof HTMLButtonElement,
+    );
+
+    if (!offlinePreviewButton) {
+      throw new Error('오프라인 일정 미리보기 버튼을 찾지 못했습니다.');
+    }
+
+    fireEvent.click(offlinePreviewButton);
+
+    expect(await screen.findByRole('heading', { name: '오프라인 일정 상세' })).toBeInTheDocument();
+    expect(await screen.findByText('김민지')).toBeInTheDocument();
+    expect(await screen.findByText('박준서')).toBeInTheDocument();
+    expect(await screen.findByText(/minji01\s+·\s+010-1111-2222/)).toBeInTheDocument();
+    expect(await screen.findByText(/junseo02\s+·\s+010-3333-4444/)).toBeInTheDocument();
+    expect(await screen.findByText('선행학습 완료')).toBeInTheDocument();
+    expect(await screen.findByText('선행학습 미완료')).toBeInTheDocument();
+    expect(await screen.findByText('실습복 지참')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '강의일자 변경' })).toBeInTheDocument();
+    expect(screen.getAllByRole('checkbox', { name: /불참 여부/ }).length).toBe(2);
+  });
+
+  it('supports moving an offline schedule date from the detail modal', async () => {
+    let receivedPayload: unknown = null;
+
+    renderAdminConsoleRoute('/admin/practicum');
+
+    server.use(
+      http.get('*/api/v1/admin/programs/:programId/sections', ({ params }) => {
+        if (Number(params['programId']) !== 2101) {
+          return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+        }
+
+        return HttpResponse.json({
+          data: [
+            {
+              description: '오프라인 집중 강의',
+              id: 8201,
+              lectures: [
+                {
+                  description: '실습 중심 강의',
+                  durationSeconds: null,
+                  id: 9301,
+                  lectureType: 'OFFLINE',
+                  offlineSchedules: [
+                    {
+                      date: '2026-03-30',
+                      endTime: '16:00',
+                      id: 9901,
+                      location: '서울 강남 공용 실습실',
+                      notes: '실습복 지참',
+                      startTime: '14:00',
+                    },
+                  ],
+                  preview: false,
+                  published: true,
+                  sectionId: 8201,
+                  sortOrder: 0,
+                  title: '오프라인 집중 실습',
+                  videoId: null,
+                },
+              ],
+              sortOrder: 0,
+              title: '2주차',
+            },
+          ],
+        });
+      }),
+      http.put(
+        '*/api/v1/admin/lectures/:lectureId/offline-schedules',
+        async ({ params, request }) => {
+          if (Number(params['lectureId']) !== 9301) {
+            return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+          }
+
+          receivedPayload = await request.json();
+
+          return HttpResponse.json({
+            data: {
+              description: '실습 중심 강의',
+              durationSeconds: null,
+              id: 9301,
+              lectureType: 'OFFLINE',
+              offlineSchedules: [
+                {
+                  date: '2026-03-31',
+                  endTime: '16:00',
+                  id: 9910,
+                  location: '서울 강남 공용 실습실',
+                  notes: '실습복 지참',
+                  startTime: '14:00',
+                },
+              ],
+              preview: false,
+              published: true,
+              sectionId: 8201,
+              sortOrder: 0,
+              title: '오프라인 집중 실습',
+              videoId: null,
+            },
+          });
+        },
+      ),
+    );
+
+    await screen.findByRole('heading', { level: 1, name: '일정관리' });
+
+    fireEvent.change(screen.getByLabelText('조회 월'), {
+      target: { value: '2026-03' },
+    });
+
+    const offlinePreviewButton = (await screen.findAllByRole('button', { name: /오프라인$/ })).find(
+      (button): button is HTMLButtonElement => button instanceof HTMLButtonElement,
+    );
+
+    if (!offlinePreviewButton) {
+      throw new Error('오프라인 일정 미리보기 버튼을 찾지 못했습니다.');
+    }
+
+    fireEvent.click(offlinePreviewButton);
+
+    expect(await screen.findByRole('heading', { name: '오프라인 일정 상세' })).toBeInTheDocument();
+    expect(await screen.findByText('김민지')).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: '강의일자 변경' }));
+
+    expect(await screen.findByRole('heading', { name: '강의일자 변경' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('이동 날짜'), {
+      target: { value: '2026-03-31' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '변경 저장' }));
+
+    await waitFor(() => {
+      expect(
+        useToastStore
+          .getState()
+          .toasts.some((toast) => toast.message === '오프라인 강의 일정을 변경했습니다.'),
+      ).toBe(true);
+    });
+
+    expect(receivedPayload).toEqual({
+      offlineSchedules: [
+        {
+          date: '2026-03-31',
+          endTime: '16:00',
+          location: '서울 강남 공용 실습실',
+          notes: '실습복 지참',
+          startTime: '14:00',
+        },
+      ],
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: '강의일자 변경' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('supports toggling absence for an offline attendee', async () => {
+    const absentEnrollmentIds = new Set<number>();
+
+    server.use(
+      http.get('*/api/v1/admin/practicum/offline-schedules/:ruleId', ({ params }) => {
+        const ruleId = Number(params['ruleId']);
+
+        if (ruleId !== 9901) {
+          return HttpResponse.json({ message: 'Offline schedule not found' }, { status: 404 });
+        }
+
+        return HttpResponse.json({
+          data: {
+            activeEnrollmentCount: 12,
+            attendees: [
+              {
+                absent: absentEnrollmentIds.has(7201),
+                enrollmentId: 7201,
+                lectureCompleted: true,
+                loginId: 'minji01',
+                phoneNumber: '010-1111-2222',
+                userId: 101,
+                userName: '김민지',
+              },
+              {
+                absent: absentEnrollmentIds.has(7202),
+                enrollmentId: 7202,
+                lectureCompleted: false,
+                loginId: 'junseo02',
+                phoneNumber: '010-3333-4444',
+                userId: 102,
+                userName: '박준서',
+              },
+            ],
+            endAt: '2026-03-30T07:00:00Z',
+            lectureId: 9301,
+            lectureTitle: '오프라인 집중 실습',
+            location: '서울 강남 공용 실습실',
+            maxStudents: 16,
+            notes: '실습복 지참',
+            programId: 2101,
+            programTitle: 'GI tract 마스터 과정',
+            ruleId,
+            sectionTitle: '2주차',
+            startAt: '2026-03-30T05:00:00Z',
+            videoAttached: true,
+          },
+        });
+      }),
+      http.patch(
+        '*/api/v1/admin/practicum/offline-schedules/:ruleId/attendees/:enrollmentId/absence',
+        async ({ params, request }) => {
+          const enrollmentId = Number(params['enrollmentId']);
+          const body = (await request.json()) as { absent?: boolean };
+
+          if (body.absent) {
+            absentEnrollmentIds.add(enrollmentId);
+          } else {
+            absentEnrollmentIds.delete(enrollmentId);
+          }
+
+          return new HttpResponse(null, { status: 204 });
+        },
+      ),
+    );
+
+    renderAdminConsoleRoute('/admin/practicum');
+
+    await screen.findByRole('heading', { level: 1, name: '일정관리' });
+
+    fireEvent.change(screen.getByLabelText('조회 월'), {
+      target: { value: '2026-03' },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /14:00 - 16:00 오프라인/ }));
+
+    expect(await screen.findByRole('heading', { name: '오프라인 일정 상세' })).toBeInTheDocument();
+    expect(await screen.findByText(/010-1111-2222/)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('checkbox', { name: /불참 여부/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: '출석 상태 저장' }));
+
+    await waitFor(() => {
+      expect(
+        useToastStore
+          .getState()
+          .toasts.some((toast) => toast.message === '출석 상태를 저장했습니다.'),
+      ).toBe(true);
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText('불참').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole('checkbox', { name: /불참 여부/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: '출석 상태 저장' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('불참')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows practicum detail actions and supports the move reservation flow', async () => {
+    renderAdminConsoleRoute('/admin/practicum');
+
+    await screen.findByRole('heading', { level: 1, name: '일정관리' });
+
+    fireEvent.change(screen.getByLabelText('조회 월'), {
+      target: { value: '2026-03' },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /실습$/ }));
+
+    expect(await screen.findByRole('heading', { name: '실습 일정 상세' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '예약일자 변경' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '예약취소' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '불참처리' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '예약일자 변경' }));
+
+    expect(await screen.findByRole('heading', { name: '예약일자 변경' })).toBeInTheDocument();
+    expect(screen.getAllByText(/잔여 \d+석/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: '실습 일정 상세로 돌아가기' }));
+
+    expect(await screen.findByRole('heading', { name: '실습 일정 상세' })).toBeInTheDocument();
+  });
+
+  it('supports editing a personal schedule from the detail modal', async () => {
+    renderAdminConsoleRoute('/admin/practicum');
+
+    await screen.findByRole('heading', { level: 1, name: '일정관리' });
+
+    fireEvent.change(screen.getByLabelText('조회 월'), {
+      target: { value: '2026-03' },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: '관리자 개인 일정' }));
+
+    expect(await screen.findByRole('heading', { name: '개인일정 상세' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '일정변경' }));
+
+    expect(await screen.findByRole('heading', { name: '일정변경' })).toBeInTheDocument();
+
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).queryByPlaceholderText('예: 외부 미팅 준비 및 주간 운영 점검'),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText('일정명'), {
+      target: { value: '관리자 일정 변경' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('일정내용'), {
+      target: { value: '월말 정산 검토 및 팀 공지 정리' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: '수정 저장' }));
+
+    await waitFor(() => {
+      expect(
+        useToastStore
+          .getState()
+          .toasts.some((toast) => toast.message === '개인 일정을 수정했습니다.'),
+      ).toBe(true);
+    });
+
+    expect(await screen.findByRole('heading', { name: '개인일정 상세' })).toBeInTheDocument();
+    expect(screen.getByText('관리자 일정 변경')).toBeInTheDocument();
+    expect(screen.getByText('월말 정산 검토 및 팀 공지 정리')).toBeInTheDocument();
+  });
+
+  it('renders the dedicated program problems workspace tab', async () => {
     server.use(
       http.get('*/api/v1/admin/programs/2001/sections', () => {
         return HttpResponse.json({
@@ -527,29 +1026,30 @@ describe('AdminConsolePage', () => {
           ],
         });
       }),
-      http.get('*/api/v1/admin/programs/2001/quiz-summaries', () => {
+      http.get('*/api/v1/admin/programs/2001/problem-summaries', () => {
         return HttpResponse.json({
           data: [
             {
               attemptCount: 0,
               averageScore: null,
-              hasQuiz: true,
+              hasProblem: true,
               lastSubmittedAt: null,
               lastUpdatedAt: '2026-03-27T09:00:00Z',
               lectureId: 9101,
               questionCount: 1,
-              quizId: 8801,
+              problemId: 8801,
             },
           ],
         });
       }),
-      http.get('*/api/v1/admin/lectures/9101/quiz', () => {
+      http.get('*/api/v1/admin/lectures/9101/problem', () => {
         return HttpResponse.json({
           data: {
             description: '학습 전 이해도 확인',
             id: 8801,
             lectureId: 9101,
             passScore: 60,
+            timeLimitSeconds: 1800,
             questions: [
               {
                 explanation: '프로그램 개요를 다시 확인해 주세요.',
@@ -583,14 +1083,14 @@ describe('AdminConsolePage', () => {
           },
         });
       }),
-      http.get('*/api/v1/admin/quizzes/8801/attempts', () => {
+      http.get('*/api/v1/admin/problems/8801/attempts', () => {
         return HttpResponse.json({
           data: [],
         });
       }),
     );
 
-    renderAdminConsoleRoute('/admin/programs/2001/quizzes?lectureId=9101');
+    renderAdminConsoleRoute('/admin/programs/2001/problems?lectureId=9101');
 
     expect(
       await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 커리큘럼' }),

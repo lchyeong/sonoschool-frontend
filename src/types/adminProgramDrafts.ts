@@ -6,7 +6,7 @@ import type {
   AdminProgramSummaryInfoItem,
   AdminProgramType,
 } from '@/types/adminProgramsLive';
-import type { AdminQuizMediaType, AdminQuizQuestionType } from '@/types/adminQuizzes';
+import type { AdminProblemMediaType, AdminProblemQuestionType } from '@/types/adminProblems';
 import type { AdminResourceVisibility } from '@/types/adminResources';
 
 export type AdminProgramDraftStatus = 'ACTIVE' | 'DISCARDED' | 'FINALIZED';
@@ -72,7 +72,7 @@ export interface AdminProgramDraftSection {
   title: string | null;
 }
 
-export interface AdminProgramDraftQuizOption {
+export interface AdminProgramDraftProblemOption {
   correct: boolean;
   mediaType: null;
   mediaUrl: null;
@@ -80,22 +80,22 @@ export interface AdminProgramDraftQuizOption {
   sortOrder: number;
 }
 
-export interface AdminProgramDraftQuizQuestion {
+export interface AdminProgramDraftProblemQuestion {
   explanation: string | null;
   mediaAssetId: number | null;
-  mediaType: AdminQuizMediaType | null;
+  mediaType: AdminProblemMediaType | null;
   mediaUrl: string | null;
-  options: AdminProgramDraftQuizOption[];
+  options: AdminProgramDraftProblemOption[];
   questionText: string;
-  questionType: AdminQuizQuestionType;
+  questionType: AdminProblemQuestionType;
   sortOrder: number;
 }
 
-export interface AdminProgramDraftQuiz {
+export interface AdminProgramDraftProblem {
   description: string | null;
   lectureKey: string;
   passScore: number | null;
-  questions: AdminProgramDraftQuizQuestion[];
+  questions: AdminProgramDraftProblemQuestion[];
   title: string | null;
 }
 
@@ -116,10 +116,14 @@ export interface AdminProgramDraftResource {
 
 export interface AdminProgramDraftPayload {
   basicInfo: AdminProgramDraftBasicInfo;
-  quizzes: AdminProgramDraftQuiz[];
+  problems: AdminProgramDraftProblem[];
   resources: AdminProgramDraftResource[];
   sections: AdminProgramDraftSection[];
 }
+
+export type AdminProgramDraftQuizOption = AdminProgramDraftProblemOption;
+export type AdminProgramDraftQuizQuestion = AdminProgramDraftProblemQuestion;
+export type AdminProgramDraftQuiz = AdminProgramDraftProblem;
 
 export interface AdminProgramDraftSummary {
   createdAt: string | null;

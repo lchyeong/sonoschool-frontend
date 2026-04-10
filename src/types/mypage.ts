@@ -99,11 +99,9 @@ export interface LearningPlayerLessonProgress {
   completedAt: string | null;
 }
 
-export interface LearningPlayerCommunityContext {
+export interface LearningPlayerQnaContext {
   programId: number;
-  currentLectureId: number | null;
   programThreadCount: number;
-  currentLectureThreadCount: number;
 }
 
 export interface EnrollmentDetail {
@@ -139,7 +137,7 @@ export interface LearningPlayerSnapshot {
   completedLessonIds: string[];
   lessonPlaybackById: Record<string, LearningPlayerSource>;
   lessonProgressByLessonId?: Record<string, LearningPlayerLessonProgress>;
-  communityContext?: LearningPlayerCommunityContext | undefined;
+  qnaContext?: LearningPlayerQnaContext | undefined;
   lastPlaybackAt: string | null;
   resumeAtSeconds: number;
 }
@@ -226,4 +224,46 @@ export interface RefundHistory {
   processedAt: string | null;
   paymentMethod: string | null;
   reason: string | null;
+}
+
+export type MyQuestionScope = 'GLOBAL' | 'PROGRAM';
+export type MyQuestionAuthorType = 'ADMIN' | 'ENROLLED' | 'MEMBER';
+export type MyQuestionAnsweredFilter = 'ALL' | 'ANSWERED' | 'WAITING';
+
+export interface MyQuestionReply {
+  id: number;
+  authorName: string;
+  authorType: MyQuestionAuthorType;
+  content: string;
+  mine: boolean;
+  adminReply: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MyQuestionItem {
+  id: number;
+  scope: MyQuestionScope;
+  programId: number | null;
+  programTitle: string | null;
+  authorName: string;
+  authorType: MyQuestionAuthorType;
+  title: string;
+  content: string;
+  mine: boolean;
+  answered: boolean;
+  replyCount: number;
+  createdAt: string;
+  updatedAt: string;
+  replies: MyQuestionReply[];
+}
+
+export interface MyQuestionPage {
+  content: MyQuestionItem[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
 }

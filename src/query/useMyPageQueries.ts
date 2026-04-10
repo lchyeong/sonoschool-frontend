@@ -8,8 +8,10 @@ import {
   fetchMyEnrollments,
   fetchMyLearningPlayerSnapshot,
   fetchMyProfile,
+  fetchMyQuestions,
   fetchMyRefunds,
 } from '@/api/mypage';
+import type { MyQuestionScope } from '@/types/mypage';
 import { fetchPaymentHistory } from '@/api/payments';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
@@ -27,6 +29,14 @@ export const myCartQueryKey = (scope: 'authenticated' | 'guest') =>
 export const myApplicationSummaryQueryKey = ['mypage', 'applicationSummary'] as const;
 export const myPaymentHistoryQueryKey = ['mypage', 'paymentHistory'] as const;
 export const myRefundsQueryKey = ['mypage', 'refunds'] as const;
+export const myQuestionsQueryKey = (params: {
+  answered?: boolean | undefined;
+  keyword?: string | undefined;
+  page: number;
+  scope: MyQuestionScope | 'ALL';
+  size: number;
+}) =>
+  ['mypage', 'questions', params.scope, params.answered ?? null, params.keyword ?? '', params.page, params.size] as const;
 
 export const useMyProfileQuery = () => {
   return useQuery({
@@ -116,5 +126,32 @@ export const useMyRefundsQuery = (enabled = true) => {
     queryFn: fetchMyRefunds,
     queryKey: myRefundsQueryKey,
     staleTime: 60 * 1000,
+  });
+};
+
+export const useMyQuestionsQuery = (
+  params: {
+    answered?: boolean | undefined;
+    keyword?: string | undefined;
+    page?: number;
+    scope?: MyQuestionScope | 'ALL';
+    size?: number;
+  },
+  enabled = true,
+) => {
+  const normalizedParams = {
+    answered: params.answered,
+    keyword: params.keyword?.trim() || undefined,
+    page: params.page ?? 0,
+    scope: params.scope ?? 'ALL',
+    size: params.size ?? 10,
+  } as const;
+
+  return useQuery({
+    enabled,
+    gcTime: 5 * 60 * 1000,
+    queryFn: () => fetchMyQuestions(normalizedParams),
+    queryKey: myQuestionsQueryKey(normalizedParams),
+    staleTime: 30 * 1000,
   });
 };

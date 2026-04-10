@@ -1,16 +1,26 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  fetchAdminCurriculum,
+  replaceAdminLectureOfflineSchedules,
+} from '@/api/adminCurriculum';
+import {
   applyAdminPracticumOperatingHourRule,
   cancelAdminPracticumReservation,
   createAdminPracticumOperationException,
+  deleteAdminPracticumOperationException,
+  fetchAdminPracticumOfflineScheduleDetail,
   fetchAdminPracticumOfflineSchedules,
   fetchAdminPracticumOperatingHours,
   fetchAdminPracticumOperationExceptions,
   fetchAdminPracticumSlotManagement,
+  markAdminPracticumReservationNoShow,
+  moveAdminPracticumReservation,
   syncAdminPracticumDailyOperation,
+  updateAdminPracticumOfflineScheduleAttendance,
+  updateAdminPracticumOperationException,
   updateAdminPracticumSlotStatuses,
 } from '@/api/adminPracticum';
 import Modal from '@/components/overlay/Modal/Modal';
@@ -19,10 +29,12 @@ import { useToastStore } from '@/stores/useToastStore';
 import type {
   AdminPracticumDailyOperationPayload,
   AdminPracticumOfflineScheduleOccurrence,
+  AdminPracticumOfflineScheduleDetail,
   AdminPracticumOperatingHour,
   AdminPracticumOperatingHourApplyPayload,
   AdminPracticumOperationException,
   AdminPracticumOperationExceptionPayload,
+  AdminPracticumReservationStatus,
   AdminPracticumReservationItem,
   AdminPracticumSearchCategory,
   AdminPracticumSlotManagementItem,
@@ -130,6 +142,10 @@ interface PracticumTimeReservationRow extends AdminPracticumReservationItem {
   lectureTitle: string;
   programTitle: string;
   sectionTitle: string;
+  slotEndAt: string;
+  slotId: number;
+  slotLocation: string | null;
+  slotStartAt: string;
 }
 
 interface PracticumTimeGroup {
@@ -187,10 +203,39 @@ interface DailyOperationFormState {
 }
 
 interface PersonalScheduleFormState {
+  content: string;
   date: string;
   endHour: number;
   startHour: number;
   title: string;
+}
+
+interface ReservationActionItem {
+  lectureTitle: string;
+  programTitle: string;
+  reservationId: number;
+  sectionTitle: string;
+  slotEndAt: string;
+  slotId: number;
+  slotStartAt: string;
+  sourceKind: 'OFFLINE' | 'PRACTICUM';
+  status: AdminPracticumReservationStatus;
+  userName: string;
+}
+
+interface MoveReservationState {
+  reservations: ReservationActionItem[];
+  returnLabel: string;
+  sourceKind: 'OFFLINE' | 'PRACTICUM';
+}
+
+interface MoveOfflineScheduleState {
+  detail: AdminPracticumOfflineScheduleDetail;
+  nextDate: string;
+}
+
+interface PersonalScheduleEditState extends PersonalScheduleFormState {
+  exceptionId: number;
 }
 
 const deriveGroupStatus = (items: AdminPracticumSlotManagementItem[]): PracticumGroupStatus => {
@@ -227,6 +272,10 @@ const groupSelectedDateItems = (
             lectureTitle: item.lectureTitle,
             programTitle: item.programTitle,
             sectionTitle: item.sectionTitle,
+            slotEndAt: item.endAt,
+            slotId: item.slotId,
+            slotLocation: item.location,
+            slotStartAt: item.startAt,
           })),
         )
         .sort((left, right) => Date.parse(left.reservedAt) - Date.parse(right.reservedAt));
@@ -301,6 +350,54 @@ const renderSlotStatusBadge = (slotStatus: PracticumGroupStatus) => {
   return <span className={styles['badge']}>운영 종료</span>;
 };
 
+const isFutureDateTime = (value: string): boolean => {
+  return Date.parse(value) > Date.now();
+};
+
+const getReservationProgressLabel = (reservation: PracticumTimeReservationRow): string => {
+  if (reservation.status === 'NO_SHOW') {
+    return '실습불참';
+  }
+  if (reservation.lectureCompleted) {
+    return '실습완료';
+  }
+  if (isFutureDateTime(reservation.slotStartAt)) {
+    return '예약신청완료';
+  }
+  return '실습미진행';
+};
+
+const renderReservationProgressBadge = (reservation: PracticumTimeReservationRow) => {
+  const label = getReservationProgressLabel(reservation);
+
+  if (label === '실습완료') {
+    return <span className={styles['badgeSuccess']}>{label}</span>;
+  }
+  if (label === '예약신청완료') {
+    return <span className={styles['badgeAccent']}>{label}</span>;
+  }
+  if (label === '실습불참') {
+    return <span className={styles['badgeDanger']}>{label}</span>;
+  }
+  return <span className={styles['badge']}>{label}</span>;
+};
+
+const getReservationStatusLabel = (status: AdminPracticumReservationStatus): string => {
+  if (status === 'NO_SHOW') {
+    return '불참';
+  }
+  if (status === 'CANCELLED') {
+    return '취소';
+  }
+  return '활성';
+};
+
+const getPersonalScheduleProgressLabel = (
+  schedule: Pick<AdminPracticumOperationException, 'endAt'>,
+): '일정예정' | '일정완료' => {
+  return Date.parse(schedule.endAt) > Date.now() ? '일정예정' : '일정완료';
+};
+
 const buildCalendarEntryLabel = (entry: PracticumCalendarEntry): string => {
   if (entry.kind === 'ADMIN_SCHEDULE') {
     return entry.label;
@@ -324,6 +421,51 @@ const isExceptionOnDate = (
   );
 };
 
+const resolveScheduleEndHour = (dateValue: string, endAt: string): number => {
+  const hour = toSeoulHour(endAt);
+
+  if (hour === 0 && getSlotDateKey(endAt) > dateValue) {
+    return 24;
+  }
+
+  return hour;
+};
+
+const buildPersonalScheduleFormState = (
+  schedule: AdminPracticumOperationException,
+): PersonalScheduleFormState => {
+  const date = getSlotDateKey(schedule.startAt);
+
+  return {
+    content: schedule.content ?? '',
+    date,
+    endHour: resolveScheduleEndHour(date, schedule.endAt),
+    startHour: toSeoulHour(schedule.startAt),
+    title: schedule.title,
+  };
+};
+
+const PracticumModalBackButton = ({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) => {
+  return (
+    <Button
+      aria-label={label}
+      className={styles['practicumModalBackButton']}
+      onClick={onClick}
+      size='sm'
+      type='button'
+      variant='secondary'
+    >
+      <span aria-hidden='true'>&lt;</span>
+    </Button>
+  );
+};
+
 const AdminPracticumSection = () => {
   const [activeConfigPanel, setActiveConfigPanel] = useState<
     'DAILY_OPERATION' | 'OPERATING_HOURS' | 'ADMIN_SCHEDULE'
@@ -340,12 +482,20 @@ const AdminPracticumSection = () => {
   const [selectedCalendarEntry, setSelectedCalendarEntry] = useState<PracticumCalendarEntry | null>(
     null,
   );
+  const [moveReservationState, setMoveReservationState] = useState<MoveReservationState | null>(
+    null,
+  );
+  const [moveOfflineScheduleState, setMoveOfflineScheduleState] =
+    useState<MoveOfflineScheduleState | null>(null);
+  const [offlineAttendanceDraft, setOfflineAttendanceDraft] = useState<Record<number, boolean>>({});
   const [operationDraft, setOperationDraft] = useState<OperationFormState | null>(null);
   const [dailyOperationDraft, setDailyOperationDraft] = useState<DailyOperationFormState | null>(
     null,
   );
   const [personalScheduleDraft, setPersonalScheduleDraft] =
     useState<PersonalScheduleFormState | null>(null);
+  const [personalScheduleEditDraft, setPersonalScheduleEditDraft] =
+    useState<PersonalScheduleEditState | null>(null);
   const deferredKeyword = useDeferredValue(keyword).trim();
 
   const monthBounds = useMemo(() => getMonthBounds(monthValue), [monthValue]);
@@ -405,6 +555,21 @@ const AdminPracticumSection = () => {
     staleTime: 15 * 1000,
   });
 
+  const selectedOfflineScheduleRuleId =
+    selectedCalendarEntry?.kind === 'OFFLINE' ? selectedCalendarEntry.offlineSchedule.ruleId : null;
+
+  const offlineScheduleDetailQuery = useQuery({
+    enabled: selectedOfflineScheduleRuleId !== null,
+    queryFn: () => {
+      if (selectedOfflineScheduleRuleId === null) {
+        throw new Error('오프라인 일정이 선택되지 않았습니다.');
+      }
+      return fetchAdminPracticumOfflineScheduleDetail(selectedOfflineScheduleRuleId);
+    },
+    queryKey: ['adminPracticumOfflineScheduleDetail', selectedOfflineScheduleRuleId],
+    staleTime: 15 * 1000,
+  });
+
   const slotItems = useMemo(
     () => practicumManagementQuery.data ?? [],
     [practicumManagementQuery.data],
@@ -420,7 +585,9 @@ const AdminPracticumSection = () => {
   }, [resolvedSelectedDate, slotItems]);
 
   const selectedDateGroups = useMemo(() => {
-    return groupSelectedDateItems(selectedDateItems).filter((group) => group.reservedCount > 0);
+    return groupSelectedDateItems(selectedDateItems).filter(
+      (group) => group.reservations.length > 0,
+    );
   }, [selectedDateItems]);
 
   const selectedDatePersonalSchedules = useMemo(() => {
@@ -444,8 +611,14 @@ const AdminPracticumSection = () => {
     }
     return groupSelectedDateItems(
       slotItems.filter((item) => getSlotDateKey(item.startAt) === selectedDateOverviewDate),
-    ).filter((group) => group.reservedCount > 0);
+    ).filter((group) => group.reservations.length > 0);
   }, [selectedDateOverviewDate, slotItems]);
+
+  const moveReservationOptions = useMemo(() => {
+    return slotItems
+      .filter((item) => item.slotStatus === 'OPEN' && item.remainingCapacity > 0)
+      .sort((left, right) => Date.parse(left.startAt) - Date.parse(right.startAt));
+  }, [slotItems]);
 
   const overviewDatePersonalSchedules = useMemo(() => {
     if (!selectedDateOverviewDate) {
@@ -455,6 +628,24 @@ const AdminPracticumSection = () => {
       isExceptionOnDate(item, selectedDateOverviewDate),
     );
   }, [operationExceptionsQuery.data, selectedDateOverviewDate]);
+
+  const selectedOfflineScheduleDetail: AdminPracticumOfflineScheduleDetail | null =
+    selectedCalendarEntry?.kind === 'OFFLINE' ? offlineScheduleDetailQuery.data ?? null : null;
+
+  const offlineAttendanceChanges = useMemo(() => {
+    if (!selectedOfflineScheduleDetail) {
+      return [];
+    }
+
+    return selectedOfflineScheduleDetail.attendees.filter((attendee) => {
+      const draftValue = offlineAttendanceDraft[attendee.enrollmentId];
+      return draftValue !== undefined && draftValue !== attendee.absent;
+    });
+  }, [offlineAttendanceDraft, selectedOfflineScheduleDetail]);
+
+  const isEditingSelectedPersonalSchedule =
+    selectedCalendarEntry?.kind === 'ADMIN_SCHEDULE' &&
+    personalScheduleEditDraft?.exceptionId === selectedCalendarEntry.schedule.id;
 
   const calendarEntriesByDate = useMemo(() => {
     const entries = new Map<string, PracticumCalendarEntry[]>();
@@ -472,7 +663,7 @@ const AdminPracticumSection = () => {
 
     for (const [dateKey, items] of slotItemsByDate.entries()) {
       const dayEntries = groupSelectedDateItems(items)
-        .filter((group) => group.reservedCount > 0)
+        .filter((group) => group.reservations.length > 0)
         .map((group) => ({
           date: dateKey,
           endAt: group.endAt,
@@ -601,6 +792,7 @@ const AdminPracticumSection = () => {
     personalScheduleDraft?.date === resolvedSelectedDate
       ? personalScheduleDraft
       : {
+          content: '',
           date: resolvedSelectedDate,
           endHour: Math.min(operationState.startHour + 1, operationState.endHour),
           startHour: operationState.startHour,
@@ -615,12 +807,34 @@ const AdminPracticumSection = () => {
         current?.date === resolvedSelectedDate
           ? current
           : {
+              content: '',
               date: resolvedSelectedDate,
               endHour: Math.min(operationState.startHour + 1, operationState.endHour),
               startHour: operationState.startHour,
               title: '',
             };
       const nextState = updater(baseState);
+
+      return {
+        ...nextState,
+        endHour:
+          nextState.endHour <= nextState.startHour
+            ? Math.min(nextState.startHour + 1, 24)
+            : nextState.endHour,
+        startHour: Math.max(0, Math.min(nextState.startHour, 23)),
+      };
+    });
+  };
+
+  const updatePersonalScheduleEditState = (
+    updater: (current: PersonalScheduleEditState) => PersonalScheduleEditState,
+  ) => {
+    setPersonalScheduleEditDraft((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextState = updater(current);
 
       return {
         ...nextState,
@@ -672,6 +886,232 @@ const AdminPracticumSection = () => {
       setDailyOperationDraft(null);
       showToast({
         message: '실습 예약을 취소했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const moveReservationMutation = useMutation({
+    mutationFn: async ({
+      reservationIds,
+      slotId,
+    }: {
+      reservationIds: number[];
+      slotId: number;
+    }) => {
+      await Promise.all(
+        reservationIds.map((reservationId) => moveAdminPracticumReservation(reservationId, slotId)),
+      );
+    },
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '실습 예약 일정을 변경하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineSchedules'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineScheduleDetail'] });
+      setMoveReservationState(null);
+      if (moveReservationState?.sourceKind === 'PRACTICUM' && variables.reservationIds.length === 1) {
+        setSelectedCalendarEntry(null);
+      }
+      showToast({
+        message:
+          variables.reservationIds.length > 1
+            ? '선택한 예약의 강의일자를 변경했습니다.'
+            : '실습 예약 일정을 변경했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const markNoShowMutation = useMutation({
+    mutationFn: async (reservationIds: number[]) => {
+      await Promise.all(
+        reservationIds.map((reservationId) => markAdminPracticumReservationNoShow(reservationId)),
+      );
+    },
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '실습 불참 처리를 저장하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, reservationIds) => {
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineSchedules'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineScheduleDetail'] });
+      if (selectedCalendarEntry?.kind === 'PRACTICUM' && reservationIds.length === 1) {
+        setSelectedCalendarEntry(null);
+      }
+      showToast({
+        message:
+          reservationIds.length > 1
+            ? '선택한 예약을 불참 처리했습니다.'
+            : '실습 불참으로 처리했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const moveOfflineScheduleMutation = useMutation({
+    mutationFn: async ({
+      detail,
+      nextDate,
+    }: {
+      detail: AdminPracticumOfflineScheduleDetail;
+      nextDate: string;
+    }) => {
+      const curriculumSections = await fetchAdminCurriculum(detail.programId);
+      const lecture = curriculumSections
+        .flatMap((section) => section.lectures)
+        .find((item) => item.id === detail.lectureId);
+
+      if (!lecture) {
+        throw new Error('현재 강의의 오프라인 일정 정보를 찾지 못했습니다.');
+      }
+
+      const hasTargetSchedule = lecture.offlineSchedules.some((schedule) => schedule.id === detail.ruleId);
+
+      if (!hasTargetSchedule) {
+        throw new Error('변경할 오프라인 강의 일정을 찾지 못했습니다.');
+      }
+
+      await replaceAdminLectureOfflineSchedules(detail.lectureId, {
+        offlineSchedules: lecture.offlineSchedules.map((schedule) => ({
+          date: schedule.id === detail.ruleId ? nextDate : schedule.date,
+          endTime: schedule.endTime,
+          location: schedule.location,
+          notes: schedule.notes,
+          startTime: schedule.startTime,
+        })),
+      });
+
+      return { nextDate };
+    },
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '오프라인 강의 일정을 변경하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async ({ nextDate }) => {
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineSchedules'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineScheduleDetail'] });
+      setMonthValue(nextDate.slice(0, 7));
+      setSelectedDate(nextDate);
+      setMoveOfflineScheduleState(null);
+      setSelectedCalendarEntry(null);
+      setSelectedDateOverviewDate(null);
+      showToast({
+        message: '오프라인 강의 일정을 변경했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const updateOfflineAttendanceMutation = useMutation({
+    mutationFn: async ({
+      changes,
+      ruleId,
+    }: {
+      changes: Array<{ absent: boolean; enrollmentId: number }>;
+      ruleId: number;
+    }) => {
+      await Promise.all(
+        changes.map(({ absent, enrollmentId }) =>
+          updateAdminPracticumOfflineScheduleAttendance(ruleId, enrollmentId, absent),
+        ),
+      );
+    },
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '오프라인 강의 참석 상태를 저장하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineScheduleDetail'] });
+      setOfflineAttendanceDraft({});
+      showToast({
+        message: '출석 상태를 저장했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (!selectedOfflineScheduleDetail) {
+      setOfflineAttendanceDraft({});
+      return;
+    }
+
+    setOfflineAttendanceDraft(
+      Object.fromEntries(
+        selectedOfflineScheduleDetail.attendees.map((attendee) => [
+          attendee.enrollmentId,
+          attendee.absent,
+        ]),
+      ),
+    );
+  }, [selectedOfflineScheduleDetail, selectedOfflineScheduleRuleId]);
+
+  const deletePersonalScheduleMutation = useMutation({
+    mutationFn: (exceptionId: number) => deleteAdminPracticumOperationException(exceptionId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '개인 일정을 삭제하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOperationExceptions'] });
+      setPersonalScheduleEditDraft(null);
+      setSelectedCalendarEntry(null);
+      showToast({
+        message: '개인 일정을 삭제했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const updatePersonalScheduleMutation = useMutation({
+    mutationFn: ({
+      exceptionId,
+      payload,
+    }: {
+      exceptionId: number;
+      payload: AdminPracticumOperationExceptionPayload;
+    }) => updateAdminPracticumOperationException(exceptionId, payload),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '개인 일정을 수정하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (updatedSchedule) => {
+      const nextDate = getSlotDateKey(updatedSchedule.startAt);
+
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOperationExceptions'] });
+      setMonthValue(nextDate.slice(0, 7));
+      setSelectedDate(nextDate);
+      setSelectedDateOverviewDate(nextDate);
+      setSelectedCalendarEntry({
+        date: nextDate,
+        endAt: updatedSchedule.endAt,
+        key: `schedule:${String(updatedSchedule.id)}:${nextDate}`,
+        kind: 'ADMIN_SCHEDULE',
+        label: updatedSchedule.title,
+        schedule: updatedSchedule,
+        startAt: updatedSchedule.startAt,
+      });
+      setPersonalScheduleEditDraft(null);
+      showToast({
+        message: '개인 일정을 수정했습니다.',
         variant: 'success',
       });
     },
@@ -742,6 +1182,20 @@ const AdminPracticumSection = () => {
       (hour) => hour >= dailyOperationState.startHour && hour < dailyOperationState.endHour,
     );
   }, [dailyOperationState.endHour, dailyOperationState.startHour]);
+
+  const closeCalendarModalStack = () => {
+    setOfflineAttendanceDraft({});
+    setMoveOfflineScheduleState(null);
+    setMoveReservationState(null);
+    setPersonalScheduleEditDraft(null);
+    setSelectedCalendarEntry(null);
+    setSelectedDateOverviewDate(null);
+  };
+
+  const returnToOverview = () => {
+    setPersonalScheduleEditDraft(null);
+    setSelectedCalendarEntry(null);
+  };
 
   return (
     <section className={styles['workspace']}>
@@ -849,32 +1303,31 @@ const AdminPracticumSection = () => {
 
                   return (
                     <div
-                      aria-pressed={isSelected}
                       className={styles['practicumCalendarDay']}
                       data-has-items={hasItems}
                       data-selected={isSelected}
                       key={cellDate}
                       onClick={() => {
                         setSelectedDate(cellDate);
-                        setSelectedDateOverviewDate(cellDate);
                       }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setSelectedDate(cellDate);
-                          setSelectedDateOverviewDate(cellDate);
-                        }
-                      }}
-                      role='button'
-                      tabIndex={0}
                     >
                       <div className={styles['practicumCalendarDayHeader']}>
-                        <span className={styles['practicumCalendarDayNumber']}>
-                          {Number(cellDate.slice(-2))}
-                        </span>
-                        <span className={styles['practicumCalendarDayCount']}>
-                          {hasItems ? `일정 ${String(dayCount)}건` : ''}
-                        </span>
+                        <button
+                          className={styles['practicumCalendarDateButton']}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedDate(cellDate);
+                            setSelectedDateOverviewDate(cellDate);
+                          }}
+                          type='button'
+                        >
+                          <span className={styles['practicumCalendarDayNumber']}>
+                            {Number(cellDate.slice(-2))}
+                          </span>
+                          <span className={styles['practicumCalendarDayCount']}>
+                            {hasItems ? `일정 ${String(dayCount)}건` : '일정 없음'}
+                          </span>
+                        </button>
                       </div>
                       <div className={styles['practicumCalendarPreviewList']}>
                         {previewEntries.length ? (
@@ -885,7 +1338,7 @@ const AdminPracticumSection = () => {
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setSelectedDate(cellDate);
-                                setSelectedDateOverviewDate(null);
+                                setSelectedDateOverviewDate(cellDate);
                                 setSelectedCalendarEntry(entry);
                               }}
                               type='button'
@@ -927,7 +1380,7 @@ const AdminPracticumSection = () => {
                       type='button'
                       variant={activeConfigPanel === 'ADMIN_SCHEDULE' ? 'primary' : 'secondary'}
                     >
-                      관리자 개인일정 추가
+                      개인일정 추가
                     </Button>
                   </div>
                   <h3
@@ -1158,6 +1611,22 @@ const AdminPracticumSection = () => {
                     </label>
 
                     <label className={styles['field']}>
+                      <span className={styles['fieldLabel']}>일정내용</span>
+                      <textarea
+                        className={styles['textarea']}
+                        onChange={(event) => {
+                          updatePersonalScheduleState((current) => ({
+                            ...current,
+                            content: event.target.value,
+                          }));
+                        }}
+                        placeholder='예: 외부 미팅 준비 및 주간 운영 점검'
+                        rows={4}
+                        value={personalScheduleState.content}
+                      />
+                    </label>
+
+                    <label className={styles['field']}>
                       <span className={styles['fieldLabel']}>시작</span>
                       <span className={styles['selectWrap']}>
                         <select
@@ -1217,6 +1686,7 @@ const AdminPracticumSection = () => {
                       }
                       onClick={() => {
                         createPersonalScheduleMutation.mutate({
+                          content: personalScheduleState.content.trim() || null,
                           endAt: toIsoDateTime(resolvedSelectedDate, personalScheduleState.endHour),
                           location: null,
                           startAt: toIsoDateTime(
@@ -1242,6 +1712,7 @@ const AdminPracticumSection = () => {
                             <button
                               className={styles['scheduleTitleButton']}
                               onClick={() => {
+                                setSelectedDateOverviewDate(resolvedSelectedDate);
                                 setSelectedCalendarEntry({
                                   date: resolvedSelectedDate,
                                   endAt: item.endAt,
@@ -1267,7 +1738,7 @@ const AdminPracticumSection = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className={styles['helperText']}>등록된 관리자 개인일정이 없습니다.</p>
+                    <p className={styles['helperText']}>등록된 개인일정이 없습니다.</p>
                   )}
                 </section>
               ) : null}
@@ -1295,6 +1766,7 @@ const AdminPracticumSection = () => {
                             <button
                               className={styles['scheduleTitleButton']}
                               onClick={() => {
+                                setSelectedDateOverviewDate(resolvedSelectedDate);
                                 setSelectedCalendarEntry({
                                   date: resolvedSelectedDate,
                                   endAt: group.endAt,
@@ -1309,10 +1781,11 @@ const AdminPracticumSection = () => {
                             >
                               {formatTimeRange(group.startAt, group.endAt)}
                             </button>
-                            {group.reservedCount > 0 ? (
+                            {group.reservations.length ? (
                               <div className={styles['adminPracticumMeta']}>
                                 <span>
-                                  예약 {String(group.reservedCount)}/{String(group.maxCapacity)}명
+                                  활성 예약 {String(group.reservedCount)}/
+                                  {String(group.maxCapacity)}명
                                 </span>
                               </div>
                             ) : null}
@@ -1362,13 +1835,9 @@ const AdminPracticumSection = () => {
                                   <span className={styles['cellSecondary']}>
                                     {formatDateTime(reservation.reservedAt)}
                                   </span>
-                                  {reservation.lectureCompleted ? (
-                                    <span className={styles['badgeSuccess']}>강의 완료</span>
-                                  ) : (
-                                    <span className={styles['badgeDanger']}>강의 미완료</span>
-                                  )}
+                                  {renderReservationProgressBadge(reservation)}
                                   <span className={styles['badge']}>
-                                    {reservation.status === 'ACTIVE' ? '예약중' : '취소'}
+                                    {getReservationStatusLabel(reservation.status)}
                                   </span>
                                   {reservation.status === 'ACTIVE' ? (
                                     <Button
@@ -1400,7 +1869,7 @@ const AdminPracticumSection = () => {
                 )
               ) : null}
 
-              {selectedDateOverviewDate ? (
+              {selectedDateOverviewDate && !selectedCalendarEntry && !moveReservationState ? (
                 <Modal
                   description={formatDate(selectedDateOverviewDate)}
                   onClose={() => {
@@ -1411,7 +1880,7 @@ const AdminPracticumSection = () => {
                   <div className={styles['practicumDayOverviewModal']}>
                     <section className={styles['practicumDayOverviewSection']}>
                       <div className={styles['practicumDayOverviewHeader']}>
-                        <h4 className={styles['practicumDayOverviewTitle']}>오프라인 강좌</h4>
+                        <h4 className={styles['practicumDayOverviewTitle']}>오프라인 강의</h4>
                         <span className={styles['badge']}>
                           {String(overviewDateOfflineSchedules.length)}건
                         </span>
@@ -1423,9 +1892,8 @@ const AdminPracticumSection = () => {
                               className={styles['practicumDayOverviewCard']}
                               key={`overview-offline-${String(item.ruleId)}-${item.startAt}`}
                               onClick={() => {
-                                setSelectedDateOverviewDate(null);
                                 setSelectedCalendarEntry({
-                                  date: selectedDateOverviewDate,
+                                  date: getSlotDateKey(item.startAt),
                                   endAt: item.endAt,
                                   key: `offline:${String(item.ruleId)}:${item.startAt}`,
                                   kind: 'OFFLINE',
@@ -1452,7 +1920,7 @@ const AdminPracticumSection = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className={styles['helperText']}>등록된 오프라인 강좌가 없습니다.</p>
+                        <p className={styles['helperText']}>등록된 오프라인 강의가 없습니다.</p>
                       )}
                     </section>
 
@@ -1470,9 +1938,8 @@ const AdminPracticumSection = () => {
                               className={styles['practicumDayOverviewCard']}
                               key={`overview-practicum-${group.key}`}
                               onClick={() => {
-                                setSelectedDateOverviewDate(null);
                                 setSelectedCalendarEntry({
-                                  date: selectedDateOverviewDate,
+                                  date: getSlotDateKey(group.startAt),
                                   endAt: group.endAt,
                                   group,
                                   key: `group:${group.key}`,
@@ -1487,14 +1954,12 @@ const AdminPracticumSection = () => {
                                 <strong className={styles['cellPrimary']}>
                                   {formatTimeRange(group.startAt, group.endAt)}
                                 </strong>
-                                {group.reservedCount > 0 ? (
+                                {group.reservations.length ? (
                                   <span className={styles['cellSecondary']}>
-                                    예약 {String(group.reservedCount)}/{String(group.maxCapacity)}명
-                                    {group.reservations.filter(
-                                      (reservation) => reservation.status === 'ACTIVE',
-                                    ).length
+                                    활성 예약 {String(group.reservedCount)}/
+                                    {String(group.maxCapacity)}명
+                                    {group.reservations.length
                                       ? ` · ${group.reservations
-                                          .filter((reservation) => reservation.status === 'ACTIVE')
                                           .map((reservation) => reservation.userName)
                                           .join(', ')}`
                                       : ''}
@@ -1512,7 +1977,7 @@ const AdminPracticumSection = () => {
 
                     <section className={styles['practicumDayOverviewSection']}>
                       <div className={styles['practicumDayOverviewHeader']}>
-                        <h4 className={styles['practicumDayOverviewTitle']}>관리자 개인일정</h4>
+                        <h4 className={styles['practicumDayOverviewTitle']}>개인일정</h4>
                         <span className={styles['badge']}>
                           {String(overviewDatePersonalSchedules.length)}건
                         </span>
@@ -1524,11 +1989,10 @@ const AdminPracticumSection = () => {
                               className={styles['practicumDayOverviewCard']}
                               key={`overview-schedule-${String(item.id)}`}
                               onClick={() => {
-                                setSelectedDateOverviewDate(null);
                                 setSelectedCalendarEntry({
-                                  date: selectedDateOverviewDate,
+                                  date: getSlotDateKey(item.startAt),
                                   endAt: item.endAt,
-                                  key: `schedule:${String(item.id)}:${selectedDateOverviewDate}`,
+                                  key: `schedule:${String(item.id)}:${getSlotDateKey(item.startAt)}`,
                                   kind: 'ADMIN_SCHEDULE',
                                   label: item.title,
                                   schedule: item,
@@ -1548,14 +2012,14 @@ const AdminPracticumSection = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className={styles['helperText']}>등록된 관리자 개인일정이 없습니다.</p>
+                        <p className={styles['helperText']}>등록된 개인일정이 없습니다.</p>
                       )}
                     </section>
                   </div>
                 </Modal>
               ) : null}
 
-              {selectedCalendarEntry ? (
+              {selectedCalendarEntry && !moveReservationState && !moveOfflineScheduleState ? (
                 <Modal
                   description={
                     selectedCalendarEntry.kind === 'PRACTICUM'
@@ -1564,15 +2028,41 @@ const AdminPracticumSection = () => {
                         ? `${formatDateTime(selectedCalendarEntry.offlineSchedule.startAt)} ~ ${formatDateTime(selectedCalendarEntry.offlineSchedule.endAt)}`
                         : `${formatDateTime(selectedCalendarEntry.schedule.startAt)} ~ ${formatDateTime(selectedCalendarEntry.schedule.endAt)}`
                   }
-                  onClose={() => {
-                    setSelectedCalendarEntry(null);
-                  }}
+                  headerLeading={
+                    <PracticumModalBackButton
+                      label={
+                        selectedCalendarEntry.kind === 'ADMIN_SCHEDULE' &&
+                        isEditingSelectedPersonalSchedule
+                          ? '개인일정 상세로 돌아가기'
+                          : selectedCalendarEntry.kind === 'PRACTICUM' ||
+                              selectedCalendarEntry.kind === 'OFFLINE' ||
+                              selectedCalendarEntry.kind === 'ADMIN_SCHEDULE'
+                            ? '일정 목록으로 돌아가기'
+                            : '뒤로가기'
+                      }
+                      onClick={() => {
+                        if (
+                          selectedCalendarEntry.kind === 'ADMIN_SCHEDULE' &&
+                          isEditingSelectedPersonalSchedule
+                        ) {
+                          setPersonalScheduleEditDraft(null);
+                          return;
+                        }
+
+                        returnToOverview();
+                      }}
+                    />
+                  }
+                  headerLeadingStacked
+                  onClose={closeCalendarModalStack}
                   title={
                     selectedCalendarEntry.kind === 'PRACTICUM'
                       ? '실습 일정 상세'
                       : selectedCalendarEntry.kind === 'OFFLINE'
                         ? '오프라인 일정 상세'
-                        : '개인일정 상세'
+                        : isEditingSelectedPersonalSchedule
+                          ? '일정변경'
+                          : '개인일정 상세'
                   }
                 >
                   {selectedCalendarEntry.kind === 'PRACTICUM' ? (
@@ -1597,7 +2087,7 @@ const AdminPracticumSection = () => {
                         </strong>
                         {selectedCalendarEntry.group.reservedCount > 0 ? (
                           <>
-                            <span>예약</span>
+                            <span>활성 예약</span>
                             <strong>
                               {String(selectedCalendarEntry.group.reservedCount)}/
                               {String(selectedCalendarEntry.group.maxCapacity)}명
@@ -1606,25 +2096,106 @@ const AdminPracticumSection = () => {
                         ) : null}
                       </div>
 
-                      {selectedCalendarEntry.group.reservations.filter(
-                        (reservation) => reservation.status === 'ACTIVE',
-                      ).length ? (
+                      {selectedCalendarEntry.group.reservations.length ? (
                         <div className={styles['practicumDetailReservationList']}>
-                          {selectedCalendarEntry.group.reservations
-                            .filter((reservation) => reservation.status === 'ACTIVE')
-                            .map((reservation) => (
-                              <div
-                                className={styles['practicumDetailReservationItem']}
-                                key={reservation.reservationId}
-                              >
-                                <strong>{reservation.userName}</strong>
-                                <span>{reservation.loginId}</span>
-                                <span>{reservation.phoneNumber}</span>
-                                <span>
-                                  {reservation.programTitle} &gt; {reservation.lectureTitle}
-                                </span>
+                          {selectedCalendarEntry.group.reservations.map((reservation) => (
+                            <div
+                              className={styles['practicumDetailReservationCard']}
+                              key={reservation.reservationId}
+                            >
+                              <div className={styles['practicumDetailReservationHeader']}>
+                                <div className={styles['cellStack']}>
+                                  <strong className={styles['cellPrimary']}>
+                                    {reservation.userName}
+                                  </strong>
+                                  <span className={styles['cellSecondary']}>
+                                    {reservation.loginId} · {reservation.phoneNumber}
+                                  </span>
+                                </div>
+                                <div className={styles['practicumDetailReservationBadges']}>
+                                  {renderReservationProgressBadge(reservation)}
+                                  <span className={styles['badge']}>
+                                    {getReservationStatusLabel(reservation.status)}
+                                  </span>
+                                </div>
                               </div>
-                            ))}
+
+                              <div className={styles['practicumDetailSummary']}>
+                                <span>예약 시간</span>
+                                <strong>
+                                  {formatDateTime(reservation.slotStartAt)} ~{' '}
+                                  {formatDateTime(reservation.slotEndAt)}
+                                </strong>
+                                <span>프로그램</span>
+                                <strong>{reservation.programTitle}</strong>
+                                <span>섹션</span>
+                                <strong>{reservation.sectionTitle}</strong>
+                                <span>강의명</span>
+                                <strong>{reservation.lectureTitle}</strong>
+                                <span>예약자</span>
+                                <strong>{reservation.userName}</strong>
+                                <span>접수 시각</span>
+                                <strong>{formatDateTime(reservation.reservedAt)}</strong>
+                                <span>장소</span>
+                                <strong>{reservation.slotLocation?.trim() || '장소 미정'}</strong>
+                              </div>
+
+                              {reservation.status === 'ACTIVE' ? (
+                                <div className={styles['practicumModalActionRow']}>
+                                  <Button
+                                    disabled={moveReservationMutation.isPending}
+                                    onClick={() => {
+                                      setMoveReservationState({
+                                        reservations: [
+                                          {
+                                            lectureTitle: reservation.lectureTitle,
+                                            programTitle: reservation.programTitle,
+                                            reservationId: reservation.reservationId,
+                                            sectionTitle: reservation.sectionTitle,
+                                            slotEndAt: reservation.slotEndAt,
+                                            slotId: reservation.slotId,
+                                            slotStartAt: reservation.slotStartAt,
+                                            sourceKind: 'PRACTICUM',
+                                            status: reservation.status,
+                                            userName: reservation.userName,
+                                          },
+                                        ],
+                                        returnLabel: '실습 일정 상세로 돌아가기',
+                                        sourceKind: 'PRACTICUM',
+                                      });
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    예약일자 변경
+                                  </Button>
+                                  <Button
+                                    disabled={cancelReservationMutation.isPending}
+                                    onClick={() => {
+                                      cancelReservationMutation.mutate(reservation.reservationId);
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='danger'
+                                  >
+                                    예약취소
+                                  </Button>
+                                  <Button
+                                    disabled={markNoShowMutation.isPending}
+                                    onClick={() => {
+                                      markNoShowMutation.mutate([reservation.reservationId]);
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    불참처리
+                                  </Button>
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <p className={styles['helperText']}>예약된 수강생이 없습니다.</p>
@@ -1632,50 +2203,532 @@ const AdminPracticumSection = () => {
                     </div>
                   ) : selectedCalendarEntry.kind === 'OFFLINE' ? (
                     <div className={styles['practicumDetailModal']}>
-                      <div className={styles['practicumDetailSummary']}>
-                        <span>프로그램</span>
-                        <strong>{selectedCalendarEntry.offlineSchedule.programTitle}</strong>
-                        <span>강의</span>
-                        <strong>
-                          {selectedCalendarEntry.offlineSchedule.sectionTitle} &gt;{' '}
-                          {selectedCalendarEntry.offlineSchedule.lectureTitle}
-                        </strong>
-                        <span>시간</span>
-                        <strong>
-                          {formatTimeRange(
-                            selectedCalendarEntry.offlineSchedule.startAt,
-                            selectedCalendarEntry.offlineSchedule.endAt,
+                      {offlineScheduleDetailQuery.isLoading ? (
+                        <p className={styles['helperText']}>오프라인 일정 상세를 불러오는 중입니다.</p>
+                      ) : offlineScheduleDetailQuery.isError ? (
+                        <p className={styles['helperText']}>
+                          {offlineScheduleDetailQuery.error instanceof Error
+                            ? offlineScheduleDetailQuery.error.message
+                            : '오프라인 일정 상세를 불러오지 못했습니다.'}
+                        </p>
+                      ) : selectedOfflineScheduleDetail ? (
+                        <>
+                          <div className={styles['practicumDetailSummary']}>
+                            <span>프로그램</span>
+                            <strong>{selectedOfflineScheduleDetail.programTitle}</strong>
+                            <span>강의</span>
+                            <strong>
+                              {selectedOfflineScheduleDetail.sectionTitle} &gt;{' '}
+                              {selectedOfflineScheduleDetail.lectureTitle}
+                            </strong>
+                            <span>시간</span>
+                            <strong>
+                              {formatTimeRange(
+                                selectedOfflineScheduleDetail.startAt,
+                                selectedOfflineScheduleDetail.endAt,
+                              )}
+                            </strong>
+                            <span>장소</span>
+                            <strong>
+                              {selectedOfflineScheduleDetail.location?.trim() || '장소 미정'}
+                            </strong>
+                            <span>수강생</span>
+                            <strong>
+                              {`${String(selectedOfflineScheduleDetail.activeEnrollmentCount)}명`}
+                            </strong>
+                            <span>선행 영상</span>
+                            <strong>
+                              {selectedOfflineScheduleDetail.videoAttached
+                                ? '연결됨'
+                                : '연결된 영상 없음'}
+                            </strong>
+                            {selectedOfflineScheduleDetail.notes?.trim() ? (
+                              <>
+                                <span>비고</span>
+                                <strong>{selectedOfflineScheduleDetail.notes}</strong>
+                              </>
+                            ) : null}
+                          </div>
+
+                          {selectedOfflineScheduleDetail.attendees.length ? (
+                            <div className={styles['practicumDetailReservationList']}>
+                              {selectedOfflineScheduleDetail.attendees.map((attendee) => (
+                                <div
+                                  className={styles['practicumDetailReservationCard']}
+                                  key={`offline-attendee-${String(attendee.enrollmentId)}`}
+                                >
+                                  <div className={styles['practicumDetailReservationHeader']}>
+                                    <div className={styles['cellStack']}>
+                                      <strong className={styles['cellPrimary']}>
+                                        {attendee.userName}
+                                      </strong>
+                                      <span className={styles['cellSecondary']}>
+                                        {attendee.loginId} ·{' '}
+                                        {attendee.phoneNumber?.trim() || '연락처 없음'}
+                                      </span>
+                                    </div>
+                                    <div className={styles['practicumDetailReservationActions']}>
+                                      <div className={styles['practicumDetailReservationBadges']}>
+                                        {selectedOfflineScheduleDetail.videoAttached ? (
+                                          attendee.lectureCompleted ? (
+                                            <span className={styles['badgeSuccess']}>
+                                              선행학습 완료
+                                            </span>
+                                          ) : (
+                                            <span className={styles['badgeDanger']}>
+                                              선행학습 미완료
+                                            </span>
+                                          )
+                                        ) : (
+                                          <span className={styles['badge']}>영상 없음</span>
+                                        )}
+                                        {attendee.absent ? (
+                                          <span className={styles['badgeDanger']}>불참</span>
+                                        ) : null}
+                                      </div>
+                                      <label
+                                        className={styles['practicumDetailAttendanceToggle']}
+                                        title='불참 여부'
+                                      >
+                                        <input
+                                          aria-label={`${attendee.userName} 불참 여부`}
+                                          checked={
+                                            offlineAttendanceDraft[attendee.enrollmentId] ??
+                                            attendee.absent
+                                          }
+                                          disabled={updateOfflineAttendanceMutation.isPending}
+                                          onChange={(event) => {
+                                            setOfflineAttendanceDraft((current) => ({
+                                              ...current,
+                                              [attendee.enrollmentId]: event.target.checked,
+                                            }));
+                                          }}
+                                          type='checkbox'
+                                        />
+                                      </label>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className={styles['helperText']}>표시할 수강생이 없습니다.</p>
                           )}
-                        </strong>
-                        <span>장소</span>
-                        <strong>
-                          {selectedCalendarEntry.offlineSchedule.location?.trim() || '장소 미정'}
-                        </strong>
-                        <span>수강생</span>
-                        <strong>
-                          {String(selectedCalendarEntry.offlineSchedule.activeEnrollmentCount)}명
-                        </strong>
-                      </div>
+
+                          <div className={styles['practicumModalActionRow']}>
+                            <Button
+                              disabled={
+                                updateOfflineAttendanceMutation.isPending ||
+                                offlineAttendanceChanges.length === 0
+                              }
+                              onClick={() => {
+                                updateOfflineAttendanceMutation.mutate({
+                                  changes: offlineAttendanceChanges.map((attendee) => ({
+                                    absent: offlineAttendanceDraft[attendee.enrollmentId] ?? false,
+                                    enrollmentId: attendee.enrollmentId,
+                                  })),
+                                  ruleId: selectedOfflineScheduleDetail.ruleId,
+                                });
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              출석 상태 저장
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setMoveOfflineScheduleState({
+                                  detail: selectedOfflineScheduleDetail,
+                                  nextDate: getSlotDateKey(selectedOfflineScheduleDetail.startAt),
+                                });
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              강의일자 변경
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <p className={styles['helperText']}>오프라인 일정 상세 정보가 없습니다.</p>
+                      )}
                     </div>
                   ) : (
                     <div className={styles['practicumDetailModal']}>
-                      <div className={styles['practicumDetailSummary']}>
-                        <span>일정명</span>
-                        <strong>{selectedCalendarEntry.schedule.title}</strong>
-                        <span>시간</span>
-                        <strong>
-                          {formatTimeRange(
-                            selectedCalendarEntry.schedule.startAt,
-                            selectedCalendarEntry.schedule.endAt,
-                          )}
-                        </strong>
-                        <span>유형</span>
-                        <strong>
-                          {practicumExceptionTypeLabels[selectedCalendarEntry.schedule.type]}
-                        </strong>
-                      </div>
+                      {isEditingSelectedPersonalSchedule && personalScheduleEditDraft ? (
+                        <>
+                          <div className={styles['practicumOperationFields']}>
+                            <label className={styles['field']}>
+                              <span className={styles['fieldLabel']}>날짜</span>
+                              <input
+                                className={styles['searchInput']}
+                                onChange={(event) => {
+                                  updatePersonalScheduleEditState((current) => ({
+                                    ...current,
+                                    date: event.target.value,
+                                  }));
+                                }}
+                                type='date'
+                                value={personalScheduleEditDraft.date}
+                              />
+                            </label>
+
+                            <label className={styles['field']}>
+                              <span className={styles['fieldLabel']}>일정명</span>
+                              <input
+                                className={styles['searchInput']}
+                                onChange={(event) => {
+                                  updatePersonalScheduleEditState((current) => ({
+                                    ...current,
+                                    title: event.target.value,
+                                  }));
+                                }}
+                                placeholder='예: 관리자 개인 일정'
+                                type='text'
+                                value={personalScheduleEditDraft.title}
+                              />
+                            </label>
+
+                            <label className={styles['field']}>
+                              <span className={styles['fieldLabel']}>일정내용</span>
+                              <textarea
+                                className={styles['textarea']}
+                                onChange={(event) => {
+                                  updatePersonalScheduleEditState((current) => ({
+                                    ...current,
+                                    content: event.target.value,
+                                  }));
+                                }}
+                                rows={4}
+                                value={personalScheduleEditDraft.content}
+                              />
+                            </label>
+
+                            <div className={`${styles['field']} ${styles['practicumTimeRangeField']}`}>
+                              <span className={styles['fieldLabel']}>시간</span>
+                              <div className={styles['practicumTimeRangeControls']}>
+                                <label className={styles['practicumTimeSelect']}>
+                                  <span className={styles['selectWrap']}>
+                                    <select
+                                      aria-label='시작 시간'
+                                      className={styles['select']}
+                                      onChange={(event) => {
+                                        const nextValue = Number(event.target.value);
+                                        updatePersonalScheduleEditState((current) => ({
+                                          ...current,
+                                          endHour:
+                                            nextValue >= current.endHour
+                                              ? Math.min(nextValue + 1, 24)
+                                              : current.endHour,
+                                          startHour: nextValue,
+                                        }));
+                                      }}
+                                      value={personalScheduleEditDraft.startHour}
+                                    >
+                                      {hourOptions.map((hour) => (
+                                        <option key={hour} value={hour}>
+                                          {String(hour).padStart(2, '0')}:00
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </span>
+                                </label>
+                                <span className={styles['practicumTimeRangeSeparator']}>~</span>
+                                <label className={styles['practicumTimeSelect']}>
+                                  <span className={styles['selectWrap']}>
+                                    <select
+                                      aria-label='종료 시간'
+                                      className={styles['select']}
+                                      onChange={(event) => {
+                                        updatePersonalScheduleEditState((current) => ({
+                                          ...current,
+                                          endHour: Number(event.target.value),
+                                        }));
+                                      }}
+                                      value={personalScheduleEditDraft.endHour}
+                                    >
+                                      {endHourOptions
+                                        .filter((hour) => hour > personalScheduleEditDraft.startHour)
+                                        .map((hour) => (
+                                          <option key={hour} value={hour}>
+                                            {String(hour).padStart(2, '0')}:00
+                                          </option>
+                                        ))}
+                                    </select>
+                                  </span>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                          <div className={styles['adminPracticumToolbar']}>
+                            <Button
+                              disabled={
+                                updatePersonalScheduleMutation.isPending ||
+                                !personalScheduleEditDraft.title.trim() ||
+                                !personalScheduleEditDraft.date
+                              }
+                              onClick={() => {
+                                updatePersonalScheduleMutation.mutate({
+                                  exceptionId: personalScheduleEditDraft.exceptionId,
+                                  payload: {
+                                    content: personalScheduleEditDraft.content.trim() || null,
+                                    endAt: toIsoDateTime(
+                                      personalScheduleEditDraft.date,
+                                      personalScheduleEditDraft.endHour,
+                                    ),
+                                    location: null,
+                                    startAt: toIsoDateTime(
+                                      personalScheduleEditDraft.date,
+                                      personalScheduleEditDraft.startHour,
+                                    ),
+                                    title: personalScheduleEditDraft.title.trim(),
+                                    type: 'ADMIN_SCHEDULE',
+                                  },
+                                });
+                              }}
+                              type='button'
+                              variant='secondary'
+                            >
+                              {updatePersonalScheduleMutation.isPending ? '저장 중...' : '수정 저장'}
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className={styles['practicumDetailSummary']}>
+                            <span>일정시간</span>
+                            <strong>
+                              {formatTimeRange(
+                                selectedCalendarEntry.schedule.startAt,
+                                selectedCalendarEntry.schedule.endAt,
+                              )}
+                            </strong>
+                            <span>일정명</span>
+                            <strong>{selectedCalendarEntry.schedule.title}</strong>
+                            <span>일정내용</span>
+                            <strong className={styles['practicumDetailContent']}>
+                              {selectedCalendarEntry.schedule.content?.trim() ||
+                                '등록된 일정 내용이 없습니다.'}
+                            </strong>
+                            <span>진행상태</span>
+                            <strong>
+                              {getPersonalScheduleProgressLabel(selectedCalendarEntry.schedule)}
+                            </strong>
+                          </div>
+                          <div className={styles['practicumModalActionRow']}>
+                            <Button
+                              disabled={deletePersonalScheduleMutation.isPending}
+                              onClick={() => {
+                                setPersonalScheduleEditDraft({
+                                  ...buildPersonalScheduleFormState(
+                                    selectedCalendarEntry.schedule,
+                                  ),
+                                  exceptionId: selectedCalendarEntry.schedule.id,
+                                });
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              일정변경
+                            </Button>
+                            <Button
+                              disabled={deletePersonalScheduleMutation.isPending}
+                              onClick={() => {
+                                deletePersonalScheduleMutation.mutate(
+                                  selectedCalendarEntry.schedule.id,
+                                );
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='danger'
+                            >
+                              일정취소
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
+                </Modal>
+              ) : null}
+
+              {moveOfflineScheduleState ? (
+                <Modal
+                  description={`${moveOfflineScheduleState.detail.programTitle} 오프라인 강의 날짜 변경`}
+                  headerLeading={
+                    <PracticumModalBackButton
+                      label='오프라인 일정 상세로 돌아가기'
+                      onClick={() => {
+                        setMoveOfflineScheduleState(null);
+                      }}
+                    />
+                  }
+                  onClose={closeCalendarModalStack}
+                  title='강의일자 변경'
+                >
+                  <div className={styles['practicumDetailModal']}>
+                    <div className={styles['practicumDetailSummary']}>
+                      <span>프로그램</span>
+                      <strong>{moveOfflineScheduleState.detail.programTitle}</strong>
+                      <span>강의</span>
+                      <strong>
+                        {moveOfflineScheduleState.detail.sectionTitle} &gt;{' '}
+                        {moveOfflineScheduleState.detail.lectureTitle}
+                      </strong>
+                      <span>현재 일정</span>
+                      <strong>
+                        {formatDateTime(moveOfflineScheduleState.detail.startAt)} ~{' '}
+                        {formatDateTime(moveOfflineScheduleState.detail.endAt)}
+                      </strong>
+                      <span>장소</span>
+                      <strong>
+                        {moveOfflineScheduleState.detail.location?.trim() || '장소 미정'}
+                      </strong>
+                    </div>
+
+                    <div className={styles['practicumOperationFields']}>
+                      <label className={styles['field']}>
+                        <span className={styles['fieldLabel']}>이동 날짜</span>
+                        <input
+                          className={styles['searchInput']}
+                          onChange={(event) => {
+                            setMoveOfflineScheduleState((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    nextDate: event.target.value,
+                                  }
+                                : current,
+                            );
+                          }}
+                          type='date'
+                          value={moveOfflineScheduleState.nextDate}
+                        />
+                      </label>
+                      <p className={styles['helperText']}>
+                        시간, 장소, 비고는 그대로 유지되고 날짜만 변경됩니다.
+                      </p>
+                    </div>
+
+                    <div className={styles['practicumModalActionRow']}>
+                      <Button
+                        onClick={() => {
+                          setMoveOfflineScheduleState(null);
+                        }}
+                        size='sm'
+                        type='button'
+                        variant='secondary'
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        disabled={
+                          moveOfflineScheduleMutation.isPending ||
+                          !moveOfflineScheduleState.nextDate ||
+                          moveOfflineScheduleState.nextDate ===
+                            getSlotDateKey(moveOfflineScheduleState.detail.startAt)
+                        }
+                        onClick={() => {
+                          moveOfflineScheduleMutation.mutate({
+                            detail: moveOfflineScheduleState.detail,
+                            nextDate: moveOfflineScheduleState.nextDate,
+                          });
+                        }}
+                        size='sm'
+                        type='button'
+                      >
+                        변경 저장
+                      </Button>
+                    </div>
+                  </div>
+                </Modal>
+              ) : null}
+
+              {moveReservationState ? (
+                <Modal
+                  description={`${moveReservationState.reservations
+                    .map((reservation) => reservation.userName)
+                    .join(', ')} 예약 이동`}
+                  headerLeading={
+                    <PracticumModalBackButton
+                      label={moveReservationState.returnLabel}
+                      onClick={() => {
+                        setMoveReservationState(null);
+                      }}
+                    />
+                  }
+                  onClose={closeCalendarModalStack}
+                  title='예약일자 변경'
+                >
+                  <div className={styles['practicumDetailModal']}>
+                    <div className={styles['practicumDetailSummary']}>
+                      <span>선택 예약자</span>
+                      <strong>
+                        {moveReservationState.reservations
+                          .map((reservation) => reservation.userName)
+                          .join(', ')}
+                      </strong>
+                      <span>선택 인원</span>
+                      <strong>{String(moveReservationState.reservations.length)}명</strong>
+                      <span>현재 일정</span>
+                      <strong>
+                        {formatDateTime(moveReservationState.reservations[0]?.slotStartAt ?? null)} ~{' '}
+                        {formatDateTime(moveReservationState.reservations[0]?.slotEndAt ?? null)}
+                      </strong>
+                      <span>강의명</span>
+                      <strong>{moveReservationState.reservations[0]?.lectureTitle ?? '-'}</strong>
+                    </div>
+
+                    {moveReservationOptions.filter(
+                      (item) =>
+                        item.slotId !== moveReservationState.reservations[0]?.slotId &&
+                        item.remainingCapacity >= moveReservationState.reservations.length,
+                    ).length ? (
+                      <div className={styles['practicumDayOverviewList']}>
+                        {moveReservationOptions
+                          .filter(
+                            (item) =>
+                              item.slotId !== moveReservationState.reservations[0]?.slotId &&
+                              item.remainingCapacity >= moveReservationState.reservations.length,
+                          )
+                          .map((item) => (
+                            <button
+                              className={styles['practicumDayOverviewCard']}
+                              key={`move-slot-${String(item.slotId)}`}
+                              onClick={() => {
+                                moveReservationMutation.mutate({
+                                  reservationIds: moveReservationState.reservations.map(
+                                    (reservation) => reservation.reservationId,
+                                  ),
+                                  slotId: item.slotId,
+                                });
+                              }}
+                              type='button'
+                            >
+                              <div className={styles['cellStack']}>
+                                <strong className={styles['cellPrimary']}>
+                                  {formatDateTime(item.startAt)} ~ {formatDateTime(item.endAt)}
+                                </strong>
+                                <span className={styles['cellSecondary']}>
+                                  {item.programTitle} &gt; {item.sectionTitle} &gt;{' '}
+                                  {item.lectureTitle}
+                                </span>
+                              </div>
+                              <span className={styles['badge']}>
+                                잔여 {String(item.remainingCapacity)}석
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+                    ) : (
+                      <p className={styles['helperText']}>
+                        선택한 인원을 변경할 수 있는 예약 시간이 없습니다.
+                      </p>
+                    )}
+                  </div>
                 </Modal>
               ) : null}
             </div>

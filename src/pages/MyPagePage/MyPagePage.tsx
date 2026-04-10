@@ -6,8 +6,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { logoutStudent } from '@/api/auth';
 import {
+  createMyGlobalQuestion,
   createMyEnrollmentReview,
+  deleteMyQuestion,
   sendMyPhoneVerification,
+  updateMyQuestion,
   updateMyEnrollmentReview,
   updateMyProfile,
   verifyMyPhoneChange,
@@ -23,34 +26,29 @@ import {
   useMyEnrollmentsQuery,
   useMyPaymentHistoryQuery,
   useMyProfileQuery,
-  useMyRefundsQuery,
+  useMyQuestionsQuery,
 } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import type { SmsSendResponse } from '@/types/auth';
-import type { EnrollmentReviewPayload } from '@/types/mypage';
+import type {
+  EnrollmentReviewPayload,
+  MyQuestionAnsweredFilter,
+  MyQuestionItem,
+  MyQuestionScope,
+} from '@/types/mypage';
 import { formatPaymentMethodLabel, paymentStatusLabels, type PaymentStatus } from '@/types/payment';
 import { classNames } from '@/utils/classNames';
 
 import styles from './MyPagePage.module.scss';
 
-type MyPageViewKey =
-  | 'learning-courses'
-  | 'orders-history'
-  | 'orders-refunds'
-  | 'profile-basic'
-  | 'support-inquiry';
+type MyPageViewKey = 'learning' | 'payments' | 'profile' | 'questions';
 
 interface SidebarItem {
   key: MyPageViewKey;
   label: string;
-}
-
-interface SidebarGroup {
-  label: string;
-  items: SidebarItem[];
 }
 
 interface ReviewFormDraftState {
@@ -58,31 +56,25 @@ interface ReviewFormDraftState {
   values: ReviewFormValues;
 }
 
-const DEFAULT_VIEW: MyPageViewKey = 'learning-courses';
+interface QuestionFormValues {
+  content: string;
+  title: string;
+}
 
-const SIDEBAR_GROUPS: SidebarGroup[] = [
-  {
-    label: '학습 관리',
-    items: [{ key: 'learning-courses', label: '내 강의' }],
-  },
-  {
-    label: '주문/결제',
-    items: [
-      { key: 'orders-history', label: '결제 내역' },
-      { key: 'orders-refunds', label: '취소/환불 내역' },
-    ],
-  },
-  {
-    label: '내 정보',
-    items: [{ key: 'profile-basic', label: '기본 정보' }],
-  },
-  {
-    label: '고객지원',
-    items: [{ key: 'support-inquiry', label: '1:1 문의' }],
-  },
+interface QuestionFormState {
+  mode: 'create' | 'edit';
+  question: MyQuestionItem | null;
+  values: QuestionFormValues;
+}
+
+const DEFAULT_VIEW: MyPageViewKey = 'learning';
+
+const SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'learning', label: '내 강의' },
+  { key: 'payments', label: '결제내역' },
+  { key: 'profile', label: '내정보관리' },
+  { key: 'questions', label: 'Q&A관리' },
 ];
-
-const ALL_ITEMS = SIDEBAR_GROUPS.flatMap((group) => group.items);
 
 const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: '수강 중',
@@ -90,16 +82,10 @@ const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
   CANCELLED: '취소 완료',
 };
 
-const REFUND_STATUS_LABELS: Record<string, string> = {
-  REFUND_REQUESTED: '환불 진행 중',
-  REFUNDED: '환불 완료',
-  CANCELLED: '취소 완료',
-};
-
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 
 const isMyPageViewKey = (value: string | null): value is MyPageViewKey => {
-  return ALL_ITEMS.some((item) => item.key === value);
+  return SIDEBAR_ITEMS.some((item) => item.key === value);
 };
 
 const formatDate = (value?: string | null) => {
@@ -137,12 +123,20 @@ const formatStatusLabel = (value: string, labels: Record<string, string>) => {
   return labels[value] ?? '상태 확인 필요';
 };
 
+const formatQuestionScopeLabel = (value: QuestionScopeFilterValue) => {
+  return QUESTION_SCOPE_LABELS[value];
+};
+
+const formatQuestionAnsweredLabel = (answered: boolean) => {
+  return answered ? '답변 완료' : '답변 대기';
+};
+
 const MY_COURSE_PAGE_SIZE = 6;
 const ORDER_LIST_PAGE_SIZE = 4;
 
 type EnrollmentCourseTabValue = 'ACTIVE' | 'EXPIRED' | 'CERTIFICATE';
 type PaymentStatusFilterValue = 'ALL' | PaymentStatus;
-type RefundFilterValue = 'ALL' | 'REFUND_REQUESTED' | 'REFUNDED' | 'CANCELLED';
+type QuestionScopeFilterValue = MyQuestionScope | 'ALL';
 
 interface SegmentOption<TValue extends string> {
   label: string;
@@ -252,6 +246,17 @@ const DEFAULT_REVIEW_FORM_VALUES: ReviewFormValues = {
   rating: '5',
 };
 
+const DEFAULT_QUESTION_FORM_VALUES: QuestionFormValues = {
+  content: '',
+  title: '',
+};
+
+const QUESTION_SCOPE_LABELS: Record<QuestionScopeFilterValue, string> = {
+  ALL: '전체',
+  GLOBAL: '운영 Q&A',
+  PROGRAM: '프로그램 Q&A',
+};
+
 const MyPagePage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -266,12 +271,19 @@ const MyPagePage = () => {
 
   const [courseTab, setCourseTab] = useState<EnrollmentCourseTabValue>('ACTIVE');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatusFilterValue>('ALL');
-  const [refundFilter, setRefundFilter] = useState<RefundFilterValue>('ALL');
   const [coursePage, setCoursePage] = useState(1);
   const [paymentPage, setPaymentPage] = useState(1);
-  const [refundPage, setRefundPage] = useState(1);
+  const [questionScopeFilter, setQuestionScopeFilter] = useState<QuestionScopeFilterValue>('ALL');
+  const [questionAnsweredFilter, setQuestionAnsweredFilter] =
+    useState<MyQuestionAnsweredFilter>('ALL');
+  const [questionSearchInput, setQuestionSearchInput] = useState('');
+  const [questionKeyword, setQuestionKeyword] = useState('');
+  const [questionPage, setQuestionPage] = useState(1);
+  const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
   const [profileFormValues, setProfileFormValues] = useState<ProfileFormValues | null>(null);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
+  const [questionFormState, setQuestionFormState] = useState<QuestionFormState | null>(null);
+  const [questionFormError, setQuestionFormError] = useState<string | null>(null);
   const [reviewFormDraft, setReviewFormDraft] = useState<ReviewFormDraftState>({
     enrollmentId: null,
     values: DEFAULT_REVIEW_FORM_VALUES,
@@ -302,11 +314,23 @@ const MyPagePage = () => {
         : certificateEnrollments;
   const coursePageCount = getPageCount(filteredEnrollments.length, MY_COURSE_PAGE_SIZE);
   const paginatedEnrollments = paginateItems(filteredEnrollments, coursePage, MY_COURSE_PAGE_SIZE);
-  const paymentHistoryQuery = useMyPaymentHistoryQuery(activeView === 'orders-history');
-  const refundsQuery = useMyRefundsQuery(activeView === 'orders-refunds');
+  const paymentHistoryQuery = useMyPaymentHistoryQuery(activeView === 'payments');
   const enrollmentDetailQuery = useMyEnrollmentDetailQuery(
     selectedEnrollmentId,
     selectedEnrollmentId !== null,
+  );
+  const questionsQuery = useMyQuestionsQuery(
+    {
+      answered:
+        questionAnsweredFilter === 'ALL'
+          ? undefined
+          : questionAnsweredFilter === 'ANSWERED',
+      keyword: questionKeyword,
+      page: questionPage - 1,
+      scope: questionScopeFilter,
+      size: 10,
+    },
+    activeView === 'questions',
   );
   const visiblePayments = (paymentHistoryQuery.data ?? []).filter((payment) => {
     return payment.status === 'COMPLETED' || payment.status === 'CANCELLED';
@@ -316,11 +340,6 @@ const MyPagePage = () => {
   });
   const paymentPageCount = getPageCount(filteredPayments.length, ORDER_LIST_PAGE_SIZE);
   const paginatedPayments = paginateItems(filteredPayments, paymentPage, ORDER_LIST_PAGE_SIZE);
-  const filteredRefunds = (refundsQuery.data ?? []).filter((refund) => {
-    return refundFilter === 'ALL' || refund.status === refundFilter;
-  });
-  const refundPageCount = getPageCount(filteredRefunds.length, ORDER_LIST_PAGE_SIZE);
-  const paginatedRefunds = paginateItems(filteredRefunds, refundPage, ORDER_LIST_PAGE_SIZE);
 
   const accountName = profileQuery.data?.displayName || storeDisplayName || '회원';
   const selectedEnrollment =
@@ -350,6 +369,13 @@ const MyPagePage = () => {
     });
   }, [profileQuery.data, syncProfileSnapshot]);
 
+  useEffect(() => {
+    const totalPages = questionsQuery.data?.totalPages ?? 1;
+    if (questionPage > totalPages) {
+      setQuestionPage(totalPages);
+    }
+  }, [questionPage, questionsQuery.data?.totalPages]);
+
   const handleCourseTabChange = (nextTab: EnrollmentCourseTabValue) => {
     setCourseTab(nextTab);
     setCoursePage(1);
@@ -360,9 +386,14 @@ const MyPagePage = () => {
     setPaymentPage(1);
   };
 
-  const handleRefundFilterChange = (nextFilter: RefundFilterValue) => {
-    setRefundFilter(nextFilter);
-    setRefundPage(1);
+  const handleQuestionScopeFilterChange = (nextFilter: QuestionScopeFilterValue) => {
+    setQuestionScopeFilter(nextFilter);
+    setQuestionPage(1);
+  };
+
+  const handleQuestionAnsweredFilterChange = (nextFilter: MyQuestionAnsweredFilter) => {
+    setQuestionAnsweredFilter(nextFilter);
+    setQuestionPage(1);
   };
 
   const handleViewChange = (viewKey: MyPageViewKey) => {
@@ -608,6 +639,64 @@ const MyPagePage = () => {
     },
   });
 
+  const createQuestionMutation = useMutation({
+    mutationFn: createMyGlobalQuestion,
+    onError: (error: unknown) => {
+      setQuestionFormError(error instanceof Error ? error.message : '질문을 등록하지 못했습니다.');
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['mypage', 'questions'] });
+      setQuestionFormState(null);
+      setQuestionFormError(null);
+      setQuestionScopeFilter('ALL');
+      setQuestionAnsweredFilter('ALL');
+      setQuestionPage(1);
+      showToast({
+        message: '운영 Q&A를 등록했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const updateQuestionMutation = useMutation({
+    mutationFn: ({
+      payload,
+      question,
+    }: {
+      payload: QuestionFormValues;
+      question: MyQuestionItem;
+    }) => updateMyQuestion(question, payload),
+    onError: (error: unknown) => {
+      setQuestionFormError(error instanceof Error ? error.message : '질문을 수정하지 못했습니다.');
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['mypage', 'questions'] });
+      setQuestionFormState(null);
+      setQuestionFormError(null);
+      showToast({
+        message: '질문을 수정했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const deleteQuestionMutation = useMutation({
+    mutationFn: deleteMyQuestion,
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '질문을 삭제하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['mypage', 'questions'] });
+      showToast({
+        message: '질문을 삭제했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
   const handleReviewSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -638,6 +727,71 @@ const MyPagePage = () => {
         rating,
       },
       programId: detail.programId,
+    });
+  };
+
+  const closeQuestionModal = () => {
+    setQuestionFormState(null);
+    setQuestionFormError(null);
+  };
+
+  const openCreateQuestionModal = () => {
+    setQuestionFormState({
+      mode: 'create',
+      question: null,
+      values: DEFAULT_QUESTION_FORM_VALUES,
+    });
+    setQuestionFormError(null);
+  };
+
+  const openEditQuestionModal = (question: MyQuestionItem) => {
+    setQuestionFormState({
+      mode: 'edit',
+      question,
+      values: {
+        content: question.content,
+        title: question.title,
+      },
+    });
+    setQuestionFormError(null);
+  };
+
+  const handleQuestionSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!questionFormState) {
+      return;
+    }
+
+    const title = questionFormState.values.title.trim();
+    const content = questionFormState.values.content.trim();
+
+    if (!title || !content) {
+      setQuestionFormError('질문 제목과 내용을 모두 입력해 주세요.');
+      return;
+    }
+
+    setQuestionFormError(null);
+
+    if (questionFormState.mode === 'create') {
+      createQuestionMutation.mutate({
+        content,
+        title,
+      });
+      return;
+    }
+
+    if (!questionFormState.question) {
+      setQuestionFormError('수정할 질문 정보를 찾지 못했습니다.');
+      return;
+    }
+
+    updateQuestionMutation.mutate({
+      payload: {
+        content,
+        title,
+      },
+      question: questionFormState.question,
     });
   };
 
@@ -832,14 +986,6 @@ const MyPagePage = () => {
                           >
                             이어보기
                           </Link>
-                          {enrollment.hasPracticum ? (
-                            <Link
-                              className={styles['learningActionLink']}
-                              to={routePaths.myEnrollmentPracticum(String(enrollment.id))}
-                            >
-                              실습 예약
-                            </Link>
-                          ) : null}
                           {renderReviewAction(enrollment)}
                         </div>
                       </div>
@@ -870,13 +1016,16 @@ const MyPagePage = () => {
 
   const renderOrderHistory = () => {
     const paymentCount = visiblePayments.length;
+    const completedCount = visiblePayments.filter((payment) => payment.status === 'COMPLETED').length;
+    const cancelledCount = visiblePayments.filter((payment) => payment.status === 'CANCELLED').length;
 
     return (
       <section className={styles['contentSection']}>
         <div className={sharedStyles['sectionHeader']}>
           <h2 className={sharedStyles['sectionTitle']}>결제 내역</h2>
           <p className={sharedStyles['sectionDescription']}>
-            전체 {paymentCount}건 중 {filteredPayments.length}건을 보고 있습니다.
+            전체 {paymentCount}건 중 {filteredPayments.length}건을 보고 있습니다. 결제 완료{' '}
+            {completedCount}건, 취소 완료 {cancelledCount}건입니다.
           </p>
         </div>
 
@@ -996,78 +1145,192 @@ const MyPagePage = () => {
     );
   };
 
-  const renderOrderRefunds = () => {
-    const refundCount = refundsQuery.data?.length ?? 0;
+  const renderQuestionManagement = () => {
+    const questionPageData = questionsQuery.data;
+    const questions = questionPageData?.content ?? [];
+    const totalQuestionCount = questionPageData?.totalElements ?? 0;
+    const questionTotalPages = Math.max(1, questionPageData?.totalPages ?? 1);
 
     return (
       <section className={styles['contentSection']}>
         <div className={sharedStyles['sectionHeader']}>
-          <h2 className={sharedStyles['sectionTitle']}>취소/환불 내역</h2>
+          <h2 className={sharedStyles['sectionTitle']}>Q&A관리</h2>
           <p className={sharedStyles['sectionDescription']}>
-            전체 {refundCount}건 중 {filteredRefunds.length}건을 보고 있습니다.
+            운영 Q&A와 프로그램 Q&A를 한 곳에서 확인하고 관리합니다.
           </p>
         </div>
 
+        <div className={styles['stackList']}>
+          <div className={styles['stackItem']}>
+            <div className={styles['stackItemHeader']}>
+              <strong className={styles['stackItemTitle']}>질문 등록 안내</strong>
+              <Button onClick={openCreateQuestionModal} size='sm' type='button'>
+                운영 Q&A 등록
+              </Button>
+            </div>
+            <p className={styles['stackItemText']}>
+              운영 Q&A는 여기에서 등록할 수 있고, 프로그램 Q&A는 강의 플레이어의 Q&A 탭에서
+              작성한 뒤 여기에서 함께 관리합니다.
+            </p>
+          </div>
+        </div>
+
         <SegmentFilter
-          onChange={handleRefundFilterChange}
+          onChange={handleQuestionScopeFilterChange}
           options={[
             { label: '전체', value: 'ALL' },
-            { label: '환불 진행 중', value: 'REFUND_REQUESTED' },
-            { label: '환불 완료', value: 'REFUNDED' },
-            { label: '취소 완료', value: 'CANCELLED' },
+            { label: '운영 Q&A', value: 'GLOBAL' },
+            { label: '프로그램 Q&A', value: 'PROGRAM' },
           ]}
-          value={refundFilter}
+          value={questionScopeFilter}
         />
 
-        {refundsQuery.isLoading ? (
-          <p className={sharedStyles['mutedText']}>취소/환불 내역을 불러오는 중입니다.</p>
+        <SegmentFilter
+          onChange={handleQuestionAnsweredFilterChange}
+          options={[
+            { label: '전체', value: 'ALL' },
+            { label: '답변 완료', value: 'ANSWERED' },
+            { label: '답변 대기', value: 'WAITING' },
+          ]}
+          value={questionAnsweredFilter}
+        />
+
+        <form
+          className={styles['inlineEditor']}
+          onSubmit={(event) => {
+            event.preventDefault();
+            setQuestionKeyword(questionSearchInput);
+            setQuestionPage(1);
+          }}
+        >
+          <div className={sharedStyles['fieldGrid']}>
+            <TextField
+              label='검색어'
+              name='questionSearch'
+              onChange={(event) => {
+                setQuestionSearchInput(event.target.value);
+              }}
+              placeholder='제목, 내용, 프로그램명, 강의명을 검색해 주세요.'
+              value={questionSearchInput}
+            />
+          </div>
+          <div className={styles['actionRow']}>
+            <Button type='submit' variant='secondary'>
+              검색
+            </Button>
+          </div>
+        </form>
+
+        {questionsQuery.isLoading ? (
+          <p className={sharedStyles['mutedText']}>내 질문을 불러오는 중입니다.</p>
         ) : null}
 
-        {refundsQuery.isError ? (
+        {questionsQuery.isError ? (
           <p className={styles['errorText']}>
-            {refundsQuery.error instanceof Error
-              ? refundsQuery.error.message
-              : '취소/환불 내역을 불러오지 못했습니다.'}
+            {questionsQuery.error instanceof Error
+              ? questionsQuery.error.message
+              : '내 질문을 불러오지 못했습니다.'}
           </p>
         ) : null}
 
-        {!refundsQuery.isLoading && !refundsQuery.isError && filteredRefunds.length ? (
+        {!questionsQuery.isLoading && !questionsQuery.isError && questions.length ? (
           <div className={styles['stackList']}>
-            {paginatedRefunds.map((refund) => (
-              <div className={styles['stackItem']} key={refund.id}>
-                <div className={styles['stackItemHeader']}>
-                  <strong className={styles['stackItemTitle']}>{refund.programTitle}</strong>
-                  <span className={styles['statusChip']}>
-                    {formatStatusLabel(refund.status, REFUND_STATUS_LABELS)}
-                  </span>
+            {questions.map((question) => {
+              const isExpanded = expandedQuestionId === question.id;
+
+              return (
+                <div className={styles['stackItem']} key={question.id}>
+                  <div className={styles['stackItemHeader']}>
+                    <div>
+                      <strong className={styles['stackItemTitle']}>{question.title}</strong>
+                      <p className={styles['stackItemText']}>
+                        {formatQuestionScopeLabel(question.scope)} · {question.programTitle ?? '운영 문의'}
+                      </p>
+                    </div>
+                    <span className={styles['statusChip']}>
+                      {formatQuestionAnsweredLabel(question.answered)}
+                    </span>
+                  </div>
+
+                  <p className={styles['stackItemText']}>
+                    작성일 {formatDateTime(question.createdAt)} · 답글 {question.replyCount}개
+                  </p>
+                  <p className={styles['stackItemText']}>{question.content}</p>
+
+                  <div className={styles['actionRow']}>
+                    <Button
+                      onClick={() => {
+                        setExpandedQuestionId((current) =>
+                          current === question.id ? null : question.id,
+                        );
+                      }}
+                      size='sm'
+                      type='button'
+                      variant='secondary'
+                    >
+                      {isExpanded ? '답변 접기' : '답변 보기'}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        openEditQuestionModal(question);
+                      }}
+                      size='sm'
+                      type='button'
+                      variant='secondary'
+                    >
+                      수정
+                    </Button>
+                    <Button
+                      disabled={deleteQuestionMutation.isPending}
+                      onClick={() => {
+                        deleteQuestionMutation.mutate(question);
+                      }}
+                      size='sm'
+                      type='button'
+                      variant='secondary'
+                    >
+                      삭제
+                    </Button>
+                  </div>
+
+                  {isExpanded ? (
+                    question.replies.length ? (
+                      <div className={styles['stackList']}>
+                        {question.replies.map((reply) => (
+                          <div className={styles['stackItem']} key={reply.id}>
+                            <div className={styles['stackItemHeader']}>
+                              <strong className={styles['stackItemTitle']}>{reply.authorName}</strong>
+                              <span className={styles['statusChip']}>
+                                {reply.adminReply ? '운영 답변' : '답글'}
+                              </span>
+                            </div>
+                            <p className={styles['stackItemText']}>
+                              {formatDateTime(reply.createdAt)}
+                            </p>
+                            <p className={styles['stackItemText']}>{reply.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className={sharedStyles['mutedText']}>아직 등록된 답변이 없습니다.</p>
+                    )
+                  ) : null}
                 </div>
-                <p className={styles['stackItemText']}>
-                  환불 금액 {formatCurrency(refund.refundAmount)} · 요청일{' '}
-                  {formatDateTime(refund.requestedAt)} · 처리일 {formatDateTime(refund.processedAt)}{' '}
-                  · {refund.paymentMethod || '-'} · {refund.reason || '사유 없음'}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : null}
 
-        {!refundsQuery.isLoading &&
-        !refundsQuery.isError &&
-        refundCount > 0 &&
-        filteredRefunds.length === 0 ? (
-          <p className={sharedStyles['mutedText']}>선택한 상태의 취소/환불 내역이 없습니다.</p>
-        ) : null}
-
-        {!refundsQuery.isLoading && !refundsQuery.isError && filteredRefunds.length ? (
+        {!questionsQuery.isLoading && !questionsQuery.isError && totalQuestionCount > 0 ? (
           <PaginationControls
-            currentPage={refundPage}
-            onChange={setRefundPage}
-            totalPages={refundPageCount}
+            currentPage={questionPage}
+            onChange={setQuestionPage}
+            totalPages={questionTotalPages}
           />
         ) : null}
 
-        {!refundsQuery.isLoading && !refundsQuery.isError && refundCount === 0 ? (
-          <p className={sharedStyles['mutedText']}>취소/환불 내역이 없습니다.</p>
+        {!questionsQuery.isLoading && !questionsQuery.isError && totalQuestionCount === 0 ? (
+          <p className={sharedStyles['mutedText']}>등록된 질문이 없습니다.</p>
         ) : null}
       </section>
     );
@@ -1253,34 +1516,16 @@ const MyPagePage = () => {
     );
   };
 
-  const renderSupportInquiry = () => {
-    return (
-      <section className={styles['contentSection']}>
-        <h2 className={sharedStyles['sectionTitle']}>1:1 문의</h2>
-        <div className={styles['supportBlock']}>
-          <p className={sharedStyles['mutedText']}>
-            문의 내역 조회 기능은 준비 중입니다. 문의가 필요하면 문의 페이지를 이용해 주세요.
-          </p>
-          <Link className={sharedStyles['textLink']} to={routePaths.contact}>
-            문의하기
-          </Link>
-        </div>
-      </section>
-    );
-  };
-
   const renderActivePanel = () => {
     switch (activeView) {
-      case 'learning-courses':
+      case 'learning':
         return renderLearningCourses();
-      case 'orders-history':
+      case 'payments':
         return renderOrderHistory();
-      case 'orders-refunds':
-        return renderOrderRefunds();
-      case 'profile-basic':
+      case 'profile':
         return renderProfileBasic();
-      case 'support-inquiry':
-        return renderSupportInquiry();
+      case 'questions':
+        return renderQuestionManagement();
       default:
         return null;
     }
@@ -1390,6 +1635,79 @@ const MyPagePage = () => {
     );
   };
 
+  const renderQuestionModal = () => {
+    if (!questionFormState) {
+      return null;
+    }
+
+    const isEditMode = questionFormState.mode === 'edit';
+    const isPending = createQuestionMutation.isPending || updateQuestionMutation.isPending;
+
+    return (
+      <Modal
+        description={
+          isEditMode
+            ? '등록한 질문을 수정합니다.'
+            : '운영 관련 문의를 등록합니다. 프로그램 질문은 플레이어의 Q&A 탭에서 작성해 주세요.'
+        }
+        onClose={closeQuestionModal}
+        title={isEditMode ? '질문 수정' : '운영 Q&A 등록'}
+      >
+        <form className={styles['reviewForm']} onSubmit={handleQuestionSubmit}>
+          <div className={styles['reviewFieldGrid']}>
+            <TextField
+              label='제목'
+              name='questionTitle'
+              onChange={(event) => {
+                setQuestionFormState((current) =>
+                  current
+                    ? {
+                        ...current,
+                        values: {
+                          ...current.values,
+                          title: event.target.value,
+                        },
+                      }
+                    : current,
+                );
+              }}
+              placeholder='질문 제목을 입력해 주세요.'
+              value={questionFormState.values.title}
+            />
+            <TextAreaField
+              label='내용'
+              name='questionContent'
+              onChange={(event) => {
+                setQuestionFormState((current) =>
+                  current
+                    ? {
+                        ...current,
+                        values: {
+                          ...current.values,
+                          content: event.target.value,
+                        },
+                      }
+                    : current,
+                );
+              }}
+              rows={7}
+              value={questionFormState.values.content}
+            />
+          </div>
+          {questionFormError ? <p className={styles['errorText']}>{questionFormError}</p> : null}
+          <div className={styles['reviewActionRow']}>
+            <Button onClick={closeQuestionModal} type='button' variant='secondary'>
+              닫기
+            </Button>
+            <Button disabled={isPending} type='submit'>
+              {isPending ? '저장 중...' : isEditMode ? '질문 수정하기' : '질문 등록하기'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    );
+  };
+
   return (
     <section className={sharedStyles['page']}>
       <div className={sharedStyles['shell']}>
@@ -1405,33 +1723,28 @@ const MyPagePage = () => {
               </div>
 
               <nav aria-label='마이페이지 메뉴' className={styles['menuGroups']}>
-                {SIDEBAR_GROUPS.map((group) => (
-                  <div className={styles['menuGroup']} key={group.label}>
-                    <p className={styles['menuGroupLabel']}>{group.label}</p>
-                    <div className={styles['menuList']}>
-                      {group.items.map((item) => {
-                        const isActive = item.key === activeView;
+                <div className={styles['menuList']}>
+                  {SIDEBAR_ITEMS.map((item) => {
+                    const isActive = item.key === activeView;
 
-                        return (
-                          <button
-                            aria-pressed={isActive}
-                            className={classNames(
-                              styles['menuButton'],
-                              isActive && styles['menuButtonActive'],
-                            )}
-                            key={item.key}
-                            onClick={() => {
-                              handleViewChange(item.key);
-                            }}
-                            type='button'
-                          >
-                            <span className={styles['menuLabel']}>{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+                    return (
+                      <button
+                        aria-pressed={isActive}
+                        className={classNames(
+                          styles['menuButton'],
+                          isActive && styles['menuButtonActive'],
+                        )}
+                        key={item.key}
+                        onClick={() => {
+                          handleViewChange(item.key);
+                        }}
+                        type='button'
+                      >
+                        <span className={styles['menuLabel']}>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </nav>
 
               <div className={styles['sidebarFooter']}>
@@ -1454,6 +1767,7 @@ const MyPagePage = () => {
         </div>
       </div>
       {renderReviewModal()}
+      {renderQuestionModal()}
     </section>
   );
 };

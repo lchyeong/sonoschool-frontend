@@ -99,7 +99,7 @@ export const paymentStatusLabels: Record<PaymentStatus, string> = {
   COMPLETED: '결제 완료',
   FAILED: '결제 실패',
   PENDING: '결제 대기',
-  REGISTERED: '입금 대기',
+  REGISTERED: '결제 접수',
 };
 
 export const formatPaymentMethodLabel = (value: PaymentMethodValue): string => {

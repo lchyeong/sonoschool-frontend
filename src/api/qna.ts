@@ -5,6 +5,7 @@ import type { ApiEnvelope } from '@/types/auth';
 import type {
   QuestionCreatePayload,
   QuestionItem,
+  QuestionScope,
   QuestionReplyCreatePayload,
   QuestionReplyItem,
 } from '@/types/qna';
@@ -32,9 +33,25 @@ export const createGlobalQuestion = async (
   }
 };
 
-export const fetchAdminQuestions = async (): Promise<QuestionItem[]> => {
+export interface AdminQuestionFilters {
+  answered?: boolean | null;
+  keyword?: string | null;
+  programId?: number | null;
+  scope?: QuestionScope | 'ALL';
+}
+
+export const fetchAdminQuestions = async (
+  filters?: AdminQuestionFilters,
+): Promise<QuestionItem[]> => {
   try {
-    const response = await axiosInstance.get<ApiEnvelope<QuestionItem[]>>('/api/v1/admin/qna');
+    const response = await axiosInstance.get<ApiEnvelope<QuestionItem[]>>('/api/v1/admin/qna', {
+      params: {
+        answered: filters?.answered ?? undefined,
+        keyword: filters?.keyword?.trim() || undefined,
+        programId: filters?.programId ?? undefined,
+        scope: filters?.scope && filters.scope !== 'ALL' ? filters.scope : undefined,
+      },
+    });
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '관리자 Q&A 목록을 불러오지 못했습니다.');

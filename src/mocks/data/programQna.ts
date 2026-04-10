@@ -1,12 +1,12 @@
 import type {
-  ProgramCommunityPageResponse,
-  ProgramCommunityReplyCreatePayload,
-  ProgramCommunityReplyItem,
-  ProgramCommunityThreadCreatePayload,
-  ProgramCommunityThreadItem,
-} from '@/types/programCommunity';
+  ProgramQnaPageResponse,
+  ProgramQnaReplyCreatePayload,
+  ProgramQnaReplyItem,
+  ProgramQnaThreadCreatePayload,
+  ProgramQnaThreadItem,
+} from '@/types/programQna';
 
-const initialThreadsByProgramId = new Map<number, ProgramCommunityThreadItem[]>([
+const initialThreadsByProgramId = new Map<number, ProgramQnaThreadItem[]>([
   [
     101,
     [
@@ -15,9 +15,6 @@ const initialThreadsByProgramId = new Map<number, ProgramCommunityThreadItem[]>(
         scope: 'PROGRAM',
         programId: 101,
         programTitle: '복부 실전 과정',
-        lectureId: null,
-        lectureTitle: null,
-        lectureType: null,
         authorName: '이수민',
         authorType: 'MEMBER',
         title: '비수강생도 예습 자료를 먼저 볼 수 있나요?',
@@ -45,9 +42,6 @@ const initialThreadsByProgramId = new Map<number, ProgramCommunityThreadItem[]>(
         scope: 'PROGRAM',
         programId: 101,
         programTitle: '복부 실전 과정',
-        lectureId: 2001,
-        lectureTitle: '복부 기본 스캔',
-        lectureType: 'VIDEO',
         authorName: '박지훈',
         authorType: 'ENROLLED',
         title: '2강에서 probe angle 설명이 빠르게 느껴집니다.',
@@ -89,18 +83,14 @@ const getThreadsForProgram = (programId: number) => {
   return initialThreadsByProgramId.get(programId) ?? [];
 };
 
-const setThreadsForProgram = (programId: number, nextThreads: ProgramCommunityThreadItem[]) => {
+const setThreadsForProgram = (programId: number, nextThreads: ProgramQnaThreadItem[]) => {
   initialThreadsByProgramId.set(programId, nextThreads);
 };
 
-export const getMockProgramCommunity = (
-  programId: number,
-  lectureId?: number | null,
-): ProgramCommunityPageResponse => {
-  const hasLectureFilter = lectureId !== null && lectureId !== undefined;
-  const threads = getThreadsForProgram(programId)
-    .filter((thread) => (!hasLectureFilter ? true : thread.lectureId === lectureId))
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+export const getMockProgramQna = (programId: number): ProgramQnaPageResponse => {
+  const threads = getThreadsForProgram(programId).sort((left, right) =>
+    right.createdAt.localeCompare(left.createdAt),
+  );
 
   return {
     content: threads.map((thread) => ({
@@ -116,19 +106,17 @@ export const getMockProgramCommunity = (
   };
 };
 
-export const createMockProgramCommunityThread = (
+export const createMockProgramQnaThread = (
   programId: number,
-  payload: ProgramCommunityThreadCreatePayload,
-): ProgramCommunityThreadItem => {
+  payload: ProgramQnaThreadCreatePayload,
+): ProgramQnaThreadItem => {
   const currentThreads = getThreadsForProgram(programId);
-  const nextThread: ProgramCommunityThreadItem = {
+  const now = new Date().toISOString();
+  const nextThread: ProgramQnaThreadItem = {
     id: Math.max(...currentThreads.map((thread) => thread.id), 0) + 1,
     scope: 'PROGRAM',
     programId,
     programTitle: currentThreads[0]?.programTitle ?? `프로그램 ${String(programId)}`,
-    lectureId: payload.lectureId ?? null,
-    lectureTitle: payload.lectureId ? `강의 ${String(payload.lectureId)}` : null,
-    lectureType: payload.lectureId ? 'VIDEO' : null,
     authorName: '현재 사용자',
     authorType: 'MEMBER',
     title: payload.title,
@@ -136,8 +124,8 @@ export const createMockProgramCommunityThread = (
     mine: true,
     answered: false,
     replyCount: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
     replies: [],
   };
 
@@ -145,11 +133,11 @@ export const createMockProgramCommunityThread = (
   return nextThread;
 };
 
-export const createMockProgramCommunityReply = (
+export const createMockProgramQnaReply = (
   programId: number,
   questionId: number,
-  payload: ProgramCommunityReplyCreatePayload,
-): ProgramCommunityReplyItem | null => {
+  payload: ProgramQnaReplyCreatePayload,
+): ProgramQnaReplyItem | null => {
   const currentThreads = getThreadsForProgram(programId);
   const targetThread = currentThreads.find((thread) => thread.id === questionId);
 
@@ -157,7 +145,7 @@ export const createMockProgramCommunityReply = (
     return null;
   }
 
-  const nextReply: ProgramCommunityReplyItem = {
+  const nextReply: ProgramQnaReplyItem = {
     id:
       Math.max(
         ...currentThreads.flatMap((thread) => thread.replies.map((reply) => reply.id)),

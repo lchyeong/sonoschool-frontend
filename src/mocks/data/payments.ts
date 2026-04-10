@@ -88,29 +88,19 @@ const paymentScenarioSeeds: PaymentScenarioSeed[] = [
     code: 'B001',
     orderNumber: 'ORD-502',
     id: 502,
-    method: 'BANK_TRANSFER',
-    paidAt: null,
-    registeredAt: '2026-03-18T10:08:00Z',
-    resultToken: 'mock-bank-failed',
-    status: 'FAILED',
-  },
-  {
-    code: 'V001',
-    orderNumber: 'ORD-503',
-    id: 503,
-    method: 'VIRTUAL_ACCOUNT',
-    paidAt: null,
-    registeredAt: '2026-03-18T10:09:00Z',
-    resultToken: 'mock-vbank-registered',
-    status: 'REGISTERED',
+    method: 'CARD',
+    paidAt: '2026-03-16T07:35:00Z',
+    registeredAt: '2026-03-16T07:34:00Z',
+    resultToken: 'mock-card-completed-2',
+    status: 'COMPLETED',
   },
   {
     code: 'C001',
-    orderNumber: 'ORD-504',
-    id: 504,
+    orderNumber: 'ORD-503',
+    id: 503,
     method: 'CARD',
-    paidAt: null,
-    registeredAt: '2026-03-18T10:01:00Z',
+    paidAt: '2026-03-12T11:01:00Z',
+    registeredAt: '2026-03-12T11:00:00Z',
     resultToken: 'mock-card-cancelled',
     status: 'CANCELLED',
   },
@@ -167,7 +157,7 @@ export const getMockPaymentResultByToken = (token: string): PaymentResult | null
 export const createMockCheckoutRedirectPayload = (
   paymentMethod: PaymentMethodValue,
 ): MockCheckoutRedirectPayload => {
-  const paymentId = paymentMethod === 'CARD' ? 501 : paymentMethod === 'BANK_TRANSFER' ? 502 : 503;
+  const paymentId = paymentMethod === 'CARD' ? 501 : 502;
   const seed = paymentScenarioSeeds.find((item) => item.id === paymentId);
 
   if (!seed) {

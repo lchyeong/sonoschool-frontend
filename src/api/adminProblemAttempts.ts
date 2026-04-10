@@ -2,17 +2,19 @@ import axios from 'axios';
 
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import type { AdminQuizAttempt } from '@/types/adminQuizAttempts';
 import type { ApiEnvelope } from '@/types/auth';
+import type { AdminProblemAttempt } from '@/types/adminProblemAttempts';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
-export const fetchAdminQuizAttempts = async (quizId: number): Promise<AdminQuizAttempt[]> => {
+export const fetchAdminProblemAttempts = async (
+  problemId: number,
+): Promise<AdminProblemAttempt[]> => {
   try {
-    const response = await axiosInstance.get<ApiEnvelope<AdminQuizAttempt[]>>(
-      `/api/v1/admin/quizzes/${String(quizId)}/attempts`,
+    const response = await axiosInstance.get<ApiEnvelope<AdminProblemAttempt[]>>(
+      `/api/v1/admin/problems/${String(problemId)}/attempts`,
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {

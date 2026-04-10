@@ -172,6 +172,18 @@ export const deriveCurriculumLessonDurationLabel = (
     return formatProgramMinutesLabel(lesson.durationMinutes ?? 0);
   }
 
+  if (lesson.deliveryType === 'problem') {
+    return '문제 풀이';
+  }
+
+  if (lesson.deliveryType === 'resource') {
+    return '첨부자료';
+  }
+
+  if (lesson.deliveryType === 'practicum') {
+    return '실습 예약';
+  }
+
   return buildDateRangeLabel(lesson.startDate, lesson.endDate, '오프라인 일정 추후 안내');
 };
 
@@ -244,7 +256,7 @@ export const deriveCurriculumSectionDurationLabel = (
     return `총 ${formatProgramMinutesLabel(onlineMinutesTotal)}`;
   }
 
-  return '일정 추후 안내';
+  return `${String(section.lessons.length)}개 학습 항목`;
 };
 
 export const deriveCurriculumTrackOperationWindow = (

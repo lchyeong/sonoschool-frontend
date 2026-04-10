@@ -124,9 +124,11 @@
 .toolbarFilterRow,
 .toolbarDropdownRow {
   display: flex;
-  flex-wrap: wrap;
-  align-items: end;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .toolbarSearchField {
@@ -137,6 +139,272 @@
   display: flex;
   align-items: flex-end;
   flex-shrink: 0;
+}
+
+.paymentDatePicker {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.paymentSearchControls {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+  flex: 1;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.paymentSearchControls .selectWrap {
+  width: 148px;
+  flex-shrink: 0;
+  border-right: 0;
+}
+
+.paymentSearchInput {
+  flex: 1;
+  width: auto;
+  min-width: 220px;
+  max-width: 320px;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--admin-border);
+  border-right: 0;
+  background: #ffffff;
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.paymentSearchButton {
+  min-width: 88px;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--admin-border);
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.paymentSearchControls .selectWrap:focus-within,
+.paymentSearchInput:focus,
+.paymentSearchButton:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+
+.paymentSearchControls .selectWrap:focus-within {
+  box-shadow: none;
+}
+
+.paymentSearchControls .select:focus,
+.paymentSearchInput:focus,
+.paymentSearchButton:focus,
+.paymentSearchButton:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.paymentDatePickerTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 320px;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--admin-border);
+  background: #ffffff;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.paymentDatePickerTrigger:hover,
+.paymentDatePickerTriggerActive {
+  border-color: var(--admin-border-strong);
+}
+
+.paymentDatePickerIcon {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  opacity: 0.7;
+}
+
+.paymentDatePickerPopover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  gap: var(--space-4);
+  min-width: 720px;
+  padding: var(--space-5);
+  border: 1px solid var(--admin-border);
+  background: #ffffff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+}
+
+.paymentDatePickerCalendars {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.paymentDatePickerCalendarPanel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.paymentDatePickerCalendarHead {
+  display: grid;
+  grid-template-columns: 3rem 1fr 3rem;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.paymentDatePickerMonthLabel {
+  text-align: center;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+}
+
+.paymentDatePickerNav,
+.paymentDatePickerNavSpacer {
+  min-width: 3rem;
+}
+
+.paymentDatePickerNav {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.paymentDatePickerWeekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.2rem;
+}
+
+.paymentDatePickerWeekdays span {
+  text-align: center;
+  color: #94a3b8;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.paymentDatePickerWeekdays span:first-child {
+  color: #dc2626;
+}
+
+.paymentDatePickerWeekdays span:last-child {
+  color: #2563eb;
+}
+
+.paymentDatePickerDays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.2rem 0;
+}
+
+.paymentDatePickerDay {
+  position: relative;
+  isolation: isolate;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  cursor: pointer;
+}
+
+.paymentDatePickerDay:disabled {
+  cursor: default;
+}
+
+.paymentDatePickerDays .paymentDatePickerDay:nth-child(7n + 1) {
+  color: #dc2626;
+}
+
+.paymentDatePickerDays .paymentDatePickerDay:nth-child(7n) {
+  color: #2563eb;
+}
+
+.paymentDatePickerDayOutside {
+  color: transparent;
+}
+
+.paymentDatePickerDayInRange::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #eceff3;
+  z-index: -2;
+}
+
+.paymentDatePickerDaySelectedStart,
+.paymentDatePickerDaySelectedEnd {
+  color: #ffffff;
+  font-weight: var(--font-weight-bold);
+}
+
+.paymentDatePickerDaySelectedStart::after,
+.paymentDatePickerDaySelectedEnd::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(193, 101, 18, 0.92);
+  transform: translate(-50%, -50%);
+  z-index: -1;
+}
+
+.paymentDatePickerDaySelectedStart.paymentDatePickerDayInRange::before {
+  background: linear-gradient(to right, transparent 50%, #eceff3 50%);
+}
+
+.paymentDatePickerDaySelectedEnd.paymentDatePickerDayInRange::before {
+  background: linear-gradient(to left, transparent 50%, #eceff3 50%);
+}
+
+.paymentDatePickerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--admin-border);
+}
+
+.paymentDatePickerCopy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.paymentDatePickerCopy p {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.paymentDatePickerMessage {
+  color: #b91c1c;
+  font-size: var(--font-size-xs);
+}
+
+.paymentDatePickerActions {
+  display: flex;
+  gap: var(--space-2);
 }
 
 .listFrame {
@@ -336,17 +604,26 @@
   display: grid;
   gap: var(--space-5);
   padding: var(--space-6);
-  border: 1px solid var(--admin-border);
-  background: var(--admin-surface);
+  border: 1px solid var(--admin-border-strong);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-brand-main) 3%, #ffffff) 0%, #ffffff 7rem),
+    var(--admin-surface);
 }
 
 .panelWide {
   grid-column: 1 / -1;
 }
 
+.panelWide + .panelWide {
+  margin-top: calc(var(--space-2) * -1);
+}
+
 .panelHeader {
   display: grid;
   gap: var(--space-1);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid color-mix(in srgb, var(--admin-border-strong) 65%, #ffffff);
 }
 
 .panelEyebrow {
@@ -372,6 +649,8 @@
   align-items: end;
   justify-content: space-between;
   gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid color-mix(in srgb, var(--admin-border-strong) 65%, #ffffff);
 }
 
 .searchField {
@@ -629,8 +908,9 @@
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4);
-  border: 1px solid var(--admin-border);
-  background: var(--admin-surface-muted);
+  border: 1px solid color-mix(in srgb, var(--admin-border-strong) 55%, #ffffff);
+  border-left: 4px solid color-mix(in srgb, var(--color-brand-main) 58%, #ffffff);
+  background: color-mix(in srgb, var(--color-brand-main) 4%, #ffffff);
 }
 
 .metaNoticeLabel {
@@ -996,8 +1276,16 @@
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4);
-  border: 1px solid var(--admin-border);
-  background: var(--admin-surface-subtle);
+  border: 1px solid color-mix(in srgb, var(--admin-border-strong) 50%, #ffffff);
+  border-top: 3px solid color-mix(in srgb, var(--color-brand-main) 20%, #ffffff);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-brand-main) 4%, #ffffff) 0%, #ffffff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.stackItem > * + * {
+  padding-top: var(--space-2);
+  border-top: 1px solid color-mix(in srgb, var(--admin-border) 78%, #ffffff);
 }
 
 .metaRow {
@@ -1124,9 +1412,70 @@
   gap: var(--space-3);
 }
 
+.paymentDetailModalBody {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.paymentDetailSection {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.paymentDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-3);
+}
+
+.paymentDetailField {
+  display: grid;
+  gap: 4px;
+}
+
+.paymentDetailLabel {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.paymentDetailValue {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+}
+
+.paymentDetailNotice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid #f0c9a8;
+  background: #fff8f1;
+  color: #9a4f00;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.paymentCancelReasonField {
+  min-height: 84px;
+}
+
 .tableWrap {
   overflow: auto hidden;
+  margin-top: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--admin-border-strong) 55%, #ffffff);
   background: var(--admin-surface);
+}
+
+.emptyTableCell {
+  padding: var(--space-6) var(--space-5);
+  color: var(--color-text-secondary);
+  text-align: center;
 }
 
 .stackListCompact {
@@ -1630,26 +1979,35 @@
 .table th,
 .table td {
   padding: var(--space-4);
-  border-bottom: 1px solid var(--admin-border);
+  border-bottom: 1px solid color-mix(in srgb, var(--admin-border) 82%, #ffffff);
   text-align: left;
   vertical-align: middle;
 }
 
 .table th:not(:last-child),
 .table td:not(:last-child) {
-  border-right: 1px solid var(--admin-border);
+  border-right: 1px solid color-mix(in srgb, var(--admin-border) 72%, #ffffff);
 }
 
 .table th {
-  background: #ffffff;
+  background: color-mix(in srgb, var(--color-brand-main) 6%, #ffffff);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.03em;
 }
 
 .table td {
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
+}
+
+.table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--color-brand-main) 2%, #ffffff);
+}
+
+.table tbody tr:hover td {
+  background: color-mix(in srgb, var(--color-brand-main) 5%, #ffffff);
 }
 
 .programTable th:nth-child(1),
@@ -1734,6 +2092,66 @@
 
 .table td:nth-child(8) {
   padding-right: calc(var(--space-4) + 10px);
+}
+
+.table.paymentTable th:nth-child(1),
+.table.paymentTable td:nth-child(1) {
+  width: 19%;
+}
+
+.table.paymentTable th:nth-child(2),
+.table.paymentTable td:nth-child(2) {
+  width: 10%;
+}
+
+.table.paymentTable th:nth-child(3),
+.table.paymentTable td:nth-child(3) {
+  width: 14%;
+}
+
+.table.paymentTable th:nth-child(4),
+.table.paymentTable td:nth-child(4) {
+  width: 8%;
+}
+
+.table.paymentTable th:nth-child(5),
+.table.paymentTable td:nth-child(5) {
+  width: 8%;
+}
+
+.table.paymentTable th:nth-child(6),
+.table.paymentTable td:nth-child(6) {
+  width: 9%;
+}
+
+.table.paymentTable th:nth-child(7),
+.table.paymentTable td:nth-child(7) {
+  width: 9%;
+}
+
+.table.paymentTable th:nth-child(8),
+.table.paymentTable td:nth-child(8) {
+  width: 8%;
+}
+
+.table.paymentTable th:nth-child(9),
+.table.paymentTable td:nth-child(9) {
+  width: 9%;
+}
+
+.table.paymentTable th:nth-child(10),
+.table.paymentTable td:nth-child(10) {
+  width: 6%;
+}
+
+.table.paymentTable td:nth-child(10) {
+  padding-right: calc(var(--space-4) + 10px);
+}
+
+.table.paymentTable td:nth-child(3),
+.table.paymentTable td:nth-child(7),
+.table.paymentTable td:nth-child(9) {
+  white-space: nowrap;
 }
 
 .table.programEnrollmentTable th:nth-child(1),
@@ -2045,23 +2463,67 @@
   border-right: 1px solid var(--admin-border);
   border-bottom: 1px solid var(--admin-border);
   background: #ffffff;
+  cursor: pointer;
   text-align: left;
   box-shadow: inset 0 0 0 0 transparent;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.practicumCalendarDay:focus {
+  outline: none;
+}
+
+.practicumCalendarDay:focus-visible {
+  outline: none;
 }
 
 .practicumCalendarDay[data-selected='true'] {
   box-shadow: inset 0 0 0 2px var(--color-primary);
 }
 
+.practicumCalendarDay:focus-visible:not([data-selected='true']) {
+  box-shadow: inset 0 0 0 2px var(--admin-border-strong);
+}
+
 .practicumCalendarDay[data-has-items='true'] {
   background: #fcfdff;
 }
 
+.practicumCalendarDay:hover {
+  background: #f6faf9;
+}
+
 .practicumCalendarDayHeader {
+  display: block;
+}
+
+.practicumCalendarDateButton {
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: var(--space-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 140ms ease;
+}
+
+.practicumCalendarDateButton:hover,
+.practicumCalendarDateButton:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.practicumCalendarDateButton:hover .practicumCalendarDayNumber,
+.practicumCalendarDateButton:hover .practicumCalendarDayCount,
+.practicumCalendarDateButton:focus-visible .practicumCalendarDayNumber,
+.practicumCalendarDateButton:focus-visible .practicumCalendarDayCount {
+  color: #1f5a53;
 }
 
 .practicumCalendarDayNumber {
@@ -2085,10 +2547,22 @@
 .practicumCalendarPreviewButton {
   display: block;
   width: 100%;
-  padding: 0;
+  padding: 4px 6px;
   border: 0;
+  border-radius: 8px;
   background: transparent;
+  cursor: pointer;
   text-align: left;
+  transition:
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.practicumCalendarPreviewButton:hover,
+.practicumCalendarPreviewButton:focus-visible {
+  background: rgba(95, 174, 164, 0.14);
+  outline: none;
+  transform: translateY(-1px);
 }
 
 .practicumCalendarPreviewButton:hover .practicumCalendarPreviewItem {
@@ -2149,6 +2623,48 @@
   gap: var(--space-4);
 }
 
+.practicumDetailModal > * {
+  position: relative;
+  padding-top: var(--space-5);
+}
+
+.practicumDetailModal > *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #d5ddd9;
+}
+
+.practicumModalToolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-start;
+}
+
+.practicumModalBackButton {
+  min-width: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.practicumModalBackButton:hover {
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
+.practicumModalActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
 .practicumDetailSummary {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
@@ -2169,19 +2685,91 @@
   line-height: 1.5;
 }
 
+.practicumDetailContent {
+  white-space: pre-wrap;
+}
+
 .practicumDetailReservationList {
   display: grid;
   gap: var(--space-2);
 }
 
+.practicumDetailReservationActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.practicumDetailAttendanceToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.practicumDetailAttendanceToggle input {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  border: 1.5px solid #c47d52;
+  border-radius: 3px;
+  background: #fffdf8;
+  cursor: pointer;
+}
+
+.practicumDetailAttendanceToggle input::after {
+  content: '';
+  width: 7px;
+  height: 4px;
+  border-left: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  transform: rotate(-45deg) scale(0);
+  transform-origin: center;
+  transition: transform 0.12s ease;
+}
+
+.practicumDetailAttendanceToggle input:checked {
+  border-color: #b45309;
+  background: #b45309;
+}
+
+.practicumDetailAttendanceToggle input:checked::after {
+  transform: rotate(-45deg) scale(1);
+}
+
+.practicumDetailAttendanceToggle input:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
 .practicumDayOverviewModal {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .practicumDayOverviewSection {
+  position: relative;
   display: grid;
   gap: var(--space-3);
+  padding-top: var(--space-5);
+}
+
+.practicumDayOverviewSection::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #d5ddd9;
 }
 
 .practicumDayOverviewHeader {
@@ -2215,15 +2803,30 @@
   text-align: left;
 }
 
-.practicumDetailReservationItem {
+.practicumDetailReservationCard {
   display: grid;
-  gap: 4px;
+  gap: var(--space-3);
   padding: var(--space-3);
   border: 1px solid var(--admin-border);
   background: #ffffff;
 }
 
-.practicumDetailReservationItem span {
+.practicumDetailReservationHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.practicumDetailReservationBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.practicumDetailReservationCard span {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-relaxed);
@@ -2245,6 +2848,29 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-3);
+}
+
+.practicumTimeRangeField {
+  grid-column: 1 / -1;
+}
+
+.practicumTimeRangeControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: nowrap;
+}
+
+.practicumTimeSelect {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.practicumTimeRangeSeparator {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 .practicumBlockedHours {
@@ -2413,6 +3039,12 @@
   gap: var(--space-4);
 }
 
+.salesChartGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
 .salesMetricCard {
   display: grid;
   gap: var(--space-2);
@@ -2421,6 +3053,246 @@
   border: 1px solid var(--admin-border);
   border-top: 3px solid var(--color-sub-brand-main);
   background: #ffffff;
+}
+
+.salesChartCard {
+  display: grid;
+  gap: 0;
+  min-height: 252px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-top-width: 3px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+}
+
+.salesChartCardAmber {
+  --sales-chart-accent: #c87416;
+  border-top-color: #c87416;
+}
+
+.salesChartCardTeal {
+  --sales-chart-accent: #228c91;
+  border-top-color: #228c91;
+}
+
+.salesChartHeader {
+  padding: 18px 20px 0;
+}
+
+.salesChartTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-snug);
+}
+
+.salesChartBody {
+  display: grid;
+  gap: 18px;
+  padding: 12px 20px 16px;
+}
+
+.salesChartLegend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.salesChartLegend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.salesChartLegend li::before {
+  content: '';
+  width: 14px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--sales-chart-accent);
+}
+
+.salesChartLegendAmber::before,
+.salesChartLegendTeal::before {
+  background: var(--sales-chart-accent);
+}
+
+.salesChartCanvas {
+  position: relative;
+  min-height: 128px;
+  padding-top: 2px;
+}
+
+.salesChartGridLines {
+  position: absolute;
+  inset: 0 0 14px;
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  pointer-events: none;
+}
+
+.salesChartGridLines span {
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.salesChartGridLines span:last-child {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.salesChartSvg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 128px;
+  overflow: visible;
+  color: var(--sales-chart-accent);
+}
+
+.salesChartArea {
+  color: var(--sales-chart-accent);
+}
+
+.salesChartLine {
+  stroke: var(--sales-chart-accent);
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.12));
+}
+
+.salesChartLineAmber,
+.salesChartLineTeal {
+  color: var(--sales-chart-accent);
+}
+
+.salesChartSelection {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.salesChartSelectionBubble {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  box-shadow: 0 14px 24px rgba(15, 23, 42, 0.16);
+}
+
+.salesChartSelectionBubbleCenter {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.salesChartSelectionBubbleLeft {
+  left: 0;
+  transform: translateX(0);
+}
+
+.salesChartSelectionBubbleRight {
+  left: auto;
+  right: 0;
+  transform: translateX(0);
+}
+
+.salesChartSelectionDot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: var(--sales-chart-accent);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.38);
+}
+
+.salesChartAxis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 20px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.salesChartAxisDense {
+  gap: 0;
+}
+
+.salesChartAxisSparse {
+  gap: var(--space-3);
+}
+
+.salesChartAxisButton {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.salesChartAxisButton:hover {
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--color-text-primary);
+}
+
+.salesChartAxisButtonActive {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--color-text-primary);
+}
+
+.salesChartAxisLabel {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.salesChartAxisDense .salesChartAxisLabel,
+.salesChartAxisDense .salesChartAxisButton {
+  text-align: center;
+}
+
+.salesChartAxisSparse .salesChartAxisLabel:first-child,
+.salesChartAxisSparse .salesChartAxisButton:first-child {
+  text-align: left;
+}
+
+.salesChartAxisSparse .salesChartAxisLabel:last-child,
+.salesChartAxisSparse .salesChartAxisButton:last-child {
+  text-align: right;
+}
+
+.salesChartMeta {
+  margin: 0;
+  padding: 8px 20px 18px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
 }
 
 .salesMetricLabel {
@@ -2470,7 +3342,8 @@
 @media (width < 1200px) {
   .summaryGrid,
   .shortcutGrid,
-  .salesSummaryGrid {
+  .salesSummaryGrid,
+  .salesChartGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2482,6 +3355,10 @@
 @media (width < 900px) {
   .hero {
     flex-direction: column;
+  }
+
+  .salesChartGrid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .heroActionGroup {
@@ -2500,6 +3377,40 @@
 
   .toolbarAction {
     justify-content: flex-start;
+  }
+
+  .toolbarFilterRow {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .paymentDatePickerTrigger {
+    width: min(100%, 320px);
+  }
+
+  .paymentSearchControls {
+    flex: auto;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 100%;
+    margin-left: 0;
+    gap: var(--space-3);
+  }
+
+  .paymentSearchControls .selectWrap {
+    width: 100%;
+    border-right: 1px solid var(--admin-border);
+  }
+
+  .paymentSearchInput {
+    border-right: 1px solid var(--admin-border);
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  .paymentDetailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .listFrame {
@@ -2548,10 +3459,15 @@
   .summaryGrid,
   .shortcutGrid,
   .salesSummaryGrid,
+  .salesChartGrid,
   .inlineFieldGrid,
   .programFieldGrid,
   .dateTimeFieldRow {
     grid-template-columns: 1fr;
+  }
+
+  .paymentDetailGrid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .curriculumActionGrid {
@@ -2594,6 +3510,13 @@
   display: grid;
   grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
   gap: var(--space-5);
+}
+
+.qnaFilterPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: var(--space-3);
+  align-items: end;
 }
 
 .qnaListPanel,
@@ -2918,6 +3841,10 @@
   }
 
   .qnaWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .qnaFilterPanel {
     grid-template-columns: minmax(0, 1fr);
   }
 

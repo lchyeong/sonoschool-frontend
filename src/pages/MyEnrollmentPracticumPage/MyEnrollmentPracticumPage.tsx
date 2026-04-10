@@ -251,7 +251,8 @@ const MyEnrollmentPracticumPage = () => {
   }, [lectureSlotsByDate, selectedDate]);
 
   const reserveMutation = useMutation({
-    mutationFn: (slotId: number) => reserveMyLecturePracticum(resolvedEnrollmentId, slotId),
+    mutationFn: ({ lectureId, slotId }: { lectureId: number; slotId: number }) =>
+      reserveMyLecturePracticum(resolvedEnrollmentId, slotId, lectureId),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '실습 예약에 실패했습니다.',
@@ -291,6 +292,7 @@ const MyEnrollmentPracticumPage = () => {
 
   const renderSlotRow = (
     slot: PracticumSlot,
+    lectureId: number,
     lectureEligible: boolean,
     hasCurrentReservation: boolean,
   ) => {
@@ -325,7 +327,7 @@ const MyEnrollmentPracticumPage = () => {
         <Button
           disabled={disableReserve}
           onClick={() => {
-            reserveMutation.mutate(slot.id);
+            reserveMutation.mutate({ lectureId, slotId: slot.id });
           }}
           size='sm'
           type='button'
@@ -589,7 +591,12 @@ const MyEnrollmentPracticumPage = () => {
                           {lecture.slots.length ? (
                             <div className={styles['slotList']}>
                               {lecture.slots.map((slot) =>
-                                renderSlotRow(slot, lecture.eligible, hasCurrentReservation),
+                                renderSlotRow(
+                                  slot,
+                                  lecture.lectureId,
+                                  lecture.eligible,
+                                  hasCurrentReservation,
+                                ),
                               )}
                             </div>
                           ) : (

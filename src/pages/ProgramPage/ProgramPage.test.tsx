@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import CartPage from '@/pages/CartPage/CartPage';
 import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
@@ -101,7 +101,7 @@ describe('ProgramPage', () => {
     expect(
       within(heading.closest('section') as HTMLElement).getByText('의사과정'),
     ).toBeInTheDocument();
-    expect(screen.getByText('총 3개 강의를 보여주고 있습니다.')).toBeInTheDocument();
+    expect(screen.getByText('총 3개 과정을 보여주고 있습니다.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '내과과정 복부 실전 워크숍' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '내과과정 간·담도 증례 워크숍' })).toBeInTheDocument();
     expect(
@@ -136,10 +136,10 @@ describe('ProgramPage', () => {
     expect(
       within(heading.closest('section') as HTMLElement).getByText('복부과정'),
     ).toBeInTheDocument();
-    expect(screen.getByText('총 3개 강의를 보여주고 있습니다.')).toBeInTheDocument();
-    expect(screen.getByText('2026.03.01 - 2026.04.30 진행')).toBeInTheDocument();
-    expect(screen.getByText('2026.05.01 - 2026.06.30 진행')).toBeInTheDocument();
-    expect(screen.getByText('2026.09.01 - 2026.10.31 진행')).toBeInTheDocument();
+    expect(screen.getByText('총 3개 과정을 보여주고 있습니다.')).toBeInTheDocument();
+    expect(screen.getByText('모집기간 2026.03.01 - 2026.04.30 진행')).toBeInTheDocument();
+    expect(screen.getByText('모집기간 2026.05.01 - 2026.06.30 진행')).toBeInTheDocument();
+    expect(screen.getByText('모집기간 2026.09.01 - 2026.10.31 진행')).toBeInTheDocument();
   });
 
   it('keeps single-lecture hubs as hub pages until the detail child is opened', async () => {
@@ -154,7 +154,7 @@ describe('ProgramPage', () => {
     expect(
       within(heading.closest('section') as HTMLElement).getByText('여성초음파과정'),
     ).toBeInTheDocument();
-    expect(screen.getByText('총 1개 강의를 보여주고 있습니다.')).toBeInTheDocument();
+    expect(screen.getByText('총 1개 과정을 보여주고 있습니다.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '산과 1삼분기 스캔 4주' })).toBeInTheDocument();
   });
 
@@ -164,10 +164,14 @@ describe('ProgramPage', () => {
     expect(await screen.findByRole('heading', { name: '복부 Basic 스캔 6주' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '먼저 경험한 수강생들 후기' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '커리큘럼' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '커뮤니티' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Q&A' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '자주하는 질문' })).toBeInTheDocument();
-    expect(screen.getByText('운영 기간')).toBeInTheDocument();
-    expect(screen.getByText('2026.03.01 - 2026.04.30')).toBeInTheDocument();
+    expect(screen.getByLabelText('운영기간 2026.03.01 - 2026.04.30')).toBeInTheDocument();
+    expect(screen.getAllByText('오프라인 강의').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByText('증례 적용과 복습').closest('button') as HTMLElement);
+
+    expect(screen.getByText('문제풀이 강의')).toBeInTheDocument();
   });
 
   it('renders a single-lecture detail page only on the /detail path', async () => {
@@ -181,10 +185,29 @@ describe('ProgramPage', () => {
     expect(screen.getByRole('heading', { name: '먼저 경험한 수강생들 후기' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '커리큘럼' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '강의 소개' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '커뮤니티' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Q&A' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '자주하는 질문' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '예약하기' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '수강 신청 하기' })).toBeInTheDocument();
+  });
+
+  it('switches to a dedicated qna tab instead of keeping qna in the one-page scroll', async () => {
+    renderProgramPage('/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail');
+
+    expect(
+      await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
+    ).toBeInTheDocument();
+
+    Object.defineProperty(window, 'scrollTo', {
+      configurable: true,
+      value: vi.fn(),
+      writable: true,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Q&A' }));
+
+    expect(await screen.findByPlaceholderText('궁금한 내용을 검색해 보세요!')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '먼저 경험한 수강생들 후기' })).not.toBeInTheDocument();
   });
 
   it('adds the selected lecture to the cart and redirects to the cart page', async () => {

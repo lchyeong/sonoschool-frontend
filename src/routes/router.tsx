@@ -47,10 +47,7 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     const { default: AdminLoginPage } = await import('@/pages/AdminLoginPage/AdminLoginPage');
     return <AdminLoginPage />;
   }),
-  admin: createLazyRoute(async () => {
-    const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
-    return <AdminConsolePage section='dashboard' />;
-  }),
+  admin: createStaticElementRoute(<Navigate replace to={routePaths.adminPrograms} />),
   adminNotices: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='notices' />;
@@ -125,11 +122,11 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     );
     return <AdminProgramCreateWorkspace view='curriculum' />;
   }),
-  adminProgramCreateQuizzes: createLazyRoute(async () => {
+  adminProgramCreateProblems: createLazyRoute(async () => {
     const { default: AdminProgramCreateWorkspace } = await import(
       '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
     );
-    return <AdminProgramCreateWorkspace view='quizzes' />;
+    return <AdminProgramCreateWorkspace view='problems' />;
   }),
   adminProgramCreateResources: createLazyRoute(async () => {
     const { default: AdminProgramCreateWorkspace } = await import(
@@ -149,11 +146,11 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     );
     return <AdminProgramEditorSection mode='edit' view='curriculum' />;
   }),
-  adminProgramQuizzes: createLazyRoute(async () => {
+  adminProgramProblems: createLazyRoute(async () => {
     const { default: AdminProgramEditorSection } = await import(
       '@/pages/AdminConsolePage/AdminProgramEditorSection'
     );
-    return <AdminProgramEditorSection mode='edit' view='quizzes' />;
+    return <AdminProgramEditorSection mode='edit' view='problems' />;
   }),
   adminProgramResources: createLazyRoute(async () => {
     const { default: AdminProgramEditorSection } = await import(
@@ -294,11 +291,11 @@ const adminConsoleRouteKeys = [
   'adminPrograms',
   'adminProgramCreate',
   'adminProgramCreateCurriculum',
-  'adminProgramCreateQuizzes',
+  'adminProgramCreateProblems',
   'adminProgramCreateResources',
   'adminProgramEdit',
   'adminProgramCurriculum',
-  'adminProgramQuizzes',
+  'adminProgramProblems',
   'adminProgramResources',
   'adminProgramDuplicate',
   'adminProgramMenus',

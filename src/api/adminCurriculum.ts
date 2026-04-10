@@ -32,8 +32,10 @@ const normalizeSectionPayload = (payload: AdminSectionUpsertPayload): AdminSecti
 };
 
 const normalizeLecturePayload = (payload: AdminLectureUpsertPayload): AdminLectureUpsertPayload => {
+  const { problemOnly, ...restPayload } = payload;
+
   return {
-    ...payload,
+    ...restPayload,
     description: normalizeDescription(payload.description),
     lectureType: payload.lectureType,
   };
@@ -70,8 +72,8 @@ export const fetchAdminCurriculum = async (
       lectures: section.lectures.map((lecture) => ({
         ...lecture,
         offlineSchedules: lecture.offlineSchedules,
+        problemOnly: lecture.lectureType === 'PROBLEM',
         practicumEnabled: lecture.lectureType === 'PRACTICUM',
-        quizOnly: lecture.lectureType === 'PROBLEM',
       })),
     }));
   } catch (error: unknown) {

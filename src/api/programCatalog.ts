@@ -33,6 +33,7 @@ const lectureCardSchema = z.object({
   priceLabel: z.string().min(1),
   remainingSeatsCount: z.number().int().nonnegative().optional(),
   remainingSeatsLabel: z.string().min(1).optional(),
+  catalogStatus: z.enum(['OPEN', 'SCHEDULED', 'STARTED', 'CLOSED', 'FULL']).optional(),
   scheduleLabel: z.string().min(1),
   summary: z.string().min(1),
   thumbnailAlt: z.string().min(1),
@@ -63,9 +64,9 @@ const faqItemSchema = z.object({
   question: z.string().min(1),
 });
 
-const communitySummarySchema = z.object({
+const qnaSummarySchema = z.object({
   answeredThreadCount: z.number().int().nonnegative(),
-  latestThreadCreatedAt: z.string().min(1).nullable(),
+  latestThreadCreatedAt: z.string().min(1).nullable().optional(),
   totalThreadCount: z.number().int().nonnegative(),
 });
 
@@ -77,14 +78,27 @@ const reviewItemSchema = z.object({
   rating: z.number().min(1).max(5),
 });
 
+const curriculumScheduleItemSchema = z.object({
+  date: z.string().min(1).nullable(),
+  endTime: z.string().min(1).nullable(),
+  location: z.string().trim().optional(),
+  notes: z.string().trim().optional(),
+  startTime: z.string().min(1).nullable(),
+});
+
 const curriculumLessonSchema = z.object({
-  deliveryType: z.enum(['online', 'offline', 'problem']),
+  deliveryType: z.enum(['online', 'offline', 'practicum', 'problem', 'resource']),
   description: z.string().trim().optional(),
   durationLabel: z.string().min(1),
   durationMinutes: z.number().int().nonnegative().nullable(),
   endDate: z.string().min(1).nullable(),
   hasQuiz: z.boolean().optional(),
   id: z.string().min(1),
+  lectureId: z.number().int().positive().optional(),
+  offlineSchedules: z.array(curriculumScheduleItemSchema).optional(),
+  problemAttempted: z.boolean().optional(),
+  problemTimeLimitSeconds: z.number().int().positive().nullable().optional(),
+  questionCount: z.number().int().nonnegative().optional(),
   quizAttempted: z.boolean().optional(),
   startDate: z.string().min(1).nullable(),
   title: z.string().min(1),
@@ -140,7 +154,7 @@ const programDetailPageResponseSchema = z.object({
   discountedPriceLabel: z.string().min(1),
   durationLabel: z.string().min(1),
   faqItems: z.array(faqItemSchema).min(1).max(8),
-  communitySummary: communitySummarySchema.optional(),
+  qnaSummary: qnaSummarySchema.optional(),
   formatLabel: z.string().min(1),
   heroImageAlt: z.string().min(1),
   heroImageSrc: z.string().min(1),
@@ -154,6 +168,11 @@ const programDetailPageResponseSchema = z.object({
   overallRating: z.number().min(0).max(5),
   pageKind: z.literal('detail'),
   programId: z.number().int().positive().optional(),
+  catalogStatus: z.enum(['OPEN', 'SCHEDULED', 'STARTED', 'CLOSED', 'FULL']).optional(),
+  applicationStatusLabel: z.string().min(1).optional(),
+  applicationStatusDescription: z.string().min(1).optional(),
+  enrollmentAvailable: z.boolean().optional(),
+  availabilityAlertAvailable: z.boolean().optional(),
   preparationChecklist: z.array(z.string().trim().min(1)).min(1).max(8),
   remainingSeatsLabel: z.string().min(1).optional(),
   registrationPeriodLabel: z.string().min(1),

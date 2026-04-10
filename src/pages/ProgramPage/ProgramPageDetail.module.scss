@@ -162,39 +162,33 @@
 }
 
 .heroInfoPillRow {
-  gap: 10px;
+  gap: 14px;
 }
 
 .heroInfoPill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: 1px solid var(--color-brand-lighten-30);
+  justify-content: center;
+  min-height: 54px;
+  padding: 10px 20px;
+  border: 1px solid rgba(190, 229, 225, 0.88);
   border-radius: 999px;
-  background: linear-gradient(
-    135deg,
-    var(--color-brand-lighten-50) 0%,
-    var(--color-brand-lighten-45) 100%
-  );
-  box-shadow: 0 10px 24px -18px rgba(15, 23, 42, 0.26);
+  background: linear-gradient(180deg, rgba(242, 251, 250, 0.96) 0%, rgba(233, 247, 245, 0.92) 100%);
+  box-shadow: 0 18px 30px -24px rgba(15, 23, 42, 0.42);
 }
 
-.heroInfoPillLabel {
-  color: var(--color-brand-darken-10);
-  font-size: 14px;
-  font-weight: 600;
+.heroInfoPillText {
+  color: #4d9b93;
+  font-size: clamp(14px, 1.15vw, 18px);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
 .heroInfoPillValue {
   color: var(--color-brand-darken-20);
   font-size: 14px;
-}
-
-.heroInfoDivider {
-  width: 1px;
-  height: 14px;
-  background: var(--color-brand-lighten-25);
 }
 
 .detailShell {
@@ -388,6 +382,11 @@
   padding: 32px 0 48px;
   border-top: 1px solid #e5e7eb;
   scroll-margin-top: 152px;
+}
+
+.qnaTabSection {
+  padding-top: 28px;
+  border-top: 0;
 }
 
 .introductionSectionGroup {
@@ -747,18 +746,177 @@
   border-top: 1px solid #e5e7eb;
 }
 
-.curriculumLessonHeader,
+.curriculumLessonHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 16px;
+  row-gap: 12px;
+  align-items: center;
+}
+
 .fullReviewHeader {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   align-items: center;
   justify-content: space-between;
+}
+
+.curriculumLessonHeaderMain {
+  display: flex;
+  flex: 1 1 320px;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.curriculumLessonHeaderAside {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
 }
 
 .curriculumLessonTitle,
 .curriculumLessonDuration {
   color: #9ca3af;
   font-size: 16px;
+}
+
+.curriculumLessonDuration {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.curriculumLessonTitle {
+  min-width: 0;
+  color: #111827;
+  font-weight: 600;
+}
+
+.curriculumLessonQuestionBadge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(94, 234, 212, 0.18);
+}
+
+.curriculumLessonCapsuleList {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.curriculumLessonCapsule {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(190, 229, 225, 0.9);
+  border-radius: 999px;
+  color: #4d9b93;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  background: linear-gradient(180deg, rgba(242, 251, 250, 0.96) 0%, rgba(233, 247, 245, 0.92) 100%);
+}
+
+.curriculumLessonScheduleButton {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(30, 64, 175, 0.12);
+  border-radius: 999px;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: rgba(219, 234, 254, 0.48);
+  cursor: pointer;
+}
+
+.scheduleModalContent {
+  display: grid;
+  gap: 20px;
+}
+
+.scheduleModalHeader {
+  display: grid;
+  gap: 6px;
+}
+
+.scheduleModalKicker {
+  margin: 0;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.scheduleModalTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.scheduleModalList {
+  display: grid;
+  gap: 12px;
+}
+
+.scheduleModalItem {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #f9fafb;
+}
+
+.scheduleModalItemHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.scheduleModalItemIndex {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(94, 234, 212, 0.18);
+}
+
+.scheduleModalItemDate {
+  color: #111827;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.scheduleModalItemMeta,
+.scheduleModalItemNotes {
+  margin: 0;
+  color: #4b5563;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .reviewScoreSummary {
@@ -1168,6 +1326,13 @@
   text-align: right;
 }
 
+.pricingAvailabilityDescription {
+  margin: -4px 0 16px;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .sidebarOptionSection {
   margin-bottom: 16px;
 }
@@ -1458,6 +1623,19 @@
 
   .targetCard {
     grid-template-columns: 1fr;
+  }
+
+  .curriculumLessonHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .curriculumLessonHeaderAside {
+    flex-wrap: wrap;
+    justify-self: stretch;
+  }
+
+  .curriculumLessonCapsuleList {
+    flex-wrap: wrap;
   }
 
   .curriculumWeekButton,

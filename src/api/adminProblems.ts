@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import type { AdminQuiz, AdminQuizUpsertPayload } from '@/types/adminQuizzes';
+import type { AdminProblem, AdminProblemUpsertPayload } from '@/types/adminProblems';
 import type { ApiEnvelope } from '@/types/auth';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
@@ -27,7 +27,7 @@ const normalizeMediaUrl = (value: string | null | undefined): string | null => {
   return trimmed ? trimmed : null;
 };
 
-const normalizePayload = (payload: AdminQuizUpsertPayload): AdminQuizUpsertPayload => {
+const normalizePayload = (payload: AdminProblemUpsertPayload): AdminProblemUpsertPayload => {
   return {
     ...payload,
     description: normalizeDescription(payload.description),
@@ -53,10 +53,10 @@ const normalizePayload = (payload: AdminQuizUpsertPayload): AdminQuizUpsertPaylo
   };
 };
 
-export const fetchAdminQuiz = async (lectureId: number): Promise<AdminQuiz | null> => {
+export const fetchAdminProblem = async (lectureId: number): Promise<AdminProblem | null> => {
   try {
-    const response = await axiosInstance.get<ApiEnvelope<AdminQuiz>>(
-      `/api/v1/admin/lectures/${String(lectureId)}/quiz`,
+    const response = await axiosInstance.get<ApiEnvelope<AdminProblem>>(
+      `/api/v1/admin/lectures/${String(lectureId)}/problem`,
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -68,13 +68,13 @@ export const fetchAdminQuiz = async (lectureId: number): Promise<AdminQuiz | nul
   }
 };
 
-export const createAdminQuiz = async (
+export const createAdminProblem = async (
   lectureId: number,
-  payload: AdminQuizUpsertPayload,
-): Promise<AdminQuiz> => {
+  payload: AdminProblemUpsertPayload,
+): Promise<AdminProblem> => {
   try {
-    const response = await axiosInstance.post<ApiEnvelope<AdminQuiz>>(
-      `/api/v1/admin/lectures/${String(lectureId)}/quiz`,
+    const response = await axiosInstance.post<ApiEnvelope<AdminProblem>>(
+      `/api/v1/admin/lectures/${String(lectureId)}/problem`,
       normalizePayload(payload),
     );
     return unwrapApiEnvelope(response.data);
@@ -83,13 +83,13 @@ export const createAdminQuiz = async (
   }
 };
 
-export const updateAdminQuiz = async (
-  quizId: number,
-  payload: AdminQuizUpsertPayload,
-): Promise<AdminQuiz> => {
+export const updateAdminProblem = async (
+  problemId: number,
+  payload: AdminProblemUpsertPayload,
+): Promise<AdminProblem> => {
   try {
-    const response = await axiosInstance.put<ApiEnvelope<AdminQuiz>>(
-      `/api/v1/admin/quizzes/${String(quizId)}`,
+    const response = await axiosInstance.put<ApiEnvelope<AdminProblem>>(
+      `/api/v1/admin/problems/${String(problemId)}`,
       normalizePayload(payload),
     );
     return unwrapApiEnvelope(response.data);
@@ -98,9 +98,9 @@ export const updateAdminQuiz = async (
   }
 };
 
-export const deleteAdminQuiz = async (quizId: number): Promise<void> => {
+export const deleteAdminProblem = async (problemId: number): Promise<void> => {
   try {
-    await axiosInstance.delete(`/api/v1/admin/quizzes/${String(quizId)}`);
+    await axiosInstance.delete(`/api/v1/admin/problems/${String(problemId)}`);
   } catch (error: unknown) {
     throw toApiError(error, '문제를 삭제하지 못했습니다.');
   }

@@ -44,8 +44,8 @@ describe('appRouteRegistry', () => {
     expect(routePaths.adminProgramCreateCurriculum).toBe(
       appRouteRegistry.routes.adminProgramCreateCurriculum.absolutePath,
     );
-    expect(routePaths.adminProgramCreateQuizzes).toBe(
-      appRouteRegistry.routes.adminProgramCreateQuizzes.absolutePath,
+    expect(routePaths.adminProgramCreateProblems).toBe(
+      appRouteRegistry.routes.adminProgramCreateProblems.absolutePath,
     );
     expect(routePaths.adminProgramCreateResources).toBe(
       appRouteRegistry.routes.adminProgramCreateResources.absolutePath,
@@ -54,7 +54,7 @@ describe('appRouteRegistry', () => {
     expect(routePaths.adminProgramCurriculum('program-1')).toBe(
       '/admin/programs/program-1/curriculum',
     );
-    expect(routePaths.adminProgramQuizzes('program-1')).toBe('/admin/programs/program-1/quizzes');
+    expect(routePaths.adminProgramProblems('program-1')).toBe('/admin/programs/program-1/problems');
     expect(routePaths.adminProgramResources('program-1')).toBe(
       '/admin/programs/program-1/resources',
     );
@@ -105,11 +105,11 @@ describe('appRouteRegistry', () => {
     expect(appRouteAccessByKey.adminPrograms).toBe('admin');
     expect(appRouteAccessByKey.adminProgramCreate).toBe('admin');
     expect(appRouteAccessByKey.adminProgramCreateCurriculum).toBe('admin');
-    expect(appRouteAccessByKey.adminProgramCreateQuizzes).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramCreateProblems).toBe('admin');
     expect(appRouteAccessByKey.adminProgramCreateResources).toBe('admin');
     expect(appRouteAccessByKey.adminProgramEdit).toBe('admin');
     expect(appRouteAccessByKey.adminProgramCurriculum).toBe('admin');
-    expect(appRouteAccessByKey.adminProgramQuizzes).toBe('admin');
+    expect(appRouteAccessByKey.adminProgramProblems).toBe('admin');
     expect(appRouteAccessByKey.adminProgramResources).toBe('admin');
     expect(appRouteAccessByKey.adminProgramDuplicate).toBe('admin');
     expect(appRouteAccessByKey.adminProgramMenus).toBe('admin');
@@ -209,8 +209,8 @@ describe('appRouteRegistry', () => {
       routeKey: 'adminProgramCreateCurriculum',
       access: 'admin',
     });
-    expect(getRouteHandle('admin/programs/new/quizzes')).toEqual({
-      routeKey: 'adminProgramCreateQuizzes',
+    expect(getRouteHandle('admin/programs/new/problems')).toEqual({
+      routeKey: 'adminProgramCreateProblems',
       access: 'admin',
     });
     expect(getRouteHandle('admin/programs/new/resources')).toEqual({
@@ -225,8 +225,8 @@ describe('appRouteRegistry', () => {
       routeKey: 'adminProgramCurriculum',
       access: 'admin',
     });
-    expect(getRouteHandle('admin/programs/:programId/quizzes')).toEqual({
-      routeKey: 'adminProgramQuizzes',
+    expect(getRouteHandle('admin/programs/:programId/problems')).toEqual({
+      routeKey: 'adminProgramProblems',
       access: 'admin',
     });
     expect(getRouteHandle('admin/programs/:programId/resources')).toEqual({

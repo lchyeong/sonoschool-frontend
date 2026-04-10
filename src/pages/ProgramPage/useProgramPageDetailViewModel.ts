@@ -19,9 +19,11 @@ import {
 } from './programPageDetailShared';
 
 export interface ProgramPageDetailViewModel {
+  activeTabId: DetailSectionId;
   activeSectionId: DetailSectionId;
   discountedPriceAmount: number;
   heroInfoPills: Array<{ label: string; value: string }>;
+  isQnaTabOpen: boolean;
   openCurriculumRows: Record<string, boolean>;
   openFaqId: string | null;
   optionList: string[];
@@ -44,7 +46,7 @@ export interface ProgramPageDetailViewModel {
 }
 
 const createSectionRefMap = (): Record<DetailSectionId, HTMLElement | null> => ({
-  'course-community': null,
+  'course-qna': null,
   'course-curriculum': null,
   'course-faq': null,
   'course-introduction': null,
@@ -61,10 +63,24 @@ const createInitialOpenCurriculumRows = (
   return { [`${data.curriculumTrack.id}-0`]: true };
 };
 
+const scrollToSectionTop = (top: number) => {
+  try {
+    window.scrollTo({
+      behavior: getScrollBehavior(),
+      top,
+    });
+  } catch {
+    // jsdom does not implement window.scrollTo.
+  }
+};
+
 export const useProgramPageDetailViewModel = (
   data: ProgramDetailPageResponse,
 ): ProgramPageDetailViewModel => {
+  const detailResetKey = data.programId ?? data.breadcrumbItems.at(-1)?.to ?? data.title;
+  const [activeTabId, setActiveTabId] = useState<DetailSectionId>('course-introduction');
   const [activeSectionId, setActiveSectionId] = useState<DetailSectionId>('course-introduction');
+  const [isQnaTabOpen, setIsQnaTabOpen] = useState(false);
   const [reviewSortOrder, setReviewSortOrder] = useState<ReviewSortOrder>('recommended');
   const [visiblePreviewReviewIds, setVisiblePreviewReviewIds] = useState<string[]>([]);
   const [selectedOption, setSelectedOption] = useState('');
@@ -92,17 +108,23 @@ export const useProgramPageDetailViewModel = (
 
   useEffect(() => {
     startTransition(() => {
+      setActiveTabId('course-introduction');
       setActiveSectionId('course-introduction');
+      setIsQnaTabOpen(false);
       setOpenCurriculumRows(createInitialOpenCurriculumRows(data));
       setOpenFaqId(data.faqItems[0]?.id ?? null);
       setSelectedOption('');
       setShowOptionList(false);
       setReviewSortOrder('recommended');
     });
-  }, [data]);
+  }, [detailResetKey]);
 
   useEffect(() => {
     const handleScroll = () => {
+      if (isQnaTabOpen) {
+        return;
+      }
+
       const scrollCheckpoint = window.scrollY + detailTabScrollOffsetPx;
       let nextActiveSectionId: DetailSectionId = detailTabItems[0].id;
 
@@ -119,6 +141,9 @@ export const useProgramPageDetailViewModel = (
           ? currentActiveSectionId
           : nextActiveSectionId;
       });
+      setActiveTabId((currentActiveTabId) => {
+        return currentActiveTabId === nextActiveSectionId ? currentActiveTabId : nextActiveSectionId;
+      });
     };
 
     handleScroll();
@@ -129,7 +154,7 @@ export const useProgramPageDetailViewModel = (
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleScroll);
     };
-  }, []);
+  }, [isQnaTabOpen]);
 
   useLayoutEffect(() => {
     const reviewTrackElement = reviewCarouselRef.current;
@@ -194,8 +219,8 @@ export const useProgramPageDetailViewModel = (
 
   const sectionRefHandlers = useMemo<Record<DetailSectionId, RefCallback<HTMLElement>>>(() => {
     return {
-      'course-community': (element) => {
-        sectionRefs.current['course-community'] = element;
+      'course-qna': (element) => {
+        sectionRefs.current['course-qna'] = element;
       },
       'course-curriculum': (element) => {
         sectionRefs.current['course-curriculum'] = element;
@@ -213,18 +238,35 @@ export const useProgramPageDetailViewModel = (
   }, []);
 
   const handleTabClick = (sectionId: DetailSectionId) => {
+    if (sectionId === 'course-qna') {
+      const fallbackElement =
+        sectionRefs.current['course-introduction'] ?? sectionRefs.current['course-curriculum'];
+
+      setIsQnaTabOpen(true);
+      setActiveTabId(sectionId);
+      setActiveSectionId(sectionId);
+
+      if (!fallbackElement) {
+        return;
+      }
+
+      const targetTop = fallbackElement.getBoundingClientRect().top + window.scrollY;
+
+      scrollToSectionTop(targetTop - detailTabScrollOffsetPx);
+      return;
+    }
+
     const targetElement = sectionRefs.current[sectionId];
 
     if (!targetElement) {
       return;
     }
 
+    setIsQnaTabOpen(false);
     const targetTop = targetElement.getBoundingClientRect().top + window.scrollY;
 
-    window.scrollTo({
-      behavior: getScrollBehavior(),
-      top: targetTop - detailTabScrollOffsetPx,
-    });
+    scrollToSectionTop(targetTop - detailTabScrollOffsetPx);
+    setActiveTabId(sectionId);
     setActiveSectionId(sectionId);
   };
 
@@ -251,10 +293,12 @@ export const useProgramPageDetailViewModel = (
 
   return {
     activeSectionId,
+    activeTabId,
     discountedPriceAmount,
     handleReviewCarouselScroll,
     handleTabClick,
     heroInfoPills,
+    isQnaTabOpen,
     openCurriculumRows,
     openFaqId,
     optionList,

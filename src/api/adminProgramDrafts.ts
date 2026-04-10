@@ -53,6 +53,9 @@ const normalizeDraftDetail = (detail: AdminProgramDraftDetail): AdminProgramDraf
           videoUploadStatus: lecture.videoUploadStatus,
         })),
       })),
+      problems: detail.payload.problems.map((problem) => ({
+        ...problem,
+      })),
       resources: detail.payload.resources.map((resource) => ({
         ...resource,
         key: resource.key || crypto.randomUUID(),

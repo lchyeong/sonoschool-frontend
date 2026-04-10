@@ -4,11 +4,32 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { createAdminQuestionReply, deleteAdminQuestionReply } from '@/api/qna';
 import Button from '@/components/ui/Button/Button';
-import { TextAreaField } from '@/components/ui/TextField/TextField';
+import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { adminQuestionsQueryKey, useAdminQuestionsQuery } from '@/query/useQnaQueries';
 import { useToastStore } from '@/stores/useToastStore';
+import type { QuestionScope } from '@/types/qna';
 
 import styles from './AdminConsolePage.module.scss';
+
+type ScopeFilterValue = 'ALL' | QuestionScope;
+type AnsweredFilterValue = 'ALL' | 'ANSWERED' | 'WAITING';
+
+const QNA_SCOPE_LABELS: Record<QuestionScope, string> = {
+  GLOBAL: '운영 Q&A',
+  PROGRAM: '프로그램 Q&A',
+};
+
+const ANSWERED_FILTER_OPTIONS: Array<{ label: string; value: AnsweredFilterValue }> = [
+  { label: '전체', value: 'ALL' },
+  { label: '답변 대기', value: 'WAITING' },
+  { label: '답변 완료', value: 'ANSWERED' },
+];
+
+const SCOPE_FILTER_OPTIONS: Array<{ label: string; value: ScopeFilterValue }> = [
+  { label: '전체', value: 'ALL' },
+  { label: '운영', value: 'GLOBAL' },
+  { label: '프로그램', value: 'PROGRAM' },
+];
 
 const formatDateTime = (value: string): string => {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -20,7 +41,14 @@ const formatDateTime = (value: string): string => {
 const AdminQnaSection = () => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
-  const questionsQuery = useAdminQuestionsQuery();
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilterValue>('ALL');
+  const [answeredFilter, setAnsweredFilter] = useState<AnsweredFilterValue>('ALL');
+  const [keyword, setKeyword] = useState('');
+  const questionsQuery = useAdminQuestionsQuery({
+    answered: answeredFilter === 'ANSWERED' ? true : answeredFilter === 'WAITING' ? false : null,
+    keyword,
+    scope: scopeFilter,
+  });
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState('');
 
@@ -54,7 +82,9 @@ const AdminQnaSection = () => {
     },
     onSuccess: async () => {
       setReplyContent('');
-      await queryClient.invalidateQueries({ queryKey: adminQuestionsQueryKey() });
+      await queryClient.invalidateQueries({
+        queryKey: adminQuestionsQueryKey(),
+      });
       showToast({
         message: '답변을 등록했습니다.',
         variant: 'success',
@@ -71,7 +101,9 @@ const AdminQnaSection = () => {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: adminQuestionsQueryKey() });
+      await queryClient.invalidateQueries({
+        queryKey: adminQuestionsQueryKey(),
+      });
       showToast({
         message: '답변을 삭제했습니다.',
         variant: 'success',
@@ -105,19 +137,75 @@ const AdminQnaSection = () => {
     setReplyContent('');
   };
 
+  const buildQuestionLocationLabel = (scope: QuestionScope, programTitle: string | null) => {
+    if (scope === 'PROGRAM') {
+      return programTitle
+        ? `${QNA_SCOPE_LABELS[scope]} · ${programTitle}`
+        : QNA_SCOPE_LABELS[scope];
+    }
+
+    return QNA_SCOPE_LABELS[scope];
+  };
+
   return (
     <div className={styles['workspace']}>
       <section className={styles['hero']}>
         <div className={styles['heroCopy']}>
           <h1 className={styles['title']}>문의 답변 관리</h1>
           <p className={styles['description']}>
-            운영 Q&A로 접수된 질문을 확인하고, 답변 대기 문의부터 순차적으로 처리합니다.
+            운영용과 프로그램용 Q&A를 한 곳에서 확인하고, 답변 대기 문의부터 순차적으로 처리합니다.
           </p>
         </div>
         <div className={styles['heroActionGroup']}>
           <span className={styles['sessionPill']}>답변 대기 {String(pendingCount)}건</span>
         </div>
       </section>
+
+      <div className={styles['quizFilterRow']}>
+        {SCOPE_FILTER_OPTIONS.map((option) => (
+          <button
+            className={styles['quizFilterButton']}
+            data-selected={scopeFilter === option.value}
+            key={option.value}
+            onClick={() => {
+              setScopeFilter(option.value);
+              setSelectedQuestionId(null);
+            }}
+            type='button'
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <div className={styles['qnaFilterPanel']}>
+        <div className={styles['quizFilterRow']}>
+          {ANSWERED_FILTER_OPTIONS.map((option) => (
+            <button
+              className={styles['quizFilterButton']}
+              data-selected={answeredFilter === option.value}
+              key={option.value}
+              onClick={() => {
+                setAnsweredFilter(option.value);
+                setSelectedQuestionId(null);
+              }}
+              type='button'
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <TextField
+          label='Q&A 검색'
+          name='admin-qna-keyword'
+          onChange={(event) => {
+            setKeyword(event.target.value);
+            setSelectedQuestionId(null);
+          }}
+          placeholder='제목, 내용, 작성자, 프로그램명 검색'
+          value={keyword}
+        />
+      </div>
 
       {questionsQuery.isLoading ? <p>Q&A를 불러오는 중입니다.</p> : null}
       {questionsQuery.isError ? <p>Q&A 목록을 불러오지 못했습니다.</p> : null}
@@ -127,7 +215,7 @@ const AdminQnaSection = () => {
           <section className={styles['qnaListPanel']}>
             <header className={styles['qnaPanelHeader']}>
               <h2 className={styles['qnaPanelTitle']}>전체 질문</h2>
-              <p className={styles['qnaPanelMeta']}>운영 Q&A 목록</p>
+              <p className={styles['qnaPanelMeta']}>운영/프로그램 Q&A 통합 목록</p>
             </header>
 
             <div className={styles['qnaList']}>
@@ -145,7 +233,9 @@ const AdminQnaSection = () => {
                     type='button'
                   >
                     <div className={styles['qnaListItemHeader']}>
-                      <span className={styles['qnaScopeBadge']}>운영 Q&A</span>
+                      <span className={styles['qnaScopeBadge']}>
+                        {QNA_SCOPE_LABELS[question.scope]}
+                      </span>
                       <span
                         className={styles['qnaStatusBadge']}
                         data-tone={question.answered ? 'answered' : 'waiting'}
@@ -156,7 +246,8 @@ const AdminQnaSection = () => {
                     <strong className={styles['qnaListItemTitle']}>{question.title}</strong>
                     <p className={styles['qnaListItemMeta']}>
                       {question.authorName}
-                      {question.programTitle ? ` · ${question.programTitle}` : ''}
+                      {' · '}
+                      {buildQuestionLocationLabel(question.scope, question.programTitle)}
                       {' · '}
                       {formatDateTime(question.createdAt)}
                     </p>
@@ -171,7 +262,9 @@ const AdminQnaSection = () => {
               <>
                 <header className={styles['qnaPanelHeader']}>
                   <div className={styles['qnaDetailHeader']}>
-                    <span className={styles['qnaScopeBadge']}>운영 Q&A</span>
+                    <span className={styles['qnaScopeBadge']}>
+                      {QNA_SCOPE_LABELS[selectedQuestion.scope]}
+                    </span>
                     <span
                       className={styles['qnaStatusBadge']}
                       data-tone={selectedQuestion.answered ? 'answered' : 'waiting'}
@@ -182,7 +275,11 @@ const AdminQnaSection = () => {
                   <h2 className={styles['qnaPanelTitle']}>{selectedQuestion.title}</h2>
                   <p className={styles['qnaPanelMeta']}>
                     {selectedQuestion.authorName}
-                    {selectedQuestion.programTitle ? ` · ${selectedQuestion.programTitle}` : ''}
+                    {' · '}
+                    {buildQuestionLocationLabel(
+                      selectedQuestion.scope,
+                      selectedQuestion.programTitle,
+                    )}
                     {' · '}
                     {formatDateTime(selectedQuestion.createdAt)}
                   </p>

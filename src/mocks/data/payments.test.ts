@@ -18,11 +18,11 @@ describe('payments mock data', () => {
 
   it('builds checkout redirect payloads from the selected mock payment scenario', () => {
     const cardRedirect = createMockCheckoutRedirectPayload('CARD');
-    const virtualAccountRedirect = createMockCheckoutRedirectPayload('VIRTUAL_ACCOUNT');
+    const freeRedirect = createMockCheckoutRedirectPayload('FREE');
 
     expect(cardRedirect.paymentId).toBe(501);
     expect(cardRedirect.status).toBe('COMPLETED');
-    expect(virtualAccountRedirect.resultToken).toBe('mock-vbank-registered');
-    expect(virtualAccountRedirect.status).toBe('REGISTERED');
+    expect(freeRedirect.paymentId).toBe(502);
+    expect(freeRedirect.status).toBe('COMPLETED');
   });
 });

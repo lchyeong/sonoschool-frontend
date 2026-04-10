@@ -1,13 +1,17 @@
 import { Link } from 'react-router-dom';
 
+import cartIconSrc from '@/assets/icons/icon_cart.svg';
+import { routePaths } from '@/routes/routeRegistry';
 import type {
   ProgramBreadcrumbItem,
+  ProgramCatalogStatus,
   ProgramCollectionCard,
   ProgramInfoItem,
   ProgramInstructorProfile,
   ProgramLectureCard,
   ProgramStat,
 } from '@/types/programCatalog';
+import { classNames } from '@/utils/classNames';
 
 import styles from './programCatalogShared.module.scss';
 
@@ -25,31 +29,196 @@ interface ProgramCollectionCardItemProps {
 
 interface ProgramLectureCardItemProps {
   item: ProgramLectureCard;
+  isAlertPending?: boolean;
+  isAlertSubscribed?: boolean;
+  isAuthenticated?: boolean;
+  isCartPending?: boolean;
+  onAddToCart?: ((item: ProgramLectureCard) => void) | undefined;
+  onSubscribeAlert?: ((item: ProgramLectureCard) => void) | undefined;
 }
 
 interface ProgramArchiveLectureCardItemProps {
   item: ProgramLectureCard;
+  isAlertPending?: boolean;
+  isAlertSubscribed?: boolean;
+  isAuthenticated?: boolean;
+  isCartPending?: boolean;
+  onAddToCart?: ((item: ProgramLectureCard) => void) | undefined;
+  onSubscribeAlert?: ((item: ProgramLectureCard) => void) | undefined;
 }
 
 interface ProgramEducatorCardProps {
   instructor: ProgramInstructorProfile;
 }
 
-const formatRemainingSeatsValue = (
-  remainingSeatsCount: number | undefined,
-  remainingSeatsLabel: string | undefined,
-): string | null => {
-  if (remainingSeatsCount !== undefined) {
-    return `${String(remainingSeatsCount)}명 남음`;
+const buildProgramMetaTags = (item: ProgramLectureCard) => {
+  return [item.difficultyLabel, item.formatLabel];
+};
+
+const isLectureSoldOut = (item: ProgramLectureCard) => {
+  if (item.remainingSeatsCount !== undefined) {
+    return item.remainingSeatsCount <= 0;
   }
 
-  if (!remainingSeatsLabel) {
+  if (!item.remainingSeatsLabel) {
+    return false;
+  }
+
+  return item.remainingSeatsLabel.includes('0명');
+};
+
+const resolveLectureCatalogStatus = (item: ProgramLectureCard): ProgramCatalogStatus => {
+  if (item.catalogStatus) {
+    return item.catalogStatus;
+  }
+
+  return isLectureSoldOut(item) ? 'FULL' : 'OPEN';
+};
+
+const resolveAvailability = (item: ProgramLectureCard): { label: string; value: string } | null => {
+  const catalogStatus = resolveLectureCatalogStatus(item);
+
+  switch (catalogStatus) {
+    case 'OPEN':
+      if (item.remainingSeatsCount !== undefined) {
+        return {
+          label: '수강 가능',
+          value: `${String(item.remainingSeatsCount)}명 남음`,
+        };
+      }
+
+      if (!item.remainingSeatsLabel) {
+        return {
+          label: '수강 가능',
+          value: '신청 가능',
+        };
+      }
+
+      return {
+        label: '수강 가능',
+        value: item.remainingSeatsLabel.replace(/^인원\s*/, '').trim(),
+      };
+    case 'FULL':
+      return {
+        label: '모집 상태',
+        value: '정원 마감',
+      };
+    case 'SCHEDULED':
+      return {
+        label: '모집 상태',
+        value: '모집 예정',
+      };
+    case 'STARTED':
+      return {
+        label: '모집 상태',
+        value: '운영 중',
+      };
+    case 'CLOSED':
+      return {
+        label: '모집 상태',
+        value: '모집 종료',
+      };
+  }
+};
+
+const buildScheduleText = (scheduleLabel: string) => {
+  return `모집기간 ${scheduleLabel}`;
+};
+
+const buildDurationText = (durationLabel: string) => {
+  return `운영기간 ${durationLabel}`;
+};
+
+const ProgramCardAction = ({
+  isAlertPending = false,
+  isAlertSubscribed = false,
+  isAuthenticated = false,
+  isCartPending = false,
+  item,
+  onAddToCart,
+  onSubscribeAlert,
+}: {
+  isAlertPending?: boolean;
+  isAlertSubscribed?: boolean;
+  isAuthenticated?: boolean;
+  isCartPending?: boolean;
+  item: ProgramLectureCard;
+  onAddToCart?: ((item: ProgramLectureCard) => void) | undefined;
+  onSubscribeAlert?: ((item: ProgramLectureCard) => void) | undefined;
+}) => {
+  const catalogStatus = resolveLectureCatalogStatus(item);
+
+  if (catalogStatus === 'FULL') {
+    if (!isAuthenticated) {
+      return (
+        <Link
+          className={classNames(styles['cardActionLink'], styles['cardActionSecondary'])}
+          to={routePaths.login}
+        >
+          로그인 후 알림 받기
+        </Link>
+      );
+    }
+
+    return (
+      <button
+        className={classNames(
+          styles['cardActionButton'],
+          isAlertSubscribed ? styles['cardActionDisabled'] : styles['cardActionPrimary'],
+        )}
+        disabled={isAlertPending || isAlertSubscribed}
+        onClick={() => {
+          onSubscribeAlert?.(item);
+        }}
+        type='button'
+      >
+        {isAlertSubscribed ? '알림 신청 완료' : isAlertPending ? '신청 중...' : '알림 받기'}
+      </button>
+    );
+  }
+
+  if (catalogStatus === 'SCHEDULED') {
+    return (
+      <button
+        className={classNames(styles['cardActionButton'], styles['cardActionSecondary'])}
+        disabled
+        type='button'
+      >
+        모집 예정
+      </button>
+    );
+  }
+
+  if (catalogStatus === 'STARTED' || catalogStatus === 'CLOSED') {
+    return (
+      <button
+        className={classNames(styles['cardActionButton'], styles['cardActionDisabled'])}
+        disabled
+        type='button'
+      >
+        신청 마감
+      </button>
+    );
+  }
+
+  if (!onAddToCart || typeof item.programId !== 'number' || item.programId <= 0) {
     return null;
   }
 
-  const [, remainingValue = remainingSeatsLabel] = remainingSeatsLabel.split('인원 ');
-
-  return remainingValue;
+  return (
+    <button
+      aria-label={isCartPending ? '장바구니에 담는 중' : '장바구니 담기'}
+      className={classNames(styles['cardIconButton'], isCartPending && styles['cardIconButtonPending'])}
+      disabled={isCartPending}
+      onClick={() => {
+        onAddToCart(item);
+      }}
+      type='button'
+    >
+      <span className={styles['srOnly']}>{isCartPending ? '장바구니에 담는 중' : '장바구니 담기'}</span>
+      <img alt='' aria-hidden='true' className={styles['cardActionIcon']} src={cartIconSrc} />
+    </button>
+  );
 };
 
 // 수치/요약 정보는 여러 화면에서 같은 형태로 반복되므로
@@ -110,7 +279,7 @@ export const ProgramCollectionCardItem = ({ item }: ProgramCollectionCardItemPro
 
       <div className={styles['collectionBody']}>
         <div className={styles['collectionMetaRow']}>
-          <span className={styles['collectionCount']}>강의 {String(item.lectureCount)}개</span>
+          <span className={styles['collectionCount']}>과정 {String(item.lectureCount)}개</span>
           <ul className={styles['inlineTagList']}>
             {item.formatLabels.map((formatLabel) => {
               return (
@@ -133,11 +302,17 @@ export const ProgramCollectionCardItem = ({ item }: ProgramCollectionCardItemPro
   );
 };
 
-export const ProgramLectureCardItem = ({ item }: ProgramLectureCardItemProps) => {
-  const remainingSeatsValue = formatRemainingSeatsValue(
-    item.remainingSeatsCount,
-    item.remainingSeatsLabel,
-  );
+export const ProgramLectureCardItem = ({
+  item,
+  isAlertPending = false,
+  isAlertSubscribed = false,
+  isAuthenticated = false,
+  isCartPending = false,
+  onAddToCart,
+  onSubscribeAlert,
+}: ProgramLectureCardItemProps) => {
+  const availability = resolveAvailability(item);
+  const metaTags = buildProgramMetaTags(item);
 
   return (
     <article className={styles['lectureCard']}>
@@ -148,6 +323,17 @@ export const ProgramLectureCardItem = ({ item }: ProgramLectureCardItemProps) =>
       <div className={styles['lectureBody']}>
         <div className={styles['lectureMetaRow']}>
           <span className={styles['lectureCategory']}>{item.categoryLabel}</span>
+          <div className={styles['lectureTopActionRow']}>
+            <ProgramCardAction
+              isAlertPending={isAlertPending}
+              isAlertSubscribed={isAlertSubscribed}
+              isAuthenticated={isAuthenticated}
+              isCartPending={isCartPending}
+              item={item}
+              onAddToCart={onAddToCart}
+              onSubscribeAlert={onSubscribeAlert}
+            />
+          </div>
         </div>
 
         <h3 className={styles['lectureTitle']}>
@@ -160,28 +346,26 @@ export const ProgramLectureCardItem = ({ item }: ProgramLectureCardItemProps) =>
         <div className={styles['lecturePriceRow']}>
           <p className={styles['lecturePrice']}>{item.priceLabel}</p>
 
-          {remainingSeatsValue ? (
+          {availability ? (
             <div className={styles['lectureAvailabilityBadge']}>
-              <span className={styles['lectureAvailabilityLabel']}>수강 가능</span>
-              <span className={styles['lectureAvailabilityValue']}>{remainingSeatsValue}</span>
+              <span className={styles['lectureAvailabilityLabel']}>{availability.label}</span>
+              <span className={styles['lectureAvailabilityValue']}>{availability.value}</span>
             </div>
           ) : null}
         </div>
 
-        <dl className={styles['lectureInfoList']}>
-          <div>
-            <dt>운영 방식</dt>
-            <dd>{item.formatLabel}</dd>
-          </div>
-          <div>
-            <dt>학습 기간</dt>
-            <dd>{item.durationLabel}</dd>
-          </div>
-          <div>
-            <dt>난이도</dt>
-            <dd>{item.difficultyLabel}</dd>
-          </div>
-        </dl>
+        <p className={styles['lectureScheduleText']}>{buildScheduleText(item.scheduleLabel)}</p>
+        <p className={styles['lectureScheduleText']}>{buildDurationText(item.durationLabel)}</p>
+
+        <ul className={styles['programMetaTagList']}>
+          {metaTags.map((tag) => {
+            return (
+              <li className={styles['programMetaTagItem']} key={tag}>
+                {tag}
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </article>
   );
@@ -189,11 +373,17 @@ export const ProgramLectureCardItem = ({ item }: ProgramLectureCardItemProps) =>
 
 // 카테고리 아카이브에서는 한 화면에 강의를 많이 훑어봐야 하므로
 // 메타 정보를 줄이고 "강의 선택"에 집중한 더 단순한 카드 버전을 따로 둡니다.
-export const ProgramArchiveLectureCardItem = ({ item }: ProgramArchiveLectureCardItemProps) => {
-  const remainingSeatsValue = formatRemainingSeatsValue(
-    item.remainingSeatsCount,
-    item.remainingSeatsLabel,
-  );
+export const ProgramArchiveLectureCardItem = ({
+  item,
+  isAlertPending = false,
+  isAlertSubscribed = false,
+  isAuthenticated = false,
+  isCartPending = false,
+  onAddToCart,
+  onSubscribeAlert,
+}: ProgramArchiveLectureCardItemProps) => {
+  const availability = resolveAvailability(item);
+  const metaTags = buildProgramMetaTags(item);
 
   return (
     <article className={styles['archiveLectureCard']}>
@@ -210,6 +400,17 @@ export const ProgramArchiveLectureCardItem = ({ item }: ProgramArchiveLectureCar
       <div className={styles['archiveLectureBody']}>
         <div className={styles['archiveLectureMetaRow']}>
           <span className={styles['archiveLectureCategory']}>{item.categoryLabel}</span>
+          <div className={styles['lectureTopActionRow']}>
+            <ProgramCardAction
+              isAlertPending={isAlertPending}
+              isAlertSubscribed={isAlertSubscribed}
+              isAuthenticated={isAuthenticated}
+              isCartPending={isCartPending}
+              item={item}
+              onAddToCart={onAddToCart}
+              onSubscribeAlert={onSubscribeAlert}
+            />
+          </div>
         </div>
 
         <h3 className={styles['archiveLectureTitle']}>
@@ -223,16 +424,25 @@ export const ProgramArchiveLectureCardItem = ({ item }: ProgramArchiveLectureCar
         <div className={styles['archiveLectureBottomMeta']}>
           <p className={styles['archiveLecturePrice']}>{item.priceLabel}</p>
 
-          {remainingSeatsValue ? (
+          {availability ? (
             <div className={styles['archiveLectureAvailability']}>
-              <span className={styles['archiveLectureAvailabilityLabel']}>수강 가능 인원</span>
-              <span className={styles['archiveLectureAvailabilityValue']}>
-                {remainingSeatsValue}
-              </span>
+              <span className={styles['archiveLectureAvailabilityLabel']}>{availability.label}</span>
+              <span className={styles['archiveLectureAvailabilityValue']}>{availability.value}</span>
             </div>
           ) : null}
 
-          <p className={styles['archiveLectureSchedule']}>{item.scheduleLabel}</p>
+          <p className={styles['archiveLectureScheduleText']}>{buildScheduleText(item.scheduleLabel)}</p>
+          <p className={styles['archiveLectureScheduleText']}>{buildDurationText(item.durationLabel)}</p>
+
+          <ul className={styles['programMetaTagList']}>
+            {metaTags.map((tag) => {
+              return (
+                <li className={styles['programMetaTagItem']} key={tag}>
+                  {tag}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </div>
     </article>

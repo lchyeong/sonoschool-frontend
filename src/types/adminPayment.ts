@@ -3,6 +3,7 @@ import type { PaymentMethodValue, PaymentStatus } from '@/types/payment';
 export interface AdminPaymentListItem {
   paymentId: number;
   orderName: string;
+  orderNumber: string | null;
   orderType: string;
   buyerLoginId: string;
   buyerDisplayName: string;
@@ -13,12 +14,15 @@ export interface AdminPaymentListItem {
   requestedAt: string;
   paidAt: string | null;
   cancelledAt: string | null;
+  completedLectureCount: number;
+  totalLectureCount: number;
   canCancel: boolean;
 }
 
 export interface AdminPaymentDetail {
   paymentId: number;
   orderName: string;
+  orderNumber: string | null;
   orderType: string;
   buyerLoginId: string;
   buyerDisplayName: string;
@@ -33,5 +37,7 @@ export interface AdminPaymentDetail {
   cancelledAt: string | null;
   cancelReason: string | null;
   receiptUrl: string | null;
+  completedLectureCount: number;
+  totalLectureCount: number;
   canCancel: boolean;
 }

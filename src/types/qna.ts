@@ -1,8 +1,10 @@
-export type QuestionScope = 'GLOBAL';
+export type QuestionScope = 'GLOBAL' | 'PROGRAM';
+export type QuestionAuthorType = 'ADMIN' | 'ENROLLED' | 'MEMBER';
 
 export interface QuestionReplyItem {
   id: number;
   authorName: string;
+  authorType: QuestionAuthorType;
   content: string;
   mine: boolean;
   adminReply: boolean;
@@ -16,10 +18,12 @@ export interface QuestionItem {
   programId: number | null;
   programTitle: string | null;
   authorName: string;
+  authorType: QuestionAuthorType;
   title: string;
   content: string;
   mine: boolean;
   answered: boolean;
+  replyCount: number;
   createdAt: string;
   updatedAt: string;
   replies: QuestionReplyItem[];

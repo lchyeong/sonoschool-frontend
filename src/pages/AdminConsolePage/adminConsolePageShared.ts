@@ -2,7 +2,6 @@ type AdminNoticeCategory = '운영' | '학사' | '이벤트';
 type AdminResourceVisibility = 'public' | 'students-only';
 
 export type AdminConsoleSection =
-  | 'dashboard'
   | 'notices'
   | 'popups'
   | 'programMenus'
@@ -68,11 +67,6 @@ export const programStatusLabel = {
 } as const;
 
 export const sectionContent = {
-  dashboard: {
-    description: '',
-    eyebrow: '',
-    title: '운영 대시보드',
-  },
   notices: {
     description: '',
     eyebrow: '',

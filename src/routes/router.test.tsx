@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { env } from '@/config/env';
+import { server } from '@/mocks/server';
 import { adminAuthRouteTree, adminConsoleRouteTree, appRouteTree } from '@/routes/router';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -99,7 +101,7 @@ describe('router layouts', () => {
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
   });
 
-  it('renders the admin dashboard on /admin and hides unfinished review navigation', async () => {
+  it('redirects /admin to program management and hides dashboard navigation', async () => {
     useAdminAuthStore.setState({
       accessToken: 'admin-token',
       adminDisplayName: '소노스쿨 운영 관리자',
@@ -121,7 +123,11 @@ describe('router layouts', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole('heading', { level: 1, name: '운영 개요' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 관리' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: '운영 개요' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '대시보드' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '교육후기' })).not.toBeInTheDocument();
   });
 
@@ -137,6 +143,11 @@ describe('router layouts', () => {
     });
 
     const queryClient = createTestQueryClient();
+    server.use(
+      http.get('*/api/v1/admin/programs/:programId/enrollments', () => {
+        return HttpResponse.json({ data: [] });
+      }),
+    );
     const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
       initialEntries: ['/admin/programs/2001/edit'],
     });
@@ -148,7 +159,7 @@ describe('router layouts', () => {
     );
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 기본정보' }),
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 수정' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /프로그램 관리/i })).toHaveAttribute(
       'aria-current',

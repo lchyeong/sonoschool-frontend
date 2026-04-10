@@ -4,6 +4,7 @@ import type { ApiEnvelope } from '@/types/auth';
 import type {
   AdminPracticumOperatingHour,
   AdminPracticumOperatingHourApplyPayload,
+  AdminPracticumOfflineScheduleDetail,
   AdminPracticumOfflineScheduleOccurrence,
   AdminPracticumOperationException,
   AdminPracticumOperationExceptionPayload,
@@ -86,6 +87,34 @@ export const fetchAdminPracticumOfflineSchedules = async (
   }
 };
 
+export const fetchAdminPracticumOfflineScheduleDetail = async (
+  ruleId: number,
+): Promise<AdminPracticumOfflineScheduleDetail> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<AdminPracticumOfflineScheduleDetail>>(
+      `/api/v1/admin/practicum/offline-schedules/${String(ruleId)}`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '오프라인 일정 상세를 불러오지 못했습니다.');
+  }
+};
+
+export const updateAdminPracticumOfflineScheduleAttendance = async (
+  ruleId: number,
+  enrollmentId: number,
+  absent: boolean,
+): Promise<void> => {
+  try {
+    await axiosInstance.patch(
+      `/api/v1/admin/practicum/offline-schedules/${String(ruleId)}/attendees/${String(enrollmentId)}/absence`,
+      { absent },
+    );
+  } catch (error: unknown) {
+    throw toApiError(error, '오프라인 강의 참석 상태를 저장하지 못했습니다.');
+  }
+};
+
 export const syncAdminPracticumDailyOperation = async (
   payload: AdminPracticumDailyOperationPayload,
 ): Promise<void> => {
@@ -153,6 +182,33 @@ export const createAdminPracticumOperationException = async (
   }
 };
 
+export const deleteAdminPracticumOperationException = async (
+  exceptionId: number,
+): Promise<void> => {
+  try {
+    await axiosInstance.delete(
+      `/api/v1/admin/practicum/operation-exceptions/${String(exceptionId)}`,
+    );
+  } catch (error: unknown) {
+    throw toApiError(error, '개인 일정을 삭제하지 못했습니다.');
+  }
+};
+
+export const updateAdminPracticumOperationException = async (
+  exceptionId: number,
+  payload: AdminPracticumOperationExceptionPayload,
+): Promise<AdminPracticumOperationException> => {
+  try {
+    const response = await axiosInstance.put<ApiEnvelope<AdminPracticumOperationException>>(
+      `/api/v1/admin/practicum/operation-exceptions/${String(exceptionId)}`,
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '개인 일정을 수정하지 못했습니다.');
+  }
+};
+
 export const createAdminPracticumSlot = async (
   lectureId: number,
   payload: AdminPracticumSlotPayload,
@@ -210,5 +266,29 @@ export const cancelAdminPracticumReservation = async (reservationId: number): Pr
     await axiosInstance.delete(`/api/v1/admin/practicum-reservations/${String(reservationId)}`);
   } catch (error: unknown) {
     throw toApiError(error, '실습 예약을 취소하지 못했습니다.');
+  }
+};
+
+export const moveAdminPracticumReservation = async (
+  reservationId: number,
+  slotId: number,
+): Promise<void> => {
+  try {
+    await axiosInstance.patch(
+      `/api/v1/admin/practicum-reservations/${String(reservationId)}/move`,
+      { slotId },
+    );
+  } catch (error: unknown) {
+    throw toApiError(error, '실습 예약 일정을 변경하지 못했습니다.');
+  }
+};
+
+export const markAdminPracticumReservationNoShow = async (reservationId: number): Promise<void> => {
+  try {
+    await axiosInstance.patch(
+      `/api/v1/admin/practicum-reservations/${String(reservationId)}/no-show`,
+    );
+  } catch (error: unknown) {
+    throw toApiError(error, '실습 불참 처리를 저장하지 못했습니다.');
   }
 };

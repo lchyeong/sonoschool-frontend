@@ -7,16 +7,6 @@ export interface FlattenedLesson extends ProgramCurriculumLesson {
   sectionTitle: string;
 }
 
-export interface FlattenedQuizItem {
-  id: string;
-  kind: 'quiz';
-  lesson: FlattenedLesson;
-  sectionId: string;
-  sectionIndex: number;
-  sectionTitle: string;
-  title: string;
-}
-
 export interface FlattenedLessonItem {
   id: string;
   kind: 'lesson';
@@ -27,11 +17,7 @@ export interface FlattenedLessonItem {
   title: string;
 }
 
-export type FlattenedPlayerItem = FlattenedLessonItem | FlattenedQuizItem;
-
-export const buildQuizItemId = (lessonId: string) => `${lessonId}__quiz`;
-
-export const isQuizItemId = (itemId: string) => itemId.endsWith('__quiz');
+export type FlattenedPlayerItem = FlattenedLessonItem;
 
 export const formatDate = (value?: string | null) => {
   if (!value) return '-';
@@ -76,8 +62,8 @@ export const flattenLessons = (
 export const flattenPlayerItems = (
   sections: readonly { id: string; title: string; lessons: ProgramCurriculumLesson[] }[],
 ): FlattenedPlayerItem[] => {
-  return flattenLessons(sections).flatMap((lesson) => {
-    const lessonItem: FlattenedLessonItem = {
+  return flattenLessons(sections).map((lesson) => {
+    return {
       id: lesson.id,
       kind: 'lesson',
       lesson,
@@ -86,23 +72,6 @@ export const flattenPlayerItems = (
       sectionTitle: lesson.sectionTitle,
       title: lesson.title,
     };
-
-    if (lesson.deliveryType === 'problem' || !lesson.hasQuiz) {
-      return [lessonItem];
-    }
-
-    return [
-      lessonItem,
-      {
-        id: buildQuizItemId(lesson.id),
-        kind: 'quiz',
-        lesson,
-        sectionId: lesson.sectionId,
-        sectionIndex: lesson.sectionIndex,
-        sectionTitle: lesson.sectionTitle,
-        title: `${lesson.title} 확인 문제`,
-      } satisfies FlattenedQuizItem,
-    ];
   });
 };
 

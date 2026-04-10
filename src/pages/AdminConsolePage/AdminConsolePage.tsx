@@ -2,7 +2,6 @@ import styles from './AdminConsolePage.module.scss';
 import { type AdminConsoleSection } from './adminConsolePageShared';
 import {
   AdminConsolePageHeader,
-  AdminDashboardSection,
   AdminDeferredSection,
   AdminPaymentsSection,
 } from './AdminConsoleSectionViews';
@@ -20,14 +19,6 @@ interface AdminConsolePageProps {
 }
 
 const AdminConsolePage = ({ section }: AdminConsolePageProps) => {
-  if (section === 'dashboard') {
-    return (
-      <div className={styles['page']}>
-        <AdminDashboardSection />
-      </div>
-    );
-  }
-
   return (
     <div className={styles['page']}>
       {section !== 'programs' ? <AdminConsolePageHeader section={section} /> : null}

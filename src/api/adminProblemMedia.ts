@@ -1,19 +1,19 @@
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import type {
-  AdminQuizMediaUploadTarget,
-  AdminQuizMediaUploadTargetRequest,
-} from '@/types/adminQuizMedia';
 import type { ApiEnvelope } from '@/types/auth';
+import type {
+  AdminProblemMediaUploadTarget,
+  AdminProblemMediaUploadTargetRequest,
+} from '@/types/adminProblemMedia';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => response.data;
 
-export const createAdminQuizMediaUploadTarget = async (
-  payload: AdminQuizMediaUploadTargetRequest,
-): Promise<AdminQuizMediaUploadTarget> => {
+export const createAdminProblemMediaUploadTarget = async (
+  payload: AdminProblemMediaUploadTargetRequest,
+): Promise<AdminProblemMediaUploadTarget> => {
   try {
-    const response = await axiosInstance.post<ApiEnvelope<AdminQuizMediaUploadTarget>>(
-      '/api/v1/admin/quiz-media/upload-targets',
+    const response = await axiosInstance.post<ApiEnvelope<AdminProblemMediaUploadTarget>>(
+      '/api/v1/admin/problem-media/upload-targets',
       payload,
     );
     return unwrapApiEnvelope(response.data);
@@ -22,7 +22,7 @@ export const createAdminQuizMediaUploadTarget = async (
   }
 };
 
-export const uploadAdminQuizMediaFile = async (uploadUrl: string, file: File): Promise<void> => {
+export const uploadAdminProblemMediaFile = async (uploadUrl: string, file: File): Promise<void> => {
   const response = await fetch(uploadUrl, {
     body: file,
     headers: {

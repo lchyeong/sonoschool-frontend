@@ -23,12 +23,39 @@
   color: var(--color-text-primary);
 }
 
+.panelLg {
+  width: min(100%, 48rem);
+}
+
 .header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-6) var(--space-6) var(--space-4);
+}
+
+.headerMain {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.headerMainStacked {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.headerLeading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.headerLeadingStacked {
+  justify-content: flex-start;
 }
 
 .headingGroup {

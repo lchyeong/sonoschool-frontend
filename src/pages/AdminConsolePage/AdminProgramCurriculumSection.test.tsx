@@ -58,7 +58,7 @@ describe('AdminProgramCurriculumSection', () => {
                   practicumEnabled: false,
                   preview: false,
                   published: false,
-                  quizOnly: false,
+                  problemOnly: false,
                   sectionId: 501,
                   sortOrder: 0,
                   title: '복부 실습 워크숍',

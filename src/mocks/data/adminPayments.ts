@@ -23,8 +23,10 @@ const createAdminPaymentDetail = (paymentId: number): AdminPaymentDetail | null 
     cancelReason: payment.cancelReason,
     cancelledAt: payment.cancelledAt,
     canCancel: payment.status === 'COMPLETED',
+    completedLectureCount: payment.status === 'COMPLETED' ? 3 : 0,
     failedAt: payment.failedAt,
     orderName: payment.orderName,
+    orderNumber: payment.orderNumber,
     orderType: payment.orderType,
     paidAt: payment.paidAt,
     paymentId: payment.id,
@@ -33,6 +35,7 @@ const createAdminPaymentDetail = (paymentId: number): AdminPaymentDetail | null 
     registeredAt: payment.registeredAt,
     requestedAt: payment.requestedAt,
     status: payment.status,
+    totalLectureCount: payment.status === 'COMPLETED' ? 20 : 0,
   };
 };
 
@@ -49,13 +52,16 @@ export const getMockAdminPayments = (): AdminPaymentListItem[] => {
       buyerLoginId: payment.buyerLoginId,
       canCancel: payment.canCancel,
       cancelledAt: payment.cancelledAt,
+      completedLectureCount: payment.completedLectureCount,
       orderName: payment.orderName,
+      orderNumber: payment.orderNumber,
       orderType: payment.orderType,
       paidAt: payment.paidAt,
       paymentId: payment.paymentId,
       paymentMethod: payment.paymentMethod,
       requestedAt: payment.requestedAt,
       status: payment.status,
+      totalLectureCount: payment.totalLectureCount,
     })),
   );
 };

@@ -52,7 +52,7 @@ const TARGET_PART_SIZE_BYTES = 8 * 1024 * 1024;
 interface AdminProgramCurriculumSectionProps {
   embedded?: boolean;
   enabled: boolean;
-  onOpenLectureWorkspace?: (lectureId: number, target: 'quiz' | 'resource') => void;
+  onOpenLectureWorkspace?: (lectureId: number, target: 'problem' | 'resource') => void;
   programLearningEndAt?: string | null;
   programLearningStartAt?: string | null;
   programType?: AdminProgramType | null;
@@ -67,8 +67,8 @@ interface SectionFormState {
 interface LectureFormState {
   description: string;
   durationSeconds: string;
+  problemOnly: boolean;
   preview: boolean;
-  quizOnly: boolean;
   practicumEnabled: boolean;
   title: string;
 }
@@ -86,7 +86,7 @@ interface OfflineScheduleFormState {
   startTime: string;
 }
 
-type LectureWorkspacePanel = 'basic' | 'video' | 'resource' | 'quiz' | 'practicum' | 'offline';
+type LectureWorkspacePanel = 'basic' | 'video' | 'resource' | 'problem' | 'practicum' | 'offline';
 
 type SectionWorkspacePanel = 'lectures' | 'editor' | 'create-lecture';
 
@@ -98,8 +98,8 @@ const EMPTY_SECTION_FORM: SectionFormState = {
 const EMPTY_LECTURE_FORM: LectureFormState = {
   description: '',
   durationSeconds: '',
+  problemOnly: false,
   preview: false,
-  quizOnly: false,
   practicumEnabled: false,
   title: '',
 };
@@ -167,7 +167,7 @@ const toLecturePayload = (
   formState: LectureFormState,
   sortOrder: number,
 ): AdminLectureUpsertPayload => {
-  const lectureType = formState.quizOnly
+  const lectureType = formState.problemOnly
     ? 'PROBLEM'
     : formState.practicumEnabled
       ? 'PRACTICUM'
@@ -175,13 +175,13 @@ const toLecturePayload = (
   return {
     description: normalizeDescription(formState.description),
     durationSeconds:
-      !formState.quizOnly && formState.practicumEnabled
+      !formState.problemOnly && formState.practicumEnabled
         ? null
         : parseDurationSeconds(formState.durationSeconds),
     lectureType,
+    problemOnly: formState.problemOnly,
     preview: false,
-    quizOnly: formState.quizOnly,
-    practicumEnabled: formState.quizOnly ? false : formState.practicumEnabled,
+    practicumEnabled: formState.problemOnly ? false : formState.practicumEnabled,
     sortOrder,
     title: formState.title.trim(),
   };
@@ -201,7 +201,7 @@ const createOfflineScheduleFormStates = (
   lecture: AdminCurriculumLecture,
 ): OfflineScheduleFormState[] => {
   if (lecture.offlineSchedules.length > 0) {
-    return lecture.offlineSchedules.map((schedule) => createOfflineScheduleFormState(schedule));
+    return [createOfflineScheduleFormState(lecture.offlineSchedules[0])];
   }
 
   return [createOfflineScheduleFormState()];
@@ -210,7 +210,7 @@ const createOfflineScheduleFormStates = (
 const toOfflineSchedulesPayload = (
   formStates: OfflineScheduleFormState[],
 ): AdminLectureOfflineSchedulesReplacePayload => ({
-  offlineSchedules: formStates.map((formState) => ({
+  offlineSchedules: formStates.slice(0, 1).map((formState) => ({
     date: formState.date,
     endTime: formState.endTime,
     location: normalizeDescription(formState.location),
@@ -333,7 +333,7 @@ const formatDurationLabel = (durationSeconds: number | null): string => {
 };
 
 const formatLectureDelivery = (lecture: AdminCurriculumLecture): string => {
-  if (lecture.quizOnly) {
+  if (lecture.problemOnly) {
     return '문제풀이 강의';
   }
   const hasVideo = lecture.videoId !== null;
@@ -363,8 +363,8 @@ const getLecturePanelLabel = (
       return lecture.videoId === null ? '영상 추가' : '영상 교체';
     case 'resource':
       return '첨부자료 연결';
-    case 'quiz':
-      return lecture.quizOnly ? '문제풀이 문제 구성' : '문제 연결';
+    case 'problem':
+      return lecture.problemOnly ? '문제풀이 문제 구성' : '문제 연결';
     case 'practicum':
       return '실습 예약 구성';
     case 'offline':
@@ -462,8 +462,8 @@ const LectureCard = ({
   const [formState, setFormState] = useState<LectureFormState>({
     description: lecture.description ?? '',
     durationSeconds: lecture.durationSeconds === null ? '' : String(lecture.durationSeconds),
+    problemOnly: lecture.problemOnly ?? false,
     preview: lecture.preview,
-    quizOnly: lecture.quizOnly ?? false,
     practicumEnabled: lecture.practicumEnabled ?? false,
     title: lecture.title,
   });
@@ -528,7 +528,7 @@ const LectureCard = ({
   });
   const practicumSlots = practicumSlotsQuery.data ?? [];
   const pendingPracticumActivation = formState.practicumEnabled && !lecture.practicumEnabled;
-  const supportsDeliveryPanels = !formState.quizOnly;
+  const supportsDeliveryPanels = !formState.problemOnly;
   const quickActionLabel = lecture.videoId === null ? '영상 추가' : '영상 교체';
   const togglePanel = (panel: LectureWorkspacePanel) => {
     setExpanded(true);
@@ -573,7 +573,7 @@ const LectureCard = ({
             <div className={styles['summaryItem']}>
               <span className={styles['summaryLabel']}>실습</span>
               <strong className={styles['summaryValue']}>
-                {lecture.quizOnly
+                {lecture.problemOnly
                   ? '문제로 구성'
                   : lecture.practicumEnabled
                     ? '실습 예약 사용'
@@ -734,14 +734,14 @@ const LectureCard = ({
               </button>
               <button
                 className={styles['workspaceTab']}
-                data-active={activePanel === 'quiz'}
+                data-active={activePanel === 'problem'}
                 onClick={() => {
-                  togglePanel('quiz');
+                  togglePanel('problem');
                   onManageQuiz(lecture.id);
                 }}
                 type='button'
               >
-                {activePanel === 'quiz' ? '문제 닫기' : '문제 추가'}
+                {activePanel === 'problem' ? '문제 닫기' : '문제 추가'}
               </button>
               {allowPracticum && supportsDeliveryPanels ? (
                 <button
@@ -785,17 +785,17 @@ const LectureCard = ({
                   <select
                     className={styles['selectControl']}
                     onChange={(event) => {
-                      const nextQuizOnly = event.target.value === 'QUIZ_ONLY';
+                      const nextProblemOnly = event.target.value === 'PROBLEM_ONLY';
                       setFormState((current) => ({
                         ...current,
-                        practicumEnabled: nextQuizOnly ? false : current.practicumEnabled,
-                        quizOnly: nextQuizOnly,
+                        practicumEnabled: nextProblemOnly ? false : current.practicumEnabled,
+                        problemOnly: nextProblemOnly,
                       }));
                     }}
-                    value={formState.quizOnly ? 'QUIZ_ONLY' : 'STANDARD'}
+                    value={formState.problemOnly ? 'PROBLEM_ONLY' : 'STANDARD'}
                   >
                     <option value='STANDARD'>일반 강의</option>
-                    <option value='QUIZ_ONLY'>문제풀이형 강의</option>
+                    <option value='PROBLEM_ONLY'>문제풀이형 강의</option>
                   </select>
                 </label>
 
@@ -822,7 +822,7 @@ const LectureCard = ({
                   rows={3}
                   value={formState.description}
                 />
-                {!formState.practicumEnabled || formState.quizOnly ? (
+                {!formState.practicumEnabled || formState.problemOnly ? (
                   <TextField
                     label='강의 길이(초)'
                     name={`lecture-duration-${String(lecture.id)}`}
@@ -836,7 +836,7 @@ const LectureCard = ({
                   />
                 ) : null}
 
-                {allowPracticum && !formState.quizOnly ? (
+                {allowPracticum && !formState.problemOnly ? (
                   <label className={styles['checkboxRow']}>
                     <input
                       checked={formState.practicumEnabled}
@@ -1019,19 +1019,6 @@ const LectureCard = ({
               <div className={styles['buttonRow']}>
                 <Button
                   onClick={() => {
-                    setOfflineScheduleForms((current) => [
-                      ...current,
-                      createOfflineScheduleFormState(),
-                    ]);
-                  }}
-                  size='sm'
-                  type='button'
-                  variant='secondary'
-                >
-                  일정 추가
-                </Button>
-                <Button
-                  onClick={() => {
                     const hasEmptySchedule = offlineScheduleForms.some(
                       (schedule) => !schedule.date || !schedule.startTime || !schedule.endTime,
                     );
@@ -1082,7 +1069,7 @@ const LectureCard = ({
             </div>
           ) : null}
 
-          {activePanel === 'quiz' ? (
+          {activePanel === 'problem' ? (
             <div className={styles['managementPanel']}>
               <div className={styles['panelHeader']}>
                 <h5 className={styles['subsectionTitle']}>문제 관리</h5>
@@ -1532,17 +1519,17 @@ const SectionCard = ({
                   <select
                     className={styles['selectControl']}
                     onChange={(event) => {
-                      const nextQuizOnly = event.target.value === 'QUIZ_ONLY';
+                      const nextProblemOnly = event.target.value === 'PROBLEM_ONLY';
                       setNewLectureForm((current) => ({
                         ...current,
-                        practicumEnabled: nextQuizOnly ? false : current.practicumEnabled,
-                        quizOnly: nextQuizOnly,
+                        practicumEnabled: nextProblemOnly ? false : current.practicumEnabled,
+                        problemOnly: nextProblemOnly,
                       }));
                     }}
-                    value={newLectureForm.quizOnly ? 'QUIZ_ONLY' : 'STANDARD'}
+                    value={newLectureForm.problemOnly ? 'PROBLEM_ONLY' : 'STANDARD'}
                   >
                     <option value='STANDARD'>일반 강의</option>
-                    <option value='QUIZ_ONLY'>문제풀이형 강의</option>
+                    <option value='PROBLEM_ONLY'>문제풀이형 강의</option>
                   </select>
                 </label>
                 <TextField
@@ -1568,7 +1555,7 @@ const SectionCard = ({
                   rows={3}
                   value={newLectureForm.description}
                 />
-                {!newLectureForm.practicumEnabled || newLectureForm.quizOnly ? (
+                {!newLectureForm.practicumEnabled || newLectureForm.problemOnly ? (
                   <TextField
                     label='새 강의 길이(초)'
                     name={`new-lecture-duration-${String(section.id)}`}
@@ -1582,7 +1569,7 @@ const SectionCard = ({
                   />
                 ) : null}
 
-                {allowPracticum && !newLectureForm.quizOnly ? (
+                {allowPracticum && !newLectureForm.problemOnly ? (
                   <label className={styles['checkboxRow']}>
                     <input
                       checked={newLectureForm.practicumEnabled}
@@ -1922,8 +1909,8 @@ const AdminProgramCurriculumSection = ({
     const validationMessage = validateLectureForm({
       description: payload.description ?? '',
       durationSeconds: payload.durationSeconds === null ? '' : String(payload.durationSeconds),
+      problemOnly: payload.problemOnly ?? false,
       preview: payload.preview,
-      quizOnly: payload.quizOnly ?? false,
       practicumEnabled: payload.practicumEnabled ?? false,
       title: payload.title,
     });
@@ -1944,8 +1931,8 @@ const AdminProgramCurriculumSection = ({
     const validationMessage = validateLectureForm({
       description: payload.description ?? '',
       durationSeconds: payload.durationSeconds === null ? '' : String(payload.durationSeconds),
+      problemOnly: payload.problemOnly ?? false,
       preview: payload.preview,
-      quizOnly: payload.quizOnly ?? false,
       practicumEnabled: payload.practicumEnabled ?? false,
       title: payload.title,
     });
@@ -2175,7 +2162,7 @@ const AdminProgramCurriculumSection = ({
                     deleteLectureMutation.mutate(lectureId);
                   }}
                   onManageLectureQuiz={(lectureId) => {
-                    onOpenLectureWorkspace?.(lectureId, 'quiz');
+                    onOpenLectureWorkspace?.(lectureId, 'problem');
                   }}
                   onManageLectureResource={(lectureId) => {
                     onOpenLectureWorkspace?.(lectureId, 'resource');

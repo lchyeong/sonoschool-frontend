@@ -9,31 +9,50 @@ import type {
   LectureProgressSaveResponse,
   ProtectedLectureStream,
 } from '@/types/mypage';
+import type { EnrollmentPracticumOverview, PracticumReservation } from '@/types/practicum';
 import type {
-  StudentQuiz,
-  StudentQuizAttemptResult,
-  StudentQuizSession,
-} from '@/types/studentQuizzes';
+  StudentProblem,
+  StudentProblemAttemptResult,
+  StudentProblemSession,
+} from '@/types/studentProblems';
 
 const {
   createdHlsConfigs,
+  cancelMyLecturePracticumMock,
   fetchLectureStreamMock,
+  fetchMyEnrollmentPracticumOverviewMock,
   fetchMyLearningPlayerSnapshotMock,
-  fetchStudentQuizMock,
-  saveStudentQuizSessionMock,
+  moveMyLecturePracticumMock,
+  reserveMyLecturePracticumMock,
+  fetchStudentProblemMock,
+  saveStudentProblemSessionMock,
   saveLectureProgressMock,
   sendLectureProgressBeaconMock,
-  submitStudentQuizMock,
+  submitStudentProblemMock,
   testState,
 } = vi.hoisted(() => ({
   createdHlsConfigs: [] as Array<Record<string, unknown>>,
+  cancelMyLecturePracticumMock:
+    vi.fn<(enrollmentId: number, reservationId: number) => Promise<void>>(),
   fetchLectureStreamMock:
     vi.fn<(lectureId: number, deviceId: string) => Promise<ProtectedLectureStream>>(),
+  fetchMyEnrollmentPracticumOverviewMock:
+    vi.fn<(enrollmentId: number) => Promise<EnrollmentPracticumOverview>>(),
   fetchMyLearningPlayerSnapshotMock:
     vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>(),
-  fetchStudentQuizMock: vi.fn<(lectureId: number) => Promise<StudentQuiz | null>>(),
-  saveStudentQuizSessionMock:
-    vi.fn<(quizId: number, payload: Record<string, unknown>) => Promise<StudentQuizSession>>(),
+  moveMyLecturePracticumMock:
+    vi.fn<
+      (enrollmentId: number, reservationId: number, slotId: number) => Promise<PracticumReservation>
+    >(),
+  reserveMyLecturePracticumMock:
+    vi.fn<
+      (enrollmentId: number, slotId: number, lectureId?: number) => Promise<PracticumReservation>
+    >(),
+  fetchStudentProblemMock: vi.fn<(lectureId: number) => Promise<StudentProblem | null>>(),
+  saveStudentProblemSessionMock:
+    vi.fn<
+      (problemId: number, payload: Record<string, unknown>) => Promise<StudentProblemSession>
+    >(),
   saveLectureProgressMock:
     vi.fn<
       (
@@ -44,12 +63,12 @@ const {
     >(),
   sendLectureProgressBeaconMock:
     vi.fn<(enrollmentId: number, lectureId: number, watchedSeconds: number) => boolean>(),
-  submitStudentQuizMock:
+  submitStudentProblemMock:
     vi.fn<
       (
-        quizId: number,
-        payload: { answers: Record<number, number[]> },
-      ) => Promise<StudentQuizAttemptResult>
+        problemId: number,
+        payload: { answers: Record<number, number[]>; elapsedSeconds: number },
+      ) => Promise<StudentProblemAttemptResult>
     >(),
   testState: {
     isHlsSupported: true,
@@ -100,22 +119,32 @@ vi.mock('hls.js/light', () => {
 });
 
 vi.mock('@/api/mypage', () => ({
+  cancelMyLecturePracticum: (enrollmentId: number, reservationId: number) =>
+    cancelMyLecturePracticumMock(enrollmentId, reservationId),
   fetchLectureStream: (lectureId: number, deviceId: string) =>
     fetchLectureStreamMock(lectureId, deviceId),
+  fetchMyEnrollmentPracticumOverview: (enrollmentId: number) =>
+    fetchMyEnrollmentPracticumOverviewMock(enrollmentId),
   fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
     fetchMyLearningPlayerSnapshotMock(enrollmentId),
+  moveMyLecturePracticum: (enrollmentId: number, reservationId: number, slotId: number) =>
+    moveMyLecturePracticumMock(enrollmentId, reservationId, slotId),
+  reserveMyLecturePracticum: (enrollmentId: number, slotId: number, lectureId?: number) =>
+    reserveMyLecturePracticumMock(enrollmentId, slotId, lectureId),
   saveLectureProgress: (enrollmentId: number, lectureId: number, watchedSeconds: number) =>
     saveLectureProgressMock(enrollmentId, lectureId, watchedSeconds),
   sendLectureProgressBeacon: (enrollmentId: number, lectureId: number, watchedSeconds: number) =>
     sendLectureProgressBeaconMock(enrollmentId, lectureId, watchedSeconds),
 }));
 
-vi.mock('@/api/studentQuizzes', () => ({
-  fetchStudentQuiz: (lectureId: number) => fetchStudentQuizMock(lectureId),
-  saveStudentQuizSession: (quizId: number, payload: Record<string, unknown>) =>
-    saveStudentQuizSessionMock(quizId, payload),
-  submitStudentQuiz: (quizId: number, payload: { answers: Record<number, number[]> }) =>
-    submitStudentQuizMock(quizId, payload),
+vi.mock('@/api/studentProblems', () => ({
+  fetchStudentProblem: (lectureId: number) => fetchStudentProblemMock(lectureId),
+  saveStudentProblemSession: (problemId: number, payload: Record<string, unknown>) =>
+    saveStudentProblemSessionMock(problemId, payload),
+  submitStudentProblem: (
+    problemId: number,
+    payload: { answers: Record<number, number[]>; elapsedSeconds: number },
+  ) => submitStudentProblemMock(problemId, payload),
 }));
 
 vi.mock('@/utils/playbackDeviceId', () => ({
@@ -259,11 +288,12 @@ const testStreamResponse: ProtectedLectureStream = {
   playbackSessionToken: 'test-session',
 };
 
-const testQuiz: StudentQuiz = {
+const testQuiz: StudentProblem = {
   description: '강의 핵심 확인',
   id: 301,
   lectureId: 2,
   passScore: 80,
+  timeLimitSeconds: 1800,
   questions: [
     {
       explanation: null,
@@ -292,7 +322,78 @@ const testQuiz: StudentQuiz = {
     },
   ],
   session: null,
-  title: '복부초음파 기초 2강 확인 문제',
+  title: '복부초음파 기초 2강 문제풀이',
+};
+
+const testPracticumOverview: EnrollmentPracticumOverview = {
+  active: true,
+  enrolledAt: '2026-03-01T09:00:00Z',
+  enrollmentId: 101,
+  expireAt: '2026-09-30T14:59:59Z',
+  lectures: [
+    {
+      blockedReason: null,
+      currentReservation: {
+        endAt: '2026-05-20T03:00:00Z',
+        id: 7001,
+        lectureId: 2,
+        location: '서울 강남 실습실',
+        reservedAt: '2026-05-12T01:00:00Z',
+        slotId: 5001,
+        startAt: '2026-05-20T02:00:00Z',
+        status: 'ACTIVE',
+      },
+      currentReservations: [
+        {
+          endAt: '2026-05-20T03:00:00Z',
+          id: 7001,
+          lectureId: 2,
+          location: '서울 강남 실습실',
+          reservedAt: '2026-05-12T01:00:00Z',
+          slotId: 5001,
+          startAt: '2026-05-20T02:00:00Z',
+          status: 'ACTIVE',
+        },
+      ],
+      enabled: true,
+      eligible: true,
+      lectureCompleted: true,
+      lectureId: 2,
+      lectureTitle: '복부초음파 기초 2강 실습',
+      sectionTitle: '1단계 학습',
+      slots: [
+        {
+          endAt: '2026-05-20T03:00:00Z',
+          full: false,
+          id: 5001,
+          lectureId: 2,
+          location: '서울 강남 실습실',
+          maxCapacity: 4,
+          remainingCapacity: 3,
+          reservedByMe: true,
+          reservedCount: 1,
+          slotStatus: 'OPEN',
+          startAt: '2026-05-20T02:00:00Z',
+        },
+        {
+          endAt: '2026-05-20T05:00:00Z',
+          full: false,
+          id: 5002,
+          lectureId: 2,
+          location: '서울 강남 실습실',
+          maxCapacity: 4,
+          remainingCapacity: 2,
+          reservedByMe: false,
+          reservedCount: 2,
+          slotStatus: 'OPEN',
+          startAt: '2026-05-20T04:00:00Z',
+        },
+      ],
+    },
+  ],
+  programId: 2001,
+  programTitle: '복부초음파 기초',
+  status: 'ACTIVE',
 };
 
 const renderPlayerPage = (initialEntry = '/mypage/learning/101/lesson/enrollment-101-lesson-2') => {
@@ -317,16 +418,24 @@ const originalPlay = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype,
   ?.value as HTMLMediaElement['play'];
 
 beforeEach(() => {
+  const practicumReservation = testPracticumOverview.lectures[0].currentReservations[0];
+
   HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve(undefined));
-  fetchStudentQuizMock.mockResolvedValue(null);
-  saveStudentQuizSessionMock.mockResolvedValue({
+  cancelMyLecturePracticumMock.mockResolvedValue(undefined);
+  fetchStudentProblemMock.mockResolvedValue(null);
+  fetchMyEnrollmentPracticumOverviewMock.mockResolvedValue(testPracticumOverview);
+  moveMyLecturePracticumMock.mockResolvedValue(practicumReservation);
+  reserveMyLecturePracticumMock.mockResolvedValue(practicumReservation);
+  saveStudentProblemSessionMock.mockResolvedValue({
     answers: {},
     currentQuestionIndex: 0,
     elapsedSeconds: 0,
     flaggedQuestionIds: [],
+    remainingSeconds: 1800,
+    startedAt: '2026-03-10T12:00:00Z',
     status: 'IN_PROGRESS',
   });
-  submitStudentQuizMock.mockResolvedValue({
+  submitStudentProblemMock.mockResolvedValue({
     id: 9001,
     passScore: 80,
     passed: true,
@@ -352,13 +461,12 @@ describe('PlayerPage', () => {
 
     renderPlayerPage();
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
-    ).toBeInTheDocument();
-
     await waitFor(() => {
       expect(fetchLectureStreamMock).toHaveBeenCalledWith(2, 'test-device-id');
     });
+    expect(
+      screen.getByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
+    ).toBeInTheDocument();
 
     const latestConfig = createdHlsConfigs.at(-1);
     expect(latestConfig?.['loader']).toBeTypeOf('function');
@@ -395,16 +503,29 @@ describe('PlayerPage', () => {
     expect(xhrMock.setRequestHeader).toHaveBeenCalledWith('X-Playback-Device-Id', 'test-device-id');
 
     expect(screen.getByText('내 강의')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: '커리큘럼' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: '복부초음파 기초' })).toBeInTheDocument();
     expect(screen.getAllByText('1단계 학습')).toHaveLength(1);
-    expect(screen.queryByText(/강의 완료/)).not.toBeInTheDocument();
+    expect(screen.getByText('이전 강의 완료 후 수강 가능')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /이전/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /다음/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '재생 설정' })).toBeInTheDocument();
   });
 
   it('moves to the next lesson from the player controls', async () => {
-    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
+      ...testSnapshot,
+      lessonProgressByLessonId: {
+        ...testSnapshot.lessonProgressByLessonId,
+        'enrollment-101-lesson-2': {
+          completed: true,
+          completedAt: '2026-03-10T12:00:00Z',
+          lastWatchedAt: '2026-03-10T12:00:00Z',
+          lectureId: 2,
+          progressPercent: 100,
+          watchedSeconds: 1920,
+        },
+      },
+    });
     fetchLectureStreamMock.mockImplementation((lectureId) =>
       Promise.resolve({
         ...testStreamResponse,
@@ -415,8 +536,11 @@ describe('PlayerPage', () => {
 
     renderPlayerPage();
 
+    await waitFor(() => {
+      expect(fetchLectureStreamMock).toHaveBeenCalledWith(2, 'test-device-id');
+    });
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
+      screen.getByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
     ).toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole('button', { name: /다음/ }));
@@ -438,11 +562,14 @@ describe('PlayerPage', () => {
 
     renderPlayerPage();
 
+    await waitFor(() => {
+      expect(fetchLectureStreamMock).toHaveBeenCalledWith(2, 'test-device-id');
+    });
     fireEvent.click(await screen.findByRole('button', { name: '재생 설정' }));
 
     expect(await screen.findByRole('dialog', { name: '재생 설정 패널' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '1.25x' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '720p' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '720p' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '1080p' })).toBeInTheDocument();
   });
 
@@ -488,8 +615,8 @@ describe('PlayerPage', () => {
     });
   });
 
-  it('renders and submits the lecture quiz after the lesson is completed', async () => {
-    const completedSnapshot: LearningPlayerSnapshot = {
+  it('renders and submits the problem lecture as a lesson item', async () => {
+    const problemLectureSnapshot: LearningPlayerSnapshot = {
       ...testSnapshot,
       curriculumTrack: {
         ...testSnapshot.curriculumTrack,
@@ -497,28 +624,45 @@ describe('PlayerPage', () => {
           ...section,
           lessons: section.lessons.map((lesson) =>
             lesson.id === 'enrollment-101-lesson-2'
-              ? { ...lesson, hasQuiz: true, quizAttempted: false }
+              ? {
+                  ...lesson,
+                  deliveryType: 'problem',
+                  durationLabel: '문제 풀이',
+                  durationMinutes: null,
+                  problemAttempted: false,
+                  questionCount: 1,
+                  title: '복부초음파 기초 2강 문제풀이',
+                }
               : lesson,
           ),
         })),
       },
+      currentLessonId: 'enrollment-101-lesson-2',
+      lessonPlaybackById: {
+        ...testSnapshot.lessonPlaybackById,
+        'enrollment-101-lesson-2': {
+          lectureId: 2,
+          mimeType: null,
+          posterUrl: null,
+        },
+      },
       lessonProgressByLessonId: {
         ...testSnapshot.lessonProgressByLessonId,
         'enrollment-101-lesson-2': {
-          completed: true,
-          completedAt: '2026-03-10T12:00:00Z',
+          completed: false,
+          completedAt: null,
           lastWatchedAt: '2026-03-10T12:00:00Z',
           lectureId: 2,
-          progressPercent: 100,
-          watchedSeconds: 1920,
+          progressPercent: 0,
+          watchedSeconds: 0,
         },
       },
     };
 
-    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(completedSnapshot);
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(problemLectureSnapshot);
     fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
-    fetchStudentQuizMock.mockResolvedValue(testQuiz);
-    submitStudentQuizMock.mockResolvedValue({
+    fetchStudentProblemMock.mockResolvedValue(testQuiz);
+    submitStudentProblemMock.mockResolvedValue({
       id: 9002,
       passScore: 80,
       passed: true,
@@ -538,33 +682,86 @@ describe('PlayerPage', () => {
 
     renderPlayerPage();
 
+    await waitFor(() => {
+      expect(fetchStudentProblemMock).toHaveBeenCalledWith(2);
+    });
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('이 강의 확인 문제')).not.toBeInTheDocument();
-
-    cleanup();
-    renderPlayerPage('/mypage/learning/101/lesson/enrollment-101-lesson-2__quiz');
-
-    expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 2강 확인 문제' }),
+      screen.getByRole('heading', { level: 1, name: '복부초음파 기초 2강 문제풀이' }),
     ).toBeInTheDocument();
     expect(await screen.findByAltText('1번 문항 미디어')).toBeInTheDocument();
     expect(await screen.findByAltText('1번 문항 2번 보기 미디어')).toBeInTheDocument();
     fireEvent.click(await screen.findByLabelText('2. 정답'));
-    fireEvent.click(screen.getByRole('button', { name: '정답 제출' }));
+    fireEvent.click(screen.getByRole('button', { name: '제출하기' }));
 
     await waitFor(() => {
-      expect(submitStudentQuizMock).toHaveBeenCalledWith(301, {
-        answers: {
-          401: [502],
-        },
-      });
+      expect(submitStudentProblemMock).toHaveBeenCalledTimes(1);
     });
+    const submitCall = submitStudentProblemMock.mock.calls[0];
+    expect(submitCall[0]).toBe(301);
+    expect(submitCall[1].answers).toEqual({ 401: [502] });
+    expect(typeof submitCall[1].elapsedSeconds).toBe('number');
 
     expect(await screen.findByText('채점 결과')).toBeInTheDocument();
     expect(screen.getByText('정답')).toBeInTheDocument();
     expect(screen.getByText(/정답 해설입니다/)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: '문제 네비게이터' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: '문제 목록' })).toBeInTheDocument();
+    expect(screen.getByText('답변 완료')).toBeInTheDocument();
+  });
+
+  it('renders the practicum calendar and moves an existing reservation to another slot', async () => {
+    const practicumSnapshot: LearningPlayerSnapshot = {
+      ...testSnapshot,
+      curriculumTrack: {
+        ...testSnapshot.curriculumTrack,
+        sections: testSnapshot.curriculumTrack.sections.map((section) => ({
+          ...section,
+          lessons: section.lessons.map((lesson) =>
+            lesson.id === 'enrollment-101-lesson-2'
+              ? {
+                  ...lesson,
+                  deliveryType: 'practicum',
+                  durationLabel: '실습 예약',
+                  durationMinutes: null,
+                  title: '복부초음파 기초 2강 실습',
+                }
+              : lesson,
+          ),
+        })),
+      },
+      currentLessonId: 'enrollment-101-lesson-2',
+      lessonPlaybackById: {
+        ...testSnapshot.lessonPlaybackById,
+        'enrollment-101-lesson-2': {
+          lectureId: 2,
+          mimeType: null,
+          posterUrl: null,
+        },
+      },
+    };
+
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(practicumSnapshot);
+
+    renderPlayerPage();
+
+    expect(await screen.findAllByText('복부초음파 기초 2강 실습')).not.toHaveLength(0);
+    expect(
+      await screen.findByText(/운영 일정과 오프라인 강의를 반영한 시간만 달력에 노출합니다/),
+    ).toBeInTheDocument();
+    expect((await screen.findAllByText(/예정/)).length).toBeGreaterThan(0);
+    expect(screen.getByDisplayValue('2026-05')).toBeInTheDocument();
+
+    const moveButton = screen
+      .getAllByRole('button', { name: '이 일정으로 변경' })
+      .find((button) => !button.hasAttribute('disabled'));
+
+    if (!moveButton) {
+      throw new Error('예약 변경 버튼을 찾지 못했습니다.');
+    }
+
+    fireEvent.click(moveButton);
+
+    await waitFor(() => {
+      expect(moveMyLecturePracticumMock).toHaveBeenCalledWith(101, 7001, 5002);
+    });
   });
 });

@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import ProgramCommunityPanel from '@/components/community/ProgramCommunityPanel';
+import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
+import Modal from '@/components/overlay/Modal/Modal';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import type {
+  ProgramCurriculumLesson,
   ProgramCurriculumSection,
   ProgramDetailPageResponse,
   ProgramReviewItem,
@@ -50,6 +53,7 @@ interface IntroductionFeatureCardProps {
 
 interface CurriculumWeekRowProps {
   isOpen: boolean;
+  onOpenOfflineSchedule: (lesson: ProgramCurriculumLesson) => void;
   onToggle: () => void;
   section: ProgramCurriculumSection;
   sectionIndex: number;
@@ -65,6 +69,7 @@ interface ProgramPageDetailMainContentProps {
   data: ProgramDetailPageResponse;
   handleReviewCarouselScroll: ProgramPageDetailViewModel['handleReviewCarouselScroll'];
   handleTabClick: ProgramPageDetailViewModel['handleTabClick'];
+  isQnaTabOpen: ProgramPageDetailViewModel['isQnaTabOpen'];
   openCurriculumRows: ProgramPageDetailViewModel['openCurriculumRows'];
   openFaqId: ProgramPageDetailViewModel['openFaqId'];
   reviewCarouselRef: ProgramPageDetailViewModel['reviewCarouselRef'];
@@ -78,10 +83,18 @@ interface ProgramPageDetailMainContentProps {
 }
 
 interface ProgramPageDetailSidebarProps {
+  availabilityActionKind: 'ENROLL' | 'ALERT' | 'DISABLED';
+  availabilityActionLabel: string;
+  availabilityStatusDescription: string;
+  availabilityStatusLabel: string;
   data: ProgramDetailPageResponse;
   discountedPriceAmount: ProgramPageDetailViewModel['discountedPriceAmount'];
   handleAddToCart: () => void;
   handleEnrollNow: () => void;
+  handleRequestAvailabilityAlert: () => void;
+  isAlertPending: boolean;
+  isAlertSubscribed: boolean;
+  isAuthenticated: boolean;
   isEnrollingNow: boolean;
   isAddingToCart: boolean;
   optionList: ProgramPageDetailViewModel['optionList'];
@@ -92,6 +105,177 @@ interface ProgramPageDetailSidebarProps {
   showOptionList: ProgramPageDetailViewModel['showOptionList'];
   totalPriceLabel: ProgramPageDetailViewModel['totalPriceLabel'];
 }
+
+const curriculumDeliveryTypeLabelMap: Record<
+  ProgramCurriculumSection['lessons'][number]['deliveryType'],
+  string
+> = {
+  offline: '오프라인 강의',
+  online: '영상 강의',
+  practicum: '실습 강의',
+  problem: '문제풀이 강의',
+  resource: '자료 강의',
+};
+
+const buildCurriculumLessonCapsules = (lesson: ProgramCurriculumSection['lessons'][number]) => {
+  return [curriculumDeliveryTypeLabelMap[lesson.deliveryType]];
+};
+
+const parseScheduleTimeToMinutes = (value: string | null | undefined) => {
+  if (!value) {
+    return null;
+  }
+
+  const [hourText, minuteText] = value.split(':');
+  const hours = Number(hourText);
+  const minutes = Number(minuteText);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+};
+
+const formatDurationLabel = (minutes: number, prefix: string | null = null) => {
+  if (minutes <= 0) {
+    return null;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  const baseLabel =
+    hours > 0 && remainingMinutes === 0
+      ? `${String(hours)}시간`
+      : hours > 0
+        ? `${String(hours)}시간 ${String(remainingMinutes)}분`
+        : `${String(minutes)}분`;
+
+  return prefix ? `${prefix} ${baseLabel}` : baseLabel;
+};
+
+const formatCurriculumLessonTime = (lesson: ProgramCurriculumSection['lessons'][number]) => {
+  const offlineScheduleMinutes =
+    lesson.deliveryType === 'offline' && lesson.offlineSchedules && lesson.offlineSchedules.length > 0
+      ? lesson.offlineSchedules.reduce((totalMinutes, schedule) => {
+          const startMinutes = parseScheduleTimeToMinutes(schedule.startTime);
+          const endMinutes = parseScheduleTimeToMinutes(schedule.endTime);
+
+          if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+            return totalMinutes;
+          }
+
+          return totalMinutes + (endMinutes - startMinutes);
+        }, 0)
+      : 0;
+  const minutes = offlineScheduleMinutes > 0 ? offlineScheduleMinutes : lesson.durationMinutes;
+
+  if (!minutes || minutes <= 0) {
+    return null;
+  }
+
+  if (lesson.deliveryType === 'online' || lesson.deliveryType === 'problem') {
+    return formatDurationLabel(minutes);
+  }
+
+  if (lesson.deliveryType === 'offline') {
+    return formatDurationLabel(minutes, '총');
+  }
+
+  return null;
+};
+
+const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+
+const formatScheduleDateLabel = (date: string) => {
+  const targetDate = new Date(`${date}T00:00:00`);
+  return `${targetDate.getFullYear()}.${String(targetDate.getMonth() + 1).padStart(2, '0')}.${String(targetDate.getDate()).padStart(2, '0')} (${weekdayLabels[targetDate.getDay()]})`;
+};
+
+const formatScheduleRangeLabel = (startDate: string, endDate: string | null) => {
+  if (!endDate || endDate === startDate) {
+    return formatScheduleDateLabel(startDate);
+  }
+
+  return `${formatScheduleDateLabel(startDate)} ~ ${formatScheduleDateLabel(endDate)}`;
+};
+
+const buildOfflineScheduleEntries = (lesson: ProgramCurriculumLesson) => {
+  if (lesson.offlineSchedules && lesson.offlineSchedules.length > 0) {
+    return lesson.offlineSchedules.map((schedule, index) => ({
+      dateLabel: schedule.date ? formatScheduleDateLabel(schedule.date) : `일정 ${String(index + 1)}`,
+      id: `${lesson.id}-${schedule.date ?? 'unknown'}-${String(index)}`,
+      location: schedule.location?.trim() || null,
+      notes: schedule.notes?.trim() || null,
+      timeLabel:
+        schedule.startTime && schedule.endTime
+          ? `${schedule.startTime} - ${schedule.endTime}`
+          : schedule.startTime ?? schedule.endTime ?? null,
+    }));
+  }
+
+  if (!lesson.startDate) {
+    return [];
+  }
+
+  return [
+    {
+      dateLabel: formatScheduleRangeLabel(lesson.startDate, lesson.endDate),
+      id: `${lesson.id}-fallback`,
+      location: null,
+      notes: null,
+      timeLabel: null,
+    },
+  ];
+};
+
+const OfflineScheduleModal = ({
+  lesson,
+  onClose,
+}: {
+  lesson: ProgramCurriculumLesson;
+  onClose: () => void;
+}) => {
+  const scheduleEntries = buildOfflineScheduleEntries(lesson);
+
+  return (
+    <Modal
+      description='관리자가 등록한 오프라인 수업 일정을 확인할 수 있습니다.'
+      onClose={onClose}
+      size='lg'
+      title={`${lesson.title} 오프라인 일정`}
+    >
+      <div className={styles['scheduleModalContent']}>
+        <div className={styles['scheduleModalHeader']}>
+          <p className={styles['scheduleModalKicker']}>오프라인 일정 안내</p>
+          <h3 className={styles['scheduleModalTitle']}>{lesson.title}</h3>
+        </div>
+
+        <div className={styles['scheduleModalList']}>
+          {scheduleEntries.map((entry, index) => {
+            return (
+              <article className={styles['scheduleModalItem']} key={entry.id}>
+                <div className={styles['scheduleModalItemHeader']}>
+                  <span className={styles['scheduleModalItemIndex']}>{String(index + 1)}회차</span>
+                  <span className={styles['scheduleModalItemDate']}>{entry.dateLabel}</span>
+                </div>
+
+                {entry.timeLabel ? (
+                  <p className={styles['scheduleModalItemMeta']}>시간 {entry.timeLabel}</p>
+                ) : null}
+                {entry.location ? (
+                  <p className={styles['scheduleModalItemMeta']}>장소 {entry.location}</p>
+                ) : null}
+                {entry.notes ? <p className={styles['scheduleModalItemNotes']}>{entry.notes}</p> : null}
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </Modal>
+  );
+};
 
 const RatingStars = ({ inverse = false, rating }: RatingStarsProps) => {
   return (
@@ -199,7 +383,13 @@ const IntroductionFeatureCard = ({ content, title }: IntroductionFeatureCardProp
   );
 };
 
-const CurriculumWeekRow = ({ isOpen, onToggle, section, sectionIndex }: CurriculumWeekRowProps) => {
+const CurriculumWeekRow = ({
+  isOpen,
+  onOpenOfflineSchedule,
+  onToggle,
+  section,
+  sectionIndex,
+}: CurriculumWeekRowProps) => {
   return (
     <article className={styles['curriculumWeekRow']}>
       <button className={styles['curriculumWeekButton']} onClick={onToggle} type='button'>
@@ -226,6 +416,10 @@ const CurriculumWeekRow = ({ isOpen, onToggle, section, sectionIndex }: Curricul
         <div className={styles['curriculumWeekContent']}>
           <p className={styles['curriculumWeekDescription']}>{section.description}</p>
           {section.lessons.map((lesson, lessonIndex) => {
+            const lessonCapsules = buildCurriculumLessonCapsules(lesson);
+            const lessonTime = formatCurriculumLessonTime(lesson);
+            const hasOfflineSchedules = buildOfflineScheduleEntries(lesson).length > 0;
+
             return (
               <div
                 className={classNames(
@@ -235,10 +429,43 @@ const CurriculumWeekRow = ({ isOpen, onToggle, section, sectionIndex }: Curricul
                 key={lesson.id}
               >
                 <div className={styles['curriculumLessonHeader']}>
-                  <span className={styles['curriculumLessonTitle']}>
-                    {String(lessonIndex + 1)}. {lesson.title}
-                  </span>
-                  <span className={styles['curriculumLessonDuration']}>{lesson.durationLabel}</span>
+                  <div className={styles['curriculumLessonHeaderMain']}>
+                    <span className={styles['curriculumLessonTitle']}>
+                      {String(lessonIndex + 1)}. {lesson.title}
+                    </span>
+                    {lesson.deliveryType === 'problem' &&
+                    lesson.questionCount &&
+                    lesson.questionCount > 0 ? (
+                      <span className={styles['curriculumLessonQuestionBadge']}>
+                        총 {String(lesson.questionCount)}문항
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className={styles['curriculumLessonHeaderAside']}>
+                    {lesson.deliveryType === 'offline' && hasOfflineSchedules ? (
+                      <button
+                        className={styles['curriculumLessonScheduleButton']}
+                        onClick={() => {
+                          onOpenOfflineSchedule(lesson);
+                        }}
+                        type='button'
+                      >
+                        오프라인 일정 보기
+                      </button>
+                    ) : null}
+                    <div className={styles['curriculumLessonCapsuleList']}>
+                      {lessonCapsules.map((capsule) => {
+                        return (
+                          <span className={styles['curriculumLessonCapsule']} key={`${lesson.id}-${capsule}`}>
+                            {capsule}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {lessonTime ? (
+                      <span className={styles['curriculumLessonDuration']}>{lessonTime}</span>
+                    ) : null}
+                  </div>
                 </div>
 
                 <ul className={styles['curriculumLessonTopicList']}>
@@ -300,10 +527,14 @@ export const ProgramPageDetailHero = ({ data, heroInfoPills }: ProgramPageDetail
         <div className={styles['heroInfoPillRow']}>
           {heroInfoPills.map((item) => {
             return (
-              <div className={styles['heroInfoPill']} key={item.label}>
-                <span className={styles['heroInfoPillLabel']}>{item.label}</span>
-                <span aria-hidden='true' className={styles['heroInfoDivider']} />
-                <span className={styles['heroInfoPillValue']}>{item.value}</span>
+              <div
+                aria-label={`${item.label} ${item.value}`}
+                className={styles['heroInfoPill']}
+                key={item.label}
+              >
+                <span className={styles['heroInfoPillText']}>
+                  #{item.label} {item.value}
+                </span>
               </div>
             );
           })}
@@ -318,6 +549,7 @@ export const ProgramPageDetailMainContent = ({
   data,
   handleReviewCarouselScroll,
   handleTabClick,
+  isQnaTabOpen,
   openCurriculumRows,
   openFaqId,
   reviewCarouselRef,
@@ -330,12 +562,22 @@ export const ProgramPageDetailMainContent = ({
   visiblePreviewReviewIds,
 }: ProgramPageDetailMainContentProps) => {
   const curriculumTrack = data.curriculumTrack;
+  const [selectedOfflineLesson, setSelectedOfflineLesson] = useState<ProgramCurriculumLesson | null>(
+    null,
+  );
+
+  useEffect(() => {
+    setSelectedOfflineLesson(null);
+  }, [data.programId]);
 
   return (
-    <div className={styles['contentMain']}>
+    <>
+      <div className={styles['contentMain']}>
       <nav aria-label='강의 상세 탭' className={styles['tabBar']}>
         {detailTabItems.map((tabItem) => {
-          const isActive = activeSectionId === tabItem.id;
+          const isActive = isQnaTabOpen
+            ? tabItem.id === 'course-qna'
+            : activeSectionId === tabItem.id;
 
           return (
             <button
@@ -352,6 +594,18 @@ export const ProgramPageDetailMainContent = ({
         })}
       </nav>
 
+      {isQnaTabOpen ? (
+        <section className={classNames(styles['contentSection'], styles['qnaTabSection'])}>
+          <ProgramQnaPanel
+            enabled
+            programId={data.programId ?? null}
+            programThreadCount={data.qnaSummary?.totalThreadCount ?? null}
+            title='Q&A'
+            variant='board'
+          />
+        </section>
+      ) : (
+        <>
       <section className={styles['previewReviewSection']}>
         <h2 className={styles['sectionTitle']}>먼저 경험한 수강생들 후기</h2>
 
@@ -559,6 +813,7 @@ export const ProgramPageDetailMainContent = ({
                   <CurriculumWeekRow
                     isOpen={openCurriculumRows[rowKey] ?? false}
                     key={rowKey}
+                    onOpenOfflineSchedule={setSelectedOfflineLesson}
                     onToggle={() => {
                       toggleCurriculumRow(rowKey);
                     }}
@@ -661,27 +916,35 @@ export const ProgramPageDetailMainContent = ({
         </div>
       </section>
 
-      <section
-        className={styles['contentSection']}
-        id='course-community'
-        ref={sectionRefHandlers['course-community']}
-      >
-        <ProgramCommunityPanel
-          enabled={activeSectionId === 'course-community'}
-          programId={data.programId ?? null}
-          programThreadCount={data.communitySummary?.totalThreadCount ?? null}
-          title='커뮤니티'
+        </>
+      )}
+      </div>
+
+      {selectedOfflineLesson ? (
+        <OfflineScheduleModal
+          lesson={selectedOfflineLesson}
+          onClose={() => {
+            setSelectedOfflineLesson(null);
+          }}
         />
-      </section>
-    </div>
+      ) : null}
+    </>
   );
 };
 
 export const ProgramPageDetailSidebar = ({
+  availabilityActionKind,
+  availabilityActionLabel,
+  availabilityStatusDescription,
+  availabilityStatusLabel,
   data,
   discountedPriceAmount,
   handleAddToCart,
   handleEnrollNow,
+  handleRequestAvailabilityAlert,
+  isAlertPending,
+  isAlertSubscribed,
+  isAuthenticated,
   isEnrollingNow,
   isAddingToCart,
   optionList,
@@ -708,12 +971,17 @@ export const ProgramPageDetailSidebar = ({
           </span>
         </div>
 
-        {data.remainingSeatsLabel ? (
+        {data.remainingSeatsLabel || availabilityActionKind !== 'ENROLL' ? (
           <div className={styles['pricingAvailabilityBox']}>
-            <span className={styles['pricingAvailabilityLabel']}>현재 수강 가능</span>
-            <span className={styles['pricingAvailabilityValue']}>{data.remainingSeatsLabel}</span>
+            <span className={styles['pricingAvailabilityLabel']}>
+              {availabilityActionKind === 'ENROLL' ? '현재 수강 가능' : '모집 상태'}
+            </span>
+            <span className={styles['pricingAvailabilityValue']}>
+              {availabilityStatusLabel}
+            </span>
           </div>
         ) : null}
+        <p className={styles['pricingAvailabilityDescription']}>{availabilityStatusDescription}</p>
 
         <div className={styles['sidebarOptionSection']}>
           <p className={styles['sidebarSectionTitle']}>옵션</p>
@@ -779,22 +1047,45 @@ export const ProgramPageDetailSidebar = ({
         </div>
 
         <div className={styles['pricingActionRow']}>
-          <button
-            className={styles['cartActionLink']}
-            disabled={isAddingToCart}
-            onClick={handleAddToCart}
-            type='button'
-          >
-            {isAddingToCart ? '담는 중...' : '장바구니'}
-          </button>
-          <button
-            className={styles['applyActionLink']}
-            disabled={isEnrollingNow}
-            onClick={handleEnrollNow}
-            type='button'
-          >
-            {isEnrollingNow ? '이동 중...' : '수강 신청 하기'}
-          </button>
+          {availabilityActionKind === 'ALERT' ? (
+            <button
+              className={styles['applyActionLink']}
+              disabled={isAlertPending || isAlertSubscribed}
+              onClick={handleRequestAvailabilityAlert}
+              type='button'
+            >
+              {!isAuthenticated
+                ? '로그인 후 알림 받기'
+                : isAlertSubscribed
+                  ? '알림 신청 완료'
+                    : isAlertPending
+                      ? '신청 중...'
+                      : '알림 받기'}
+            </button>
+          ) : availabilityActionKind === 'DISABLED' ? (
+            <button className={styles['applyActionLink']} disabled type='button'>
+              {availabilityActionLabel}
+            </button>
+          ) : (
+            <>
+              <button
+                className={styles['cartActionLink']}
+                disabled={isAddingToCart}
+                onClick={handleAddToCart}
+                type='button'
+              >
+                {isAddingToCart ? '담는 중...' : '장바구니'}
+              </button>
+              <button
+                className={styles['applyActionLink']}
+                disabled={isEnrollingNow}
+                onClick={handleEnrollNow}
+                type='button'
+              >
+                {isEnrollingNow ? '이동 중...' : '수강 신청 하기'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </aside>

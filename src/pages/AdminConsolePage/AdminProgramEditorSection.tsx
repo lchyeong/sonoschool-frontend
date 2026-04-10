@@ -24,7 +24,7 @@ import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import AdminProgramCurriculumSection from '@/pages/AdminConsolePage/AdminProgramCurriculumSection';
-import AdminProgramQuizzesSection from '@/pages/AdminConsolePage/AdminProgramQuizzesSection';
+import AdminProgramProblemsSection from '@/pages/AdminConsolePage/AdminProgramProblemsSection';
 import AdminProgramResourcesSection from '@/pages/AdminConsolePage/AdminProgramResourcesSection';
 import {
   adminCategoriesTreeQueryKey,
@@ -60,7 +60,7 @@ import {
 
 interface AdminProgramEditorSectionProps {
   mode: 'create' | 'duplicate' | 'edit';
-  view?: 'curriculum' | 'details' | 'quizzes' | 'resources';
+  view?: 'curriculum' | 'details' | 'problems' | 'resources';
 }
 
 interface AdminProgramSummaryFormItem {
@@ -557,7 +557,7 @@ const buildEditorTitle = (
   if (view === 'curriculum') {
     return detail ? `${detail.title} 커리큘럼` : '커리큘럼 관리';
   }
-  if (view === 'quizzes') {
+  if (view === 'problems') {
     return detail ? `${detail.title} 문제` : '강의 문제';
   }
   if (view === 'resources') {
@@ -644,11 +644,11 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const normalizedView = view === 'quizzes' || view === 'resources' ? 'curriculum' : view;
+  const normalizedView = view === 'problems' || view === 'resources' ? 'curriculum' : view;
   const showToast = useToastStore((state) => state.showToast);
   const isCurriculumView = normalizedView === 'curriculum';
   const isDetailView = !isCurriculumView;
-  const quizzesSectionRef = useRef<HTMLDivElement | null>(null);
+  const problemsSectionRef = useRef<HTMLDivElement | null>(null);
   const resourcesSectionRef = useRef<HTMLDivElement | null>(null);
   const editingProgramId = mode === 'edit' ? Number(params['programId']) : null;
   const duplicateSourceProgramId = mode === 'duplicate' ? Number(params['sourceProgramId']) : null;
@@ -695,14 +695,14 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     });
   }, [detailQuery.data, mode]);
 
-  const openLectureWorkspace = (lectureId: number, target: 'quiz' | 'resource') => {
+  const openLectureWorkspace = (lectureId: number, target: 'problem' | 'resource') => {
     const nextSearchParams = new URLSearchParams(searchParams);
     nextSearchParams.set('lectureId', String(lectureId));
     setSearchParams(nextSearchParams, { replace: true });
 
     window.requestAnimationFrame(() => {
       const targetNode =
-        target === 'quiz' ? quizzesSectionRef.current : resourcesSectionRef.current;
+        target === 'problem' ? problemsSectionRef.current : resourcesSectionRef.current;
       targetNode?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
@@ -1915,8 +1915,8 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                 programType={currentDetail?.programType ?? null}
                 programId={isEditMode && currentDetail ? currentDetail.id : null}
               />
-              <div ref={quizzesSectionRef}>
-                <AdminProgramQuizzesSection
+              <div ref={problemsSectionRef}>
+                <AdminProgramProblemsSection
                   enabled={isEditMode}
                   programId={isEditMode && currentDetail ? currentDetail.id : null}
                 />

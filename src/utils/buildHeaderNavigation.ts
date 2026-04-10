@@ -110,17 +110,17 @@ const DEFAULT_COURSE_NAVIGATION: HeaderNavigationItem[] = [
       },
       {
         id: 'fixed-online-hybrid',
-        label: '실습 포함 온라인과정',
+        label: '하이브리드과정',
         to: routePaths.programCatalog('online-course', 'hybrid-course'),
         children: [
           {
             id: 'fixed-online-hybrid-pediatric',
-            label: '소아초음파 실습 포함 과정',
+            label: '소아초음파 하이브리드 과정',
             to: routePaths.programCatalog('online-course', 'hybrid-course', 'pediatric-hybrid'),
           },
           {
             id: 'fixed-online-hybrid-abdomen-urinary',
-            label: '상복부·비뇨기 실습 포함 과정',
+            label: '상복부·비뇨기 하이브리드 과정',
             to: routePaths.programCatalog(
               'online-course',
               'hybrid-course',

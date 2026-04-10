@@ -1,4 +1,4 @@
-export interface AdminQuizAttempt {
+export interface AdminProblemAttempt {
   id: number;
   userId: number;
   loginId: string;

@@ -21,7 +21,10 @@ import {
   createAdminProgramThumbnailUploadTarget,
   uploadAdminProgramThumbnailFile,
 } from '@/api/adminProgramMedia';
-import { createAdminQuizMediaUploadTarget, uploadAdminQuizMediaFile } from '@/api/adminQuizMedia';
+import {
+  createAdminProblemMediaUploadTarget,
+  uploadAdminProblemMediaFile,
+} from '@/api/adminProblemMedia';
 import { createAdminResourceUploadTarget, uploadAdminResourceFile } from '@/api/adminResourceMedia';
 import {
   completeAdminVideoUpload,
@@ -52,9 +55,9 @@ import type {
   AdminProgramDraftLectureOfflineSchedule,
   AdminProgramDraftLecture,
   AdminProgramDraftPayload,
-  AdminProgramDraftQuiz,
-  AdminProgramDraftQuizOption,
-  AdminProgramDraftQuizQuestion,
+  AdminProgramDraftProblem,
+  AdminProgramDraftProblemOption,
+  AdminProgramDraftProblemQuestion,
   AdminProgramDraftResource,
   AdminProgramDraftSection,
 } from '@/types/adminProgramDrafts';
@@ -63,7 +66,7 @@ import type {
   AdminProgramLevel,
   AdminProgramType,
 } from '@/types/adminProgramsLive';
-import type { AdminQuizMediaType } from '@/types/adminQuizzes';
+import type { AdminProblemMediaType } from '@/types/adminProblems';
 
 import styles from './AdminConsolePage.module.scss';
 import {
@@ -75,7 +78,7 @@ const TARGET_PART_SIZE_BYTES = 8 * 1024 * 1024;
 const RESOURCE_FILE_ACCEPT = '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
 
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
-type AdminProgramCreateView = 'details' | 'curriculum' | 'quizzes' | 'resources';
+type AdminProgramCreateView = 'details' | 'curriculum' | 'problems' | 'resources';
 
 interface AdminProgramCreateWorkspaceProps {
   view?: AdminProgramCreateView;
@@ -129,22 +132,19 @@ const LECTURE_TYPE_LABELS: Record<AdminLectureType, string> = {
   OFFLINE: '현장강의',
   PRACTICUM: '실습강의',
   PROBLEM: '문제강의',
-  RESOURCE: '자료강의',
+  RESOURCE: '첨부자료',
   VIDEO: '영상강의',
 };
 
+const ALLOWED_LECTURE_TYPES_BY_PROGRAM_TYPE: Record<AdminProgramType, AdminLectureType[]> = {
+  HYBRID: ['VIDEO', 'PRACTICUM', 'PROBLEM', 'RESOURCE'],
+  OFFLINE: ['VIDEO', 'OFFLINE', 'PROBLEM', 'RESOURCE'],
+  ONLINE: ['VIDEO', 'PROBLEM', 'RESOURCE'],
+  PROBLEM_SOLVING: ['PROBLEM', 'RESOURCE'],
+};
+
 const getAllowedLectureTypes = (programType: AdminProgramType | null): AdminLectureType[] => {
-  switch (programType) {
-    case 'OFFLINE':
-      return ['OFFLINE', 'VIDEO', 'RESOURCE', 'PROBLEM'];
-    case 'HYBRID':
-      return ['VIDEO', 'PRACTICUM', 'RESOURCE', 'PROBLEM'];
-    case 'PROBLEM_SOLVING':
-      return ['PROBLEM'];
-    case 'ONLINE':
-    default:
-      return ['VIDEO', 'RESOURCE', 'PROBLEM'];
-  }
+  return ALLOWED_LECTURE_TYPES_BY_PROGRAM_TYPE[programType ?? 'ONLINE'];
 };
 
 const getDefaultLectureType = (programType: AdminProgramType | null): AdminLectureType => {
@@ -152,9 +152,10 @@ const getDefaultLectureType = (programType: AdminProgramType | null): AdminLectu
 };
 
 const isProblemLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'PROBLEM';
-const isVideoLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'VIDEO';
 const isOfflineLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'OFFLINE';
 const isResourceLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'RESOURCE';
+const supportsLectureVideo = (lecture: AdminProgramDraftLecture) =>
+  lecture.lectureType === 'VIDEO' || lecture.lectureType === 'OFFLINE';
 
 const createClientKey = (prefix: string): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -229,7 +230,7 @@ const calculateSalePriceFromPercent = (
 const createEmptyQuestionOption = (
   sortOrder: number,
   correct = false,
-): AdminProgramDraftQuizOption => ({
+): AdminProgramDraftProblemOption => ({
   correct,
   mediaType: null,
   mediaUrl: null,
@@ -237,13 +238,13 @@ const createEmptyQuestionOption = (
   sortOrder,
 });
 
-const createFiveChoiceOptions = (): AdminProgramDraftQuizOption[] => {
+const createFiveChoiceOptions = (): AdminProgramDraftProblemOption[] => {
   return Array.from({ length: 5 }, (_, index) => createEmptyQuestionOption(index, false));
 };
 
 const normalizeQuestionOptions = (
-  options: readonly AdminProgramDraftQuizOption[],
-): AdminProgramDraftQuizOption[] => {
+  options: readonly AdminProgramDraftProblemOption[],
+): AdminProgramDraftProblemOption[] => {
   return Array.from({ length: 5 }, (_, index) => {
     const existing = options[index];
     return existing
@@ -255,12 +256,12 @@ const normalizeQuestionOptions = (
   });
 };
 
-const resolveQuestionType = (options: readonly AdminProgramDraftQuizOption[]) => {
+const resolveQuestionType = (options: readonly AdminProgramDraftProblemOption[]) => {
   const correctCount = options.filter((option) => option.correct).length;
   return correctCount > 1 ? 'MULTIPLE' : 'SINGLE';
 };
 
-const createEmptyQuestion = (): AdminProgramDraftQuizQuestion => ({
+const createEmptyQuestion = (): AdminProgramDraftProblemQuestion => ({
   explanation: null,
   mediaAssetId: null,
   mediaType: null,
@@ -271,7 +272,7 @@ const createEmptyQuestion = (): AdminProgramDraftQuizQuestion => ({
   sortOrder: 0,
 });
 
-const createEmptyQuiz = (lectureKey: string): AdminProgramDraftQuiz => ({
+const createEmptyProblem = (lectureKey: string): AdminProgramDraftProblem => ({
   description: null,
   lectureKey,
   passScore: 60,
@@ -345,7 +346,7 @@ const createEmptyResource = (lectureKey: string, sortOrder: number): AdminProgra
 
 const createEmptyPayload = (): AdminProgramDraftPayload => ({
   basicInfo: createEmptyBasicInfo(),
-  quizzes: [],
+  problems: [],
   resources: [],
   sections: [createEmptySection(0)],
 });
@@ -363,7 +364,7 @@ const normalizeLegacyOfflineSchedules = (
 ): AdminProgramDraftLectureOfflineSchedule[] => {
   const currentSchedules = Array.isArray(lecture.offlineSchedules) ? lecture.offlineSchedules : [];
   if (currentSchedules.length > 0) {
-    return currentSchedules;
+    return [currentSchedules[0]];
   }
 
   const legacyRule = lecture.offlineScheduleRule;
@@ -424,8 +425,22 @@ const LECTURE_TYPE_SHORT_LABELS: Record<AdminLectureType, string> = {
   OFFLINE: '현장',
   PRACTICUM: '실습',
   PROBLEM: '문제',
-  RESOURCE: '자료',
+  RESOURCE: '첨부자료',
   VIDEO: '영상',
+};
+
+const getCurriculumGuideText = (programType: AdminProgramType | null): string => {
+  switch (programType) {
+    case 'OFFLINE':
+      return '각 섹션 안에서 영상강의, 현장강의, 문제강의, 첨부자료를 구성합니다.';
+    case 'HYBRID':
+      return '각 섹션 안에서 영상강의, 실습강의, 문제강의, 첨부자료를 구성합니다.';
+    case 'PROBLEM_SOLVING':
+      return '각 섹션 안에서 문제강의와 첨부자료만 구성합니다.';
+    case 'ONLINE':
+    default:
+      return '각 섹션 안에서 영상강의, 문제강의, 첨부자료를 구성합니다.';
+  }
 };
 
 const formatDraftDurationLabel = (durationSeconds: number | null): string => {
@@ -458,7 +473,7 @@ const formatDraftLectureCardLabel = (
   return `강의 ${String(lectureIndex + 1)}-${LECTURE_TYPE_SHORT_LABELS[lectureType]}`;
 };
 
-const getQuestionMediaAccept = (mediaType: AdminQuizMediaType | null) => {
+const getQuestionMediaAccept = (mediaType: AdminProblemMediaType | null) => {
   if (mediaType === 'IMAGE') {
     return 'image/*';
   }
@@ -703,10 +718,10 @@ const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgr
       recommendedFor: nextPayload.basicInfo?.recommendedFor ?? [],
       summaryItems: nextPayload.basicInfo?.summaryItems ?? [],
     },
-    quizzes:
-      nextPayload.quizzes?.map((quiz) => ({
-        ...quiz,
-        questions: quiz.questions.map((question) => ({
+    problems:
+      nextPayload.problems?.map((problem) => ({
+        ...problem,
+        questions: problem.questions.map((question) => ({
           ...question,
           options: normalizeQuestionOptions(question.options),
           questionType: resolveQuestionType(question.options),
@@ -1268,11 +1283,11 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   const removeSection = (sectionKey: string) => {
     updatePayload((current) => ({
       ...current,
-      quizzes: current.quizzes.filter(
-        (quiz) =>
+      problems: current.problems.filter(
+        (problem) =>
           !current.sections
             .find((section) => section.key === sectionKey)
-            ?.lectures.some((lecture) => lecture.key === quiz.lectureKey),
+            ?.lectures.some((lecture) => lecture.key === problem.lectureKey),
       ),
       resources: reindexDraftResources(
         current.resources.filter(
@@ -1354,7 +1369,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   const addLectureOfflineSchedule = (sectionKey: string, lectureKey: string) => {
     updateLecture(sectionKey, lectureKey, (lecture) => ({
       ...lecture,
-      offlineSchedules: [...lecture.offlineSchedules, createEmptyOfflineSchedule()],
+      offlineSchedules:
+        lecture.offlineSchedules.length > 0
+          ? [lecture.offlineSchedules[0]]
+          : [createEmptyOfflineSchedule()],
     }));
   };
 
@@ -1377,7 +1395,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
 
     updatePayload((current) => ({
       ...current,
-      quizzes: current.quizzes.filter((quiz) => quiz.lectureKey !== lectureKey),
+      problems: current.problems.filter((problem) => problem.lectureKey !== lectureKey),
       resources: reindexDraftResources(
         current.resources.filter((resource) => resource.lectureKey !== lectureKey),
       ),
@@ -1429,30 +1447,32 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     });
   };
 
-  const upsertQuiz = (
+  const upsertProblem = (
     lectureKey: string,
-    updater: (quiz: AdminProgramDraftQuiz) => AdminProgramDraftQuiz,
+    updater: (problem: AdminProgramDraftProblem) => AdminProgramDraftProblem,
   ) => {
     updatePayload((current) => {
-      const existingQuiz =
-        current.quizzes.find((quiz) => quiz.lectureKey === lectureKey) ??
-        createEmptyQuiz(lectureKey);
-      const nextQuiz = updater(existingQuiz);
-      const hasQuiz = current.quizzes.some((quiz) => quiz.lectureKey === lectureKey);
+      const existingProblem =
+        current.problems.find((problem) => problem.lectureKey === lectureKey) ??
+        createEmptyProblem(lectureKey);
+      const nextProblem = updater(existingProblem);
+      const hasProblem = current.problems.some((problem) => problem.lectureKey === lectureKey);
 
       return {
         ...current,
-        quizzes: hasQuiz
-          ? current.quizzes.map((quiz) => (quiz.lectureKey === lectureKey ? nextQuiz : quiz))
-          : [...current.quizzes, nextQuiz],
+        problems: hasProblem
+          ? current.problems.map((problem) =>
+              problem.lectureKey === lectureKey ? nextProblem : problem,
+            )
+          : [...current.problems, nextProblem],
       };
     });
   };
 
-  const removeQuiz = (lectureKey: string) => {
+  const removeProblem = (lectureKey: string) => {
     updatePayload((current) => ({
       ...current,
-      quizzes: current.quizzes.filter((quiz) => quiz.lectureKey !== lectureKey),
+      problems: current.problems.filter((problem) => problem.lectureKey !== lectureKey),
     }));
     setQuestionUploadStatus((current) => {
       const next: Record<string, string> = {};
@@ -1480,42 +1500,43 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     });
   };
 
-  const addQuizQuestion = (lectureKey: string) => {
-    upsertQuiz(lectureKey, (quiz) => ({
-      ...quiz,
+  const addProblemQuestion = (lectureKey: string) => {
+    upsertProblem(lectureKey, (problem) => ({
+      ...problem,
       questions: [
-        ...quiz.questions,
-        { ...createEmptyQuestion(), sortOrder: quiz.questions.length },
+        ...problem.questions,
+        { ...createEmptyQuestion(), sortOrder: problem.questions.length },
       ],
     }));
   };
 
-  const updateQuizQuestion = (
+  const updateProblemQuestion = (
     lectureKey: string,
     questionIndex: number,
-    updater: (question: AdminProgramDraftQuizQuestion) => AdminProgramDraftQuizQuestion,
+    updater: (question: AdminProgramDraftProblemQuestion) => AdminProgramDraftProblemQuestion,
   ) => {
-    upsertQuiz(lectureKey, (quiz) => ({
-      ...quiz,
-      questions: quiz.questions.map((question, index) =>
+    upsertProblem(lectureKey, (problem) => ({
+      ...problem,
+      questions: problem.questions.map((question, index) =>
         index === questionIndex ? updater(question) : question,
       ),
     }));
   };
 
-  const removeQuizQuestion = (lectureKey: string, questionIndex: number) => {
-    const targetQuiz =
-      currentPayloadRef.current?.quizzes.find((quiz) => quiz.lectureKey === lectureKey) ?? null;
-    const nextQuestionCount = targetQuiz ? targetQuiz.questions.length - 1 : 0;
+  const removeProblemQuestion = (lectureKey: string, questionIndex: number) => {
+    const targetProblem =
+      currentPayloadRef.current?.problems.find((problem) => problem.lectureKey === lectureKey) ??
+      null;
+    const nextQuestionCount = targetProblem ? targetProblem.questions.length - 1 : 0;
 
     if (nextQuestionCount <= 0) {
-      removeQuiz(lectureKey);
+      removeProblem(lectureKey);
       return;
     }
 
-    upsertQuiz(lectureKey, (quiz) => ({
-      ...quiz,
-      questions: quiz.questions
+    upsertProblem(lectureKey, (problem) => ({
+      ...problem,
+      questions: problem.questions
         .filter((_, index) => index !== questionIndex)
         .map((question, index) => ({ ...question, sortOrder: index })),
     }));
@@ -1567,13 +1588,13 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     });
   };
 
-  const updateQuizOption = (
+  const updateProblemOption = (
     lectureKey: string,
     questionIndex: number,
     optionIndex: number,
-    updater: (option: AdminProgramDraftQuizOption) => AdminProgramDraftQuizOption,
+    updater: (option: AdminProgramDraftProblemOption) => AdminProgramDraftProblemOption,
   ) => {
-    updateQuizQuestion(lectureKey, questionIndex, (question) => ({
+    updateProblemQuestion(lectureKey, questionIndex, (question) => ({
       ...question,
       options: question.options.map((option, index) =>
         index === optionIndex ? updater(option) : option,
@@ -1623,24 +1644,24 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     }
   };
 
-  const renderLectureQuizWorkspace = (lectureKey: string) => {
-    const quiz = payload?.quizzes.find((item) => item.lectureKey === lectureKey) ?? null;
+  const renderLectureProblemWorkspace = (lectureKey: string) => {
+    const problem = payload?.problems.find((item) => item.lectureKey === lectureKey) ?? null;
 
     return (
       <div className={styles['lectureWorkspaceSection']}>
-        {quiz ? (
+        {problem ? (
           <div className={styles['stackListCompact']}>
-            {quiz.questions.map((question, questionIndex) => {
+            {problem.questions.map((question, questionIndex) => {
               const uploadKey = `${lectureKey}:${String(questionIndex)}`;
               const pendingQuestionMediaSelection =
                 pendingQuestionMediaSelections[uploadKey] ?? null;
               const questionMediaAccept = getQuestionMediaAccept(question.mediaType);
-              const questionMediaInputId = `quiz-question-media-upload-${lectureKey}-${String(questionIndex)}`;
+              const questionMediaInputId = `problem-question-media-upload-${lectureKey}-${String(questionIndex)}`;
 
               return (
                 <article
                   className={styles['panel']}
-                  key={`quiz-question-${lectureKey}-${String(questionIndex)}`}
+                  key={`problem-question-${lectureKey}-${String(questionIndex)}`}
                 >
                   <div className={styles['panelToolbar']}>
                     <div>
@@ -1652,7 +1673,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                     </div>
                     <Button
                       onClick={() => {
-                        removeQuizQuestion(lectureKey, questionIndex);
+                        removeProblemQuestion(lectureKey, questionIndex);
                       }}
                       type='button'
                       variant='danger'
@@ -1663,9 +1684,9 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
 
                   <TextAreaField
                     label='문제 내용'
-                    name={`quiz-question-text-${lectureKey}-${String(questionIndex)}`}
+                    name={`problem-question-text-${lectureKey}-${String(questionIndex)}`}
                     onChange={(event) => {
-                      updateQuizQuestion(lectureKey, questionIndex, (current) => ({
+                      updateProblemQuestion(lectureKey, questionIndex, (current) => ({
                         ...current,
                         questionText: event.target.value,
                       }));
@@ -1678,10 +1699,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       compact
                       label='미디어 유형'
                       onChange={(nextValue) => {
-                        updateQuizQuestion(lectureKey, questionIndex, (current) => ({
+                        updateProblemQuestion(lectureKey, questionIndex, (current) => ({
                           ...current,
                           mediaAssetId: nextValue ? current.mediaAssetId : null,
-                          mediaType: nextValue ? (nextValue as AdminQuizMediaType) : null,
+                          mediaType: nextValue ? (nextValue as AdminProblemMediaType) : null,
                           mediaUrl: nextValue ? current.mediaUrl : null,
                         }));
                         if (!nextValue) {
@@ -1762,7 +1783,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                         {question.mediaAssetId && !pendingQuestionMediaSelection ? (
                           <Button
                             onClick={() => {
-                              updateQuizQuestion(lectureKey, questionIndex, (current) => ({
+                              updateProblemQuestion(lectureKey, questionIndex, (current) => ({
                                 ...current,
                                 mediaAssetId: null,
                                 mediaUrl: null,
@@ -1803,9 +1824,9 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                   {question.mediaUrl ? (
                     <TextField
                       label='미디어 미리보기 URL'
-                      name={`quiz-question-media-${lectureKey}-${String(questionIndex)}`}
+                      name={`problem-question-media-${lectureKey}-${String(questionIndex)}`}
                       onChange={(event) => {
-                        updateQuizQuestion(lectureKey, questionIndex, (current) => ({
+                        updateProblemQuestion(lectureKey, questionIndex, (current) => ({
                           ...current,
                           mediaUrl: event.target.value,
                         }));
@@ -1824,14 +1845,14 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                     {question.options.map((option, optionIndex) => (
                       <div
                         className={styles['quizOptionRow']}
-                        key={`quiz-option-${String(optionIndex)}`}
+                        key={`problem-option-${String(optionIndex)}`}
                       >
                         <label className={styles['quizOptionCheckbox']}>
                           <input
                             aria-label={`${String(optionIndex + 1)}번 보기 정답 선택`}
                             checked={option.correct}
                             onChange={(event) => {
-                              updateQuizQuestion(lectureKey, questionIndex, (current) => {
+                              updateProblemQuestion(lectureKey, questionIndex, (current) => {
                                 const nextOptions = current.options.map(
                                   (currentOption, currentOptionIndex) =>
                                     currentOptionIndex === optionIndex
@@ -1854,12 +1875,17 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                         </label>
                         <TextField
                           label={`보기 ${String(optionIndex + 1)}`}
-                          name={`quiz-option-${lectureKey}-${String(questionIndex)}-${String(optionIndex)}`}
+                          name={`problem-option-${lectureKey}-${String(questionIndex)}-${String(optionIndex)}`}
                           onChange={(event) => {
-                            updateQuizOption(lectureKey, questionIndex, optionIndex, (current) => ({
-                              ...current,
-                              optionText: event.target.value,
-                            }));
+                            updateProblemOption(
+                              lectureKey,
+                              questionIndex,
+                              optionIndex,
+                              (current) => ({
+                                ...current,
+                                optionText: event.target.value,
+                              }),
+                            );
                           }}
                           value={option.optionText}
                         />
@@ -1873,7 +1899,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
             <div className={styles['actionRow']}>
               <Button
                 onClick={() => {
-                  addQuizQuestion(lectureKey);
+                  addProblemQuestion(lectureKey);
                 }}
                 type='button'
                 variant='primary'
@@ -1884,10 +1910,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
           </div>
         ) : (
           <div className={styles['actionRow']}>
-            <Button
-              onClick={() => {
-                upsertQuiz(lectureKey, (current) => current);
-              }}
+              <Button
+                onClick={() => {
+                  upsertProblem(lectureKey, (current) => current);
+                }}
               type='button'
               variant='primary'
             >
@@ -2362,14 +2388,14 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         [uploadKey]: '문제 미디어 업로드 중',
       }));
 
-      const uploadTarget = await createAdminQuizMediaUploadTarget({
+      const uploadTarget = await createAdminProblemMediaUploadTarget({
         contentType: file.type || 'application/octet-stream',
         fileSize: file.size,
         filename: file.name,
       });
 
-      await uploadAdminQuizMediaFile(uploadTarget.uploadUrl, file);
-      updateQuizQuestion(lectureKey, questionIndex, (question) => ({
+      await uploadAdminProblemMediaFile(uploadTarget.uploadUrl, file);
+      updateProblemQuestion(lectureKey, questionIndex, (question) => ({
         ...question,
         mediaAssetId: uploadTarget.assetId,
         mediaType: uploadTarget.mediaType,
@@ -2596,10 +2622,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       return messages;
     }),
   );
-  const activeView: Exclude<AdminProgramCreateView, 'quizzes' | 'resources'> =
-    view === 'quizzes' || view === 'resources' ? 'curriculum' : view;
+  const activeView: Exclude<AdminProgramCreateView, 'problems' | 'resources'> =
+    view === 'problems' || view === 'resources' ? 'curriculum' : view;
   const createTabs: ReadonlyArray<{
-    key: Exclude<AdminProgramCreateView, 'quizzes' | 'resources'>;
+    key: Exclude<AdminProgramCreateView, 'problems' | 'resources'>;
     label: string;
     path: string;
   }> = [
@@ -3264,8 +3290,8 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                   <div>
                     <h2 className={styles['panelTitle']}>커리큘럼</h2>
                     <p className={styles['metaText']}>
-                      통합등록에서도 섹션이 최상위입니다. 각 섹션을 펼친 뒤 강의를 만들고, 강의
-                      안에서 영상/현장강의/문제풀이/자료를 연결합니다.
+                      통합등록에서도 섹션이 최상위입니다. 각 섹션을 펼친 뒤 강의를 만들고{' '}
+                      {getCurriculumGuideText(payload.basicInfo.programType ?? null)}
                     </p>
                   </div>
                   <Button onClick={addSection} type='button' variant='primary'>
@@ -3424,12 +3450,12 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                             <div className={styles['curriculumLectureList']}>
                               {section.lectures.map((lecture, lectureIndex) => {
                                 const lectureExpanded = expandedLectureKeys.includes(lecture.key);
-                                const supportsVideo = isVideoLecture(lecture);
+                                const supportsVideo = supportsLectureVideo(lecture);
                                 const supportsResource = isResourceLecture(lecture);
                                 const supportsProblem = isProblemLecture(lecture);
                                 const supportsOffline = isOfflineLecture(lecture);
                                 const lectureQuiz =
-                                  payload?.quizzes.find(
+                                  payload?.problems.find(
                                     (item) => item.lectureKey === lecture.key,
                                   ) ?? null;
                                 const pendingVideoSelection =
@@ -3566,13 +3592,11 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                               value={lecture.description ?? ''}
                                             />
 
-                                            {supportsProblem || supportsOffline ? (
+                                            {supportsProblem ? (
                                               <div className={styles['compactFieldRow']}>
                                                 <div className={styles['compactTextField']}>
                                                   <TextField
-                                                    label={
-                                                      supportsProblem ? '제한시간(초)' : '길이(초)'
-                                                    }
+                                                    label='제한시간(초)'
                                                     name={`lecture-duration-${lecture.key}`}
                                                     onChange={(event) => {
                                                       updateLecture(
@@ -3597,9 +3621,9 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                   <div className={styles['compactTextField']}>
                                                     <TextField
                                                       label='기준 점수'
-                                                      name={`quiz-pass-score-${lecture.key}`}
+                                                      name={`problem-pass-score-${lecture.key}`}
                                                       onChange={(event) => {
-                                                        upsertQuiz(lecture.key, (current) => ({
+                                                        upsertProblem(lecture.key, (current) => ({
                                                           ...current,
                                                           passScore: event.target.value.trim()
                                                             ? Number(event.target.value)
@@ -3619,26 +3643,35 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                             ) : null}
                                           </div>
 
-                                          {supportsVideo ? (
-                                            <div className={styles['lectureWorkspaceSection']}>
-                                              <h5 className={styles['panelTitle']}>영상</h5>
-                                              <div className={styles['curriculumStatGrid']}>
-                                                <div className={styles['curriculumStatCard']}>
-                                                  <span className={styles['curriculumStatLabel']}>
-                                                    현재 상태
-                                                  </span>
+                                            {supportsVideo ? (
+                                              <div className={styles['lectureWorkspaceSection']}>
+                                                <h5 className={styles['panelTitle']}>
+                                                  {supportsOffline ? '선행 영상' : '영상'}
+                                                </h5>
+                                                {supportsOffline ? (
+                                                  <p className={styles['helperText']}>
+                                                    현장강의 시간은 일정 시작/종료 시각으로 관리합니다.
+                                                    선행 영상 길이는 출석 전 영상 확인 여부 검증에만
+                                                    사용됩니다.
+                                                  </p>
+                                                ) : null}
+                                                <div className={styles['curriculumStatGrid']}>
+                                                  <div className={styles['curriculumStatCard']}>
+                                                    <span className={styles['curriculumStatLabel']}>
+                                                      현재 상태
+                                                    </span>
                                                   <strong className={styles['curriculumStatValue']}>
                                                     {lectureVideoStatus}
                                                   </strong>
                                                 </div>
-                                                <div className={styles['curriculumStatCard']}>
-                                                  <span className={styles['curriculumStatLabel']}>
-                                                    영상 파일
-                                                  </span>
-                                                  <strong className={styles['curriculumStatValue']}>
-                                                    {uploadedVideoName ??
-                                                      '아직 업로드한 파일이 없습니다.'}
-                                                  </strong>
+                                                  <div className={styles['curriculumStatCard']}>
+                                                    <span className={styles['curriculumStatLabel']}>
+                                                      {supportsOffline ? '선행 영상 파일' : '영상 파일'}
+                                                    </span>
+                                                    <strong className={styles['curriculumStatValue']}>
+                                                      {uploadedVideoName ??
+                                                        '아직 업로드한 파일이 없습니다.'}
+                                                    </strong>
                                                 </div>
                                                 <div className={styles['curriculumStatCard']}>
                                                   <span className={styles['curriculumStatLabel']}>
@@ -3648,14 +3681,16 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                     {videoFileSizeLabel ?? '미확인'}
                                                   </strong>
                                                 </div>
-                                                <div className={styles['curriculumStatCard']}>
-                                                  <span className={styles['curriculumStatLabel']}>
-                                                    영상 길이
-                                                  </span>
-                                                  <strong className={styles['curriculumStatValue']}>
-                                                    {formatDraftDurationLabel(
-                                                      lecture.durationSeconds,
-                                                    )}
+                                                  <div className={styles['curriculumStatCard']}>
+                                                    <span className={styles['curriculumStatLabel']}>
+                                                      {supportsOffline
+                                                        ? '선행 영상 길이'
+                                                        : '영상 길이'}
+                                                    </span>
+                                                    <strong className={styles['curriculumStatValue']}>
+                                                      {formatDraftDurationLabel(
+                                                        lecture.durationSeconds,
+                                                      )}
                                                   </strong>
                                                 </div>
                                               </div>
@@ -3759,7 +3794,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                             : null}
 
                                           {supportsProblem
-                                            ? renderLectureQuizWorkspace(lecture.key)
+                                            ? renderLectureProblemWorkspace(lecture.key)
                                             : null}
 
                                           {supportsOffline ? (
@@ -3781,7 +3816,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                 </p>
                                               ) : null}
                                               <div className={styles['offlineScheduleDraftList']}>
-                                                {lecture.offlineSchedules.map(
+                                                {lecture.offlineSchedules.slice(0, 1).map(
                                                   (schedule, scheduleIndex) => (
                                                     <div
                                                       className={styles['offlineScheduleDraftCard']}
@@ -3904,19 +3939,21 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                 )}
                                               </div>
                                               <div className={styles['actionRow']}>
-                                                <Button
-                                                  disabled={!hasOfflineSchedulePeriod}
-                                                  onClick={() => {
-                                                    addLectureOfflineSchedule(
-                                                      section.key,
-                                                      lecture.key,
-                                                    );
-                                                  }}
-                                                  type='button'
-                                                  variant='secondary'
-                                                >
-                                                  일정 추가
-                                                </Button>
+                                                {lecture.offlineSchedules.length === 0 ? (
+                                                  <Button
+                                                    disabled={!hasOfflineSchedulePeriod}
+                                                    onClick={() => {
+                                                      addLectureOfflineSchedule(
+                                                        section.key,
+                                                        lecture.key,
+                                                      );
+                                                    }}
+                                                    type='button'
+                                                    variant='secondary'
+                                                  >
+                                                    일정 입력
+                                                  </Button>
+                                                ) : null}
                                               </div>
                                             </div>
                                           ) : null}

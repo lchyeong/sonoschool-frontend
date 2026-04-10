@@ -14,6 +14,9 @@ import type {
   EnrollmentSummary,
   LectureProgressSaveResponse,
   LearningPlayerSnapshot,
+  MyQuestionItem,
+  MyQuestionPage,
+  MyQuestionScope,
   ProtectedLectureStream,
   RefundHistory,
   UserProfile,
@@ -39,6 +42,14 @@ interface BackendUserProfile {
   phoneNumber: string | null;
   phoneVerifiedAt: string | null;
   role: string;
+}
+
+interface MyQuestionsQueryOptions {
+  answered?: boolean | undefined;
+  keyword?: string | undefined;
+  page?: number;
+  size?: number;
+  scope?: MyQuestionScope | 'ALL';
 }
 
 const toUserProfile = (profile: BackendUserProfile): UserProfile => {
@@ -247,11 +258,13 @@ export const fetchMyLecturePracticum = async (
 export const reserveMyLecturePracticum = async (
   enrollmentId: number,
   slotId: number,
+  lectureId?: number,
 ): Promise<PracticumReservation> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<PracticumReservation>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}/practicum-reservations`,
       {
+        lectureId,
         slotId,
       },
     );
@@ -271,6 +284,24 @@ export const cancelMyLecturePracticum = async (
     );
   } catch (error: unknown) {
     throw toApiError(error, '실습 예약을 취소하지 못했습니다.');
+  }
+};
+
+export const moveMyLecturePracticum = async (
+  enrollmentId: number,
+  reservationId: number,
+  slotId: number,
+): Promise<PracticumReservation> => {
+  try {
+    const response = await axiosInstance.patch<ApiEnvelope<PracticumReservation>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/practicum-reservations/${String(reservationId)}/move`,
+      {
+        slotId,
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '실습 예약 일정을 변경하지 못했습니다.');
   }
 };
 
@@ -404,5 +435,82 @@ export const fetchMyRefunds = async (): Promise<RefundHistory[]> => {
       .filter((refund): refund is RefundHistory => refund !== null);
   } catch (error: unknown) {
     throw toApiError(error, '취소/환불 내역을 불러오지 못했습니다.');
+  }
+};
+
+export const fetchMyQuestions = async (
+  options?: MyQuestionsQueryOptions,
+): Promise<MyQuestionPage> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<MyQuestionPage>>('/api/v1/my/questions', {
+      params: {
+        answered: options?.answered,
+        keyword: options?.keyword?.trim() || undefined,
+        page: options?.page ?? 0,
+        scope: options?.scope && options.scope !== 'ALL' ? options.scope : undefined,
+        size: options?.size ?? 10,
+      },
+    });
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '내 질문을 불러오지 못했습니다.');
+  }
+};
+
+export const createMyGlobalQuestion = async (payload: {
+  content: string;
+  title: string;
+}): Promise<MyQuestionItem> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<MyQuestionItem>>('/api/v1/qna', payload);
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '운영 Q&A를 등록하지 못했습니다.');
+  }
+};
+
+export const updateMyQuestion = async (
+  question: Pick<MyQuestionItem, 'id' | 'programId' | 'scope'>,
+  payload: {
+    content: string;
+    title: string;
+  },
+): Promise<MyQuestionItem> => {
+  try {
+    if (question.scope === 'PROGRAM') {
+      const response = await axiosInstance.put<ApiEnvelope<MyQuestionItem>>(
+        `/api/v1/programs/${String(question.programId)}/qna/${String(question.id)}`,
+        {
+          content: payload.content,
+          title: payload.title,
+        },
+      );
+      return unwrapApiEnvelope(response.data);
+    }
+
+    const response = await axiosInstance.put<ApiEnvelope<MyQuestionItem>>(
+      `/api/v1/questions/${String(question.id)}`,
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '질문을 수정하지 못했습니다.');
+  }
+};
+
+export const deleteMyQuestion = async (
+  question: Pick<MyQuestionItem, 'id' | 'programId' | 'scope'>,
+): Promise<void> => {
+  try {
+    if (question.scope === 'PROGRAM') {
+      await axiosInstance.delete(
+        `/api/v1/programs/${String(question.programId)}/qna/${String(question.id)}`,
+      );
+      return;
+    }
+
+    await axiosInstance.delete(`/api/v1/questions/${String(question.id)}`);
+  } catch (error: unknown) {
+    throw toApiError(error, '질문을 삭제하지 못했습니다.');
   }
 };

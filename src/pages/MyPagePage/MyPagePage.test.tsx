@@ -18,9 +18,28 @@ import type { PaymentResult } from '@/types/payment';
 
 const createMyEnrollmentReviewMock =
   vi.fn<(programId: number, payload: { content: string; rating: number }) => Promise<void>>();
+const createMyGlobalQuestionMock = vi.fn<
+  (payload: { content: string; title: string }) => Promise<unknown>
+>();
+const deleteMyQuestionMock = vi.fn<(question: { id: number; programId: number | null; scope: string }) => Promise<void>>();
 const fetchMyEnrollmentDetailMock = vi.fn<(enrollmentId: number) => Promise<EnrollmentDetail>>();
 const fetchMyProfileMock = vi.fn<() => Promise<UserProfile>>();
+const fetchMyQuestionsMock = vi.fn<
+  (options?: {
+    answered?: boolean;
+    keyword?: string;
+    page?: number;
+    scope?: 'ALL' | 'GLOBAL' | 'PROGRAM';
+    size?: number;
+  }) => Promise<unknown>
+>();
 const updateMyProfileMock = vi.fn<(payload: UserProfileUpdatePayload) => Promise<UserProfile>>();
+const updateMyQuestionMock = vi.fn<
+  (
+    question: { id: number; programId: number | null; scope: string },
+    payload: { content: string; title: string },
+  ) => Promise<unknown>
+>();
 const sendMyPhoneVerificationMock = vi.fn<(payload: SmsSendPayload) => Promise<SmsSendResponse>>();
 const updateMyEnrollmentReviewMock =
   vi.fn<(reviewId: number, payload: { content: string; rating: number }) => Promise<void>>();
@@ -31,13 +50,28 @@ const fetchMyRefundsMock = vi.fn<() => Promise<RefundHistory[]>>();
 const logoutStudentMock = vi.fn<() => Promise<void>>();
 
 vi.mock('@/api/mypage', () => ({
+  createMyGlobalQuestion: (payload: { content: string; title: string }) =>
+    createMyGlobalQuestionMock(payload),
   createMyEnrollmentReview: (programId: number, payload: { content: string; rating: number }) =>
     createMyEnrollmentReviewMock(programId, payload),
+  deleteMyQuestion: (question: { id: number; programId: number | null; scope: string }) =>
+    deleteMyQuestionMock(question),
   fetchMyEnrollmentDetail: (enrollmentId: number) => fetchMyEnrollmentDetailMock(enrollmentId),
   fetchMyEnrollments: () => fetchMyEnrollmentsMock(),
   fetchMyProfile: () => fetchMyProfileMock(),
+  fetchMyQuestions: (options?: {
+    answered?: boolean;
+    keyword?: string;
+    page?: number;
+    scope?: 'ALL' | 'GLOBAL' | 'PROGRAM';
+    size?: number;
+  }) => fetchMyQuestionsMock(options),
   fetchMyRefunds: () => fetchMyRefundsMock(),
   sendMyPhoneVerification: (payload: SmsSendPayload) => sendMyPhoneVerificationMock(payload),
+  updateMyQuestion: (
+    question: { id: number; programId: number | null; scope: string },
+    payload: { content: string; title: string },
+  ) => updateMyQuestionMock(question, payload),
   updateMyEnrollmentReview: (reviewId: number, payload: { content: string; rating: number }) =>
     updateMyEnrollmentReviewMock(reviewId, payload),
   updateMyProfile: (payload: UserProfileUpdatePayload) => updateMyProfileMock(payload),
@@ -286,6 +320,60 @@ const testPaymentHistory: PaymentResult[] = [
   },
 ];
 
+const testMyQuestions = {
+  content: [
+    {
+      answered: true,
+      authorName: '길벗',
+      authorType: 'ENROLLED',
+      content: '오프라인 일정 준비물이 궁금합니다.',
+      createdAt: '2026-03-18T10:00:00Z',
+      id: 701,
+      mine: true,
+      programId: 2001,
+      programTitle: '복부초음파 기초',
+      replies: [
+        {
+          adminReply: true,
+          authorName: '운영팀',
+          authorType: 'ADMIN',
+          content: '개별 안내 메시지로 준비물을 전달드리겠습니다.',
+          createdAt: '2026-03-18T12:00:00Z',
+          id: 801,
+          mine: false,
+          updatedAt: '2026-03-18T12:00:00Z',
+        },
+      ],
+      replyCount: 1,
+      scope: 'PROGRAM',
+      title: '실습 준비물 문의',
+      updatedAt: '2026-03-18T12:00:00Z',
+    },
+    {
+      answered: false,
+      authorName: '길벗',
+      authorType: 'MEMBER',
+      content: '결제 영수증은 어디서 확인하나요?',
+      createdAt: '2026-03-19T08:00:00Z',
+      id: 702,
+      mine: true,
+      programId: null,
+      programTitle: null,
+      replies: [],
+      replyCount: 0,
+      scope: 'GLOBAL',
+      title: '영수증 확인 문의',
+      updatedAt: '2026-03-19T08:00:00Z',
+    },
+  ],
+  first: true,
+  last: true,
+  number: 0,
+  size: 10,
+  totalElements: 2,
+  totalPages: 1,
+};
+
 const renderMyPage = (initialEntry = routePaths.mypage) => {
   const queryClient = createTestQueryClient();
 
@@ -336,11 +424,19 @@ beforeEach(() => {
     role: 'STUDENT',
   });
   createMyEnrollmentReviewMock.mockResolvedValue(undefined);
+  createMyGlobalQuestionMock.mockResolvedValue({
+    ...testMyQuestions.content[1],
+    content: '등록된 문의 내용',
+    title: '등록된 문의 제목',
+  });
+  deleteMyQuestionMock.mockResolvedValue(undefined);
   updateMyEnrollmentReviewMock.mockResolvedValue(undefined);
+  updateMyQuestionMock.mockResolvedValue(testMyQuestions.content[0]);
   fetchMyEnrollmentsMock.mockResolvedValue(testEnrollments);
   fetchMyEnrollmentDetailMock.mockImplementation((enrollmentId: number) =>
     Promise.resolve(testEnrollmentDetails[enrollmentId]),
   );
+  fetchMyQuestionsMock.mockResolvedValue(testMyQuestions);
   fetchPaymentHistoryMock.mockResolvedValue(testPaymentHistory);
   fetchMyRefundsMock.mockResolvedValue(testRefunds);
   logoutStudentMock.mockResolvedValue(undefined);
@@ -371,15 +467,14 @@ afterEach(() => {
 });
 
 describe('MyPagePage', () => {
-  it('renders grouped sidebar categories and active course cards by default', async () => {
+  it('renders four unified sidebar menus and active course cards by default', async () => {
     renderMyPage();
 
     expect(screen.getByRole('heading', { level: 1, name: '마이페이지' })).toBeInTheDocument();
-    expect(screen.getByText('학습 관리')).toBeInTheDocument();
-    expect(screen.getByText('주문/결제')).toBeInTheDocument();
-    expect(screen.getByText('내 정보')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '내 강의' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '결제 내역' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '결제내역' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '내정보관리' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Q&A관리' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '장바구니' })).not.toBeInTheDocument();
 
     expect(await screen.findByText('복부초음파 기초')).toBeInTheDocument();
@@ -395,10 +490,7 @@ describe('MyPagePage', () => {
       'href',
       '/mypage/learning/101',
     );
-    expect(screen.getByRole('link', { name: '실습 예약' })).toHaveAttribute(
-      'href',
-      '/mypage/enrollments/101/practicum',
-    );
+    expect(screen.queryByRole('link', { name: '실습 예약' })).not.toBeInTheDocument();
   });
 
   it('switches between 수강 종료 and 수료증 tabs', async () => {
@@ -424,7 +516,7 @@ describe('MyPagePage', () => {
   it('shows payment history with receipt actions', async () => {
     renderMyPage();
 
-    fireEvent.click(screen.getByRole('button', { name: '결제 내역' }));
+    fireEvent.click(screen.getByRole('button', { name: '결제내역' }));
 
     expect(await screen.findByText('심장초음파 실전 마스터 클래스')).toBeInTheDocument();
     expect(screen.getByText('복부초음파 기초')).toBeInTheDocument();
@@ -440,10 +532,10 @@ describe('MyPagePage', () => {
     );
   });
 
-  it('submits profile updates from the basic profile item', async () => {
+  it('submits profile updates from the profile management item', async () => {
     renderMyPage();
 
-    fireEvent.click(screen.getByRole('button', { name: '기본 정보' }));
+    fireEvent.click(screen.getByRole('button', { name: '내정보관리' }));
 
     const emailInput = await screen.findByLabelText('이메일');
     const nameInput = await screen.findByLabelText('이름');
@@ -466,10 +558,10 @@ describe('MyPagePage', () => {
     });
   });
 
-  it('opens inline phone verification from the basic profile item', async () => {
+  it('opens inline phone verification from the profile management item', async () => {
     renderMyPage();
 
-    fireEvent.click(screen.getByRole('button', { name: '기본 정보' }));
+    fireEvent.click(screen.getByRole('button', { name: '내정보관리' }));
 
     expect(await screen.findByLabelText('휴대폰 인증 완료')).toBeInTheDocument();
 
@@ -489,18 +581,18 @@ describe('MyPagePage', () => {
     expect(await screen.findByText('인증번호를 보냈습니다.')).toBeInTheDocument();
   });
 
-  it('shows refund history items when the refunds item is selected', async () => {
+  it('shows unified qna management items and replies', async () => {
     renderMyPage();
 
-    fireEvent.click(screen.getByRole('button', { name: '취소/환불 내역' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Q&A관리' }));
 
-    expect(await screen.findByText('복부초음파 기초')).toBeInTheDocument();
-    expect(screen.getByText('심장초음파 실전 마스터 클래스')).toBeInTheDocument();
-    expect(screen.getByText('복부초음파 오프라인 핸즈온')).toBeInTheDocument();
-    expect(screen.getAllByText('환불 완료').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('환불 진행 중').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('취소 완료').length).toBeGreaterThan(0);
-    expect(screen.getByText(/환불 금액 99,000원/)).toBeInTheDocument();
+    expect(await screen.findByText('실습 준비물 문의')).toBeInTheDocument();
+    expect(screen.getByText('영수증 확인 문의')).toBeInTheDocument();
+    expect(screen.getByText('운영 Q&A 등록')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: '답변 보기' })[0]);
+
+    expect(await screen.findByText('개별 안내 메시지로 준비물을 전달드리겠습니다.')).toBeInTheDocument();
   });
 
   it('creates a review from my course card', async () => {
@@ -527,20 +619,24 @@ describe('MyPagePage', () => {
     });
   });
 
-  it('shows the support entry without lecture browse links', async () => {
+  it('creates a global question from qna management', async () => {
     renderMyPage();
 
-    fireEvent.click(screen.getByRole('button', { name: '1:1 문의' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Q&A관리' }));
+    fireEvent.click(await screen.findByRole('button', { name: '운영 Q&A 등록' }));
+    fireEvent.change(await screen.findByLabelText('제목'), {
+      target: { value: '등록된 문의 제목' },
+    });
+    fireEvent.change(screen.getByLabelText('내용'), {
+      target: { value: '등록된 문의 내용' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '질문 등록하기' }));
 
-    expect(
-      await screen.findByText(
-        '문의 내역 조회 기능은 준비 중입니다. 문의가 필요하면 문의 페이지를 이용해 주세요.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '문의하기' })).toHaveAttribute(
-      'href',
-      routePaths.contact,
-    );
-    expect(screen.queryByRole('link', { name: '강의 둘러보기' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(createMyGlobalQuestionMock).toHaveBeenCalledWith({
+        content: '등록된 문의 내용',
+        title: '등록된 문의 제목',
+      });
+    });
   });
 });

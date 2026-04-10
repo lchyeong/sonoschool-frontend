@@ -1,6 +1,8 @@
 export type PracticumSlotStatus = 'OPEN' | 'BLOCKED' | 'CLOSED';
 export type AdminPracticumSearchCategory = 'PROGRAM' | 'LECTURE' | 'STUDENT';
 export type AdminPracticumOperationExceptionType = 'ADMIN_SCHEDULE';
+export type PracticumReservationStatus = 'ACTIVE' | 'NO_SHOW' | 'CANCELLED';
+export type AdminPracticumReservationStatus = PracticumReservationStatus;
 
 export interface PracticumSlot {
   id: number;
@@ -24,6 +26,7 @@ export interface PracticumReservation {
   endAt: string;
   location: string | null;
   reservedAt: string;
+  status?: PracticumReservationStatus | undefined;
 }
 
 export interface LecturePracticum {
@@ -83,6 +86,7 @@ export interface AdminPracticumOperatingHour {
 }
 
 export interface AdminPracticumOperationException {
+  content: string | null;
   id: number;
   type: AdminPracticumOperationExceptionType;
   title: string;
@@ -92,6 +96,7 @@ export interface AdminPracticumOperationException {
 }
 
 export interface AdminPracticumOperationExceptionPayload {
+  content: string | null;
   type: AdminPracticumOperationExceptionType;
   title: string;
   startAt: string;
@@ -112,6 +117,33 @@ export interface AdminPracticumOfflineScheduleOccurrence {
   activeEnrollmentCount: number;
 }
 
+export interface AdminPracticumOfflineScheduleAttendeeItem {
+  enrollmentId: number;
+  userId: number;
+  userName: string;
+  loginId: string;
+  phoneNumber: string | null;
+  lectureCompleted: boolean;
+  absent: boolean;
+}
+
+export interface AdminPracticumOfflineScheduleDetail {
+  ruleId: number;
+  lectureId: number;
+  lectureTitle: string;
+  sectionTitle: string;
+  programId: number;
+  programTitle: string;
+  startAt: string;
+  endAt: string;
+  location: string | null;
+  notes: string | null;
+  activeEnrollmentCount: number;
+  maxStudents: number | null;
+  videoAttached: boolean;
+  attendees: AdminPracticumOfflineScheduleAttendeeItem[];
+}
+
 export interface AdminPracticumReservationItem {
   enrollmentId: number;
   lectureCompleted: boolean;
@@ -119,7 +151,7 @@ export interface AdminPracticumReservationItem {
   phoneNumber: string;
   reservationId: number;
   reservedAt: string;
-  status: string;
+  status: AdminPracticumReservationStatus;
   userId: number;
   userName: string;
 }

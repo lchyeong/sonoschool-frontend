@@ -15,10 +15,10 @@ export interface AdminCurriculumLecture {
   id: number;
   lectureType: AdminLectureType;
   offlineSchedules: AdminLectureOfflineSchedule[];
+  problemOnly?: boolean;
   preview: boolean;
   practicumEnabled?: boolean;
   published: boolean;
-  quizOnly?: boolean;
   sectionId: number;
   sortOrder: number;
   title: string;
@@ -43,9 +43,9 @@ export interface AdminLectureUpsertPayload {
   description: string | null;
   durationSeconds: number | null;
   lectureType: AdminLectureType;
+  problemOnly?: boolean;
   preview: boolean;
   practicumEnabled?: boolean;
-  quizOnly?: boolean;
   sortOrder: number;
   title: string;
 }
