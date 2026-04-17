@@ -4,12 +4,16 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { createGlobalQuestion } from '@/api/qna';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import { QNA_CONTENT_MAX_LENGTH, QNA_TITLE_MAX_LENGTH } from '@/constants/qna';
 import { globalQuestionsQueryKey, useGlobalQuestionsQuery } from '@/query/useQnaQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
+import { buildQnaPreview, maskQnaAuthorName, resolveQnaAuthorName, validateQnaQuestionDraft } from '@/utils/qna';
+
 import styles from './QnaPage.module.scss';
 
 type BoardStatusFilter = 'all' | 'answered' | 'waiting';
@@ -28,38 +32,11 @@ const formatDate = (value: string): string => {
   }).format(new Date(value));
 };
 
-const buildQuestionPreview = (value: string): string => {
-  const normalized = value.replace(/\s+/g, ' ').trim();
-
-  if (normalized.length <= 78) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, 78)}...`;
-};
-
-const maskAuthorName = (value: string): string => {
-  if (value.includes('관리자') || value.includes('운영팀')) {
-    return value;
-  }
-
-  const characters = Array.from(value.trim());
-
-  if (characters.length <= 1) {
-    return value;
-  }
-
-  if (characters.length === 2) {
-    return `${characters[0]}*`;
-  }
-
-  return `${characters[0]}${'*'.repeat(characters.length - 2)}${characters.at(-1) ?? ''}`;
-};
-
 const QnaPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const currentDisplayName = useAuthStore((state) => state.displayName);
   const showToast = useToastStore((state) => state.showToast);
   const questionsQuery = useGlobalQuestionsQuery();
   const [title, setTitle] = useState('');
@@ -138,9 +115,11 @@ const QnaPage = () => {
       return;
     }
 
-    if (!trimmedTitle || !trimmedContent) {
+    const validationError = validateQnaQuestionDraft(trimmedTitle, trimmedContent);
+
+    if (validationError) {
       showToast({
-        message: '질문 제목과 내용을 모두 입력해 주세요.',
+        message: validationError,
         variant: 'error',
       });
       return;
@@ -174,42 +153,34 @@ const QnaPage = () => {
 
       <section className={styles['boardShell']}>
         <div className={styles['toolbar']}>
-          <form
-            className={styles['searchForm']}
-            onSubmit={(event) => {
-              event.preventDefault();
+          <UnifiedSearchBar
+            className={styles['searchBar']}
+            inputAriaLabel='운영 Q&A 검색'
+            leading={
+              <select
+                aria-label='질문 상태 필터'
+                className={styles['filterSelect']}
+                onChange={(event) => {
+                  setStatusFilter(event.target.value as BoardStatusFilter);
+                  setCurrentPage(1);
+                }}
+                value={statusFilter}
+              >
+                <option value='all'>전체</option>
+                <option value='answered'>답변완료</option>
+                <option value='waiting'>답변대기</option>
+              </select>
+            }
+            onChange={(nextValue) => {
+              setSearchInput(nextValue);
+            }}
+            onSubmit={() => {
               setSearchTerm(searchInput);
               setCurrentPage(1);
             }}
-          >
-            <select
-              aria-label='질문 상태 필터'
-              className={styles['filterSelect']}
-              onChange={(event) => {
-                setStatusFilter(event.target.value as BoardStatusFilter);
-                setCurrentPage(1);
-              }}
-              value={statusFilter}
-            >
-              <option value='all'>전체</option>
-              <option value='answered'>답변완료</option>
-              <option value='waiting'>답변대기</option>
-            </select>
-
-            <input
-              className={styles['searchInput']}
-              onChange={(event) => {
-                setSearchInput(event.target.value);
-              }}
-              placeholder='제목, 내용, 작성자를 검색해 주세요.'
-              type='search'
-              value={searchInput}
-            />
-
-            <button className={styles['searchButton']} type='submit'>
-              검색
-            </button>
-          </form>
+            placeholder='제목, 내용, 작성자를 검색해 주세요.'
+            value={searchInput}
+          />
         </div>
 
         {questionsQuery.isPending ? (
@@ -279,13 +250,23 @@ const QnaPage = () => {
                                 }}
                                 type='button'
                               >
-                                <span className={styles['titleText']}>{question.title}</span>
+                                <span className={styles['titleText']} title={question.title}>
+                                  {question.title}
+                                </span>
                                 <span className={styles['previewText']}>
-                                  {buildQuestionPreview(question.content)}
+                                  {buildQnaPreview(question.content)}
                                 </span>
                               </button>
                             </td>
-                            <td>{maskAuthorName(question.authorName)}</td>
+                            <td>
+                              {maskQnaAuthorName(
+                                resolveQnaAuthorName(
+                                  question.authorName,
+                                  question.mine,
+                                  currentDisplayName,
+                                ),
+                              )}
+                            </td>
                             <td>{formatDate(question.createdAt)}</td>
                           </tr>
 
@@ -305,7 +286,15 @@ const QnaPage = () => {
                                         return (
                                           <div className={styles['replyBlock']} key={reply.id}>
                                             <div className={styles['replyMeta']}>
-                                              <strong>{maskAuthorName(reply.authorName)}</strong>
+                                              <strong>
+                                                {maskQnaAuthorName(
+                                                  resolveQnaAuthorName(
+                                                    reply.authorName,
+                                                    reply.mine,
+                                                    currentDisplayName,
+                                                  ),
+                                                )}
+                                              </strong>
                                               <span>{formatDate(reply.createdAt)}</span>
                                             </div>
                                             <p className={styles['detailText']}>{reply.content}</p>
@@ -313,7 +302,9 @@ const QnaPage = () => {
                                         );
                                       })
                                     ) : (
-                                      <p className={styles['detailText']}>아직 등록된 답변이 없습니다.</p>
+                                      <p className={styles['detailText']}>
+                                        아직 등록된 답변이 없습니다.
+                                      </p>
                                     )}
                                   </div>
                                 </div>
@@ -375,7 +366,11 @@ const QnaPage = () => {
                 </button>
               </div>
 
-              <button className={styles['writeButton']} onClick={handleToggleWriteForm} type='button'>
+              <button
+                className={styles['writeButton']}
+                onClick={handleToggleWriteForm}
+                type='button'
+              >
                 글쓰기
               </button>
             </div>
@@ -385,13 +380,15 @@ const QnaPage = () => {
                 <div className={styles['writerHeader']}>
                   <h2 className={styles['writerTitle']}>질문 작성</h2>
                   <p className={styles['writerDescription']}>
-                    운영 관련 질문을 남기면 확인 후 게시판에 답변이 표시됩니다.
+                    운영 관련 질문을 남기면 확인 후 게시판에 답변이 표시됩니다. 제목은{' '}
+                    {String(QNA_TITLE_MAX_LENGTH)}자, 내용은 {String(QNA_CONTENT_MAX_LENGTH)}자까지 입력할 수 있습니다.
                   </p>
                 </div>
 
                 <div className={styles['writerForm']}>
                   <TextField
                     label='질문 제목'
+                    maxLength={QNA_TITLE_MAX_LENGTH}
                     name='global-question-title'
                     onChange={(event) => {
                       setTitle(event.target.value);
@@ -401,6 +398,7 @@ const QnaPage = () => {
                   />
                   <TextAreaField
                     label='질문 내용'
+                    maxLength={QNA_CONTENT_MAX_LENGTH}
                     name='global-question-content'
                     onChange={(event) => {
                       setContent(event.target.value);

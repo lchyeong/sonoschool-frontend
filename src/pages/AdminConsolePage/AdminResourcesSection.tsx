@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { deleteAdminResource } from '@/api/adminResources';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import { adminResourcesQueryKey, useAdminResourcesQuery } from '@/query/useAdminResourcesQuery';
 import { routePaths } from '@/routes/routeRegistry';
@@ -105,20 +106,17 @@ const AdminResourcesSection = () => {
           </div>
 
           <div className={styles['editorToolbarActions']}>
-            <label className={styles['searchField']}>
-              <span className={styles['searchLabel']}>검색</span>
-              <input
-                aria-label='자료 검색'
-                className={styles['searchInput']}
-                onChange={(event) => {
-                  setSearchTerm(event.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder='자료명, 파일명 검색'
-                type='search'
-                value={searchTerm}
-              />
-            </label>
+            <UnifiedSearchBar
+              className={styles['adminSearchBar']}
+              inputAriaLabel='자료 검색'
+              onChange={(nextValue) => {
+                setSearchTerm(nextValue);
+                setCurrentPage(1);
+              }}
+              onSubmit={() => undefined}
+              placeholder='자료명, 파일명 검색'
+              value={searchTerm}
+            />
             <Button
               onClick={() => {
                 void navigate(routePaths.adminResourceCreate);

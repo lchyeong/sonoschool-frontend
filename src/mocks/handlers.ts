@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 
+import { QNA_REPLY_MAX_LENGTH } from '@/constants/qna';
 import {
   cancelMockAdminPayment,
   getMockAdminPaymentDetail,
@@ -94,6 +95,7 @@ import type { ProgramSearchIndexResponse } from '@/types/programSearch';
 import type { QuestionCreatePayload, QuestionReplyCreatePayload } from '@/types/qna';
 import type { ResourceItem } from '@/types/resource';
 import type { SiteNavigationResponse } from '@/types/siteNavigation';
+import { validateQnaQuestionDraft } from '@/utils/qna';
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === 'object';
@@ -936,6 +938,11 @@ export const handlers = [
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
+    const validationError = validateQnaQuestionDraft(body.title.trim(), body.content.trim());
+    if (validationError) {
+      return HttpResponse.json({ message: validationError }, { status: 400 });
+    }
+
     return HttpResponse.json(createApiEnvelope(createMockGlobalQuestion(body)), { status: 201 });
   }),
   http.post('*/api/v1/payments/checkout/kcp/pc/prepare', async ({ request }) => {
@@ -987,6 +994,11 @@ export const handlers = [
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
+    const validationError = validateQnaQuestionDraft(body.title.trim(), body.content.trim());
+    if (validationError) {
+      return HttpResponse.json({ message: validationError }, { status: 400 });
+    }
+
     return HttpResponse.json(createApiEnvelope(createMockProgramQnaThread(programId, body)), {
       status: 201,
     });
@@ -1000,7 +1012,9 @@ export const handlers = [
       !Number.isInteger(programId) ||
       !Number.isInteger(questionId) ||
       !body ||
-      typeof body.content !== 'string'
+      typeof body.content !== 'string' ||
+      body.content.trim().length === 0 ||
+      body.content.trim().length > QNA_REPLY_MAX_LENGTH
     ) {
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }

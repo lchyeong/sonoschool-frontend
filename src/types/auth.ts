@@ -47,7 +47,7 @@ export type StudentLoginResult = StudentLoginCompleted | StudentLoginChallenge;
 
 export interface RegisterPayload {
   loginId: string;
-  email: string;
+  email: string | null;
   name: string;
   nickname: string;
   password: string;
@@ -80,4 +80,8 @@ export interface RegistrationTerm {
   version: string;
   required: boolean;
   contentUrl: string | null;
+}
+
+export interface AvailabilityCheckResponse {
+  available: boolean;
 }

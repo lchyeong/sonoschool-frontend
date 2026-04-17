@@ -182,6 +182,35 @@ const createLearningLesson = (
   };
 };
 
+const createLearningResourceAttachments = (detail: EnrollmentDetail, lessonNumber: number) => {
+  return [
+    {
+      description: `${detail.programTitle} ${String(lessonNumber)}강 핵심 정리 자료입니다.`,
+      fileName: `${detail.programTitle.replaceAll(' ', '-')}-${String(lessonNumber)}-summary.pdf`,
+      fileSize: 2_400_000,
+      fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
+        lessonNumber,
+      )}-summary.pdf`,
+      id: lessonNumber * 100 + 1,
+      mimeType: 'application/pdf',
+      sortOrder: 0,
+      title: '강의 요약 자료',
+    },
+    {
+      description: `${detail.programTitle} ${String(lessonNumber)}강 점검 체크리스트입니다.`,
+      fileName: `${detail.programTitle.replaceAll(' ', '-')}-${String(lessonNumber)}-checklist.xlsx`,
+      fileSize: 980_000,
+      fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
+        lessonNumber,
+      )}-checklist.xlsx`,
+      id: lessonNumber * 100 + 2,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      sortOrder: 1,
+      title: '실습 체크리스트',
+    },
+  ];
+};
+
 const getLastLearningAtFromDetail = (detail: EnrollmentDetail): string | null => {
   return detail.progress.reduce<string | null>((latest, progressItem) => {
     if (!progressItem.lastWatchedAt) {
@@ -1431,6 +1460,27 @@ const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerS
     summaryKind: 'decimal',
     title: `${detail.programTitle} 플레이어`,
   };
+  const resourceAttachmentsByLessonId = Object.fromEntries(
+    curriculumTrack.sections.flatMap((section) => {
+      return section.lessons.flatMap((lesson, lessonIndexWithinSection) => {
+        if (lesson.deliveryType !== 'resource') {
+          return [];
+        }
+
+        const lessonNumber =
+          curriculumTrack.sections
+            .slice(
+              0,
+              curriculumTrack.sections.findIndex((item) => item.id === section.id),
+            )
+            .reduce((count, current) => count + current.lessons.length, 0) +
+          lessonIndexWithinSection +
+          1;
+
+        return [[lesson.id, createLearningResourceAttachments(detail, lessonNumber)]];
+      });
+    }),
+  );
 
   return {
     enrollment: {
@@ -1487,6 +1537,7 @@ const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerS
         ];
       }),
     ),
+    resourceAttachmentsByLessonId,
     lastPlaybackAt: detail.progress.reduce<string | null>((latest, item) => {
       if (!item.lastWatchedAt) {
         return latest;

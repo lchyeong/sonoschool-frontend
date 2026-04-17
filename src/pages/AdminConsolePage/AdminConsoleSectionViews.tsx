@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { cancelAdminPayment } from '@/api/adminPayments';
 import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import Modal from '@/components/overlay/Modal/Modal';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField } from '@/components/ui/TextField/TextField';
 import {
@@ -15,7 +16,13 @@ import {
 } from '@/query/useAdminPaymentsQuery';
 import { useToastStore } from '@/stores/useToastStore';
 import { formatPaymentMethodLabel, paymentStatusLabels } from '@/types/payment';
-import { buildCalendarCells, calendarWeekdays, formatDate, formatMonthLabel, toMonthValue } from '@/utils/practicumCalendar';
+import {
+  buildCalendarCells,
+  calendarWeekdays,
+  formatDate,
+  formatMonthLabel,
+  toMonthValue,
+} from '@/utils/practicumCalendar';
 
 import styles from './AdminConsolePage.module.scss';
 import { sectionContent, type AdminConsoleSection } from './adminConsolePageShared';
@@ -88,7 +95,10 @@ const formatOrderNumberPreview = (value: string | null): string => {
   return value.length > 10 ? value.slice(0, 10) : value;
 };
 
-const formatLectureProgressLabel = (completedLectureCount: number, totalLectureCount: number): string => {
+const formatLectureProgressLabel = (
+  completedLectureCount: number,
+  totalLectureCount: number,
+): string => {
   if (totalLectureCount <= 0) {
     return '-';
   }
@@ -174,7 +184,11 @@ const buildMonthlySalesPoints = (
   const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   return Array.from({ length: 12 }, (_, index) => {
-    const pointDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - (11 - index), 1);
+    const pointDate = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth() - (11 - index),
+      1,
+    );
     const nextMonth = new Date(pointDate.getFullYear(), pointDate.getMonth() + 1, 1);
     const amount = payments
       .filter((payment) => payment.status === 'COMPLETED' && payment.paidAt)
@@ -273,7 +287,9 @@ const SalesLineChart = ({
             Math.floor(((points.length - 1) * 2) / 3),
             Math.max(points.length - 1, 0),
           ]),
-        ).map((index) => points[index]).filter((point): point is SalesPoint => Boolean(point));
+        )
+          .map((index) => points[index])
+          .filter((point): point is SalesPoint => Boolean(point));
 
   const cardToneClassName =
     tone === 'teal' ? styles['salesChartCardTeal'] : styles['salesChartCardAmber'];
@@ -285,7 +301,7 @@ const SalesLineChart = ({
     axisMode === 'all' ? styles['salesChartAxisDense'] : styles['salesChartAxisSparse'];
   const selectedChartPoint =
     selectedPointKey !== null && selectedPointKey !== undefined
-      ? chartPoints.find((point) => point.pointKey === selectedPointKey) ?? null
+      ? (chartPoints.find((point) => point.pointKey === selectedPointKey) ?? null)
       : null;
   const latestPoint = points[points.length - 1] ?? { amount: 0, label: '-' };
 
@@ -354,7 +370,7 @@ const SalesLineChart = ({
         </div>
       </div>
       <div className={`${styles['salesChartAxis']} ${axisClassName}`}>
-        {axisPoints.map((point) => (
+        {axisPoints.map((point) =>
           onHighlightPoint ? (
             <button
               aria-label={`${point.fullLabel} 매출 보기`}
@@ -381,8 +397,8 @@ const SalesLineChart = ({
             <span className={styles['salesChartAxisLabel']} key={`${title}-axis-${point.pointKey}`}>
               {point.label}
             </span>
-          )
-        ))}
+          ),
+        )}
       </div>
       <p className={styles['salesChartMeta']}>
         최근 기준 {latestPoint.label} · {formatCurrency(latestPoint.amount)}
@@ -448,8 +464,14 @@ export const AdminPaymentsSection = () => {
   const monthlySalesPoints = useMemo(() => buildMonthlySalesPoints(paymentItems), [paymentItems]);
   const weeklySalesPoints = useMemo(() => buildWeeklySalesPoints(paymentItems), [paymentItems]);
   const rightCalendarMonth = useMemo(() => addMonths(leftCalendarMonth, 1), [leftCalendarMonth]);
-  const leftCalendarCells = useMemo(() => buildCalendarCells(toMonthValue(leftCalendarMonth)), [leftCalendarMonth]);
-  const rightCalendarCells = useMemo(() => buildCalendarCells(toMonthValue(rightCalendarMonth)), [rightCalendarMonth]);
+  const leftCalendarCells = useMemo(
+    () => buildCalendarCells(toMonthValue(leftCalendarMonth)),
+    [leftCalendarMonth],
+  );
+  const rightCalendarCells = useMemo(
+    () => buildCalendarCells(toMonthValue(rightCalendarMonth)),
+    [rightCalendarMonth],
+  );
   const displayedRangeText = useMemo(
     () => formatDateRangeText(requestedDateFrom, requestedDateTo),
     [requestedDateFrom, requestedDateTo],
@@ -473,7 +495,7 @@ export const AdminPaymentsSection = () => {
 
       const targetValue =
         searchField === 'orderNumber'
-          ? payment.orderNumber ?? ''
+          ? (payment.orderNumber ?? '')
           : searchField === 'buyerDisplayName'
             ? payment.buyerDisplayName
             : payment.orderName;
@@ -715,7 +737,9 @@ export const AdminPaymentsSection = () => {
             <div className={styles['paymentDatePicker']} ref={datePickerRef}>
               <button
                 className={`${styles['paymentDatePickerTrigger']} ${
-                  displayedRangeText !== '조회 기간 선택' ? styles['paymentDatePickerTriggerActive'] : ''
+                  displayedRangeText !== '조회 기간 선택'
+                    ? styles['paymentDatePickerTriggerActive']
+                    : ''
                 }`}
                 onClick={() => {
                   if (isDatePickerOpen) {
@@ -789,7 +813,11 @@ export const AdminPaymentsSection = () => {
                             const isInRange = Boolean(
                               dateValue &&
                                 cell.isCurrentMonth &&
-                                isDateInRange(dateValue, draftRequestedDateFrom, draftRequestedDateTo),
+                                isDateInRange(
+                                  dateValue,
+                                  draftRequestedDateFrom,
+                                  draftRequestedDateTo,
+                                ),
                             );
                             const isSelectedStart = Boolean(
                               dateValue &&
@@ -797,7 +825,9 @@ export const AdminPaymentsSection = () => {
                                 draftRequestedDateFrom === dateValue,
                             );
                             const isSelectedEnd = Boolean(
-                              dateValue && cell.isCurrentMonth && draftRequestedDateTo === dateValue,
+                              dateValue &&
+                                cell.isCurrentMonth &&
+                                draftRequestedDateTo === dateValue,
                             );
 
                             return (
@@ -865,33 +895,30 @@ export const AdminPaymentsSection = () => {
               ) : null}
             </div>
             <div className={styles['paymentSearchControls']}>
-              <div className={styles['selectWrap']}>
-                <select
-                  aria-label='검색 조건'
-                  className={styles['select']}
-                  onChange={(event) => {
-                    setSearchField(
-                      event.target.value as 'orderNumber' | 'buyerDisplayName' | 'orderName',
-                    );
-                  }}
-                  value={searchField}
-                >
-                  <option value='orderNumber'>주문번호</option>
-                  <option value='buyerDisplayName'>구매자</option>
-                  <option value='orderName'>프로그램명</option>
-                </select>
-              </div>
-              <input
-                aria-label='검색어'
-                className={styles['paymentSearchInput']}
-                onChange={(event) => {
-                  setSearchInput(event.target.value);
+              <UnifiedSearchBar
+                className={styles['adminSearchBarWide']}
+                inputAriaLabel='결제 검색'
+                inputType='text'
+                leading={
+                  <select
+                    aria-label='검색 조건'
+                    className={styles['adminSearchSelect']}
+                    onChange={(event) => {
+                      setSearchField(
+                        event.target.value as 'orderNumber' | 'buyerDisplayName' | 'orderName',
+                      );
+                    }}
+                    value={searchField}
+                  >
+                    <option value='orderNumber'>주문번호</option>
+                    <option value='buyerDisplayName'>구매자</option>
+                    <option value='orderName'>프로그램명</option>
+                  </select>
+                }
+                onChange={(nextValue) => {
+                  setSearchInput(nextValue);
                 }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    handleApplySearch();
-                  }
-                }}
+                onSubmit={handleApplySearch}
                 placeholder={
                   searchField === 'orderNumber'
                     ? '주문번호를 입력하세요'
@@ -899,16 +926,8 @@ export const AdminPaymentsSection = () => {
                       ? '구매자 이름을 입력하세요'
                       : '프로그램명을 입력하세요'
                 }
-                type='text'
                 value={searchInput}
               />
-              <Button
-                className={styles['paymentSearchButton']}
-                onClick={handleApplySearch}
-                type='button'
-              >
-                검색
-              </Button>
             </div>
           </div>
         </div>
@@ -1175,16 +1194,20 @@ export const AdminPaymentsSection = () => {
                       <p className={styles['paymentDetailNotice']}>
                         결제 취소를 실행하면 KCP 취소 요청과 내부 수강 취소가 함께 진행됩니다.
                       </p>
-                    <TextAreaField
-                      className={styles['paymentCancelReasonField']}
-                      label='취소 사유'
-                      name='cancelReason'
+                      <TextAreaField
+                        className={styles['paymentCancelReasonField']}
+                        label='취소 사유'
+                        name='cancelReason'
                         onChange={(event) => {
                           setCancelReason(event.target.value);
                         }}
                         value={cancelReason}
                       />
-                      <Button disabled={cancelMutation.isPending} onClick={handleCancel} type='button'>
+                      <Button
+                        disabled={cancelMutation.isPending}
+                        onClick={handleCancel}
+                        type='button'
+                      >
                         {cancelMutation.isPending ? '취소 처리 중...' : '결제 취소 처리'}
                       </Button>
                     </div>

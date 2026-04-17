@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import { useGlobalNoticesQuery } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { extractTextFromHtml, summarizeHtmlContent } from '@/utils/htmlContent';
@@ -59,28 +60,19 @@ const NoticesPage = () => {
 
       <section className={styles['boardShell']}>
         <div className={styles['toolbar']}>
-          <form
-            className={styles['searchForm']}
-            onSubmit={(event) => {
-              event.preventDefault();
+          <UnifiedSearchBar
+            className={styles['searchBar']}
+            inputAriaLabel='공지사항 검색'
+            onChange={(nextValue) => {
+              setSearchInput(nextValue);
+            }}
+            onSubmit={() => {
               setSearchTerm(searchInput);
               setPage(1);
             }}
-          >
-            <input
-              className={styles['searchInput']}
-              onChange={(event) => {
-                setSearchInput(event.target.value);
-              }}
-              placeholder='제목과 내용을 검색해 주세요.'
-              type='search'
-              value={searchInput}
-            />
-
-            <button className={styles['searchButton']} type='submit'>
-              검색
-            </button>
-          </form>
+            placeholder='제목과 내용을 검색해 주세요.'
+            value={searchInput}
+          />
         </div>
 
         {noticesQuery.isPending ? (

@@ -1,19 +1,68 @@
 .form {
+  width: min(100%, 620px);
+  margin: 0 auto;
   display: grid;
   gap: var(--space-4);
 }
 
 .fieldGrid {
+  width: min(100%, 620px);
   display: grid;
   gap: var(--space-4);
+  margin: 0 auto;
+  grid-template-columns: 1fr;
+}
+
+.checkFieldGroup {
+  width: 100%;
+  display: grid;
+  gap: 0;
+}
+
+.checkFieldRow {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) 120px;
+  align-items: start;
+}
+
+.checkButton {
+  width: 100%;
+  min-height: 40px;
+}
+
+.fieldAction {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 26px;
+}
+
+.availabilityText {
+  margin: -10px 0 0;
+  font-size: var(--font-size-sm);
+}
+
+.availabilityTextSuccess {
+  color: var(--color-success-700, #0f766e);
+}
+
+.availabilityTextError {
+  color: var(--color-error);
+}
+
+.pairFieldRow {
+  width: 100%;
+  display: grid;
+  gap: var(--space-3);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .smsFieldRow {
+  width: min(100%, 460px);
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: minmax(0, 1fr) 180px;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  align-items: start;
 }
 
 .smsButton {
@@ -22,8 +71,10 @@
 }
 
 .statusInline {
+  width: min(100%, 460px);
   display: grid;
   gap: var(--space-2);
+  margin-top: -10px;
 }
 
 .consentGroup {
@@ -39,13 +90,38 @@
   line-height: var(--line-height-relaxed);
 }
 
-.checkboxRow input {
-  margin-top: 2px;
+.checkboxRowAll {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
-.termMeta {
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
+.checkboxRow input {
+  margin-top: 2px;
+  inline-size: 18px;
+  block-size: 18px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 4px;
+  background-color: #fff;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0%);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+
+  &:checked {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M3 7.5 5.8 10.3 11 4.8'/%3E%3C/svg%3E");
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
 }
 
 .errorText {
@@ -64,8 +140,14 @@
 }
 
 @media (width < 720px) {
+  .checkFieldRow,
   .fieldGrid,
+  .pairFieldRow,
   .smsFieldRow {
     grid-template-columns: 1fr;
+  }
+
+  .fieldAction {
+    padding-top: 0;
   }
 }

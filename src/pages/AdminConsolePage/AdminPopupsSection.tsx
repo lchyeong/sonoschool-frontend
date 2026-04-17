@@ -126,6 +126,33 @@ const getNextSortOrder = (popups: PopupItem[]): number => {
   return Math.max(...popups.map((popup) => popup.sortOrder)) + 1;
 };
 
+const isPopupVisibleNow = (popup: PopupItem, now = Date.now()): boolean => {
+  if (!popup.published) {
+    return false;
+  }
+
+  const visibleStartAt = popup.visibleStartAt ? Date.parse(popup.visibleStartAt) : null;
+  const visibleEndAt = popup.visibleEndAt ? Date.parse(popup.visibleEndAt) : null;
+
+  if (visibleStartAt !== null && visibleStartAt > now) {
+    return false;
+  }
+
+  if (visibleEndAt !== null && visibleEndAt < now) {
+    return false;
+  }
+
+  return true;
+};
+
+const comparePopupPriority = (left: PopupItem, right: PopupItem): number => {
+  if (left.sortOrder !== right.sortOrder) {
+    return left.sortOrder - right.sortOrder;
+  }
+
+  return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+};
+
 const AdminPopupsSection = () => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
@@ -137,6 +164,14 @@ const AdminPopupsSection = () => {
 
   const popups = useMemo(() => popupsQuery.data ?? [], [popupsQuery.data]);
   const firstPopup = popups.at(0) ?? null;
+  const currentDisplayPopup = useMemo(() => {
+    return (
+      [...popups]
+        .filter((popup) => isPopupVisibleNow(popup))
+        .sort(comparePopupPriority)
+        .at(0) ?? null
+    );
+  }, [popups]);
 
   const selectedPopupId =
     selectedPopupIdState !== null && popups.some((popup) => popup.id === selectedPopupIdState)
@@ -355,9 +390,6 @@ const AdminPopupsSection = () => {
 
   const summary = {
     publishedCount: popups.filter((popup) => popup.published).length,
-    scheduledCount: popups.filter(
-      (popup) => popup.visibleStartAt !== null || popup.visibleEndAt !== null,
-    ).length,
     totalCount: popups.length,
   };
 
@@ -390,7 +422,7 @@ const AdminPopupsSection = () => {
           <p className={styles['summaryLabel']}>전체 팝업</p>
           <strong className={styles['summaryValue']}>{String(summary.totalCount)}건</strong>
           <p className={styles['summaryDescription']}>
-            홈 진입 시 순차 노출할 이미지 팝업 목록입니다.
+            홈에서는 항상 1개만 노출하며, 우선순위가 가장 높은 팝업이 선택됩니다.
           </p>
         </article>
         <article className={styles['summaryCard']} data-tone='accent'>
@@ -399,10 +431,10 @@ const AdminPopupsSection = () => {
           <p className={styles['summaryDescription']}>게시 상태인 팝업 수입니다.</p>
         </article>
         <article className={styles['summaryCard']} data-tone='neutral'>
-          <p className={styles['summaryLabel']}>노출 기간 설정</p>
-          <strong className={styles['summaryValue']}>{String(summary.scheduledCount)}건</strong>
+          <p className={styles['summaryLabel']}>현재 노출 대상</p>
+          <strong className={styles['summaryValue']}>{currentDisplayPopup ? '1건' : '없음'}</strong>
           <p className={styles['summaryDescription']}>
-            시작 또는 종료 시각이 지정된 팝업 수입니다.
+            게시 상태, 노출 기간, 정렬 순서를 기준으로 현재 사용자에게 보일 팝업입니다.
           </p>
         </article>
       </section>
@@ -559,6 +591,9 @@ const AdminPopupsSection = () => {
             <div className={styles['stackList']}>
               <article className={styles['stackItem']}>
                 <div className={styles['metaRow']}>
+                  {currentDisplayPopup?.id === selectedPopup.id ? (
+                    <span className={styles['badge']}>현재 노출</span>
+                  ) : null}
                   {selectedPopup.published ? (
                     <span className={styles['badgeSuccess']}>게시 중</span>
                   ) : (
@@ -580,6 +615,14 @@ const AdminPopupsSection = () => {
                 <p className={styles['metaText']}>이미지 설명 {selectedPopup.altText}</p>
                 <p className={styles['metaText']}>
                   노출 기간 {formatVisibilityWindow(selectedPopup)}
+                </p>
+                <p className={styles['metaText']}>
+                  노출 판단{' '}
+                  {currentDisplayPopup?.id === selectedPopup.id
+                    ? '현재 홈에서 이 팝업이 노출됩니다.'
+                    : isPopupVisibleNow(selectedPopup)
+                      ? '노출 조건은 맞지만 우선순위가 더 높은 팝업이 있습니다.'
+                      : '현재는 노출 대상이 아닙니다.'}
                 </p>
                 <p className={styles['metaText']}>
                   등록일 {formatDateTime(selectedPopup.createdAt)} · 수정일{' '}
@@ -624,7 +667,7 @@ const AdminPopupsSection = () => {
             <section className={styles['stateSection']}>
               <h3 className={styles['stateTitle']}>등록된 팝업이 없습니다.</h3>
               <p className={styles['stateDescription']}>
-                첫 팝업을 등록하면 홈 진입 시 노출 순서대로 바로 연결됩니다.
+                첫 팝업을 등록하면 홈에서 우선순위 기준으로 1개만 노출됩니다.
               </p>
             </section>
           )}
@@ -647,6 +690,7 @@ const AdminPopupsSection = () => {
               <thead>
                 <tr>
                   <th scope='col'>이미지 설명</th>
+                  <th scope='col'>현재 노출</th>
                   <th scope='col'>정렬</th>
                   <th scope='col'>게시 상태</th>
                   <th scope='col'>노출 기간</th>
@@ -657,6 +701,9 @@ const AdminPopupsSection = () => {
               </thead>
               <tbody>
                 {popups.map((popup) => {
+                  const isCurrentDisplayPopup = currentDisplayPopup?.id === popup.id;
+                  const isVisibleCandidate = isPopupVisibleNow(popup);
+
                   return (
                     <tr key={popup.id}>
                       <td>
@@ -666,6 +713,9 @@ const AdminPopupsSection = () => {
                           </span>
                           <span className={styles['cellSecondary']}>이미지 팝업</span>
                         </div>
+                      </td>
+                      <td>
+                        {isCurrentDisplayPopup ? '현재 노출' : isVisibleCandidate ? '대기' : '-'}
                       </td>
                       <td>{String(popup.sortOrder)}</td>
                       <td>{popup.published ? '게시 중' : '비공개'}</td>

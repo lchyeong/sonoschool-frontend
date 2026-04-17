@@ -20,8 +20,8 @@ import {
   submitStudentProblem,
 } from '@/api/studentProblems';
 import iconCheck from '@/assets/icons/icon_check.png';
-import iconNextPlay from '@/assets/icons/icon_next_play_48.png';
 import iconBack from '@/assets/icons/icons8-왼쪽-64.png';
+import iconSectionToggle from '@/assets/icons/icons_down.png';
 import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import Button from '@/components/ui/Button/Button';
 import {
@@ -32,7 +32,11 @@ import {
 } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
-import type { LearningPlayerLessonProgress, ProtectedLectureStream } from '@/types/mypage';
+import type {
+  LearningPlayerLessonProgress,
+  LearningPlayerResourceAttachment,
+  ProtectedLectureStream,
+} from '@/types/mypage';
 import type {
   EnrollmentPracticumLecture,
   PracticumReservation,
@@ -207,12 +211,31 @@ const formatScheduleDate = (dateValue: string | null) => {
   });
 };
 
-const formatScheduleTime = (schedule: ProgramCurriculumScheduleItem) => {
-  if (schedule.startTime && schedule.endTime) {
-    return `${schedule.startTime}~${schedule.endTime}`;
+const normalizeScheduleClock = (value: string | null | undefined) => {
+  if (!value) {
+    return null;
   }
 
-  return schedule.startTime ?? schedule.endTime ?? '';
+  const [hourText, minuteText] = value.split(':');
+  const hours = Number(hourText);
+  const minutes = Number(minuteText);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return value;
+  }
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const formatScheduleTime = (schedule: ProgramCurriculumScheduleItem) => {
+  const startTime = normalizeScheduleClock(schedule.startTime);
+  const endTime = normalizeScheduleClock(schedule.endTime);
+
+  if (startTime && endTime) {
+    return `${startTime}~${endTime}`;
+  }
+
+  return startTime ?? endTime ?? '';
 };
 
 const getLessonScheduleLabel = (lesson: ProgramCurriculumLesson) => {
@@ -239,44 +262,143 @@ const formatProblemTimeLimit = (seconds: number | null | undefined) => {
   return `제한시간 ${formatSeconds(seconds)}`;
 };
 
-const getProblemQuestionTypeLabel = (
-  questionType: StudentProblem['questions'][number]['questionType'],
-) => {
-  if (questionType === 'MULTIPLE') {
-    return '다지선다 · 복수 정답';
+const formatResourceFileTypeLabel = (attachment: LearningPlayerResourceAttachment) => {
+  const extension = attachment.fileName.split('.').pop()?.trim().toUpperCase();
+
+  if (extension) {
+    return extension.length <= 4 ? extension : extension.slice(0, 4);
   }
 
-  if (questionType === 'TRUE_FALSE') {
-    return '참/거짓';
+  const mimeType = attachment.mimeType?.toLowerCase() ?? '';
+
+  if (mimeType.includes('pdf')) {
+    return 'PDF';
   }
 
-  return '다지선다 · 단일 정답';
+  if (mimeType.includes('sheet') || mimeType.includes('excel')) {
+    return 'XLS';
+  }
+
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) {
+    return 'PPT';
+  }
+
+  if (mimeType.includes('word')) {
+    return 'DOC';
+  }
+
+  return 'FILE';
 };
 
-const getProblemAnswerLabel = (
-  question: StudentProblem['questions'][number],
-  selectedOptionIds: number[],
-) => {
-  if (selectedOptionIds.length === 0) {
-    return '선택한 답 없음';
+const formatResourceFileSize = (fileSize: number | null | undefined) => {
+  if (!fileSize || fileSize <= 0) {
+    return '용량 정보 없음';
   }
 
-  return question.options
+  if (fileSize >= 1024 * 1024) {
+    return `${(fileSize / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${String(Math.max(1, Math.round(fileSize / 1024)))} KB`;
+};
+
+interface OfflineScheduleEntry {
+  date: string | null;
+  id: string;
+  location: string | null;
+  notes: string | null;
+  timeLabel: string | null;
+}
+
+const buildOfflineScheduleEntries = (
+  lesson: ProgramCurriculumLesson | null | undefined,
+): OfflineScheduleEntry[] => {
+  if (!lesson || lesson.deliveryType !== 'offline') {
+    return [];
+  }
+
+  if (lesson.offlineSchedules?.length) {
+    return lesson.offlineSchedules.map((schedule, index) => ({
+      date: schedule.date,
+      id: `${lesson.id}-${schedule.date ?? 'unknown'}-${String(index)}`,
+      location: schedule.location?.trim() || null,
+      notes: schedule.notes?.trim() || null,
+      timeLabel: formatScheduleTime(schedule) || null,
+    }));
+  }
+
+  if (!lesson.startDate) {
+    return [];
+  }
+
+  return [
+    {
+      date: lesson.startDate,
+      id: `${lesson.id}-fallback`,
+      location: null,
+      notes: null,
+      timeLabel: null,
+    },
+  ];
+};
+
+const getLessonSummaryActionLabel = (
+  lesson: ProgramCurriculumLesson,
+  practicumSidebarLabel: string | null = null,
+) => {
+  if (lesson.deliveryType === 'online') {
+    return lesson.durationLabel;
+  }
+
+  if (lesson.deliveryType === 'offline') {
+    return '일정 확인';
+  }
+
+  if (lesson.deliveryType === 'resource') {
+    return '자료 확인';
+  }
+
+  if (lesson.deliveryType === 'problem') {
+    return typeof lesson.questionCount === 'number'
+      ? `${String(lesson.questionCount)}문항`
+      : '문제 풀이';
+  }
+
+  return practicumSidebarLabel ?? '예약 확인';
+};
+
+const getQuizNavigatorStatusLabel = (
+  question: StudentProblem['questions'][number],
+  selectedOptionIds: number[],
+  isFlagged: boolean,
+) => {
+  if (isFlagged) {
+    return '나중에 풀기';
+  }
+
+  if (selectedOptionIds.length === 0) {
+    return '미입력';
+  }
+
+  const selectedIndexes = question.options
     .filter((option) => selectedOptionIds.includes(option.id))
     .map((option) => {
       const optionIndex = question.options.findIndex((item) => item.id === option.id);
-      return `${String(optionIndex + 1)}. ${option.optionText}`;
+      return optionIndex >= 0 ? optionIndex + 1 : null;
     })
-    .join(', ');
+    .filter((optionIndex): optionIndex is number => optionIndex !== null);
+
+  if (!selectedIndexes.length) {
+    return '답변 완료';
+  }
+
+  return `정답 입력 ${selectedIndexes.join(', ')}번`;
 };
 
 const getLessonMetaItems = (lesson: ProgramCurriculumLesson) => {
   if (lesson.deliveryType === 'problem') {
-    const questionCountLabel =
-      typeof lesson.questionCount === 'number' ? `${String(lesson.questionCount)}문항` : null;
-
-    return [questionCountLabel, formatProblemTimeLimit(lesson.problemTimeLimitSeconds)].filter(
-      (item): item is string => Boolean(item),
+    return [formatProblemTimeLimit(lesson.problemTimeLimitSeconds)].filter((item): item is string =>
+      Boolean(item),
     );
   }
 
@@ -291,10 +413,10 @@ const getLessonMetaItems = (lesson: ProgramCurriculumLesson) => {
   }
 
   if (lesson.deliveryType === 'resource') {
-    return ['자료 확인'];
+    return lesson.description?.trim() ? [lesson.description.trim()] : [];
   }
 
-  return [lesson.durationLabel];
+  return lesson.description?.trim() ? [lesson.description.trim()] : [];
 };
 
 const formatPracticumDateTime = (value: string) => {
@@ -469,7 +591,6 @@ const PlayerPage = () => {
   const [quizFlaggedQuestionIds, setQuizFlaggedQuestionIds] = useState<Set<number>>(new Set());
   const [quizCurrentQuestionIndex, setQuizCurrentQuestionIndex] = useState(0);
   const [quizElapsedSeconds, setQuizElapsedSeconds] = useState(0);
-  const [showFlaggedOnlyQuestions, setShowFlaggedOnlyQuestions] = useState(false);
   const [quizAttemptResult, setQuizAttemptResult] = useState<StudentProblemAttemptResult | null>(
     null,
   );
@@ -494,14 +615,6 @@ const PlayerPage = () => {
     ? playerItems.find((item) => item.id === resolvedItemId) || null
     : null;
   const selectedLesson = selectedItem?.lesson ?? null;
-  const selectedItemIndex = selectedItem
-    ? playerItems.findIndex((item) => item.id === selectedItem.id)
-    : -1;
-  const previousItem = selectedItemIndex > 0 ? playerItems[selectedItemIndex - 1] : null;
-  const nextItem =
-    selectedItemIndex >= 0 && selectedItemIndex + 1 < playerItems.length
-      ? playerItems[selectedItemIndex + 1]
-      : null;
   const completedLessonIds = useMemo(() => {
     return new Set(
       Object.entries(lessonProgressByLessonId)
@@ -510,28 +623,15 @@ const PlayerPage = () => {
     );
   }, [lessonProgressByLessonId]);
   const lockedLessonIds = useMemo(() => {
-    const nextLockedLessonIds = new Set<string>();
-    let hasIncompletePreviousLesson = false;
-
-    playerItems.forEach((item) => {
-      if (hasIncompletePreviousLesson) {
-        nextLockedLessonIds.add(item.lesson.id);
-      }
-
-      if (!completedLessonIds.has(item.lesson.id)) {
-        hasIncompletePreviousLesson = true;
-      }
-    });
-
-    return nextLockedLessonIds;
-  }, [completedLessonIds, playerItems]);
+    return new Set<string>();
+  }, []);
   const selectedSource = selectedLesson
     ? snapshot?.lessonPlaybackById[selectedLesson.id] || null
     : null;
   const selectedItemLocked = selectedLesson ? lockedLessonIds.has(selectedLesson.id) : false;
-  const nextItemLocked = nextItem ? lockedLessonIds.has(nextItem.lesson.id) : false;
   const isQuizLesson = selectedLesson?.deliveryType === 'problem';
   const isPracticumLesson = selectedLesson?.deliveryType === 'practicum';
+  const isResourceLesson = selectedLesson?.deliveryType === 'resource';
   const isQuizMode = Boolean(selectedItem) && isQuizLesson && !selectedItemLocked;
   const isLessonItem = selectedItem?.kind === 'lesson';
   const selectedLectureId = selectedSource?.lectureId ?? null;
@@ -768,6 +868,45 @@ const PlayerPage = () => {
 
     return new Map(entries);
   }, [lessons, practicumLectureByLectureId, snapshot?.lessonPlaybackById]);
+  const isOfflineLesson = selectedLesson?.deliveryType === 'offline';
+  const lessonResourceAttachments = selectedLesson
+    ? (snapshot?.resourceAttachmentsByLessonId?.[selectedLesson.id] ?? [])
+    : [];
+  const offlineScheduleEntries = useMemo(
+    () => buildOfflineScheduleEntries(selectedLesson),
+    [selectedLesson],
+  );
+  const offlineScheduleEntriesByDate = useMemo(() => {
+    const grouped = new Map<string, OfflineScheduleEntry[]>();
+
+    offlineScheduleEntries.forEach((entry) => {
+      if (!entry.date) {
+        return;
+      }
+
+      const current = grouped.get(entry.date);
+
+      if (current) {
+        current.push(entry);
+      } else {
+        grouped.set(entry.date, [entry]);
+      }
+    });
+
+    return grouped;
+  }, [offlineScheduleEntries]);
+  const firstOfflineDate =
+    offlineScheduleEntries.find((entry) => entry.date)?.date ?? selectedLesson?.startDate ?? null;
+  const offlineCalendarMonthValue = useMemo(() => {
+    if (firstOfflineDate) {
+      return firstOfflineDate.slice(0, 7);
+    }
+
+    return toMonthValue(new Date());
+  }, [firstOfflineDate]);
+  const offlineCalendarCells = useMemo(() => {
+    return buildCalendarCells(offlineCalendarMonthValue);
+  }, [offlineCalendarMonthValue]);
 
   useEffect(() => {
     if (!selectedPracticumLecture) {
@@ -788,31 +927,13 @@ const PlayerPage = () => {
     quizTimeLimitSeconds && quizTimeLimitSeconds > 0
       ? Math.max(0, quizTimeLimitSeconds - quizElapsedSeconds)
       : null;
-  const quizTimeLabel =
-    quizRemainingSeconds === null
-      ? formatSeconds(quizElapsedSeconds)
-      : formatSeconds(quizRemainingSeconds);
   const resolvedQuizQuestionIndex = clampQuestionIndex(
     quizCurrentQuestionIndex,
     quizQuestions.length,
   );
   const currentQuizQuestion = quizQuestions[resolvedQuizQuestionIndex] ?? null;
-  const answeredQuizQuestionCount = quizQuestions.filter(
-    (question) => (quizAnswers[question.id] ?? []).length > 0,
-  ).length;
-  const unansweredQuizQuestionCount = Math.max(0, quizQuestions.length - answeredQuizQuestionCount);
-  const flaggedQuizQuestionCount = quizQuestions.filter((question) =>
-    quizFlaggedQuestionIds.has(question.id),
-  ).length;
-  const visibleQuizQuestions = showFlaggedOnlyQuestions
-    ? quizQuestions.filter((question) => quizFlaggedQuestionIds.has(question.id))
-    : quizQuestions;
-  const quizQuestionProgressLabel =
-    quizQuestions.length > 0
-      ? `${String(resolvedQuizQuestionIndex + 1)}/${String(quizQuestions.length)}`
-      : '0/0';
-  const quizLimitLabel = formatProblemTimeLimit(quizTimeLimitSeconds);
-  const quizTimerStateLabel = quizRemainingSeconds === null ? '경과 시간' : '남은 시간';
+  const quizInfoTimeLimitLabel =
+    quizTimeLimitSeconds && quizTimeLimitSeconds > 0 ? formatSeconds(quizTimeLimitSeconds) : '없음';
 
   const persistProgress = useEffectEvent(
     async (
@@ -969,7 +1090,6 @@ const PlayerPage = () => {
     setQuizFlaggedQuestionIds(new Set());
     setQuizCurrentQuestionIndex(0);
     setQuizElapsedSeconds(0);
-    setShowFlaggedOnlyQuestions(false);
     quizSessionDirtyRef.current = false;
     setQuizAttemptResult(null);
   }, [selectedItem?.id]);
@@ -1355,17 +1475,24 @@ const PlayerPage = () => {
     setQuizCurrentQuestionIndex(clampQuestionIndex(nextQuestionIndex, questionCount));
   };
 
-  const toggleQuizFlaggedQuestion = (questionId: number) => {
+  const setQuizFlaggedQuestion = (questionId: number, flagged: boolean) => {
     quizSessionDirtyRef.current = true;
     setQuizFlaggedQuestionIds((current) => {
       const next = new Set(current);
-      if (next.has(questionId)) {
-        next.delete(questionId);
-      } else {
+      if (flagged) {
         next.add(questionId);
+      } else {
+        next.delete(questionId);
       }
       return next;
     });
+
+    if (flagged) {
+      setQuizAnswers((answers) => {
+        const { [questionId]: _removedAnswer, ...remainingAnswers } = answers;
+        return remainingAnswers;
+      });
+    }
   };
 
   const handleQuizSubmit = () => {
@@ -1751,6 +1878,176 @@ const PlayerPage = () => {
     );
   };
 
+  const renderOfflineSchedulePanel = () => {
+    if (!selectedLesson || selectedLesson.deliveryType !== 'offline') {
+      return null;
+    }
+
+    if (!firstOfflineDate) {
+      return (
+        <div className={styles['playerPlaceholder']}>
+          <div className={styles['playerOverlayCopy']}>
+            <p className={styles['overlayTitle']}>오프라인 강의 일정이 아직 등록되지 않았습니다.</p>
+            <p className={styles['overlayDescription']}>
+              관리자에서 일정을 등록하면 이 영역에서 바로 확인할 수 있습니다.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles['offlineScheduleWorkspace']}>
+        <section
+          className={classNames(styles['practicumCalendarPanel'], styles['offlineCalendarPanel'])}
+        >
+          <div
+            className={classNames(
+              styles['practicumCalendarHeader'],
+              styles['offlineCalendarHeader'],
+            )}
+          >
+            <div>
+              <span className={styles['offlineCalendarEyebrow']}>오프라인 강의 일정</span>
+              <strong className={styles['practicumPanelTitle']}>
+                {formatMonthLabel(offlineCalendarMonthValue)}
+              </strong>
+              <p className={styles['practicumPanelDescription']}>
+                등록된 강의 날짜와 시간을 달력에서 확인할 수 있습니다.
+              </p>
+            </div>
+          </div>
+
+          <div className={styles['practicumCalendarWeekdays']}>
+            {calendarWeekdays.map((weekday) => (
+              <span className={styles['practicumCalendarWeekday']} key={weekday}>
+                {weekday}
+              </span>
+            ))}
+          </div>
+
+          <div className={styles['practicumCalendarGrid']}>
+            {offlineCalendarCells.map((cell, index) => {
+              if (!cell.date) {
+                return (
+                  <div
+                    className={styles['practicumCalendarEmptyCell']}
+                    key={`offline-empty-${String(index)}`}
+                  />
+                );
+              }
+
+              const dayEntries = offlineScheduleEntriesByDate.get(cell.date) ?? [];
+              const previewEntries = dayEntries.slice(0, 2);
+
+              return (
+                <div
+                  className={styles['practicumCalendarDay']}
+                  data-has-items={dayEntries.length > 0}
+                  data-reserved={dayEntries.length > 0}
+                  key={cell.date}
+                >
+                  <div className={styles['practicumCalendarDayHeader']}>
+                    <span className={styles['practicumCalendarDayNumber']}>
+                      {Number(cell.date.split('-')[2])}
+                    </span>
+                    <span className={styles['practicumCalendarDayCount']}>
+                      {dayEntries.length ? '일정 확인' : '일정 없음'}
+                    </span>
+                  </div>
+
+                  <div className={styles['practicumCalendarPreviewList']}>
+                    {previewEntries.length ? (
+                      previewEntries.map((entry) => (
+                        <span className={styles['offlineCalendarPreviewItem']} key={entry.id}>
+                          {entry.timeLabel ?? '오프라인 수업'}
+                        </span>
+                      ))
+                    ) : (
+                      <span className={styles['offlineCalendarPreviewEmpty']}>일정 없음</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  const handleDownloadResourceAttachment = (attachment: LearningPlayerResourceAttachment) => {
+    if (!attachment.fileUrl) {
+      showToast({
+        message: '이 자료는 아직 다운로드할 수 있는 파일 주소가 준비되지 않았습니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const anchor = document.createElement('a');
+    anchor.href = attachment.fileUrl;
+    anchor.download = attachment.fileName;
+    anchor.rel = 'noopener noreferrer';
+    anchor.target = '_blank';
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+  };
+
+  const renderResourcePanel = () => {
+    if (!lessonResourceAttachments.length) {
+      return (
+        <div className={styles['resourceBoard']}>
+          <p className={styles['resourceBoardEmpty']}>등록된 첨부파일이 아직 없습니다.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles['resourceBoard']}>
+        <div className={styles['resourceBoardList']}>
+          {lessonResourceAttachments.map((attachment, index) => (
+            <article className={styles['resourceBoardRow']} key={attachment.id}>
+              <span aria-hidden='true' className={styles['resourceBoardIndex']}>
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <div className={styles['resourceBoardMain']}>
+                <div className={styles['resourceBoardTitleRow']}>
+                  <strong className={styles['resourceBoardTitle']}>
+                    {attachment.title?.trim() || attachment.fileName}
+                  </strong>
+                  <span className={styles['resourceBoardBadge']}>
+                    {formatResourceFileTypeLabel(attachment)}
+                  </span>
+                </div>
+                {attachment.description?.trim() ? (
+                  <p className={styles['resourceBoardDescription']}>{attachment.description}</p>
+                ) : null}
+                <div className={styles['resourceBoardMeta']}>
+                  <span>{attachment.fileName}</span>
+                  <span>{formatResourceFileSize(attachment.fileSize)}</span>
+                </div>
+              </div>
+              <div className={styles['resourceBoardActions']}>
+                <Button
+                  onClick={() => {
+                    handleDownloadResourceAttachment(attachment);
+                  }}
+                  size='sm'
+                  type='button'
+                  variant='secondary'
+                >
+                  다운로드
+                </Button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={styles['page']}>
       <div className={styles['shell']}>
@@ -1765,7 +2062,7 @@ const PlayerPage = () => {
             <div className={styles['topBarMeta']}>
               <span className={styles['topBarChip']}>진도율 {completedRatio}%</span>
               <span className={styles['topBarText']}>
-                {formatDateRange(enrollmentState.enrolledAt, enrollmentState.expireAt)}
+                운영기간 {formatDateRange(enrollmentState.enrolledAt, enrollmentState.expireAt)}
               </span>
             </div>
           ) : null}
@@ -1785,31 +2082,6 @@ const PlayerPage = () => {
           !isPlaybackBlocked ? (
             <div className={styles['layout']}>
               <section className={styles['viewerColumn']}>
-                {selectedItemLocked ? (
-                  <section className={styles['blockedCard']}>
-                    <h1 className={styles['blockedTitle']}>{selectedLesson?.title}</h1>
-                    <p className={styles['blockedDescription']}>
-                      이전 강의를 모두 완료한 뒤 이 강의를 수강할 수 있습니다.
-                    </p>
-                    <Button
-                      onClick={() => {
-                        if (!previousItem) {
-                          return;
-                        }
-
-                        void navigate(
-                          routePaths.learningLesson(String(resolvedEnrollmentId), previousItem.id),
-                        );
-                      }}
-                      size='sm'
-                      type='button'
-                      variant='secondary'
-                    >
-                      이전 강의로 이동
-                    </Button>
-                  </section>
-                ) : null}
-
                 {!selectedItemLocked && isLessonItem && !isQuizMode ? (
                   <>
                     <section className={styles['stageCard']}>
@@ -1823,8 +2095,17 @@ const PlayerPage = () => {
                       </div>
 
                       <div className={styles['playerShell']}>
-                        <div className={styles['playerFrame']}>
-                          {selectedLessonHasStream ? (
+                        <div
+                          className={classNames(
+                            styles['playerFrame'],
+                            (isOfflineLesson || isResourceLesson) && styles['playerFrameSchedule'],
+                          )}
+                        >
+                          {isOfflineLesson ? (
+                            renderOfflineSchedulePanel()
+                          ) : isResourceLesson ? (
+                            renderResourcePanel()
+                          ) : selectedLessonHasStream ? (
                             <video
                               className={styles['playerElement']}
                               controls
@@ -1876,7 +2157,7 @@ const PlayerPage = () => {
                             </div>
                           ) : null}
 
-                          {!selectedSource ? (
+                          {!isOfflineLesson && !selectedSource ? (
                             <div className={styles['playerOverlay']}>
                               <p className={styles['overlayTitle']}>
                                 재생할 강의를 찾을 수 없습니다.
@@ -1982,73 +2263,6 @@ const PlayerPage = () => {
                             </div>
                           ) : null}
                         </div>
-
-                        <div className={styles['playerToolbar']}>
-                          <div className={styles['sequenceGroup']}>
-                            {previousItem ? (
-                              <Button
-                                className={styles['transportButton']}
-                                onClick={() => {
-                                  void navigate(
-                                    routePaths.learningLesson(
-                                      String(resolvedEnrollmentId),
-                                      previousItem.id,
-                                    ),
-                                  );
-                                }}
-                                size='sm'
-                                type='button'
-                                variant='secondary'
-                              >
-                                <span className={styles['transportButtonInner']}>
-                                  <span
-                                    aria-hidden='true'
-                                    className={classNames(
-                                      styles['transportIcon'],
-                                      styles['transportIconPrevious'],
-                                    )}
-                                    style={{ backgroundImage: `url(${iconNextPlay})` }}
-                                  />
-                                  <span>이전</span>
-                                </span>
-                              </Button>
-                            ) : null}
-                            {nextItem ? (
-                              <Button
-                                className={styles['transportButton']}
-                                disabled={nextItemLocked}
-                                onClick={() => {
-                                  if (nextItemLocked) {
-                                    showToast({
-                                      message: '이전 강의를 먼저 완료해 주세요.',
-                                      variant: 'error',
-                                    });
-                                    return;
-                                  }
-
-                                  void navigate(
-                                    routePaths.learningLesson(
-                                      String(resolvedEnrollmentId),
-                                      nextItem.id,
-                                    ),
-                                  );
-                                }}
-                                size='sm'
-                                type='button'
-                                variant='secondary'
-                              >
-                                <span className={styles['transportButtonInner']}>
-                                  <span>다음</span>
-                                  <span
-                                    aria-hidden='true'
-                                    className={styles['transportIcon']}
-                                    style={{ backgroundImage: `url(${iconNextPlay})` }}
-                                  />
-                                </span>
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
                       </div>
                     </section>
 
@@ -2058,19 +2272,6 @@ const PlayerPage = () => {
 
                 {isQuizMode ? (
                   <section className={styles['quizWorkspace']}>
-                    <div className={styles['quizWorkspaceHeader']}>
-                      <div className={styles['stageCopy']}>
-                        <p className={styles['stageEyebrow']}>PROBLEM LECTURE</p>
-                        <h1 className={styles['lessonTitle']}>
-                          {quizQuery.data?.title ?? selectedItem.title}
-                        </h1>
-                        <p className={styles['quizDescription']}>
-                          문제와 보기, 등록된 이미지 또는 영상을 확인한 뒤 답을 선택해 주세요.
-                          나중에 풀 문제는 표시해 둘 수 있습니다.
-                        </p>
-                      </div>
-                    </div>
-
                     {quizQuery.isLoading ? (
                       <p className={styles['quizMutedText']}>문제 정보를 불러오는 중입니다.</p>
                     ) : quizQuery.isError ? (
@@ -2083,32 +2284,6 @@ const PlayerPage = () => {
                       <p className={styles['quizMutedText']}>이 강의에는 등록된 문제가 없습니다.</p>
                     ) : (
                       <>
-                        <div className={styles['quizSummary']}>
-                          <div>
-                            <strong className={styles['quizSummaryTitle']}>문제 풀이 현황</strong>
-                            {quizQuery.data.description ? (
-                              <p className={styles['quizSummaryMeta']}>
-                                {quizQuery.data.description}
-                              </p>
-                            ) : null}
-                          </div>
-                          <div className={styles['quizSummaryStats']}>
-                            <span className={styles['quizSummaryStat']}>
-                              전체 {quizQuestions.length}
-                            </span>
-                            <span className={styles['quizSummaryStat']}>
-                              답변 완료 {answeredQuizQuestionCount}
-                            </span>
-                            <span className={styles['quizSummaryStat']}>
-                              미입력 {unansweredQuizQuestionCount}
-                            </span>
-                            <span className={styles['quizSummaryStat']}>
-                              나중에 풀기 {flaggedQuizQuestionCount}
-                            </span>
-                            <span className={styles['quizSummaryStat']}>{quizLimitLabel}</span>
-                          </div>
-                        </div>
-
                         {quizAttemptResult ? null : currentQuizQuestion ? (
                           <section className={styles['quizQuestionCard']}>
                             <div className={styles['quizQuestionHeader']}>
@@ -2116,10 +2291,20 @@ const PlayerPage = () => {
                                 문제 {resolvedQuizQuestionIndex + 1}.{' '}
                                 {currentQuizQuestion.questionText}
                               </strong>
-                              <span className={styles['quizQuestionType']}>
-                                {getProblemQuestionTypeLabel(currentQuizQuestion.questionType)}
-                              </span>
                             </div>
+                            <label className={styles['quizFlagToggle']}>
+                              <input
+                                checked={quizFlaggedQuestionIds.has(currentQuizQuestion.id)}
+                                onChange={(event) => {
+                                  setQuizFlaggedQuestion(
+                                    currentQuizQuestion.id,
+                                    event.currentTarget.checked,
+                                  );
+                                }}
+                                type='checkbox'
+                              />
+                              <span>나중에 풀기</span>
+                            </label>
 
                             {renderQuizMedia(
                               currentQuizQuestion.mediaType,
@@ -2177,53 +2362,30 @@ const PlayerPage = () => {
                             </div>
 
                             <div className={styles['quizControlBar']}>
-                              <Button
-                                disabled={resolvedQuizQuestionIndex === 0}
-                                onClick={() => {
-                                  moveToQuizQuestion(resolvedQuizQuestionIndex - 1);
-                                }}
-                                size='sm'
-                                type='button'
-                                variant='secondary'
-                              >
-                                이전
-                              </Button>
-                              <Button
-                                onClick={() => {
-                                  toggleQuizFlaggedQuestion(currentQuizQuestion.id);
-                                }}
-                                size='sm'
-                                type='button'
-                                variant={
-                                  quizFlaggedQuestionIds.has(currentQuizQuestion.id)
-                                    ? 'primary'
-                                    : 'secondary'
-                                }
-                              >
-                                {quizFlaggedQuestionIds.has(currentQuizQuestion.id)
-                                  ? '나중에 풀기 해제'
-                                  : '나중에 풀기'}
-                              </Button>
-                              <span className={styles['quizProgressPill']}>
-                                {quizQuestionProgressLabel}
-                              </span>
-                              <div className={styles['quizControlTime']}>
-                                <span className={styles['quizControlTimeLabel']}>
-                                  {quizTimerStateLabel}
-                                </span>
-                                <strong>{quizTimeLabel}</strong>
+                              <div className={styles['quizControlNavigation']}>
+                                <Button
+                                  disabled={resolvedQuizQuestionIndex === 0}
+                                  onClick={() => {
+                                    moveToQuizQuestion(resolvedQuizQuestionIndex - 1);
+                                  }}
+                                  size='sm'
+                                  type='button'
+                                  variant='secondary'
+                                >
+                                  이전
+                                </Button>
+                                <Button
+                                  disabled={resolvedQuizQuestionIndex + 1 >= quizQuestions.length}
+                                  onClick={() => {
+                                    moveToQuizQuestion(resolvedQuizQuestionIndex + 1);
+                                  }}
+                                  size='sm'
+                                  type='button'
+                                  variant='secondary'
+                                >
+                                  다음
+                                </Button>
                               </div>
-                              <Button
-                                disabled={resolvedQuizQuestionIndex + 1 >= quizQuestions.length}
-                                onClick={() => {
-                                  moveToQuizQuestion(resolvedQuizQuestionIndex + 1);
-                                }}
-                                size='sm'
-                                type='button'
-                                variant='secondary'
-                              >
-                                다음
-                              </Button>
                               <Button
                                 disabled={
                                   submitQuizMutation.isPending || quizRemainingSeconds === 0
@@ -2316,120 +2478,86 @@ const PlayerPage = () => {
                 <aside className={styles['quizNavigatorPanel']}>
                   <div className={styles['curriculumHeader']}>
                     <div className={styles['curriculumHeaderCopy']}>
-                      <h2 className={styles['curriculumTitle']}>문제 목록</h2>
-                      <p className={styles['curriculumDescription']}>
-                        입력 상태와 나중에 풀기 표시를 확인할 수 있습니다.
-                      </p>
+                      <h2 className={styles['curriculumTitle']}>{curriculumPanelTitle}</h2>
                     </div>
                     <div className={styles['progressPanel']}>
                       <div className={styles['progressSummary']}>
-                        <strong className={styles['progressValue']}>
-                          {answeredQuizQuestionCount}/{quizQuestions.length}
-                        </strong>
-                        <span className={styles['progressText']}>응답 완료</span>
+                        <strong className={styles['progressValue']}>{completedRatio}%</strong>
+                        <span className={styles['progressText']}>
+                          {completedLessonCount} / {totalLessonCount} 완료
+                        </span>
+                      </div>
+                      <div aria-hidden='true' className={styles['progressTrack']}>
+                        <span
+                          className={styles['progressFill']}
+                          style={{ width: `${String(completedRatio)}%` }}
+                        />
                       </div>
                     </div>
                   </div>
 
-                  <div className={styles['quizNavigatorStatGrid']}>
-                    <span className={styles['quizNavigatorStat']}>
-                      <strong>{quizTimeLabel}</strong>
-                      <span>{quizTimerStateLabel}</span>
-                    </span>
-                    <span className={styles['quizNavigatorStat']}>
-                      <strong>{quizQuestions.length}</strong>
-                      <span>전체 문항</span>
-                    </span>
-                    <span className={styles['quizNavigatorStat']}>
-                      <strong>{unansweredQuizQuestionCount}</strong>
-                      <span>미입력</span>
-                    </span>
-                    <span className={styles['quizNavigatorStat']}>
-                      <strong>{flaggedQuizQuestionCount}</strong>
-                      <span>나중에 풀기</span>
-                    </span>
-                  </div>
-
-                  <div className={styles['quizNavigatorActions']}>
-                    <Button
-                      onClick={() => {
-                        setShowFlaggedOnlyQuestions((current) => !current);
-                      }}
-                      size='sm'
-                      type='button'
-                      variant={showFlaggedOnlyQuestions ? 'primary' : 'secondary'}
-                    >
-                      {showFlaggedOnlyQuestions ? '전체 보기' : '나중에 풀기만 보기'}
-                    </Button>
-                  </div>
-
-                  <details className={styles['quizNavigatorDetails']} open>
-                    <summary className={styles['quizNavigatorSummary']}>
-                      문제 풀이 목록 접기/펼치기
-                    </summary>
-
-                    {visibleQuizQuestions.length > 0 ? (
-                      <div className={styles['quizNavigatorList']}>
-                        {visibleQuizQuestions.map((question) => {
-                          const absoluteIndex = quizQuestions.findIndex(
-                            (item) => item.id === question.id,
-                          );
-                          const isCurrentQuestion = question.id === currentQuizQuestion?.id;
-                          const selectedOptionIds = quizAnswers[question.id] ?? [];
-                          const isAnswered = selectedOptionIds.length > 0;
-                          const isFlagged = quizFlaggedQuestionIds.has(question.id);
-
-                          return (
-                            <button
-                              className={classNames(
-                                styles['quizNavigatorListButton'],
-                                isCurrentQuestion && styles['quizNavigatorListButtonCurrent'],
-                              )}
-                              key={question.id}
-                              onClick={() => {
-                                moveToQuizQuestion(absoluteIndex);
-                              }}
-                              type='button'
-                            >
-                              <span className={styles['quizNavigatorQuestionTitle']}>
-                                {absoluteIndex + 1}. {question.questionText}
-                              </span>
-                              <span className={styles['quizNavigatorStateRow']}>
-                                <span
-                                  className={classNames(
-                                    styles['quizNavigatorStateBadge'],
-                                    isAnswered && styles['quizNavigatorStateBadgeAnswered'],
-                                  )}
-                                >
-                                  {isAnswered ? '답변 완료' : '미입력'}
-                                </span>
-                                {isFlagged ? (
-                                  <span className={styles['quizNavigatorStateBadgeFlagged']}>
-                                    나중에 풀기
-                                  </span>
-                                ) : null}
-                              </span>
-                              <span className={styles['quizNavigatorAnswer']}>
-                                {getProblemAnswerLabel(question, selectedOptionIds)}
-                              </span>
-                            </button>
-                          );
-                        })}
+                  <details className={styles['quizNavigatorInfo']} open>
+                    <summary className={styles['quizNavigatorInfoSummary']}>문제 정보</summary>
+                    <dl className={styles['quizNavigatorInfoList']}>
+                      <div className={styles['quizNavigatorInfoRow']}>
+                        <dt>강의명</dt>
+                        <dd>{quizQuery.data?.title ?? selectedItem.title}</dd>
                       </div>
-                    ) : (
-                      <p className={styles['quizMutedText']}>
-                        나중에 풀기로 표시한 문제가 아직 없습니다.
-                      </p>
-                    )}
+                      <div className={styles['quizNavigatorInfoRow']}>
+                        <dt>제한시간</dt>
+                        <dd>{quizInfoTimeLimitLabel}</dd>
+                      </div>
+                      <div className={styles['quizNavigatorInfoRow']}>
+                        <dt>문항수</dt>
+                        <dd>{String(quizQuestions.length)}문항</dd>
+                      </div>
+                    </dl>
                   </details>
+
+                  <div className={styles['quizNavigatorList']}>
+                    {quizQuestions.map((question, index) => {
+                      const isCurrentQuestion = question.id === currentQuizQuestion?.id;
+                      const selectedOptionIds = quizAnswers[question.id] ?? [];
+                      const isFlagged = quizFlaggedQuestionIds.has(question.id);
+
+                      return (
+                        <button
+                          className={classNames(
+                            styles['quizNavigatorListButton'],
+                            isCurrentQuestion && styles['quizNavigatorListButtonCurrent'],
+                          )}
+                          key={question.id}
+                          onClick={() => {
+                            moveToQuizQuestion(index);
+                          }}
+                          type='button'
+                        >
+                          <span className={styles['quizNavigatorStateRow']}>
+                            <span className={styles['quizNavigatorQuestionTitle']}>
+                              문제 {index + 1}
+                            </span>
+                            <span
+                              className={classNames(
+                                styles['quizNavigatorStateBadge'],
+                                !isFlagged &&
+                                  selectedOptionIds.length > 0 &&
+                                  styles['quizNavigatorStateBadgeAnswered'],
+                                isFlagged && styles['quizNavigatorStateBadgeFlagged'],
+                              )}
+                            >
+                              {getQuizNavigatorStatusLabel(question, selectedOptionIds, isFlagged)}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </aside>
               ) : (
                 <aside className={styles['curriculumPanel']}>
                   <div className={styles['curriculumHeader']}>
                     <div className={styles['curriculumHeaderCopy']}>
-                      <h2 className={styles['curriculumTitle']}>
-                        {activeSidebarPanel === 'curriculum' ? curriculumPanelTitle : 'Q&A'}
-                      </h2>
+                      <h2 className={styles['curriculumTitle']}>{curriculumPanelTitle}</h2>
                     </div>
                     <div className={styles['panelSwitchRow']}>
                       <button
@@ -2456,51 +2584,40 @@ const PlayerPage = () => {
                         }}
                         type='button'
                       >
-                        <svg
-                          aria-hidden='true'
-                          className={styles['panelSwitchIcon']}
-                          fill='none'
-                          viewBox='0 0 24 24'
-                        >
-                          <path
-                            d='M7 8.75h10M7 12h6m-6 3.25h4m7 3.25-3.6-2H7.8A2.8 2.8 0 0 1 5 13.7V7.8A2.8 2.8 0 0 1 7.8 5h8.4A2.8 2.8 0 0 1 19 7.8v10.65Z'
-                            stroke='currentColor'
-                            strokeLinecap='round'
-                            strokeLinejoin='round'
-                            strokeWidth='1.8'
-                          />
-                        </svg>
                         <span className={styles['panelSwitchLabel']}>Q&A</span>
-                        <span className={styles['panelSwitchCount']}>
-                          {String(snapshot.qnaContext?.programThreadCount ?? 0)}
-                        </span>
                       </button>
                     </div>
                   </div>
 
-                  {activeSidebarPanel === 'curriculum' ? (
-                    <>
-                      <div className={styles['progressPanel']}>
-                        <div className={styles['progressSummary']}>
-                          <strong className={styles['progressValue']}>{completedRatio}%</strong>
-                          <span className={styles['progressText']}>
-                            {completedLessonCount} / {totalLessonCount} 완료
-                          </span>
-                        </div>
-                        <div aria-hidden='true' className={styles['progressTrack']}>
-                          <span
-                            className={styles['progressFill']}
-                            style={{ width: `${String(completedRatio)}%` }}
-                          />
-                        </div>
-                      </div>
+                  <div className={styles['progressPanel']}>
+                    <div className={styles['progressSummary']}>
+                      <strong className={styles['progressValue']}>{completedRatio}%</strong>
+                      <span className={styles['progressText']}>
+                        {completedLessonCount} / {totalLessonCount} 완료
+                      </span>
+                    </div>
+                    <div aria-hidden='true' className={styles['progressTrack']}>
+                      <span
+                        className={styles['progressFill']}
+                        style={{ width: `${String(completedRatio)}%` }}
+                      />
+                    </div>
+                  </div>
 
+                  {activeSidebarPanel === 'curriculum' ? (
+                    <div className={styles['curriculumPanelContent']}>
                       <div className={styles['curriculumBody']}>
                         {snapshot.curriculumTrack.sections.map((section) => (
                           <details className={styles['sectionBlock']} key={section.id} open>
                             <summary className={styles['sectionHeader']}>
                               <h3 className={styles['sectionTitle']}>{section.title}</h3>
-                              <span className={styles['sectionMeta']}>접기</span>
+                              <span className={styles['sectionToggle']}>
+                                <span
+                                  aria-hidden='true'
+                                  className={styles['sectionToggleIcon']}
+                                  style={{ backgroundImage: `url(${iconSectionToggle})` }}
+                                />
+                              </span>
                             </summary>
 
                             <div className={styles['lessonList']}>
@@ -2519,6 +2636,11 @@ const PlayerPage = () => {
                                   lesson.deliveryType === 'practicum'
                                     ? (practicumSidebarStatesByLessonId.get(lesson.id) ?? null)
                                     : null;
+                                const lessonSummaryActionLabel = getLessonSummaryActionLabel(
+                                  lesson,
+                                  practicumSidebarState?.label ?? null,
+                                );
+                                const lessonMetaItems = getLessonMetaItems(lesson);
                                 const isItemCompleted =
                                   lesson.deliveryType === 'problem'
                                     ? isProblemCompleted
@@ -2536,11 +2658,8 @@ const PlayerPage = () => {
                                       )}
                                       style={isItemCompleted ? completedStatusStyle : undefined}
                                     />
-                                    <div className={styles['lessonLinkHeader']}>
-                                      <div className={styles['lessonTitleGroup']}>
-                                        <strong className={styles['lessonLinkTitle']}>
-                                          {item.title}
-                                        </strong>
+                                    <div className={styles['lessonLinkBody']}>
+                                      <div className={styles['lessonBadgeRow']}>
                                         <span className={styles['lessonTypeBadge']}>
                                           {LESSON_TYPE_LABELS[lesson.deliveryType]}
                                         </span>
@@ -2553,52 +2672,36 @@ const PlayerPage = () => {
                                           </span>
                                         ) : null}
                                       </div>
-                                      <div className={styles['lessonLinkMeta']}>
-                                        {isLocked ? (
-                                          <span className={styles['lessonLockBadge']}>
-                                            이전 강의 완료 후 수강 가능
-                                          </span>
-                                        ) : null}
-                                        {getLessonMetaItems(lesson).map((metaItem) => (
-                                          <span
-                                            className={styles['lessonLinkDuration']}
-                                            key={`${item.id}-${metaItem}`}
-                                          >
-                                            {metaItem}
-                                          </span>
-                                        ))}
-                                        {lesson.deliveryType === 'problem' && isProblemCompleted ? (
-                                          <span className={styles['lessonProblemBadgeCompleted']}>
-                                            문제 완료
-                                          </span>
-                                        ) : null}
+                                      <div className={styles['lessonTitleRow']}>
+                                        <strong className={styles['lessonLinkTitle']}>
+                                          {item.title}
+                                        </strong>
+                                        <span className={styles['lessonSummaryAction']}>
+                                          {lessonSummaryActionLabel}
+                                        </span>
                                       </div>
+                                      {lessonMetaItems.length ||
+                                      (lesson.deliveryType === 'problem' && isProblemCompleted) ? (
+                                        <div className={styles['lessonLinkMeta']}>
+                                          {lessonMetaItems.map((metaItem) => (
+                                            <span
+                                              className={styles['lessonLinkDuration']}
+                                              key={`${item.id}-${metaItem}`}
+                                            >
+                                              {metaItem}
+                                            </span>
+                                          ))}
+                                          {lesson.deliveryType === 'problem' &&
+                                          isProblemCompleted ? (
+                                            <span className={styles['lessonProblemBadgeCompleted']}>
+                                              문제 완료
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      ) : null}
                                     </div>
                                   </>
                                 );
-
-                                if (isLocked) {
-                                  return (
-                                    <button
-                                      aria-label={`${item.title} 잠김`}
-                                      className={classNames(
-                                        styles['lessonLink'],
-                                        styles['lessonLinkLocked'],
-                                        isCurrent && styles['lessonLinkCurrent'],
-                                      )}
-                                      key={item.id}
-                                      onClick={() => {
-                                        showToast({
-                                          message: '이전 강의를 먼저 완료해 주세요.',
-                                          variant: 'error',
-                                        });
-                                      }}
-                                      type='button'
-                                    >
-                                      {linkContent}
-                                    </button>
-                                  );
-                                }
 
                                 return (
                                   <Link
@@ -2620,15 +2723,19 @@ const PlayerPage = () => {
                           </details>
                         ))}
                       </div>
-                    </>
+                    </div>
                   ) : (
-                    <div className={styles['qnaPanelBody']}>
-                      <ProgramQnaPanel
-                        enabled
-                        programId={qnaProgramId}
-                        programThreadCount={qnaContext?.programThreadCount ?? null}
-                        title='수강 Q&A'
-                      />
+                    <div className={styles['curriculumPanelContent']}>
+                      <div className={styles['qnaPanelBody']}>
+                        <ProgramQnaPanel
+                          boardLayout='compact'
+                          enabled
+                          programId={qnaProgramId}
+                          programThreadCount={qnaContext?.programThreadCount ?? null}
+                          title='Q&A'
+                          variant='board'
+                        />
+                      </div>
                     </div>
                   )}
                 </aside>

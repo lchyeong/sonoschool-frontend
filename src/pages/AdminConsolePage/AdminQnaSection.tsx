@@ -3,8 +3,9 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { createAdminQuestionReply, deleteAdminQuestionReply } from '@/api/qna';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
-import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import { TextAreaField } from '@/components/ui/TextField/TextField';
 import { adminQuestionsQueryKey, useAdminQuestionsQuery } from '@/query/useQnaQueries';
 import { useToastStore } from '@/stores/useToastStore';
 import type { QuestionScope } from '@/types/qna';
@@ -195,13 +196,14 @@ const AdminQnaSection = () => {
             </button>
           ))}
         </div>
-        <TextField
-          label='Q&A 검색'
-          name='admin-qna-keyword'
-          onChange={(event) => {
-            setKeyword(event.target.value);
+        <UnifiedSearchBar
+          className={styles['adminSearchBarWide']}
+          inputAriaLabel='Q&A 검색'
+          onChange={(nextValue) => {
+            setKeyword(nextValue);
             setSelectedQuestionId(null);
           }}
+          onSubmit={() => undefined}
           placeholder='제목, 내용, 작성자, 프로그램명 검색'
           value={keyword}
         />

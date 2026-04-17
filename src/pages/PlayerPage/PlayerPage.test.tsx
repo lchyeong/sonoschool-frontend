@@ -11,6 +11,11 @@ import type {
 } from '@/types/mypage';
 import type { EnrollmentPracticumOverview, PracticumReservation } from '@/types/practicum';
 import type {
+  ProgramQnaPageResponse,
+  ProgramQnaReplyItem,
+  ProgramQnaThreadItem,
+} from '@/types/programQna';
+import type {
   StudentProblem,
   StudentProblemAttemptResult,
   StudentProblemSession,
@@ -19,9 +24,12 @@ import type {
 const {
   createdHlsConfigs,
   cancelMyLecturePracticumMock,
+  createProgramQnaReplyMock,
+  createProgramQnaThreadMock,
   fetchLectureStreamMock,
   fetchMyEnrollmentPracticumOverviewMock,
   fetchMyLearningPlayerSnapshotMock,
+  fetchProgramQnaMock,
   moveMyLecturePracticumMock,
   reserveMyLecturePracticumMock,
   fetchStudentProblemMock,
@@ -34,12 +42,34 @@ const {
   createdHlsConfigs: [] as Array<Record<string, unknown>>,
   cancelMyLecturePracticumMock:
     vi.fn<(enrollmentId: number, reservationId: number) => Promise<void>>(),
+  createProgramQnaReplyMock:
+    vi.fn<
+      (
+        programId: number,
+        threadId: number,
+        payload: { content: string },
+      ) => Promise<ProgramQnaReplyItem>
+    >(),
+  createProgramQnaThreadMock:
+    vi.fn<
+      (
+        programId: number,
+        payload: { content: string; title: string },
+      ) => Promise<ProgramQnaThreadItem>
+    >(),
   fetchLectureStreamMock:
     vi.fn<(lectureId: number, deviceId: string) => Promise<ProtectedLectureStream>>(),
   fetchMyEnrollmentPracticumOverviewMock:
     vi.fn<(enrollmentId: number) => Promise<EnrollmentPracticumOverview>>(),
   fetchMyLearningPlayerSnapshotMock:
     vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>(),
+  fetchProgramQnaMock:
+    vi.fn<
+      (
+        programId: number,
+        options?: { page?: number; size?: number },
+      ) => Promise<ProgramQnaPageResponse>
+    >(),
   moveMyLecturePracticumMock:
     vi.fn<
       (enrollmentId: number, reservationId: number, slotId: number) => Promise<PracticumReservation>
@@ -145,6 +175,16 @@ vi.mock('@/api/studentProblems', () => ({
     problemId: number,
     payload: { answers: Record<number, number[]>; elapsedSeconds: number },
   ) => submitStudentProblemMock(problemId, payload),
+}));
+
+vi.mock('@/api/programQna', () => ({
+  createProgramQnaReply: (programId: number, threadId: number, payload: { content: string }) =>
+    createProgramQnaReplyMock(programId, threadId, payload),
+  createProgramQnaThread: (programId: number, payload: { content: string; title: string }) =>
+    createProgramQnaThreadMock(programId, payload),
+  fetchProgramQna: (programId: number, options?: { page?: number; size?: number }) =>
+    fetchProgramQnaMock(programId, options),
+  programQnaQueryKey: (programId: number | null) => ['programQna', programId],
 }));
 
 vi.mock('@/utils/playbackDeviceId', () => ({
@@ -281,6 +321,102 @@ const testSnapshot: LearningPlayerSnapshot = {
   resumeAtSeconds: 540,
 };
 
+const testResourceSnapshot: LearningPlayerSnapshot = {
+  ...testSnapshot,
+  currentLessonId: 'enrollment-101-lesson-2',
+  curriculumTrack: {
+    ...testSnapshot.curriculumTrack,
+    sections: testSnapshot.curriculumTrack.sections.map((section) => ({
+      ...section,
+      lessons: section.lessons.map((lesson) =>
+        lesson.id === 'enrollment-101-lesson-2'
+          ? {
+              ...lesson,
+              deliveryType: 'resource',
+              description: '첨부자료를 먼저 확인한 뒤 실습에 들어가는 강의입니다.',
+              durationLabel: '첨부자료',
+              durationMinutes: null,
+              title: '복부초음파 기초 2강 첨부자료',
+            }
+          : lesson,
+      ),
+    })),
+  },
+  lessonPlaybackById: {
+    ...testSnapshot.lessonPlaybackById,
+    'enrollment-101-lesson-2': {
+      lectureId: 2,
+      mimeType: null,
+      posterUrl: null,
+    },
+  },
+  resourceAttachmentsByLessonId: {
+    'enrollment-101-lesson-2': [
+      {
+        description: '강의 핵심 개념을 정리한 문서입니다.',
+        fileName: 'abdomen-summary.pdf',
+        fileSize: 2_450_000,
+        fileUrl: 'https://example.com/resources/abdomen-summary.pdf',
+        id: 201,
+        mimeType: 'application/pdf',
+        sortOrder: 0,
+        title: '강의 요약 자료',
+      },
+      {
+        description: '실습 전 점검해야 하는 항목을 정리했습니다.',
+        fileName: 'abdomen-checklist.xlsx',
+        fileSize: 980_000,
+        fileUrl: 'https://example.com/resources/abdomen-checklist.xlsx',
+        id: 202,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        sortOrder: 1,
+        title: '실습 체크리스트',
+      },
+    ],
+  },
+};
+
+const testOfflineSnapshot: LearningPlayerSnapshot = {
+  ...testSnapshot,
+  currentLessonId: 'enrollment-101-lesson-2',
+  curriculumTrack: {
+    ...testSnapshot.curriculumTrack,
+    sections: testSnapshot.curriculumTrack.sections.map((section) => ({
+      ...section,
+      lessons: section.lessons.map((lesson) =>
+        lesson.id === 'enrollment-101-lesson-2'
+          ? {
+              ...lesson,
+              deliveryType: 'offline',
+              description: '오프라인 출석이 필요한 강의입니다.',
+              durationLabel: '오프라인 강의',
+              durationMinutes: null,
+              offlineSchedules: [
+                {
+                  date: '2026-05-09',
+                  endTime: '13:00',
+                  location: '서울 강남 교육장',
+                  notes: '시작 10분 전까지 입실',
+                  startTime: '10:00',
+                },
+              ],
+              startDate: '2026-05-09',
+              title: '복부초음파 기초 2강 오프라인',
+            }
+          : lesson,
+      ),
+    })),
+  },
+  lessonPlaybackById: {
+    ...testSnapshot.lessonPlaybackById,
+    'enrollment-101-lesson-2': {
+      lectureId: 2,
+      mimeType: null,
+      posterUrl: null,
+    },
+  },
+};
+
 const testStreamResponse: ProtectedLectureStream = {
   expiresAt: 1_770_000_000,
   hlsKeyUrl: '/api/v1/lectures/2/hls-key',
@@ -396,6 +532,44 @@ const testPracticumOverview: EnrollmentPracticumOverview = {
   status: 'ACTIVE',
 };
 
+const testProgramQnaResponse: ProgramQnaPageResponse = {
+  content: [
+    {
+      answered: true,
+      authorName: '홍길동',
+      authorType: 'ENROLLED',
+      content: '실습 예약도 여기에서 문의하면 되나요?',
+      createdAt: '2026-03-10T12:00:00Z',
+      id: 9101,
+      mine: false,
+      programId: 2001,
+      programTitle: '복부초음파 기초',
+      replies: [
+        {
+          adminReply: true,
+          authorName: '관리자',
+          authorType: 'ADMIN',
+          content: '네, 운영 관련 문의도 이곳에서 가능합니다.',
+          createdAt: '2026-03-10T13:00:00Z',
+          id: 9201,
+          mine: false,
+          updatedAt: '2026-03-10T13:00:00Z',
+        },
+      ],
+      replyCount: 1,
+      scope: 'PROGRAM',
+      title: '실습 문의',
+      updatedAt: '2026-03-10T13:00:00Z',
+    },
+  ],
+  first: true,
+  last: true,
+  number: 0,
+  size: 20,
+  totalElements: 1,
+  totalPages: 1,
+};
+
 const renderPlayerPage = (initialEntry = '/mypage/learning/101/lesson/enrollment-101-lesson-2') => {
   const queryClient = createTestQueryClient();
 
@@ -422,10 +596,13 @@ beforeEach(() => {
 
   HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve(undefined));
   cancelMyLecturePracticumMock.mockResolvedValue(undefined);
+  createProgramQnaReplyMock.mockResolvedValue(testProgramQnaResponse.content[0].replies[0]);
+  createProgramQnaThreadMock.mockResolvedValue(testProgramQnaResponse.content[0]);
   fetchStudentProblemMock.mockResolvedValue(null);
   fetchMyEnrollmentPracticumOverviewMock.mockResolvedValue(testPracticumOverview);
   moveMyLecturePracticumMock.mockResolvedValue(practicumReservation);
   reserveMyLecturePracticumMock.mockResolvedValue(practicumReservation);
+  fetchProgramQnaMock.mockResolvedValue(testProgramQnaResponse);
   saveStudentProblemSessionMock.mockResolvedValue({
     answers: {},
     currentQuestionIndex: 0,
@@ -468,6 +645,10 @@ describe('PlayerPage', () => {
       screen.getByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
     ).toBeInTheDocument();
 
+    await waitFor(() => {
+      expect(createdHlsConfigs.at(-1)?.['loader']).toBeTypeOf('function');
+    });
+
     const latestConfig = createdHlsConfigs.at(-1);
     expect(latestConfig?.['loader']).toBeTypeOf('function');
     expect(latestConfig?.['xhrSetup']).toBeTypeOf('function');
@@ -505,55 +686,11 @@ describe('PlayerPage', () => {
     expect(screen.getByText('내 강의')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: '복부초음파 기초' })).toBeInTheDocument();
     expect(screen.getAllByText('1단계 학습')).toHaveLength(1);
-    expect(screen.getByText('이전 강의 완료 후 수강 가능')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /이전/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /다음/ })).toBeInTheDocument();
+    expect(screen.queryByText('이전 강의 완료 후 수강 가능')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /이전/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /다음/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '재생 설정' })).toBeInTheDocument();
-  });
-
-  it('moves to the next lesson from the player controls', async () => {
-    fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
-      ...testSnapshot,
-      lessonProgressByLessonId: {
-        ...testSnapshot.lessonProgressByLessonId,
-        'enrollment-101-lesson-2': {
-          completed: true,
-          completedAt: '2026-03-10T12:00:00Z',
-          lastWatchedAt: '2026-03-10T12:00:00Z',
-          lectureId: 2,
-          progressPercent: 100,
-          watchedSeconds: 1920,
-        },
-      },
-    });
-    fetchLectureStreamMock.mockImplementation((lectureId) =>
-      Promise.resolve({
-        ...testStreamResponse,
-        hlsKeyUrl: `/api/v1/lectures/${String(lectureId)}/hls-key`,
-        hlsUrl: `https://example.com/api/v1/lectures/${String(lectureId)}/playback/test-device-id/master.m3u8`,
-      }),
-    );
-
-    renderPlayerPage();
-
-    await waitFor(() => {
-      expect(fetchLectureStreamMock).toHaveBeenCalledWith(2, 'test-device-id');
-    });
-    expect(
-      screen.getByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(await screen.findByRole('button', { name: /다음/ }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('heading', { level: 1, name: '복부초음파 기초 3강' }),
-      ).toBeInTheDocument();
-    });
-
-    await waitFor(() => {
-      expect(fetchLectureStreamMock).toHaveBeenCalledWith(3, 'test-device-id');
-    });
+    expect(screen.getByText(/운영기간/)).toBeInTheDocument();
   });
 
   it('opens the settings panel with speed and quality options', async () => {
@@ -571,6 +708,53 @@ describe('PlayerPage', () => {
     expect(screen.getByRole('button', { name: '1.25x' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '720p' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '1080p' })).toBeInTheDocument();
+  });
+
+  it('renders the player q&a with the same board layout as the program detail page', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
+    fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
+
+    renderPlayerPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Q&A 패널' }));
+
+    expect(await screen.findByRole('heading', { name: '강의 Q&A' })).toBeInTheDocument();
+    expect(screen.queryByText('수강 Q&A')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('비수강생과 수강생 모두 참여할 수 있으며, 작성자 구분이 함께 표시됩니다.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('프로그램 전체 Q&A 1개')).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(await screen.findByText('실습 문의')).toBeInTheDocument();
+  });
+
+  it('renders resource lessons as a simple attachment board with download actions', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testResourceSnapshot);
+
+    renderPlayerPage();
+
+    expect(await screen.findByText('강의 요약 자료')).toBeInTheDocument();
+    expect(fetchLectureStreamMock).not.toHaveBeenCalled();
+    expect(screen.getByText('실습 체크리스트')).toBeInTheDocument();
+    expect(screen.getByText('abdomen-summary.pdf')).toBeInTheDocument();
+    expect(screen.getByText('abdomen-checklist.xlsx')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '다운로드' })).toHaveLength(2);
+  });
+
+  it('renders offline lessons without the selected schedule detail panel', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testOfflineSnapshot);
+
+    renderPlayerPage();
+
+    expect(
+      await screen.findByText('등록된 강의 날짜와 시간을 달력에서 확인할 수 있습니다.'),
+    ).toBeInTheDocument();
+    expect(fetchLectureStreamMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(/선택 일정/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/1회차/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/오프라인 강의 일정과 장소를 한눈에 확인할 수 있습니다/),
+    ).not.toBeInTheDocument();
   });
 
   it('shows an unsupported browser notice when HLS playback is unavailable', async () => {
@@ -685,12 +869,29 @@ describe('PlayerPage', () => {
     await waitFor(() => {
       expect(fetchStudentProblemMock).toHaveBeenCalledWith(2);
     });
+    expect(screen.queryByText('PROBLEM LECTURE')).not.toBeInTheDocument();
+    expect(screen.queryByText('문제 풀이 현황')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { level: 1, name: '복부초음파 기초 2강 문제풀이' }),
-    ).toBeInTheDocument();
+      screen.queryByText(
+        '문제와 보기, 등록된 이미지 또는 영상을 확인한 뒤 답을 선택해 주세요. 나중에 풀 문제는 표시해 둘 수 있습니다.',
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '나중에 풀기만 보기' })).not.toBeInTheDocument();
     expect(await screen.findByAltText('1번 문항 미디어')).toBeInTheDocument();
     expect(await screen.findByAltText('1번 문항 2번 보기 미디어')).toBeInTheDocument();
-    fireEvent.click(await screen.findByLabelText('2. 정답'));
+    expect(screen.getByText('문제 정보')).toBeInTheDocument();
+    expect(screen.getByText('제한시간')).toBeInTheDocument();
+    expect(screen.getByText('문항수')).toBeInTheDocument();
+    const correctOption = await screen.findByLabelText('2. 정답');
+    fireEvent.click(correctOption);
+    expect(correctOption).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: '나중에 풀기' }));
+    expect(correctOption).not.toBeChecked();
+    expect(screen.getByRole('button', { name: /문제 1/ })).toBeInTheDocument();
+    expect(screen.queryByText('정답 입력 2번')).not.toBeInTheDocument();
+    expect(screen.getAllByText('나중에 풀기').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('checkbox', { name: '나중에 풀기' }));
+    fireEvent.click(correctOption);
     fireEvent.click(screen.getByRole('button', { name: '제출하기' }));
 
     await waitFor(() => {
@@ -704,8 +905,10 @@ describe('PlayerPage', () => {
     expect(await screen.findByText('채점 결과')).toBeInTheDocument();
     expect(screen.getByText('정답')).toBeInTheDocument();
     expect(screen.getByText(/정답 해설입니다/)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: '문제 목록' })).toBeInTheDocument();
-    expect(screen.getByText('답변 완료')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('heading', { level: 2, name: '복부초음파 기초' }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText('정답 입력 2번')).toBeInTheDocument();
   });
 
   it('renders the practicum calendar and moves an existing reservation to another slot', async () => {

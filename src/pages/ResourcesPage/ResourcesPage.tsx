@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import { useGlobalResourcesQuery } from '@/query/useResourceQueries';
 import { routePaths } from '@/routes/routeRegistry';
 
@@ -72,36 +73,28 @@ const ResourcesPage = () => {
 
       <section className={styles['boardShell']}>
         <div className={styles['toolbar']}>
-          <form
-            className={styles['searchForm']}
-            onSubmit={(event) => {
-              event.preventDefault();
+          <UnifiedSearchBar
+            className={styles['searchBar']}
+            inputAriaLabel='자료실 검색'
+            leading={
+              <select
+                aria-label='자료 범위 필터'
+                className={styles['filterSelect']}
+                defaultValue='all'
+              >
+                <option value='all'>전체</option>
+              </select>
+            }
+            onChange={(nextValue) => {
+              setSearchInput(nextValue);
+            }}
+            onSubmit={() => {
               setSearchTerm(searchInput);
               setPage(1);
             }}
-          >
-            <select
-              aria-label='자료 범위 필터'
-              className={styles['filterSelect']}
-              defaultValue='all'
-            >
-              <option value='all'>전체</option>
-            </select>
-
-            <input
-              className={styles['searchInput']}
-              onChange={(event) => {
-                setSearchInput(event.target.value);
-              }}
-              placeholder='제목, 설명, 파일명을 검색해 주세요.'
-              type='search'
-              value={searchInput}
-            />
-
-            <button className={styles['searchButton']} type='submit'>
-              검색
-            </button>
-          </form>
+            placeholder='제목, 설명, 파일명을 검색해 주세요.'
+            value={searchInput}
+          />
         </div>
 
         {resourcesQuery.isPending ? (

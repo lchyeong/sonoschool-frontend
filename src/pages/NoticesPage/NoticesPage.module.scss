@@ -55,6 +55,10 @@
   justify-content: flex-end;
 }
 
+.searchBar {
+  width: min(100%, 460px);
+}
+
 .searchForm {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 92px;

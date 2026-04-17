@@ -10,6 +10,7 @@ import {
   type AdminTagUpsertPayload,
 } from '@/api/adminTags';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { adminProgramTagsQueryKey } from '@/query/useAdminProgramTagsQuery';
@@ -270,19 +271,14 @@ const AdminTagsSection = () => {
               <p className={styles['metaText']}>총 {filteredTags.length}개</p>
             </div>
 
-            <label className={styles['searchField']}>
-              <span className={styles['searchLabel']}>검색</span>
-              <input
-                aria-label='태그 검색'
-                className={styles['searchInput']}
-                onChange={(event) => {
-                  handleSearchChange(event.target.value);
-                }}
-                placeholder='태그명, 태그 코드, 유형 검색'
-                type='search'
-                value={searchTerm}
-              />
-            </label>
+            <UnifiedSearchBar
+              className={styles['adminSearchBar']}
+              inputAriaLabel='태그 검색'
+              onChange={handleSearchChange}
+              onSubmit={() => undefined}
+              placeholder='태그명, 태그 코드, 유형 검색'
+              value={searchTerm}
+            />
           </div>
 
           {tagsQuery.isPending ? (

@@ -8,7 +8,6 @@ import {
   detailTabItems,
   detailTabScrollOffsetPx,
   formatPriceLabel,
-  getOptionList,
   getScrollBehavior,
   parsePriceAmount,
   reviewCarouselScrollAmountPx,
@@ -26,17 +25,12 @@ export interface ProgramPageDetailViewModel {
   isQnaTabOpen: boolean;
   openCurriculumRows: Record<string, boolean>;
   openFaqId: string | null;
-  optionList: string[];
   originalPriceAmount: number;
   reviewCarouselRef: RefObject<HTMLDivElement | null>;
   reviewSortOrder: ReviewSortOrder;
-  selectedOption: string;
   sectionRefHandlers: Record<DetailSectionId, RefCallback<HTMLElement>>;
   setOpenFaqId: Dispatch<SetStateAction<string | null>>;
   setReviewSortOrder: Dispatch<SetStateAction<ReviewSortOrder>>;
-  setSelectedOption: Dispatch<SetStateAction<string>>;
-  setShowOptionList: Dispatch<SetStateAction<boolean>>;
-  showOptionList: boolean;
   sortedReviews: ProgramDetailPageResponse['reviews'];
   toggleCurriculumRow: (rowKey: string) => void;
   totalPriceLabel: string;
@@ -81,10 +75,11 @@ export const useProgramPageDetailViewModel = (
   const [activeTabId, setActiveTabId] = useState<DetailSectionId>('course-introduction');
   const [activeSectionId, setActiveSectionId] = useState<DetailSectionId>('course-introduction');
   const [isQnaTabOpen, setIsQnaTabOpen] = useState(false);
+  const [pendingScrollSectionId, setPendingScrollSectionId] = useState<DetailSectionId | null>(
+    null,
+  );
   const [reviewSortOrder, setReviewSortOrder] = useState<ReviewSortOrder>('recommended');
   const [visiblePreviewReviewIds, setVisiblePreviewReviewIds] = useState<string[]>([]);
-  const [selectedOption, setSelectedOption] = useState('');
-  const [showOptionList, setShowOptionList] = useState(false);
   const [openCurriculumRows, setOpenCurriculumRows] = useState<Record<string, boolean>>(() =>
     createInitialOpenCurriculumRows(data),
   );
@@ -93,7 +88,6 @@ export const useProgramPageDetailViewModel = (
   const reviewCarouselRef = useRef<HTMLDivElement | null>(null);
   const sectionRefs = useRef<Record<DetailSectionId, HTMLElement | null>>(createSectionRefMap());
 
-  const optionList = useMemo(() => getOptionList(data), [data]);
   const heroInfoPills = useMemo(() => buildHeroInfoPills(data), [data]);
   const originalPriceAmount = useMemo(() => parsePriceAmount(data.originalPriceLabel), [data]);
   const discountedPriceAmount = useMemo(() => parsePriceAmount(data.discountedPriceLabel), [data]);
@@ -111,10 +105,9 @@ export const useProgramPageDetailViewModel = (
       setActiveTabId('course-introduction');
       setActiveSectionId('course-introduction');
       setIsQnaTabOpen(false);
+      setPendingScrollSectionId(null);
       setOpenCurriculumRows(createInitialOpenCurriculumRows(data));
       setOpenFaqId(data.faqItems[0]?.id ?? null);
-      setSelectedOption('');
-      setShowOptionList(false);
       setReviewSortOrder('recommended');
     });
   }, [detailResetKey]);
@@ -142,7 +135,9 @@ export const useProgramPageDetailViewModel = (
           : nextActiveSectionId;
       });
       setActiveTabId((currentActiveTabId) => {
-        return currentActiveTabId === nextActiveSectionId ? currentActiveTabId : nextActiveSectionId;
+        return currentActiveTabId === nextActiveSectionId
+          ? currentActiveTabId
+          : nextActiveSectionId;
       });
     };
 
@@ -155,6 +150,25 @@ export const useProgramPageDetailViewModel = (
       window.removeEventListener('resize', handleScroll);
     };
   }, [isQnaTabOpen]);
+
+  useLayoutEffect(() => {
+    if (isQnaTabOpen || pendingScrollSectionId === null) {
+      return;
+    }
+
+    const targetElement = sectionRefs.current[pendingScrollSectionId];
+
+    if (!targetElement) {
+      return;
+    }
+
+    const targetTop = targetElement.getBoundingClientRect().top + window.scrollY;
+
+    scrollToSectionTop(targetTop - detailTabScrollOffsetPx);
+    startTransition(() => {
+      setPendingScrollSectionId(null);
+    });
+  }, [isQnaTabOpen, pendingScrollSectionId]);
 
   useLayoutEffect(() => {
     const reviewTrackElement = reviewCarouselRef.current;
@@ -256,6 +270,14 @@ export const useProgramPageDetailViewModel = (
       return;
     }
 
+    if (isQnaTabOpen) {
+      setIsQnaTabOpen(false);
+      setPendingScrollSectionId(sectionId);
+      setActiveTabId(sectionId);
+      setActiveSectionId(sectionId);
+      return;
+    }
+
     const targetElement = sectionRefs.current[sectionId];
 
     if (!targetElement) {
@@ -301,17 +323,12 @@ export const useProgramPageDetailViewModel = (
     isQnaTabOpen,
     openCurriculumRows,
     openFaqId,
-    optionList,
     originalPriceAmount,
     reviewCarouselRef,
     reviewSortOrder,
     sectionRefHandlers,
-    selectedOption,
     setOpenFaqId,
     setReviewSortOrder,
-    setSelectedOption,
-    setShowOptionList,
-    showOptionList,
     sortedReviews,
     toggleCurriculumRow,
     totalPriceLabel,

@@ -1,0 +1,5 @@
+export const QNA_TITLE_MAX_LENGTH = 120;
+export const QNA_CONTENT_MAX_LENGTH = 2000;
+export const QNA_REPLY_MAX_LENGTH = 1000;
+
+export const QNA_LIST_CONTENT_PREVIEW_LENGTH = 78;

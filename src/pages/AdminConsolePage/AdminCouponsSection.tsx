@@ -9,6 +9,7 @@ import {
   updateAdminCoupon,
 } from '@/api/adminCoupons';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { adminCouponsQueryKey, useAdminCouponsQuery } from '@/query/useAdminCouponsQuery';
@@ -363,19 +364,14 @@ const AdminCouponsSection = () => {
               <p className={styles['metaText']}>총 {filteredCoupons.length}개</p>
             </div>
 
-            <label className={styles['searchField']}>
-              <span className={styles['searchLabel']}>검색</span>
-              <input
-                aria-label='쿠폰 검색'
-                className={styles['searchInput']}
-                onChange={(event) => {
-                  handleSearchChange(event.target.value);
-                }}
-                placeholder='쿠폰명, 쿠폰 코드, 할인 방식 검색'
-                type='search'
-                value={searchTerm}
-              />
-            </label>
+            <UnifiedSearchBar
+              className={styles['adminSearchBar']}
+              inputAriaLabel='쿠폰 검색'
+              onChange={handleSearchChange}
+              onSubmit={() => undefined}
+              placeholder='쿠폰명, 쿠폰 코드, 할인 방식 검색'
+              value={searchTerm}
+            />
           </div>
 
           {couponsQuery.isPending ? (

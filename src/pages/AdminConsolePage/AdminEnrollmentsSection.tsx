@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import { fetchAdminUsers } from '@/api/adminUsers';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import { routePaths } from '@/routes/routeRegistry';
 import type { AdminUserManagementItem } from '@/types/adminUsers';
 
@@ -35,19 +36,16 @@ const AdminEnrollmentsSection = () => {
     <section className={styles['workspace']}>
       <section className={styles['panelWide']}>
         <div className={styles['panelToolbar']}>
-          <label className={styles['searchField']}>
-            <span className={styles['searchLabel']}>회원 검색</span>
-            <input
-              aria-label='회원 관리 검색'
-              className={styles['searchInput']}
-              onChange={(event) => {
-                setMemberKeyword(event.target.value);
-              }}
-              placeholder='이름, 아이디, 이메일 검색'
-              type='search'
-              value={memberKeyword}
-            />
-          </label>
+          <UnifiedSearchBar
+            className={styles['adminSearchBar']}
+            inputAriaLabel='회원 관리 검색'
+            onChange={(nextValue) => {
+              setMemberKeyword(nextValue);
+            }}
+            onSubmit={() => undefined}
+            placeholder='이름, 아이디, 이메일 검색'
+            value={memberKeyword}
+          />
           <p className={styles['metaText']}>회원(클릭시 상세보기)</p>
         </div>
 

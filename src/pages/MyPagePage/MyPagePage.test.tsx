@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ApiError } from '@/api/errors';
 import MyPagePage from '@/pages/MyPagePage/MyPagePage';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -18,28 +19,30 @@ import type { PaymentResult } from '@/types/payment';
 
 const createMyEnrollmentReviewMock =
   vi.fn<(programId: number, payload: { content: string; rating: number }) => Promise<void>>();
-const createMyGlobalQuestionMock = vi.fn<
-  (payload: { content: string; title: string }) => Promise<unknown>
->();
-const deleteMyQuestionMock = vi.fn<(question: { id: number; programId: number | null; scope: string }) => Promise<void>>();
+const createMyGlobalQuestionMock =
+  vi.fn<(payload: { content: string; title: string }) => Promise<unknown>>();
+const deleteMyQuestionMock =
+  vi.fn<(question: { id: number; programId: number | null; scope: string }) => Promise<void>>();
 const fetchMyEnrollmentDetailMock = vi.fn<(enrollmentId: number) => Promise<EnrollmentDetail>>();
 const fetchMyProfileMock = vi.fn<() => Promise<UserProfile>>();
-const fetchMyQuestionsMock = vi.fn<
-  (options?: {
-    answered?: boolean;
-    keyword?: string;
-    page?: number;
-    scope?: 'ALL' | 'GLOBAL' | 'PROGRAM';
-    size?: number;
-  }) => Promise<unknown>
->();
+const fetchMyQuestionsMock =
+  vi.fn<
+    (options?: {
+      answered?: boolean;
+      keyword?: string;
+      page?: number;
+      scope?: 'ALL' | 'GLOBAL' | 'PROGRAM';
+      size?: number;
+    }) => Promise<unknown>
+  >();
 const updateMyProfileMock = vi.fn<(payload: UserProfileUpdatePayload) => Promise<UserProfile>>();
-const updateMyQuestionMock = vi.fn<
-  (
-    question: { id: number; programId: number | null; scope: string },
-    payload: { content: string; title: string },
-  ) => Promise<unknown>
->();
+const updateMyQuestionMock =
+  vi.fn<
+    (
+      question: { id: number; programId: number | null; scope: string },
+      payload: { content: string; title: string },
+    ) => Promise<unknown>
+  >();
 const sendMyPhoneVerificationMock = vi.fn<(payload: SmsSendPayload) => Promise<SmsSendResponse>>();
 const updateMyEnrollmentReviewMock =
   vi.fn<(reviewId: number, payload: { content: string; rating: number }) => Promise<void>>();
@@ -290,7 +293,7 @@ const testPaymentHistory: PaymentResult[] = [
     cancelReason: null,
     cancelledAt: null,
     failedAt: null,
-    orderNumber: 'ORD-501',
+    orderNumber: 'ORD-6821EA031D51472A',
     id: 501,
     orderName: '심장초음파 실전 마스터 클래스',
     orderType: 'CART_CHECKOUT',
@@ -513,23 +516,28 @@ describe('MyPagePage', () => {
     expect(screen.getByRole('button', { name: '수료증 다운로드' })).toBeInTheDocument();
   });
 
-  it('shows payment history with receipt actions', async () => {
+  it('shows payment history with modal detail actions', async () => {
     renderMyPage();
 
     fireEvent.click(screen.getByRole('button', { name: '결제내역' }));
 
     expect(await screen.findByText('심장초음파 실전 마스터 클래스')).toBeInTheDocument();
     expect(screen.getByText('복부초음파 기초')).toBeInTheDocument();
+    expect(screen.getByText('주문번호 6821EA03 · 카드 결제')).toBeInTheDocument();
+    expect(screen.getByTitle('ORD-6821EA031D51472A')).toBeInTheDocument();
     expect(screen.getAllByText('결제 완료').length).toBeGreaterThan(0);
     expect(screen.getAllByText('결제 취소').length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: '영수증 보기' })).toHaveAttribute(
-      'href',
-      'https://example.com/receipt/501',
-    );
-    expect(screen.getAllByRole('link', { name: '결제 상세 보기' })[0]).toHaveAttribute(
-      'href',
-      '/payments/result?paymentId=501&status=COMPLETED',
-    );
+    expect(screen.queryByText('영수증 없음')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '영수증 보기' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: '결제 상세 보기' })[0]);
+
+    const paymentDetailDialog = await screen.findByRole('dialog', { name: '결제 상세' });
+    expect(paymentDetailDialog).toBeInTheDocument();
+    expect(within(paymentDetailDialog).getByText('주문번호')).toBeInTheDocument();
+    expect(within(paymentDetailDialog).getByText('6821EA03')).toBeInTheDocument();
+    expect(within(paymentDetailDialog).getByText('장바구니 결제')).toBeInTheDocument();
+    expect(within(paymentDetailDialog).getByText('149,000원')).toBeInTheDocument();
   });
 
   it('submits profile updates from the profile management item', async () => {
@@ -581,6 +589,27 @@ describe('MyPagePage', () => {
     expect(await screen.findByText('인증번호를 보냈습니다.')).toBeInTheDocument();
   });
 
+  it('shows an inline error when the requested phone number is already registered', async () => {
+    sendMyPhoneVerificationMock.mockRejectedValueOnce(
+      new ApiError({
+        code: 'USER_400_PHONE',
+        status: 400,
+        userMessage: 'Phone number is already registered.',
+      }),
+    );
+
+    renderMyPage();
+
+    fireEvent.click(screen.getByRole('button', { name: '내정보관리' }));
+    fireEvent.click(await screen.findByRole('button', { name: '휴대폰 번호 변경' }));
+    fireEvent.change(screen.getByLabelText('새 휴대폰 번호'), {
+      target: { value: '010-3333-4444' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '인증번호 받기' }));
+
+    expect(await screen.findByText('이미 등록된 휴대폰 번호입니다.')).toBeInTheDocument();
+  });
+
   it('shows unified qna management items and replies', async () => {
     renderMyPage();
 
@@ -592,7 +621,9 @@ describe('MyPagePage', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: '답변 보기' })[0]);
 
-    expect(await screen.findByText('개별 안내 메시지로 준비물을 전달드리겠습니다.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('개별 안내 메시지로 준비물을 전달드리겠습니다.'),
+    ).toBeInTheDocument();
   });
 
   it('creates a review from my course card', async () => {

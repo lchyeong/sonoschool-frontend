@@ -44,13 +44,6 @@ export const buildAdminReplyExample = (review: ProgramReviewItem): string => {
   return `안녕하세요, ${review.authorName}님. 남겨주신 수강 후기를 꼼꼼히 확인했습니다. 실제 학습과 임상 적용에 도움이 되었다는 말씀 감사드리며, 이후 과정에서도 복습 자료와 피드백 품질을 더 촘촘하게 보강하겠습니다.`;
 };
 
-export const getOptionList = (data: ProgramDetailPageResponse): string[] => {
-  return Array.from(new Set([data.title, ...data.relatedLectures.map((item) => item.title)])).slice(
-    0,
-    3,
-  );
-};
-
 export const buildHeroInfoPills = (
   data: ProgramDetailPageResponse,
 ): Array<{ label: string; value: string }> => {
@@ -58,9 +51,7 @@ export const buildHeroInfoPills = (
     { label: '난이도', value: data.difficultyLabel },
     { label: '수업구분', value: data.formatLabel },
     { label: '모집기간', value: data.registrationPeriodLabel },
-    ...(data.operationPeriodLabel
-      ? [{ label: '운영기간', value: data.operationPeriodLabel }]
-      : []),
+    ...(data.operationPeriodLabel ? [{ label: '운영기간', value: data.operationPeriodLabel }] : []),
     { label: '과정구성', value: `${String(data.curriculumTrack.sections.length)}개 섹션` },
   ];
 };

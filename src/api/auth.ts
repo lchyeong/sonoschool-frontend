@@ -2,6 +2,7 @@ import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
 import type {
   ApiEnvelope,
+  AvailabilityCheckResponse,
   LoginPayload,
   LoginSmsVerifyPayload,
   RegistrationTerm,
@@ -76,6 +77,38 @@ export const registerStudent = async (payload: RegisterPayload): Promise<Student
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '회원가입에 실패했습니다.');
+  }
+};
+
+export const checkLoginIdAvailability = async (
+  loginId: string,
+): Promise<AvailabilityCheckResponse> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<AvailabilityCheckResponse>>(
+      '/api/v1/auth/check-login-id',
+      {
+        params: { loginId },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '아이디 중복 확인에 실패했습니다.');
+  }
+};
+
+export const checkEmailAvailability = async (
+  email: string,
+): Promise<AvailabilityCheckResponse> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<AvailabilityCheckResponse>>(
+      '/api/v1/auth/check-email',
+      {
+        params: { email },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '이메일 중복 확인에 실패했습니다.');
   }
 };
 

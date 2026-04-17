@@ -4,7 +4,7 @@
 }
 
 .panelBoard {
-  gap: 20px;
+  gap: 24px;
 }
 
 .header {
@@ -28,7 +28,8 @@
 .threadMeta,
 .replyMeta,
 .loginHint,
-.fieldHint {
+.fieldHint,
+.writerDescription {
   margin: 0;
   color: #6b7280;
   line-height: 1.6;
@@ -51,69 +52,310 @@
   border: 0;
 }
 
+.boardHeader,
+.boardTitleBlock {
+  display: grid;
+}
+
+.boardHeader {
+  gap: 0.55rem;
+}
+
+.boardTitleBlock {
+  gap: 0.3rem;
+}
+
+.boardTitle,
+.boardSummary,
+.writerTitle {
+  margin: 0;
+}
+
+.boardTitle {
+  color: #1f2532;
+  font-size: clamp(1.35rem, 2.6vw, 1.8rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.boardSummary {
+  color: #737a8b;
+  font-size: 0.92rem;
+}
+
 .boardToolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.boardSearchBar {
+  width: min(100%, 680px);
+}
+
+.filterSelect {
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 0;
+  color: var(--color-text-primary);
+  font: inherit;
+  background: transparent;
+}
+
+.tableWrap,
+.composerBoard {
+  border-top: 1px solid #3a404a;
+  border-bottom: 1px solid #e4e6eb;
+  background: #ffffff;
+}
+
+.boardTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.boardTable thead th {
+  padding: 1rem 0.9rem;
+  color: #505768;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  background: #f6f6f7;
+}
+
+.boardTable tbody td {
+  padding: 1.1rem 0.9rem;
+  color: #3b4250;
+  font-size: 0.95rem;
+  text-align: center;
+  border-top: 1px solid #edf0f4;
+  vertical-align: middle;
+}
+
+.numberCol {
+  width: 72px;
+}
+
+.statusCol {
+  width: 102px;
+}
+
+.authorCol {
+  width: 92px;
+}
+
+.dateCol {
+  width: 98px;
+}
+
+.questionRow:hover td {
+  background: #fbfcff;
+}
+
+.titleCell {
+  text-align: left !important;
+}
+
+.titleButton,
+.pageButton,
+.pageNavButton {
+  border: 0;
+  background: none;
+}
+
+.titleButton {
+  display: grid;
+  gap: 0.38rem;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.titleText {
+  display: block;
+  color: #252b38;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewText {
+  display: block;
+  color: #7d8391;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.authorCell {
+  padding-right: 0.5rem !important;
+  padding-left: 0.5rem !important;
+}
+
+.authorText {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boardStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 70px;
+  min-height: 32px;
+  padding: 0 0.7rem;
+  border: 1px solid #cfd5df;
+  color: #5e6473;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #ffffff;
+}
+
+.boardStatusBadge[data-tone='answered'] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.boardStatusBadge[data-tone='waiting'] {
+  border-color: #d8dbe1;
+  color: #8a90a0;
+}
+
+.detailRow td {
+  padding: 0;
+  text-align: left;
+  background: #ffffff;
+}
+
+.detailInner {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.75rem 1.5rem;
+  background: #fbfbfd;
+}
+
+.detailQuestion,
+.detailAnswer,
+.detailActions,
+.detailReplyList,
+.writerHeader {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.detailLabel {
+  margin: 0;
+  color: #1f2532;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.detailText {
+  margin: 0;
+  color: #4d5565;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.replyBlock {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e8ee;
+}
+
+.replyMetaRow,
+.replyMetaPrimary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.replyMetaRow {
+  justify-content: space-between;
+  color: #5b6272;
+  font-size: 0.9rem;
+}
+
+.emptyRow {
+  padding: 3rem 1rem !important;
+  color: #707789 !important;
+}
+
+.stateBox {
+  padding: 2.5rem 1rem;
+  border: 1px solid #e6e8ec;
+  color: #667085;
+  text-align: center;
+  background: #ffffff;
+}
+
+.boardFooter {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 1rem;
 }
 
-.boardSearchBox {
-  flex: 1 1 280px;
-  max-width: 340px;
+.compactBoardList {
+  display: grid;
+  gap: 0.9rem;
 }
 
-.boardSearchInput {
-  width: 100%;
-  min-height: 48px;
-  padding: 0 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 16px;
-  background: #ffffff;
-  color: #111827;
-  font: inherit;
-}
-
-.boardIntro {
+.pagination {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 0.45rem;
+  align-items: center;
 }
 
-.boardIntroLabel {
-  margin: 0 0 8px;
-  color: #9ca3af;
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.boardIntroTitle {
-  margin: 0;
-  color: #111827;
-  font-size: 1.35rem;
-  font-weight: 800;
-  line-height: 1.35;
-}
-
-.boardIntroDescription,
-.boardIntroMeta,
-.threadMetaAux {
-  margin: 0;
-  color: #6b7280;
-  line-height: 1.6;
-}
-
-.boardIntroDescription {
-  margin-top: 6px;
-}
-
-.boardIntroMeta,
-.threadMetaAux {
-  font-size: 0.92rem;
+.pageButton,
+.pageNavButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  min-height: 38px;
+  border: 1px solid #e1e4ea;
+  color: #707789;
   font-weight: 600;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.pageButton[data-active='true'] {
+  border-color: var(--color-primary);
+  color: #ffffff;
+  background: var(--color-primary);
+}
+
+.pageButton:hover,
+.pageNavButton:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pageButton[data-active='true']:hover {
+  color: #ffffff;
+}
+
+.pageNavButton:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.writeButton,
+.footerActionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
 }
 
 .composer,
@@ -132,8 +374,18 @@
 }
 
 .composerBoard {
+  gap: 1rem;
+  padding: 1.75rem 1.5rem;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
   background: #ffffff;
-  border-radius: 24px;
+}
+
+.writerTitle {
+  color: #1f2532;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .composerFields {
@@ -166,7 +418,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
 }
 
@@ -183,6 +435,113 @@
   border: 1px solid #e5e7eb;
   border-radius: 20px;
   background: #ffffff;
+}
+
+.threadCardBoardCompact {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.threadCardBoardCompactExpanded {
+  border-color: #cbd5e1;
+  box-shadow: 0 18px 42px rgb(15 23 42 / 8%);
+}
+
+.compactThreadButton {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.05rem;
+  border: 0;
+  background: #ffffff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.compactThreadButton:hover {
+  background: #fbfcff;
+}
+
+.compactThreadPrimary {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.compactThreadTopRow,
+.compactThreadMeta,
+.compactThreadMetaSecondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.compactThreadTopRow {
+  justify-content: space-between;
+}
+
+.compactThreadMeta {
+  justify-content: space-between;
+}
+
+.compactThreadMetaSecondary {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.compactThreadNumber,
+.compactThreadDate,
+.compactThreadAuthor,
+.compactThreadReplyCount {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.compactThreadNumber {
+  font-weight: 800;
+}
+
+.compactThreadTitle {
+  color: #1f2937;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.45;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.compactThreadPreview {
+  color: #6b7280;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.compactThreadChevron {
+  width: 9px;
+  height: 9px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 180ms ease;
+}
+
+.threadCardBoardCompactExpanded .compactThreadChevron {
+  transform: rotate(-135deg);
+}
+
+.compactThreadDetail {
+  border-top: 1px solid #edf0f4;
+}
+
+.detailInnerCompact {
+  gap: 1.15rem;
+  padding: 1rem 1.05rem 1.1rem;
 }
 
 .threadHeader,
@@ -280,16 +639,39 @@
 }
 
 @media (width <= 768px) {
-  .boardToolbar,
-  .boardIntro {
+  .boardFooter {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .boardSearchBox {
-    max-width: none;
+  .statusCol {
+    width: 90px;
   }
 
+  .authorCol {
+    width: 72px;
+  }
+
+  .dateCol {
+    width: 82px;
+  }
+
+  .pagination {
+    justify-content: center;
+  }
+
+  .boardTable thead th,
+  .boardTable tbody td {
+    padding: 0.9rem 0.45rem;
+    font-size: 0.82rem;
+  }
+
+  .previewText {
+    font-size: 0.76rem;
+  }
+
+  .composerBoard,
+  .detailInner,
   .threadCard,
   .composer,
   .loginPrompt,

@@ -96,11 +96,6 @@ const CartPage = () => {
               <div className={sharedStyles['sectionHeader']}>
                 <h2 className={sharedStyles['sectionTitle']}>담긴 강의가 없습니다.</h2>
               </div>
-              <div className={styles['actionRow']}>
-                <Link className={styles['secondaryActionLink']} to={routePaths.programs}>
-                  강의 둘러보기
-                </Link>
-              </div>
             </section>
           ) : null}
 
@@ -202,12 +197,14 @@ const CartPage = () => {
                         {formatCurrency(pricing.totalOriginalPrice)}
                       </span>
                     </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>강의 할인</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {formatCurrency(pricing.itemDiscountAmount)}
-                      </span>
-                    </div>
+                    {pricing.itemDiscountAmount > 0 ? (
+                      <div className={sharedStyles['metaItem']}>
+                        <span className={sharedStyles['metaLabel']}>강의 할인</span>
+                        <span className={sharedStyles['metaValue']}>
+                          {formatCurrency(pricing.itemDiscountAmount)}
+                        </span>
+                      </div>
+                    ) : null}
                     <div className={sharedStyles['metaItem']}>
                       <span className={sharedStyles['metaLabel']}>총 결제 금액</span>
                       <span className={sharedStyles['metaValue']}>
@@ -217,9 +214,6 @@ const CartPage = () => {
                   </div>
 
                   <div className={styles['actionRow']}>
-                    <Link className={styles['secondaryActionLink']} to={routePaths.programs}>
-                      강의 더 담기
-                    </Link>
                     <button
                       className={styles['primaryActionButton']}
                       disabled={pricing.itemCount === 0}

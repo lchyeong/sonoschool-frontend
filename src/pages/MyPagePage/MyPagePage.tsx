@@ -1,21 +1,20 @@
 import type { ChangeEvent, FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { logoutStudent } from '@/api/auth';
+import { ApiError } from '@/api/errors';
 import {
-  createMyGlobalQuestion,
   createMyEnrollmentReview,
-  deleteMyQuestion,
   sendMyPhoneVerification,
-  updateMyQuestion,
   updateMyEnrollmentReview,
   updateMyProfile,
   verifyMyPhoneChange,
 } from '@/api/mypage';
 import Modal from '@/components/overlay/Modal/Modal';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import {
@@ -36,10 +35,14 @@ import type { SmsSendResponse } from '@/types/auth';
 import type {
   EnrollmentReviewPayload,
   MyQuestionAnsweredFilter,
-  MyQuestionItem,
   MyQuestionScope,
 } from '@/types/mypage';
-import { formatPaymentMethodLabel, paymentStatusLabels, type PaymentStatus } from '@/types/payment';
+import {
+  formatPaymentMethodLabel,
+  paymentStatusLabels,
+  type PaymentResult,
+  type PaymentStatus,
+} from '@/types/payment';
 import { classNames } from '@/utils/classNames';
 
 import styles from './MyPagePage.module.scss';
@@ -56,15 +59,9 @@ interface ReviewFormDraftState {
   values: ReviewFormValues;
 }
 
-interface QuestionFormValues {
-  content: string;
-  title: string;
-}
-
-interface QuestionFormState {
-  mode: 'create' | 'edit';
-  question: MyQuestionItem | null;
-  values: QuestionFormValues;
+interface PhoneFormErrors {
+  phoneNumber?: string;
+  code?: string;
 }
 
 const DEFAULT_VIEW: MyPageViewKey = 'learning';
@@ -106,6 +103,36 @@ const formatDateTime = (value?: string | null) => {
   return date.toLocaleString('ko-KR');
 };
 
+const formatOrderNumberPreview = (value?: string | null) => {
+  if (!value) return '-';
+
+  const normalizedValue = value.replace(/^ORD-/i, '');
+  return normalizedValue.slice(0, 8);
+};
+
+const formatOrderTypeLabel = (value?: PaymentResult['orderType'] | null) => {
+  if (value === 'CART_CHECKOUT') return '장바구니 결제';
+  if (value === 'PROGRAM') return '단일 강의 결제';
+
+  return '-';
+};
+
+const resolvePaymentProcessedAt = (payment: PaymentResult) => {
+  switch (payment.status) {
+    case 'COMPLETED':
+      return payment.paidAt ?? payment.registeredAt ?? payment.requestedAt;
+    case 'CANCELLED':
+      return payment.cancelledAt ?? payment.paidAt ?? payment.registeredAt ?? payment.requestedAt;
+    case 'FAILED':
+      return payment.failedAt ?? payment.requestedAt;
+    case 'REGISTERED':
+      return payment.registeredAt ?? payment.requestedAt;
+    case 'PENDING':
+    default:
+      return payment.requestedAt;
+  }
+};
+
 const formatDateRange = (startValue?: string | null, endValue?: string | null) => {
   const startDate = formatDate(startValue);
   const endDate = formatDate(endValue);
@@ -133,6 +160,10 @@ const formatQuestionAnsweredLabel = (answered: boolean) => {
 
 const MY_COURSE_PAGE_SIZE = 6;
 const ORDER_LIST_PAGE_SIZE = 4;
+const PHONE_ALREADY_EXISTS_ERROR_MESSAGE = '이미 등록된 휴대폰 번호입니다.';
+const PHONE_UNCHANGED_ERROR_MESSAGE = '현재 사용 중인 휴대폰 번호입니다.';
+const PHONE_CHANGE_REQUEST_INVALID_ERROR_MESSAGE = '휴대폰 인증을 다시 진행해 주세요.';
+const PHONE_VERIFICATION_CODE_ERROR_MESSAGE = '인증번호를 확인해 주세요.';
 
 type EnrollmentCourseTabValue = 'ACTIVE' | 'EXPIRED' | 'CERTIFICATE';
 type PaymentStatusFilterValue = 'ALL' | PaymentStatus;
@@ -156,6 +187,59 @@ const paginateItems = <T,>(items: T[], page: number, pageSize: number): T[] => {
 
 const getPageCount = (itemCount: number, pageSize: number): number => {
   return Math.max(1, Math.ceil(itemCount / pageSize));
+};
+
+const omitPhoneFormError = (
+  errors: PhoneFormErrors,
+  fieldName: keyof PhoneFormErrors,
+): PhoneFormErrors => {
+  const { [fieldName]: omittedField, ...nextErrors } = errors;
+  void omittedField;
+  return nextErrors;
+};
+
+const resolvePhoneFormApiError = (
+  error: unknown,
+): {
+  message: string;
+  fieldErrors: PhoneFormErrors;
+} => {
+  if (!(error instanceof ApiError)) {
+    return {
+      fieldErrors: {},
+      message: error instanceof Error ? error.message : '휴대폰 번호를 처리하지 못했습니다.',
+    };
+  }
+
+  switch (error.code) {
+    case 'USER_400_PHONE':
+      return {
+        fieldErrors: { phoneNumber: PHONE_ALREADY_EXISTS_ERROR_MESSAGE },
+        message: PHONE_ALREADY_EXISTS_ERROR_MESSAGE,
+      };
+    case 'USER_400_PHONE_UNCHANGED':
+      return {
+        fieldErrors: { phoneNumber: PHONE_UNCHANGED_ERROR_MESSAGE },
+        message: PHONE_UNCHANGED_ERROR_MESSAGE,
+      };
+    case 'USER_400_PHONE_CHANGE_REQUEST':
+      return {
+        fieldErrors: { phoneNumber: PHONE_CHANGE_REQUEST_INVALID_ERROR_MESSAGE },
+        message: PHONE_CHANGE_REQUEST_INVALID_ERROR_MESSAGE,
+      };
+    case 'AUTH_400_SMS_CODE':
+    case 'AUTH_400_SMS_EXPIRED':
+    case 'AUTH_429_SMS_ATTEMPTS':
+      return {
+        fieldErrors: { code: PHONE_VERIFICATION_CODE_ERROR_MESSAGE },
+        message: PHONE_VERIFICATION_CODE_ERROR_MESSAGE,
+      };
+    default:
+      return {
+        fieldErrors: {},
+        message: error.message,
+      };
+  }
 };
 
 const SegmentFilter = <TValue extends string>({
@@ -230,6 +314,45 @@ const PaginationControls = ({
   );
 };
 
+const DividerFilter = <TValue extends string>({
+  onChange,
+  options,
+  value,
+}: {
+  onChange: (nextValue: TValue) => void;
+  options: SegmentOption<TValue>[];
+  value: TValue;
+}) => {
+  return (
+    <div className={styles['dividerFilter']} role='tablist'>
+      {options.map((option, index) => {
+        const isActive = option.value === value;
+
+        return (
+          <div className={styles['dividerFilterItem']} key={option.value}>
+            <button
+              aria-selected={isActive}
+              className={classNames(
+                styles['dividerFilterButton'],
+                isActive && styles['dividerFilterButtonActive'],
+              )}
+              onClick={() => {
+                onChange(option.value);
+              }}
+              type='button'
+            >
+              {option.label}
+            </button>
+            {index < options.length - 1 ? (
+              <span aria-hidden='true' className={styles['dividerFilterDivider']} />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 interface ProfileFormValues {
   email: string;
   name: string;
@@ -246,15 +369,10 @@ const DEFAULT_REVIEW_FORM_VALUES: ReviewFormValues = {
   rating: '5',
 };
 
-const DEFAULT_QUESTION_FORM_VALUES: QuestionFormValues = {
-  content: '',
-  title: '',
-};
-
 const QUESTION_SCOPE_LABELS: Record<QuestionScopeFilterValue, string> = {
   ALL: '전체',
   GLOBAL: '운영 Q&A',
-  PROGRAM: '프로그램 Q&A',
+  PROGRAM: '강의 Q&A',
 };
 
 const MyPagePage = () => {
@@ -282,8 +400,7 @@ const MyPagePage = () => {
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
   const [profileFormValues, setProfileFormValues] = useState<ProfileFormValues | null>(null);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
-  const [questionFormState, setQuestionFormState] = useState<QuestionFormState | null>(null);
-  const [questionFormError, setQuestionFormError] = useState<string | null>(null);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
   const [reviewFormDraft, setReviewFormDraft] = useState<ReviewFormDraftState>({
     enrollmentId: null,
     values: DEFAULT_REVIEW_FORM_VALUES,
@@ -293,6 +410,7 @@ const MyPagePage = () => {
     phoneNumber: '',
     code: '',
   });
+  const [phoneFormErrors, setPhoneFormErrors] = useState<PhoneFormErrors>({});
   const [sentVerification, setSentVerification] = useState<SmsSendResponse | null>(null);
   const [isPhoneEditorOpen, setIsPhoneEditorOpen] = useState(false);
 
@@ -322,9 +440,7 @@ const MyPagePage = () => {
   const questionsQuery = useMyQuestionsQuery(
     {
       answered:
-        questionAnsweredFilter === 'ALL'
-          ? undefined
-          : questionAnsweredFilter === 'ANSWERED',
+        questionAnsweredFilter === 'ALL' ? undefined : questionAnsweredFilter === 'ANSWERED',
       keyword: questionKeyword,
       page: questionPage - 1,
       scope: questionScopeFilter,
@@ -340,6 +456,10 @@ const MyPagePage = () => {
   });
   const paymentPageCount = getPageCount(filteredPayments.length, ORDER_LIST_PAGE_SIZE);
   const paginatedPayments = paginateItems(filteredPayments, paymentPage, ORDER_LIST_PAGE_SIZE);
+  const selectedPayment =
+    selectedPaymentId === null
+      ? null
+      : (visiblePayments.find((payment) => payment.id === selectedPaymentId) ?? null);
 
   const accountName = profileQuery.data?.displayName || storeDisplayName || '회원';
   const selectedEnrollment =
@@ -372,7 +492,9 @@ const MyPagePage = () => {
   useEffect(() => {
     const totalPages = questionsQuery.data?.totalPages ?? 1;
     if (questionPage > totalPages) {
-      setQuestionPage(totalPages);
+      startTransition(() => {
+        setQuestionPage(totalPages);
+      });
     }
   }, [questionPage, questionsQuery.data?.totalPages]);
 
@@ -415,6 +537,14 @@ const MyPagePage = () => {
       values: DEFAULT_REVIEW_FORM_VALUES,
     });
     setReviewFormError(null);
+  };
+
+  const closePaymentDetailModal = () => {
+    setSelectedPaymentId(null);
+  };
+
+  const openPaymentDetailModal = (paymentId: number) => {
+    setSelectedPaymentId(paymentId);
   };
 
   const openReviewModal = (enrollmentId: number) => {
@@ -495,6 +625,11 @@ const MyPagePage = () => {
         ...currentValues,
         [fieldName]: nextValue,
       }));
+      setPhoneFormErrors((currentErrors) => omitPhoneFormError(currentErrors, fieldName));
+
+      if (fieldName === 'phoneNumber') {
+        setSentVerification(null);
+      }
     };
 
   const logoutMutation = useMutation({
@@ -549,16 +684,17 @@ const MyPagePage = () => {
   const sendPhoneVerificationMutation = useMutation({
     mutationFn: sendMyPhoneVerification,
     onError: (error: unknown) => {
+      const { fieldErrors, message } = resolvePhoneFormApiError(error);
+      setPhoneFormErrors(fieldErrors);
+      setSentVerification(null);
       showToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : '인증번호 발송에 실패했습니다. 다시 시도해 주세요.',
+        message,
         variant: 'error',
       });
     },
     onSuccess: (response) => {
       setSentVerification(response);
+      setPhoneFormErrors({});
       showToast({
         message: '인증번호를 발송했습니다.',
         variant: 'success',
@@ -569,11 +705,10 @@ const MyPagePage = () => {
   const verifyPhoneMutation = useMutation({
     mutationFn: verifyMyPhoneChange,
     onError: (error: unknown) => {
+      const { fieldErrors, message } = resolvePhoneFormApiError(error);
+      setPhoneFormErrors(fieldErrors);
       showToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : '휴대폰 번호를 변경하지 못했습니다. 다시 시도해 주세요.',
+        message,
         variant: 'error',
       });
     },
@@ -588,6 +723,7 @@ const MyPagePage = () => {
         code: '',
         phoneNumber: '',
       });
+      setPhoneFormErrors({});
       setSentVerification(null);
       setIsPhoneEditorOpen(false);
       showToast({
@@ -639,64 +775,6 @@ const MyPagePage = () => {
     },
   });
 
-  const createQuestionMutation = useMutation({
-    mutationFn: createMyGlobalQuestion,
-    onError: (error: unknown) => {
-      setQuestionFormError(error instanceof Error ? error.message : '질문을 등록하지 못했습니다.');
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['mypage', 'questions'] });
-      setQuestionFormState(null);
-      setQuestionFormError(null);
-      setQuestionScopeFilter('ALL');
-      setQuestionAnsweredFilter('ALL');
-      setQuestionPage(1);
-      showToast({
-        message: '운영 Q&A를 등록했습니다.',
-        variant: 'success',
-      });
-    },
-  });
-
-  const updateQuestionMutation = useMutation({
-    mutationFn: ({
-      payload,
-      question,
-    }: {
-      payload: QuestionFormValues;
-      question: MyQuestionItem;
-    }) => updateMyQuestion(question, payload),
-    onError: (error: unknown) => {
-      setQuestionFormError(error instanceof Error ? error.message : '질문을 수정하지 못했습니다.');
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['mypage', 'questions'] });
-      setQuestionFormState(null);
-      setQuestionFormError(null);
-      showToast({
-        message: '질문을 수정했습니다.',
-        variant: 'success',
-      });
-    },
-  });
-
-  const deleteQuestionMutation = useMutation({
-    mutationFn: deleteMyQuestion,
-    onError: (error: unknown) => {
-      showToast({
-        message: error instanceof Error ? error.message : '질문을 삭제하지 못했습니다.',
-        variant: 'error',
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['mypage', 'questions'] });
-      showToast({
-        message: '질문을 삭제했습니다.',
-        variant: 'success',
-      });
-    },
-  });
-
   const handleReviewSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -730,71 +808,6 @@ const MyPagePage = () => {
     });
   };
 
-  const closeQuestionModal = () => {
-    setQuestionFormState(null);
-    setQuestionFormError(null);
-  };
-
-  const openCreateQuestionModal = () => {
-    setQuestionFormState({
-      mode: 'create',
-      question: null,
-      values: DEFAULT_QUESTION_FORM_VALUES,
-    });
-    setQuestionFormError(null);
-  };
-
-  const openEditQuestionModal = (question: MyQuestionItem) => {
-    setQuestionFormState({
-      mode: 'edit',
-      question,
-      values: {
-        content: question.content,
-        title: question.title,
-      },
-    });
-    setQuestionFormError(null);
-  };
-
-  const handleQuestionSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!questionFormState) {
-      return;
-    }
-
-    const title = questionFormState.values.title.trim();
-    const content = questionFormState.values.content.trim();
-
-    if (!title || !content) {
-      setQuestionFormError('질문 제목과 내용을 모두 입력해 주세요.');
-      return;
-    }
-
-    setQuestionFormError(null);
-
-    if (questionFormState.mode === 'create') {
-      createQuestionMutation.mutate({
-        content,
-        title,
-      });
-      return;
-    }
-
-    if (!questionFormState.question) {
-      setQuestionFormError('수정할 질문 정보를 찾지 못했습니다.');
-      return;
-    }
-
-    updateQuestionMutation.mutate({
-      payload: {
-        content,
-        title,
-      },
-      question: questionFormState.question,
-    });
-  };
-
   const renderReviewAction = (enrollment: (typeof allEnrollments)[number]) => {
     if (!enrollment.reviewWritable && !enrollment.reviewWritten) {
       return null;
@@ -802,12 +815,12 @@ const MyPagePage = () => {
 
     return (
       <Button
+        className={styles['compactButton']}
         onClick={() => {
           openReviewModal(enrollment.id);
         }}
         size='sm'
         type='button'
-        variant='secondary'
       >
         {enrollment.reviewWritten ? '후기 수정' : '후기 작성'}
       </Button>
@@ -953,6 +966,7 @@ const MyPagePage = () => {
                       <div className={styles['courseCardFooter']}>
                         <div className={styles['courseActionGroup']}>
                           <Button
+                            className={styles['compactButton']}
                             onClick={() => {
                               handleCertificateDownload(
                                 enrollment.programTitle,
@@ -961,7 +975,6 @@ const MyPagePage = () => {
                             }}
                             size='sm'
                             type='button'
-                            variant='secondary'
                           >
                             수료증 다운로드
                           </Button>
@@ -1016,16 +1029,20 @@ const MyPagePage = () => {
 
   const renderOrderHistory = () => {
     const paymentCount = visiblePayments.length;
-    const completedCount = visiblePayments.filter((payment) => payment.status === 'COMPLETED').length;
-    const cancelledCount = visiblePayments.filter((payment) => payment.status === 'CANCELLED').length;
+    const completedCount = visiblePayments.filter(
+      (payment) => payment.status === 'COMPLETED',
+    ).length;
+    const cancelledCount = visiblePayments.filter(
+      (payment) => payment.status === 'CANCELLED',
+    ).length;
 
     return (
       <section className={styles['contentSection']}>
         <div className={sharedStyles['sectionHeader']}>
           <h2 className={sharedStyles['sectionTitle']}>결제 내역</h2>
           <p className={sharedStyles['sectionDescription']}>
-            전체 {paymentCount}건 중 {filteredPayments.length}건을 보고 있습니다. 결제 완료{' '}
-            {completedCount}건, 취소 완료 {cancelledCount}건입니다.
+            전체 {paymentCount}건 · 표시 {filteredPayments.length}건 · 완료 {completedCount}건 ·
+            취소 {cancelledCount}건
           </p>
         </div>
 
@@ -1060,8 +1077,8 @@ const MyPagePage = () => {
                 <div className={styles['paymentCardHeader']}>
                   <div className={styles['paymentCardTitleGroup']}>
                     <strong className={styles['stackItemTitle']}>{payment.orderName}</strong>
-                    <p className={styles['stackItemText']}>
-                      주문번호 {payment.orderNumber ?? '-'} ·{' '}
+                    <p className={styles['stackItemText']} title={payment.orderNumber ?? undefined}>
+                      주문번호 {formatOrderNumberPreview(payment.orderNumber)} ·{' '}
                       {formatPaymentMethodLabel(payment.paymentMethod)}
                     </p>
                   </div>
@@ -1097,24 +1114,15 @@ const MyPagePage = () => {
                 </div>
 
                 <div className={styles['paymentActionRow']}>
-                  <Link
+                  <button
                     className={styles['paymentActionLink']}
-                    to={`${routePaths.paymentResult}?paymentId=${String(payment.id)}&status=${payment.status}`}
+                    onClick={() => {
+                      openPaymentDetailModal(payment.id);
+                    }}
+                    type='button'
                   >
                     결제 상세 보기
-                  </Link>
-                  {payment.receiptUrl ? (
-                    <a
-                      className={styles['paymentActionLink']}
-                      href={payment.receiptUrl}
-                      rel='noreferrer'
-                      target='_blank'
-                    >
-                      영수증 보기
-                    </a>
-                  ) : (
-                    <span className={sharedStyles['mutedText']}>영수증 없음</span>
-                  )}
+                  </button>
                 </div>
               </article>
             ))}
@@ -1156,36 +1164,33 @@ const MyPagePage = () => {
         <div className={sharedStyles['sectionHeader']}>
           <h2 className={sharedStyles['sectionTitle']}>Q&A관리</h2>
           <p className={sharedStyles['sectionDescription']}>
-            운영 Q&A와 프로그램 Q&A를 한 곳에서 확인하고 관리합니다.
+            내가 남긴 운영 Q&A와 강의 Q&A를 확인하고 답변 상태를 볼 수 있습니다.
           </p>
         </div>
 
         <div className={styles['stackList']}>
           <div className={styles['stackItem']}>
             <div className={styles['stackItemHeader']}>
-              <strong className={styles['stackItemTitle']}>질문 등록 안내</strong>
-              <Button onClick={openCreateQuestionModal} size='sm' type='button'>
-                운영 Q&A 등록
-              </Button>
+              <strong className={styles['stackItemTitle']}>이용 안내</strong>
             </div>
             <p className={styles['stackItemText']}>
-              운영 Q&A는 여기에서 등록할 수 있고, 프로그램 Q&A는 강의 플레이어의 Q&A 탭에서
-              작성한 뒤 여기에서 함께 관리합니다.
+              운영 Q&A는 상단 헤더의 Q&A에서 남길 수 있고, 강의 Q&A는 각 과정의 강의 화면에서 남길
+              수 있습니다. 마이페이지에서는 내가 남긴 질문과 답변만 확인합니다.
             </p>
           </div>
         </div>
 
-        <SegmentFilter
+        <DividerFilter
           onChange={handleQuestionScopeFilterChange}
           options={[
             { label: '전체', value: 'ALL' },
             { label: '운영 Q&A', value: 'GLOBAL' },
-            { label: '프로그램 Q&A', value: 'PROGRAM' },
+            { label: '강의 Q&A', value: 'PROGRAM' },
           ]}
           value={questionScopeFilter}
         />
 
-        <SegmentFilter
+        <DividerFilter
           onChange={handleQuestionAnsweredFilterChange}
           options={[
             { label: '전체', value: 'ALL' },
@@ -1203,22 +1208,19 @@ const MyPagePage = () => {
             setQuestionPage(1);
           }}
         >
-          <div className={sharedStyles['fieldGrid']}>
-            <TextField
-              label='검색어'
-              name='questionSearch'
-              onChange={(event) => {
-                setQuestionSearchInput(event.target.value);
-              }}
-              placeholder='제목, 내용, 프로그램명, 강의명을 검색해 주세요.'
-              value={questionSearchInput}
-            />
-          </div>
-          <div className={styles['actionRow']}>
-            <Button type='submit' variant='secondary'>
-              검색
-            </Button>
-          </div>
+          <UnifiedSearchBar
+            className={styles['sectionSearchBar']}
+            inputAriaLabel='내 질문 검색'
+            onChange={(nextValue) => {
+              setQuestionSearchInput(nextValue);
+            }}
+            onSubmit={() => {
+              setQuestionKeyword(questionSearchInput);
+              setQuestionPage(1);
+            }}
+            placeholder='제목, 내용, 프로그램명, 강의명을 검색해 주세요.'
+            value={questionSearchInput}
+          />
         </form>
 
         {questionsQuery.isLoading ? (
@@ -1244,7 +1246,8 @@ const MyPagePage = () => {
                     <div>
                       <strong className={styles['stackItemTitle']}>{question.title}</strong>
                       <p className={styles['stackItemText']}>
-                        {formatQuestionScopeLabel(question.scope)} · {question.programTitle ?? '운영 문의'}
+                        {formatQuestionScopeLabel(question.scope)} ·{' '}
+                        {question.programTitle ?? '운영 문의'}
                       </p>
                     </div>
                     <span className={styles['statusChip']}>
@@ -1259,6 +1262,7 @@ const MyPagePage = () => {
 
                   <div className={styles['actionRow']}>
                     <Button
+                      className={styles['compactButton']}
                       onClick={() => {
                         setExpandedQuestionId((current) =>
                           current === question.id ? null : question.id,
@@ -1266,30 +1270,8 @@ const MyPagePage = () => {
                       }}
                       size='sm'
                       type='button'
-                      variant='secondary'
                     >
-                      {isExpanded ? '답변 접기' : '답변 보기'}
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        openEditQuestionModal(question);
-                      }}
-                      size='sm'
-                      type='button'
-                      variant='secondary'
-                    >
-                      수정
-                    </Button>
-                    <Button
-                      disabled={deleteQuestionMutation.isPending}
-                      onClick={() => {
-                        deleteQuestionMutation.mutate(question);
-                      }}
-                      size='sm'
-                      type='button'
-                      variant='secondary'
-                    >
-                      삭제
+                      {isExpanded ? '답변 닫기' : '답변 확인'}
                     </Button>
                   </div>
 
@@ -1299,7 +1281,9 @@ const MyPagePage = () => {
                         {question.replies.map((reply) => (
                           <div className={styles['stackItem']} key={reply.id}>
                             <div className={styles['stackItemHeader']}>
-                              <strong className={styles['stackItemTitle']}>{reply.authorName}</strong>
+                              <strong className={styles['stackItemTitle']}>
+                                {reply.authorName}
+                              </strong>
                               <span className={styles['statusChip']}>
                                 {reply.adminReply ? '운영 답변' : '답글'}
                               </span>
@@ -1355,161 +1339,175 @@ const MyPagePage = () => {
       <div className={styles['detailColumn']}>
         <section className={styles['contentSection']}>
           <h2 className={sharedStyles['sectionTitle']}>기본 정보</h2>
-          <div className={sharedStyles['fieldGrid']}>
-            <TextField label='아이디' name='loginId' readOnly value={profileQuery.data.loginId} />
-            <TextField
-              label='이메일'
-              name='email'
-              placeholder='name@example.com'
-              readOnly
-              type='email'
-              value={resolvedProfileFormValues.email}
-            />
-            <TextField
-              label='이름'
-              name='name'
-              onChange={handleProfileFieldChange('name')}
-              placeholder='이름'
-              value={resolvedProfileFormValues.name}
-            />
-            <TextField
-              label='닉네임'
-              name='nickname'
-              onChange={handleProfileFieldChange('nickname')}
-              placeholder='닉네임'
-              value={resolvedProfileFormValues.nickname}
-            />
-            <TextField
-              label='휴대폰 번호'
-              name='currentPhoneNumber'
-              readOnly
-              value={profileQuery.data.phoneNumber || '-'}
-            />
-          </div>
-
-          <div className={styles['phoneMetaRow']}>
-            <div className={styles['phoneValueGroup']}>
-              {profileQuery.data.phoneVerifiedAt ? (
-                <span aria-label='휴대폰 인증 완료' className={styles['verifiedBadge']}>
-                  인증 완료
-                </span>
-              ) : (
-                <span className={sharedStyles['mutedText']}>휴대폰 인증 필요</span>
-              )}
-              <button
-                className={styles['metaActionButton']}
-                onClick={() => {
-                  setIsPhoneEditorOpen((current) => {
-                    const nextValue = !current;
-
-                    if (nextValue) {
-                      setPhoneFormValues({
-                        code: '',
-                        phoneNumber: '',
-                      });
-                      setSentVerification(null);
-                    }
-
-                    return nextValue;
-                  });
-                }}
-                type='button'
-              >
-                {isPhoneEditorOpen ? '닫기' : '휴대폰 번호 변경'}
-              </button>
+          <div className={styles['profileBlock']}>
+            <div className={sharedStyles['fieldGrid']}>
+              <TextField label='아이디' name='loginId' readOnly value={profileQuery.data.loginId} />
+              <TextField
+                label='이메일'
+                name='email'
+                placeholder='name@example.com'
+                readOnly
+                type='email'
+                value={resolvedProfileFormValues.email}
+              />
+              <TextField
+                label='이름'
+                name='name'
+                onChange={handleProfileFieldChange('name')}
+                placeholder='이름'
+                value={resolvedProfileFormValues.name}
+              />
+              <TextField
+                label='닉네임'
+                name='nickname'
+                onChange={handleProfileFieldChange('nickname')}
+                placeholder='닉네임'
+                value={resolvedProfileFormValues.nickname}
+              />
+              <TextField
+                label='휴대폰 번호'
+                name='currentPhoneNumber'
+                readOnly
+                value={profileQuery.data.phoneNumber || '-'}
+              />
             </div>
           </div>
 
-          <div className={styles['consentGroup']}>
-            <p className={styles['consentTitle']}>선택정보 동의</p>
-            <p className={sharedStyles['mutedText']}>
-              이메일 변경과 마케팅 수신 동의 변경은 현재 준비 중입니다. 현재는 이름, 닉네임, 휴대폰
-              번호만 수정할 수 있습니다.
-            </p>
-          </div>
-
-          {isPhoneEditorOpen ? (
-            <div className={styles['inlineEditor']}>
-              <h3 className={styles['contentTitle']}>휴대폰 번호 변경</h3>
-              <div className={sharedStyles['fieldGrid']}>
-                <TextField
-                  label='새 휴대폰 번호'
-                  name='phoneNumber'
-                  onChange={handlePhoneFieldChange('phoneNumber')}
-                  placeholder='010-1234-5678'
-                  value={phoneFormValues.phoneNumber}
-                />
-                <div className={styles['inlineFieldRow']}>
-                  <TextField
-                    className={styles['codeField']}
-                    label='인증번호'
-                    maxLength={6}
-                    name='code'
-                    onChange={handlePhoneFieldChange('code')}
-                    placeholder='6자리 숫자'
-                    value={phoneFormValues.code}
-                  />
-                  <Button
-                    className={styles['inlineActionButton']}
-                    disabled={
-                      sendPhoneVerificationMutation.isPending ||
-                      phoneFormValues.phoneNumber.trim().length === 0
-                    }
-                    onClick={() => {
-                      setSentVerification(null);
-                      sendPhoneVerificationMutation.mutate({
-                        phoneNumber: phoneFormValues.phoneNumber.trim(),
-                      });
-                    }}
-                    type='button'
-                    variant='secondary'
-                  >
-                    {sendPhoneVerificationMutation.isPending ? '발송 중...' : '인증번호 받기'}
-                  </Button>
-                </div>
-              </div>
-
-              {sentVerification ? (
-                <p className={sharedStyles['mutedText']}>인증번호를 보냈습니다.</p>
-              ) : null}
-
-              <div className={styles['actionRow']}>
-                <Button
-                  disabled={
-                    verifyPhoneMutation.isPending ||
-                    phoneFormValues.phoneNumber.trim().length === 0 ||
-                    phoneFormValues.code.trim().length !== 6
-                  }
+          <div className={classNames(styles['profileBlock'], styles['profileDivider'])}>
+            <div className={styles['phoneMetaRow']}>
+              <div className={styles['phoneValueGroup']}>
+                {profileQuery.data.phoneVerifiedAt ? (
+                  <span aria-label='휴대폰 인증 완료' className={styles['verifiedBadge']}>
+                    인증 완료
+                  </span>
+                ) : (
+                  <span className={sharedStyles['mutedText']}>휴대폰 인증 필요</span>
+                )}
+                <button
+                  className={styles['metaActionButton']}
                   onClick={() => {
-                    verifyPhoneMutation.mutate({
-                      code: phoneFormValues.code.trim(),
-                      phoneNumber: phoneFormValues.phoneNumber.trim(),
+                    setIsPhoneEditorOpen((current) => {
+                      const nextValue = !current;
+
+                      if (nextValue) {
+                        setPhoneFormValues({
+                          code: '',
+                          phoneNumber: '',
+                        });
+                        setPhoneFormErrors({});
+                        setSentVerification(null);
+                      }
+
+                      return nextValue;
                     });
                   }}
                   type='button'
                 >
-                  {verifyPhoneMutation.isPending ? '변경 중...' : '번호 변경'}
-                </Button>
+                  {isPhoneEditorOpen ? '닫기' : '휴대폰 번호 변경'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className={classNames(styles['profileBlock'], styles['profileDivider'])}>
+            <div className={styles['consentGroup']}>
+              <p className={styles['consentTitle']}>선택정보 동의</p>
+              <p className={sharedStyles['mutedText']}>
+                이메일 변경과 마케팅 수신 동의 변경은 현재 준비 중입니다. 현재는 이름, 닉네임,
+                휴대폰 번호만 수정할 수 있습니다.
+              </p>
+            </div>
+          </div>
+
+          {isPhoneEditorOpen ? (
+            <div className={classNames(styles['profileBlock'], styles['profileDivider'])}>
+              <div className={styles['inlineEditor']}>
+                <h3 className={styles['contentTitle']}>휴대폰 번호 변경</h3>
+                <div className={sharedStyles['fieldGrid']}>
+                  <TextField
+                    errorMessage={phoneFormErrors.phoneNumber}
+                    label='새 휴대폰 번호'
+                    name='phoneNumber'
+                    onChange={handlePhoneFieldChange('phoneNumber')}
+                    placeholder='010-1234-5678'
+                    value={phoneFormValues.phoneNumber}
+                  />
+                  <div className={styles['inlineFieldRow']}>
+                    <TextField
+                      className={styles['codeField']}
+                      errorMessage={phoneFormErrors.code}
+                      label='인증번호'
+                      maxLength={6}
+                      name='code'
+                      onChange={handlePhoneFieldChange('code')}
+                      placeholder='6자리 숫자'
+                      value={phoneFormValues.code}
+                    />
+                    <Button
+                      className={classNames(styles['compactButton'], styles['inlineActionButton'])}
+                      disabled={
+                        sendPhoneVerificationMutation.isPending ||
+                        phoneFormValues.phoneNumber.trim().length === 0
+                      }
+                      onClick={() => {
+                        setSentVerification(null);
+                        sendPhoneVerificationMutation.mutate({
+                          phoneNumber: phoneFormValues.phoneNumber.trim(),
+                        });
+                      }}
+                      type='button'
+                    >
+                      {sendPhoneVerificationMutation.isPending ? '발송 중...' : '인증번호 받기'}
+                    </Button>
+                  </div>
+                </div>
+
+                {sentVerification ? (
+                  <p className={sharedStyles['mutedText']}>인증번호를 보냈습니다.</p>
+                ) : null}
+
+                <div className={styles['actionRow']}>
+                  <Button
+                    className={styles['compactButton']}
+                    disabled={
+                      verifyPhoneMutation.isPending ||
+                      phoneFormValues.phoneNumber.trim().length === 0 ||
+                      phoneFormValues.code.trim().length !== 6
+                    }
+                    onClick={() => {
+                      verifyPhoneMutation.mutate({
+                        code: phoneFormValues.code.trim(),
+                        phoneNumber: phoneFormValues.phoneNumber.trim(),
+                      });
+                    }}
+                    type='button'
+                  >
+                    {verifyPhoneMutation.isPending ? '변경 중...' : '번호 변경'}
+                  </Button>
+                </div>
               </div>
             </div>
           ) : null}
 
-          <div className={styles['actionRow']}>
-            <Button
-              disabled={
-                updateProfileMutation.isPending ||
-                resolvedProfileFormValues.name.trim().length === 0
-              }
-              onClick={() => {
-                updateProfileMutation.mutate({
-                  name: resolvedProfileFormValues.name.trim(),
-                  nickname: resolvedProfileFormValues.nickname.trim(),
-                });
-              }}
-              type='button'
-            >
-              {updateProfileMutation.isPending ? '저장 중...' : '저장하기'}
-            </Button>
+          <div className={classNames(styles['profileBlock'], styles['profileDivider'])}>
+            <div className={styles['actionRow']}>
+              <Button
+                className={styles['compactButton']}
+                disabled={
+                  updateProfileMutation.isPending ||
+                  resolvedProfileFormValues.name.trim().length === 0
+                }
+                onClick={() => {
+                  updateProfileMutation.mutate({
+                    name: resolvedProfileFormValues.name.trim(),
+                    nickname: resolvedProfileFormValues.nickname.trim(),
+                  });
+                }}
+                type='button'
+              >
+                {updateProfileMutation.isPending ? '저장 중...' : '저장하기'}
+              </Button>
+            </div>
           </div>
         </section>
       </div>
@@ -1605,10 +1603,18 @@ const MyPagePage = () => {
               </div>
               {reviewFormError ? <p className={styles['errorText']}>{reviewFormError}</p> : null}
               <div className={styles['reviewActionRow']}>
-                <Button onClick={closeReviewModal} type='button' variant='secondary'>
+                <Button
+                  className={styles['compactButton']}
+                  onClick={closeReviewModal}
+                  type='button'
+                >
                   닫기
                 </Button>
-                <Button disabled={reviewMutation.isPending} type='submit'>
+                <Button
+                  className={styles['compactButton']}
+                  disabled={reviewMutation.isPending}
+                  type='submit'
+                >
                   {reviewMutation.isPending
                     ? '저장 중...'
                     : reviewWritten
@@ -1624,7 +1630,11 @@ const MyPagePage = () => {
                 후기는 현재 수강 중이거나 이미 작성한 강의에서만 관리할 수 있습니다.
               </p>
               <div className={styles['reviewActionRow']}>
-                <Button onClick={closeReviewModal} type='button' variant='secondary'>
+                <Button
+                  className={styles['compactButton']}
+                  onClick={closeReviewModal}
+                  type='button'
+                >
                   닫기
                 </Button>
               </div>
@@ -1635,75 +1645,93 @@ const MyPagePage = () => {
     );
   };
 
-  const renderQuestionModal = () => {
-    if (!questionFormState) {
+  const renderPaymentDetailModal = () => {
+    if (!selectedPayment) {
       return null;
     }
 
-    const isEditMode = questionFormState.mode === 'edit';
-    const isPending = createQuestionMutation.isPending || updateQuestionMutation.isPending;
+    const detailItems: Array<{ label: string; value: string }> = [
+      {
+        label: '주문번호',
+        value: formatOrderNumberPreview(selectedPayment.orderNumber),
+      },
+      {
+        label: '주문 유형',
+        value: formatOrderTypeLabel(selectedPayment.orderType),
+      },
+      {
+        label: '상태',
+        value: paymentStatusLabels[selectedPayment.status],
+      },
+      {
+        label: '결제 수단',
+        value: formatPaymentMethodLabel(selectedPayment.paymentMethod),
+      },
+      {
+        label: '결제 금액',
+        value: formatCurrency(selectedPayment.approvedAmount ?? selectedPayment.amount),
+      },
+      {
+        label: '처리 시각',
+        value: formatDateTime(resolvePaymentProcessedAt(selectedPayment)),
+      },
+    ];
+
+    if (selectedPayment.cancelReason) {
+      detailItems.push({
+        label: '취소 사유',
+        value: selectedPayment.cancelReason,
+      });
+    }
 
     return (
       <Modal
-        description={
-          isEditMode
-            ? '등록한 질문을 수정합니다.'
-            : '운영 관련 문의를 등록합니다. 프로그램 질문은 플레이어의 Q&A 탭에서 작성해 주세요.'
-        }
-        onClose={closeQuestionModal}
-        title={isEditMode ? '질문 수정' : '운영 Q&A 등록'}
+        description='결제 내용을 확인할 수 있습니다.'
+        onClose={closePaymentDetailModal}
+        size='lg'
+        title='결제 상세'
       >
-        <form className={styles['reviewForm']} onSubmit={handleQuestionSubmit}>
-          <div className={styles['reviewFieldGrid']}>
-            <TextField
-              label='제목'
-              name='questionTitle'
-              onChange={(event) => {
-                setQuestionFormState((current) =>
-                  current
-                    ? {
-                        ...current,
-                        values: {
-                          ...current.values,
-                          title: event.target.value,
-                        },
-                      }
-                    : current,
-                );
-              }}
-              placeholder='질문 제목을 입력해 주세요.'
-              value={questionFormState.values.title}
-            />
-            <TextAreaField
-              label='내용'
-              name='questionContent'
-              onChange={(event) => {
-                setQuestionFormState((current) =>
-                  current
-                    ? {
-                        ...current,
-                        values: {
-                          ...current.values,
-                          content: event.target.value,
-                        },
-                      }
-                    : current,
-                );
-              }}
-              rows={7}
-              value={questionFormState.values.content}
-            />
+        <div className={styles['paymentReceipt']}>
+          <div className={styles['paymentReceiptHeader']}>
+            <div className={styles['paymentReceiptTitleBlock']}>
+              <p className={styles['paymentReceiptEyebrow']}>결제 내역서</p>
+              <strong className={styles['contentTitle']}>{selectedPayment.orderName}</strong>
+              <p
+                className={sharedStyles['mutedText']}
+                title={selectedPayment.orderNumber ?? undefined}
+              >
+                주문번호 {formatOrderNumberPreview(selectedPayment.orderNumber)} ·{' '}
+                {formatPaymentMethodLabel(selectedPayment.paymentMethod)}
+              </p>
+            </div>
+            <span className={styles['statusChip']}>
+              {paymentStatusLabels[selectedPayment.status]}
+            </span>
           </div>
-          {questionFormError ? <p className={styles['errorText']}>{questionFormError}</p> : null}
-          <div className={styles['reviewActionRow']}>
-            <Button onClick={closeQuestionModal} type='button' variant='secondary'>
+
+          <div className={styles['paymentReceiptDivider']} />
+
+          <div className={styles['paymentReceiptBody']}>
+            {detailItems.map((item) => (
+              <div className={styles['paymentReceiptRow']} key={item.label}>
+                <span className={styles['paymentReceiptLabel']}>{item.label}</span>
+                <strong className={styles['paymentReceiptValue']}>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles['paymentReceiptDivider']} />
+
+          <div className={styles['paymentReceiptActions']}>
+            <Button
+              className={styles['compactButton']}
+              onClick={closePaymentDetailModal}
+              type='button'
+            >
               닫기
             </Button>
-            <Button disabled={isPending} type='submit'>
-              {isPending ? '저장 중...' : isEditMode ? '질문 수정하기' : '질문 등록하기'}
-            </Button>
           </div>
-        </form>
+        </div>
       </Modal>
     );
   };
@@ -1749,13 +1777,12 @@ const MyPagePage = () => {
 
               <div className={styles['sidebarFooter']}>
                 <Button
-                  className={styles['logoutButton']}
+                  className={classNames(styles['compactButton'], styles['logoutButton'])}
                   disabled={logoutMutation.isPending}
                   onClick={() => {
                     logoutMutation.mutate();
                   }}
                   type='button'
-                  variant='secondary'
                 >
                   {logoutMutation.isPending ? '로그아웃 중...' : '로그아웃'}
                 </Button>
@@ -1767,7 +1794,7 @@ const MyPagePage = () => {
         </div>
       </div>
       {renderReviewModal()}
-      {renderQuestionModal()}
+      {renderPaymentDetailModal()}
     </section>
   );
 };

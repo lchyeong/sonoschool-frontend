@@ -459,10 +459,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
                 </div>
               ) : (
                 <LinkComponent
-                  className={classNames(
-                    styles['textActionLink'],
-                    styles['textActionButtonSecondary'],
-                  )}
+                  className={classNames(styles['textActionLink'], styles['textActionLinkPrimary'])}
                   onClick={() => {
                     closeDesktopMenu();
                     closeAccountMenu();

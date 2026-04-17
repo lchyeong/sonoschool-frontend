@@ -10,8 +10,8 @@ import {
 } from '@/api/adminProgramsLive';
 import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
-import { TextField } from '@/components/ui/TextField/TextField';
 import { useAdminProgramDraftsQuery } from '@/query/useAdminProgramDraftsQuery';
 import {
   adminProgramsLiveQueryKey,
@@ -265,13 +265,14 @@ const AdminProgramListSection = () => {
           <div className={styles['toolbarFilters']}>
             <div className={styles['toolbarFilterRow']}>
               <div className={styles['toolbarSearchField']}>
-                <TextField
-                  label='프로그램 검색'
-                  name='programSearch'
-                  onChange={(event) => {
+                <UnifiedSearchBar
+                  className={styles['adminSearchBarWide']}
+                  inputAriaLabel='프로그램 검색'
+                  onChange={(nextValue) => {
                     setCurrentPage(0);
-                    setSearchKeyword(event.target.value);
+                    setSearchKeyword(nextValue);
                   }}
+                  onSubmit={() => undefined}
                   placeholder='프로그램명, 카테고리, 강사명으로 검색'
                   value={searchKeyword}
                 />

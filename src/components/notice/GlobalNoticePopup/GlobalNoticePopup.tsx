@@ -40,7 +40,11 @@ const GlobalNoticePopup = () => {
   const [closedPopupIds, setClosedPopupIds] = useState<number[]>([]);
 
   const activePopup = useMemo(() => {
-    const popups = popupsQuery.data ?? [];
+    const popups = Array.isArray(popupsQuery.data)
+      ? popupsQuery.data
+      : popupsQuery.data
+        ? [popupsQuery.data]
+        : [];
 
     return (
       popups.find((popup) => {

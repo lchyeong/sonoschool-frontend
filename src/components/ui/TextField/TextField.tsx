@@ -30,11 +30,14 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           ref={ref}
           {...rest}
         />
-        {errorMessage ? (
-          <div className={styles['error']} id={errorId} role='alert'>
-            {errorMessage}
-          </div>
-        ) : null}
+        <div
+          aria-hidden={!errorMessage}
+          className={classNames(styles['error'], !errorMessage && styles['errorHidden'])}
+          id={errorMessage && errorId ? errorId : undefined}
+          role={errorMessage ? 'alert' : undefined}
+        >
+          {errorMessage ?? ' '}
+        </div>
       </div>
     );
   },
@@ -64,11 +67,14 @@ export const TextAreaField = forwardRef<HTMLTextAreaElement, TextAreaFieldProps>
           ref={ref}
           {...rest}
         />
-        {errorMessage ? (
-          <div className={styles['error']} id={errorId} role='alert'>
-            {errorMessage}
-          </div>
-        ) : null}
+        <div
+          aria-hidden={!errorMessage}
+          className={classNames(styles['error'], !errorMessage && styles['errorHidden'])}
+          id={errorMessage && errorId ? errorId : undefined}
+          role={errorMessage ? 'alert' : undefined}
+        >
+          {errorMessage ?? ' '}
+        </div>
       </div>
     );
   },

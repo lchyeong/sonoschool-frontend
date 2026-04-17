@@ -139,10 +139,7 @@ const CommonHeaderMobileDrawer = ({
             </LinkComponent>
           ) : (
             <LinkComponent
-              className={classNames(
-                styles['mobileActionLink'],
-                styles['mobileActionButtonSecondary'],
-              )}
+              className={classNames(styles['mobileActionLink'], styles['mobileActionLinkPrimary'])}
               onClick={onCloseMenu}
               to={routePaths.login}
             >

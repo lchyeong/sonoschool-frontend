@@ -5,6 +5,7 @@ import type {
   ProgramQnaThreadCreatePayload,
   ProgramQnaThreadItem,
 } from '@/types/programQna';
+import { getCurrentMockStudentDisplayName } from '@/mocks/data/studentAuth';
 
 const initialThreadsByProgramId = new Map<number, ProgramQnaThreadItem[]>([
   [
@@ -117,7 +118,7 @@ export const createMockProgramQnaThread = (
     scope: 'PROGRAM',
     programId,
     programTitle: currentThreads[0]?.programTitle ?? `프로그램 ${String(programId)}`,
-    authorName: '현재 사용자',
+    authorName: getCurrentMockStudentDisplayName(),
     authorType: 'MEMBER',
     title: payload.title,
     content: payload.content,
@@ -151,7 +152,7 @@ export const createMockProgramQnaReply = (
         ...currentThreads.flatMap((thread) => thread.replies.map((reply) => reply.id)),
         100,
       ) + 1,
-    authorName: '현재 사용자',
+    authorName: getCurrentMockStudentDisplayName(),
     authorType: 'MEMBER',
     content: payload.content,
     mine: true,

@@ -12,14 +12,6 @@ import styles from './ProgramPage.module.scss';
 import ProgramPageDetail from './ProgramPageDetail';
 import { useProgramCatalogActions } from '../ProgramsPage/useProgramCatalogActions';
 
-const getCollectionEyebrow = (kicker: string, breadcrumbItems: { label: string }[]): string => {
-  if (breadcrumbItems.length < 3) {
-    return kicker;
-  }
-
-  return breadcrumbItems.at(-2)?.label ?? kicker;
-};
-
 const ProgramPage = () => {
   // `/programs/*` 아래에서는 URL 전체가 현재 보고 싶은 교육과정 페이지의 식별자 역할을 합니다.
   // 그래서 params 조합 대신 `pathname` 자체를 API 조회 기준으로 사용합니다.
@@ -67,7 +59,7 @@ const ProgramPage = () => {
   // 같은 URL 구조라도 API 응답의 `pageKind`에 따라
   // "목록 페이지"와 "상세 페이지"를 분기합니다.
   if (data.pageKind === 'collection') {
-    const eyebrow = getCollectionEyebrow(data.kicker, data.breadcrumbItems);
+    const shouldShowChildCollections = data.breadcrumbItems.length > 2 && data.childCollections.length > 0;
 
     return (
       <div className={styles['container']}>
@@ -75,13 +67,12 @@ const ProgramPage = () => {
 
         <section className={styles['archiveHeaderSection']}>
           <div className={styles['archiveHeaderCopy']}>
-            <p className={styles['eyebrow']}>{eyebrow}</p>
             <h1 className={styles['title']}>{data.title}</h1>
             <p className={styles['description']}>{data.description}</p>
           </div>
         </section>
 
-        {data.childCollections.length ? (
+        {shouldShowChildCollections ? (
           <section className={styles['archiveFilterSection']}>
             <p className={styles['archiveFilterLabel']}>세부 과정</p>
             <div className={styles['archiveFilterList']}>

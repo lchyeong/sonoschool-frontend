@@ -18,7 +18,6 @@
 .playerShell,
 .playerFrame,
 .playerOverlayCopy,
-.playerToolbar,
 .settingsWrap,
 .settingsPanel,
 .settingsSection,
@@ -46,7 +45,6 @@
 .lessonCopy,
 .lessonMeta,
 .actionRow,
-.sequenceGroup,
 .notesPanel,
 .notesHeader,
 .notesList,
@@ -73,6 +71,7 @@
   min-height: 100vh;
   gap: 20px;
   padding: 18px 20px 20px;
+  align-content: start;
 }
 
 .topBar {
@@ -179,7 +178,6 @@
 .notesHint,
 .curriculumDescription,
 .progressText,
-.sectionMeta,
 .lessonLinkDuration {
   color: rgb(133 150 165);
   font-size: var(--font-size-xs);
@@ -271,6 +269,11 @@
   background:
     radial-gradient(circle at top, rgb(157 226 216 / 12%), transparent 34%),
     linear-gradient(180deg, rgb(4 8 13) 0%, rgb(5 9 13) 100%);
+}
+
+.playerFrameSchedule {
+  aspect-ratio: auto;
+  background: transparent;
 }
 
 .playerElement {
@@ -375,12 +378,6 @@
   background: rgb(46 52 61 / 96%) !important;
 }
 
-.playerToolbar {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-}
-
 .settingsWrap {
   position: relative;
 }
@@ -482,7 +479,6 @@
 }
 
 .transportMeta,
-.sequenceGroup,
 .actionRow,
 .summaryList,
 .badgeRow {
@@ -490,40 +486,6 @@
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
-}
-
-.transportButton {
-  min-width: 0;
-  padding-inline: 12px !important;
-  border-radius: 999px !important;
-  border-color: rgb(255 255 255 / 12%) !important;
-  color: #ffffff !important;
-  background: rgb(255 255 255 / 6%) !important;
-  font-size: var(--font-size-sm) !important;
-}
-
-.transportButton:hover {
-  background: rgb(255 255 255 / 10%) !important;
-}
-
-.transportButtonInner {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  line-height: 1;
-}
-
-.transportIcon {
-  width: 10px;
-  height: 10px;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  filter: brightness(0) invert(1);
-}
-
-.transportIconPrevious {
-  transform: scaleX(-1);
 }
 
 .workspaceGrid {
@@ -616,8 +578,10 @@
   position: sticky;
   top: 18px;
   gap: 18px;
+  min-height: 0;
   max-height: calc(100vh - 36px);
   padding: 18px;
+  align-content: start;
   overflow: hidden;
   border: 1px solid rgb(15 23 42 / 8%);
   border-radius: 26px;
@@ -632,54 +596,54 @@
 .panelSwitchRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: end;
+  gap: 0;
 }
 
 .panelSwitchButton {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 40px;
-  padding: 0 12px;
+  min-height: 44px;
+  padding: 0.72rem 1rem 0.82rem;
   border: 1px solid rgb(203 213 225);
-  border-radius: 999px;
-  background: #ffffff;
-  color: rgb(71 85 105);
-  font-size: 0.82rem;
+  border-bottom: 0;
+  border-radius: 0;
+  background: rgb(241 245 249);
+  color: rgb(100 116 139);
+  font-size: 0.8rem;
   font-weight: 700;
+  box-shadow: inset 0 -1px 0 rgb(203 213 225);
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .panelSwitchButtonActive {
-  border-color: rgb(45 212 191 / 48%);
-  background: rgb(236 253 245);
+  border-color: rgb(15 118 110 / 24%);
+  background: #ffffff;
   color: rgb(15 118 110);
+  transform: translateY(1px);
+  box-shadow:
+    0 -8px 18px rgb(15 23 42 / 6%),
+    inset 0 3px 0 rgb(45 212 191 / 38%);
 }
 
-.panelSwitchIcon {
-  width: 16px;
-  height: 16px;
+.panelSwitchButton:hover {
+  background: rgb(248 250 252);
+  color: rgb(51 65 85);
 }
 
 .panelSwitchLabel {
   white-space: nowrap;
 }
 
-.panelSwitchCount {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: rgb(241 245 249);
-  color: rgb(30 41 59);
-  font-size: 0.74rem;
-  font-weight: 800;
-}
-
 .curriculumHeaderCopy,
 .progressPanel,
+.curriculumPanelContent,
 .sectionBlock {
   gap: 10px;
 }
@@ -726,22 +690,29 @@
   background: linear-gradient(90deg, var(--color-primary) 0%, rgb(17 126 110) 100%);
 }
 
+.curriculumPanelContent {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  align-content: start;
+  overflow: hidden;
+}
+
 .curriculumBody {
+  min-height: 0;
   gap: 14px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
 .qnaPanelBody {
+  min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
 }
 
-.quizNavigatorActions {
-  display: flex;
-  flex-wrap: wrap;
+.qnaPanelBody :global(.boardHeader) {
   gap: 0.65rem;
-  align-items: center;
 }
 
 .quizNavigatorStatGrid {
@@ -766,26 +737,9 @@
   font-weight: var(--font-weight-bold);
 }
 
-.quizNavigatorDetails {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.quizNavigatorSummary {
-  cursor: pointer;
-  color: rgb(15 23 42);
-  font-size: 0.9rem;
-  font-weight: var(--font-weight-bold);
-  list-style: none;
-}
-
-.quizNavigatorSummary::-webkit-details-marker {
-  display: none;
-}
-
 .quizNavigatorList {
   display: grid;
-  gap: 0.65rem;
+  gap: 0;
   max-height: min(52vh, 560px);
   overflow-y: auto;
   padding-right: 4px;
@@ -795,41 +749,42 @@
   display: grid;
   gap: 0.45rem;
   width: 100%;
-  border: 1px solid rgb(203 213 225);
-  background: #ffffff;
-  padding: 0.75rem;
+  border: 0;
+  border-bottom: 1px solid rgb(226 232 240);
+  background: transparent;
+  padding: 0.9rem 0;
   color: rgb(51 65 85);
   text-align: left;
   transition:
-    border-color 160ms ease,
     background-color 160ms ease,
-    box-shadow 160ms ease;
+    color 160ms ease,
+    padding-left 160ms ease;
 }
 
 .quizNavigatorListButton:hover,
 .quizNavigatorListButton:focus-visible {
-  border-color: rgb(148 163 184);
   background: rgb(248 250 252);
-  box-shadow: 0 10px 20px rgb(15 23 42 / 8%);
+  color: rgb(15 23 42);
   outline: none;
 }
 
 .quizNavigatorListButtonCurrent {
-  border-color: rgb(14 165 233 / 80%);
-  background: rgb(224 242 254);
+  padding-left: 0.65rem;
+  box-shadow: inset 3px 0 0 rgb(15 118 110);
 }
 
 .quizNavigatorQuestionTitle {
-  color: rgb(3 105 161);
-  font-size: 0.88rem;
+  color: rgb(15 23 42);
+  font-size: 0.8rem;
   font-weight: var(--font-weight-bold);
   line-height: 1.45;
 }
 
 .quizNavigatorStateRow {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .quizNavigatorStateBadge,
@@ -855,10 +810,70 @@
   color: rgb(185 28 28);
 }
 
-.quizNavigatorAnswer {
-  color: rgb(71 85 105);
+.quizNavigatorInfo {
+  border-top: 1px solid rgb(226 232 240);
+  border-bottom: 1px solid rgb(226 232 240);
+}
+
+.quizNavigatorInfoSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 0;
+  cursor: pointer;
+  color: rgb(15 23 42);
+  font-size: 0.88rem;
+  font-weight: var(--font-weight-bold);
+  list-style: none;
+}
+
+.quizNavigatorInfoSummary::-webkit-details-marker {
+  display: none;
+}
+
+.quizNavigatorInfoSummary::after {
+  width: 10px;
+  height: 10px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 180ms ease;
+  content: '';
+}
+
+.quizNavigatorInfo[open] .quizNavigatorInfoSummary::after {
+  transform: rotate(225deg);
+}
+
+.quizNavigatorInfoList {
+  margin: 0;
+}
+
+.quizNavigatorInfoRow {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid rgb(241 245 249);
+}
+
+.quizNavigatorInfoRow dt,
+.quizNavigatorInfoRow dd {
+  margin: 0;
   font-size: 0.78rem;
-  line-height: 1.45;
+  line-height: 1.5;
+}
+
+.quizNavigatorInfoRow dt {
+  color: rgb(100 116 139);
+  font-weight: var(--font-weight-semibold);
+}
+
+.quizNavigatorInfoRow dd {
+  color: rgb(15 23 42);
+  text-align: right;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .sectionTitle {
@@ -878,6 +893,36 @@
 .sectionHeader {
   cursor: pointer;
   list-style: none;
+}
+
+.sectionToggle {
+  display: inline-flex;
+  align-items: center;
+  color: rgb(100 116 139);
+  transition: color 180ms ease;
+}
+
+.sectionToggleIcon {
+  width: 14px;
+  height: 14px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  transform: rotate(180deg);
+  transition: transform 220ms ease;
+}
+
+.sectionBlock[open] .sectionToggle {
+  color: rgb(71 85 105);
+}
+
+.sectionBlock[open] .sectionToggleIcon {
+  transform: rotate(0deg);
+}
+
+.sectionHeader:hover .sectionToggle,
+.sectionHeader:focus-visible .sectionToggle {
+  color: rgb(15 118 110);
 }
 
 .sectionHeader::-webkit-details-marker {
@@ -965,13 +1010,28 @@
   -webkit-mask-size: 10px 10px;
 }
 
-.lessonLinkHeader {
+.lessonLinkHeader,
+.lessonLinkBody {
   min-width: 0;
 }
 
-.lessonTitleGroup {
+.lessonLinkBody {
   display: grid;
+  gap: 8px;
+}
+
+.lessonBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+.lessonTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
   min-width: 0;
 }
 
@@ -980,13 +1040,33 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   line-height: 1.55;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .lessonLinkMeta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+}
+
+.lessonSummaryAction {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 0.65rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 999px;
+  background: rgb(248 250 252);
+  color: rgb(71 85 105);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .lessonTypeBadge,
@@ -1000,6 +1080,7 @@
   border-radius: 8px;
   font-size: 0.7rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .lessonTypeBadge {
@@ -1048,6 +1129,184 @@
   border-color: rgba(248, 113, 113, 0.22);
   background: rgba(239, 68, 68, 0.12);
   color: rgb(254 202 202);
+}
+
+.offlineScheduleWorkspace {
+  display: grid;
+  gap: 1rem;
+  min-height: 100%;
+}
+
+.resourceBoard {
+  display: grid;
+  min-height: 100%;
+  padding: 1rem;
+  border: 1px solid rgb(226 232 240 / 92%);
+  background: rgb(248 250 252);
+  color: rgb(15 23 42);
+}
+
+.resourceBoardList {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.resourceBoardRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.resourceBoardIndex {
+  color: rgb(15 118 110);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.resourceBoardMain {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.resourceBoardTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.55rem;
+  align-items: center;
+}
+
+.resourceBoardTitle {
+  color: rgb(15 23 42);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.45;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.resourceBoardBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  background: rgb(240 253 250);
+  color: rgb(15 118 110);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.resourceBoardDescription,
+.resourceBoardMeta,
+.resourceBoardEmpty {
+  margin: 0;
+  color: rgb(100 116 139);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.resourceBoardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+}
+
+.resourceBoardActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.resourceBoardEmpty {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  text-align: center;
+}
+
+.offlineCalendarPanel {
+  border: 1px solid rgb(226 232 240 / 92%);
+  background: rgb(248 250 252);
+  color: rgb(15 23 42);
+  overflow: hidden;
+}
+
+.offlineCalendarEyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  background: rgb(226 232 240);
+  color: rgb(15 118 110);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.offlineCalendarHeader .practicumPanelDescription {
+  color: rgb(100 116 139);
+}
+
+.offlineCalendarPanel .practicumCalendarWeekdays {
+  border-top-color: rgb(226 232 240);
+  border-bottom-color: rgb(226 232 240);
+}
+
+.offlineCalendarPanel .practicumCalendarWeekday {
+  border-right-color: rgb(226 232 240);
+  color: rgb(100 116 139);
+}
+
+.offlineCalendarPanel .practicumCalendarEmptyCell,
+.offlineCalendarPanel .practicumCalendarDay {
+  min-height: 136px;
+  border-right-color: rgb(226 232 240);
+  border-bottom-color: rgb(226 232 240);
+}
+
+.offlineCalendarPanel .practicumCalendarEmptyCell {
+  background: #ffffff;
+}
+
+.offlineCalendarPanel .practicumCalendarDay {
+  background: #ffffff;
+}
+
+.offlineCalendarPanel .practicumCalendarDay[data-has-items='true'] {
+  background: rgb(248 250 252);
+}
+
+.offlineCalendarPanel .practicumCalendarDay[data-selected='true'],
+.offlineCalendarPanel .practicumCalendarDay[data-reserved='true'],
+.offlineCalendarPanel .practicumCalendarDay[data-selected='true'][data-reserved='true'] {
+  box-shadow: inset 0 0 0 3px rgb(15 118 110 / 78%);
+}
+
+.offlineCalendarPanel .practicumCalendarDayCount {
+  color: rgb(15 118 110);
+}
+
+.offlineCalendarPreviewItem,
+.offlineCalendarPreviewEmpty {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.offlineCalendarPreviewItem {
+  color: rgb(51 65 85);
+  font-weight: 600;
+  word-break: keep-all;
+}
+
+.offlineCalendarPreviewEmpty {
+  color: rgb(148 163 184);
 }
 
 .blockedCard {
@@ -1429,14 +1688,6 @@
   padding: 1.25rem;
 }
 
-.quizWorkspaceHeader {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
 .quizDescription {
   margin: 0.35rem 0 0;
   color: rgb(191 209 220);
@@ -1445,7 +1696,6 @@
 }
 
 .quizMutedText,
-.quizSummaryMeta,
 .quizResultMeta,
 .quizResultExplanation {
   margin: 0;
@@ -1461,7 +1711,6 @@
   line-height: 1.6;
 }
 
-.quizSummary,
 .quizResultCard {
   display: grid;
   gap: 0.9rem;
@@ -1470,28 +1719,10 @@
   padding: 1rem;
 }
 
-.quizSummaryTitle,
 .quizResultTitle {
   display: block;
   color: #ffffff;
   font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.quizSummaryStats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.quizSummaryStat {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(143, 168, 191, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  padding: 0.35rem 0.6rem;
-  color: rgb(219 231 239);
-  font-size: 0.78rem;
   font-weight: 700;
 }
 
@@ -1505,6 +1736,7 @@
 .quizResultItem {
   display: grid;
   gap: 0.75rem;
+  position: relative;
   border: 1px solid rgba(143, 168, 191, 0.18);
   background: rgba(255, 255, 255, 0.04);
   padding: 1rem;
@@ -1520,6 +1752,10 @@
   gap: 0.75rem;
 }
 
+.quizQuestionHeader {
+  padding-right: 132px;
+}
+
 .quizQuestionTitle,
 .quizResultQuestion {
   color: #ffffff;
@@ -1528,7 +1764,6 @@
   line-height: 1.6;
 }
 
-.quizQuestionType,
 .quizResultBadge,
 .quizResultState {
   display: inline-flex;
@@ -1539,6 +1774,36 @@
   color: rgb(219 231 239);
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.quizFlagToggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgb(219 231 239);
+  font-size: 0.82rem;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.quizFlagToggle input {
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  border: 1.5px solid rgb(203 213 225);
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 2px #ffffff;
+}
+
+.quizFlagToggle input:checked {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  box-shadow: inset 0 0 0 3px #ffffff;
 }
 
 .quizResultBadgePassed,
@@ -1611,31 +1876,11 @@
   justify-content: space-between;
 }
 
-.quizProgressPill {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(143, 168, 191, 0.22);
-  background: rgba(255, 255, 255, 0.08);
-  padding: 0.4rem 0.7rem;
-  color: #ffffff;
-  font-size: 0.86rem;
-  font-weight: var(--font-weight-bold);
-}
-
-.quizControlTime {
+.quizControlNavigation {
   display: flex;
-  flex-direction: column;
-  gap: 0.12rem;
-  min-width: 88px;
-  color: #ffffff;
-}
-
-.quizControlTimeLabel {
-  color: rgb(148 163 184);
-  font-size: 0.76rem;
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
 }
 
 @media (width < 1180px) {
@@ -1678,12 +1923,50 @@
     bottom: 18px;
   }
 
-  .playerToolbar {
-    grid-template-columns: minmax(0, 1fr);
+  .lessonLink {
+    padding: 14px 12px;
+  }
+
+  .playerFrameSchedule {
+    overflow: visible;
+  }
+
+  .lessonLinkBody {
+    gap: 8px;
+  }
+
+  .lessonTitleRow {
+    gap: 6px 10px;
+  }
+
+  .lessonLinkMeta {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .offlineCalendarPanel .practicumCalendarEmptyCell,
+  .offlineCalendarPanel .practicumCalendarDay {
+    min-height: 112px;
+  }
+
+  .resourceBoard,
+  .resourceBoardRow {
+    padding: 1rem;
   }
 
   .settingsPanel {
     left: 0;
     right: auto;
+  }
+}
+
+@media (width < 960px) {
+  .resourceBoardRow {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .resourceBoardActions {
+    grid-column: 2;
+    justify-content: flex-start;
   }
 }

@@ -22,8 +22,6 @@ import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import {
-  formatPaymentMethodLabel,
-  paymentMethodLabels,
   type CheckoutPaymentMethod,
   type KcpMobileRegisterResponse,
   type KcpPcPrepareResponse,
@@ -36,7 +34,7 @@ import { getProgramTypeLabel } from '@/utils/programType';
 import styles from './CheckoutPage.module.scss';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
-const checkoutPaymentMethods: CheckoutPaymentMethod[] = ['CARD'];
+const defaultCheckoutPaymentMethod: CheckoutPaymentMethod = 'CARD';
 const KCP_PAYMENT_VISIBILITY_EVENT = 'sonoschool:kcp-payment-visibility';
 const pcPaymentOpenErrorMessage = '결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.';
 const pcPaymentIncompleteMessage =
@@ -281,7 +279,6 @@ const setKcpPaymentVisibility = (visible: boolean) => {
 };
 
 const CheckoutPage = () => {
-  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('CARD');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPcPreparing, setIsPcPreparing] = useState(false);
   const [isPcPaymentReady, setIsPcPaymentReady] = useState(false);
@@ -307,7 +304,9 @@ const CheckoutPage = () => {
   const pricing = calculateSelectedCartPricing(cart, selectedItemIds);
   const isMobilePayment = isMobileBrowser();
   const isFreeCheckout = pricing.totalPayablePrice === 0;
-  const effectivePaymentMethod: CheckoutPaymentMethod = isFreeCheckout ? 'FREE' : paymentMethod;
+  const effectivePaymentMethod: CheckoutPaymentMethod = isFreeCheckout
+    ? 'FREE'
+    : defaultCheckoutPaymentMethod;
   const selectedCartItemIds = pricing.selectedItems.map((item) => item.id);
   const pcPrepareKey = buildPcPrepareKey(
     selectedCartItemIds,
@@ -756,47 +755,7 @@ const CheckoutPage = () => {
 
                 <section className={sharedStyles['section']}>
                   <div className={sharedStyles['sectionHeader']}>
-                    <h2 className={sharedStyles['sectionTitle']}>결제 수단</h2>
-                    <p className={sharedStyles['sectionDescription']}>
-                      {isFreeCheckout
-                        ? '최종 금액이 0원이어서 외부 결제 없이 바로 무료 신청으로 처리됩니다.'
-                        : '현재는 카드 결제를 지원하며, 선택한 장바구니 항목 전체가 한 번에 결제됩니다.'}
-                    </p>
-                  </div>
-                  {isFreeCheckout ? (
-                    <div className={styles['methodList']}>
-                      <label className={styles['methodOption']}>
-                        <input checked disabled type='radio' />
-                        <span>{paymentMethodLabels['FREE']}</span>
-                      </label>
-                    </div>
-                  ) : (
-                    <div className={styles['methodList']}>
-                      {checkoutPaymentMethods.map((value) => (
-                        <label className={styles['methodOption']} key={value}>
-                          <input
-                            checked={paymentMethod === value}
-                            name='paymentMethod'
-                            onChange={() => {
-                              setPaymentMethod(value);
-                            }}
-                            type='radio'
-                          />
-                          <span>{paymentMethodLabels[value]}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
-                <section className={sharedStyles['section']}>
-                  <div className={sharedStyles['sectionHeader']}>
                     <h2 className={sharedStyles['sectionTitle']}>선택한 주문 항목</h2>
-                    <p className={sharedStyles['sectionDescription']}>
-                      {isFreeCheckout
-                        ? '0원 강의도 동일한 주문 흐름으로 처리되며, 서버가 선택 항목 기준 최종 금액을 확정합니다.'
-                        : '모바일에서는 KCP 결제창으로 이동하며, 서버가 선택 항목 기준 최종 금액을 확정합니다.'}
-                    </p>
                   </div>
                   <div className={styles['itemList']}>
                     {pricing.selectedItems.map((item) => (
@@ -835,18 +794,14 @@ const CheckoutPage = () => {
                         {formatCurrency(pricing.totalOriginalPrice)}
                       </span>
                     </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>강의 할인</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {formatCurrency(pricing.itemDiscountAmount)}
-                      </span>
-                    </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>결제 수단</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {formatPaymentMethodLabel(effectivePaymentMethod)}
-                      </span>
-                    </div>
+                    {pricing.itemDiscountAmount > 0 ? (
+                      <div className={sharedStyles['metaItem']}>
+                        <span className={sharedStyles['metaLabel']}>강의 할인</span>
+                        <span className={sharedStyles['metaValue']}>
+                          {formatCurrency(pricing.itemDiscountAmount)}
+                        </span>
+                      </div>
+                    ) : null}
                     <div className={sharedStyles['metaItem']}>
                       <span className={sharedStyles['metaLabel']}>최종 결제 금액</span>
                       <span className={sharedStyles['metaValue']}>
@@ -875,7 +830,7 @@ const CheckoutPage = () => {
                           ? '결제창 준비 중...'
                           : isFreeCheckout
                             ? '무료 신청'
-                            : '실결제 진행'}
+                            : '결제 진행'}
                     </button>
                   </div>
                 </section>

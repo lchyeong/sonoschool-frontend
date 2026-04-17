@@ -33,6 +33,9 @@ html {
   text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 
+  // 스크롤바가 생겼다 사라질 때 레이아웃 폭이 흔들리지 않게 공간을 예약합니다.
+  scrollbar-gutter: stable;
+
   // 스크롤 부드럽게
   scroll-behavior: smooth;
 }

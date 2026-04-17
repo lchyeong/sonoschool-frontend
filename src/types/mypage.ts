@@ -137,6 +137,7 @@ export interface LearningPlayerSnapshot {
   completedLessonIds: string[];
   lessonPlaybackById: Record<string, LearningPlayerSource>;
   lessonProgressByLessonId?: Record<string, LearningPlayerLessonProgress>;
+  resourceAttachmentsByLessonId?: Record<string, LearningPlayerResourceAttachment[]>;
   qnaContext?: LearningPlayerQnaContext | undefined;
   lastPlaybackAt: string | null;
   resumeAtSeconds: number;
@@ -146,6 +147,17 @@ export interface LearningPlayerSource {
   lectureId: number;
   mimeType: 'application/x-mpegURL' | null;
   posterUrl: string | null;
+}
+
+export interface LearningPlayerResourceAttachment {
+  id: number;
+  title: string | null;
+  description: string | null;
+  fileName: string;
+  fileSize: number | null;
+  fileUrl: string | null;
+  mimeType: string | null;
+  sortOrder: number;
 }
 
 export interface ProtectedLectureStream {

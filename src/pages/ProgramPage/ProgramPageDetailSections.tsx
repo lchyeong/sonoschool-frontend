@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
+
 import { Link } from 'react-router-dom';
 
-import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import Modal from '@/components/overlay/Modal/Modal';
+import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import type {
   ProgramCurriculumLesson,
@@ -97,12 +98,7 @@ interface ProgramPageDetailSidebarProps {
   isAuthenticated: boolean;
   isEnrollingNow: boolean;
   isAddingToCart: boolean;
-  optionList: ProgramPageDetailViewModel['optionList'];
   originalPriceAmount: ProgramPageDetailViewModel['originalPriceAmount'];
-  selectedOption: ProgramPageDetailViewModel['selectedOption'];
-  setSelectedOption: ProgramPageDetailViewModel['setSelectedOption'];
-  setShowOptionList: ProgramPageDetailViewModel['setShowOptionList'];
-  showOptionList: ProgramPageDetailViewModel['showOptionList'];
   totalPriceLabel: ProgramPageDetailViewModel['totalPriceLabel'];
 }
 
@@ -157,7 +153,9 @@ const formatDurationLabel = (minutes: number, prefix: string | null = null) => {
 
 const formatCurriculumLessonTime = (lesson: ProgramCurriculumSection['lessons'][number]) => {
   const offlineScheduleMinutes =
-    lesson.deliveryType === 'offline' && lesson.offlineSchedules && lesson.offlineSchedules.length > 0
+    lesson.deliveryType === 'offline' &&
+    lesson.offlineSchedules &&
+    lesson.offlineSchedules.length > 0
       ? lesson.offlineSchedules.reduce((totalMinutes, schedule) => {
           const startMinutes = parseScheduleTimeToMinutes(schedule.startTime);
           const endMinutes = parseScheduleTimeToMinutes(schedule.endTime);
@@ -190,7 +188,7 @@ const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
 const formatScheduleDateLabel = (date: string) => {
   const targetDate = new Date(`${date}T00:00:00`);
-  return `${targetDate.getFullYear()}.${String(targetDate.getMonth() + 1).padStart(2, '0')}.${String(targetDate.getDate()).padStart(2, '0')} (${weekdayLabels[targetDate.getDay()]})`;
+  return `${String(targetDate.getFullYear())}.${String(targetDate.getMonth() + 1).padStart(2, '0')}.${String(targetDate.getDate()).padStart(2, '0')} (${weekdayLabels[targetDate.getDay()]})`;
 };
 
 const formatScheduleRangeLabel = (startDate: string, endDate: string | null) => {
@@ -204,14 +202,16 @@ const formatScheduleRangeLabel = (startDate: string, endDate: string | null) => 
 const buildOfflineScheduleEntries = (lesson: ProgramCurriculumLesson) => {
   if (lesson.offlineSchedules && lesson.offlineSchedules.length > 0) {
     return lesson.offlineSchedules.map((schedule, index) => ({
-      dateLabel: schedule.date ? formatScheduleDateLabel(schedule.date) : `일정 ${String(index + 1)}`,
+      dateLabel: schedule.date
+        ? formatScheduleDateLabel(schedule.date)
+        : `일정 ${String(index + 1)}`,
       id: `${lesson.id}-${schedule.date ?? 'unknown'}-${String(index)}`,
       location: schedule.location?.trim() || null,
       notes: schedule.notes?.trim() || null,
       timeLabel:
         schedule.startTime && schedule.endTime
           ? `${schedule.startTime} - ${schedule.endTime}`
-          : schedule.startTime ?? schedule.endTime ?? null,
+          : (schedule.startTime ?? schedule.endTime ?? null),
     }));
   }
 
@@ -267,7 +267,9 @@ const OfflineScheduleModal = ({
                 {entry.location ? (
                   <p className={styles['scheduleModalItemMeta']}>장소 {entry.location}</p>
                 ) : null}
-                {entry.notes ? <p className={styles['scheduleModalItemNotes']}>{entry.notes}</p> : null}
+                {entry.notes ? (
+                  <p className={styles['scheduleModalItemNotes']}>{entry.notes}</p>
+                ) : null}
               </article>
             );
           })}
@@ -456,7 +458,10 @@ const CurriculumWeekRow = ({
                     <div className={styles['curriculumLessonCapsuleList']}>
                       {lessonCapsules.map((capsule) => {
                         return (
-                          <span className={styles['curriculumLessonCapsule']} key={`${lesson.id}-${capsule}`}>
+                          <span
+                            className={styles['curriculumLessonCapsule']}
+                            key={`${lesson.id}-${capsule}`}
+                          >
                             {capsule}
                           </span>
                         );
@@ -562,362 +567,379 @@ export const ProgramPageDetailMainContent = ({
   visiblePreviewReviewIds,
 }: ProgramPageDetailMainContentProps) => {
   const curriculumTrack = data.curriculumTrack;
-  const [selectedOfflineLesson, setSelectedOfflineLesson] = useState<ProgramCurriculumLesson | null>(
-    null,
-  );
+  const [selectedOfflineLesson, setSelectedOfflineLesson] =
+    useState<ProgramCurriculumLesson | null>(null);
 
   useEffect(() => {
-    setSelectedOfflineLesson(null);
+    startTransition(() => {
+      setSelectedOfflineLesson(null);
+    });
   }, [data.programId]);
 
   return (
     <>
       <div className={styles['contentMain']}>
-      <nav aria-label='강의 상세 탭' className={styles['tabBar']}>
-        {detailTabItems.map((tabItem) => {
-          const isActive = isQnaTabOpen
-            ? tabItem.id === 'course-qna'
-            : activeSectionId === tabItem.id;
+        <nav aria-label='강의 상세 탭' className={styles['tabBar']}>
+          {detailTabItems.map((tabItem) => {
+            const isActive = isQnaTabOpen
+              ? tabItem.id === 'course-qna'
+              : activeSectionId === tabItem.id;
 
-          return (
-            <button
-              className={classNames(styles['tabButton'], isActive && styles['tabButtonActive'])}
-              key={tabItem.id}
-              onClick={() => {
-                handleTabClick(tabItem.id);
-              }}
-              type='button'
+            return (
+              <button
+                className={classNames(styles['tabButton'], isActive && styles['tabButtonActive'])}
+                key={tabItem.id}
+                onClick={() => {
+                  handleTabClick(tabItem.id);
+                }}
+                type='button'
+              >
+                {tabItem.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {isQnaTabOpen ? (
+          <section className={classNames(styles['contentSection'], styles['qnaTabSection'])}>
+            <ProgramQnaPanel
+              enabled
+              programId={data.programId ?? null}
+              programThreadCount={data.qnaSummary?.totalThreadCount ?? null}
+              title='Q&A'
+              variant='board'
+            />
+          </section>
+        ) : (
+          <>
+            <section className={styles['previewReviewSection']}>
+              <h2 className={styles['sectionTitle']}>먼저 경험한 수강생들 후기</h2>
+
+              <div className={styles['previewReviewCarousel']}>
+                <div className={styles['previewReviewTrack']} ref={reviewCarouselRef}>
+                  {sortedReviews.map((review) => {
+                    return (
+                      <ReviewPreviewCard
+                        isDimmed={!visiblePreviewReviewIds.includes(review.id)}
+                        key={review.id}
+                        review={review}
+                      />
+                    );
+                  })}
+                </div>
+
+                <button
+                  aria-label='이전 후기'
+                  className={classNames(
+                    styles['carouselArrowButton'],
+                    styles['carouselArrowButtonLeft'],
+                  )}
+                  onClick={() => {
+                    handleReviewCarouselScroll('left');
+                  }}
+                  type='button'
+                >
+                  <span
+                    aria-hidden='true'
+                    className={classNames(
+                      styles['carouselArrowIcon'],
+                      styles['carouselArrowIconLeft'],
+                    )}
+                  />
+                </button>
+
+                <button
+                  aria-label='다음 후기'
+                  className={classNames(
+                    styles['carouselArrowButton'],
+                    styles['carouselArrowButtonRight'],
+                  )}
+                  onClick={() => {
+                    handleReviewCarouselScroll('right');
+                  }}
+                  type='button'
+                >
+                  <span
+                    aria-hidden='true'
+                    className={classNames(
+                      styles['carouselArrowIcon'],
+                      styles['carouselArrowIconRight'],
+                    )}
+                  />
+                </button>
+              </div>
+            </section>
+
+            <section
+              className={styles['contentSection']}
+              id='course-introduction'
+              ref={sectionRefHandlers['course-introduction']}
             >
-              {tabItem.label}
-            </button>
-          );
-        })}
-      </nav>
+              <h2 className={styles['sectionTitle']}>강의 소개</h2>
 
-      {isQnaTabOpen ? (
-        <section className={classNames(styles['contentSection'], styles['qnaTabSection'])}>
-          <ProgramQnaPanel
-            enabled
-            programId={data.programId ?? null}
-            programThreadCount={data.qnaSummary?.totalThreadCount ?? null}
-            title='Q&A'
-            variant='board'
-          />
-        </section>
-      ) : (
-        <>
-      <section className={styles['previewReviewSection']}>
-        <h2 className={styles['sectionTitle']}>먼저 경험한 수강생들 후기</h2>
+              <div className={styles['introductionSectionGroup']}>
+                <section>
+                  <IntroductionBlockHeader
+                    subtitle='이론을 넘어 진단 사고력을 키우는 핵심 차별점을 정리했습니다.'
+                    title='핵심 포인트'
+                  />
 
-        <div className={styles['previewReviewCarousel']}>
-          <div className={styles['previewReviewTrack']} ref={reviewCarouselRef}>
-            {sortedReviews.map((review) => {
-              return (
-                <ReviewPreviewCard
-                  isDimmed={!visiblePreviewReviewIds.includes(review.id)}
-                  key={review.id}
-                  review={review}
-                />
-              );
-            })}
-          </div>
+                  <div className={styles['sectionBlockBody']}>
+                    <div className={styles['infoBoxListGroup']}>
+                      {data.stats.map((corePoint) => {
+                        return (
+                          <IntroductionInfoBox
+                            content={corePoint.value}
+                            key={`${corePoint.label}-${corePoint.value}`}
+                            title={corePoint.label}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
 
-          <button
-            aria-label='이전 후기'
-            className={classNames(styles['carouselArrowButton'], styles['carouselArrowButtonLeft'])}
-            onClick={() => {
-              handleReviewCarouselScroll('left');
-            }}
-            type='button'
-          >
-            <span
-              aria-hidden='true'
-              className={classNames(styles['carouselArrowIcon'], styles['carouselArrowIconLeft'])}
-            />
-          </button>
+                <section>
+                  <IntroductionBlockHeader
+                    subtitle='이 강의를 통해 기대할 수 있는 실전 변화와 성장 포인트를 정리했습니다.'
+                    title='이 강의를 듣고 나면 이렇게 달라집니다'
+                  />
 
-          <button
-            aria-label='다음 후기'
-            className={classNames(
-              styles['carouselArrowButton'],
-              styles['carouselArrowButtonRight'],
-            )}
-            onClick={() => {
-              handleReviewCarouselScroll('right');
-            }}
-            type='button'
-          >
-            <span
-              aria-hidden='true'
-              className={classNames(styles['carouselArrowIcon'], styles['carouselArrowIconRight'])}
-            />
-          </button>
-        </div>
-      </section>
+                  <div className={styles['sectionBlockBody']}>
+                    <div className={styles['checkItemGroup']}>
+                      {(
+                        data.learningOutcomes ??
+                        (data.learningPoints ?? []).map((item, index) => ({
+                          label: `변화 포인트 ${String(index + 1)}`,
+                          value: item,
+                        }))
+                      ).map((statItem) => {
+                        return (
+                          <div className={styles['checkBlock']} key={statItem.label}>
+                            <div className={styles['checkBlockTitleRow']}>
+                              <span aria-hidden='true' className={styles['checkIcon']} />
+                              <span className={styles['checkBlockTitle']}>{statItem.label}</span>
+                            </div>
 
-      <section
-        className={styles['contentSection']}
-        id='course-introduction'
-        ref={sectionRefHandlers['course-introduction']}
-      >
-        <h2 className={styles['sectionTitle']}>강의 소개</h2>
+                            <ul className={styles['checkBlockList']}>
+                              <li className={styles['checkBlockItem']}>{statItem.value}</li>
+                            </ul>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
 
-        <div className={styles['introductionSectionGroup']}>
-          <section>
-            <IntroductionBlockHeader
-              subtitle='이론을 넘어 진단 사고력을 키우는 핵심 차별점을 정리했습니다.'
-              title='핵심 포인트'
-            />
+                <section>
+                  <IntroductionBlockHeader
+                    subtitle='현재 학습 단계와 고민에 맞는 추천 대상'
+                    title='이런 고민을 가진 분들께 추천합니다'
+                  />
 
-            <div className={styles['sectionBlockBody']}>
-              <div className={styles['infoBoxListGroup']}>
-                {data.stats.map((corePoint) => {
-                  return (
-                    <IntroductionInfoBox
-                      content={corePoint.value}
-                      key={`${corePoint.label}-${corePoint.value}`}
-                      title={corePoint.label}
-                    />
-                  );
+                  <div className={styles['sectionBlockBody']}>
+                    <article className={styles['targetCard']}>
+                      <div className={styles['targetCardContent']}>
+                        <p className={styles['targetCardLabel']}>강의 대상은</p>
+
+                        <div className={styles['targetCardChecklist']}>
+                          {data.recommendedFor.map((item) => {
+                            return (
+                              <div className={styles['targetChecklistItem']} key={item}>
+                                <span
+                                  aria-hidden='true'
+                                  className={styles['targetChecklistIcon']}
+                                />
+                                <span className={styles['targetChecklistText']}>{item}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+
+                <section>
+                  <IntroductionBlockHeader
+                    subtitle='원활한 학습을 위해 미리 확인해야 할 안내 사항'
+                    title='학습 효과를 높이기 위한 수강 전 체크리스트'
+                  />
+
+                  <div className={styles['sectionBlockBody']}>
+                    <div className={styles['featureCardGrid']}>
+                      {data.preparationChecklist.map((item, index) => {
+                        return (
+                          <IntroductionFeatureCard
+                            content={item}
+                            key={item}
+                            title={featureCardTitles[index] ?? `체크 포인트 ${String(index + 1)}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section
+              className={styles['contentSection']}
+              id='course-curriculum'
+              ref={sectionRefHandlers['course-curriculum']}
+            >
+              <h2 className={styles['sectionTitle']}>커리큘럼</h2>
+
+              <div className={styles['curriculumTrackGroup']}>
+                <section className={styles['curriculumTrack']}>
+                  {curriculumTrack.title ? (
+                    <div className={styles['curriculumTrackHeader']}>
+                      <span aria-hidden='true' className={styles['curriculumTrackDot']} />
+                      <h3 className={styles['curriculumTrackTitle']}>{curriculumTrack.title}</h3>
+                    </div>
+                  ) : null}
+
+                  <div className={styles['curriculumSummaryPanel']}>
+                    {curriculumTrack.summaryKind === 'decimal' ? (
+                      <ol className={styles['curriculumSummaryListDecimal']}>
+                        {curriculumTrack.summaryItems.map((item) => {
+                          return (
+                            <li className={styles['curriculumSummaryItem']} key={item}>
+                              {item}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    ) : (
+                      <ul className={styles['curriculumSummaryListDisc']}>
+                        {curriculumTrack.summaryItems.map((item) => {
+                          return (
+                            <li className={styles['curriculumSummaryItem']} key={item}>
+                              {item}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className={styles['curriculumWeekList']}>
+                    {curriculumTrack.sections.map((section, sectionIndex) => {
+                      const rowKey = `${curriculumTrack.id}-${String(sectionIndex)}`;
+
+                      return (
+                        <CurriculumWeekRow
+                          isOpen={openCurriculumRows[rowKey] ?? false}
+                          key={rowKey}
+                          onOpenOfflineSchedule={setSelectedOfflineLesson}
+                          onToggle={() => {
+                            toggleCurriculumRow(rowKey);
+                          }}
+                          section={section}
+                          sectionIndex={sectionIndex}
+                        />
+                      );
+                    })}
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section
+              className={styles['contentSection']}
+              id='course-reviews'
+              ref={sectionRefHandlers['course-reviews']}
+            >
+              <h2 className={styles['sectionTitle']}>수강평</h2>
+
+              <div className={styles['reviewScoreSummary']}>
+                <span aria-hidden='true' className={styles['reviewScoreStar']}>
+                  ★
+                </span>
+                <span className={styles['reviewScoreValue']}>{data.overallRating.toFixed(1)}</span>
+                <span className={styles['reviewScoreCount']}>
+                  ({data.reviewCount.toLocaleString()})
+                </span>
+              </div>
+
+              <div className={styles['reviewSectionHeaderRow']}>
+                <h3 className={styles['reviewSectionHeading']}>전체 수강평</h3>
+
+                <label className={styles['selectField']}>
+                  <span className={styles['screenReaderOnly']}>수강평 정렬</span>
+                  <select
+                    className={styles['sortSelect']}
+                    onChange={(event) => {
+                      setReviewSortOrder(event.target.value as ReviewSortOrder);
+                    }}
+                    value={reviewSortOrder}
+                  >
+                    <option value='recommended'>추천순</option>
+                    <option value='latest'>최신순</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className={styles['fullReviewList']}>
+                {sortedReviews.map((review) => {
+                  return <FullReviewCard key={review.id} review={review} />;
                 })}
               </div>
-            </div>
-          </section>
 
-          <section>
-            <IntroductionBlockHeader
-              subtitle='이 강의를 통해 기대할 수 있는 실전 변화와 성장 포인트를 정리했습니다.'
-              title='이 강의를 듣고 나면 이렇게 달라집니다'
-            />
+              <button className={styles['moreReviewButton']} type='button'>
+                수강평 더보기
+              </button>
+            </section>
 
-            <div className={styles['sectionBlockBody']}>
-              <div className={styles['checkItemGroup']}>
-                {(
-                  data.learningOutcomes ??
-                  (data.learningPoints ?? []).map((item, index) => ({
-                    label: `변화 포인트 ${String(index + 1)}`,
-                    value: item,
-                  }))
-                ).map((statItem) => {
+            <section
+              className={styles['contentSection']}
+              id='course-faq'
+              ref={sectionRefHandlers['course-faq']}
+            >
+              <h2 className={styles['sectionTitle']}>자주하는 질문</h2>
+
+              <div className={styles['faqList']}>
+                {data.faqItems.map((faqItem) => {
+                  const isOpen = openFaqId === faqItem.id;
+
                   return (
-                    <div className={styles['checkBlock']} key={statItem.label}>
-                      <div className={styles['checkBlockTitleRow']}>
-                        <span aria-hidden='true' className={styles['checkIcon']} />
-                        <span className={styles['checkBlockTitle']}>{statItem.label}</span>
-                      </div>
+                    <div
+                      className={classNames(styles['faqItem'], isOpen && styles['faqItemOpen'])}
+                      key={faqItem.id}
+                    >
+                      <button
+                        className={classNames(
+                          styles['faqQuestionButton'],
+                          isOpen && styles['faqQuestionButtonOpen'],
+                        )}
+                        onClick={() => {
+                          setOpenFaqId((currentOpenFaqId) => {
+                            return currentOpenFaqId === faqItem.id ? null : faqItem.id;
+                          });
+                        }}
+                        type='button'
+                      >
+                        <div className={styles['faqQuestionContent']}>
+                          <span className={styles['faqQuestionText']}>{faqItem.question}</span>
+                        </div>
 
-                      <ul className={styles['checkBlockList']}>
-                        <li className={styles['checkBlockItem']}>{statItem.value}</li>
-                      </ul>
+                        <ChevronDownIcon
+                          aria-hidden='true'
+                          className={classNames(
+                            styles['faqChevron'],
+                            isOpen && styles['faqChevronOpen'],
+                          )}
+                        />
+                      </button>
+
+                      {isOpen ? <p className={styles['faqAnswer']}>{faqItem.answer}</p> : null}
                     </div>
                   );
                 })}
               </div>
-            </div>
-          </section>
-
-          <section>
-            <IntroductionBlockHeader
-              subtitle='현재 학습 단계와 고민에 맞는 추천 대상'
-              title='이런 고민을 가진 분들께 추천합니다'
-            />
-
-            <div className={styles['sectionBlockBody']}>
-              <article className={styles['targetCard']}>
-                <div className={styles['targetCardContent']}>
-                  <p className={styles['targetCardLabel']}>강의 대상은</p>
-
-                  <div className={styles['targetCardChecklist']}>
-                    {data.recommendedFor.map((item) => {
-                      return (
-                        <div className={styles['targetChecklistItem']} key={item}>
-                          <span aria-hidden='true' className={styles['targetChecklistIcon']} />
-                          <span className={styles['targetChecklistText']}>{item}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </article>
-            </div>
-          </section>
-
-          <section>
-            <IntroductionBlockHeader
-              subtitle='원활한 학습을 위해 미리 확인해야 할 안내 사항'
-              title='학습 효과를 높이기 위한 수강 전 체크리스트'
-            />
-
-            <div className={styles['sectionBlockBody']}>
-              <div className={styles['featureCardGrid']}>
-                {data.preparationChecklist.map((item, index) => {
-                  return (
-                    <IntroductionFeatureCard
-                      content={item}
-                      key={item}
-                      title={featureCardTitles[index] ?? `체크 포인트 ${String(index + 1)}`}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section
-        className={styles['contentSection']}
-        id='course-curriculum'
-        ref={sectionRefHandlers['course-curriculum']}
-      >
-        <h2 className={styles['sectionTitle']}>커리큘럼</h2>
-
-        <div className={styles['curriculumTrackGroup']}>
-          <section className={styles['curriculumTrack']}>
-            {curriculumTrack.title ? (
-              <div className={styles['curriculumTrackHeader']}>
-                <span aria-hidden='true' className={styles['curriculumTrackDot']} />
-                <h3 className={styles['curriculumTrackTitle']}>{curriculumTrack.title}</h3>
-              </div>
-            ) : null}
-
-            <div className={styles['curriculumSummaryPanel']}>
-              {curriculumTrack.summaryKind === 'decimal' ? (
-                <ol className={styles['curriculumSummaryListDecimal']}>
-                  {curriculumTrack.summaryItems.map((item) => {
-                    return (
-                      <li className={styles['curriculumSummaryItem']} key={item}>
-                        {item}
-                      </li>
-                    );
-                  })}
-                </ol>
-              ) : (
-                <ul className={styles['curriculumSummaryListDisc']}>
-                  {curriculumTrack.summaryItems.map((item) => {
-                    return (
-                      <li className={styles['curriculumSummaryItem']} key={item}>
-                        {item}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-
-            <div className={styles['curriculumWeekList']}>
-              {curriculumTrack.sections.map((section, sectionIndex) => {
-                const rowKey = `${curriculumTrack.id}-${String(sectionIndex)}`;
-
-                return (
-                  <CurriculumWeekRow
-                    isOpen={openCurriculumRows[rowKey] ?? false}
-                    key={rowKey}
-                    onOpenOfflineSchedule={setSelectedOfflineLesson}
-                    onToggle={() => {
-                      toggleCurriculumRow(rowKey);
-                    }}
-                    section={section}
-                    sectionIndex={sectionIndex}
-                  />
-                );
-              })}
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section
-        className={styles['contentSection']}
-        id='course-reviews'
-        ref={sectionRefHandlers['course-reviews']}
-      >
-        <h2 className={styles['sectionTitle']}>수강평</h2>
-
-        <div className={styles['reviewScoreSummary']}>
-          <span aria-hidden='true' className={styles['reviewScoreStar']}>
-            ★
-          </span>
-          <span className={styles['reviewScoreValue']}>{data.overallRating.toFixed(1)}</span>
-          <span className={styles['reviewScoreCount']}>({data.reviewCount.toLocaleString()})</span>
-        </div>
-
-        <div className={styles['reviewSectionHeaderRow']}>
-          <h3 className={styles['reviewSectionHeading']}>전체 수강평</h3>
-
-          <label className={styles['selectField']}>
-            <span className={styles['screenReaderOnly']}>수강평 정렬</span>
-            <select
-              className={styles['sortSelect']}
-              onChange={(event) => {
-                setReviewSortOrder(event.target.value as ReviewSortOrder);
-              }}
-              value={reviewSortOrder}
-            >
-              <option value='recommended'>추천순</option>
-              <option value='latest'>최신순</option>
-            </select>
-          </label>
-        </div>
-
-        <div className={styles['fullReviewList']}>
-          {sortedReviews.map((review) => {
-            return <FullReviewCard key={review.id} review={review} />;
-          })}
-        </div>
-
-        <button className={styles['moreReviewButton']} type='button'>
-          수강평 더보기
-        </button>
-      </section>
-
-      <section
-        className={styles['contentSection']}
-        id='course-faq'
-        ref={sectionRefHandlers['course-faq']}
-      >
-        <h2 className={styles['sectionTitle']}>자주하는 질문</h2>
-
-        <div className={styles['faqList']}>
-          {data.faqItems.map((faqItem) => {
-            const isOpen = openFaqId === faqItem.id;
-
-            return (
-              <div
-                className={classNames(styles['faqItem'], isOpen && styles['faqItemOpen'])}
-                key={faqItem.id}
-              >
-                <button
-                  className={classNames(
-                    styles['faqQuestionButton'],
-                    isOpen && styles['faqQuestionButtonOpen'],
-                  )}
-                  onClick={() => {
-                    setOpenFaqId((currentOpenFaqId) => {
-                      return currentOpenFaqId === faqItem.id ? null : faqItem.id;
-                    });
-                  }}
-                  type='button'
-                >
-                  <div className={styles['faqQuestionContent']}>
-                    <span className={styles['faqQuestionText']}>{faqItem.question}</span>
-                  </div>
-
-                  <ChevronDownIcon
-                    aria-hidden='true'
-                    className={classNames(styles['faqChevron'], isOpen && styles['faqChevronOpen'])}
-                  />
-                </button>
-
-                {isOpen ? <p className={styles['faqAnswer']}>{faqItem.answer}</p> : null}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-        </>
-      )}
+            </section>
+          </>
+        )}
       </div>
 
       {selectedOfflineLesson ? (
@@ -947,25 +969,27 @@ export const ProgramPageDetailSidebar = ({
   isAuthenticated,
   isEnrollingNow,
   isAddingToCart,
-  optionList,
   originalPriceAmount,
-  selectedOption,
-  setSelectedOption,
-  setShowOptionList,
-  showOptionList,
   totalPriceLabel,
 }: ProgramPageDetailSidebarProps) => {
-  const selectedOptionLabel = selectedOption || '옵션을 선택하세요';
+  const hasDiscount =
+    originalPriceAmount > 0 &&
+    discountedPriceAmount > 0 &&
+    discountedPriceAmount < originalPriceAmount;
 
   return (
     <aside className={styles['sidebar']}>
       <div className={styles['pricingCard']}>
-        <p className={styles['pricingOriginalPrice']}>
-          {originalPriceAmount ? formatPriceLabel(originalPriceAmount) : data.originalPriceLabel}
-        </p>
+        {hasDiscount ? (
+          <p className={styles['pricingOriginalPrice']}>
+            {originalPriceAmount ? formatPriceLabel(originalPriceAmount) : data.originalPriceLabel}
+          </p>
+        ) : null}
 
         <div className={styles['pricingDiscountRow']}>
-          <span className={styles['pricingDiscountRate']}>{data.discountRateLabel}</span>
+          {hasDiscount ? (
+            <span className={styles['pricingDiscountRate']}>{data.discountRateLabel}</span>
+          ) : null}
           <span className={styles['pricingDiscountedPrice']}>
             {formatPriceLabel(discountedPriceAmount)}
           </span>
@@ -976,70 +1000,10 @@ export const ProgramPageDetailSidebar = ({
             <span className={styles['pricingAvailabilityLabel']}>
               {availabilityActionKind === 'ENROLL' ? '현재 수강 가능' : '모집 상태'}
             </span>
-            <span className={styles['pricingAvailabilityValue']}>
-              {availabilityStatusLabel}
-            </span>
+            <span className={styles['pricingAvailabilityValue']}>{availabilityStatusLabel}</span>
           </div>
         ) : null}
         <p className={styles['pricingAvailabilityDescription']}>{availabilityStatusDescription}</p>
-
-        <div className={styles['sidebarOptionSection']}>
-          <p className={styles['sidebarSectionTitle']}>옵션</p>
-
-          <button
-            className={styles['sidebarSelectButton']}
-            onClick={() => {
-              setShowOptionList((currentValue) => !currentValue);
-            }}
-            type='button'
-          >
-            <span className={styles['sidebarSelectButtonText']}>{selectedOptionLabel}</span>
-            <ChevronDownIcon aria-hidden='true' className={styles['sidebarSelectButtonIcon']} />
-          </button>
-
-          {showOptionList ? (
-            <div className={styles['sidebarOptionList']}>
-              {optionList.map((optionItem) => {
-                return (
-                  <button
-                    className={styles['sidebarOptionItem']}
-                    key={optionItem}
-                    onClick={() => {
-                      setSelectedOption(optionItem);
-                      setShowOptionList(false);
-                    }}
-                    type='button'
-                  >
-                    {optionItem}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-
-        {selectedOption ? (
-          <div className={styles['selectedOptionPanel']}>
-            <div className={styles['selectedOptionHeader']}>
-              <span className={styles['selectedOptionTitle']}>{selectedOption}</span>
-
-              <button
-                className={styles['selectedOptionRemoveButton']}
-                onClick={() => {
-                  setSelectedOption('');
-                }}
-                type='button'
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        <div className={styles['pricingSummaryLine']}>
-          <span className={styles['pricingSummaryLabel']}>{selectedOptionLabel}</span>
-          <span className={styles['pricingSummaryValue']}>{totalPriceLabel}</span>
-        </div>
 
         <div className={styles['pricingTotalRow']}>
           <span className={styles['pricingTotalLabel']}>총 결제 금액</span>
@@ -1058,9 +1022,9 @@ export const ProgramPageDetailSidebar = ({
                 ? '로그인 후 알림 받기'
                 : isAlertSubscribed
                   ? '알림 신청 완료'
-                    : isAlertPending
-                      ? '신청 중...'
-                      : '알림 받기'}
+                  : isAlertPending
+                    ? '신청 중...'
+                    : '알림 받기'}
             </button>
           ) : availabilityActionKind === 'DISABLED' ? (
             <button className={styles['applyActionLink']} disabled type='button'>

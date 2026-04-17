@@ -77,7 +77,6 @@ const deriveProgramId = (sourcePath: string): number => {
 
 const buildAddToCartPayload = (
   data: ProgramDetailPageResponse,
-  selectedOption: string,
   discountedPriceAmount: number,
   originalPriceAmount: number,
 ): AddToCartPayload => {
@@ -87,12 +86,12 @@ const buildAddToCartPayload = (
     instructorName: data.instructor.name,
     originalPrice: originalPriceAmount,
     payablePrice: discountedPriceAmount,
-    programId: data.programId ?? deriveProgramId(`${sourcePath}:${selectedOption}`),
+    programId: data.programId ?? deriveProgramId(sourcePath),
     programType: inferProgramType(data),
     salePrice: discountedPriceAmount < originalPriceAmount ? discountedPriceAmount : null,
     sourcePath,
     thumbnailUrl: data.heroImageSrc,
-    title: selectedOption || data.title,
+    title: data.title,
   };
 };
 
@@ -202,7 +201,8 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const selectSingleCartItem = useCartSelectionStore((state) => state.selectSingleItem);
   const showToast = useToastStore((state) => state.showToast);
   const cartScope = resolveCartQueryScope(isAuthenticated);
-  const programId = typeof data.programId === 'number' && data.programId > 0 ? data.programId : null;
+  const programId =
+    typeof data.programId === 'number' && data.programId > 0 ? data.programId : null;
   const availability = resolveProgramAvailability(data);
   const viewModel = useProgramPageDetailViewModel(data);
   const {
@@ -214,17 +214,12 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     isQnaTabOpen,
     openCurriculumRows,
     openFaqId,
-    optionList,
     originalPriceAmount,
     reviewCarouselRef,
     reviewSortOrder,
     sectionRefHandlers,
-    selectedOption,
     setOpenFaqId,
     setReviewSortOrder,
-    setSelectedOption,
-    setShowOptionList,
-    showOptionList,
     sortedReviews,
     toggleCurriculumRow,
     totalPriceLabel,
@@ -234,7 +229,9 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const addToCartMutation = useMutation({
     mutationFn: addMyCartItem,
   });
-  const alertStatusQuery = useProgramAvailabilityAlertStatusQuery(programId === null ? [] : [programId]);
+  const alertStatusQuery = useProgramAvailabilityAlertStatusQuery(
+    programId === null ? [] : [programId],
+  );
   const subscribeAlertMutation = useMutation({
     mutationFn: subscribeMyProgramAvailabilityAlert,
   });
@@ -242,12 +239,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     programId !== null && (alertStatusQuery.data?.subscribedProgramIds ?? []).includes(programId);
 
   const handleAddToCart = () => {
-    const payload = buildAddToCartPayload(
-      data,
-      selectedOption,
-      discountedPriceAmount,
-      originalPriceAmount,
-    );
+    const payload = buildAddToCartPayload(data, discountedPriceAmount, originalPriceAmount);
 
     void addToCartMutation.mutateAsync(payload).then(
       async (cart) => {
@@ -275,12 +267,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   };
 
   const handleEnrollNow = async () => {
-    const payload = buildAddToCartPayload(
-      data,
-      selectedOption,
-      discountedPriceAmount,
-      originalPriceAmount,
-    );
+    const payload = buildAddToCartPayload(data, discountedPriceAmount, originalPriceAmount);
 
     try {
       const cart = await addToCartMutation.mutateAsync(payload);
@@ -357,7 +344,9 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
       onError: (error: unknown) => {
         showToast({
           message:
-            error instanceof Error ? error.message : '알림 신청을 처리하지 못했습니다. 다시 시도해 주세요.',
+            error instanceof Error
+              ? error.message
+              : '알림 신청을 처리하지 못했습니다. 다시 시도해 주세요.',
           variant: 'error',
         });
       },
@@ -400,12 +389,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
           <ProgramPageDetailSidebar
             data={data}
             discountedPriceAmount={discountedPriceAmount}
-            optionList={optionList}
             originalPriceAmount={originalPriceAmount}
-            selectedOption={selectedOption}
-            setSelectedOption={setSelectedOption}
-            setShowOptionList={setShowOptionList}
-            showOptionList={showOptionList}
             totalPriceLabel={totalPriceLabel}
             handleRequestAvailabilityAlert={handleRequestAvailabilityAlert}
             handleAddToCart={handleAddToCart}
@@ -453,8 +437,8 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
             : availability.actionKind === 'DISABLED'
               ? availability.actionLabel
               : addToCartMutation.isPending
-              ? '이동 중...'
-              : '수강 신청'}
+                ? '이동 중...'
+                : '수강 신청'}
         </button>
       </div>
     </div>

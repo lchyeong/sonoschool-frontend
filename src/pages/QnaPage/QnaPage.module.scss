@@ -55,6 +55,10 @@
   justify-content: flex-end;
 }
 
+.searchBar {
+  width: min(100%, 620px);
+}
+
 .searchForm {
   display: grid;
   grid-template-columns: 140px minmax(260px, 1fr) 92px;
@@ -70,6 +74,15 @@
   color: #2f3441;
   font-size: 0.95rem;
   background: #ffffff;
+}
+
+.filterSelect {
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 0;
+  color: var(--color-text-primary);
+  font: inherit;
+  background: transparent;
 }
 
 .searchButton,
@@ -165,13 +178,21 @@
 }
 
 .titleText {
+  display: block;
   color: #252b38;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .previewText {
+  display: block;
   color: #7d8391;
   font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .statusBadge {

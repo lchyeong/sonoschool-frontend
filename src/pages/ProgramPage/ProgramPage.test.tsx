@@ -61,19 +61,18 @@ describe('ProgramPage', () => {
 
     expect(await screen.findByRole('heading', { name: '일반과정' })).toBeInTheDocument();
     expect(screen.getByText('Clinical Curriculum')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '복부과정' })).toBeInTheDocument();
+    expect(screen.queryByText('세부 과정')).toBeNull();
+    expect(screen.queryByRole('link', { name: '복부과정' })).toBeNull();
     expect(screen.getAllByRole('link', { name: '복부 Basic 스캔 6주' }).length).toBeGreaterThan(0);
   });
 
-  it('shows the direct parent menu name in the eyebrow for lower collection hubs', async () => {
+  it('renders lower collection hubs without repeating the upper category label', async () => {
     renderProgramPage('/programs/general-course/abdomen');
 
     const heading = await screen.findByRole('heading', { level: 1, name: '복부과정' });
 
     expect(heading).toBeInTheDocument();
-    expect(
-      within(heading.closest('section') as HTMLElement).getByText('일반과정'),
-    ).toBeInTheDocument();
+    expect(within(heading.closest('section') as HTMLElement).queryByText('일반과정')).toBeNull();
     expect(screen.getAllByRole('link', { name: '복부 Basic 스캔 6주' }).length).toBeGreaterThan(0);
   });
 
@@ -83,9 +82,7 @@ describe('ProgramPage', () => {
     const heading = await screen.findByRole('heading', { level: 1, name: '두경부과정' });
 
     expect(heading).toBeInTheDocument();
-    expect(
-      within(heading.closest('section') as HTMLElement).getByText('일반과정'),
-    ).toBeInTheDocument();
+    expect(within(heading.closest('section') as HTMLElement).queryByText('일반과정')).toBeNull();
     expect(screen.getAllByRole('link', { name: '갑상선 Basic 스캔 6주' }).length).toBeGreaterThan(
       0,
     );
@@ -98,9 +95,7 @@ describe('ProgramPage', () => {
     const heading = await screen.findByRole('heading', { level: 1, name: '내과과정' });
 
     expect(heading).toBeInTheDocument();
-    expect(
-      within(heading.closest('section') as HTMLElement).getByText('의사과정'),
-    ).toBeInTheDocument();
+    expect(within(heading.closest('section') as HTMLElement).queryByText('의사과정')).toBeNull();
     expect(screen.getByText('총 3개 과정을 보여주고 있습니다.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '내과과정 복부 실전 워크숍' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '내과과정 간·담도 증례 워크숍' })).toBeInTheDocument();
@@ -118,13 +113,21 @@ describe('ProgramPage', () => {
     });
 
     expect(heading).toBeInTheDocument();
-    expect(
-      within(heading.closest('section') as HTMLElement).getByText('의사과정'),
-    ).toBeInTheDocument();
+    expect(within(heading.closest('section') as HTMLElement).queryByText('의사과정')).toBeNull();
     expect(screen.getByRole('link', { name: 'FAST 집중과정' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'RUSH 쇼크 평가과정' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '폐초음파과정' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '응급 POCUS FAST 집중 워크숍' })).toBeInTheDocument();
+  });
+
+  it('hides second-level collection chips on first-depth hubs', async () => {
+    renderProgramPage('/programs/doctor-course');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '의사과정' })).toBeInTheDocument();
+    expect(screen.queryByText('세부 과정')).toBeNull();
+    expect(screen.queryByRole('link', { name: '내과과정' })).toBeNull();
+    expect(screen.queryByRole('link', { name: '응급/POCUS과정' })).toBeNull();
+    expect(screen.getByText('총 5개 과정을 보여주고 있습니다.')).toBeInTheDocument();
   });
 
   it('renders repeated-title cohort lectures under the abdomen basic hub', async () => {
@@ -133,9 +136,7 @@ describe('ProgramPage', () => {
     const heading = await screen.findByRole('heading', { level: 1, name: '복부 Basic 스캔 6주' });
 
     expect(heading).toBeInTheDocument();
-    expect(
-      within(heading.closest('section') as HTMLElement).getByText('복부과정'),
-    ).toBeInTheDocument();
+    expect(within(heading.closest('section') as HTMLElement).queryByText('복부과정')).toBeNull();
     expect(screen.getByText('총 3개 과정을 보여주고 있습니다.')).toBeInTheDocument();
     expect(screen.getByText('모집기간 2026.03.01 - 2026.04.30 진행')).toBeInTheDocument();
     expect(screen.getByText('모집기간 2026.05.01 - 2026.06.30 진행')).toBeInTheDocument();
@@ -151,9 +152,7 @@ describe('ProgramPage', () => {
     });
 
     expect(heading).toBeInTheDocument();
-    expect(
-      within(heading.closest('section') as HTMLElement).getByText('여성초음파과정'),
-    ).toBeInTheDocument();
+    expect(within(heading.closest('section') as HTMLElement).queryByText('여성초음파과정')).toBeNull();
     expect(screen.getByText('총 1개 과정을 보여주고 있습니다.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '산과 1삼분기 스캔 4주' })).toBeInTheDocument();
   });
@@ -206,8 +205,34 @@ describe('ProgramPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Q&A' }));
 
-    expect(await screen.findByPlaceholderText('궁금한 내용을 검색해 보세요!')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '강의 Q&A' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('제목, 내용, 작성자를 검색해 주세요.')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '번호' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '먼저 경험한 수강생들 후기' })).not.toBeInTheDocument();
+  });
+
+  it('moves from the qna tab to the faq section in one interaction flow', async () => {
+    renderProgramPage('/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail');
+
+    expect(
+      await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
+    ).toBeInTheDocument();
+
+    const scrollToSpy = vi.fn();
+
+    Object.defineProperty(window, 'scrollTo', {
+      configurable: true,
+      value: scrollToSpy,
+      writable: true,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Q&A' }));
+    expect(await screen.findByRole('heading', { name: '강의 Q&A' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '자주하는 질문' }));
+
+    expect(await screen.findByRole('heading', { name: '자주하는 질문' })).toBeInTheDocument();
+    expect(scrollToSpy).toHaveBeenCalledTimes(2);
   });
 
   it('adds the selected lecture to the cart and redirects to the cart page', async () => {

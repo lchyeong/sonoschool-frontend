@@ -8,7 +8,13 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => response.data;
 
 export const fetchGlobalPopups = async (): Promise<PopupItem[]> => {
   try {
-    return await http.get<PopupItem[]>('/api/v1/popups');
+    const response = await http.get<PopupItem | PopupItem[] | null>('/api/v1/popups');
+
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    return response ? [response] : [];
   } catch (error: unknown) {
     throw toApiError(error, '팝업 목록을 불러오지 못했습니다.');
   }

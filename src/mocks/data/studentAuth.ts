@@ -10,7 +10,7 @@ import type {
 
 interface MockStudentAccount {
   loginId: string;
-  email: string;
+  email: string | null;
   name: string;
   nickname: string;
   password: string;
@@ -31,13 +31,17 @@ const normalizePhoneNumber = (value: string): string => {
   return digits;
 };
 
+const resolveAccountDisplayName = (account: MockStudentAccount): string => {
+  return account.nickname || account.name;
+};
+
 const buildSession = (account: MockStudentAccount): StudentSession => {
   return {
     accessToken: `mock-access-token-${account.loginId}-${String(Date.now())}`,
     tokenType: 'Bearer',
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     loginId: account.loginId,
-    displayName: account.nickname || account.name,
+    displayName: resolveAccountDisplayName(account),
     role: 'ROLE_STUDENT',
   };
 };
@@ -221,6 +225,19 @@ export const refreshMockStudentSession = (): StudentSession | null => {
 
   currentRefreshToken = `mock-refresh-token-${account.loginId}-${String(Date.now())}`;
   return buildSession(account);
+};
+
+export const getCurrentMockStudentDisplayName = (): string => {
+  if (!currentSessionLoginId) {
+    return '현재 사용자';
+  }
+
+  const account = accounts.find((candidate) => candidate.loginId === currentSessionLoginId);
+  if (!account) {
+    return '현재 사용자';
+  }
+
+  return resolveAccountDisplayName(account);
 };
 
 export const logoutMockStudent = () => {

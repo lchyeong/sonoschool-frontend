@@ -2,10 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import {
-  fetchAdminCurriculum,
-  replaceAdminLectureOfflineSchedules,
-} from '@/api/adminCurriculum';
+import { fetchAdminCurriculum, replaceAdminLectureOfflineSchedules } from '@/api/adminCurriculum';
 import {
   applyAdminPracticumOperatingHourRule,
   cancelAdminPracticumReservation,
@@ -24,6 +21,7 @@ import {
   updateAdminPracticumSlotStatuses,
 } from '@/api/adminPracticum';
 import Modal from '@/components/overlay/Modal/Modal';
+import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import { useToastStore } from '@/stores/useToastStore';
 import type {
@@ -445,13 +443,7 @@ const buildPersonalScheduleFormState = (
   };
 };
 
-const PracticumModalBackButton = ({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) => {
+const PracticumModalBackButton = ({ label, onClick }: { label: string; onClick: () => void }) => {
   return (
     <Button
       aria-label={label}
@@ -630,7 +622,7 @@ const AdminPracticumSection = () => {
   }, [operationExceptionsQuery.data, selectedDateOverviewDate]);
 
   const selectedOfflineScheduleDetail: AdminPracticumOfflineScheduleDetail | null =
-    selectedCalendarEntry?.kind === 'OFFLINE' ? offlineScheduleDetailQuery.data ?? null : null;
+    selectedCalendarEntry?.kind === 'OFFLINE' ? (offlineScheduleDetailQuery.data ?? null) : null;
 
   const offlineAttendanceChanges = useMemo(() => {
     if (!selectedOfflineScheduleDetail) {
@@ -914,7 +906,10 @@ const AdminPracticumSection = () => {
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineSchedules'] });
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineScheduleDetail'] });
       setMoveReservationState(null);
-      if (moveReservationState?.sourceKind === 'PRACTICUM' && variables.reservationIds.length === 1) {
+      if (
+        moveReservationState?.sourceKind === 'PRACTICUM' &&
+        variables.reservationIds.length === 1
+      ) {
         setSelectedCalendarEntry(null);
       }
       showToast({
@@ -973,7 +968,9 @@ const AdminPracticumSection = () => {
         throw new Error('현재 강의의 오프라인 일정 정보를 찾지 못했습니다.');
       }
 
-      const hasTargetSchedule = lecture.offlineSchedules.some((schedule) => schedule.id === detail.ruleId);
+      const hasTargetSchedule = lecture.offlineSchedules.some(
+        (schedule) => schedule.id === detail.ruleId,
+      );
 
       if (!hasTargetSchedule) {
         throw new Error('변경할 오프라인 강의 일정을 찾지 못했습니다.');
@@ -993,7 +990,8 @@ const AdminPracticumSection = () => {
     },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '오프라인 강의 일정을 변경하지 못했습니다.',
+        message:
+          error instanceof Error ? error.message : '오프라인 강의 일정을 변경하지 못했습니다.',
         variant: 'error',
       });
     },
@@ -1028,7 +1026,8 @@ const AdminPracticumSection = () => {
     },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '오프라인 강의 참석 상태를 저장하지 못했습니다.',
+        message:
+          error instanceof Error ? error.message : '오프라인 강의 참석 상태를 저장하지 못했습니다.',
         variant: 'error',
       });
     },
@@ -1257,19 +1256,19 @@ const AdminPracticumSection = () => {
                 </span>
               </label>
 
-              <label className={`${styles['field']} ${styles['adminInlineSearchField']}`}>
+              <div className={`${styles['field']} ${styles['adminInlineSearchField']}`}>
                 <span className={styles['fieldLabel']}>검색</span>
-                <input
-                  aria-label='일정관리 검색'
-                  className={styles['searchInput']}
-                  onChange={(event) => {
-                    setKeyword(event.target.value);
+                <UnifiedSearchBar
+                  className={styles['adminSearchBarWide']}
+                  inputAriaLabel='일정관리 검색'
+                  onChange={(nextValue) => {
+                    setKeyword(nextValue);
                   }}
+                  onSubmit={() => undefined}
                   placeholder={practicumSearchPlaceholder[searchCategory]}
-                  type='search'
                   value={keyword}
                 />
-              </label>
+              </div>
             </div>
           </div>
 
@@ -2204,7 +2203,9 @@ const AdminPracticumSection = () => {
                   ) : selectedCalendarEntry.kind === 'OFFLINE' ? (
                     <div className={styles['practicumDetailModal']}>
                       {offlineScheduleDetailQuery.isLoading ? (
-                        <p className={styles['helperText']}>오프라인 일정 상세를 불러오는 중입니다.</p>
+                        <p className={styles['helperText']}>
+                          오프라인 일정 상세를 불러오는 중입니다.
+                        </p>
                       ) : offlineScheduleDetailQuery.isError ? (
                         <p className={styles['helperText']}>
                           {offlineScheduleDetailQuery.error instanceof Error
@@ -2406,7 +2407,9 @@ const AdminPracticumSection = () => {
                               />
                             </label>
 
-                            <div className={`${styles['field']} ${styles['practicumTimeRangeField']}`}>
+                            <div
+                              className={`${styles['field']} ${styles['practicumTimeRangeField']}`}
+                            >
                               <span className={styles['fieldLabel']}>시간</span>
                               <div className={styles['practicumTimeRangeControls']}>
                                 <label className={styles['practicumTimeSelect']}>
@@ -2450,7 +2453,9 @@ const AdminPracticumSection = () => {
                                       value={personalScheduleEditDraft.endHour}
                                     >
                                       {endHourOptions
-                                        .filter((hour) => hour > personalScheduleEditDraft.startHour)
+                                        .filter(
+                                          (hour) => hour > personalScheduleEditDraft.startHour,
+                                        )
                                         .map((hour) => (
                                           <option key={hour} value={hour}>
                                             {String(hour).padStart(2, '0')}:00
@@ -2491,7 +2496,9 @@ const AdminPracticumSection = () => {
                               type='button'
                               variant='secondary'
                             >
-                              {updatePersonalScheduleMutation.isPending ? '저장 중...' : '수정 저장'}
+                              {updatePersonalScheduleMutation.isPending
+                                ? '저장 중...'
+                                : '수정 저장'}
                             </Button>
                           </div>
                         </>
@@ -2522,9 +2529,7 @@ const AdminPracticumSection = () => {
                               disabled={deletePersonalScheduleMutation.isPending}
                               onClick={() => {
                                 setPersonalScheduleEditDraft({
-                                  ...buildPersonalScheduleFormState(
-                                    selectedCalendarEntry.schedule,
-                                  ),
+                                  ...buildPersonalScheduleFormState(selectedCalendarEntry.schedule),
                                   exceptionId: selectedCalendarEntry.schedule.id,
                                 });
                               }}
@@ -2675,8 +2680,8 @@ const AdminPracticumSection = () => {
                       <strong>{String(moveReservationState.reservations.length)}명</strong>
                       <span>현재 일정</span>
                       <strong>
-                        {formatDateTime(moveReservationState.reservations[0]?.slotStartAt ?? null)} ~{' '}
-                        {formatDateTime(moveReservationState.reservations[0]?.slotEndAt ?? null)}
+                        {formatDateTime(moveReservationState.reservations[0]?.slotStartAt ?? null)}{' '}
+                        ~ {formatDateTime(moveReservationState.reservations[0]?.slotEndAt ?? null)}
                       </strong>
                       <span>강의명</span>
                       <strong>{moveReservationState.reservations[0]?.lectureTitle ?? '-'}</strong>

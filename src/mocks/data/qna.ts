@@ -4,6 +4,7 @@ import type {
   QuestionReplyCreatePayload,
   QuestionReplyItem,
 } from '@/types/qna';
+import { getCurrentMockStudentDisplayName } from '@/mocks/data/studentAuth';
 
 const createReplyCount = (replies: QuestionReplyItem[]) => replies.length;
 
@@ -176,7 +177,7 @@ export const createMockGlobalQuestion = (payload: QuestionCreatePayload): Questi
     scope: 'GLOBAL',
     programId: null,
     programTitle: null,
-    authorName: '현재 사용자',
+    authorName: getCurrentMockStudentDisplayName(),
     authorType: 'MEMBER',
     title: payload.title,
     content: payload.content,
