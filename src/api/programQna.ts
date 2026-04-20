@@ -168,6 +168,33 @@ export const createProgramQnaThread = async (
   }
 };
 
+export const updateProgramQnaThread = async (
+  programId: number,
+  questionId: number,
+  payload: ProgramQnaThreadCreatePayload,
+): Promise<ProgramQnaThreadItem> => {
+  try {
+    const response = await axiosInstance.put<ApiEnvelope<ProgramQnaThreadItem>>(
+      `/api/v1/programs/${String(programId)}/qna/${String(questionId)}`,
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, 'Q&A를 수정하지 못했습니다.');
+  }
+};
+
+export const deleteProgramQnaThread = async (
+  programId: number,
+  questionId: number,
+): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/api/v1/programs/${String(programId)}/qna/${String(questionId)}`);
+  } catch (error: unknown) {
+    throw toApiError(error, 'Q&A를 삭제하지 못했습니다.');
+  }
+};
+
 export const createProgramQnaReply = async (
   programId: number,
   questionId: number,

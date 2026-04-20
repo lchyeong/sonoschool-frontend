@@ -7,8 +7,10 @@ import { ApiError } from '@/api/errors';
 import {
   createProgramQnaReply,
   createProgramQnaThread,
+  deleteProgramQnaThread,
   fetchProgramQna,
   programQnaQueryKey,
+  updateProgramQnaThread,
 } from '@/api/programQna';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
@@ -21,7 +23,11 @@ import {
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type { ProgramQnaAuthorType, ProgramQnaThreadItem } from '@/types/programQna';
+import type {
+  ProgramQnaAuthorType,
+  ProgramQnaReplyItem,
+  ProgramQnaThreadItem,
+} from '@/types/programQna';
 import { classNames } from '@/utils/classNames';
 import {
   buildQnaPreview,
@@ -35,15 +41,23 @@ import styles from './ProgramQnaPanel.module.scss';
 type QnaVariant = 'board' | 'panel';
 type BoardLayout = 'table' | 'compact';
 type BoardStatusFilter = 'all' | 'answered' | 'waiting';
+type QnaDetailDisplay = 'questionAndAnswers' | 'answersOnly';
+type QnaReplySource = 'all' | 'adminOnly';
 
 const BOARD_PAGE_SIZE = 6;
 const EMPTY_THREADS: ProgramQnaThreadItem[] = [];
 
 interface ProgramQnaPanelProps {
+  allowReplies?: boolean;
+  answerSource?: QnaReplySource;
   boardLayout?: BoardLayout;
+  detailDisplay?: QnaDetailDisplay;
   enabled?: boolean;
+  exclusiveWriteMode?: boolean;
+  hideBoardTitle?: boolean;
   programId: number | null;
   programThreadCount?: number | null;
+  showBoardSummary?: boolean;
   title?: string;
   variant?: QnaVariant;
 }
@@ -89,19 +103,48 @@ const matchesSearchKeyword = (thread: ProgramQnaThreadItem, keyword: string) => 
     .includes(keyword);
 };
 
-const matchesStatusFilter = (thread: ProgramQnaThreadItem, statusFilter: BoardStatusFilter) => {
+const getThreadReplies = (thread: ProgramQnaThreadItem, answerSource: QnaReplySource) => {
+  return answerSource === 'adminOnly'
+    ? thread.replies.filter((reply) => reply.adminReply)
+    : thread.replies;
+};
+
+const getThreadReplyCount = (thread: ProgramQnaThreadItem, answerSource: QnaReplySource) => {
+  return answerSource === 'adminOnly'
+    ? getThreadReplies(thread, answerSource).length
+    : thread.replyCount;
+};
+
+const isThreadAnswered = (thread: ProgramQnaThreadItem, answerSource: QnaReplySource) => {
+  return answerSource === 'adminOnly'
+    ? getThreadReplies(thread, answerSource).length > 0
+    : thread.answered;
+};
+
+const matchesStatusFilter = (
+  thread: ProgramQnaThreadItem,
+  statusFilter: BoardStatusFilter,
+  answerSource: QnaReplySource,
+) => {
   if (statusFilter === 'all') {
     return true;
   }
 
-  return statusFilter === 'answered' ? thread.answered : !thread.answered;
+  const answered = isThreadAnswered(thread, answerSource);
+  return statusFilter === 'answered' ? answered : !answered;
 };
 
 const ProgramQnaPanelContent = ({
+  allowReplies = true,
+  answerSource = 'all',
   boardLayout = 'table',
+  detailDisplay = 'questionAndAnswers',
   enabled = true,
+  exclusiveWriteMode = false,
+  hideBoardTitle = false,
   resolvedProgramId,
   programThreadCount = null,
+  showBoardSummary = true,
   title = 'Q&A',
   variant = 'panel',
 }: Omit<ProgramQnaPanelProps, 'programId'> & { resolvedProgramId: number }) => {
@@ -112,17 +155,24 @@ const ProgramQnaPanelContent = ({
   const currentDisplayName = useAuthStore((state) => state.displayName);
   const isBoardVariant = variant === 'board';
   const isCompactBoard = isBoardVariant && boardLayout === 'compact';
+  const replyCountLabel = allowReplies ? '답글' : '답변';
+  const waitingStatusLabel = detailDisplay === 'answersOnly' ? '미답변' : '답변대기';
   const [searchInput, setSearchInput] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<BoardStatusFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedThreadId, setExpandedThreadId] = useState<number | null>(null);
+  const [expandedContentThreadId, setExpandedContentThreadId] = useState<number | null>(null);
+  const [editingThreadId, setEditingThreadId] = useState<number | null>(null);
+  const [editingThreadTitle, setEditingThreadTitle] = useState('');
+  const [editingThreadContent, setEditingThreadContent] = useState('');
   const [isWriteFormOpen, setIsWriteFormOpen] = useState(false);
   const [threadTitle, setThreadTitle] = useState('');
   const [threadContent, setThreadContent] = useState('');
   const [openReplyThreadIds, setOpenReplyThreadIds] = useState<number[]>([]);
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
   const deferredSearchKeyword = useDeferredValue(searchKeyword.trim().toLowerCase());
+  const showBoardReadContent = !(isBoardVariant && exclusiveWriteMode && isWriteFormOpen);
 
   const qnaQuery = useQuery({
     enabled,
@@ -182,15 +232,66 @@ const ProgramQnaPanelContent = ({
     },
   });
 
+  const updateThreadMutation = useMutation({
+    mutationFn: ({
+      content,
+      threadId,
+      title,
+    }: {
+      content: string;
+      threadId: number;
+      title: string;
+    }) => updateProgramQnaThread(resolvedProgramId, threadId, { content, title }),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : 'Q&A를 수정하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      setEditingThreadId(null);
+      setEditingThreadTitle('');
+      setEditingThreadContent('');
+      await invalidateQna();
+      showToast({
+        message: 'Q&A를 수정했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const deleteThreadMutation = useMutation({
+    mutationFn: (threadId: number) => deleteProgramQnaThread(resolvedProgramId, threadId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : 'Q&A를 삭제하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, threadId) => {
+      setEditingThreadId((current) => (current === threadId ? null : current));
+      setEditingThreadTitle('');
+      setEditingThreadContent('');
+      setExpandedThreadId((current) => (current === threadId ? null : current));
+      setExpandedContentThreadId((current) => (current === threadId ? null : current));
+      setOpenReplyThreadIds((current) => current.filter((value) => value !== threadId));
+      await invalidateQna();
+      showToast({
+        message: 'Q&A를 삭제했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
   const threads = qnaQuery.data?.content ?? EMPTY_THREADS;
   const visibleThreads = useMemo(() => {
     return threads.filter((thread) => {
       return (
         matchesSearchKeyword(thread, deferredSearchKeyword) &&
-        (!isBoardVariant || matchesStatusFilter(thread, statusFilter))
+        (!isBoardVariant || matchesStatusFilter(thread, statusFilter, answerSource))
       );
     });
-  }, [deferredSearchKeyword, isBoardVariant, statusFilter, threads]);
+  }, [answerSource, deferredSearchKeyword, isBoardVariant, statusFilter, threads]);
 
   const resolvedProgramThreadCount = qnaQuery.data?.totalElements ?? programThreadCount ?? null;
   const shouldTreatQueryErrorAsEmptyState =
@@ -211,6 +312,11 @@ const ProgramQnaPanelContent = ({
     expandedThreadId !== null && visibleThreads.some((thread) => thread.id === expandedThreadId)
       ? expandedThreadId
       : null;
+  const activeExpandedContentThreadId =
+    expandedContentThreadId !== null &&
+    visibleThreads.some((thread) => thread.id === expandedContentThreadId)
+      ? expandedContentThreadId
+      : null;
   const paginatedThreads = useMemo(() => {
     if (!isBoardVariant) {
       return visibleThreads;
@@ -230,12 +336,63 @@ const ProgramQnaPanelContent = ({
     });
   };
 
+  const toggleThreadAnswers = (threadId: number) => {
+    setExpandedThreadId((current) => (current === threadId ? null : threadId));
+  };
+
+  const toggleThreadContent = (threadId: number) => {
+    setExpandedContentThreadId((current) => (current === threadId ? null : threadId));
+  };
+
+  const handleStartThreadEdit = (thread: ProgramQnaThreadItem) => {
+    setEditingThreadId(thread.id);
+    setEditingThreadTitle(thread.title);
+    setEditingThreadContent(thread.content);
+    setExpandedThreadId(thread.id);
+    setIsWriteFormOpen(false);
+  };
+
+  const handleCancelThreadEdit = () => {
+    setEditingThreadId(null);
+    setEditingThreadTitle('');
+    setEditingThreadContent('');
+  };
+
+  const handleSubmitThreadEdit = (threadId: number) => {
+    const trimmedTitle = editingThreadTitle.trim();
+    const trimmedContent = editingThreadContent.trim();
+    const validationError = validateQnaQuestionDraft(trimmedTitle, trimmedContent);
+
+    if (validationError) {
+      showToast({
+        message: validationError,
+        variant: 'error',
+      });
+      return;
+    }
+
+    void updateThreadMutation.mutateAsync({
+      content: trimmedContent,
+      threadId,
+      title: trimmedTitle,
+    });
+  };
+
+  const handleDeleteThread = (thread: ProgramQnaThreadItem) => {
+    if (!window.confirm('작성한 질문을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    void deleteThreadMutation.mutateAsync(thread.id);
+  };
+
   const handleToggleWriteForm = () => {
     if (!isAuthenticated) {
       void navigate(routePaths.login);
       return;
     }
 
+    handleCancelThreadEdit();
     setIsWriteFormOpen((current) => !current);
   };
 
@@ -253,23 +410,115 @@ const ProgramQnaPanelContent = ({
     return true;
   };
 
+  const renderThreadManagementActions = (thread: ProgramQnaThreadItem) => {
+    if (!isAuthenticated || !thread.mine || editingThreadId === thread.id) {
+      return null;
+    }
+
+    return (
+      <div className={styles['threadActionRow']}>
+        <Button
+          disabled={updateThreadMutation.isPending || deleteThreadMutation.isPending}
+          onClick={() => {
+            handleStartThreadEdit(thread);
+          }}
+          size='sm'
+          type='button'
+          variant='secondary'
+        >
+          수정
+        </Button>
+        <Button
+          disabled={updateThreadMutation.isPending || deleteThreadMutation.isPending}
+          onClick={() => {
+            handleDeleteThread(thread);
+          }}
+          size='sm'
+          type='button'
+          variant='danger'
+        >
+          삭제
+        </Button>
+      </div>
+    );
+  };
+
   const renderThreadDetailContent = (
     thread: ProgramQnaThreadItem,
     isReplyComposerOpen: boolean,
     expandedLayoutClassName?: string,
   ) => {
+    const replies = getThreadReplies(thread, answerSource);
+    const isAnswersOnly = detailDisplay === 'answersOnly';
+    const isEditingThread = editingThreadId === thread.id;
+
     return (
       <div className={classNames(styles['detailInner'], expandedLayoutClassName)}>
-        <div className={styles['detailQuestion']}>
-          <p className={styles['detailLabel']}>질문 내용</p>
-          <p className={styles['detailText']}>{thread.content}</p>
-        </div>
+        {!isAnswersOnly || isEditingThread ? (
+          <div className={styles['detailQuestion']}>
+            <p className={styles['detailLabel']}>{isEditingThread ? '질문 수정' : '질문 내용'}</p>
+            {isEditingThread ? (
+              <div className={styles['threadEditor']}>
+                <input
+                  className={styles['input']}
+                  maxLength={QNA_TITLE_MAX_LENGTH}
+                  onChange={(event) => {
+                    setEditingThreadTitle(event.target.value);
+                  }}
+                  placeholder='제목'
+                  value={editingThreadTitle}
+                />
+                <textarea
+                  className={styles['textarea']}
+                  maxLength={QNA_CONTENT_MAX_LENGTH}
+                  onChange={(event) => {
+                    setEditingThreadContent(event.target.value);
+                  }}
+                  placeholder={`내용 (${String(QNA_CONTENT_MAX_LENGTH)}자 이내)`}
+                  value={editingThreadContent}
+                />
+                <div className={styles['threadActionRow']}>
+                  <Button
+                    disabled={updateThreadMutation.isPending || deleteThreadMutation.isPending}
+                    onClick={() => {
+                      handleCancelThreadEdit();
+                    }}
+                    size='sm'
+                    type='button'
+                    variant='secondary'
+                  >
+                    취소
+                  </Button>
+                  <Button
+                    disabled={
+                      updateThreadMutation.isPending ||
+                      editingThreadTitle.trim().length === 0 ||
+                      editingThreadContent.trim().length === 0
+                    }
+                    onClick={() => {
+                      handleSubmitThreadEdit(thread.id);
+                    }}
+                    size='sm'
+                    type='button'
+                  >
+                    {updateThreadMutation.isPending ? '저장 중...' : '수정 저장'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className={styles['detailText']}>{thread.content}</p>
+                {renderThreadManagementActions(thread)}
+              </>
+            )}
+          </div>
+        ) : null}
 
         <div className={styles['detailAnswer']}>
-          <p className={styles['detailLabel']}>문의에 대한 답변</p>
-          {thread.replies.length ? (
+          <p className={styles['detailLabel']}>{isAnswersOnly ? '답변' : '문의에 대한 답변'}</p>
+          {replies.length ? (
             <div className={styles['detailReplyList']}>
-              {thread.replies.map((reply) => (
+              {replies.map((reply: ProgramQnaReplyItem) => (
                 <div className={styles['replyBlock']} key={reply.id}>
                   <div className={styles['replyMetaRow']}>
                     <div className={styles['replyMetaPrimary']}>
@@ -289,11 +538,13 @@ const ProgramQnaPanelContent = ({
               ))}
             </div>
           ) : (
-            <p className={styles['detailText']}>아직 등록된 답변이 없습니다.</p>
+            <p className={styles['detailText']}>
+              {isAnswersOnly ? '아직 미답변입니다.' : '아직 등록된 답변이 없습니다.'}
+            </p>
           )}
         </div>
 
-        {isAuthenticated ? (
+        {allowReplies && isAuthenticated ? (
           <div className={styles['detailActions']}>
             <Button
               className={styles['replyToggle']}
@@ -354,46 +605,54 @@ const ProgramQnaPanelContent = ({
     <section className={classNames(styles['panel'], isBoardVariant && styles['panelBoard'])}>
       {isBoardVariant ? (
         <>
-          <div className={styles['boardHeader']}>
-            <div className={styles['boardTitleBlock']}>
-              <h3 className={styles['boardTitle']}>강의 Q&A</h3>
+          {!hideBoardTitle || showBoardSummary ? (
+            <div className={styles['boardHeader']}>
+              {!hideBoardTitle ? (
+                <div className={styles['boardTitleBlock']}>
+                  <h3 className={styles['boardTitle']}>강의 Q&A</h3>
+                </div>
+              ) : null}
+              {showBoardSummary ? (
+                <p className={styles['boardSummary']}>
+                  총 {String(resolvedProgramThreadCount ?? threads.length)}건 중 검색 결과{' '}
+                  {String(visibleThreads.length)}건
+                </p>
+              ) : null}
             </div>
-            <p className={styles['boardSummary']}>
-              총 {String(resolvedProgramThreadCount ?? threads.length)}건 중 검색 결과{' '}
-              {String(visibleThreads.length)}건
-            </p>
-          </div>
+          ) : null}
 
-          <div className={styles['boardToolbar']}>
-            <UnifiedSearchBar
-              className={styles['boardSearchBar']}
-              inputAriaLabel='Q&A 검색'
-              leading={
-                <select
-                  aria-label='질문 상태 필터'
-                  className={styles['filterSelect']}
-                  onChange={(event) => {
-                    setStatusFilter(event.target.value as BoardStatusFilter);
-                    setCurrentPage(1);
-                  }}
-                  value={statusFilter}
-                >
-                  <option value='all'>전체</option>
-                  <option value='answered'>답변완료</option>
-                  <option value='waiting'>답변대기</option>
-                </select>
-              }
-              onChange={(nextValue) => {
-                setSearchInput(nextValue);
-              }}
-              onSubmit={() => {
-                setSearchKeyword(searchInput);
-                setCurrentPage(1);
-              }}
-              placeholder='제목, 내용, 작성자를 검색해 주세요.'
-              value={searchInput}
-            />
-          </div>
+          {showBoardReadContent ? (
+            <div className={styles['boardToolbar']}>
+              <UnifiedSearchBar
+                className={styles['boardSearchBar']}
+                inputAriaLabel='Q&A 검색'
+                leading={
+                  <select
+                    aria-label='질문 상태 필터'
+                    className={styles['filterSelect']}
+                    onChange={(event) => {
+                      setStatusFilter(event.target.value as BoardStatusFilter);
+                      setCurrentPage(1);
+                    }}
+                    value={statusFilter}
+                  >
+                    <option value='all'>전체</option>
+                    <option value='answered'>답변완료</option>
+                    <option value='waiting'>답변대기</option>
+                  </select>
+                }
+                onChange={(nextValue) => {
+                  setSearchInput(nextValue);
+                }}
+                onSubmit={() => {
+                  setSearchKeyword(searchInput);
+                  setCurrentPage(1);
+                }}
+                placeholder='제목, 내용, 작성자를 검색해 주세요.'
+                value={searchInput}
+              />
+            </div>
+          ) : null}
         </>
       ) : (
         <header className={styles['header']}>
@@ -511,6 +770,7 @@ const ProgramQnaPanelContent = ({
       ) : null}
 
       {isBoardVariant &&
+      showBoardReadContent &&
       !qnaQuery.isLoading &&
       (!qnaQuery.isError || shouldTreatQueryErrorAsEmptyState) ? (
         <>
@@ -521,6 +781,7 @@ const ProgramQnaPanelContent = ({
                   const rowNumber =
                     visibleThreads.length - ((normalizedCurrentPage - 1) * BOARD_PAGE_SIZE + index);
                   const isExpanded = activeExpandedThreadId === thread.id;
+                  const isContentExpanded = activeExpandedContentThreadId === thread.id;
                   const isReplyComposerOpen = openReplyThreadIds.includes(thread.id);
 
                   return (
@@ -528,40 +789,62 @@ const ProgramQnaPanelContent = ({
                       className={classNames(
                         styles['threadCard'],
                         styles['threadCardBoardCompact'],
-                        isExpanded && styles['threadCardBoardCompactExpanded'],
+                        isExpanded && styles['threadCardBoardCompactAnswerExpanded'],
                       )}
                       key={thread.id}
                     >
-                      <button
-                        aria-controls={`program-qna-detail-${String(thread.id)}`}
-                        aria-expanded={isExpanded}
-                        className={styles['compactThreadButton']}
-                        onClick={() => {
-                          setExpandedThreadId((current) =>
-                            current === thread.id ? null : thread.id,
-                          );
-                        }}
-                        type='button'
-                      >
+                      <div className={styles['compactThreadButton']}>
                         <div className={styles['compactThreadPrimary']}>
                           <div className={styles['compactThreadTopRow']}>
                             <span className={styles['compactThreadNumber']}>
                               {String(rowNumber)}
                             </span>
-                            <span
-                              className={styles['boardStatusBadge']}
-                              data-tone={thread.answered ? 'answered' : 'waiting'}
+                            <button
+                              aria-controls={`program-qna-detail-${String(thread.id)}`}
+                              aria-expanded={isExpanded}
+                              className={classNames(
+                                styles['boardStatusBadge'],
+                                styles['compactAnswerToggle'],
+                              )}
+                              data-tone={
+                                isThreadAnswered(thread, answerSource) ? 'answered' : 'waiting'
+                              }
+                              onClick={() => {
+                                toggleThreadAnswers(thread.id);
+                              }}
+                              type='button'
                             >
-                              {thread.answered ? '답변완료' : '답변대기'}
-                            </span>
+                              {isThreadAnswered(thread, answerSource)
+                                ? '답변완료'
+                                : waitingStatusLabel}
+                            </button>
                             <span className={styles['compactThreadDate']}>
                               {formatDate(thread.createdAt)}
                             </span>
                           </div>
-                          <strong className={styles['compactThreadTitle']}>{thread.title}</strong>
-                          <span className={styles['compactThreadPreview']}>
-                            {buildQnaPreview(thread.content, QNA_LIST_CONTENT_PREVIEW_LENGTH)}
-                          </span>
+                          <button
+                            aria-controls={`program-qna-content-${String(thread.id)}`}
+                            aria-expanded={isContentExpanded}
+                            className={styles['compactThreadContentButton']}
+                            onClick={() => {
+                              toggleThreadContent(thread.id);
+                            }}
+                            type='button'
+                          >
+                            <span className={styles['compactThreadTextBlock']}>
+                              <strong className={styles['compactThreadTitle']}>
+                                {thread.title}
+                              </strong>
+                              <span
+                                className={styles['compactThreadPreview']}
+                                data-expanded={isContentExpanded ? 'true' : 'false'}
+                                id={`program-qna-content-${String(thread.id)}`}
+                              >
+                                {thread.content}
+                              </span>
+                            </span>
+                          </button>
+                          {isContentExpanded ? renderThreadManagementActions(thread) : null}
                         </div>
                         <div className={styles['compactThreadMeta']}>
                           <div className={styles['badgeRow']}>
@@ -581,14 +864,22 @@ const ProgramQnaPanelContent = ({
                               )}
                             </span>
                           </div>
-                          <div className={styles['compactThreadMetaSecondary']}>
+                          <button
+                            aria-controls={`program-qna-detail-${String(thread.id)}`}
+                            aria-expanded={isExpanded}
+                            className={styles['compactThreadMetaSecondary']}
+                            onClick={() => {
+                              toggleThreadAnswers(thread.id);
+                            }}
+                            type='button'
+                          >
                             <span className={styles['compactThreadReplyCount']}>
-                              답글 {String(thread.replyCount)}
+                              {replyCountLabel} {String(getThreadReplyCount(thread, answerSource))}
                             </span>
                             <span className={styles['compactThreadChevron']} aria-hidden='true' />
-                          </div>
+                          </button>
                         </div>
-                      </button>
+                      </div>
 
                       {isExpanded ? (
                         <div
@@ -648,9 +939,13 @@ const ProgramQnaPanelContent = ({
                             <td>
                               <span
                                 className={styles['boardStatusBadge']}
-                                data-tone={thread.answered ? 'answered' : 'waiting'}
+                                data-tone={
+                                  isThreadAnswered(thread, answerSource) ? 'answered' : 'waiting'
+                                }
                               >
-                                {thread.answered ? '답변완료' : '답변대기'}
+                                {isThreadAnswered(thread, answerSource)
+                                  ? '답변완료'
+                                  : waitingStatusLabel}
                               </span>
                             </td>
                             <td className={styles['titleCell']}>
@@ -781,6 +1076,7 @@ const ProgramQnaPanelContent = ({
         <div className={styles['threadList']}>
           {visibleThreads.map((thread) => {
             const isReplyComposerOpen = openReplyThreadIds.includes(thread.id);
+            const isEditingThread = editingThreadId === thread.id;
 
             return (
               <article className={styles['threadCard']} key={thread.id}>
@@ -805,9 +1101,66 @@ const ProgramQnaPanelContent = ({
                 </div>
 
                 <div>
-                  <h4 className={styles['threadTitle']}>{thread.title}</h4>
-                  <p className={styles['threadBody']}>{thread.content}</p>
+                  {isEditingThread ? (
+                    <div className={styles['threadEditor']}>
+                      <p className={styles['detailLabel']}>질문 수정</p>
+                      <input
+                        className={styles['input']}
+                        maxLength={QNA_TITLE_MAX_LENGTH}
+                        onChange={(event) => {
+                          setEditingThreadTitle(event.target.value);
+                        }}
+                        placeholder='제목'
+                        value={editingThreadTitle}
+                      />
+                      <textarea
+                        className={styles['textarea']}
+                        maxLength={QNA_CONTENT_MAX_LENGTH}
+                        onChange={(event) => {
+                          setEditingThreadContent(event.target.value);
+                        }}
+                        placeholder={`내용 (${String(QNA_CONTENT_MAX_LENGTH)}자 이내)`}
+                        value={editingThreadContent}
+                      />
+                      <div className={styles['threadActionRow']}>
+                        <Button
+                          disabled={
+                            updateThreadMutation.isPending || deleteThreadMutation.isPending
+                          }
+                          onClick={() => {
+                            handleCancelThreadEdit();
+                          }}
+                          size='sm'
+                          type='button'
+                          variant='secondary'
+                        >
+                          취소
+                        </Button>
+                        <Button
+                          disabled={
+                            updateThreadMutation.isPending ||
+                            editingThreadTitle.trim().length === 0 ||
+                            editingThreadContent.trim().length === 0
+                          }
+                          onClick={() => {
+                            handleSubmitThreadEdit(thread.id);
+                          }}
+                          size='sm'
+                          type='button'
+                        >
+                          {updateThreadMutation.isPending ? '저장 중...' : '수정 저장'}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <h4 className={styles['threadTitle']}>{thread.title}</h4>
+                      <p className={styles['threadBody']}>{thread.content}</p>
+                    </>
+                  )}
                 </div>
+
+                {renderThreadManagementActions(thread)}
 
                 {thread.replies.length > 0 ? (
                   <div className={styles['replyList']}>

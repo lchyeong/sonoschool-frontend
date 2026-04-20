@@ -33,6 +33,29 @@ export const createGlobalQuestion = async (
   }
 };
 
+export const updateGlobalQuestion = async (
+  questionId: number,
+  payload: QuestionCreatePayload,
+): Promise<QuestionItem> => {
+  try {
+    const response = await axiosInstance.put<ApiEnvelope<QuestionItem>>(
+      `/api/v1/questions/${String(questionId)}`,
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '운영 Q&A를 수정하지 못했습니다.');
+  }
+};
+
+export const deleteGlobalQuestion = async (questionId: number): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/api/v1/questions/${String(questionId)}`);
+  } catch (error: unknown) {
+    throw toApiError(error, '운영 Q&A를 삭제하지 못했습니다.');
+  }
+};
+
 export interface AdminQuestionFilters {
   answered?: boolean | null;
   keyword?: string | null;

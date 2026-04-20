@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
-import { createGlobalQuestion } from '@/api/qna';
+import { createGlobalQuestion, deleteGlobalQuestion, updateGlobalQuestion } from '@/api/qna';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
@@ -12,7 +12,12 @@ import { globalQuestionsQueryKey, useGlobalQuestionsQuery } from '@/query/useQna
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
-import { buildQnaPreview, maskQnaAuthorName, resolveQnaAuthorName, validateQnaQuestionDraft } from '@/utils/qna';
+import {
+  buildQnaPreview,
+  maskQnaAuthorName,
+  resolveQnaAuthorName,
+  validateQnaQuestionDraft,
+} from '@/utils/qna';
 
 import styles from './QnaPage.module.scss';
 
@@ -46,9 +51,12 @@ const QnaPage = () => {
   const [statusFilter, setStatusFilter] = useState<BoardStatusFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
+  const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [editingContent, setEditingContent] = useState('');
   const [isWriteFormOpen, setIsWriteFormOpen] = useState(false);
 
-  const questions = questionsQuery.data ?? [];
+  const questions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
   const totalQuestions = questions.length;
 
   const filteredQuestions = useMemo(() => {
@@ -74,16 +82,11 @@ const QnaPage = () => {
   }, [questions, searchTerm, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredQuestions.length / PAGE_SIZE));
+  const activePage = Math.min(currentPage, totalPages);
   const paginatedQuestions = filteredQuestions.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (activePage - 1) * PAGE_SIZE,
+    activePage * PAGE_SIZE,
   );
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
 
   const createQuestionMutation = useMutation({
     mutationFn: createGlobalQuestion,
@@ -101,6 +104,55 @@ const QnaPage = () => {
       await queryClient.invalidateQueries({ queryKey: globalQuestionsQueryKey() });
       showToast({
         message: '질문을 등록했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const updateQuestionMutation = useMutation({
+    mutationFn: ({
+      content: nextContent,
+      questionId,
+      title: nextTitle,
+    }: {
+      content: string;
+      questionId: number;
+      title: string;
+    }) => updateGlobalQuestion(questionId, { content: nextContent, title: nextTitle }),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '질문 수정에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      setEditingQuestionId(null);
+      setEditingTitle('');
+      setEditingContent('');
+      await queryClient.invalidateQueries({ queryKey: globalQuestionsQueryKey() });
+      showToast({
+        message: '질문을 수정했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const deleteQuestionMutation = useMutation({
+    mutationFn: (questionId: number) => deleteGlobalQuestion(questionId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '질문 삭제에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, questionId) => {
+      setEditingQuestionId((current) => (current === questionId ? null : current));
+      setEditingTitle('');
+      setEditingContent('');
+      setExpandedQuestionId((current) => (current === questionId ? null : current));
+      await queryClient.invalidateQueries({ queryKey: globalQuestionsQueryKey() });
+      showToast({
+        message: '질문을 삭제했습니다.',
         variant: 'success',
       });
     },
@@ -131,12 +183,55 @@ const QnaPage = () => {
     });
   };
 
+  const handleStartEdit = (question: (typeof questions)[number]) => {
+    setEditingQuestionId(question.id);
+    setEditingTitle(question.title);
+    setEditingContent(question.content);
+    setExpandedQuestionId(question.id);
+    setIsWriteFormOpen(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingQuestionId(null);
+    setEditingTitle('');
+    setEditingContent('');
+  };
+
+  const handleSubmitEdit = (questionId: number) => {
+    const trimmedTitle = editingTitle.trim();
+    const trimmedContent = editingContent.trim();
+    const validationError = validateQnaQuestionDraft(trimmedTitle, trimmedContent);
+
+    if (validationError) {
+      showToast({
+        message: validationError,
+        variant: 'error',
+      });
+      return;
+    }
+
+    void updateQuestionMutation.mutateAsync({
+      content: trimmedContent,
+      questionId,
+      title: trimmedTitle,
+    });
+  };
+
+  const handleDeleteQuestion = (questionId: number) => {
+    if (!window.confirm('작성한 질문을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    void deleteQuestionMutation.mutateAsync(questionId);
+  };
+
   const handleToggleWriteForm = () => {
     if (!isAuthenticated) {
       void navigate(routePaths.login);
       return;
     }
 
+    handleCancelEdit();
     setIsWriteFormOpen((current) => !current);
   };
 
@@ -225,8 +320,9 @@ const QnaPage = () => {
                   {paginatedQuestions.length ? (
                     paginatedQuestions.map((question, index) => {
                       const rowNumber =
-                        filteredQuestions.length - ((currentPage - 1) * PAGE_SIZE + index);
+                        filteredQuestions.length - ((activePage - 1) * PAGE_SIZE + index);
                       const isExpanded = expandedQuestionId === question.id;
+                      const isEditing = editingQuestionId === question.id;
 
                       return (
                         <Fragment key={question.id}>
@@ -271,13 +367,104 @@ const QnaPage = () => {
                           </tr>
 
                           {isExpanded ? (
-                            <tr className={styles['detailRow']} key={`${question.id}-detail`}>
+                            <tr
+                              className={styles['detailRow']}
+                              key={`detail-${String(question.id)}`}
+                            >
                               <td colSpan={5}>
                                 <div className={styles['detailInner']}>
                                   <div className={styles['detailQuestion']}>
-                                    <p className={styles['detailLabel']}>질문 내용</p>
-                                    <p className={styles['detailText']}>{question.content}</p>
+                                    <p className={styles['detailLabel']}>
+                                      {isEditing ? '질문 수정' : '질문 내용'}
+                                    </p>
+                                    {isEditing ? (
+                                      <div className={styles['editorFields']}>
+                                        <input
+                                          className={styles['editorInput']}
+                                          maxLength={QNA_TITLE_MAX_LENGTH}
+                                          onChange={(event) => {
+                                            setEditingTitle(event.target.value);
+                                          }}
+                                          placeholder='제목'
+                                          value={editingTitle}
+                                        />
+                                        <textarea
+                                          className={styles['editorTextarea']}
+                                          maxLength={QNA_CONTENT_MAX_LENGTH}
+                                          onChange={(event) => {
+                                            setEditingContent(event.target.value);
+                                          }}
+                                          placeholder='내용을 입력해 주세요.'
+                                          value={editingContent}
+                                        />
+                                        <div className={styles['detailActionRow']}>
+                                          <Button
+                                            disabled={
+                                              updateQuestionMutation.isPending ||
+                                              deleteQuestionMutation.isPending
+                                            }
+                                            onClick={handleCancelEdit}
+                                            size='sm'
+                                            type='button'
+                                            variant='secondary'
+                                          >
+                                            취소
+                                          </Button>
+                                          <Button
+                                            disabled={
+                                              updateQuestionMutation.isPending ||
+                                              editingTitle.trim().length === 0 ||
+                                              editingContent.trim().length === 0
+                                            }
+                                            onClick={() => {
+                                              handleSubmitEdit(question.id);
+                                            }}
+                                            size='sm'
+                                            type='button'
+                                          >
+                                            {updateQuestionMutation.isPending
+                                              ? '저장 중...'
+                                              : '수정 저장'}
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className={styles['detailText']}>{question.content}</p>
+                                    )}
                                   </div>
+
+                                  {isAuthenticated && question.mine && !isEditing ? (
+                                    <div className={styles['detailActionRow']}>
+                                      <Button
+                                        disabled={
+                                          updateQuestionMutation.isPending ||
+                                          deleteQuestionMutation.isPending
+                                        }
+                                        onClick={() => {
+                                          handleStartEdit(question);
+                                        }}
+                                        size='sm'
+                                        type='button'
+                                        variant='secondary'
+                                      >
+                                        수정
+                                      </Button>
+                                      <Button
+                                        disabled={
+                                          updateQuestionMutation.isPending ||
+                                          deleteQuestionMutation.isPending
+                                        }
+                                        onClick={() => {
+                                          handleDeleteQuestion(question.id);
+                                        }}
+                                        size='sm'
+                                        type='button'
+                                        variant='danger'
+                                      >
+                                        삭제
+                                      </Button>
+                                    </div>
+                                  ) : null}
 
                                   <div className={styles['detailAnswer']}>
                                     <p className={styles['detailLabel']}>문의에 대한 답변</p>
@@ -329,7 +516,7 @@ const QnaPage = () => {
               <div className={styles['pagination']}>
                 <button
                   className={styles['pageNavButton']}
-                  disabled={currentPage === 1}
+                  disabled={activePage === 1}
                   onClick={() => {
                     setCurrentPage((page) => Math.max(1, page - 1));
                   }}
@@ -342,7 +529,7 @@ const QnaPage = () => {
                   return (
                     <button
                       className={styles['pageButton']}
-                      data-active={pageNumber === currentPage}
+                      data-active={pageNumber === activePage}
                       key={pageNumber}
                       onClick={() => {
                         setCurrentPage(pageNumber);
@@ -356,7 +543,7 @@ const QnaPage = () => {
 
                 <button
                   className={styles['pageNavButton']}
-                  disabled={currentPage === totalPages}
+                  disabled={activePage === totalPages}
                   onClick={() => {
                     setCurrentPage((page) => Math.min(totalPages, page + 1));
                   }}
@@ -381,7 +568,8 @@ const QnaPage = () => {
                   <h2 className={styles['writerTitle']}>질문 작성</h2>
                   <p className={styles['writerDescription']}>
                     운영 관련 질문을 남기면 확인 후 게시판에 답변이 표시됩니다. 제목은{' '}
-                    {String(QNA_TITLE_MAX_LENGTH)}자, 내용은 {String(QNA_CONTENT_MAX_LENGTH)}자까지 입력할 수 있습니다.
+                    {String(QNA_TITLE_MAX_LENGTH)}자, 내용은 {String(QNA_CONTENT_MAX_LENGTH)}자까지
+                    입력할 수 있습니다.
                   </p>
                 </div>
 

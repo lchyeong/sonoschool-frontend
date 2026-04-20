@@ -58,15 +58,19 @@ import {
 import {
   createMockProgramQnaReply,
   createMockProgramQnaThread,
+  deleteMockProgramQnaThread,
   getMockProgramQna,
+  updateMockProgramQnaThread,
 } from '@/mocks/data/programQna';
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import {
   createMockAdminReply,
   createMockGlobalQuestion,
   deleteMockAdminReply,
+  deleteMockGlobalQuestion,
   getMockAdminQuestions,
   getMockGlobalQuestions,
+  updateMockGlobalQuestion,
 } from '@/mocks/data/qna';
 import { getMockGlobalResourceById, getMockGlobalResources } from '@/mocks/data/resources';
 import { getMockSiteNavigation } from '@/mocks/data/siteNavigation';
@@ -945,6 +949,42 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(createMockGlobalQuestion(body)), { status: 201 });
   }),
+  http.put('*/api/v1/questions/:questionId', async ({ params, request }) => {
+    const questionId = Number(params['questionId']);
+    const body = (await request.json().catch(() => null)) as QuestionCreatePayload | null;
+
+    if (
+      !Number.isInteger(questionId) ||
+      questionId <= 0 ||
+      !body ||
+      typeof body.title !== 'string' ||
+      typeof body.content !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const validationError = validateQnaQuestionDraft(body.title.trim(), body.content.trim());
+    if (validationError) {
+      return HttpResponse.json({ message: validationError }, { status: 400 });
+    }
+
+    const question = updateMockGlobalQuestion(questionId, body);
+
+    if (!question) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(question), { status: 200 });
+  }),
+  http.delete('*/api/v1/questions/:questionId', ({ params }) => {
+    const questionId = Number(params['questionId']);
+
+    if (!deleteMockGlobalQuestion(questionId)) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.post('*/api/v1/payments/checkout/kcp/pc/prepare', async ({ request }) => {
     const body = (await request.json().catch(() => null)) as {
       cartItemIds?: number[];
@@ -1002,6 +1042,55 @@ export const handlers = [
     return HttpResponse.json(createApiEnvelope(createMockProgramQnaThread(programId, body)), {
       status: 201,
     });
+  }),
+  http.put('*/api/v1/programs/:programId/qna/:questionId', async ({ params, request }) => {
+    const programId = Number(params['programId']);
+    const questionId = Number(params['questionId']);
+    const body = (await request.json().catch(() => null)) as ProgramQnaThreadCreatePayload | null;
+
+    if (
+      !Number.isInteger(programId) ||
+      programId <= 0 ||
+      !Number.isInteger(questionId) ||
+      questionId <= 0 ||
+      !body ||
+      typeof body.title !== 'string' ||
+      typeof body.content !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const validationError = validateQnaQuestionDraft(body.title.trim(), body.content.trim());
+    if (validationError) {
+      return HttpResponse.json({ message: validationError }, { status: 400 });
+    }
+
+    const thread = updateMockProgramQnaThread(programId, questionId, body);
+
+    if (!thread) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(thread), { status: 200 });
+  }),
+  http.delete('*/api/v1/programs/:programId/qna/:questionId', ({ params }) => {
+    const programId = Number(params['programId']);
+    const questionId = Number(params['questionId']);
+
+    if (
+      !Number.isInteger(programId) ||
+      programId <= 0 ||
+      !Number.isInteger(questionId) ||
+      questionId <= 0
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    if (!deleteMockProgramQnaThread(programId, questionId)) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
   }),
   http.post('*/api/v1/programs/:programId/qna/:questionId/replies', async ({ params, request }) => {
     const programId = Number(params['programId']);
@@ -1875,9 +1964,12 @@ export const handlers = [
       }),
     );
   }),
-  http.patch('*/api/v1/admin/practicum/offline-schedules/:ruleId/attendees/:enrollmentId/absence', () => {
-    return new HttpResponse(null, { status: 204 });
-  }),
+  http.patch(
+    '*/api/v1/admin/practicum/offline-schedules/:ruleId/attendees/:enrollmentId/absence',
+    () => {
+      return new HttpResponse(null, { status: 204 });
+    },
+  ),
   http.get('*/api/v1/admin/practicum/operating-hours', () => {
     return HttpResponse.json(
       createApiEnvelope([
@@ -1967,40 +2059,43 @@ export const handlers = [
       { status: 201 },
     );
   }),
-  http.put('*/api/v1/admin/practicum/operation-exceptions/:exceptionId', async ({ params, request }) => {
-    const exceptionId = Number(params['exceptionId']);
-    const body = (await request.json().catch(() => null)) as {
-      content?: string | null;
-      endAt?: string;
-      location?: string | null;
-      startAt?: string;
-      title?: string;
-      type?: string;
-    } | null;
+  http.put(
+    '*/api/v1/admin/practicum/operation-exceptions/:exceptionId',
+    async ({ params, request }) => {
+      const exceptionId = Number(params['exceptionId']);
+      const body = (await request.json().catch(() => null)) as {
+        content?: string | null;
+        endAt?: string;
+        location?: string | null;
+        startAt?: string;
+        title?: string;
+        type?: string;
+      } | null;
 
-    if (
-      !Number.isFinite(exceptionId) ||
-      !body ||
-      !body.startAt ||
-      !body.endAt ||
-      !body.title ||
-      !body.type
-    ) {
-      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
-    }
+      if (
+        !Number.isFinite(exceptionId) ||
+        !body ||
+        !body.startAt ||
+        !body.endAt ||
+        !body.title ||
+        !body.type
+      ) {
+        return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+      }
 
-    return HttpResponse.json(
-      createApiEnvelope({
-        content: body.content ?? null,
-        endAt: body.endAt,
-        id: exceptionId,
-        location: body.location ?? null,
-        startAt: body.startAt,
-        title: body.title,
-        type: body.type,
-      }),
-    );
-  }),
+      return HttpResponse.json(
+        createApiEnvelope({
+          content: body.content ?? null,
+          endAt: body.endAt,
+          id: exceptionId,
+          location: body.location ?? null,
+          startAt: body.startAt,
+          title: body.title,
+          type: body.type,
+        }),
+      );
+    },
+  ),
   http.delete('*/api/v1/admin/practicum/operation-exceptions/:exceptionId', ({ params }) => {
     const exceptionId = Number(params['exceptionId']);
 

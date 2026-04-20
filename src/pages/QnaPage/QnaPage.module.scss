@@ -239,6 +239,13 @@
   gap: 0.7rem;
 }
 
+.detailActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
 .detailLabel {
   margin: 0;
   color: #1f2532;
@@ -353,6 +360,11 @@
   display: grid;
 }
 
+.editorFields {
+  display: grid;
+  gap: 0.9rem;
+}
+
 .writerHeader,
 .writerForm {
   gap: 0.9rem;
@@ -362,6 +374,27 @@
 .writerDescription,
 .writerHint {
   margin: 0;
+}
+
+.editorInput,
+.editorTextarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+}
+
+.editorInput {
+  min-height: 48px;
+  padding: 0 14px;
+}
+
+.editorTextarea {
+  min-height: 140px;
+  padding: 14px;
+  resize: vertical;
 }
 
 .writerTitle {

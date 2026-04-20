@@ -1,3 +1,4 @@
+import { getCurrentMockStudentDisplayName } from '@/mocks/data/studentAuth';
 import type {
   ProgramQnaPageResponse,
   ProgramQnaReplyCreatePayload,
@@ -5,7 +6,6 @@ import type {
   ProgramQnaThreadCreatePayload,
   ProgramQnaThreadItem,
 } from '@/types/programQna';
-import { getCurrentMockStudentDisplayName } from '@/mocks/data/studentAuth';
 
 const initialThreadsByProgramId = new Map<number, ProgramQnaThreadItem[]>([
   [
@@ -132,6 +132,54 @@ export const createMockProgramQnaThread = (
 
   setThreadsForProgram(programId, [nextThread, ...currentThreads]);
   return nextThread;
+};
+
+export const updateMockProgramQnaThread = (
+  programId: number,
+  questionId: number,
+  payload: ProgramQnaThreadCreatePayload,
+): ProgramQnaThreadItem | null => {
+  const currentThreads = getThreadsForProgram(programId);
+  const targetThread = currentThreads.find((thread) => thread.id === questionId);
+
+  if (!targetThread) {
+    return null;
+  }
+
+  const updatedAt = new Date().toISOString();
+  let updatedThread: ProgramQnaThreadItem | null = null;
+
+  setThreadsForProgram(
+    programId,
+    currentThreads.map((thread) => {
+      if (thread.id !== questionId) {
+        return thread;
+      }
+
+      updatedThread = {
+        ...thread,
+        title: payload.title,
+        content: payload.content,
+        updatedAt,
+      };
+
+      return updatedThread;
+    }),
+  );
+
+  return updatedThread;
+};
+
+export const deleteMockProgramQnaThread = (programId: number, questionId: number): boolean => {
+  const currentThreads = getThreadsForProgram(programId);
+  const nextThreads = currentThreads.filter((thread) => thread.id !== questionId);
+
+  if (nextThreads.length === currentThreads.length) {
+    return false;
+  }
+
+  setThreadsForProgram(programId, nextThreads);
+  return true;
 };
 
 export const createMockProgramQnaReply = (

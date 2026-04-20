@@ -1,10 +1,10 @@
+import { getCurrentMockStudentDisplayName } from '@/mocks/data/studentAuth';
 import type {
   QuestionCreatePayload,
   QuestionItem,
   QuestionReplyCreatePayload,
   QuestionReplyItem,
 } from '@/types/qna';
-import { getCurrentMockStudentDisplayName } from '@/mocks/data/studentAuth';
 
 const createReplyCount = (replies: QuestionReplyItem[]) => replies.length;
 
@@ -191,6 +191,50 @@ export const createMockGlobalQuestion = (payload: QuestionCreatePayload): Questi
 
   questions = sortQuestions([nextQuestion, ...questions]);
   return nextQuestion;
+};
+
+export const updateMockGlobalQuestion = (
+  questionId: number,
+  payload: QuestionCreatePayload,
+): QuestionItem | null => {
+  const targetQuestion = questions.find((question) => question.id === questionId);
+
+  if (!targetQuestion) {
+    return null;
+  }
+
+  const updatedAt = new Date().toISOString();
+  let updatedQuestion: QuestionItem | null = null;
+
+  questions = sortQuestions(
+    questions.map((question) => {
+      if (question.id !== questionId) {
+        return question;
+      }
+
+      updatedQuestion = {
+        ...question,
+        title: payload.title,
+        content: payload.content,
+        updatedAt,
+      };
+
+      return updatedQuestion;
+    }),
+  );
+
+  return updatedQuestion;
+};
+
+export const deleteMockGlobalQuestion = (questionId: number): boolean => {
+  const nextQuestions = questions.filter((question) => question.id !== questionId);
+
+  if (nextQuestions.length === questions.length) {
+    return false;
+  }
+
+  questions = sortQuestions(nextQuestions);
+  return true;
 };
 
 export const createMockAdminReply = (

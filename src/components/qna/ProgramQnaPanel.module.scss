@@ -393,6 +393,11 @@
   gap: 10px;
 }
 
+.threadEditor {
+  display: grid;
+  gap: 10px;
+}
+
 .input,
 .textarea {
   width: 100%;
@@ -422,6 +427,13 @@
   gap: 12px;
 }
 
+.threadActionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .threadList,
 .replyList {
   display: grid;
@@ -443,7 +455,7 @@
   overflow: hidden;
 }
 
-.threadCardBoardCompactExpanded {
+.threadCardBoardCompactAnswerExpanded {
   border-color: #cbd5e1;
   box-shadow: 0 18px 42px rgb(15 23 42 / 8%);
 }
@@ -453,11 +465,9 @@
   gap: 1rem;
   width: 100%;
   padding: 1rem 1.05rem;
-  border: 0;
   background: #ffffff;
   color: inherit;
   text-align: left;
-  cursor: pointer;
 }
 
 .compactThreadButton:hover {
@@ -493,6 +503,32 @@
   font-weight: 700;
 }
 
+.compactThreadContentButton,
+.compactThreadMetaSecondary {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.compactThreadContentButton,
+.compactThreadMetaSecondary,
+.compactAnswerToggle {
+  cursor: pointer;
+}
+
+.compactThreadContentButton {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+.compactThreadTextBlock {
+  display: grid;
+  gap: 0.38rem;
+}
+
 .compactThreadNumber,
 .compactThreadDate,
 .compactThreadAuthor,
@@ -506,6 +542,7 @@
 }
 
 .compactThreadTitle {
+  display: block;
   color: #1f2937;
   font-size: 1rem;
   font-weight: 700;
@@ -515,11 +552,34 @@
 }
 
 .compactThreadPreview {
+  display: -webkit-box;
   color: #6b7280;
   font-size: 0.88rem;
   line-height: 1.65;
+  overflow: hidden;
   word-break: keep-all;
+  white-space: pre-line;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.compactThreadPreview[data-expanded='true'] {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+.compactThreadContentButton:hover .compactThreadTitle,
+.compactThreadContentButton:focus-visible .compactThreadTitle {
+  color: #111827;
+}
+
+.compactThreadContentButton:focus-visible,
+.compactThreadMetaSecondary:focus-visible,
+.compactAnswerToggle:focus-visible {
+  outline: 2px solid rgba(31, 111, 255, 0.35);
+  outline-offset: 4px;
 }
 
 .compactThreadChevron {
@@ -531,7 +591,7 @@
   transition: transform 180ms ease;
 }
 
-.threadCardBoardCompactExpanded .compactThreadChevron {
+.threadCardBoardCompactAnswerExpanded .compactThreadChevron {
   transform: rotate(-135deg);
 }
 
