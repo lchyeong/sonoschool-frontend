@@ -84,6 +84,11 @@ const slotStatusLabel: Record<PracticumSlotStatus, string> = {
   OPEN: '예약 가능',
 };
 
+const isPracticumSlotInPast = (slot: PracticumSlot) => Date.parse(slot.startAt) < Date.now();
+
+const isPracticumSlotReservable = (slot: PracticumSlot) =>
+  slot.slotStatus === 'OPEN' && !slot.full && !isPracticumSlotInPast(slot);
+
 const getDefaultMonthValue = (lectures: EnrollmentPracticumLecture[]) => {
   const candidates = lectures
     .flatMap((lecture) => {
@@ -102,6 +107,7 @@ const getDefaultMonthValue = (lectures: EnrollmentPracticumLecture[]) => {
 const getDefaultSelectedDate = (lectures: EnrollmentPracticumLecture[]) => {
   const firstSlot = lectures
     .flatMap((lecture) => lecture.slots)
+    .filter((slot) => isPracticumSlotReservable(slot))
     .map((slot) => slot.startAt)
     .sort()[0];
 
@@ -169,7 +175,7 @@ const MyEnrollmentPracticumPage = () => {
 
     lectures.forEach((lecture) => {
       lecture.slots.forEach((slot) => {
-        if (slot.slotStatus !== 'OPEN' || slot.full) {
+        if (!isPracticumSlotReservable(slot)) {
           return;
         }
 
@@ -301,8 +307,7 @@ const MyEnrollmentPracticumPage = () => {
       cancelMutation.isPending ||
       hasCurrentReservation ||
       !lectureEligible ||
-      slot.full ||
-      slot.slotStatus !== 'OPEN';
+      !isPracticumSlotReservable(slot);
 
     return (
       <div className={styles['slotRow']} key={slot.id}>

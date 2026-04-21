@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import type { CSSProperties } from 'react';
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Hls from 'hls.js/light';
@@ -13,10 +13,12 @@ import {
   reserveMyLecturePracticum,
   saveLectureProgress,
   sendLectureProgressBeacon,
+  updateMyOfflineScheduleAbsence,
 } from '@/api/mypage';
 import {
   fetchStudentProblem,
   saveStudentProblemSession,
+  startStudentProblemSession,
   submitStudentProblem,
 } from '@/api/studentProblems';
 import iconCheck from '@/assets/icons/icon_check.png';
@@ -81,6 +83,14 @@ interface QualityOption {
 }
 
 type SidebarPanel = 'curriculum' | 'qna';
+type QuizSidebarPanel = 'curriculum' | 'questions';
+
+interface QuizClockAnchor {
+  elapsedSeconds: number;
+  receivedAtMs: number;
+  remainingSeconds: number | null;
+  startedAt: string | null;
+}
 
 const PLAYBACK_SPEED_OPTIONS = [0.8, 1, 1.25, 1.5] as const;
 const DEFAULT_QUALITY_OPTIONS: QualityOption[] = [{ label: '자동', levelIndex: 'auto' }];
@@ -193,6 +203,43 @@ const clampQuestionIndex = (index: number, questionCount: number) => {
   return Math.min(Math.max(index, 0), questionCount - 1);
 };
 
+const resolveQuizElapsedSeconds = (
+  clockAnchor: QuizClockAnchor | null,
+  timeLimitSeconds: number | null | undefined,
+  nowMs: number,
+  fallbackElapsedSeconds: number,
+) => {
+  const hasTimeLimit = Boolean(timeLimitSeconds && timeLimitSeconds > 0);
+  let elapsedSeconds = Math.max(0, Math.floor(fallbackElapsedSeconds));
+
+  if (clockAnchor) {
+    const localTickDeltaSeconds = Math.max(
+      0,
+      Math.floor((nowMs - clockAnchor.receivedAtMs) / 1000),
+    );
+    elapsedSeconds = Math.max(
+      elapsedSeconds,
+      Math.max(0, clockAnchor.elapsedSeconds) + localTickDeltaSeconds,
+    );
+
+    if (hasTimeLimit && clockAnchor.remainingSeconds !== null) {
+      const remainingSeconds = Math.max(0, clockAnchor.remainingSeconds - localTickDeltaSeconds);
+      elapsedSeconds = Math.max(elapsedSeconds, (timeLimitSeconds as number) - remainingSeconds);
+    } else if (hasTimeLimit && clockAnchor.startedAt) {
+      const startedAtMs = new Date(clockAnchor.startedAt).getTime();
+      if (!Number.isNaN(startedAtMs)) {
+        elapsedSeconds = Math.max(elapsedSeconds, Math.floor((nowMs - startedAtMs) / 1000));
+      }
+    }
+  }
+
+  if (hasTimeLimit) {
+    return Math.min(Math.max(0, elapsedSeconds), timeLimitSeconds as number);
+  }
+
+  return Math.max(0, elapsedSeconds);
+};
+
 const formatScheduleDate = (dateValue: string | null) => {
   if (!dateValue) {
     return '일정 준비중';
@@ -262,6 +309,10 @@ const formatProblemTimeLimit = (seconds: number | null | undefined) => {
   return `제한시간 ${formatSeconds(seconds)}`;
 };
 
+const formatProblemQuestionCount = (questionCount: number | null | undefined) => {
+  return typeof questionCount === 'number' ? `${String(questionCount)}문항` : null;
+};
+
 const formatResourceFileTypeLabel = (attachment: LearningPlayerResourceAttachment) => {
   const extension = attachment.fileName.split('.').pop()?.trim().toUpperCase();
 
@@ -303,10 +354,13 @@ const formatResourceFileSize = (fileSize: number | null | undefined) => {
 };
 
 interface OfflineScheduleEntry {
+  absent: boolean;
+  attendanceCompleted: boolean;
   date: string | null;
   id: string;
   location: string | null;
   notes: string | null;
+  ruleId: number | null;
   timeLabel: string | null;
 }
 
@@ -319,10 +373,15 @@ const buildOfflineScheduleEntries = (
 
   if (lesson.offlineSchedules?.length) {
     return lesson.offlineSchedules.map((schedule, index) => ({
+      absent: schedule.absent === true,
+      attendanceCompleted: schedule.attendanceCompleted === true,
       date: schedule.date,
-      id: `${lesson.id}-${schedule.date ?? 'unknown'}-${String(index)}`,
+      id: schedule.ruleId
+        ? `${lesson.id}-schedule-${String(schedule.ruleId)}`
+        : `${lesson.id}-${schedule.date ?? 'unknown'}-${String(index)}`,
       location: schedule.location?.trim() || null,
       notes: schedule.notes?.trim() || null,
+      ruleId: schedule.ruleId ?? null,
       timeLabel: formatScheduleTime(schedule) || null,
     }));
   }
@@ -333,10 +392,13 @@ const buildOfflineScheduleEntries = (
 
   return [
     {
+      absent: false,
+      attendanceCompleted: false,
       date: lesson.startDate,
       id: `${lesson.id}-fallback`,
       location: null,
       notes: null,
+      ruleId: null,
       timeLabel: null,
     },
   ];
@@ -367,6 +429,16 @@ const getLessonSummaryActionLabel = (
   return practicumSidebarLabel ?? '예약 확인';
 };
 
+const getOfflineSidebarState = (lesson: ProgramCurriculumLesson) => {
+  if (lesson.deliveryType !== 'offline') {
+    return null;
+  }
+
+  return lesson.offlineSchedules?.some((schedule) => schedule.absent === true)
+    ? { label: '불참', tone: 'noshow' as const }
+    : null;
+};
+
 const getQuizNavigatorStatusLabel = (
   question: StudentProblem['questions'][number],
   selectedOptionIds: number[],
@@ -392,14 +464,15 @@ const getQuizNavigatorStatusLabel = (
     return '답변 완료';
   }
 
-  return `정답 입력 ${selectedIndexes.join(', ')}번`;
+  return `답안 입력 ${selectedIndexes.join(', ')}번`;
 };
 
 const getLessonMetaItems = (lesson: ProgramCurriculumLesson) => {
   if (lesson.deliveryType === 'problem') {
-    return [formatProblemTimeLimit(lesson.problemTimeLimitSeconds)].filter((item): item is string =>
-      Boolean(item),
-    );
+    return [
+      formatProblemQuestionCount(lesson.questionCount),
+      formatProblemTimeLimit(lesson.problemTimeLimitSeconds),
+    ].filter((item): item is string => Boolean(item));
   }
 
   if (lesson.deliveryType === 'offline') {
@@ -409,7 +482,7 @@ const getLessonMetaItems = (lesson: ProgramCurriculumLesson) => {
   }
 
   if (lesson.deliveryType === 'practicum') {
-    return [lesson.offlineSchedules?.length ? getLessonScheduleLabel(lesson) : '예약 필요'];
+    return [lesson.offlineSchedules?.length ? getLessonScheduleLabel(lesson) : '실습 일정 확인'];
   }
 
   if (lesson.deliveryType === 'resource') {
@@ -419,19 +492,18 @@ const getLessonMetaItems = (lesson: ProgramCurriculumLesson) => {
   return lesson.description?.trim() ? [lesson.description.trim()] : [];
 };
 
-const formatPracticumDateTime = (value: string) => {
+const formatPracticumSummaryDateTime = (value: string) => {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return '-';
+    return '예약';
   }
 
   return date.toLocaleString('ko-KR', {
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    month: 'short',
-    weekday: 'short',
+    month: 'numeric',
   });
 };
 
@@ -439,25 +511,17 @@ const sortPracticumSlots = (slots: PracticumSlot[]) => {
   return [...slots].sort((left, right) => Date.parse(left.startAt) - Date.parse(right.startAt));
 };
 
+const isPracticumSlotInPast = (slot: PracticumSlot) => Date.parse(slot.startAt) < Date.now();
+
+const isPracticumSlotReservable = (slot: PracticumSlot) =>
+  slot.slotStatus === 'OPEN' && !slot.full && !isPracticumSlotInPast(slot);
+
 type PracticumSidebarStateTone = 'completed' | 'cta' | 'noshow' | 'scheduled';
 
 interface PracticumSidebarState {
   label: string;
   tone: PracticumSidebarStateTone;
 }
-
-const formatPracticumBadgeDate = (value: string) => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return '예약 예정';
-  }
-
-  return date.toLocaleDateString('ko-KR', {
-    day: 'numeric',
-    month: 'numeric',
-  });
-};
 
 const getPracticumReservationKind = (reservation: PracticumReservation) => {
   if (reservation.status === 'NO_SHOW') {
@@ -481,7 +545,7 @@ const resolvePracticumSidebarState = (
 
   if (!latestReservation) {
     return {
-      label: lecture.eligible ? '예약하기' : '대기',
+      label: lecture.eligible ? '예약 가능' : '예약 대기',
       tone: lecture.eligible ? 'cta' : 'noshow',
     };
   }
@@ -501,9 +565,36 @@ const resolvePracticumSidebarState = (
   }
 
   return {
-    label: `예정 ${formatPracticumBadgeDate(latestReservation.startAt)}`,
+    label: '예약 완료',
     tone: 'scheduled',
   };
+};
+
+const resolvePracticumLessonBadgeLabel = (
+  lecture: EnrollmentPracticumLecture | null,
+): string | null => {
+  if (!lecture) {
+    return null;
+  }
+
+  const reservations = [...lecture.currentReservations].sort(
+    (left, right) => Date.parse(right.startAt) - Date.parse(left.startAt),
+  );
+  const latestReservation = reservations[0] ?? null;
+
+  if (!latestReservation) {
+    return lecture.eligible ? '예약 가능' : '예약 대기';
+  }
+
+  const reservationKind = getPracticumReservationKind(latestReservation);
+  if (reservationKind === 'noshow') {
+    return '불참';
+  }
+  if (reservationKind === 'completed') {
+    return '실습 완료';
+  }
+
+  return `${formatPracticumSummaryDateTime(latestReservation.startAt)} 예약`;
 };
 
 const getPracticumDefaultMonthValue = (lecture: EnrollmentPracticumLecture | null) => {
@@ -536,8 +627,8 @@ const getPracticumDefaultSelectedDate = (
     return getSlotDateKey(firstReservedAt);
   }
 
-  const firstOpenSlot = sortPracticumSlots(lecture.slots).find(
-    (slot) => slot.slotStatus === 'OPEN',
+  const firstOpenSlot = sortPracticumSlots(lecture.slots).find((slot) =>
+    isPracticumSlotReservable(slot),
   );
   return firstOpenSlot ? getSlotDateKey(firstOpenSlot.startAt) : `${monthValue}-01`;
 };
@@ -581,6 +672,8 @@ const PlayerPage = () => {
   const [selectedQualityLevel, setSelectedQualityLevel] = useState<number | 'auto'>('auto');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSidebarPanel, setActiveSidebarPanel] = useState<SidebarPanel>('curriculum');
+  const [activeQuizSidebarPanel, setActiveQuizSidebarPanel] =
+    useState<QuizSidebarPanel>('questions');
   const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
   const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
   const [lessonProgressByLessonId, setLessonProgressByLessonId] = useState<
@@ -590,10 +683,13 @@ const PlayerPage = () => {
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number[]>>({});
   const [quizFlaggedQuestionIds, setQuizFlaggedQuestionIds] = useState<Set<number>>(new Set());
   const [quizCurrentQuestionIndex, setQuizCurrentQuestionIndex] = useState(0);
+  const [quizClockAnchor, setQuizClockAnchor] = useState<QuizClockAnchor | null>(null);
+  const [quizClockNowMs, setQuizClockNowMs] = useState(() => Date.now());
   const [quizElapsedSeconds, setQuizElapsedSeconds] = useState(0);
   const [quizAttemptResult, setQuizAttemptResult] = useState<StudentProblemAttemptResult | null>(
     null,
   );
+  const [quizReviewMode, setQuizReviewMode] = useState(false);
   const [practicumMonthValue, setPracticumMonthValue] = useState(() => toMonthValue(new Date()));
   const [practicumSelectedDateValue, setPracticumSelectedDateValue] = useState(() =>
     toDateInputValue(new Date()),
@@ -607,6 +703,7 @@ const PlayerPage = () => {
   const quizElapsedTimerRef = useRef<number | null>(null);
   const quizSessionDirtyRef = useRef(false);
   const quizSessionSaveInFlightRef = useRef(false);
+  const quizAutoSubmitTriggeredRef = useRef(false);
   const defaultPlayerItemId = getDefaultPlayerItemId(snapshot, playerItems);
   const resolvedItemId = playerItems.some((item) => item.id === params.lessonId)
     ? params.lessonId
@@ -616,12 +713,20 @@ const PlayerPage = () => {
     : null;
   const selectedLesson = selectedItem?.lesson ?? null;
   const completedLessonIds = useMemo(() => {
-    return new Set(
-      Object.entries(lessonProgressByLessonId)
-        .filter(([, progress]) => progress?.completed === true)
-        .map(([lessonId]) => lessonId),
-    );
-  }, [lessonProgressByLessonId]);
+    const lessonIds = new Set(snapshot?.completedLessonIds ?? []);
+    Object.entries(lessonProgressByLessonId)
+      .filter(([lessonId, progress]) => {
+        if (progress?.completed !== true) {
+          return false;
+        }
+        const lesson = lessons.find((item) => item.id === lessonId);
+        return lesson?.deliveryType !== 'offline';
+      })
+      .forEach(([lessonId]) => {
+        lessonIds.add(lessonId);
+      });
+    return lessonIds;
+  }, [lessonProgressByLessonId, lessons, snapshot?.completedLessonIds]);
   const lockedLessonIds = useMemo(() => {
     return new Set<string>();
   }, []);
@@ -635,6 +740,9 @@ const PlayerPage = () => {
   const isQuizMode = Boolean(selectedItem) && isQuizLesson && !selectedItemLocked;
   const isLessonItem = selectedItem?.kind === 'lesson';
   const selectedLectureId = selectedSource?.lectureId ?? null;
+  const selectedLessonProgress = selectedLesson
+    ? (lessonProgressByLessonId[selectedLesson.id] ?? null)
+    : null;
   const selectedLessonHasStream =
     isLessonItem && !selectedItemLocked && selectedSource?.mimeType === 'application/x-mpegURL';
   const shouldResumeCurrentLesson =
@@ -694,6 +802,76 @@ const PlayerPage = () => {
       });
     },
   });
+  const applyQuizSession = useCallback(
+    (session: NonNullable<StudentProblem['session']>) => {
+      const nowMs = Date.now();
+      const nextClockAnchor: QuizClockAnchor = {
+        elapsedSeconds: session.elapsedSeconds,
+        receivedAtMs: nowMs,
+        remainingSeconds: session.remainingSeconds,
+        startedAt: session.startedAt,
+      };
+
+      setQuizAnswers(session.answers);
+      setQuizFlaggedQuestionIds(new Set(session.flaggedQuestionIds));
+      setQuizCurrentQuestionIndex(
+        clampQuestionIndex(session.currentQuestionIndex, quizQuery.data?.questions.length ?? 0),
+      );
+      setQuizClockAnchor(nextClockAnchor);
+      setQuizClockNowMs(nowMs);
+      setQuizElapsedSeconds(
+        resolveQuizElapsedSeconds(
+          nextClockAnchor,
+          quizQuery.data?.timeLimitSeconds ?? selectedLesson?.problemTimeLimitSeconds ?? null,
+          nowMs,
+          session.elapsedSeconds,
+        ),
+      );
+      setQuizAttemptResult(null);
+      setQuizReviewMode(false);
+      quizSessionDirtyRef.current = false;
+      quizAutoSubmitTriggeredRef.current = false;
+    },
+    [
+      quizQuery.data?.questions.length,
+      quizQuery.data?.timeLimitSeconds,
+      selectedLesson?.problemTimeLimitSeconds,
+    ],
+  );
+  const startQuizSessionMutation = useMutation({
+    mutationFn: (quizId: number) => startStudentProblemSession(quizId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '문제 풀이를 시작하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: (session) => {
+      if (session.status === 'SUBMITTED') {
+        setQuizClockAnchor(null);
+        setQuizReviewMode(false);
+        queryClient.setQueryData<StudentProblem | null>(
+          ['student-problem', selectedLectureId],
+          (current) => (current ? { ...current, session } : current),
+        );
+        showToast({
+          message: '이미 제출한 문제입니다.',
+          variant: 'info',
+        });
+        return;
+      }
+
+      applyQuizSession(session);
+      queryClient.setQueryData<StudentProblem | null>(
+        ['student-problem', selectedLectureId],
+        (current) => (current ? { ...current, latestAttempt: null, session } : current),
+      );
+      showToast({
+        message: '문제 풀이를 시작했습니다.',
+        variant: 'success',
+      });
+    },
+  });
   const submitQuizMutation = useMutation({
     mutationFn: ({
       answers,
@@ -718,10 +896,27 @@ const PlayerPage = () => {
       void queryClient.invalidateQueries({
         queryKey: myLearningPlayerQueryKey(resolvedEnrollmentId),
       });
-      void queryClient.invalidateQueries({
-        queryKey: ['student-problem', selectedLectureId],
-      });
+      queryClient.setQueryData<StudentProblem | null>(
+        ['student-problem', selectedLectureId],
+        (current) =>
+          current
+            ? {
+                ...current,
+                latestAttempt: result,
+                session: current.session
+                  ? {
+                      ...current.session,
+                      answers: normalizeQuizAnswers(quizAnswers),
+                      elapsedSeconds: Math.max(0, quizEffectiveElapsedSeconds),
+                      remainingSeconds: 0,
+                      status: 'SUBMITTED',
+                    }
+                  : current.session,
+              }
+            : current,
+      );
       setQuizAttemptResult(result);
+      setQuizReviewMode(false);
       showToast({
         message: result.passed ? '문제를 통과했습니다.' : '문제 제출을 완료했습니다.',
         variant: 'success',
@@ -781,6 +976,28 @@ const PlayerPage = () => {
       });
       showToast({
         message: '실습 예약 일정을 변경했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+  const offlineAttendanceMutation = useMutation({
+    mutationFn: ({ absent, ruleId }: { absent: boolean; ruleId: number }) =>
+      updateMyOfflineScheduleAbsence(resolvedEnrollmentId, ruleId, absent),
+    onError: (error: unknown) => {
+      showToast({
+        message:
+          error instanceof Error ? error.message : '오프라인 참석 상태를 저장하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: myLearningPlayerQueryKey(resolvedEnrollmentId),
+      });
+      showToast({
+        message: variables.absent
+          ? '오프라인 강의를 불참으로 표시했습니다.'
+          : '불참 표시를 취소했습니다.',
         variant: 'success',
       });
     },
@@ -923,17 +1140,41 @@ const PlayerPage = () => {
   const quizQuestions = quizQuery.data?.questions ?? [];
   const quizTimeLimitSeconds =
     quizQuery.data?.timeLimitSeconds ?? selectedLesson?.problemTimeLimitSeconds ?? null;
+  const quizEffectiveElapsedSeconds = resolveQuizElapsedSeconds(
+    quizClockAnchor,
+    quizTimeLimitSeconds,
+    quizClockNowMs,
+    quizElapsedSeconds,
+  );
   const quizRemainingSeconds =
     quizTimeLimitSeconds && quizTimeLimitSeconds > 0
-      ? Math.max(0, quizTimeLimitSeconds - quizElapsedSeconds)
+      ? Math.max(0, quizTimeLimitSeconds - quizEffectiveElapsedSeconds)
       : null;
   const resolvedQuizQuestionIndex = clampQuestionIndex(
     quizCurrentQuestionIndex,
     quizQuestions.length,
   );
   const currentQuizQuestion = quizQuestions[resolvedQuizQuestionIndex] ?? null;
-  const quizInfoTimeLimitLabel =
-    quizTimeLimitSeconds && quizTimeLimitSeconds > 0 ? formatSeconds(quizTimeLimitSeconds) : '없음';
+  const quizRemainingTimeLabel =
+    quizRemainingSeconds !== null ? formatSeconds(quizRemainingSeconds) : '없음';
+  const quizSessionStatus = quizClockAnchor
+    ? 'IN_PROGRESS'
+    : (quizQuery.data?.session?.status ?? null);
+  const isQuizSessionActive = quizSessionStatus === 'IN_PROGRESS' && !quizAttemptResult;
+  const shouldShowQuizStartPrompt =
+    Boolean(quizQuery.data) &&
+    !quizQuery.data?.session &&
+    !quizQuery.data?.latestAttempt &&
+    !quizAttemptResult;
+  const shouldShowSubmittedWithoutResult =
+    quizQuery.data?.session?.status === 'SUBMITTED' && !quizAttemptResult;
+  const shouldShowQuizQuestion =
+    Boolean(currentQuizQuestion) &&
+    (isQuizSessionActive || Boolean(quizAttemptResult && quizReviewMode));
+  const currentQuizResult = currentQuizQuestion
+    ? (quizAttemptResult?.results.find((result) => result.questionId === currentQuizQuestion.id) ??
+      null)
+    : null;
 
   const persistProgress = useEffectEvent(
     async (
@@ -1025,7 +1266,7 @@ const PlayerPage = () => {
   });
 
   const persistQuizSession = useEffectEvent(async (force = false) => {
-    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+    if (!isQuizMode || !quizQuery.data || !isQuizSessionActive) {
       return;
     }
 
@@ -1051,7 +1292,7 @@ const PlayerPage = () => {
             quizCurrentQuestionIndex,
             quizQuery.data.questions.length,
           ),
-          elapsedSeconds: Math.max(0, quizElapsedSeconds),
+          elapsedSeconds: Math.max(0, quizEffectiveElapsedSeconds),
           flaggedQuestionIds: [...quizFlaggedQuestionIds].sort((left, right) => left - right),
         },
         quizId: quizQuery.data.id,
@@ -1089,49 +1330,99 @@ const PlayerPage = () => {
     setQuizAnswers({});
     setQuizFlaggedQuestionIds(new Set());
     setQuizCurrentQuestionIndex(0);
+    setQuizClockAnchor(null);
+    setQuizClockNowMs(Date.now());
     setQuizElapsedSeconds(0);
     quizSessionDirtyRef.current = false;
+    quizAutoSubmitTriggeredRef.current = false;
     setQuizAttemptResult(null);
+    setQuizReviewMode(false);
   }, [selectedItem?.id]);
 
   useEffect(() => {
-    if (!quizQuery.data || !isQuizMode || quizAttemptResult) {
+    if (!quizQuery.data || !isQuizMode) {
       return;
     }
 
     const session = quizQuery.data.session;
-    setQuizAnswers(session?.answers ?? {});
+    if (session?.status === 'IN_PROGRESS') {
+      applyQuizSession(session);
+      return;
+    }
+
+    const latestAttempt = quizQuery.data.latestAttempt ?? null;
+    const submittedAnswers =
+      latestAttempt?.results.reduce<Record<number, number[]>>((answers, result) => {
+        answers[result.questionId] = result.submittedOptionIds;
+        return answers;
+      }, {}) ?? {};
+    setQuizAnswers(session?.answers ?? submittedAnswers);
     setQuizFlaggedQuestionIds(new Set(session?.flaggedQuestionIds ?? []));
     setQuizCurrentQuestionIndex(
       clampQuestionIndex(session?.currentQuestionIndex ?? 0, quizQuery.data.questions.length),
     );
+    setQuizClockAnchor(null);
+    setQuizClockNowMs(Date.now());
     setQuizElapsedSeconds(session?.elapsedSeconds ?? 0);
+    setQuizAttemptResult(latestAttempt);
+    setQuizReviewMode(false);
     quizSessionDirtyRef.current = false;
-  }, [isQuizMode, quizAttemptResult, quizQuery.data]);
+    quizAutoSubmitTriggeredRef.current = false;
+  }, [applyQuizSession, isQuizMode, quizQuery.data]);
 
   useEffect(() => {
-    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+    if (!isQuizMode || !quizQuery.data || !isQuizSessionActive) {
       return;
     }
 
-    const timerId = window.setInterval(() => {
-      setQuizElapsedSeconds((current) => {
-        const nextElapsedSeconds = current + 1;
-        return quizTimeLimitSeconds && quizTimeLimitSeconds > 0
-          ? Math.min(nextElapsedSeconds, quizTimeLimitSeconds)
-          : nextElapsedSeconds;
-      });
-    }, 1000);
+    const updateQuizClock = () => {
+      const nowMs = Date.now();
+      setQuizClockNowMs(nowMs);
+      setQuizElapsedSeconds((current) =>
+        resolveQuizElapsedSeconds(quizClockAnchor, quizTimeLimitSeconds, nowMs, current),
+      );
+    };
+
+    updateQuizClock();
+    const timerId = window.setInterval(updateQuizClock, 1000);
     quizElapsedTimerRef.current = timerId;
 
     return () => {
       window.clearInterval(timerId);
       quizElapsedTimerRef.current = null;
     };
-  }, [isQuizMode, quizAttemptResult, quizQuery.data, quizTimeLimitSeconds]);
+  }, [isQuizMode, isQuizSessionActive, quizClockAnchor, quizQuery.data, quizTimeLimitSeconds]);
 
   useEffect(() => {
-    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+    if (
+      !isQuizMode ||
+      !quizQuery.data ||
+      !isQuizSessionActive ||
+      submitQuizMutation.isPending ||
+      quizRemainingSeconds !== 0 ||
+      quizAutoSubmitTriggeredRef.current
+    ) {
+      return;
+    }
+
+    quizAutoSubmitTriggeredRef.current = true;
+    submitQuizMutation.mutate({
+      answers: normalizeQuizAnswers(quizAnswers),
+      elapsedSeconds: Math.max(0, quizEffectiveElapsedSeconds),
+      quizId: quizQuery.data.id,
+    });
+  }, [
+    isQuizMode,
+    isQuizSessionActive,
+    quizAnswers,
+    quizEffectiveElapsedSeconds,
+    quizQuery.data,
+    quizRemainingSeconds,
+    submitQuizMutation,
+  ]);
+
+  useEffect(() => {
+    if (!isQuizMode || !quizQuery.data || !isQuizSessionActive) {
       return;
     }
 
@@ -1142,10 +1433,10 @@ const PlayerPage = () => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [isQuizMode, quizAttemptResult, quizQuery.data]);
+  }, [isQuizMode, isQuizSessionActive, quizQuery.data]);
 
   useEffect(() => {
-    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+    if (!isQuizMode || !quizQuery.data || !isQuizSessionActive) {
       return;
     }
 
@@ -1159,14 +1450,14 @@ const PlayerPage = () => {
   }, [
     isQuizMode,
     quizAnswers,
-    quizAttemptResult,
     quizCurrentQuestionIndex,
     quizFlaggedQuestionIds,
+    isQuizSessionActive,
     quizQuery.data,
   ]);
 
   useEffect(() => {
-    if (!isQuizMode || !quizQuery.data || quizAttemptResult) {
+    if (!isQuizMode || !quizQuery.data || !isQuizSessionActive) {
       return;
     }
 
@@ -1187,7 +1478,7 @@ const PlayerPage = () => {
       window.removeEventListener('pagehide', flushQuizSession);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isQuizMode, quizAttemptResult, quizQuery.data]);
+  }, [isQuizMode, isQuizSessionActive, quizQuery.data]);
 
   useEffect(() => {
     setProgressSaveError(null);
@@ -1471,7 +1762,9 @@ const PlayerPage = () => {
 
   const moveToQuizQuestion = (nextQuestionIndex: number) => {
     const questionCount = quizQuery.data?.questions.length ?? 0;
-    quizSessionDirtyRef.current = true;
+    if (isQuizSessionActive) {
+      quizSessionDirtyRef.current = true;
+    }
     setQuizCurrentQuestionIndex(clampQuestionIndex(nextQuestionIndex, questionCount));
   };
 
@@ -1493,6 +1786,15 @@ const PlayerPage = () => {
         return remainingAnswers;
       });
     }
+  };
+
+  const handleQuizStart = () => {
+    const problem = quizQuery.data;
+    if (!problem || startQuizSessionMutation.isPending) {
+      return;
+    }
+
+    startQuizSessionMutation.mutate(problem.id);
   };
 
   const handleQuizSubmit = () => {
@@ -1523,7 +1825,7 @@ const PlayerPage = () => {
 
     submitQuizMutation.mutate({
       answers: normalizeQuizAnswers(quizAnswers),
-      elapsedSeconds: Math.max(0, quizElapsedSeconds),
+      elapsedSeconds: Math.max(0, quizEffectiveElapsedSeconds),
       quizId: problem.id,
     });
   };
@@ -1583,7 +1885,7 @@ const PlayerPage = () => {
             </p>
           </div>
           <span className={styles['summaryChip']}>
-            {practicumSidebarState?.label ?? '예약 가능 여부 확인'}
+            {practicumSidebarState?.label ?? '예약 확인'}
           </span>
         </div>
 
@@ -1655,8 +1957,8 @@ const PlayerPage = () => {
                   const date = cell.date;
                   const daySlots = practicumSlotsByDate.get(date) ?? [];
                   const dayReservations = practicumReservationsByDate.get(date) ?? [];
-                  const availableCount = daySlots.filter(
-                    (slot) => slot.slotStatus === 'OPEN' && !slot.full,
+                  const availableCount = daySlots.filter((slot) =>
+                    isPracticumSlotReservable(slot),
                   ).length;
                   const previewReservation = [...dayReservations].sort(
                     (left, right) => Date.parse(left.startAt) - Date.parse(right.startAt),
@@ -1733,59 +2035,6 @@ const PlayerPage = () => {
                 </div>
               ) : null}
 
-              {selectedPracticumReservations.length ? (
-                <div className={styles['practicumReservationSummary']}>
-                  {selectedPracticumReservations.map((reservation) => {
-                    const reservationKind = getPracticumReservationKind(reservation);
-
-                    return (
-                      <article className={styles['practicumReservationRow']} key={reservation.id}>
-                        <div>
-                          <strong className={styles['practicumReservationTitle']}>
-                            {reservationKind === 'noshow'
-                              ? '불참'
-                              : reservationKind === 'completed'
-                                ? '실습 진행 완료'
-                                : '예정'}
-                          </strong>
-                          <p className={styles['practicumReservationMeta']}>
-                            {formatPracticumDateTime(reservation.startAt)} -{' '}
-                            {formatPracticumDateTime(reservation.endAt)}
-                          </p>
-                          <p className={styles['practicumReservationMeta']}>
-                            {reservation.location || '장소 안내 예정'}
-                          </p>
-                        </div>
-                        {reservation.id === activeScheduledReservation?.id ? (
-                          <Button
-                            disabled={isPracticumMutationPending}
-                            onClick={() => {
-                              cancelPracticumMutation.mutate(reservation.id);
-                            }}
-                            size='sm'
-                            type='button'
-                            variant='secondary'
-                          >
-                            {cancelPracticumMutation.isPending ? '취소 중...' : '예약 취소'}
-                          </Button>
-                        ) : (
-                          <span
-                            className={styles['practicumReservationStatus']}
-                            data-tone={reservationKind}
-                          >
-                            {reservationKind === 'noshow'
-                              ? '불참'
-                              : reservationKind === 'completed'
-                                ? '완료'
-                                : '예정'}
-                          </span>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : null}
-
               {practicumSelectedDateSlots.length ? (
                 <div className={styles['practicumSlotList']}>
                   {practicumSelectedDateSlots.map((slot) => {
@@ -1803,14 +2052,7 @@ const PlayerPage = () => {
                               {slot.maxCapacity}명
                             </p>
                           </div>
-                          {isCurrentReservedSlot ? (
-                            <span
-                              className={styles['practicumReservationStatus']}
-                              data-tone='scheduled'
-                            >
-                              예정
-                            </span>
-                          ) : (
+                          {isCurrentReservedSlot ? null : (
                             <span className={styles['practicumSlotCapacity']}>
                               잔여 {slot.remainingCapacity}석
                             </span>
@@ -1820,11 +2062,14 @@ const PlayerPage = () => {
                           disabled={
                             isPracticumMutationPending ||
                             !selectedPracticumLecture.eligible ||
-                            slot.full ||
-                            slot.slotStatus !== 'OPEN' ||
-                            isCurrentReservedSlot
+                            (!isCurrentReservedSlot && !isPracticumSlotReservable(slot))
                           }
                           onClick={() => {
+                            if (isCurrentReservedSlot && activeScheduledReservation) {
+                              cancelPracticumMutation.mutate(activeScheduledReservation.id);
+                              return;
+                            }
+
                             if (activeScheduledReservation) {
                               movePracticumMutation.mutate({
                                 reservationId: activeScheduledReservation.id,
@@ -1840,15 +2085,23 @@ const PlayerPage = () => {
                           }}
                           size='sm'
                           type='button'
-                          variant={activeScheduledReservation ? 'secondary' : 'primary'}
+                          variant={
+                            isCurrentReservedSlot || activeScheduledReservation
+                              ? 'secondary'
+                              : 'primary'
+                          }
                         >
-                          {activeScheduledReservation
-                            ? movePracticumMutation.isPending
-                              ? '변경 중...'
-                              : '이 일정으로 변경'
-                            : reservePracticumMutation.isPending
-                              ? '예약 중...'
-                              : '이 일정 예약'}
+                          {isCurrentReservedSlot
+                            ? cancelPracticumMutation.isPending
+                              ? '취소 중...'
+                              : '예약 취소'
+                            : activeScheduledReservation
+                              ? movePracticumMutation.isPending
+                                ? '변경 중...'
+                                : '이 일정으로 변경'
+                              : reservePracticumMutation.isPending
+                                ? '예약 중...'
+                                : '이 일정 예약'}
                         </Button>
                       </article>
                     );
@@ -1896,6 +2149,23 @@ const PlayerPage = () => {
       );
     }
 
+    const primaryOfflineEntry = offlineScheduleEntries[0] ?? null;
+    const attendanceStatusLabel = primaryOfflineEntry?.absent
+      ? '불참'
+      : primaryOfflineEntry?.attendanceCompleted
+        ? '참석 처리됨'
+        : '참석 예정';
+    const attendanceDescription = primaryOfflineEntry?.absent
+      ? null
+      : primaryOfflineEntry?.attendanceCompleted
+        ? '일정 종료 후 진도율에 반영되었습니다.'
+        : '불참 표시 없으면 자동 참석';
+    const prerequisiteVideoLabel = selectedLessonHasStream
+      ? selectedLessonProgress?.completed
+        ? '선행 영상 완료'
+        : '선행 영상 미완료'
+      : null;
+
     return (
       <div className={styles['offlineScheduleWorkspace']}>
         <section
@@ -1908,15 +2178,76 @@ const PlayerPage = () => {
             )}
           >
             <div>
-              <span className={styles['offlineCalendarEyebrow']}>오프라인 강의 일정</span>
               <strong className={styles['practicumPanelTitle']}>
                 {formatMonthLabel(offlineCalendarMonthValue)}
               </strong>
-              <p className={styles['practicumPanelDescription']}>
-                등록된 강의 날짜와 시간을 달력에서 확인할 수 있습니다.
-              </p>
             </div>
+            {primaryOfflineEntry ? (
+              <div className={styles['offlineScheduleSummary']} aria-label='오프라인 일정 요약'>
+                <strong>
+                  {formatDate(primaryOfflineEntry.date ?? firstOfflineDate)}
+                  {primaryOfflineEntry.timeLabel ? ` · ${primaryOfflineEntry.timeLabel}` : ''}
+                </strong>
+                <span>{primaryOfflineEntry.location ?? '장소 안내 예정'}</span>
+              </div>
+            ) : null}
           </div>
+
+          {primaryOfflineEntry ? (
+            <div className={styles['offlineAttendancePanel']}>
+              <div className={styles['offlineAttendanceMain']}>
+                <span
+                  className={styles['offlineAttendanceBadge']}
+                  data-tone={
+                    primaryOfflineEntry.absent
+                      ? 'absent'
+                      : primaryOfflineEntry.attendanceCompleted
+                        ? 'completed'
+                        : 'scheduled'
+                  }
+                >
+                  {attendanceStatusLabel}
+                </span>
+                {prerequisiteVideoLabel ? (
+                  <span
+                    className={styles['offlineAttendanceBadge']}
+                    data-tone={selectedLessonProgress?.completed ? 'completed' : 'pending'}
+                  >
+                    {prerequisiteVideoLabel}
+                  </span>
+                ) : null}
+                {attendanceDescription ? (
+                  <span className={styles['offlineAttendanceHelp']}>{attendanceDescription}</span>
+                ) : null}
+              </div>
+              <Button
+                disabled={offlineAttendanceMutation.isPending}
+                onClick={() => {
+                  if (!primaryOfflineEntry.ruleId) {
+                    showToast({
+                      message:
+                        '오프라인 일정 정보가 갱신되지 않았습니다. 새로고침 후 다시 시도해 주세요.',
+                      variant: 'error',
+                    });
+                    return;
+                  }
+                  offlineAttendanceMutation.mutate({
+                    absent: !primaryOfflineEntry.absent,
+                    ruleId: primaryOfflineEntry.ruleId,
+                  });
+                }}
+                size='sm'
+                type='button'
+                variant={primaryOfflineEntry.absent ? 'secondary' : 'primary'}
+              >
+                {offlineAttendanceMutation.isPending
+                  ? '저장 중...'
+                  : primaryOfflineEntry.absent
+                    ? '불참 취소'
+                    : '불참으로 표시'}
+              </Button>
+            </div>
+          ) : null}
 
           <div className={styles['practicumCalendarWeekdays']}>
             {calendarWeekdays.map((weekday) => (
@@ -1951,16 +2282,21 @@ const PlayerPage = () => {
                     <span className={styles['practicumCalendarDayNumber']}>
                       {Number(cell.date.split('-')[2])}
                     </span>
-                    <span className={styles['practicumCalendarDayCount']}>
-                      {dayEntries.length ? '일정 확인' : '일정 없음'}
-                    </span>
+                    {dayEntries.length ? (
+                      <span className={styles['practicumCalendarDayCount']}>일정 확인</span>
+                    ) : null}
                   </div>
 
                   <div className={styles['practicumCalendarPreviewList']}>
                     {previewEntries.length ? (
                       previewEntries.map((entry) => (
                         <span className={styles['offlineCalendarPreviewItem']} key={entry.id}>
-                          {entry.timeLabel ?? '오프라인 수업'}
+                          <span className={styles['offlineCalendarPreviewTime']}>
+                            {entry.timeLabel ?? '오프라인 수업'}
+                          </span>
+                          <span className={styles['offlineCalendarPreviewLocation']}>
+                            {entry.location ?? '장소 안내 예정'}
+                          </span>
                         </span>
                       ))
                     ) : (
@@ -2048,6 +2384,200 @@ const PlayerPage = () => {
     );
   };
 
+  const renderCurriculumListContent = () => {
+    if (!snapshot || !selectedItem) {
+      return null;
+    }
+
+    return (
+      <div className={styles['curriculumPanelContent']}>
+        <div className={styles['curriculumBody']}>
+          {snapshot.curriculumTrack.sections.map((section) => (
+            <details className={styles['sectionBlock']} key={section.id} open>
+              <summary className={styles['sectionHeader']}>
+                <h3 className={styles['sectionTitle']}>{section.title}</h3>
+                <span className={styles['sectionToggle']}>
+                  <span
+                    aria-hidden='true'
+                    className={styles['sectionToggleIcon']}
+                    style={{ backgroundImage: `url(${iconSectionToggle})` }}
+                  />
+                </span>
+              </summary>
+
+              <div className={styles['lessonList']}>
+                {flattenPlayerItems([
+                  {
+                    id: section.id,
+                    lessons: section.lessons,
+                    title: section.title,
+                  },
+                ]).map((item) => {
+                  const lesson = item.lesson;
+                  const isCurrent = item.id === selectedItem.id;
+                  const isCompleted = completedLessonIds.has(lesson.id);
+                  const isProblemCompleted = quizAttemptedLessonIds.has(lesson.id);
+                  const practicumSidebarState =
+                    lesson.deliveryType === 'practicum'
+                      ? (practicumSidebarStatesByLessonId.get(lesson.id) ?? null)
+                      : null;
+                  const practicumLessonBadgeLabel =
+                    lesson.deliveryType === 'practicum'
+                      ? resolvePracticumLessonBadgeLabel(
+                          practicumLectureByLectureId.get(
+                            snapshot?.lessonPlaybackById[lesson.id]?.lectureId ??
+                              lesson.lectureId ??
+                              -1,
+                          ) ?? null,
+                        )
+                      : null;
+                  const offlineSidebarState = getOfflineSidebarState(lesson);
+                  const lessonSummaryActionLabel = getLessonSummaryActionLabel(
+                    lesson,
+                    practicumSidebarState?.label ?? null,
+                  );
+                  const lessonActionLabel =
+                    lesson.deliveryType === 'problem' && isProblemCompleted
+                      ? '문제 완료'
+                      : lessonSummaryActionLabel;
+                  const lessonMetaItems = getLessonMetaItems(lesson);
+                  const isItemCompleted =
+                    lesson.deliveryType === 'problem' ? isProblemCompleted : isCompleted;
+                  const isLocked = lockedLessonIds.has(lesson.id);
+                  const linkContent = (
+                    <>
+                      <span
+                        aria-hidden='true'
+                        className={classNames(
+                          styles['lessonStatusIcon'],
+                          isItemCompleted && styles['lessonStatusIconCompleted'],
+                          isCurrent && styles['lessonStatusIconCurrent'],
+                          isLocked && styles['lessonStatusIconLocked'],
+                        )}
+                        style={isItemCompleted ? completedStatusStyle : undefined}
+                      />
+                      <div className={styles['lessonLinkBody']}>
+                        <div className={styles['lessonBadgeRow']}>
+                          <span className={styles['lessonTypeBadge']}>
+                            {LESSON_TYPE_LABELS[lesson.deliveryType]}
+                          </span>
+                          {practicumSidebarState ? (
+                            <span
+                              className={styles['lessonPracticumBadge']}
+                              data-tone={practicumSidebarState.tone}
+                            >
+                              {practicumLessonBadgeLabel ?? practicumSidebarState.label}
+                            </span>
+                          ) : null}
+                          {offlineSidebarState ? (
+                            <span
+                              className={styles['lessonPracticumBadge']}
+                              data-tone={offlineSidebarState.tone}
+                            >
+                              {offlineSidebarState.label}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className={styles['lessonTitleRow']}>
+                          <strong className={styles['lessonLinkTitle']}>{item.title}</strong>
+                          <span
+                            className={styles['lessonSummaryAction']}
+                            data-tone={
+                              lesson.deliveryType === 'problem' && isProblemCompleted
+                                ? 'completed'
+                                : undefined
+                            }
+                          >
+                            {lessonActionLabel}
+                          </span>
+                        </div>
+                        {lessonMetaItems.length ? (
+                          <div className={styles['lessonLinkMeta']}>
+                            {lessonMetaItems.map((metaItem) => (
+                              <span
+                                className={styles['lessonLinkDuration']}
+                                key={`${item.id}-${metaItem}`}
+                              >
+                                {metaItem}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    </>
+                  );
+
+                  return (
+                    <Link
+                      className={classNames(
+                        styles['lessonLink'],
+                        isCurrent && styles['lessonLinkCurrent'],
+                      )}
+                      key={item.id}
+                      onClick={() => {
+                        if (lesson.deliveryType === 'problem') {
+                          setActiveQuizSidebarPanel('questions');
+                        }
+                      }}
+                      to={routePaths.learningLesson(String(resolvedEnrollmentId), item.id)}
+                    >
+                      {linkContent}
+                    </Link>
+                  );
+                })}
+              </div>
+            </details>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderQuizQuestionNavigator = () => {
+    if (!quizQuestions.length) {
+      return null;
+    }
+
+    return (
+      <nav aria-label='문제 문항 목록' className={styles['quizNavigatorList']}>
+        {quizQuestions.map((question, index) => {
+          const isCurrentQuestion = question.id === currentQuizQuestion?.id;
+          const selectedOptionIds = quizAnswers[question.id] ?? [];
+          const isFlagged = quizFlaggedQuestionIds.has(question.id);
+
+          return (
+            <button
+              className={classNames(
+                styles['quizNavigatorListButton'],
+                isCurrentQuestion && styles['quizNavigatorListButtonCurrent'],
+              )}
+              key={question.id}
+              onClick={() => {
+                moveToQuizQuestion(index);
+              }}
+              type='button'
+            >
+              <span className={styles['quizNavigatorStateRow']}>
+                <span className={styles['quizNavigatorQuestionTitle']}>문제 {index + 1}</span>
+                <span
+                  className={classNames(
+                    styles['quizNavigatorStateBadge'],
+                    !isFlagged &&
+                      selectedOptionIds.length > 0 &&
+                      styles['quizNavigatorStateBadgeAnswered'],
+                    isFlagged && styles['quizNavigatorStateBadgeFlagged'],
+                  )}
+                >
+                  {getQuizNavigatorStatusLabel(question, selectedOptionIds, isFlagged)}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+    );
+  };
+
   return (
     <div className={styles['page']}>
       <div className={styles['shell']}>
@@ -2092,6 +2622,13 @@ const PlayerPage = () => {
                             <p className={styles['stageProgressWarning']}>{progressSaveError}</p>
                           ) : null}
                         </div>
+                        {selectedLesson ? (
+                          <div className={styles['stageMeta']} aria-label='현재 강의 정보'>
+                            <span className={styles['metaChip']}>
+                              {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
+                            </span>
+                          </div>
+                        ) : null}
                       </div>
 
                       <div className={styles['playerShell']}>
@@ -2271,6 +2808,29 @@ const PlayerPage = () => {
                 ) : null}
 
                 {isQuizMode ? (
+                  <section className={styles['stageCard']}>
+                    <div className={styles['stageHeader']}>
+                      <div className={styles['stageCopy']}>
+                        <h1 className={styles['lessonTitle']}>{selectedLesson?.title}</h1>
+                      </div>
+                      <div className={styles['stageMeta']} aria-label='현재 강의 정보'>
+                        {selectedLesson ? (
+                          <span className={styles['metaChip']}>
+                            {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
+                          </span>
+                        ) : null}
+                        <span className={styles['metaChip']}>
+                          남은시간 {quizRemainingTimeLabel}
+                        </span>
+                        <span className={styles['metaChip']}>
+                          문항수 {String(quizQuestions.length)}문항
+                        </span>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {isQuizMode ? (
                   <section className={styles['quizWorkspace']}>
                     {quizQuery.isLoading ? (
                       <p className={styles['quizMutedText']}>문제 정보를 불러오는 중입니다.</p>
@@ -2284,27 +2844,77 @@ const PlayerPage = () => {
                       <p className={styles['quizMutedText']}>이 강의에는 등록된 문제가 없습니다.</p>
                     ) : (
                       <>
-                        {quizAttemptResult ? null : currentQuizQuestion ? (
+                        {shouldShowQuizStartPrompt ? (
+                          <section className={styles['quizStartCard']}>
+                            <div className={styles['quizResultHeader']}>
+                              <div>
+                                <strong className={styles['quizResultTitle']}>
+                                  문제 풀이를 시작할까요?
+                                </strong>
+                                <p className={styles['quizMutedText']}>
+                                  시작하면 제한시간이 흐르고, 남은 시간이 끝나면 현재 저장된
+                                  답안으로 자동 제출됩니다.
+                                </p>
+                              </div>
+                              <Button
+                                disabled={startQuizSessionMutation.isPending}
+                                onClick={handleQuizStart}
+                                size='sm'
+                                type='button'
+                              >
+                                {startQuizSessionMutation.isPending ? '시작 중...' : '시작하기'}
+                              </Button>
+                            </div>
+                            <div className={styles['quizStartMetaGrid']}>
+                              <div className={styles['quizStartMetaItem']}>
+                                <span>제한시간</span>
+                                <strong>{quizRemainingTimeLabel}</strong>
+                              </div>
+                              <div className={styles['quizStartMetaItem']}>
+                                <span>문항수</span>
+                                <strong>{String(quizQuestions.length)}문항</strong>
+                              </div>
+                              <div className={styles['quizStartMetaItem']}>
+                                <span>통과 기준</span>
+                                <strong>{String(quizQuery.data?.passScore ?? 0)}점</strong>
+                              </div>
+                            </div>
+                          </section>
+                        ) : null}
+
+                        {shouldShowQuizQuestion && currentQuizQuestion ? (
                           <section className={styles['quizQuestionCard']}>
                             <div className={styles['quizQuestionHeader']}>
                               <strong className={styles['quizQuestionTitle']}>
                                 문제 {resolvedQuizQuestionIndex + 1}.{' '}
                                 {currentQuizQuestion.questionText}
                               </strong>
+                              {currentQuizResult ? (
+                                <span
+                                  className={classNames(
+                                    styles['quizResultState'],
+                                    currentQuizResult.correct && styles['quizResultStateCorrect'],
+                                  )}
+                                >
+                                  {currentQuizResult.correct ? 'O' : 'X'}
+                                </span>
+                              ) : null}
                             </div>
-                            <label className={styles['quizFlagToggle']}>
-                              <input
-                                checked={quizFlaggedQuestionIds.has(currentQuizQuestion.id)}
-                                onChange={(event) => {
-                                  setQuizFlaggedQuestion(
-                                    currentQuizQuestion.id,
-                                    event.currentTarget.checked,
-                                  );
-                                }}
-                                type='checkbox'
-                              />
-                              <span>나중에 풀기</span>
-                            </label>
+                            {!quizReviewMode ? (
+                              <label className={styles['quizFlagToggle']}>
+                                <input
+                                  checked={quizFlaggedQuestionIds.has(currentQuizQuestion.id)}
+                                  onChange={(event) => {
+                                    setQuizFlaggedQuestion(
+                                      currentQuizQuestion.id,
+                                      event.currentTarget.checked,
+                                    );
+                                  }}
+                                  type='checkbox'
+                                />
+                                <span>나중에 풀기</span>
+                              </label>
+                            ) : null}
 
                             {renderQuizMedia(
                               currentQuizQuestion.mediaType,
@@ -2317,7 +2927,11 @@ const PlayerPage = () => {
                             <div className={styles['quizOptionList']}>
                               {currentQuizQuestion.options.map((option, optionIndex) => {
                                 const selectedOptionIds = quizAnswers[currentQuizQuestion.id] ?? [];
-                                const checked = selectedOptionIds.includes(option.id);
+                                const submittedOptionIds =
+                                  currentQuizResult?.submittedOptionIds ?? selectedOptionIds;
+                                const checked = quizReviewMode
+                                  ? submittedOptionIds.includes(option.id)
+                                  : selectedOptionIds.includes(option.id);
 
                                 return (
                                   <label
@@ -2330,6 +2944,7 @@ const PlayerPage = () => {
                                     <input
                                       checked={checked}
                                       aria-label={`${String(optionIndex + 1)}. ${option.optionText}`}
+                                      disabled={quizReviewMode}
                                       name={`problem-question-${String(currentQuizQuestion.id)}`}
                                       onChange={() => {
                                         updateQuizAnswer(
@@ -2361,6 +2976,19 @@ const PlayerPage = () => {
                               })}
                             </div>
 
+                            {quizReviewMode && currentQuizResult ? (
+                              <div className={styles['quizReviewSummary']}>
+                                {currentQuizResult.explanation ? (
+                                  <details className={styles['quizExplanationDetails']}>
+                                    <summary>해설 보기</summary>
+                                    <p className={styles['quizResultExplanation']}>
+                                      {currentQuizResult.explanation}
+                                    </p>
+                                  </details>
+                                ) : null}
+                              </div>
+                            ) : null}
+
                             <div className={styles['quizControlBar']}>
                               <div className={styles['quizControlNavigation']}>
                                 <Button
@@ -2386,23 +3014,40 @@ const PlayerPage = () => {
                                   다음
                                 </Button>
                               </div>
-                              <Button
-                                disabled={
-                                  submitQuizMutation.isPending || quizRemainingSeconds === 0
-                                }
-                                onClick={handleQuizSubmit}
-                                size='sm'
-                                type='button'
-                              >
-                                {submitQuizMutation.isPending ? '제출 중...' : '제출하기'}
-                              </Button>
+                              {quizReviewMode ? (
+                                <Button
+                                  onClick={() => {
+                                    setQuizReviewMode(false);
+                                  }}
+                                  size='sm'
+                                  type='button'
+                                  variant='secondary'
+                                >
+                                  결과로 돌아가기
+                                </Button>
+                              ) : (
+                                <Button
+                                  disabled={
+                                    submitQuizMutation.isPending || quizRemainingSeconds === 0
+                                  }
+                                  onClick={handleQuizSubmit}
+                                  size='sm'
+                                  type='button'
+                                >
+                                  {submitQuizMutation.isPending ? '제출 중...' : '제출하기'}
+                                </Button>
+                              )}
                             </div>
                           </section>
-                        ) : (
-                          <p className={styles['quizMutedText']}>등록된 문제가 없습니다.</p>
-                        )}
+                        ) : !shouldShowQuizStartPrompt && !quizAttemptResult ? (
+                          <p className={styles['quizMutedText']}>
+                            {shouldShowSubmittedWithoutResult
+                              ? '이미 제출한 문제입니다. 결과 정보를 불러오지 못했습니다.'
+                              : '등록된 문제가 없습니다.'}
+                          </p>
+                        ) : null}
 
-                        {quizAttemptResult ? (
+                        {quizAttemptResult && !quizReviewMode ? (
                           <div className={styles['quizResultCard']}>
                             <div className={styles['quizResultHeader']}>
                               <strong className={styles['quizResultTitle']}>채점 결과</strong>
@@ -2412,60 +3057,42 @@ const PlayerPage = () => {
                                   quizAttemptResult.passed && styles['quizResultBadgePassed'],
                                 )}
                               >
-                                {quizAttemptResult.score} / {quizAttemptResult.passScore}
-                                {quizAttemptResult.passed ? ' 통과' : ' 재도전 필요'}
+                                {quizAttemptResult.score}점
                               </span>
                             </div>
-
-                            <div className={styles['quizResultList']}>
-                              {quizAttemptResult.results.map((result, resultIndex) => {
-                                const question = quizQuery.data?.questions.find(
-                                  (item) => item.id === result.questionId,
-                                );
-                                const submittedLabels =
-                                  question?.options
-                                    .filter((option) =>
-                                      result.submittedOptionIds.includes(option.id),
-                                    )
-                                    .map((option) => option.optionText) ?? [];
-                                const correctLabels =
-                                  question?.options
-                                    .filter((option) => result.correctOptionIds.includes(option.id))
-                                    .map((option) => option.optionText) ?? [];
-
-                                return (
-                                  <article
-                                    className={styles['quizResultItem']}
-                                    key={result.questionId}
-                                  >
-                                    <div className={styles['quizResultItemHeader']}>
-                                      <strong className={styles['quizResultQuestion']}>
-                                        {resultIndex + 1}. {result.questionText}
-                                      </strong>
-                                      <span
-                                        className={classNames(
-                                          styles['quizResultState'],
-                                          result.correct && styles['quizResultStateCorrect'],
-                                        )}
-                                      >
-                                        {result.correct ? '정답' : '오답'}
-                                      </span>
-                                    </div>
-                                    <p className={styles['quizResultMeta']}>
-                                      선택 답안: {submittedLabels.join(', ') || '-'}
-                                    </p>
-                                    <p className={styles['quizResultMeta']}>
-                                      정답: {correctLabels.join(', ') || '-'}
-                                    </p>
-                                    {result.explanation ? (
-                                      <p className={styles['quizResultExplanation']}>
-                                        해설: {result.explanation}
-                                      </p>
-                                    ) : null}
-                                  </article>
-                                );
-                              })}
+                            <div className={styles['quizResultActions']}>
+                              <Button
+                                onClick={() => {
+                                  setQuizReviewMode(true);
+                                }}
+                                size='sm'
+                                type='button'
+                                variant='secondary'
+                              >
+                                문항 다시 보기
+                              </Button>
                             </div>
+
+                            <table className={styles['quizResultTable']}>
+                              <thead>
+                                <tr>
+                                  <th scope='col'>문항</th>
+                                  <th scope='col'>결과</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {quizAttemptResult.results.map((result, resultIndex) => (
+                                  <tr key={result.questionId}>
+                                    <td>{resultIndex + 1}번</td>
+                                    <td>
+                                      <span className={styles['quizResultMark']}>
+                                        {result.correct ? 'O' : 'X'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         ) : null}
                       </>
@@ -2480,78 +3107,47 @@ const PlayerPage = () => {
                     <div className={styles['curriculumHeaderCopy']}>
                       <h2 className={styles['curriculumTitle']}>{curriculumPanelTitle}</h2>
                     </div>
-                    <div className={styles['progressPanel']}>
-                      <div className={styles['progressSummary']}>
-                        <strong className={styles['progressValue']}>{completedRatio}%</strong>
-                        <span className={styles['progressText']}>
-                          {completedLessonCount} / {totalLessonCount} 완료
-                        </span>
-                      </div>
-                      <div aria-hidden='true' className={styles['progressTrack']}>
-                        <span
-                          className={styles['progressFill']}
-                          style={{ width: `${String(completedRatio)}%` }}
-                        />
-                      </div>
+                    <div className={styles['panelSwitchRow']}>
+                      <button
+                        aria-label='강의 목록 패널'
+                        className={classNames(
+                          styles['panelSwitchButton'],
+                          activeQuizSidebarPanel === 'curriculum' &&
+                            styles['panelSwitchButtonActive'],
+                        )}
+                        onClick={() => {
+                          setActiveQuizSidebarPanel('curriculum');
+                        }}
+                        type='button'
+                      >
+                        <span className={styles['panelSwitchLabel']}>목록</span>
+                      </button>
+                      <button
+                        aria-label='문제 목록 패널'
+                        className={classNames(
+                          styles['panelSwitchButton'],
+                          activeQuizSidebarPanel === 'questions' &&
+                            styles['panelSwitchButtonActive'],
+                        )}
+                        onClick={() => {
+                          setActiveQuizSidebarPanel('questions');
+                        }}
+                        type='button'
+                      >
+                        <span className={styles['panelSwitchLabel']}>문제</span>
+                      </button>
                     </div>
                   </div>
 
-                  <details className={styles['quizNavigatorInfo']} open>
-                    <summary className={styles['quizNavigatorInfoSummary']}>문제 정보</summary>
-                    <dl className={styles['quizNavigatorInfoList']}>
-                      <div className={styles['quizNavigatorInfoRow']}>
-                        <dt>강의명</dt>
-                        <dd>{quizQuery.data?.title ?? selectedItem.title}</dd>
-                      </div>
-                      <div className={styles['quizNavigatorInfoRow']}>
-                        <dt>제한시간</dt>
-                        <dd>{quizInfoTimeLimitLabel}</dd>
-                      </div>
-                      <div className={styles['quizNavigatorInfoRow']}>
-                        <dt>문항수</dt>
-                        <dd>{String(quizQuestions.length)}문항</dd>
-                      </div>
-                    </dl>
-                  </details>
-
-                  <div className={styles['quizNavigatorList']}>
-                    {quizQuestions.map((question, index) => {
-                      const isCurrentQuestion = question.id === currentQuizQuestion?.id;
-                      const selectedOptionIds = quizAnswers[question.id] ?? [];
-                      const isFlagged = quizFlaggedQuestionIds.has(question.id);
-
-                      return (
-                        <button
-                          className={classNames(
-                            styles['quizNavigatorListButton'],
-                            isCurrentQuestion && styles['quizNavigatorListButtonCurrent'],
-                          )}
-                          key={question.id}
-                          onClick={() => {
-                            moveToQuizQuestion(index);
-                          }}
-                          type='button'
-                        >
-                          <span className={styles['quizNavigatorStateRow']}>
-                            <span className={styles['quizNavigatorQuestionTitle']}>
-                              문제 {index + 1}
-                            </span>
-                            <span
-                              className={classNames(
-                                styles['quizNavigatorStateBadge'],
-                                !isFlagged &&
-                                  selectedOptionIds.length > 0 &&
-                                  styles['quizNavigatorStateBadgeAnswered'],
-                                isFlagged && styles['quizNavigatorStateBadgeFlagged'],
-                              )}
-                            >
-                              {getQuizNavigatorStatusLabel(question, selectedOptionIds, isFlagged)}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {activeQuizSidebarPanel === 'curriculum' ? (
+                    renderCurriculumListContent()
+                  ) : isQuizSessionActive || quizAttemptResult ? (
+                    renderQuizQuestionNavigator()
+                  ) : (
+                    <p className={styles['quizNavigatorEmptyText']}>
+                      문제 풀이를 시작하면 문항 목록이 표시됩니다.
+                    </p>
+                  )}
                 </aside>
               ) : (
                 <aside className={styles['curriculumPanel']}>
@@ -2589,20 +3185,22 @@ const PlayerPage = () => {
                     </div>
                   </div>
 
-                  <div className={styles['progressPanel']}>
-                    <div className={styles['progressSummary']}>
-                      <strong className={styles['progressValue']}>{completedRatio}%</strong>
-                      <span className={styles['progressText']}>
-                        {completedLessonCount} / {totalLessonCount} 완료
-                      </span>
+                  {activeSidebarPanel === 'curriculum' ? (
+                    <div className={styles['progressPanel']}>
+                      <div className={styles['progressSummary']}>
+                        <strong className={styles['progressValue']}>{completedRatio}%</strong>
+                        <span className={styles['progressText']}>
+                          {completedLessonCount} / {totalLessonCount} 완료
+                        </span>
+                      </div>
+                      <div aria-hidden='true' className={styles['progressTrack']}>
+                        <span
+                          className={styles['progressFill']}
+                          style={{ width: `${String(completedRatio)}%` }}
+                        />
+                      </div>
                     </div>
-                    <div aria-hidden='true' className={styles['progressTrack']}>
-                      <span
-                        className={styles['progressFill']}
-                        style={{ width: `${String(completedRatio)}%` }}
-                      />
-                    </div>
-                  </div>
+                  ) : null}
 
                   {activeSidebarPanel === 'curriculum' ? (
                     <div className={styles['curriculumPanelContent']}>
@@ -2636,10 +3234,25 @@ const PlayerPage = () => {
                                   lesson.deliveryType === 'practicum'
                                     ? (practicumSidebarStatesByLessonId.get(lesson.id) ?? null)
                                     : null;
+                                const practicumLessonBadgeLabel =
+                                  lesson.deliveryType === 'practicum'
+                                    ? resolvePracticumLessonBadgeLabel(
+                                        practicumLectureByLectureId.get(
+                                          snapshot?.lessonPlaybackById[lesson.id]?.lectureId ??
+                                            lesson.lectureId ??
+                                            -1,
+                                        ) ?? null,
+                                      )
+                                    : null;
+                                const offlineSidebarState = getOfflineSidebarState(lesson);
                                 const lessonSummaryActionLabel = getLessonSummaryActionLabel(
                                   lesson,
                                   practicumSidebarState?.label ?? null,
                                 );
+                                const lessonActionLabel =
+                                  lesson.deliveryType === 'problem' && isProblemCompleted
+                                    ? '문제 완료'
+                                    : lessonSummaryActionLabel;
                                 const lessonMetaItems = getLessonMetaItems(lesson);
                                 const isItemCompleted =
                                   lesson.deliveryType === 'problem'
@@ -2668,7 +3281,16 @@ const PlayerPage = () => {
                                             className={styles['lessonPracticumBadge']}
                                             data-tone={practicumSidebarState.tone}
                                           >
-                                            {practicumSidebarState.label}
+                                            {practicumLessonBadgeLabel ??
+                                              practicumSidebarState.label}
+                                          </span>
+                                        ) : null}
+                                        {offlineSidebarState ? (
+                                          <span
+                                            className={styles['lessonPracticumBadge']}
+                                            data-tone={offlineSidebarState.tone}
+                                          >
+                                            {offlineSidebarState.label}
                                           </span>
                                         ) : null}
                                       </div>
@@ -2676,12 +3298,18 @@ const PlayerPage = () => {
                                         <strong className={styles['lessonLinkTitle']}>
                                           {item.title}
                                         </strong>
-                                        <span className={styles['lessonSummaryAction']}>
-                                          {lessonSummaryActionLabel}
+                                        <span
+                                          className={styles['lessonSummaryAction']}
+                                          data-tone={
+                                            lesson.deliveryType === 'problem' && isProblemCompleted
+                                              ? 'completed'
+                                              : undefined
+                                          }
+                                        >
+                                          {lessonActionLabel}
                                         </span>
                                       </div>
-                                      {lessonMetaItems.length ||
-                                      (lesson.deliveryType === 'problem' && isProblemCompleted) ? (
+                                      {lessonMetaItems.length ? (
                                         <div className={styles['lessonLinkMeta']}>
                                           {lessonMetaItems.map((metaItem) => (
                                             <span
@@ -2691,12 +3319,6 @@ const PlayerPage = () => {
                                               {metaItem}
                                             </span>
                                           ))}
-                                          {lesson.deliveryType === 'problem' &&
-                                          isProblemCompleted ? (
-                                            <span className={styles['lessonProblemBadgeCompleted']}>
-                                              문제 완료
-                                            </span>
-                                          ) : null}
                                         </div>
                                       ) : null}
                                     </div>
@@ -2728,10 +3350,16 @@ const PlayerPage = () => {
                     <div className={styles['curriculumPanelContent']}>
                       <div className={styles['qnaPanelBody']}>
                         <ProgramQnaPanel
+                          allowReplies={false}
+                          answerSource='adminOnly'
                           boardLayout='compact'
+                          detailDisplay='answersOnly'
                           enabled
+                          exclusiveWriteMode
+                          hideBoardTitle
                           programId={qnaProgramId}
                           programThreadCount={qnaContext?.programThreadCount ?? null}
+                          showBoardSummary={false}
                           title='Q&A'
                           variant='board'
                         />

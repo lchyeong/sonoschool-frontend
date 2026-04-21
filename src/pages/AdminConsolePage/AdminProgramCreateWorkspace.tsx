@@ -10,6 +10,10 @@ import { useBlocker } from 'react-router';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import {
+  createAdminProblemMediaUploadTarget,
+  uploadAdminProblemMediaFile,
+} from '@/api/adminProblemMedia';
+import {
   createAdminProgramDraft,
   discardAdminProgramDraft,
   finalizeAdminProgramDraft,
@@ -21,10 +25,6 @@ import {
   createAdminProgramThumbnailUploadTarget,
   uploadAdminProgramThumbnailFile,
 } from '@/api/adminProgramMedia';
-import {
-  createAdminProblemMediaUploadTarget,
-  uploadAdminProblemMediaFile,
-} from '@/api/adminProblemMedia';
 import { createAdminResourceUploadTarget, uploadAdminResourceFile } from '@/api/adminResourceMedia';
 import {
   completeAdminVideoUpload,
@@ -49,6 +49,7 @@ import { adminProgramsLiveQueryKey } from '@/query/useAdminProgramsLiveQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AdminLectureType } from '@/types/adminCurriculum';
+import type { AdminProblemMediaType } from '@/types/adminProblems';
 import type {
   AdminDraftUploadStatus,
   AdminProgramDraftDetail,
@@ -66,7 +67,6 @@ import type {
   AdminProgramLevel,
   AdminProgramType,
 } from '@/types/adminProgramsLive';
-import type { AdminProblemMediaType } from '@/types/adminProblems';
 
 import styles from './AdminConsolePage.module.scss';
 import {
@@ -1694,6 +1694,19 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                     value={question.questionText}
                   />
 
+                  <TextAreaField
+                    label='해설'
+                    name={`problem-question-explanation-${lectureKey}-${String(questionIndex)}`}
+                    onChange={(event) => {
+                      updateProblemQuestion(lectureKey, questionIndex, (current) => ({
+                        ...current,
+                        explanation: event.target.value,
+                      }));
+                    }}
+                    rows={3}
+                    value={question.explanation ?? ''}
+                  />
+
                   <div className={styles['questionMediaRow']}>
                     <AdminDropdownField
                       compact
@@ -1910,10 +1923,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
           </div>
         ) : (
           <div className={styles['actionRow']}>
-              <Button
-                onClick={() => {
-                  upsertProblem(lectureKey, (current) => current);
-                }}
+            <Button
+              onClick={() => {
+                upsertProblem(lectureKey, (current) => current);
+              }}
               type='button'
               variant='primary'
             >
@@ -3643,35 +3656,37 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                             ) : null}
                                           </div>
 
-                                            {supportsVideo ? (
-                                              <div className={styles['lectureWorkspaceSection']}>
-                                                <h5 className={styles['panelTitle']}>
-                                                  {supportsOffline ? '선행 영상' : '영상'}
-                                                </h5>
-                                                {supportsOffline ? (
-                                                  <p className={styles['helperText']}>
-                                                    현장강의 시간은 일정 시작/종료 시각으로 관리합니다.
-                                                    선행 영상 길이는 출석 전 영상 확인 여부 검증에만
-                                                    사용됩니다.
-                                                  </p>
-                                                ) : null}
-                                                <div className={styles['curriculumStatGrid']}>
-                                                  <div className={styles['curriculumStatCard']}>
-                                                    <span className={styles['curriculumStatLabel']}>
-                                                      현재 상태
-                                                    </span>
+                                          {supportsVideo ? (
+                                            <div className={styles['lectureWorkspaceSection']}>
+                                              <h5 className={styles['panelTitle']}>
+                                                {supportsOffline ? '선행 영상' : '영상'}
+                                              </h5>
+                                              {supportsOffline ? (
+                                                <p className={styles['helperText']}>
+                                                  현장강의 시간은 일정 시작/종료 시각으로
+                                                  관리합니다. 선행 영상 길이는 출석 전 영상 확인
+                                                  여부 검증에만 사용됩니다.
+                                                </p>
+                                              ) : null}
+                                              <div className={styles['curriculumStatGrid']}>
+                                                <div className={styles['curriculumStatCard']}>
+                                                  <span className={styles['curriculumStatLabel']}>
+                                                    현재 상태
+                                                  </span>
                                                   <strong className={styles['curriculumStatValue']}>
                                                     {lectureVideoStatus}
                                                   </strong>
                                                 </div>
-                                                  <div className={styles['curriculumStatCard']}>
-                                                    <span className={styles['curriculumStatLabel']}>
-                                                      {supportsOffline ? '선행 영상 파일' : '영상 파일'}
-                                                    </span>
-                                                    <strong className={styles['curriculumStatValue']}>
-                                                      {uploadedVideoName ??
-                                                        '아직 업로드한 파일이 없습니다.'}
-                                                    </strong>
+                                                <div className={styles['curriculumStatCard']}>
+                                                  <span className={styles['curriculumStatLabel']}>
+                                                    {supportsOffline
+                                                      ? '선행 영상 파일'
+                                                      : '영상 파일'}
+                                                  </span>
+                                                  <strong className={styles['curriculumStatValue']}>
+                                                    {uploadedVideoName ??
+                                                      '아직 업로드한 파일이 없습니다.'}
+                                                  </strong>
                                                 </div>
                                                 <div className={styles['curriculumStatCard']}>
                                                   <span className={styles['curriculumStatLabel']}>
@@ -3681,16 +3696,16 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                     {videoFileSizeLabel ?? '미확인'}
                                                   </strong>
                                                 </div>
-                                                  <div className={styles['curriculumStatCard']}>
-                                                    <span className={styles['curriculumStatLabel']}>
-                                                      {supportsOffline
-                                                        ? '선행 영상 길이'
-                                                        : '영상 길이'}
-                                                    </span>
-                                                    <strong className={styles['curriculumStatValue']}>
-                                                      {formatDraftDurationLabel(
-                                                        lecture.durationSeconds,
-                                                      )}
+                                                <div className={styles['curriculumStatCard']}>
+                                                  <span className={styles['curriculumStatLabel']}>
+                                                    {supportsOffline
+                                                      ? '선행 영상 길이'
+                                                      : '영상 길이'}
+                                                  </span>
+                                                  <strong className={styles['curriculumStatValue']}>
+                                                    {formatDraftDurationLabel(
+                                                      lecture.durationSeconds,
+                                                    )}
                                                   </strong>
                                                 </div>
                                               </div>
@@ -3816,8 +3831,9 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                 </p>
                                               ) : null}
                                               <div className={styles['offlineScheduleDraftList']}>
-                                                {lecture.offlineSchedules.slice(0, 1).map(
-                                                  (schedule, scheduleIndex) => (
+                                                {lecture.offlineSchedules
+                                                  .slice(0, 1)
+                                                  .map((schedule, scheduleIndex) => (
                                                     <div
                                                       className={styles['offlineScheduleDraftCard']}
                                                       key={`${lecture.key}-offline-schedule-${String(scheduleIndex)}`}
@@ -3935,8 +3951,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                         value={schedule.notes ?? ''}
                                                       />
                                                     </div>
-                                                  ),
-                                                )}
+                                                  ))}
                                               </div>
                                               <div className={styles['actionRow']}>
                                                 {lecture.offlineSchedules.length === 0 ? (

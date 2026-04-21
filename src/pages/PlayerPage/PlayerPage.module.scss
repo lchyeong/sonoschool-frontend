@@ -223,6 +223,12 @@
   gap: 10px;
 }
 
+.stageMeta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .stageEyebrow,
 .sectionLabel {
   color: var(--color-primary);
@@ -577,6 +583,7 @@
 .quizNavigatorPanel {
   position: sticky;
   top: 18px;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
   min-height: 0;
   max-height: calc(100vh - 36px);
@@ -589,6 +596,10 @@
   box-shadow: 0 20px 54px rgb(15 23 42 / 12%);
 }
 
+.quizNavigatorPanel {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .curriculumHeader {
   gap: 14px;
 }
@@ -597,7 +608,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 0;
+  gap: 0.45rem;
 }
 
 .panelSwitchButton {
@@ -605,35 +616,27 @@
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  padding: 0.72rem 1rem 0.82rem;
+  padding: 0.78rem 1rem;
   border: 1px solid rgb(203 213 225);
-  border-bottom: 0;
-  border-radius: 0;
+  border-radius: 999px;
   background: rgb(241 245 249);
   color: rgb(100 116 139);
   font-size: 0.8rem;
   font-weight: 700;
-  box-shadow: inset 0 -1px 0 rgb(203 213 225);
   transition:
     background-color 180ms ease,
     color 180ms ease,
-    border-color 180ms ease,
-    transform 180ms ease,
-    box-shadow 180ms ease;
+    border-color 180ms ease;
 }
 
 .panelSwitchButtonActive {
-  border-color: rgb(15 118 110 / 24%);
-  background: #ffffff;
+  border-color: rgb(20 184 166 / 38%);
+  background: rgb(240 253 250);
   color: rgb(15 118 110);
-  transform: translateY(1px);
-  box-shadow:
-    0 -8px 18px rgb(15 23 42 / 6%),
-    inset 0 3px 0 rgb(45 212 191 / 38%);
 }
 
 .panelSwitchButton:hover {
-  background: rgb(248 250 252);
+  background: rgb(226 232 240);
   color: rgb(51 65 85);
 }
 
@@ -692,7 +695,7 @@
 
 .curriculumPanelContent {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   align-content: start;
   overflow: hidden;
@@ -715,34 +718,19 @@
   gap: 0.65rem;
 }
 
-.quizNavigatorStatGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
-}
-
-.quizNavigatorStat {
-  display: grid;
-  gap: 0.2rem;
-  border: 1px solid rgb(203 213 225);
-  background: #ffffff;
-  padding: 0.7rem;
-  color: rgb(71 85 105);
-  font-size: 0.78rem;
-}
-
-.quizNavigatorStat strong {
-  color: rgb(15 23 42);
-  font-size: 0.98rem;
-  font-weight: var(--font-weight-bold);
-}
-
 .quizNavigatorList {
   display: grid;
   gap: 0;
   max-height: min(52vh, 560px);
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.quizNavigatorEmptyText {
+  margin: 0;
+  color: rgb(100 116 139);
+  font-size: 0.86rem;
+  line-height: 1.6;
 }
 
 .quizNavigatorListButton {
@@ -808,72 +796,6 @@
   border-color: rgb(248 113 113 / 48%);
   background: rgb(254 242 242);
   color: rgb(185 28 28);
-}
-
-.quizNavigatorInfo {
-  border-top: 1px solid rgb(226 232 240);
-  border-bottom: 1px solid rgb(226 232 240);
-}
-
-.quizNavigatorInfoSummary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.9rem 0;
-  cursor: pointer;
-  color: rgb(15 23 42);
-  font-size: 0.88rem;
-  font-weight: var(--font-weight-bold);
-  list-style: none;
-}
-
-.quizNavigatorInfoSummary::-webkit-details-marker {
-  display: none;
-}
-
-.quizNavigatorInfoSummary::after {
-  width: 10px;
-  height: 10px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(45deg);
-  transition: transform 180ms ease;
-  content: '';
-}
-
-.quizNavigatorInfo[open] .quizNavigatorInfoSummary::after {
-  transform: rotate(225deg);
-}
-
-.quizNavigatorInfoList {
-  margin: 0;
-}
-
-.quizNavigatorInfoRow {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 0.75rem;
-  padding: 0.75rem 0;
-  border-top: 1px solid rgb(241 245 249);
-}
-
-.quizNavigatorInfoRow dt,
-.quizNavigatorInfoRow dd {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
-.quizNavigatorInfoRow dt {
-  color: rgb(100 116 139);
-  font-weight: var(--font-weight-semibold);
-}
-
-.quizNavigatorInfoRow dd {
-  color: rgb(15 23 42);
-  text-align: right;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
 }
 
 .sectionTitle {
@@ -1069,6 +991,12 @@
   white-space: nowrap;
 }
 
+.lessonSummaryAction[data-tone='completed'] {
+  border-color: rgb(20 184 166 / 42%);
+  background: rgb(204 251 241);
+  color: rgb(15 118 110);
+}
+
 .lessonTypeBadge,
 .lessonLockBadge,
 .lessonProblemBadgeCompleted,
@@ -1102,33 +1030,33 @@
 }
 
 .lessonPracticumBadge {
-  border: 1px solid rgba(240, 201, 129, 0.28);
-  background: rgba(255, 248, 236, 0.1);
-  color: rgb(248 213 164);
+  border: 1px solid rgb(180 83 9 / 42%);
+  background: rgb(254 243 199);
+  color: rgb(146 64 14);
 }
 
 .lessonPracticumBadge[data-tone='cta'] {
-  border-color: rgba(125, 211, 192, 0.28);
-  background: rgba(20, 184, 166, 0.12);
-  color: rgb(153 246 228);
+  border-color: rgb(13 148 136 / 46%);
+  background: rgb(204 251 241);
+  color: rgb(15 118 110);
 }
 
 .lessonPracticumBadge[data-tone='scheduled'] {
-  border-color: rgba(125, 211, 252, 0.28);
-  background: rgba(14, 165, 233, 0.12);
-  color: rgb(186 230 253);
+  border-color: rgb(2 132 199 / 42%);
+  background: rgb(224 242 254);
+  color: rgb(3 105 161);
 }
 
 .lessonPracticumBadge[data-tone='completed'] {
-  border-color: rgba(125, 211, 192, 0.24);
-  background: rgba(16, 185, 129, 0.12);
-  color: rgb(167 243 208);
+  border-color: rgb(5 150 105 / 42%);
+  background: rgb(209 250 229);
+  color: rgb(4 120 87);
 }
 
 .lessonPracticumBadge[data-tone='noshow'] {
-  border-color: rgba(248, 113, 113, 0.22);
-  background: rgba(239, 68, 68, 0.12);
-  color: rgb(254 202 202);
+  border-color: rgb(220 38 38 / 42%);
+  background: rgb(254 226 226);
+  color: rgb(185 28 28);
 }
 
 .offlineScheduleWorkspace {
@@ -1238,20 +1166,98 @@
   overflow: hidden;
 }
 
-.offlineCalendarEyebrow {
+.offlineScheduleSummary {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: end;
+  max-width: min(320px, 52%);
+  color: rgb(15 23 42);
+  text-align: right;
+}
+
+.offlineScheduleSummary strong,
+.offlineScheduleSummary span {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offlineScheduleSummary strong {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.offlineScheduleSummary span {
+  color: rgb(100 116 139);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.offlineAttendancePanel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid rgb(226 232 240);
+  background: #ffffff;
+}
+
+.offlineAttendanceMain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.55rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.offlineAttendanceBadge {
   display: inline-flex;
   align-items: center;
   min-height: 26px;
-  padding: 0 0.7rem;
+  padding: 0 0.65rem;
+  border: 1px solid rgb(226 232 240);
   border-radius: 999px;
-  background: rgb(226 232 240);
-  color: rgb(15 118 110);
-  font-size: 0.7rem;
-  font-weight: 700;
+  background: rgb(248 250 252);
+  color: rgb(51 65 85);
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
-.offlineCalendarHeader .practicumPanelDescription {
+.offlineAttendanceBadge[data-tone='scheduled'] {
+  border-color: rgb(125 211 252 / 42%);
+  background: rgb(240 249 255);
+  color: rgb(3 105 161);
+}
+
+.offlineAttendanceBadge[data-tone='completed'] {
+  border-color: rgb(110 231 183 / 42%);
+  background: rgb(236 253 245);
+  color: rgb(4 120 87);
+}
+
+.offlineAttendanceBadge[data-tone='absent'] {
+  border-color: rgb(252 165 165 / 54%);
+  background: rgb(254 242 242);
+  color: rgb(185 28 28);
+}
+
+.offlineAttendanceBadge[data-tone='pending'] {
+  border-color: rgb(251 191 36 / 42%);
+  background: rgb(255 251 235);
+  color: rgb(146 64 14);
+}
+
+.offlineAttendanceHelp {
   color: rgb(100 116 139);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.45;
+  white-space: nowrap;
 }
 
 .offlineCalendarPanel .practicumCalendarWeekdays {
@@ -1300,9 +1306,25 @@
 }
 
 .offlineCalendarPreviewItem {
+  display: grid;
+  gap: 2px;
   color: rgb(51 65 85);
   font-weight: 600;
   word-break: keep-all;
+}
+
+.offlineCalendarPreviewTime,
+.offlineCalendarPreviewLocation {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offlineCalendarPreviewLocation {
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+  font-weight: 500;
 }
 
 .offlineCalendarPreviewEmpty {
@@ -1719,6 +1741,40 @@
   padding: 1rem;
 }
 
+.quizStartCard {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(94, 234, 212, 0.22);
+  background: rgba(45, 212, 191, 0.08);
+  padding: 1rem;
+}
+
+.quizStartMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.quizStartMetaItem {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid rgba(143, 168, 191, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.8rem;
+}
+
+.quizStartMetaItem span {
+  color: rgb(191 209 220);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.quizStartMetaItem strong {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
 .quizResultTitle {
   display: block;
   color: #ffffff;
@@ -1726,14 +1782,12 @@
   font-weight: 700;
 }
 
-.quizQuestionList,
-.quizResultList {
+.quizQuestionList {
   display: grid;
   gap: 0.85rem;
 }
 
-.quizQuestionCard,
-.quizResultItem {
+.quizQuestionCard {
   display: grid;
   gap: 0.75rem;
   position: relative;
@@ -1743,8 +1797,7 @@
 }
 
 .quizQuestionHeader,
-.quizResultHeader,
-.quizResultItemHeader {
+.quizResultHeader {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1756,12 +1809,36 @@
   padding-right: 132px;
 }
 
-.quizQuestionTitle,
-.quizResultQuestion {
+.quizQuestionTitle {
   color: #ffffff;
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1.6;
+}
+
+.quizResultTable {
+  width: 100%;
+  border-collapse: collapse;
+  color: rgb(219 231 239);
+  font-size: 0.9rem;
+}
+
+.quizResultTable th,
+.quizResultTable td {
+  border-bottom: 1px solid rgba(143, 168, 191, 0.14);
+  padding: 0.75rem 0.6rem;
+  text-align: left;
+}
+
+.quizResultTable th {
+  color: rgb(191 209 220);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.quizResultTable th:last-child,
+.quizResultTable td:last-child {
+  text-align: center;
 }
 
 .quizResultBadge,
@@ -1774,6 +1851,12 @@
   color: rgb(219 231 239);
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.quizResultMark {
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 900;
 }
 
 .quizFlagToggle {
@@ -1806,11 +1889,21 @@
   box-shadow: inset 0 0 0 3px #ffffff;
 }
 
-.quizResultBadgePassed,
-.quizResultStateCorrect {
+.quizResultBadgePassed {
   border-color: rgba(14, 111, 77, 0.22);
   background: rgba(14, 111, 77, 0.14);
   color: #75d0ad;
+}
+
+.quizResultStateCorrect {
+  color: #75d0ad;
+}
+
+.quizResultActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
 }
 
 .quizOptionList {
@@ -1881,6 +1974,30 @@
   flex-wrap: wrap;
   gap: 0.65rem;
   align-items: center;
+}
+
+.quizReviewSummary {
+  display: grid;
+  gap: 0.35rem;
+  border-top: 1px solid rgba(143, 168, 191, 0.14);
+  padding-top: 0.85rem;
+}
+
+.quizExplanationDetails {
+  color: rgb(191 209 220);
+  font-size: 0.9rem;
+}
+
+.quizExplanationDetails summary {
+  width: max-content;
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.quizExplanationDetails[open] {
+  display: grid;
+  gap: 0.55rem;
 }
 
 @media (width < 1180px) {
@@ -1957,6 +2074,10 @@
   .settingsPanel {
     left: 0;
     right: auto;
+  }
+
+  .quizStartMetaGrid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

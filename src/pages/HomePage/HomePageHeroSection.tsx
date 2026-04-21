@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 
+import slideChevronLeftIconSrc from '@/assets/icons/slide-chevron-left.svg';
 import type { HomeHeroSlide } from '@/types/homeHeroSlides';
 import { classNames } from '@/utils/classNames';
 
@@ -45,21 +46,14 @@ const HomePageHeroControlBar = ({
           }}
           type='button'
         >
-          <svg
-            aria-hidden='true'
-            className={styles['controlIcon']}
-            fill='none'
-            viewBox='0 0 24 24'
-            xmlns='http://www.w3.org/2000/svg'
-          >
-            <path
-              d='M14.5 6.5 9 12l5.5 5.5'
-              stroke='currentColor'
-              strokeLinecap='round'
-              strokeLinejoin='round'
-              strokeWidth='1.8'
+          <span className={classNames(styles['controlIconFrame'], styles['controlIconFramePrev'])}>
+            <img
+              alt=''
+              aria-hidden='true'
+              className={styles['controlIcon']}
+              src={slideChevronLeftIconSrc}
             />
-          </svg>
+          </span>
         </button>
 
         <button
@@ -70,21 +64,14 @@ const HomePageHeroControlBar = ({
           }}
           type='button'
         >
-          <svg
-            aria-hidden='true'
-            className={styles['controlIcon']}
-            fill='none'
-            viewBox='0 0 24 24'
-            xmlns='http://www.w3.org/2000/svg'
-          >
-            <path
-              d='m9.5 6.5 5.5 5.5-5.5 5.5'
-              stroke='currentColor'
-              strokeLinecap='round'
-              strokeLinejoin='round'
-              strokeWidth='1.8'
+          <span className={classNames(styles['controlIconFrame'], styles['controlIconFrameNext'])}>
+            <img
+              alt=''
+              aria-hidden='true'
+              className={styles['controlIcon']}
+              src={slideChevronLeftIconSrc}
             />
-          </svg>
+          </span>
         </button>
       </div>
 
@@ -156,13 +143,11 @@ const HomePageHeroSection = ({
               </div>
 
               <div className={styles['thumbnailColumn']}>
-                <div className={styles['thumbnailFrame']}>
-                  <img
-                    alt={activeSlide.thumbnailAlt}
-                    className={styles['thumbnailImage']}
-                    src={activeSlide.thumbnailSrc}
-                  />
-                </div>
+                <div
+                  aria-label={activeSlide.thumbnailAlt}
+                  className={styles['thumbnailFrame']}
+                  role='img'
+                />
               </div>
             </div>
           </>

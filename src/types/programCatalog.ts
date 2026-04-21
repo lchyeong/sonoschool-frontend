@@ -74,11 +74,14 @@ export type ProgramCurriculumLessonDeliveryType =
   | 'resource';
 
 export interface ProgramCurriculumScheduleItem {
+  absent?: boolean | undefined;
+  attendanceCompleted?: boolean | undefined;
   date: string | null;
   startTime: string | null;
   endTime: string | null;
   location?: string | undefined;
   notes?: string | undefined;
+  ruleId?: number | null | undefined;
 }
 
 export interface ProgramCurriculumLesson {

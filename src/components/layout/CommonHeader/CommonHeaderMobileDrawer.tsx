@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
-import cartIconSrc from '@/assets/icons/icon_cart.svg';
 import myPageIconSrc from '@/assets/icons/icon_my.svg';
+import cartIconSrc from '@/assets/icons/shopping-cart.svg';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import CloseIcon from '@/components/ui/icons/CloseIcon';
 import { routePaths } from '@/routes/routeRegistry';

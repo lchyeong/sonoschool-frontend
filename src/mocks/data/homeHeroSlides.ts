@@ -6,11 +6,11 @@ const mainHomeHeroSlides: HomeHeroSlidesResponse = {
     {
       id: 'lecture-clinical-ultrasound-core',
       type: 'lecture',
-      title: '임상 초음파 코어 루틴과 국제 자격 준비 집중 과정',
+      title: '임상 초음파 코어 루틴 & 국제 자격 준비 집중 과정',
       description:
         '복부, 응급, 근골격 핵심 루틴을 실습 중심으로 반복하고 국제 자격 대비에 필요한 판독 흐름까지 함께 정리합니다.',
       thumbnailSrc: '/example.png',
-      thumbnailAlt: '임상 초음파 코어 루틴과 국제 자격 준비 집중 과정 소개 이미지',
+      thumbnailAlt: '임상 초음파 코어 루틴 & 국제 자격 준비 집중 과정 소개 이미지',
       tags: ['국제자격', '코어루틴', '핸즈온'],
     },
     {

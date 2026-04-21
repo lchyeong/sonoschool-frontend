@@ -32,6 +32,7 @@ export interface StudentProblem {
   timeLimitSeconds: number | null;
   questions: StudentProblemQuestion[];
   session: StudentProblemSession | null;
+  latestAttempt: StudentProblemAttemptResult | null;
 }
 
 export interface StudentProblemSession {

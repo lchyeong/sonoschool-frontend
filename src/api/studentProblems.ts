@@ -45,6 +45,19 @@ export const submitStudentProblem = async (
   }
 };
 
+export const startStudentProblemSession = async (
+  problemId: number,
+): Promise<StudentProblemSession> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<StudentProblemSession>>(
+      `/api/v1/problems/${String(problemId)}/session/start`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '문제 풀이를 시작하지 못했습니다.');
+  }
+};
+
 export const saveStudentProblemSession = async (
   problemId: number,
   payload: StudentProblemSessionSavePayload,

@@ -38,11 +38,13 @@ describe('HomePage', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '임상 초음파 코어 루틴과 국제 자격 준비 집중 과정',
+        name: '임상 초음파 코어 루틴 & 국제 자격 준비 집중 과정',
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByAltText('임상 초음파 코어 루틴과 국제 자격 준비 집중 과정 소개 이미지'),
+      screen.getByRole('img', {
+        name: '임상 초음파 코어 루틴 & 국제 자격 준비 집중 과정 소개 이미지',
+      }),
     ).toBeInTheDocument();
     expect(screen.getAllByRole('searchbox', { name: '강의 프로그램 검색' }).length).toBeGreaterThan(
       0,
@@ -69,7 +71,9 @@ describe('HomePage', () => {
     expect(
       await screen.findByRole('heading', { name: '응급실 POCUS FAST 집중 마스터 클래스' }),
     ).toBeInTheDocument();
-    expect(screen.getByAltText('응급실 POCUS FAST 강의 썸네일 예시')).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: '응급실 POCUS FAST 강의 썸네일 예시' }),
+    ).toBeInTheDocument();
   });
 
   it('renders fallback content when home APIs fail', async () => {
@@ -84,9 +88,7 @@ describe('HomePage', () => {
 
     renderHomePage();
 
-    expect(
-      await screen.findByText('메인 슬라이드를 불러오지 못했습니다.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('메인 슬라이드를 불러오지 못했습니다.')).toBeInTheDocument();
     expect(screen.getAllByRole('searchbox', { name: '강의 프로그램 검색' }).length).toBeGreaterThan(
       0,
     );

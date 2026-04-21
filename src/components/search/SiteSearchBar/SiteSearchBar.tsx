@@ -8,6 +8,8 @@ import {
   type FormEvent,
 } from 'react';
 
+import scopeChevronIconSrc from '@/assets/icons/search-scope-chevron.svg';
+import searchIconSrc from '@/assets/icons/search.svg';
 import {
   defaultSearchScope,
   getSearchScopeInputLabel,
@@ -162,24 +164,15 @@ const SiteSearchBar = ({
             <span className={styles['scopeTriggerLabel']}>
               {getSearchScopeLabel(selectedScope)}
             </span>
-            <svg
+            <span
               aria-hidden='true'
               className={classNames(
-                styles['scopeChevron'],
-                isScopeMenuOpen && styles['scopeChevronOpen'],
+                styles['scopeChevronFrame'],
+                isScopeMenuOpen && styles['scopeChevronFrameOpen'],
               )}
-              fill='none'
-              viewBox='0 0 24 24'
-              xmlns='http://www.w3.org/2000/svg'
             >
-              <path
-                d='m7 10 5 5 5-5'
-                stroke='currentColor'
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                strokeWidth='1.8'
-              />
-            </svg>
+              <img alt='' className={styles['scopeChevron']} src={scopeChevronIconSrc} />
+            </span>
           </span>
         </button>
 
@@ -227,34 +220,22 @@ const SiteSearchBar = ({
         {searchInputLabel}
       </label>
 
-      <input
-        autoComplete='off'
-        className={styles['searchInput']}
-        id={searchInputId}
-        name='q'
-        onChange={handleSearchInputChange}
-        placeholder={resolvedPlaceholder}
-        type='search'
-        value={inputValue}
-      />
+      <div className={styles['searchInputField']}>
+        <div aria-hidden='true' className={styles['searchDivider']} />
+        <input
+          autoComplete='off'
+          className={styles['searchInput']}
+          id={searchInputId}
+          name='q'
+          onChange={handleSearchInputChange}
+          placeholder={resolvedPlaceholder}
+          type='search'
+          value={inputValue}
+        />
+      </div>
 
       <button className={styles['submitButton']} type='submit'>
-        <svg
-          aria-hidden='true'
-          className={styles['submitIcon']}
-          fill='none'
-          viewBox='0 0 24 24'
-          xmlns='http://www.w3.org/2000/svg'
-        >
-          <circle cx='11' cy='11' r='5.8' stroke='currentColor' strokeWidth='1.8' />
-          <path
-            d='m15.6 15.4 4 4'
-            stroke='currentColor'
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth='1.8'
-          />
-        </svg>
+        <img alt='' aria-hidden='true' className={styles['submitIcon']} src={searchIconSrc} />
         <span className={styles['srOnly']}>{resolvedSubmitLabel}</span>
       </button>
     </form>

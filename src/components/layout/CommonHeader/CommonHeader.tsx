@@ -4,8 +4,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { logoutStudent } from '@/api/auth';
-import cartIconSrc from '@/assets/icons/icon_cart.svg';
 import myPageIconSrc from '@/assets/icons/icon_my.svg';
+import cartIconSrc from '@/assets/icons/shopping-cart.svg';
 import CloseIcon from '@/components/ui/icons/CloseIcon';
 import MenuIcon from '@/components/ui/icons/MenuIcon';
 import { useMyCartQuery } from '@/query/useMyPageQueries';
@@ -29,6 +29,21 @@ import { useCommonHeaderAutoHide } from './useCommonHeaderAutoHide';
 import { useCommonHeaderDesktopDropdown } from './useCommonHeaderDesktopDropdown';
 
 const KCP_PAYMENT_VISIBILITY_EVENT = 'sonoschool:kcp-payment-visibility';
+
+interface KcpPaymentVisibilityEventDetail {
+  visible: boolean;
+}
+
+const isKcpPaymentVisibilityEventDetail = (
+  value: unknown,
+): value is KcpPaymentVisibilityEventDetail => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'visible' in value &&
+    typeof value.visible === 'boolean'
+  );
+};
 
 export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
   const navigate = useNavigate();
@@ -187,7 +202,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
 
   useEffect(() => {
     const handleKcpPaymentVisibilityChange = (event: Event) => {
-      if (!(event instanceof CustomEvent) || typeof event.detail?.visible !== 'boolean') {
+      if (!(event instanceof CustomEvent) || !isKcpPaymentVisibilityEventDetail(event.detail)) {
         return;
       }
 
@@ -485,7 +500,12 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
             >
               {/* 모바일 아이콘 링크도 동일하게 접근성 텍스트를 제공합니다. */}
               <span className={styles['srOnly']}>장바구니</span>
-              <img alt='' aria-hidden='true' className={styles['iconImage']} src={cartIconSrc} />
+              <img
+                alt=''
+                aria-hidden='true'
+                className={classNames(styles['iconImage'], styles['iconImageCart'])}
+                src={cartIconSrc}
+              />
               {cartItemCount > 0 ? (
                 <span
                   aria-hidden='true'

@@ -241,6 +241,23 @@ export const saveLectureProgress = async (
   }
 };
 
+export const updateMyOfflineScheduleAbsence = async (
+  enrollmentId: number,
+  ruleId: number,
+  absent: boolean,
+): Promise<void> => {
+  try {
+    await axiosInstance.patch(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/offline-schedules/${String(ruleId)}/absence`,
+      {
+        absent,
+      },
+    );
+  } catch (error: unknown) {
+    throw toApiError(error, '오프라인 참석 상태를 저장하지 못했습니다.');
+  }
+};
+
 export const fetchMyLecturePracticum = async (
   enrollmentId: number,
   lectureId: number,

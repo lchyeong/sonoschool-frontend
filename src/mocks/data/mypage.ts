@@ -116,10 +116,13 @@ const createLearningLesson = (
       id: lessonId,
       offlineSchedules: [
         {
+          absent: false,
+          attendanceCompleted: false,
           date: formatMockOfflineDate(startDate),
           endTime: '17:00',
           location: '소노스쿨 실습실',
           notes: '현장 등록은 시작 10분 전부터 가능합니다.',
+          ruleId: 90_000 + lessonNumber,
           startTime: '14:00',
         },
       ],

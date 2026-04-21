@@ -9,7 +9,7 @@
   left: 0;
   z-index: var(--z-index-fixed);
   background: var(--color-bg-primary);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 0;
   transform: translate3d(0, 0, 0);
   opacity: 1;
   backface-visibility: hidden;
@@ -41,8 +41,11 @@
   min-height: 72px;
 
   @include m.lg {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    max-width: none;
+    min-height: 91px;
+    justify-content: center;
+    gap: 194px;
+    padding: 10px 20px;
   }
 }
 
@@ -78,27 +81,45 @@
     display: block;
     width: auto;
     height: 46px;
+
+    @include m.lg {
+      width: 214px;
+      height: 71px;
+      object-fit: contain;
+    }
   }
 }
 
 .desktopNav {
+  --header-menu-font-family: 'Pretendard', var(--font-family-base);
+  --header-menu-font-size: var(--font-size-lg);
+  --header-menu-font-weight: var(--font-weight-normal);
+  --header-menu-line-height: 1.3;
+
   display: none;
   min-width: 0;
 
   @include m.lg {
     display: flex;
-    place-self: stretch center;
+    flex: 0 0 auto;
+    align-items: center;
   }
 
   &List {
     display: flex;
     align-items: stretch;
     justify-content: center;
-    gap: clamp(8px, 1.1vw, 24px);
+    gap: 38px;
     min-width: 0;
     width: max-content;
     max-width: 100%;
     height: 100%;
+    color: var(--color-gray-900);
+    font-family: var(--header-menu-font-family);
+    font-size: var(--header-menu-font-size);
+    font-weight: var(--header-menu-font-weight);
+    letter-spacing: var(--letter-spacing-normal);
+    line-height: var(--header-menu-line-height);
   }
 
   &Item {
@@ -121,15 +142,29 @@
     box-shadow: none;
     background: transparent;
     background-image: none;
-    font-size: 0.95rem;
-    letter-spacing: -0.01em;
-    line-height: 1.4;
+    font-family: var(--header-menu-font-family);
+    font-size: var(--header-menu-font-size);
+    font-weight: var(--header-menu-font-weight);
+    letter-spacing: var(--letter-spacing-normal);
+    line-height: var(--header-menu-line-height);
     white-space: nowrap;
+
+    @include m.lg {
+      min-height: auto;
+      padding: 0;
+      border-radius: 0;
+      color: var(--color-gray-900);
+    }
 
     &:hover {
       color: var(--color-text-primary);
       background: var(--color-bg-tertiary);
       transition: all 0.3s;
+
+      @include m.lg {
+        color: var(--color-primary);
+        background: transparent;
+      }
     }
   }
 
@@ -137,11 +172,14 @@
     border: 0;
     background: transparent;
     cursor: pointer;
-    font: inherit;
 
     &Active {
-      color: var(--color-text-primary);
+      color: var(--color-gray-900);
       background: var(--color-bg-secondary);
+
+      @include m.lg {
+        background: transparent;
+      }
     }
   }
 }
@@ -155,7 +193,7 @@
 
     @include m.lg {
       display: flex;
-      justify-self: end;
+      gap: var(--space-6);
     }
   }
 }
@@ -211,6 +249,11 @@
   &ImageCart {
     width: 20px;
     height: 20px;
+
+    @include m.lg {
+      width: 24px;
+      height: 24px;
+    }
   }
 
   &ImageMy {
@@ -221,6 +264,17 @@
 
 .cartIconLink {
   position: relative;
+
+  @include m.lg {
+    width: 24px;
+    height: 24px;
+    min-height: 24px;
+    border-radius: 0;
+
+    &:hover {
+      background: transparent;
+    }
+  }
 }
 
 .cartCountBadge {
@@ -236,7 +290,7 @@
   border: 2px solid var(--color-bg-primary);
   border-radius: 999px;
   background: #d64545;
-  color: #fff;
+  color: #ffffff;
   font-size: 0.6875rem;
   font-weight: var(--font-weight-semibold);
   line-height: 1;
@@ -247,7 +301,7 @@
 .authActionGroup {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 0;
 }
 
 .accountMenu {
@@ -350,6 +404,18 @@
   &Link,
   &Button {
     padding: 0 var(--space-4);
+
+    @include m.lg {
+      width: 106px;
+      min-height: 45px;
+      padding: 12px 30px;
+      border: 0;
+      border-radius: 40px;
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      letter-spacing: var(--letter-spacing-normal);
+      line-height: normal;
+    }
   }
 
   &Icon {
