@@ -2,7 +2,11 @@ import { z } from 'zod';
 
 import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
-import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
+import type {
+  ProgramLectureCatalogResponse,
+  ProgramPageResponse,
+  ProgramsOverviewResponse,
+} from '@/types/programCatalog';
 
 const programStatSchema = z.object({
   label: z.string().min(1),
@@ -129,6 +133,10 @@ const programsOverviewResponseSchema = z.object({
   title: z.string().min(1),
 });
 
+const programLectureCatalogResponseSchema = z.object({
+  items: z.array(lectureCardSchema).min(1).max(200),
+});
+
 const programCollectionPageResponseSchema = z.object({
   breadcrumbItems: z.array(breadcrumbItemSchema).min(1).max(6),
   childCollections: z.array(collectionCardSchema).max(20),
@@ -199,6 +207,22 @@ export const fetchProgramsOverview = async (): Promise<ProgramsOverviewResponse>
   if (!parsed.success) {
     throw toApiResponseValidationError({
       source: 'programCatalog.overview',
+      userMessage: '교육과정 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      zodError: parsed.error,
+    });
+  }
+
+  return parsed.data;
+};
+
+export const fetchProgramLectureCatalog = async (): Promise<ProgramLectureCatalogResponse> => {
+  const responseData = await http.get<unknown>('/api/v1/program-pages/lectures');
+
+  const parsed = programLectureCatalogResponseSchema.safeParse(responseData);
+
+  if (!parsed.success) {
+    throw toApiResponseValidationError({
+      source: 'programCatalog.lectures',
       userMessage: '교육과정 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
       zodError: parsed.error,
     });

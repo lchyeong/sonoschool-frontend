@@ -103,12 +103,12 @@ export const fetchAdminPracticumOfflineScheduleDetail = async (
 export const updateAdminPracticumOfflineScheduleAttendance = async (
   ruleId: number,
   enrollmentId: number,
-  absent: boolean,
+  status: 'PRESENT' | 'ABSENT' | null,
 ): Promise<void> => {
   try {
     await axiosInstance.patch(
       `/api/v1/admin/practicum/offline-schedules/${String(ruleId)}/attendees/${String(enrollmentId)}/absence`,
-      { absent },
+      { status },
     );
   } catch (error: unknown) {
     throw toApiError(error, '오프라인 강의 참석 상태를 저장하지 못했습니다.');

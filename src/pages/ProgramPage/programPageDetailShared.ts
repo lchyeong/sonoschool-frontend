@@ -37,7 +37,7 @@ export const parsePriceAmount = (priceLabel: string): number => {
 };
 
 export const formatPriceLabel = (amount: number): string => {
-  return `${new Intl.NumberFormat('ko-KR').format(amount)} 원`;
+  return `₩${new Intl.NumberFormat('ko-KR').format(amount)}`;
 };
 
 export const buildAdminReplyExample = (review: ProgramReviewItem): string => {

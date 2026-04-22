@@ -5,6 +5,7 @@ import { useHomeHeroSlidesQuery } from '@/query/useHomeHeroSlidesQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { defaultSearchScope, type SearchScope } from '@/search/programSearchShared';
 
+import HomeFeaturedCoursesSection from './HomeFeaturedCoursesSection/HomeFeaturedCoursesSection';
 import HomeFeatureShowcaseSection from './HomeFeatureShowcaseSection/HomeFeatureShowcaseSection';
 import HomeHistoryTimelineSection from './HomeHistoryTimelineSection/HomeHistoryTimelineSection';
 import HomeNoticeSection from './HomeNoticeSection/HomeNoticeSection';
@@ -57,7 +58,7 @@ const HomePage = () => {
         >
           <div aria-hidden='true' className={styles['loadingShimmer']} />
         </section>
-      ) : activeSlide ? (
+      ) : slides.length > 0 ? (
         <HomePageHeroSection
           activeSlide={activeSlide}
           autoPlayDurationMs={autoPlayDurationMs}
@@ -81,6 +82,7 @@ const HomePage = () => {
 
       <HomeFeatureShowcaseSection />
       <HomeHistoryTimelineSection />
+      <HomeFeaturedCoursesSection />
       <HomeNoticeSection />
     </div>
   );

@@ -96,12 +96,13 @@ describe('ProgramPageDetailSidebar', () => {
         isEnrollingNow={false}
         isAddingToCart={false}
         originalPriceAmount={100000}
-        totalPriceLabel='100,000 원'
+        totalPriceLabel='₩100,000'
       />,
     );
 
     expect(screen.queryByText('할인없음')).not.toBeInTheDocument();
-    expect(screen.getAllByText('100,000 원')).toHaveLength(2);
+    expect(screen.getByText('₩100,000')).toBeInTheDocument();
+    expect(screen.queryByText('100,000원')).not.toBeInTheDocument();
   });
 
   it('실제 할인이 있으면 할인율과 원가를 함께 보여준다', () => {
@@ -122,11 +123,12 @@ describe('ProgramPageDetailSidebar', () => {
         isEnrollingNow={false}
         isAddingToCart={false}
         originalPriceAmount={120000}
-        totalPriceLabel='100,000 원'
+        totalPriceLabel='₩100,000'
       />,
     );
 
     expect(screen.getByText('17%')).toBeInTheDocument();
-    expect(screen.getByText('120,000 원')).toBeInTheDocument();
+    expect(screen.getAllByText('₩100,000').length).toBeGreaterThan(1);
+    expect(screen.getByText('₩120,000')).toBeInTheDocument();
   });
 });

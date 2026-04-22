@@ -109,35 +109,24 @@ const DEFAULT_COURSE_NAVIGATION: HeaderNavigationItem[] = [
         to: routePaths.programCatalog('online-course', 'ardms-exam-prep'),
       },
       {
-        id: 'fixed-online-hybrid',
-        label: '하이브리드과정',
-        to: routePaths.programCatalog('online-course', 'hybrid-course'),
-        children: [
-          {
-            id: 'fixed-online-hybrid-pediatric',
-            label: '소아초음파 하이브리드 과정',
-            to: routePaths.programCatalog('online-course', 'hybrid-course', 'pediatric-hybrid'),
-          },
-          {
-            id: 'fixed-online-hybrid-abdomen-urinary',
-            label: '상복부·비뇨기 하이브리드 과정',
-            to: routePaths.programCatalog(
-              'online-course',
-              'hybrid-course',
-              'abdomen-urinary-hybrid',
-            ),
-          },
-          {
-            id: 'fixed-online-hybrid-gi-tract',
-            label: 'GI tract 실습 포함 과정',
-            to: routePaths.programCatalog('online-course', 'hybrid-course', 'gi-tract-hybrid'),
-          },
-          {
-            id: 'fixed-online-hybrid-neck',
-            label: '두경부 실습 포함 과정',
-            to: routePaths.programCatalog('online-course', 'hybrid-course', 'neck-hybrid'),
-          },
-        ],
+        id: 'fixed-online-hybrid-pediatric',
+        label: '소아초음파 하이브리드 과정',
+        to: routePaths.programCatalog('online-course', 'hybrid-course', 'pediatric-hybrid'),
+      },
+      {
+        id: 'fixed-online-hybrid-abdomen-urinary',
+        label: '상복부·비뇨기 하이브리드 과정',
+        to: routePaths.programCatalog('online-course', 'hybrid-course', 'abdomen-urinary-hybrid'),
+      },
+      {
+        id: 'fixed-online-hybrid-gi-tract',
+        label: 'GI tract 실습 포함 과정',
+        to: routePaths.programCatalog('online-course', 'hybrid-course', 'gi-tract-hybrid'),
+      },
+      {
+        id: 'fixed-online-hybrid-neck',
+        label: '두경부 실습 포함 과정',
+        to: routePaths.programCatalog('online-course', 'hybrid-course', 'neck-hybrid'),
       },
     ],
     isFixed: true,
@@ -182,6 +171,10 @@ export const buildHeaderNavigation = (
 
   const resolvedCourseNavigation = DEFAULT_COURSE_NAVIGATION.map((item) => {
     const dynamicMatch = dynamicNavigationByPath.get(item.to);
+
+    if (item.id === 'fixed-online-courses') {
+      return item;
+    }
 
     if (!dynamicMatch) {
       return item;

@@ -49,6 +49,12 @@ const renderProgramAndCartRoutes = (initialEntry: string) => {
   );
 };
 
+const getLectureCountText = (count: number) => {
+  return screen.getByText((_, element) => {
+    return element?.tagName === 'P' && element.textContent === `총 ${String(count)}개 과정`;
+  });
+};
+
 afterEach(() => {
   cleanup();
   resetCartSelectionState();
@@ -60,7 +66,7 @@ describe('ProgramPage', () => {
     renderProgramPage('/programs/general-course');
 
     expect(await screen.findByRole('heading', { name: '일반과정' })).toBeInTheDocument();
-    expect(screen.getByText('Clinical Curriculum')).toBeInTheDocument();
+    expect(screen.getByText('SONO SCHOOL')).toBeInTheDocument();
     expect(screen.queryByText('세부 과정')).toBeNull();
     expect(screen.queryByRole('link', { name: '복부과정' })).toBeNull();
     expect(screen.getAllByRole('link', { name: '복부 Basic 스캔 6주' }).length).toBeGreaterThan(0);
@@ -96,7 +102,7 @@ describe('ProgramPage', () => {
 
     expect(heading).toBeInTheDocument();
     expect(within(heading.closest('section') as HTMLElement).queryByText('의사과정')).toBeNull();
-    expect(screen.getByText('총 3개 과정을 보여주고 있습니다.')).toBeInTheDocument();
+    expect(getLectureCountText(3)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '내과과정 복부 실전 워크숍' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '내과과정 간·담도 증례 워크숍' })).toBeInTheDocument();
     expect(
@@ -127,7 +133,7 @@ describe('ProgramPage', () => {
     expect(screen.queryByText('세부 과정')).toBeNull();
     expect(screen.queryByRole('link', { name: '내과과정' })).toBeNull();
     expect(screen.queryByRole('link', { name: '응급/POCUS과정' })).toBeNull();
-    expect(screen.getByText('총 5개 과정을 보여주고 있습니다.')).toBeInTheDocument();
+    expect(getLectureCountText(17)).toBeInTheDocument();
   });
 
   it('renders repeated-title cohort lectures under the abdomen basic hub', async () => {
@@ -137,10 +143,10 @@ describe('ProgramPage', () => {
 
     expect(heading).toBeInTheDocument();
     expect(within(heading.closest('section') as HTMLElement).queryByText('복부과정')).toBeNull();
-    expect(screen.getByText('총 3개 과정을 보여주고 있습니다.')).toBeInTheDocument();
-    expect(screen.getByText('모집기간 2026.03.01 - 2026.04.30 진행')).toBeInTheDocument();
-    expect(screen.getByText('모집기간 2026.05.01 - 2026.06.30 진행')).toBeInTheDocument();
-    expect(screen.getByText('모집기간 2026.09.01 - 2026.10.31 진행')).toBeInTheDocument();
+    expect(getLectureCountText(3)).toBeInTheDocument();
+    expect(screen.getByText('2026.03.01 - 2026.04.30 진행')).toBeInTheDocument();
+    expect(screen.getByText('2026.05.01 - 2026.06.30 진행')).toBeInTheDocument();
+    expect(screen.getByText('2026.09.01 - 2026.10.31 진행')).toBeInTheDocument();
   });
 
   it('keeps single-lecture hubs as hub pages until the detail child is opened', async () => {
@@ -152,8 +158,10 @@ describe('ProgramPage', () => {
     });
 
     expect(heading).toBeInTheDocument();
-    expect(within(heading.closest('section') as HTMLElement).queryByText('여성초음파과정')).toBeNull();
-    expect(screen.getByText('총 1개 과정을 보여주고 있습니다.')).toBeInTheDocument();
+    expect(
+      within(heading.closest('section') as HTMLElement).queryByText('여성초음파과정'),
+    ).toBeNull();
+    expect(getLectureCountText(1)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '산과 1삼분기 스캔 4주' })).toBeInTheDocument();
   });
 
@@ -191,7 +199,9 @@ describe('ProgramPage', () => {
   });
 
   it('switches to a dedicated qna tab instead of keeping qna in the one-page scroll', async () => {
-    renderProgramPage('/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail');
+    renderProgramPage(
+      '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+    );
 
     expect(
       await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
@@ -207,12 +217,16 @@ describe('ProgramPage', () => {
 
     expect(await screen.findByRole('heading', { name: '강의 Q&A' })).toBeInTheDocument();
     expect(screen.getByPlaceholderText('제목, 내용, 작성자를 검색해 주세요.')).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: '번호' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: '먼저 경험한 수강생들 후기' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('columnheader', { name: '번호' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: '먼저 경험한 수강생들 후기' }),
+    ).not.toBeInTheDocument();
   });
 
   it('moves from the qna tab to the faq section in one interaction flow', async () => {
-    renderProgramPage('/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail');
+    renderProgramPage(
+      '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+    );
 
     expect(
       await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),

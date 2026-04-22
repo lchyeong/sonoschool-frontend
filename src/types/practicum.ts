@@ -125,6 +125,7 @@ export interface AdminPracticumOfflineScheduleAttendeeItem {
   phoneNumber: string | null;
   lectureCompleted: boolean;
   absent: boolean;
+  attendanceStatus?: 'PRESENT' | 'ABSENT' | 'UNCHECKED' | null;
 }
 
 export interface AdminPracticumOfflineScheduleDetail {

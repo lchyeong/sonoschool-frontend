@@ -181,11 +181,7 @@ describe('CommonHeader', () => {
     fireEvent.focus(topLevelMenuLink);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(
-          '의사 대상 오프라인 심화 과정을 전공과 학습 방식에 따라 확인할 수 있습니다.',
-        ),
-      ).toBeInTheDocument();
+      expect(screen.getByText('의사과정을 살펴보세요.')).toBeInTheDocument();
     });
 
     expect(
@@ -196,7 +192,7 @@ describe('CommonHeader', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows newly expanded ultrasound domains in the desktop dropdowns', async () => {
+  it('shows ultrasound domains and the fixed online course grouping in the desktop dropdowns', async () => {
     renderCommonHeader();
 
     const doctorCoursesLink = await screen.findByRole('link', { name: '의사과정' });
@@ -224,10 +220,12 @@ describe('CommonHeader', () => {
     fireEvent.focus(onlineCoursesLink);
 
     await waitFor(() => {
-      expect(screen.getByText('POCUS 라이브러리')).toBeInTheDocument();
+      expect(screen.getByText('소아초음파 하이브리드 과정')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('여성초음파 이론')).toBeInTheDocument();
+    expect(screen.getByText('상복부·비뇨기 하이브리드 과정')).toBeInTheDocument();
+    expect(screen.getByText('GI tract 실습 포함 과정')).toBeInTheDocument();
+    expect(screen.getByText('두경부 실습 포함 과정')).toBeInTheDocument();
   });
 
   it('hides the header when scrolling down and shows it again when scrolling up slightly', async () => {

@@ -51,6 +51,7 @@ import {
   updateMockPopup,
 } from '@/mocks/data/popups';
 import {
+  getMockProgramLectureCatalog,
   getMockProgramPage,
   getMockProgramSearchLectureItems,
   getMockProgramsOverview,
@@ -90,7 +91,11 @@ import type { AddToCartPayload } from '@/types/mypage';
 import type { NoticeItem } from '@/types/notice';
 import type { KcpPcPrepareResponse } from '@/types/payment';
 import type { PopupItem } from '@/types/popup';
-import type { ProgramPageResponse, ProgramsOverviewResponse } from '@/types/programCatalog';
+import type {
+  ProgramLectureCatalogResponse,
+  ProgramPageResponse,
+  ProgramsOverviewResponse,
+} from '@/types/programCatalog';
 import type {
   ProgramQnaReplyCreatePayload,
   ProgramQnaThreadCreatePayload,
@@ -1932,6 +1937,7 @@ export const handlers = [
         attendees: [
           {
             absent: false,
+            attendanceStatus: 'UNCHECKED',
             enrollmentId: 7201,
             lectureCompleted: true,
             loginId: 'minji01',
@@ -1941,6 +1947,7 @@ export const handlers = [
           },
           {
             absent: false,
+            attendanceStatus: 'UNCHECKED',
             enrollmentId: 7202,
             lectureCompleted: false,
             loginId: 'junseo02',
@@ -2199,6 +2206,11 @@ export const handlers = [
   }),
   http.get('*/api/v1/program-pages/overview', () => {
     const response: ProgramsOverviewResponse = getMockProgramsOverview();
+
+    return HttpResponse.json(response);
+  }),
+  http.get('*/api/v1/program-pages/lectures', () => {
+    const response: ProgramLectureCatalogResponse = getMockProgramLectureCatalog();
 
     return HttpResponse.json(response);
   }),

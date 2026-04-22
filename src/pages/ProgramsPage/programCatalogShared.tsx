@@ -55,6 +55,12 @@ const buildProgramMetaTags = (item: ProgramLectureCard) => {
   return [item.difficultyLabel, item.formatLabel];
 };
 
+const buildArchiveMetaTags = (item: ProgramLectureCard) => {
+  const sourceTags = item.tags?.length ? item.tags : buildProgramMetaTags(item);
+
+  return Array.from(new Set(sourceTags.map((tag) => tag.trim()).filter(Boolean))).slice(0, 3);
+};
+
 const isLectureSoldOut = (item: ProgramLectureCard) => {
   if (item.remainingSeatsCount !== undefined) {
     return item.remainingSeatsCount <= 0;
@@ -127,6 +133,23 @@ const buildScheduleText = (scheduleLabel: string) => {
 
 const buildDurationText = (durationLabel: string) => {
   return `운영기간 ${durationLabel}`;
+};
+
+const resolveArchiveStatusLabel = (item: ProgramLectureCard) => {
+  const catalogStatus = resolveLectureCatalogStatus(item);
+
+  switch (catalogStatus) {
+    case 'OPEN':
+      return '신청가능';
+    case 'FULL':
+      return '정원마감';
+    case 'SCHEDULED':
+      return '모집예정';
+    case 'STARTED':
+      return '운영중';
+    case 'CLOSED':
+      return '신청마감';
+  }
 };
 
 const ProgramCardAction = ({
@@ -208,14 +231,19 @@ const ProgramCardAction = ({
   return (
     <button
       aria-label={isCartPending ? '장바구니에 담는 중' : '장바구니 담기'}
-      className={classNames(styles['cardIconButton'], isCartPending && styles['cardIconButtonPending'])}
+      className={classNames(
+        styles['cardIconButton'],
+        isCartPending && styles['cardIconButtonPending'],
+      )}
       disabled={isCartPending}
       onClick={() => {
         onAddToCart(item);
       }}
       type='button'
     >
-      <span className={styles['srOnly']}>{isCartPending ? '장바구니에 담는 중' : '장바구니 담기'}</span>
+      <span className={styles['srOnly']}>
+        {isCartPending ? '장바구니에 담는 중' : '장바구니 담기'}
+      </span>
       <img alt='' aria-hidden='true' className={styles['cardActionIcon']} src={cartIconSrc} />
     </button>
   );
@@ -373,21 +401,13 @@ export const ProgramLectureCardItem = ({
 
 // 카테고리 아카이브에서는 한 화면에 강의를 많이 훑어봐야 하므로
 // 메타 정보를 줄이고 "강의 선택"에 집중한 더 단순한 카드 버전을 따로 둡니다.
-export const ProgramArchiveLectureCardItem = ({
-  item,
-  isAlertPending = false,
-  isAlertSubscribed = false,
-  isAuthenticated = false,
-  isCartPending = false,
-  onAddToCart,
-  onSubscribeAlert,
-}: ProgramArchiveLectureCardItemProps) => {
-  const availability = resolveAvailability(item);
-  const metaTags = buildProgramMetaTags(item);
+export const ProgramArchiveLectureCardItem = ({ item }: ProgramArchiveLectureCardItemProps) => {
+  const archiveStatusLabel = resolveArchiveStatusLabel(item);
+  const metaTags = buildArchiveMetaTags(item);
 
   return (
-    <article className={styles['archiveLectureCard']}>
-      <Link className={styles['archiveLectureImageLink']} to={item.to}>
+    <Link aria-label={item.title} className={styles['archiveLectureCardLink']} to={item.to}>
+      <article className={styles['archiveLectureCard']}>
         <div className={styles['archiveLectureImageFrame']}>
           <img
             alt={item.thumbnailAlt}
@@ -395,57 +415,46 @@ export const ProgramArchiveLectureCardItem = ({
             src={item.thumbnailSrc}
           />
         </div>
-      </Link>
 
-      <div className={styles['archiveLectureBody']}>
-        <div className={styles['archiveLectureMetaRow']}>
-          <span className={styles['archiveLectureCategory']}>{item.categoryLabel}</span>
-          <div className={styles['lectureTopActionRow']}>
-            <ProgramCardAction
-              isAlertPending={isAlertPending}
-              isAlertSubscribed={isAlertSubscribed}
-              isAuthenticated={isAuthenticated}
-              isCartPending={isCartPending}
-              item={item}
-              onAddToCart={onAddToCart}
-              onSubscribeAlert={onSubscribeAlert}
-            />
+        <div className={styles['archiveLectureBody']}>
+          <p
+            className={classNames(
+              styles['archiveLectureStatus'],
+              resolveLectureCatalogStatus(item) !== 'OPEN' && styles['archiveLectureStatusMuted'],
+            )}
+          >
+            {archiveStatusLabel}
+          </p>
+
+          <h3 className={styles['archiveLectureTitle']}>{item.title}</h3>
+
+          <div className={styles['archiveLectureBottomMeta']}>
+            <p className={styles['archiveLecturePrice']}>{item.priceLabel}</p>
+
+            <div className={styles['archiveLectureScheduleGroup']}>
+              <p className={styles['archiveLectureScheduleRow']}>
+                <span className={styles['archiveLectureScheduleLabel']}>모집기간</span>
+                <span className={styles['archiveLectureScheduleValue']}>{item.scheduleLabel}</span>
+              </p>
+              <p className={styles['archiveLectureScheduleRow']}>
+                <span className={styles['archiveLectureScheduleLabel']}>수강기간</span>
+                <span className={styles['archiveLectureScheduleValue']}>{item.durationLabel}</span>
+              </p>
+            </div>
+
+            <ul className={styles['programMetaTagList']}>
+              {metaTags.map((tag) => {
+                return (
+                  <li className={styles['programMetaTagItem']} key={tag}>
+                    {tag}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
-
-        <h3 className={styles['archiveLectureTitle']}>
-          <Link className={styles['cardLink']} to={item.to}>
-            {item.title}
-          </Link>
-        </h3>
-
-        <p className={styles['archiveLectureInstructor']}>장은희 강사</p>
-
-        <div className={styles['archiveLectureBottomMeta']}>
-          <p className={styles['archiveLecturePrice']}>{item.priceLabel}</p>
-
-          {availability ? (
-            <div className={styles['archiveLectureAvailability']}>
-              <span className={styles['archiveLectureAvailabilityLabel']}>{availability.label}</span>
-              <span className={styles['archiveLectureAvailabilityValue']}>{availability.value}</span>
-            </div>
-          ) : null}
-
-          <p className={styles['archiveLectureScheduleText']}>{buildScheduleText(item.scheduleLabel)}</p>
-          <p className={styles['archiveLectureScheduleText']}>{buildDurationText(item.durationLabel)}</p>
-
-          <ul className={styles['programMetaTagList']}>
-            {metaTags.map((tag) => {
-              return (
-                <li className={styles['programMetaTagItem']} key={tag}>
-                  {tag}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
-    </article>
+      </article>
+    </Link>
   );
 };
 

@@ -14,9 +14,12 @@ const HomeHistoryTimelineSection = () => {
         className={styles['section']}
       >
         <div className={styles['inner']}>
-          <h2 className={styles['srOnly']} id='home-history-timeline-heading'>
-            소노스쿨 연혁
-          </h2>
+          <div className={styles['headingBlock']}>
+            <span className={styles['eyebrow']}>HISTORY</span>
+            <h2 className={styles['heading']} id='home-history-timeline-heading'>
+              연혁
+            </h2>
+          </div>
 
           <div className={styles['statusPanel']}>
             <p className={styles['statusTitle']}>연혁을 불러오는 중입니다.</p>
@@ -33,16 +36,17 @@ const HomeHistoryTimelineSection = () => {
     return (
       <section aria-labelledby='home-history-timeline-heading' className={styles['section']}>
         <div className={styles['inner']}>
-          <h2 className={styles['srOnly']} id='home-history-timeline-heading'>
-            소노스쿨 연혁
-          </h2>
+          <div className={styles['headingBlock']}>
+            <span className={styles['eyebrow']}>HISTORY</span>
+            <h2 className={styles['heading']} id='home-history-timeline-heading'>
+              연혁
+            </h2>
+          </div>
 
           <div className={styles['statusPanel']}>
             <p className={styles['statusTitle']}>연혁을 불러오지 못했습니다.</p>
             <p className={styles['statusDescription']}>
-              {isError && error instanceof Error
-                ? error.message
-                : '등록된 연혁 데이터가 없습니다.'}
+              {isError && error instanceof Error ? error.message : '등록된 연혁 데이터가 없습니다.'}
             </p>
           </div>
         </div>
@@ -53,30 +57,20 @@ const HomeHistoryTimelineSection = () => {
   return (
     <section aria-labelledby='home-history-timeline-heading' className={styles['section']}>
       <div className={styles['inner']}>
-        <h2 className={styles['srOnly']} id='home-history-timeline-heading'>
-          소노스쿨 연혁
-        </h2>
+        <div className={styles['headingBlock']}>
+          <span className={styles['eyebrow']}>HISTORY</span>
+          <h2 className={styles['heading']} id='home-history-timeline-heading'>
+            연혁
+          </h2>
+        </div>
 
         <ol aria-label='소노스쿨 연혁 타임라인' className={styles['timelineList']}>
-          {timelineItems.map((item, itemIndex) => {
-            const isTimelineStartItem = itemIndex === 0;
+          {timelineItems.map((item) => {
             const itemKey = `${item.year}-${item.title}`;
 
             return (
-              <li
-                className={`${styles['timelineItem']} ${
-                  isTimelineStartItem ? styles['timelineItemStart'] : ''
-                }`}
-                key={itemKey}
-              >
-                <div className={styles['timelineYearColumn']}>
-                  <span className={styles['timelineYear']}>{item.year}</span>
-                </div>
-
-                <div className={styles['timelineMarkerColumn']}>
-                  <span aria-hidden='true' className={styles['timelineMarker']} />
-                </div>
-
+              <li className={styles['timelineItem']} key={itemKey}>
+                <span className={styles['timelineYear']}>{item.year}</span>
                 <div className={styles['timelineContent']}>
                   <p className={styles['timelineTitle']}>{item.title}</p>
                   <p className={styles['timelineDescription']}>{item.description}</p>

@@ -32,6 +32,7 @@ import type {
 import type {
   ProgramBreadcrumbItem,
   ProgramCollectionCard,
+  ProgramLectureCatalogResponse,
   ProgramCurriculumLesson,
   ProgramCollectionPageResponse,
   ProgramCurriculumSection,
@@ -5165,6 +5166,16 @@ export const getMockProgramsOverview = (
       { label: '강의 운영', value: '단일 강사 브랜드' },
     ],
     title: '소노스쿨 교육과정 전체 보기',
+  };
+};
+
+export const getMockProgramLectureCatalog = (
+  siteKey = DEFAULT_PROGRAM_SITE_KEY,
+): ProgramLectureCatalogResponse => {
+  const tree = getProgramCatalogPublicTree(siteKey);
+
+  return {
+    items: collectVisibleLectures(tree).map(toProgramLectureCard),
   };
 };
 

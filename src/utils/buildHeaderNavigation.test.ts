@@ -51,9 +51,6 @@ describe('buildHeaderNavigation', () => {
     expect(onlineItem?.children?.map((item) => item.to)).toEqual([
       routePaths.programCatalog('online-course', 'theory-and-scan'),
       routePaths.programCatalog('online-course', 'ardms-exam-prep'),
-      routePaths.programCatalog('online-course', 'hybrid-course'),
-    ]);
-    expect(onlineItem?.children?.[2]?.children?.map((item) => item.to)).toEqual([
       routePaths.programCatalog('online-course', 'hybrid-course', 'pediatric-hybrid'),
       routePaths.programCatalog('online-course', 'hybrid-course', 'abdomen-urinary-hybrid'),
       routePaths.programCatalog('online-course', 'hybrid-course', 'gi-tract-hybrid'),
@@ -85,6 +82,13 @@ describe('buildHeaderNavigation', () => {
         id: 'dynamic-online-course',
         label: '온라인과정 실험값',
         to: routePaths.programCatalog('online-course'),
+        children: [
+          {
+            id: 'dynamic-online-pocus-library',
+            label: 'POCUS 라이브러리',
+            to: '/programs/online-course/pocus-library',
+          },
+        ],
       },
       { id: 'dynamic-extra', label: '특별과정', to: '/special-course' },
     ]);
@@ -99,6 +103,14 @@ describe('buildHeaderNavigation', () => {
     expect(navigation[1]?.description).toBe('의사과정 설명');
     expect(navigation[1]?.children?.[0]?.label).toBe('심장과정');
     expect(navigation[1]?.isFixed).toBe(true);
+    expect(navigation[3]?.children?.map((item) => item.label)).toEqual([
+      '이론+스캔',
+      'ARDMS 시험 대비',
+      '소아초음파 하이브리드 과정',
+      '상복부·비뇨기 하이브리드 과정',
+      'GI tract 실습 포함 과정',
+      '두경부 실습 포함 과정',
+    ]);
   });
 
   it('preserves optional descriptions across nested navigation items', () => {

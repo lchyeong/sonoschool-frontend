@@ -193,6 +193,10 @@ export interface ProgramDetailPageResponse {
 
 export type ProgramPageResponse = ProgramCollectionPageResponse | ProgramDetailPageResponse;
 
+export interface ProgramLectureCatalogResponse {
+  items: ProgramLectureCard[];
+}
+
 export interface ProgramsOverviewResponse {
   title: string;
   description: string;

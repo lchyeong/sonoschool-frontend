@@ -1,7 +1,12 @@
 .container {
   width: 100%;
+  min-width: 0;
   display: grid;
   gap: var(--space-5);
+}
+
+.container > * {
+  min-width: 0;
 }
 
 .searchSection {

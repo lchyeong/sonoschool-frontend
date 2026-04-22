@@ -1,13 +1,33 @@
-import { Link, Outlet, useMatches } from 'react-router-dom';
+import { useEffect } from 'react';
 
-import GlobalNoticePopup from '@/components/notice/GlobalNoticePopup/GlobalNoticePopup';
+import { Link, Outlet, useLocation, useMatches } from 'react-router-dom';
+
 import CommonFooter from '@/components/layout/CommonFooter/CommonFooter';
 import CommonHeader from '@/components/layout/CommonHeader/CommonHeader';
+import GlobalNoticePopup from '@/components/notice/GlobalNoticePopup/GlobalNoticePopup';
 import { env } from '@/config/env';
 import { routePaths, type AppRouteHandle, type AppRouteKey } from '@/routes/routeRegistry';
 import { classNames } from '@/utils/classNames';
 
 import styles from './RootLayout.module.scss';
+
+const ScrollToTopOnPathChange = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    try {
+      window.scrollTo({
+        behavior: 'auto',
+        left: 0,
+        top: 0,
+      });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, [location.pathname]);
+
+  return null;
+};
 
 const RootLayout = () => {
   const matches = useMatches() as Array<{ handle?: AppRouteHandle }>;
@@ -21,6 +41,8 @@ const RootLayout = () => {
 
   return (
     <div className={styles['layout']}>
+      <ScrollToTopOnPathChange />
+
       {!isFullBleed ? (
         <CommonHeader
           LinkComponent={Link}

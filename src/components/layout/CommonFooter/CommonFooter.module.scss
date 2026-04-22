@@ -1,54 +1,82 @@
 .footer {
   width: 100%;
-  margin-top: 0;
+  margin-top: 280px;
   background: #ecf9f7;
 }
 
 .inner {
-  width: min(100%, 1440px);
+  box-sizing: border-box;
+  width: min(1364px, calc(100vw - 64px));
+  min-height: 480px;
   margin: 0 auto;
-  padding: clamp(2.52rem, 4.68vw, 3.96rem) clamp(1.8rem, 4vw, 3.2rem) clamp(2.7rem, 5.4vw, 4.32rem);
-  display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.88fr);
-  gap: clamp(2rem, 5vw, 4.8rem);
+  padding: 56px 0 72px;
+}
+
+.topRow {
+  display: flex;
   align-items: center;
 }
 
-.contentColumn {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(1.96rem, 4.16vw, 3.6rem);
-  min-width: 0;
+.brandArea {
+  flex: 0 0 152px;
+  width: 152px;
+}
+
+.brandImage {
+  display: block;
+  width: 152px;
+  height: 51px;
+  object-fit: contain;
 }
 
 .navigation {
+  margin-left: 594px;
   min-width: 0;
 }
 
 .navigationList {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4) clamp(1rem, 2.4vw, 2.1rem);
+  justify-content: flex-end;
+  gap: 32px;
   padding: 0;
   margin: 0;
   list-style: none;
 }
 
+.navigationItem {
+  flex: 0 0 auto;
+}
+
 .navigationLink {
-  color: #000000;
-  font-size: clamp(0.68rem, 0.82vw, 0.92rem);
-  font-weight: var(--font-weight-semibold);
+  display: block;
+  color: #374151;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 18px;
+  font-weight: var(--font-weight-bold);
   letter-spacing: -0.02em;
+  line-height: normal;
   text-decoration: none;
-  transition: opacity 180ms ease;
+  white-space: nowrap;
+  transition:
+    opacity 180ms ease,
+    color 180ms ease;
 }
 
 .navigationLink:hover {
-  opacity: 0.68;
+  opacity: 0.72;
+}
+
+.navigationLink:focus-visible {
+  outline: 2px solid rgba(78, 203, 184, 0.48);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .informationBlock {
   min-width: 0;
+  margin-top: 60px;
+  padding-right: 16px;
 }
 
 .visuallyHidden {
@@ -58,56 +86,89 @@
 .informationLines {
   display: flex;
   flex-direction: column;
-  gap: clamp(0.3rem, 0.7vw, 0.65rem);
+  gap: 16px;
 }
 
 .informationLine {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.32rem 0.9rem;
-  align-items: baseline;
+  gap: 16px;
+  align-items: center;
   margin: 0;
-  color: rgba(87, 92, 95, 0.92);
-  font-size: clamp(0.74rem, 0.76vw, 0.9rem);
-  font-weight: 600;
-  line-height: 1.45;
+  color: #6b7280;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.02em;
+  line-height: normal;
+}
+
+.informationFragment {
+  display: inline-flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.informationDivider {
+  color: #9ca3af;
+  font-size: 18px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
 }
 
 .informationItem {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 0.08rem;
-  align-items: baseline;
+  gap: 6px;
+  align-items: center;
 }
 
 .informationLabel {
-  color: rgba(90, 95, 98, 0.94);
+  color: #6b7280;
+  font-weight: var(--font-weight-bold);
+}
+
+.informationColon {
+  color: #6b7280;
+  font-weight: var(--font-weight-semibold);
 }
 
 .informationValue {
-  color: rgba(87, 92, 95, 0.94);
+  color: #6b7280;
+  font-weight: var(--font-weight-semibold);
 }
 
 .informationLink {
-  color: rgba(87, 92, 95, 0.94);
+  color: #6b7280;
+  font-weight: var(--font-weight-semibold);
   text-decoration: none;
-  transition: opacity 180ms ease;
+  transition:
+    opacity 180ms ease,
+    color 180ms ease;
 }
 
 .informationLink:hover {
   opacity: 0.72;
 }
 
+.informationLink:focus-visible {
+  outline: 2px solid rgba(78, 203, 184, 0.48);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 .legalRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.32rem 0.9rem;
+  gap: 20px;
   align-items: center;
-  margin: 0;
-  color: rgba(92, 98, 101, 0.96);
-  font-size: clamp(0.74rem, 0.74vw, 0.88rem);
-  font-weight: 600;
-  line-height: 1.4;
+  margin-top: 60px;
+  color: #6b7280;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.02em;
+  line-height: normal;
 }
 
 .legalText,
@@ -126,80 +187,81 @@
 }
 
 .copyrightButton:focus-visible {
-  outline: 2px solid rgba(52, 178, 159, 0.5);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  outline: 2px solid rgba(78, 203, 184, 0.48);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
-.brandColumn {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  min-width: 0;
-}
+@media (width < 1428px) {
+  .inner {
+    width: min(1364px, calc(100vw - 48px));
+  }
 
-.brandImage {
-  display: block;
-  width: min(100%, 360px);
-  height: auto;
-  object-fit: contain;
+  .navigation {
+    margin-left: auto;
+  }
 }
 
 @media (width < 1200px) {
   .inner {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.82fr);
+    min-height: auto;
+    padding-bottom: 64px;
   }
 
-  .brandImage {
-    width: min(100%, 300px);
-  }
-}
-
-@media (width < 960px) {
-  .inner {
-    grid-template-columns: 1fr;
-    gap: var(--space-8);
-    align-items: start;
+  .topRow {
+    flex-direction: column;
+    gap: 32px;
   }
 
-  .brandColumn {
-    justify-content: flex-start;
-  }
-
-  .brandImage {
-    width: min(100%, 250px);
-  }
-}
-
-@media (width < 640px) {
-  .inner {
-    padding: clamp(2.4rem, 7.2vw, 3.2rem) var(--space-4) clamp(2.4rem, 7.2vw, 3.2rem);
-  }
-
-  .contentColumn {
-    gap: var(--space-8);
+  .navigation {
+    margin-left: 0;
   }
 
   .navigationList {
-    gap: var(--space-2) var(--space-3);
+    row-gap: 20px;
+  }
+}
+
+@media (width < 768px) {
+  .inner {
+    width: min(100%, calc(100vw - 32px));
+    padding: 40px 0 48px;
   }
 
-  .informationLine,
-  .legalRow {
-    font-size: 0.72rem;
+  .footer {
+    margin-top: 180px;
+  }
+
+  .brandArea {
+    width: 136px;
+    flex-basis: 136px;
   }
 
   .brandImage {
-    width: min(100%, 180px);
+    width: 136px;
+    height: auto;
+  }
+
+  .navigationList {
+    gap: 18px 24px;
+  }
+
+  .navigationLink,
+  .informationLine {
+    font-size: 16px;
+  }
+
+  .informationBlock,
+  .legalRow {
+    margin-top: 40px;
+  }
+
+  .legalRow {
+    font-size: 14px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .noticeActionLink,
-  .noticeItemLink {
-    transition: none;
-  }
-
   .navigationLink,
   .informationLink {
     transition: none;

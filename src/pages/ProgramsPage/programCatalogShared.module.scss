@@ -7,6 +7,24 @@
   }
 }
 
+.archiveLectureCardLink {
+  display: block;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover .archiveLectureImage,
+  &:focus-visible .archiveLectureImage {
+    transform: scale(1.03);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(52, 178, 159, 0.55);
+    outline-offset: 4px;
+    border-radius: 20px;
+  }
+}
+
 .srOnly {
   position: absolute;
   width: 1px;
@@ -161,18 +179,9 @@
 .archiveLectureCard {
   grid-template-rows: auto 1fr;
   height: 100%;
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease;
-  border-radius: var(--radius-2xl);
-  box-shadow: 0 12px 28px -24px rgba(15, 23, 42, 0.16);
-
-  &:hover {
-    transform: translateY(-2px);
-    border-color: rgba(52, 178, 159, 0.2);
-    box-shadow: 0 20px 42px -28px rgba(15, 23, 42, 0.22);
-  }
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  box-shadow: none;
 }
 
 .collectionImageFrame,
@@ -191,19 +200,9 @@
   aspect-ratio: 16 / 10;
 }
 
-.archiveLectureImageLink {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-  overflow: hidden;
-
-  &:hover .archiveLectureImage {
-    transform: scale(1.03);
-  }
-}
-
 .archiveLectureImageFrame {
-  aspect-ratio: 16 / 10;
+  height: 300px;
+  background: #f3f4f6;
 }
 
 .collectionImage,
@@ -232,14 +231,13 @@
 .archiveLectureBody {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 0;
   min-height: 100%;
-  padding: var(--space-4);
+  padding: 24px;
 }
 
 .collectionMetaRow,
-.lectureMetaRow,
-.archiveLectureMetaRow {
+.lectureMetaRow {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -261,8 +259,11 @@
 .archiveLectureTitle {
   display: -webkit-box;
   overflow: hidden;
-  font-size: clamp(1rem, 1.3vw, 1.12rem);
-  line-height: 1.45;
+  margin-top: 16px;
+  min-height: 73px;
+  font-size: 28px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -414,55 +415,24 @@
   transform: translateY(-1px);
 }
 
-.archiveLectureCategory {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  padding: 0 var(--space-2-5);
-  border-radius: var(--radius-full);
-  color: var(--color-brand-darken-10);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  background: var(--color-brand-lighten-45);
-}
-
-.archiveLectureInstructor {
+.archiveLectureStatus {
   margin: 0;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-.archiveLectureAvailability {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  align-self: stretch;
-  margin: 0;
-  padding: 6px 12px;
-  border: 1px solid var(--color-brand-lighten-30);
-  border-radius: var(--radius-full);
-  background: var(--color-brand-lighten-50);
-}
-
-.archiveLectureAvailabilityLabel {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-}
-
-.archiveLectureAvailabilityValue {
-  color: var(--color-brand-darken-10);
-  font-size: var(--font-size-xs);
+  color: #34b29f;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 22px;
   font-weight: var(--font-weight-bold);
-  text-align: right;
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: normal;
+}
+
+.archiveLectureStatusMuted {
+  color: #6b7280;
 }
 
 .archiveLectureBottomMeta {
   display: grid;
-  gap: var(--space-2);
+  gap: 0;
   margin-top: auto;
-  padding-top: var(--space-3);
 }
 
 .lectureScheduleText,
@@ -473,27 +443,72 @@
   line-height: 1.5;
 }
 
+.archiveLecturePrice {
+  margin: 16px 0 0;
+  color: #111827;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: 1.3;
+}
+
+.archiveLectureScheduleGroup {
+  display: grid;
+  gap: 12px;
+  margin-top: 19px;
+}
+
+.archiveLectureScheduleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 0;
+}
+
+.archiveLectureScheduleLabel {
+  color: #374151;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 18px;
+  font-weight: var(--font-weight-normal);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: normal;
+  white-space: nowrap;
+}
+
+.archiveLectureScheduleValue {
+  color: #6b7280;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 18px;
+  font-weight: var(--font-weight-normal);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: normal;
+}
+
 .programMetaTagList {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 16px;
   padding: 0;
-  margin: 0;
+  margin: 20px 0 0;
   list-style: none;
 }
 
 .programMetaTagItem {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
+  min-height: 31px;
   padding: 0 14px;
-  border: 1px solid rgba(190, 229, 225, 0.9);
-  border-radius: 999px;
-  color: #4d9b93;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.02em;
-  background: linear-gradient(180deg, rgba(242, 251, 250, 0.96) 0%, rgba(233, 247, 245, 0.92) 100%);
+  border: 0;
+  border-radius: 40px;
+  color: #34b29f;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 16px;
+  font-weight: var(--font-weight-normal);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: normal;
+  background: #ecf9f7;
 }
 
 .archiveLectureHashtagList {
@@ -581,5 +596,23 @@
   .archiveLectureBody,
   .educatorCard {
     padding: var(--space-4);
+  }
+
+  .archiveLectureImageFrame {
+    height: auto;
+    aspect-ratio: 452 / 300;
+  }
+
+  .archiveLectureTitle {
+    min-height: auto;
+    font-size: 24px;
+  }
+
+  .archiveLectureStatus,
+  .archiveLecturePrice,
+  .archiveLectureScheduleLabel,
+  .archiveLectureScheduleValue,
+  .programMetaTagItem {
+    font-size: 16px;
   }
 }

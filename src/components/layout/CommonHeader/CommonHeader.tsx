@@ -433,7 +433,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
                     aria-expanded={isAccountMenuOpen}
                     aria-haspopup='menu'
                     aria-label='계정 메뉴'
-                    className={styles['iconButton']}
+                    className={classNames(styles['iconButton'], styles['accountMenuTrigger'])}
                     onClick={() => {
                       closeDesktopMenu();
                       setIsAccountMenuOpen((current) => !current);

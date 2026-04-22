@@ -24,7 +24,10 @@ describe('CommonFooter', () => {
     );
 
     expect(screen.getByRole('link', { name: '소노스쿨' })).toHaveAttribute('href', '/');
-    expect(screen.queryByRole('link', { name: '교육후기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '교육후기' })).toHaveAttribute(
+      'href',
+      routePaths.reviews,
+    );
     expect(screen.getByRole('link', { name: '네이버블로그' })).toHaveAttribute(
       'href',
       'https://blog.naver.com/sonoschool',

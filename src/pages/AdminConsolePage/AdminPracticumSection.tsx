@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -53,6 +53,7 @@ import styles from './AdminConsolePage.module.scss';
 
 type PracticumStatusFilter = 'ALL' | PracticumSlotStatus;
 type PracticumGroupStatus = PracticumSlotStatus | 'MIXED';
+type OfflineAttendanceStatus = 'UNCHECKED' | 'PRESENT' | 'ABSENT';
 
 const practicumStatusLabels: Record<PracticumStatusFilter, string> = {
   ALL: '전체',
@@ -76,6 +77,21 @@ const practicumSearchPlaceholder: Record<AdminPracticumSearchCategory, string> =
 const practicumExceptionTypeLabels: Record<AdminPracticumOperationException['type'], string> = {
   ADMIN_SCHEDULE: '개인일정',
 };
+
+const offlineAttendanceStatusLabels: Record<OfflineAttendanceStatus, string> = {
+  ABSENT: '결석',
+  PRESENT: '출석',
+  UNCHECKED: '선택 안 함',
+};
+
+const offlineAttendanceStatusOptions: OfflineAttendanceStatus[] = [
+  'UNCHECKED',
+  'PRESENT',
+  'ABSENT',
+];
+
+const getOfflineAttendanceDraftKey = (ruleId: number, enrollmentId: number) =>
+  `${String(ruleId)}:${String(enrollmentId)}`;
 
 const hourOptions = Array.from({ length: 24 }, (_, index) => index);
 const endHourOptions = Array.from({ length: 24 }, (_, index) => index + 1);
@@ -380,6 +396,28 @@ const renderReservationProgressBadge = (reservation: PracticumTimeReservationRow
   return <span className={styles['badge']}>{label}</span>;
 };
 
+const resolveOfflineAttendanceStatus = (
+  attendee: AdminPracticumOfflineScheduleDetail['attendees'][number],
+): OfflineAttendanceStatus => {
+  if (attendee.attendanceStatus === 'PRESENT') {
+    return 'PRESENT';
+  }
+  if (attendee.attendanceStatus === 'ABSENT' || attendee.absent) {
+    return 'ABSENT';
+  }
+  return 'UNCHECKED';
+};
+
+const renderOfflineAttendanceBadge = (status: OfflineAttendanceStatus) => {
+  if (status === 'PRESENT') {
+    return <span className={styles['badgeSuccess']}>출석</span>;
+  }
+  if (status === 'ABSENT') {
+    return <span className={styles['badgeDanger']}>결석</span>;
+  }
+  return <span className={styles['badge']}>선택 안 함</span>;
+};
+
 const getReservationStatusLabel = (status: AdminPracticumReservationStatus): string => {
   if (status === 'NO_SHOW') {
     return '불참';
@@ -479,7 +517,9 @@ const AdminPracticumSection = () => {
   );
   const [moveOfflineScheduleState, setMoveOfflineScheduleState] =
     useState<MoveOfflineScheduleState | null>(null);
-  const [offlineAttendanceDraft, setOfflineAttendanceDraft] = useState<Record<number, boolean>>({});
+  const [offlineAttendanceDraft, setOfflineAttendanceDraft] = useState<
+    Partial<Record<string, OfflineAttendanceStatus>>
+  >({});
   const [operationDraft, setOperationDraft] = useState<OperationFormState | null>(null);
   const [dailyOperationDraft, setDailyOperationDraft] = useState<DailyOperationFormState | null>(
     null,
@@ -630,14 +670,20 @@ const AdminPracticumSection = () => {
     }
 
     return selectedOfflineScheduleDetail.attendees.filter((attendee) => {
-      const draftValue = offlineAttendanceDraft[attendee.enrollmentId];
-      return draftValue !== undefined && draftValue !== attendee.absent;
+      const draftValue =
+        offlineAttendanceDraft[
+          getOfflineAttendanceDraftKey(selectedOfflineScheduleDetail.ruleId, attendee.enrollmentId)
+        ];
+      return draftValue !== undefined && draftValue !== resolveOfflineAttendanceStatus(attendee);
     });
   }, [offlineAttendanceDraft, selectedOfflineScheduleDetail]);
 
   const isEditingSelectedPersonalSchedule =
     selectedCalendarEntry?.kind === 'ADMIN_SCHEDULE' &&
     personalScheduleEditDraft?.exceptionId === selectedCalendarEntry.schedule.id;
+  const selectedPersonalScheduleEditDraft = isEditingSelectedPersonalSchedule
+    ? personalScheduleEditDraft
+    : null;
 
   const calendarEntriesByDate = useMemo(() => {
     const entries = new Map<string, PracticumCalendarEntry[]>();
@@ -1015,12 +1061,16 @@ const AdminPracticumSection = () => {
       changes,
       ruleId,
     }: {
-      changes: Array<{ absent: boolean; enrollmentId: number }>;
+      changes: Array<{ enrollmentId: number; status: OfflineAttendanceStatus }>;
       ruleId: number;
     }) => {
       await Promise.all(
-        changes.map(({ absent, enrollmentId }) =>
-          updateAdminPracticumOfflineScheduleAttendance(ruleId, enrollmentId, absent),
+        changes.map(({ enrollmentId, status }) =>
+          updateAdminPracticumOfflineScheduleAttendance(
+            ruleId,
+            enrollmentId,
+            status === 'UNCHECKED' ? null : status,
+          ),
         ),
       );
     },
@@ -1040,22 +1090,6 @@ const AdminPracticumSection = () => {
       });
     },
   });
-
-  useEffect(() => {
-    if (!selectedOfflineScheduleDetail) {
-      setOfflineAttendanceDraft({});
-      return;
-    }
-
-    setOfflineAttendanceDraft(
-      Object.fromEntries(
-        selectedOfflineScheduleDetail.attendees.map((attendee) => [
-          attendee.enrollmentId,
-          attendee.absent,
-        ]),
-      ),
-    );
-  }, [selectedOfflineScheduleDetail, selectedOfflineScheduleRuleId]);
 
   const deletePersonalScheduleMutation = useMutation({
     mutationFn: (exceptionId: number) => deleteAdminPracticumOperationException(exceptionId),
@@ -2033,11 +2067,7 @@ const AdminPracticumSection = () => {
                         selectedCalendarEntry.kind === 'ADMIN_SCHEDULE' &&
                         isEditingSelectedPersonalSchedule
                           ? '개인일정 상세로 돌아가기'
-                          : selectedCalendarEntry.kind === 'PRACTICUM' ||
-                              selectedCalendarEntry.kind === 'OFFLINE' ||
-                              selectedCalendarEntry.kind === 'ADMIN_SCHEDULE'
-                            ? '일정 목록으로 돌아가기'
-                            : '뒤로가기'
+                          : '일정 목록으로 돌아가기'
                       }
                       onClick={() => {
                         if (
@@ -2253,90 +2283,89 @@ const AdminPracticumSection = () => {
 
                           {selectedOfflineScheduleDetail.attendees.length ? (
                             <div className={styles['practicumDetailReservationList']}>
-                              {selectedOfflineScheduleDetail.attendees.map((attendee) => (
-                                <div
-                                  className={styles['practicumDetailReservationCard']}
-                                  key={`offline-attendee-${String(attendee.enrollmentId)}`}
-                                >
-                                  <div className={styles['practicumDetailReservationHeader']}>
-                                    <div className={styles['cellStack']}>
-                                      <strong className={styles['cellPrimary']}>
-                                        {attendee.userName}
-                                      </strong>
-                                      <span className={styles['cellSecondary']}>
-                                        {attendee.loginId} ·{' '}
-                                        {attendee.phoneNumber?.trim() || '연락처 없음'}
-                                      </span>
-                                    </div>
-                                    <div className={styles['practicumDetailReservationActions']}>
-                                      <div className={styles['practicumDetailReservationBadges']}>
-                                        {selectedOfflineScheduleDetail.videoAttached ? (
-                                          attendee.lectureCompleted ? (
-                                            <span className={styles['badgeSuccess']}>
-                                              선행학습 완료
-                                            </span>
-                                          ) : (
-                                            <span className={styles['badgeDanger']}>
-                                              선행학습 미완료
-                                            </span>
-                                          )
-                                        ) : (
-                                          <span className={styles['badge']}>영상 없음</span>
-                                        )}
-                                        {attendee.absent ? (
-                                          <span className={styles['badgeDanger']}>불참</span>
-                                        ) : null}
+                              {selectedOfflineScheduleDetail.attendees.map((attendee) => {
+                                const attendanceDraftKey = getOfflineAttendanceDraftKey(
+                                  selectedOfflineScheduleDetail.ruleId,
+                                  attendee.enrollmentId,
+                                );
+                                const attendanceStatus =
+                                  offlineAttendanceDraft[attendanceDraftKey] ??
+                                  resolveOfflineAttendanceStatus(attendee);
+
+                                return (
+                                  <div
+                                    className={styles['practicumDetailReservationCard']}
+                                    key={`offline-attendee-${String(attendee.enrollmentId)}`}
+                                  >
+                                    <div className={styles['practicumDetailReservationHeader']}>
+                                      <div className={styles['cellStack']}>
+                                        <strong className={styles['cellPrimary']}>
+                                          {attendee.userName}
+                                        </strong>
+                                        <span className={styles['cellSecondary']}>
+                                          {attendee.loginId} ·{' '}
+                                          {attendee.phoneNumber?.trim() || '연락처 없음'}
+                                        </span>
                                       </div>
-                                      <label
-                                        className={styles['practicumDetailAttendanceToggle']}
-                                        title='불참 여부'
-                                      >
-                                        <input
-                                          aria-label={`${attendee.userName} 불참 여부`}
-                                          checked={
-                                            offlineAttendanceDraft[attendee.enrollmentId] ??
-                                            attendee.absent
-                                          }
-                                          disabled={updateOfflineAttendanceMutation.isPending}
-                                          onChange={(event) => {
-                                            setOfflineAttendanceDraft((current) => ({
-                                              ...current,
-                                              [attendee.enrollmentId]: event.target.checked,
-                                            }));
-                                          }}
-                                          type='checkbox'
-                                        />
-                                      </label>
+                                      <div className={styles['practicumDetailReservationActions']}>
+                                        <div className={styles['practicumDetailReservationBadges']}>
+                                          {selectedOfflineScheduleDetail.videoAttached ? (
+                                            attendee.lectureCompleted ? (
+                                              <span className={styles['badgeSuccess']}>
+                                                선행학습 완료
+                                              </span>
+                                            ) : (
+                                              <span className={styles['badgeDanger']}>
+                                                선행학습 미완료
+                                              </span>
+                                            )
+                                          ) : (
+                                            <span className={styles['badge']}>영상 없음</span>
+                                          )}
+                                          {renderOfflineAttendanceBadge(attendanceStatus)}
+                                        </div>
+                                        <div
+                                          aria-label={`${attendee.userName} 출석 상태`}
+                                          className={styles['practicumDetailAttendanceGroup']}
+                                          role='radiogroup'
+                                        >
+                                          {offlineAttendanceStatusOptions.map((status) => (
+                                            <label
+                                              className={
+                                                attendanceStatus === status
+                                                  ? `${styles['practicumDetailAttendanceOption']} ${styles['isSelected']}`
+                                                  : styles['practicumDetailAttendanceOption']
+                                              }
+                                              key={`${String(attendee.enrollmentId)}-${status}`}
+                                            >
+                                              <input
+                                                checked={attendanceStatus === status}
+                                                disabled={updateOfflineAttendanceMutation.isPending}
+                                                name={`offline-attendance-${String(attendee.enrollmentId)}`}
+                                                onChange={() => {
+                                                  setOfflineAttendanceDraft((current) => ({
+                                                    ...current,
+                                                    [attendanceDraftKey]: status,
+                                                  }));
+                                                }}
+                                                type='radio'
+                                                value={status}
+                                              />
+                                              <span>{offlineAttendanceStatusLabels[status]}</span>
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           ) : (
                             <p className={styles['helperText']}>표시할 수강생이 없습니다.</p>
                           )}
 
                           <div className={styles['practicumModalActionRow']}>
-                            <Button
-                              disabled={
-                                updateOfflineAttendanceMutation.isPending ||
-                                offlineAttendanceChanges.length === 0
-                              }
-                              onClick={() => {
-                                updateOfflineAttendanceMutation.mutate({
-                                  changes: offlineAttendanceChanges.map((attendee) => ({
-                                    absent: offlineAttendanceDraft[attendee.enrollmentId] ?? false,
-                                    enrollmentId: attendee.enrollmentId,
-                                  })),
-                                  ruleId: selectedOfflineScheduleDetail.ruleId,
-                                });
-                              }}
-                              size='sm'
-                              type='button'
-                              variant='secondary'
-                            >
-                              출석 상태 저장
-                            </Button>
                             <Button
                               onClick={() => {
                                 setMoveOfflineScheduleState({
@@ -2350,6 +2379,33 @@ const AdminPracticumSection = () => {
                             >
                               강의일자 변경
                             </Button>
+                            <Button
+                              className={styles['practicumDetailAttendanceSaveButton']}
+                              disabled={
+                                updateOfflineAttendanceMutation.isPending ||
+                                offlineAttendanceChanges.length === 0
+                              }
+                              onClick={() => {
+                                updateOfflineAttendanceMutation.mutate({
+                                  changes: offlineAttendanceChanges.map((attendee) => ({
+                                    enrollmentId: attendee.enrollmentId,
+                                    status:
+                                      offlineAttendanceDraft[
+                                        getOfflineAttendanceDraftKey(
+                                          selectedOfflineScheduleDetail.ruleId,
+                                          attendee.enrollmentId,
+                                        )
+                                      ] ?? resolveOfflineAttendanceStatus(attendee),
+                                  })),
+                                  ruleId: selectedOfflineScheduleDetail.ruleId,
+                                });
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='primary'
+                            >
+                              출석 상태 저장
+                            </Button>
                           </div>
                         </>
                       ) : (
@@ -2358,7 +2414,7 @@ const AdminPracticumSection = () => {
                     </div>
                   ) : (
                     <div className={styles['practicumDetailModal']}>
-                      {isEditingSelectedPersonalSchedule && personalScheduleEditDraft ? (
+                      {selectedPersonalScheduleEditDraft ? (
                         <>
                           <div className={styles['practicumOperationFields']}>
                             <label className={styles['field']}>
@@ -2372,7 +2428,7 @@ const AdminPracticumSection = () => {
                                   }));
                                 }}
                                 type='date'
-                                value={personalScheduleEditDraft.date}
+                                value={selectedPersonalScheduleEditDraft.date}
                               />
                             </label>
 
@@ -2388,7 +2444,7 @@ const AdminPracticumSection = () => {
                                 }}
                                 placeholder='예: 관리자 개인 일정'
                                 type='text'
-                                value={personalScheduleEditDraft.title}
+                                value={selectedPersonalScheduleEditDraft.title}
                               />
                             </label>
 
@@ -2403,7 +2459,7 @@ const AdminPracticumSection = () => {
                                   }));
                                 }}
                                 rows={4}
-                                value={personalScheduleEditDraft.content}
+                                value={selectedPersonalScheduleEditDraft.content}
                               />
                             </label>
 
@@ -2428,7 +2484,7 @@ const AdminPracticumSection = () => {
                                           startHour: nextValue,
                                         }));
                                       }}
-                                      value={personalScheduleEditDraft.startHour}
+                                      value={selectedPersonalScheduleEditDraft.startHour}
                                     >
                                       {hourOptions.map((hour) => (
                                         <option key={hour} value={hour}>
@@ -2450,11 +2506,12 @@ const AdminPracticumSection = () => {
                                           endHour: Number(event.target.value),
                                         }));
                                       }}
-                                      value={personalScheduleEditDraft.endHour}
+                                      value={selectedPersonalScheduleEditDraft.endHour}
                                     >
                                       {endHourOptions
                                         .filter(
-                                          (hour) => hour > personalScheduleEditDraft.startHour,
+                                          (hour) =>
+                                            hour > selectedPersonalScheduleEditDraft.startHour,
                                         )
                                         .map((hour) => (
                                           <option key={hour} value={hour}>
@@ -2471,24 +2528,25 @@ const AdminPracticumSection = () => {
                             <Button
                               disabled={
                                 updatePersonalScheduleMutation.isPending ||
-                                !personalScheduleEditDraft.title.trim() ||
-                                !personalScheduleEditDraft.date
+                                !selectedPersonalScheduleEditDraft.title.trim() ||
+                                !selectedPersonalScheduleEditDraft.date
                               }
                               onClick={() => {
                                 updatePersonalScheduleMutation.mutate({
-                                  exceptionId: personalScheduleEditDraft.exceptionId,
+                                  exceptionId: selectedPersonalScheduleEditDraft.exceptionId,
                                   payload: {
-                                    content: personalScheduleEditDraft.content.trim() || null,
+                                    content:
+                                      selectedPersonalScheduleEditDraft.content.trim() || null,
                                     endAt: toIsoDateTime(
-                                      personalScheduleEditDraft.date,
-                                      personalScheduleEditDraft.endHour,
+                                      selectedPersonalScheduleEditDraft.date,
+                                      selectedPersonalScheduleEditDraft.endHour,
                                     ),
                                     location: null,
                                     startAt: toIsoDateTime(
-                                      personalScheduleEditDraft.date,
-                                      personalScheduleEditDraft.startHour,
+                                      selectedPersonalScheduleEditDraft.date,
+                                      selectedPersonalScheduleEditDraft.startHour,
                                     ),
-                                    title: personalScheduleEditDraft.title.trim(),
+                                    title: selectedPersonalScheduleEditDraft.title.trim(),
                                     type: 'ADMIN_SCHEDULE',
                                   },
                                 });

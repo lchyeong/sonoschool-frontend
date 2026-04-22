@@ -63,7 +63,7 @@ describe('HomePage', () => {
     expect(screen.getByRole('heading', { name: '공지사항' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '공지사항 게시판 보기' })).toBeInTheDocument();
     expect(
-      within(screen.getByRole('list', { name: '최신 공지 3개' })).getAllByRole('listitem'),
+      within(screen.getByRole('list', { name: '최신 공지 4개' })).getAllByRole('listitem'),
     ).toHaveLength(3);
 
     fireEvent.click(screen.getByRole('button', { name: '다음 메인 슬라이드' }));

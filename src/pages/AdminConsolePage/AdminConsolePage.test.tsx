@@ -690,7 +690,11 @@ describe('AdminConsolePage', () => {
     expect(await screen.findByText('선행학습 미완료')).toBeInTheDocument();
     expect(await screen.findByText('실습복 지참')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '강의일자 변경' })).toBeInTheDocument();
-    expect(screen.getAllByRole('checkbox', { name: /불참 여부/ }).length).toBe(2);
+    expect(screen.getByRole('radiogroup', { name: '김민지 출석 상태' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: '박준서 출석 상태' })).toBeInTheDocument();
+    expect(screen.getAllByRole('radio', { name: '선택 안 함' })).toHaveLength(2);
+    expect(screen.getAllByRole('radio', { name: '출석' })).toHaveLength(2);
+    expect(screen.getAllByRole('radio', { name: '결석' })).toHaveLength(2);
   });
 
   it('supports moving an offline schedule date from the detail modal', async () => {
@@ -829,8 +833,8 @@ describe('AdminConsolePage', () => {
     });
   });
 
-  it('supports toggling absence for an offline attendee', async () => {
-    const absentEnrollmentIds = new Set<number>();
+  it('supports selecting attendance status for an offline attendee', async () => {
+    const attendanceStatuses = new Map<number, 'PRESENT' | 'ABSENT' | 'UNCHECKED'>();
 
     server.use(
       http.get('*/api/v1/admin/practicum/offline-schedules/:ruleId', ({ params }) => {
@@ -845,7 +849,8 @@ describe('AdminConsolePage', () => {
             activeEnrollmentCount: 12,
             attendees: [
               {
-                absent: absentEnrollmentIds.has(7201),
+                absent: attendanceStatuses.get(7201) === 'ABSENT',
+                attendanceStatus: attendanceStatuses.get(7201) ?? 'UNCHECKED',
                 enrollmentId: 7201,
                 lectureCompleted: true,
                 loginId: 'minji01',
@@ -854,7 +859,8 @@ describe('AdminConsolePage', () => {
                 userName: '김민지',
               },
               {
-                absent: absentEnrollmentIds.has(7202),
+                absent: attendanceStatuses.get(7202) === 'ABSENT',
+                attendanceStatus: attendanceStatuses.get(7202) ?? 'UNCHECKED',
                 enrollmentId: 7202,
                 lectureCompleted: false,
                 loginId: 'junseo02',
@@ -882,12 +888,12 @@ describe('AdminConsolePage', () => {
         '*/api/v1/admin/practicum/offline-schedules/:ruleId/attendees/:enrollmentId/absence',
         async ({ params, request }) => {
           const enrollmentId = Number(params['enrollmentId']);
-          const body = (await request.json()) as { absent?: boolean };
+          const body = (await request.json()) as { status?: 'PRESENT' | 'ABSENT' | null };
 
-          if (body.absent) {
-            absentEnrollmentIds.add(enrollmentId);
+          if (body.status) {
+            attendanceStatuses.set(enrollmentId, body.status);
           } else {
-            absentEnrollmentIds.delete(enrollmentId);
+            attendanceStatuses.set(enrollmentId, 'UNCHECKED');
           }
 
           return new HttpResponse(null, { status: 204 });
@@ -907,7 +913,11 @@ describe('AdminConsolePage', () => {
 
     expect(await screen.findByRole('heading', { name: '오프라인 일정 상세' })).toBeInTheDocument();
     expect(await screen.findByText(/010-1111-2222/)).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('checkbox', { name: /불참 여부/ })[0]);
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '김민지 출석 상태' })).getByRole('radio', {
+        name: '결석',
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: '출석 상태 저장' }));
 
     await waitFor(() => {
@@ -919,14 +929,18 @@ describe('AdminConsolePage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText('불참').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('결석').length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getAllByRole('checkbox', { name: /불참 여부/ })[0]);
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '김민지 출석 상태' })).getByRole('radio', {
+        name: '출석',
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: '출석 상태 저장' }));
 
     await waitFor(() => {
-      expect(screen.queryByText('불참')).not.toBeInTheDocument();
+      expect(screen.getAllByText('출석').length).toBeGreaterThan(0);
     });
   });
 

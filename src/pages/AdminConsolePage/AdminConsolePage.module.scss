@@ -2720,58 +2720,68 @@
 
 .practicumDetailReservationActions {
   display: flex;
+  flex: 1 1 320px;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-3);
+  min-width: min(100%, 320px);
+  margin-left: auto;
 }
 
-.practicumDetailAttendanceToggle {
+.practicumDetailAttendanceGroup {
+  display: inline-flex;
+  margin-left: auto;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+
+.practicumDetailAttendanceOption {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  min-width: 58px;
+  height: 32px;
+  padding: 0 var(--space-3);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
-.practicumDetailAttendanceToggle input {
-  appearance: none;
-  display: inline-grid;
-  place-content: center;
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  border: 1.5px solid #c47d52;
-  border-radius: 3px;
-  background: #fffdf8;
-  cursor: pointer;
+.practicumDetailAttendanceOption + .practicumDetailAttendanceOption {
+  border-left: 1px solid var(--color-border);
 }
 
-.practicumDetailAttendanceToggle input::after {
-  content: '';
-  width: 7px;
-  height: 4px;
-  border-left: 2px solid #ffffff;
-  border-bottom: 2px solid #ffffff;
-  transform: rotate(-45deg) scale(0);
-  transform-origin: center;
-  transition: transform 0.12s ease;
+.practicumDetailAttendanceOption input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.practicumDetailAttendanceToggle input:checked {
-  border-color: #b45309;
-  background: #b45309;
+.practicumDetailAttendanceOption.isSelected {
+  background: var(--color-brand-main);
+  color: #ffffff;
 }
 
-.practicumDetailAttendanceToggle input:checked::after {
-  transform: rotate(-45deg) scale(1);
+.practicumDetailAttendanceOption.isSelected span {
+  color: #ffffff;
 }
 
-.practicumDetailAttendanceToggle input:disabled {
-  opacity: 0.72;
+.practicumDetailAttendanceOption:has(input:disabled) {
+  opacity: 0.64;
   cursor: not-allowed;
+}
+
+.practicumDetailAttendanceSaveButton {
+  color: #ffffff;
 }
 
 .practicumDayOverviewModal {

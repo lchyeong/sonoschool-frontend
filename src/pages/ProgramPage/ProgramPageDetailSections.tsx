@@ -981,19 +981,21 @@ export const ProgramPageDetailSidebar = ({
     <aside className={styles['sidebar']}>
       <div className={styles['pricingCard']}>
         {hasDiscount ? (
-          <p className={styles['pricingOriginalPrice']}>
-            {originalPriceAmount ? formatPriceLabel(originalPriceAmount) : data.originalPriceLabel}
-          </p>
-        ) : null}
+          <div className={styles['pricingDiscountBlock']}>
+            <p className={styles['pricingDiscountedPrice']}>
+              {formatPriceLabel(discountedPriceAmount)}
+            </p>
 
-        <div className={styles['pricingDiscountRow']}>
-          {hasDiscount ? (
-            <span className={styles['pricingDiscountRate']}>{data.discountRateLabel}</span>
-          ) : null}
-          <span className={styles['pricingDiscountedPrice']}>
-            {formatPriceLabel(discountedPriceAmount)}
-          </span>
-        </div>
+            <div className={styles['pricingDiscountRow']}>
+              <span className={styles['pricingDiscountRate']}>{data.discountRateLabel}</span>
+              <span className={styles['pricingOriginalPrice']}>
+                {originalPriceAmount
+                  ? formatPriceLabel(originalPriceAmount)
+                  : data.originalPriceLabel}
+              </span>
+            </div>
+          </div>
+        ) : null}
 
         {data.remainingSeatsLabel || availabilityActionKind !== 'ENROLL' ? (
           <div className={styles['pricingAvailabilityBox']}>
