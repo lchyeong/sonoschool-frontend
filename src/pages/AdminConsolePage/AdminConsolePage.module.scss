@@ -2021,6 +2021,31 @@
   font-weight: var(--font-weight-medium);
 }
 
+.checkboxRow input,
+.quizOptionCheckbox input {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #7a9ab1;
+  border-radius: 4px;
+  background: #ffffff;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.checkboxRow input:checked,
+.quizOptionCheckbox input:checked {
+  border-color: #2f6f67;
+  background: #2f6f67;
+  box-shadow: inset 0 0 0 3px #ffffff;
+}
+
+.checkboxRow input:focus-visible,
+.quizOptionCheckbox input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-brand-main) 55%, transparent);
+  outline-offset: 2px;
+}
+
 .stackList {
   display: grid;
   gap: var(--space-3);
@@ -2586,29 +2611,45 @@
 }
 
 .questionMediaRow {
-  display: grid;
-  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
-  gap: var(--space-3);
-  align-items: end;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .questionMediaActions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-
-.quizOptionHeader {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  gap: var(--space-2);
-}
-
-.quizOptionHeaderLabel {
-  display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
+.problemQuestionBody {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.problemQuestionMediaBlock,
+.problemQuestionOptionsBlock {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--admin-border);
+  background: color-mix(in srgb, var(--color-brand-main) 3%, #ffffff);
+}
+
+.problemQuestionSectionHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.problemQuestionSectionHeader strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.problemQuestionSectionHeader span {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -2616,35 +2657,24 @@
 
 .quizOptionRow {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  align-items: end;
-  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: var(--space-3);
 }
 
 .quizOptionCheckbox {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  min-height: 40px;
-  align-self: end;
-}
-
-.quizOptionCheckbox input {
-  width: 18px;
-  height: 18px;
-  border: 1px solid #7a9ab1;
-  border-radius: 4px;
-  background: #ffffff;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-}
-
-.quizOptionCheckbox input:checked {
-  border-color: #2f6f67;
-  background: #2f6f67;
-  box-shadow: inset 0 0 0 3px #ffffff;
+  gap: 8px;
+  min-width: 76px;
+  min-height: 100%;
+  padding: 0 4px;
+  align-self: stretch;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
 .panel[data-focused='true'] {

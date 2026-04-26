@@ -30,7 +30,6 @@ const normalizeMediaUrl = (value: string | null | undefined): string | null => {
 const normalizePayload = (payload: AdminProblemUpsertPayload): AdminProblemUpsertPayload => {
   return {
     ...payload,
-    description: normalizeDescription(payload.description),
     questions: payload.questions.map((question) => ({
       ...question,
       explanation: normalizeDescription(question.explanation),

@@ -25,7 +25,6 @@ export interface AdminProblemQuestion extends AdminProblemMedia {
 }
 
 export interface AdminProblem {
-  description: string | null;
   id: number;
   lectureId: number;
   passScore: number;
@@ -49,7 +48,6 @@ export interface AdminProblemQuestionUpsertPayload extends AdminProblemMedia {
 }
 
 export interface AdminProblemUpsertPayload {
-  description: string | null;
   passScore: number;
   timeLimitSeconds?: number | null;
   questions: AdminProblemQuestionUpsertPayload[];

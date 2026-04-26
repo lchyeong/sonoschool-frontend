@@ -109,6 +109,9 @@ const mockProgramDraftApis = (draftDetail = createAdminProgramDraftDetailFixture
     http.post('*/api/v1/admin/program-drafts', () => {
       return HttpResponse.json({ data: draftDetail });
     }),
+    http.post('*/api/v1/admin/program-drafts/from-program/:programId', () => {
+      return HttpResponse.json({ data: draftDetail });
+    }),
     http.get('*/api/v1/admin/program-drafts/:draftId', () => {
       return HttpResponse.json({ data: draftDetail });
     }),
@@ -1070,7 +1073,6 @@ describe('AdminConsolePage', () => {
       http.get('*/api/v1/admin/lectures/9101/problem', () => {
         return HttpResponse.json({
           data: {
-            description: '학습 전 이해도 확인',
             id: 8801,
             lectureId: 9101,
             passScore: 60,
@@ -1123,7 +1125,7 @@ describe('AdminConsolePage', () => {
     expect(await screen.findByText('강의별 문제 현황')).toBeInTheDocument();
     expect(screen.queryByLabelText('강의 검색')).not.toBeInTheDocument();
     expect(await screen.findAllByText('오리엔테이션')).toHaveLength(3);
-    expect(await screen.findByLabelText('문제 설명')).toBeInTheDocument();
+    expect(screen.queryByLabelText('문제 설명')).not.toBeInTheDocument();
     expect(await screen.findByLabelText('합격 점수')).toBeInTheDocument();
   });
 

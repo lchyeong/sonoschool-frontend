@@ -27,7 +27,6 @@ export interface StudentProblem {
   id: number;
   lectureId: number;
   title: string;
-  description: string | null;
   passScore: number;
   timeLimitSeconds: number | null;
   questions: StudentProblemQuestion[];

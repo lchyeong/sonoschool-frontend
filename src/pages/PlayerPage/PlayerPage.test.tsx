@@ -482,7 +482,6 @@ const createProblemLectureSnapshot = (): LearningPlayerSnapshot => ({
 });
 
 const testQuiz: StudentProblem = {
-  description: '강의 핵심 확인',
   id: 301,
   lectureId: 2,
   latestAttempt: null,
@@ -921,6 +920,25 @@ describe('PlayerPage', () => {
     expect(screen.getAllByRole('button', { name: '다운로드' })).toHaveLength(2);
   });
 
+  it('renders the resource lesson empty state when no attachments are registered', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
+      ...testResourceSnapshot,
+      resourceAttachmentsByLessonId: {
+        'enrollment-101-lesson-2': [],
+      },
+    });
+
+    renderPlayerPage();
+
+    expect(await screen.findByText('등록된 첨부파일이 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('자료가 등록되면 여기에서 확인할 수 있습니다.')).toBeInTheDocument();
+    expect(screen.getByText('파일')).toBeInTheDocument();
+    expect(screen.getByText('업데이트')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '모두 다운로드' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다운로드' })).not.toBeInTheDocument();
+    expect(fetchLectureStreamMock).not.toHaveBeenCalled();
+  });
+
   it('renders offline lessons without the selected schedule detail panel', async () => {
     fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testOfflineSnapshot);
 
@@ -1081,14 +1099,14 @@ describe('PlayerPage', () => {
     expect(screen.getByLabelText('현재 강의 정보')).toHaveTextContent('문제 풀이 강의');
     expect(screen.queryByText('문제 정보')).not.toBeInTheDocument();
     expect(screen.queryByText('강의명')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '문제 목록 패널' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '프로그램 패널' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Q&A 패널' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: '문제 문항 목록' })).toBeInTheDocument();
-    expect(screen.getByText('문제풀이')).toBeInTheDocument();
+    expect(screen.getAllByText('문제풀이').length).toBeGreaterThan(0);
     expect(screen.getByText('1문항')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Q&A 패널' }));
     expect(screen.queryByRole('navigation', { name: '문제 문항 목록' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '문제 목록 패널' }));
+    fireEvent.click(screen.getByRole('button', { name: '프로그램 패널' }));
     expect(screen.getByRole('navigation', { name: '문제 문항 목록' })).toBeInTheDocument();
     expect(screen.getAllByText('복부초음파 기초 2강 문제풀이').length).toBeGreaterThan(0);
     const correctOption = await screen.findByLabelText('2. 정답');
@@ -1119,11 +1137,11 @@ describe('PlayerPage', () => {
     expect(screen.queryByText(/정답 해설입니다/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^정답:/)).not.toBeInTheDocument();
     expect(
-      screen.getAllByRole('heading', { level: 2, name: '복부초음파 기초 2강 문제풀이' }).length,
+      screen.getAllByRole('heading', { level: 1, name: '복부초음파 기초 2강 문제풀이' }).length,
     ).toBeGreaterThan(0);
     expect(screen.getByText('현재 진행')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '문항 다시 보기' }));
-    expect(await screen.findByText('Question 01')).toBeInTheDocument();
+    expect((await screen.findAllByText('Question 01')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('첫 번째 질문').length).toBeGreaterThan(0);
     expect(screen.getByLabelText('2. 정답')).toBeDisabled();
     expect(screen.getByText('해설 보기')).toBeInTheDocument();
@@ -1271,8 +1289,16 @@ describe('PlayerPage', () => {
     expect(
       await screen.findByText(/운영 일정과 오프라인 강의를 반영한 시간만 달력에 노출합니다/),
     ).toBeInTheDocument();
-    expect((await screen.findAllByText(/예정/)).length).toBeGreaterThan(0);
-    expect(screen.getByDisplayValue('2026-05')).toBeInTheDocument();
+    expect((await screen.findAllByText(/예약됨/)).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: '2026년 5월' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '2026년 5월' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '5월' })).toHaveAttribute('data-selected', 'true');
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
 
     const moveButton = screen
       .getAllByRole('button', { name: '이 일정으로 변경' })

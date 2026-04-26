@@ -1,4 +1,5 @@
 import type { AdminLectureType } from '@/types/adminCurriculum';
+import type { AdminProblemMediaType, AdminProblemQuestionType } from '@/types/adminProblems';
 import type {
   AdminProgramAccessPolicy,
   AdminProgramFaqItem,
@@ -6,7 +7,6 @@ import type {
   AdminProgramSummaryInfoItem,
   AdminProgramType,
 } from '@/types/adminProgramsLive';
-import type { AdminProblemMediaType, AdminProblemQuestionType } from '@/types/adminProblems';
 import type { AdminResourceVisibility } from '@/types/adminResources';
 
 export type AdminProgramDraftStatus = 'ACTIVE' | 'DISCARDED' | 'FINALIZED';
@@ -84,6 +84,9 @@ export interface AdminProgramDraftProblemQuestion {
   explanation: string | null;
   mediaAssetId: number | null;
   mediaType: AdminProblemMediaType | null;
+  mediaUploadErrorMessage: string | null;
+  mediaUploadFileName: string | null;
+  mediaUploadStatus: AdminDraftUploadStatus | null;
   mediaUrl: string | null;
   options: AdminProgramDraftProblemOption[];
   questionText: string;
@@ -92,7 +95,6 @@ export interface AdminProgramDraftProblemQuestion {
 }
 
 export interface AdminProgramDraftProblem {
-  description: string | null;
   lectureKey: string;
   passScore: number | null;
   questions: AdminProgramDraftProblemQuestion[];

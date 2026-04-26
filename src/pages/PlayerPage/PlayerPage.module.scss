@@ -422,6 +422,11 @@
   background: #0a0f17;
 }
 
+.playerFrame:focus-visible {
+  outline: 2px solid #3ac5b0;
+  outline-offset: 4px;
+}
+
 .playerFrameSchedule {
   aspect-ratio: auto;
   background: transparent;
@@ -449,6 +454,12 @@
   pointer-events: none;
   background: linear-gradient(180deg, rgb(10 15 23 / 0%) 0%, rgb(10 15 23 / 84%) 100%);
   content: '';
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+.playerFrameControlsHidden::after {
+  opacity: 0;
 }
 
 .playerPlaceholder {
@@ -538,6 +549,17 @@
   z-index: 2;
   display: grid;
   gap: 21px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.playerFrameControlsHidden .playerFrameControls {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
 }
 
 .playerTimeline {
@@ -608,6 +630,7 @@
 }
 
 .playerIconButton {
+  position: relative;
   width: 31px;
   height: 31px;
 }
@@ -620,11 +643,52 @@
 }
 
 .playerControlIcon {
+  position: relative;
   width: 100%;
   height: 100%;
   background: currentcolor;
   mask: var(--player-icon) center / contain no-repeat;
   -webkit-mask: var(--player-icon) center / contain no-repeat;
+}
+
+.playerPauseIcon {
+  width: 21px;
+  height: 24px;
+  background: transparent;
+  mask: none;
+  -webkit-mask: none;
+}
+
+.playerPauseIcon::before,
+.playerPauseIcon::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  border-radius: 2px;
+  background: currentcolor;
+  content: '';
+}
+
+.playerPauseIcon::before {
+  left: 2px;
+}
+
+.playerPauseIcon::after {
+  right: 2px;
+}
+
+.playerMuteSlash {
+  position: absolute;
+  top: 2px;
+  right: -3px;
+  width: 3px;
+  height: 29px;
+  border-radius: 999px;
+  background: currentcolor;
+  content: '';
+  transform: rotate(-42deg);
+  transform-origin: center;
 }
 
 .playerTimeText {
@@ -849,7 +913,7 @@
 }
 
 .quizNavigatorPanel {
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 14px;
 }
 
@@ -1064,7 +1128,7 @@
 
 .quizNavigatorListButton:hover,
 .quizNavigatorListButton:focus-visible {
-  background: rgb(248 250 252);
+  background: #ecf9f7;
   color: rgb(15 23 42);
   outline: none;
 }
@@ -1114,7 +1178,8 @@
 }
 
 .quizNavigatorStateBadgeFlagged {
-  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  background: #e5e7eb;
   color: #374151;
 }
 
@@ -1130,15 +1195,40 @@
   line-height: 1.3;
 }
 
+.quizNavigatorNumberAnswered {
+  color: #34b29f;
+  font-weight: var(--font-weight-semibold);
+}
+
 .quizNavigatorListButtonCurrent .quizNavigatorNumber,
 .quizNavigatorListButtonCurrent .quizNavigatorQuestionTitle {
   color: #34b29f;
 }
 
 .quizNavigatorLessonSummary {
-  display: grid;
+  display: flex;
   gap: 12px;
-  padding-bottom: 14px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid rgb(52 178 159 / 22%);
+  background: transparent;
+  padding: 10px 0;
+  color: #111827;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.quizNavigatorLessonSummary:hover .quizNavigatorLessonTitle,
+.quizNavigatorLessonSummary:focus-visible .quizNavigatorLessonTitle {
+  color: #34b29f;
+}
+
+.quizNavigatorLessonSummary:focus-visible {
+  outline: 2px solid rgba(52, 178, 159, 0.34);
+  outline-offset: 3px;
 }
 
 .quizNavigatorLessonTitleRow {
@@ -1173,24 +1263,33 @@
   margin-left: auto;
   border-top: 3px solid #111827;
   border-left: 3px solid #111827;
+  transform: rotate(225deg);
+}
+
+.quizNavigatorChevronOpen {
   transform: rotate(45deg);
 }
 
 .quizNavigatorLessonMeta {
   display: flex;
   flex-wrap: wrap;
-  gap: 22px;
+  gap: 12px;
   align-items: center;
-  padding-left: 29px;
   color: #374151;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: var(--font-weight-regular);
   line-height: 1.3;
 }
 
+.quizNavigatorLessonMeta strong {
+  color: #111827;
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+}
+
 .quizNavigatorTypeBadge {
   display: inline-flex;
-  min-height: 26px;
+  min-height: 28px;
   align-items: center;
   padding: 0 12px;
   border-radius: 8px;
@@ -1198,6 +1297,38 @@
   color: #34b29f;
   font-size: 14px;
   font-weight: var(--font-weight-medium);
+}
+
+.lessonLinkGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.lessonLinkGroupExpanded {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #34b29f;
+  border-radius: 12px;
+  background: #ecf9f7;
+}
+
+.quizLessonDropdown {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px 39px;
+  background: transparent;
+}
+
+.quizLessonDropdown .quizNavigatorList {
+  max-height: 240px;
+  overflow: hidden auto;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.quizLessonDropdown .quizNavigatorListButton {
+  padding: 0 12px;
 }
 
 .sectionTitle {
@@ -1314,6 +1445,16 @@
 .lessonLinkCurrent {
   border-color: #34b29f;
   background: #ecf9f7;
+}
+
+.lessonLinkGroupExpanded .lessonLink,
+.lessonLinkGroupExpanded .lessonLink:hover,
+.lessonLinkGroupExpanded .lessonLink:focus-visible,
+.lessonLinkGroupExpanded .lessonLinkCurrent {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .lessonLinkLocked {
@@ -1497,8 +1638,6 @@
 }
 
 .resourceBoard {
-  --resource-board-scale: calc(100cqw / 1360px);
-
   display: grid;
   align-content: start;
   width: 1360px;
@@ -1507,14 +1646,13 @@
   border-radius: 20px;
   background: #ffffff;
   color: #000000;
-  transform: scale(min(1, var(--resource-board-scale)));
-  transform-origin: top left;
 }
 
 .resourceBoardViewport {
   width: 100%;
-  height: min(779px, calc(100cqw * 779 / 1360));
-  overflow: hidden;
+  height: 779px;
+  overflow: auto hidden;
+  border-radius: 20px;
 }
 
 .resourceBoardHeader,
@@ -1550,6 +1688,39 @@
 .resourceBoardList {
   display: grid;
   align-content: start;
+}
+
+.resourceBoardEmptyState {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 13px;
+  min-height: 684px;
+  padding-bottom: 70px;
+  color: #000000;
+  text-align: center;
+}
+
+.resourceBoardEmptyIcon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 3px;
+  background: #6b7280;
+  mask: var(--player-icon) center / contain no-repeat;
+  -webkit-mask: var(--player-icon) center / contain no-repeat;
+}
+
+.resourceBoardEmptyState strong {
+  font-size: 24px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+.resourceBoardEmptyState span:last-child {
+  color: #4b5563;
+  font-size: 18px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
 }
 
 .resourceBoardRow {
@@ -1659,10 +1830,16 @@
 }
 
 .offlineCalendarPanel {
-  border: 1px solid rgb(226 232 240 / 92%);
-  background: rgb(248 250 252);
-  color: rgb(15 23 42);
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
   overflow: hidden;
+}
+
+.offlineCalendarHeader {
+  align-items: center;
+  min-height: 84px;
+  padding: 1.25rem 1.55rem;
 }
 
 .offlineScheduleSummary {
@@ -1771,9 +1948,9 @@
 
 .offlineCalendarPanel .practicumCalendarEmptyCell,
 .offlineCalendarPanel .practicumCalendarDay {
-  min-height: 136px;
-  border-right-color: rgb(226 232 240);
-  border-bottom-color: rgb(226 232 240);
+  min-height: 106px;
+  border-right-color: #e5e7eb;
+  border-bottom-color: #e5e7eb;
 }
 
 .offlineCalendarPanel .practicumCalendarEmptyCell {
@@ -1785,49 +1962,35 @@
 }
 
 .offlineCalendarPanel .practicumCalendarDay[data-has-items='true'] {
-  background: rgb(248 250 252);
+  background: #ffffff;
 }
 
 .offlineCalendarPanel .practicumCalendarDay[data-selected='true'],
 .offlineCalendarPanel .practicumCalendarDay[data-reserved='true'],
 .offlineCalendarPanel .practicumCalendarDay[data-selected='true'][data-reserved='true'] {
-  box-shadow: inset 0 0 0 3px rgb(15 118 110 / 78%);
+  box-shadow: inset 0 0 0 2px #34b29f;
 }
 
-.offlineCalendarPanel .practicumCalendarDayCount {
-  color: rgb(15 118 110);
-}
-
-.offlineCalendarPreviewItem,
-.offlineCalendarPreviewEmpty {
+.offlineCalendarPreviewItem {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
   font-size: 0.75rem;
   line-height: 1.45;
 }
 
-.offlineCalendarPreviewItem {
-  display: grid;
-  gap: 2px;
-  color: rgb(51 65 85);
-  font-weight: 600;
-  word-break: keep-all;
-}
-
-.offlineCalendarPreviewTime,
-.offlineCalendarPreviewLocation {
+.offlineCalendarPreviewTime {
   min-width: 0;
   overflow: hidden;
+  max-width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  background: #ecf9f7;
+  color: #34b29f;
+  font-size: 0.8rem;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.offlineCalendarPreviewLocation {
-  color: rgb(100 116 139);
-  font-size: 0.72rem;
-  font-weight: 500;
-}
-
-.offlineCalendarPreviewEmpty {
-  color: rgb(148 163 184);
 }
 
 .blockedCard {
@@ -1960,9 +2123,9 @@
 
 .practicumCalendarPanel,
 .practicumDetailPanel {
-  border: 1px solid rgba(240, 201, 129, 0.18);
-  background: rgba(255, 248, 236, 0.96);
-  color: #38220f;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
 }
 
 .practicumCalendarPanel {
@@ -1972,7 +2135,7 @@
 .practicumCalendarHeader,
 .practicumDetailHeader {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.15rem;
@@ -1990,19 +2153,165 @@
 
 .practicumPanelDescription {
   margin: 0.35rem 0 0;
-  color: rgba(56, 34, 15, 0.72);
+  color: #6b7280;
   font-size: 0.88rem;
   line-height: 1.55;
 }
 
-.practicumMonthInput {
-  min-height: 42px;
+.practicumMonthPicker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.practicumMonthNavButton,
+.practicumMonthYearButton,
+.practicumMonthTrigger,
+.practicumMonthOption {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.practicumMonthNavButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  color: #111827;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.practicumMonthTrigger {
+  min-width: 141px;
+  min-height: 40px;
   padding: 0 0.85rem;
-  border: 1px solid rgba(56, 34, 15, 0.12);
-  background: rgba(255, 255, 255, 0.9);
-  color: #38220f;
-  font-size: 0.88rem;
+  border-radius: 10px;
+  background: transparent;
+  color: #111827;
+  font-size: 1rem;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.practicumMonthTrigger:hover,
+.practicumMonthTrigger:focus-visible {
+  background: #e5e7eb;
+  outline: 0;
+}
+
+.practicumMonthPopover {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 317px;
+  padding: 14px 16px 16px;
+  border-radius: 12px;
+  background: #373b42;
+  box-shadow: 0 18px 44px rgba(10, 15, 23, 0.24);
+}
+
+.practicumMonthPopoverHeader {
+  display: grid;
+  grid-template-columns: 24px 1fr 24px;
+  align-items: center;
+  margin-bottom: 8px;
+  color: #ffffff;
+  text-align: center;
+
+  strong {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+}
+
+.practicumMonthYearButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  color: #ffffff;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.practicumMonthGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.practicumMonthOption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 41px;
+  border-radius: 8px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.practicumMonthOption[data-selected='true'] {
+  color: #3ac5b0;
+  font-weight: 700;
+}
+
+.practicumMonthOption:hover,
+.practicumMonthOption:focus-visible {
+  background: #34b29f;
+  color: #ffffff;
+  outline: 0;
+}
+
+.practicumCalendarLegend {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.35rem;
+  min-height: 46px;
+  padding: 0 1.45rem;
+  border: 1px solid #6b7280;
+  border-radius: 10px;
+  background: #10161e;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  span::before {
+    content: '';
+    width: 17px;
+    height: 17px;
+    border-radius: 999px;
+    background: #34b29f;
+  }
+
+  span[data-tone='reserved']::before {
+    background: #34b29f;
+    box-shadow: inset 0 0 0 4px #34b29f;
+  }
+
+  span[data-tone='absent']::before {
+    background: #d1d5db;
+  }
+
+  span[data-tone='disabled']::before {
+    background: #dd383e;
+  }
 }
 
 .practicumCalendarWeekdays,
@@ -2012,8 +2321,8 @@
 }
 
 .practicumCalendarWeekdays {
-  border-top: 1px solid rgba(56, 34, 15, 0.1);
-  border-bottom: 1px solid rgba(56, 34, 15, 0.1);
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .practicumCalendarWeekday {
@@ -2021,9 +2330,9 @@
   align-items: center;
   justify-content: center;
   min-height: 40px;
-  border-right: 1px solid rgba(56, 34, 15, 0.08);
-  color: rgba(56, 34, 15, 0.62);
-  font-size: 0.75rem;
+  border-right: 1px solid #e5e7eb;
+  color: #374151;
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
@@ -2033,9 +2342,9 @@
 
 .practicumCalendarEmptyCell,
 .practicumCalendarDay {
-  min-height: 120px;
-  border-right: 1px solid rgba(56, 34, 15, 0.08);
-  border-bottom: 1px solid rgba(56, 34, 15, 0.08);
+  min-height: 106px;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .practicumCalendarGrid > :nth-child(7n) {
@@ -2047,32 +2356,32 @@
 }
 
 .practicumCalendarEmptyCell {
-  background: rgba(56, 34, 15, 0.03);
+  background: #ffffff;
 }
 
 .practicumCalendarDay {
   display: grid;
   align-content: start;
   gap: 0.55rem;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.82);
+  padding: 0.55rem 0.65rem;
+  background: #ffffff;
   text-align: left;
 }
 
 .practicumCalendarDay[data-has-items='true'] {
-  background: rgba(255, 255, 255, 0.96);
+  background: #ffffff;
 }
 
 .practicumCalendarDay[data-selected='true'] {
-  box-shadow: inset 0 0 0 2px rgba(14, 111, 77, 0.75);
+  box-shadow: inset 0 0 0 2px #34b29f;
 }
 
 .practicumCalendarDay[data-reserved='true'] {
-  box-shadow: inset 0 0 0 2px rgba(240, 153, 48, 0.82);
+  box-shadow: inset 0 0 0 2px #34b29f;
 }
 
 .practicumCalendarDay[data-selected='true'][data-reserved='true'] {
-  box-shadow: inset 0 0 0 3px rgba(14, 111, 77, 0.88);
+  box-shadow: inset 0 0 0 2px #34b29f;
 }
 
 .practicumCalendarDayHeader {
@@ -2088,18 +2397,48 @@
 }
 
 .practicumCalendarDayCount,
-.practicumCalendarDayReservation {
-  font-size: 0.72rem;
-  font-weight: 700;
+.practicumCalendarDayReservation,
+.practicumCalendarDayUnavailable {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
   white-space: nowrap;
 }
 
+.practicumCalendarDayCount::before,
+.practicumCalendarDayReservation::before,
+.practicumCalendarDayUnavailable::before {
+  content: '';
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: currentcolor;
+}
+
 .practicumCalendarDayCount {
-  color: #0e6f4d;
+  color: #34b29f;
 }
 
 .practicumCalendarDayReservation {
-  color: #b45309;
+  color: #111827;
+}
+
+.practicumCalendarDayReservation::before {
+  background: #34b29f;
+}
+
+.practicumCalendarDayUnavailable {
+  color: #111827;
+}
+
+.practicumCalendarDay[data-status='absent'] .practicumCalendarDayReservation::before {
+  background: #d1d5db;
+}
+
+.practicumCalendarDayUnavailable::before {
+  background: #dd383e;
 }
 
 .practicumCalendarPreviewList {
@@ -2109,22 +2448,35 @@
 
 .practicumCalendarPreviewReserved,
 .practicumCalendarPreviewOpen,
-.practicumCalendarPreviewEmpty {
+.practicumCalendarPreviewEmpty,
+.practicumCalendarPreviewUnavailable {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 31px;
+  padding: 0 0.65rem;
+  border-radius: 6px;
   font-size: 0.75rem;
   line-height: 1.45;
 }
 
 .practicumCalendarPreviewReserved {
-  color: #b45309;
-  font-weight: 700;
+  background: #ecf9f7;
+  color: #34b29f;
 }
 
 .practicumCalendarPreviewOpen {
-  color: #0e6f4d;
+  background: #ecf9f7;
+  color: #34b29f;
 }
 
 .practicumCalendarPreviewEmpty {
-  color: rgba(56, 34, 15, 0.4);
+  color: #9ca3af;
+}
+
+.practicumCalendarPreviewUnavailable {
+  background: #e5e7eb;
+  color: #9ca3af;
 }
 
 .practicumReservationSummary {
@@ -2390,33 +2742,54 @@
   min-height: 56px;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0 14px;
+  gap: 10px;
+  padding: 0 16px;
   border: 1px solid #d1d5db;
   border-radius: 12px;
+  background: #ffffff;
   color: #374151;
   font-size: 18px;
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.quizFlagToggle:hover,
+.quizFlagToggle:focus-within,
+.quizFlagToggleBottom:hover,
+.quizFlagToggleBottom:focus-within {
+  border-color: #34b29f;
+  background: #ffffff;
+  color: #34b29f;
 }
 
 .quizFlagToggle input,
 .quizFlagToggleBottom input {
   appearance: none;
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  border: 1.5px solid rgb(203 213 225);
-  border-radius: 4px;
-  background: #ffffff;
-  box-shadow: inset 0 0 0 2px #ffffff;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-.quizFlagToggle input:checked,
-.quizFlagToggleBottom input:checked {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  box-shadow: inset 0 0 0 3px #ffffff;
+.quizFlagToggleIcon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  margin: 0;
+  object-fit: contain;
+}
+
+.quizFlagToggle[data-checked='true'],
+.quizFlagToggleBottom[data-checked='true'] {
+  border-color: #34b29f;
+  background: #ecf9f7;
+  color: #111827;
 }
 
 .quizResultBadgePassed {
@@ -2497,6 +2870,7 @@
   background: #ffffff;
   padding: 0;
   color: #111827;
+  cursor: pointer;
 }
 
 .quizOptionRowSelected {
@@ -2504,10 +2878,63 @@
 }
 
 .quizOptionRow input {
+  appearance: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.quizOptionIndicator {
+  position: relative;
   width: 26px;
   height: 26px;
+  flex: 0 0 auto;
   margin-top: 2px;
-  accent-color: var(--color-primary);
+  border: 2px solid #d1d5db;
+  border-radius: 999px;
+  background: #ffffff;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.quizOptionRow[data-type='MULTIPLE'] .quizOptionIndicator {
+  border-radius: 6px;
+}
+
+.quizOptionRow:hover .quizOptionIndicator,
+.quizOptionRow:focus-within .quizOptionIndicator {
+  border-color: #34b29f;
+}
+
+.quizOptionRow[data-checked='true'] .quizOptionIndicator {
+  border-color: #34b29f;
+  background: #34b29f;
+}
+
+.quizOptionRow[data-checked='true'] .quizOptionIndicator::after {
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  background: #ffffff;
+  content: '';
+}
+
+.quizOptionRow[data-type='MULTIPLE'][data-checked='true'] .quizOptionIndicator::after {
+  inset: auto;
+  top: 5px;
+  left: 8px;
+  width: 7px;
+  height: 12px;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  border-radius: 0;
+  background: transparent;
+  transform: rotate(45deg);
 }
 
 .quizOptionLabel {
@@ -2601,17 +3028,22 @@
   min-height: 56px;
   border: 1px solid #34b29f;
   border-radius: 12px;
-  background: #34b29f;
-  color: #ffffff;
+  background: #ffffff;
+  color: #34b29f;
   cursor: pointer;
   font: inherit;
   font-size: 18px;
   font-weight: var(--font-weight-semibold);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
 }
 
 .quizSubmitButton:hover,
 .quizSubmitButton:focus-visible {
-  background: #2aa795;
+  background: #34b29f;
+  color: #ffffff;
   outline: none;
 }
 
@@ -2691,6 +3123,18 @@
     width: 100%;
     max-width: none;
   }
+
+  .practicumCalendarHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .practicumCalendarLegend {
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+  }
 }
 
 @container (width < 920px) {
@@ -2754,6 +3198,25 @@
   .offlineCalendarPanel .practicumCalendarEmptyCell,
   .offlineCalendarPanel .practicumCalendarDay {
     min-height: 112px;
+  }
+
+  .practicumCalendarPanel {
+    overflow-x: auto;
+  }
+
+  .practicumCalendarWeekdays,
+  .practicumCalendarGrid {
+    min-width: 720px;
+  }
+
+  .practicumMonthPopover {
+    left: -28px;
+    width: min(317px, calc(100vw - 48px));
+  }
+
+  .practicumCalendarEmptyCell,
+  .practicumCalendarDay {
+    min-height: 104px;
   }
 
   .settingsPanel {

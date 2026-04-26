@@ -59,7 +59,6 @@ interface ProblemQuestionFormState {
 }
 
 interface ProblemFormState {
-  description: string;
   passScore: string;
   questions: ProblemQuestionFormState[];
   timeLimitMinutes: string;
@@ -114,7 +113,6 @@ const createEmptyQuestion = (): ProblemQuestionFormState => ({
 });
 
 const EMPTY_FORM: ProblemFormState = {
-  description: '',
   passScore: '60',
   questions: [createEmptyQuestion()],
   timeLimitMinutes: '30',
@@ -219,7 +217,6 @@ const createFormState = (problem: AdminProblem | null): ProblemFormState => {
   }
 
   return {
-    description: problem.description ?? '',
     passScore: String(problem.passScore),
     questions: [...problem.questions]
       .sort((left, right) => left.sortOrder - right.sortOrder)
@@ -250,7 +247,6 @@ const toPayload = (
   formState: ProblemFormState,
   fallbackTitle: string,
 ): AdminProblemUpsertPayload => ({
-  description: formState.description.trim() || null,
   passScore: Number(formState.passScore),
   timeLimitSeconds: formState.timeLimitMinutes.trim()
     ? Math.max(1, Math.floor(Number(formState.timeLimitMinutes) * 60))
@@ -646,18 +642,6 @@ const ProblemEditor = ({
         </div>
 
         <div className={styles['stackListCompact']}>
-          <TextAreaField
-            label='문제 설명'
-            name='problem-description'
-            onChange={(event) => {
-              setFormState((current) => ({
-                ...current,
-                description: event.target.value,
-              }));
-            }}
-            rows={3}
-            value={formState.description}
-          />
           <div className={styles['compactFieldRow']}>
             <div className={styles['compactTextField']}>
               <TextField
@@ -867,6 +851,8 @@ const ProblemEditor = ({
                   </span>
                   <input
                     accept='image/*,video/*'
+                    hidden
+                    id={`problem-question-media-${String(selectedQuestionIndex)}`}
                     name={`problem-question-media-${String(selectedQuestionIndex)}`}
                     onChange={(event) => {
                       const file = event.target.files?.[0] ?? null;
@@ -894,11 +880,45 @@ const ProblemEditor = ({
                     }}
                     type='file'
                   />
-                  {selectedQuestion.mediaFile ? (
-                    <span className={styles['cellSecondary']}>
-                      선택 파일: {selectedQuestion.mediaFile.name}
-                    </span>
-                  ) : null}
+                  <div className={styles['actionRow']}>
+                    <Button
+                      onClick={() => {
+                        document
+                          .getElementById(`problem-question-media-${String(selectedQuestionIndex)}`)
+                          ?.click();
+                      }}
+                      size='sm'
+                      type='button'
+                      variant='secondary'
+                    >
+                      {selectedQuestion.mediaFile ||
+                      selectedQuestion.mediaAssetId ||
+                      selectedQuestion.mediaUrl
+                        ? '파일 변경'
+                        : '파일 선택'}
+                    </Button>
+                  </div>
+                  <div className={styles['curriculumStatGrid']}>
+                    <div className={styles['curriculumStatCard']}>
+                      <span className={styles['curriculumStatLabel']}>현재 상태</span>
+                      <strong className={styles['curriculumStatValue']}>
+                        {selectedQuestion.mediaFile
+                          ? '업로드 대기'
+                          : selectedQuestion.mediaAssetId || selectedQuestion.mediaUrl
+                            ? '업로드 완료'
+                            : '파일 미선택'}
+                      </strong>
+                    </div>
+                    <div className={styles['curriculumStatCard']}>
+                      <span className={styles['curriculumStatLabel']}>선택 파일</span>
+                      <strong className={styles['curriculumStatValue']}>
+                        {selectedQuestion.mediaFile?.name ??
+                          (selectedQuestion.mediaAssetId || selectedQuestion.mediaUrl
+                            ? '업로드된 미디어가 연결되어 있습니다.'
+                            : '아직 선택한 파일이 없습니다.')}
+                      </strong>
+                    </div>
+                  </div>
                   {selectedQuestion.mediaType &&
                   (selectedQuestion.mediaPreviewUrl || selectedQuestion.mediaUrl)
                     ? renderQuestionMediaPreview(

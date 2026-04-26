@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
-import type { CSSProperties } from 'react';
+import type {
+  CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from 'react';
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,13 +27,14 @@ import {
 } from '@/api/studentProblems';
 import iconArrowDownToLine from '@/assets/icons/lucide_arrow-down-to-line.svg';
 import iconArrowLeft from '@/assets/icons/lucide_arrow-left.svg';
+import iconBookmark from '@/assets/icons/lucide_bookmark.svg';
 import iconCheck from '@/assets/icons/lucide_check.svg';
 import iconChevronDown from '@/assets/icons/lucide_chevron-down.svg';
+import iconFolderOpen from '@/assets/icons/lucide_folder-open.svg';
 import iconFullscreen from '@/assets/icons/lucide_fullscreen.svg';
 import iconPlay from '@/assets/icons/lucide_play.svg';
 import iconVolume from '@/assets/icons/lucide_volume-2.svg';
 import iconCurrentLessonIndicator from '@/assets/icons/player-current-indicator.svg';
-import playerDemoImage from '@/assets/images/player-ultrasound-demo.png';
 import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import Button from '@/components/ui/Button/Button';
 import { getPlayerMockQueryKeySegment } from '@/mocks/player/runtime';
@@ -106,10 +111,13 @@ interface QuizClockAnchor {
 
 const PLAYBACK_SPEED_OPTIONS = [0.8, 1, 1.25, 1.5] as const;
 const DEFAULT_QUALITY_OPTIONS: QualityOption[] = [{ label: '자동', levelIndex: 'auto' }];
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
+const FIXED_PLAYER_CALENDAR_CELL_COUNT = 42;
 const PROGRESS_SAVE_INTERVAL_SECONDS = 30;
 const PROGRESS_SAVE_MIN_DELTA_SECONDS = 20;
 const PROGRESS_EXIT_SAVE_MIN_DELTA_SECONDS = 5;
 const PROBLEM_SESSION_SAVE_INTERVAL_SECONDS = 10;
+const PLAYER_CONTROLS_AUTO_HIDE_MS = 2400;
 const LESSON_TYPE_LABELS: Record<ProgramCurriculumLessonDeliveryType, string> = {
   offline: '오프라인 강의',
   online: '동영상 강의',
@@ -134,6 +142,7 @@ const playerChevronDownIconStyle = buildPlayerIconStyle(iconChevronDown);
 const playerPlayIconStyle = buildPlayerIconStyle(iconPlay);
 const playerVolumeIconStyle = buildPlayerIconStyle(iconVolume);
 const playerFullscreenIconStyle = buildPlayerIconStyle(iconFullscreen);
+const playerFolderOpenIconStyle = buildPlayerIconStyle(iconFolderOpen);
 const playerCurrentLessonIndicatorStyle = buildPlayerIconStyle(iconCurrentLessonIndicator);
 const playerArrowDownToLineIconStyle = buildPlayerIconStyle(iconArrowDownToLine);
 
@@ -494,7 +503,7 @@ const getQuizSidebarStatusLabel = (
   isCurrentQuestion: boolean,
 ) => {
   if (isCurrentQuestion) {
-    return '현재 진행';
+    return isFlagged ? '나중에 풀기' : '현재 진행';
   }
 
   if (isFlagged) {
@@ -506,6 +515,33 @@ const getQuizSidebarStatusLabel = (
   }
 
   return '미응답';
+};
+
+const formatSelectedQuizAnswerLabel = (
+  question: StudentProblem['questions'][number],
+  selectedOptionIds: number[],
+) => {
+  if (!selectedOptionIds.length) {
+    return null;
+  }
+
+  const optionNumberById = new Map(
+    question.options.map((option, optionIndex) => [option.id, optionIndex + 1]),
+  );
+  const selectedOptionNumbers = selectedOptionIds
+    .map((optionId) => optionNumberById.get(optionId))
+    .filter((optionNumber): optionNumber is number => optionNumber !== undefined)
+    .sort((left, right) => left - right);
+
+  if (!selectedOptionNumbers.length) {
+    return null;
+  }
+
+  return `${selectedOptionNumbers.join(', ')}번`;
+};
+
+const formatQuizQuestionLabel = (index: number) => {
+  return `Question ${String(index + 1).padStart(2, '0')}`;
 };
 
 const getLessonMetaItems = (lesson: ProgramCurriculumLesson) => {
@@ -674,6 +710,40 @@ const getPracticumDefaultSelectedDate = (
   return firstOpenSlot ? getSlotDateKey(firstOpenSlot.startAt) : `${monthValue}-01`;
 };
 
+const getMonthYear = (monthValue: string): number => {
+  return Number(monthValue.split('-')[0]);
+};
+
+const getMonthNumber = (monthValue: string): number => {
+  return Number(monthValue.split('-')[1]);
+};
+
+const buildMonthValue = (year: number, month: number): string => {
+  return `${String(year)}-${String(month).padStart(2, '0')}`;
+};
+
+const shiftMonthValue = (monthValue: string, offset: number): string => {
+  const year = getMonthYear(monthValue);
+  const month = getMonthNumber(monthValue);
+  return toMonthValue(new Date(year, month - 1 + offset, 1));
+};
+
+const shiftMonthYear = (monthValue: string, offset: number): string => {
+  return buildMonthValue(getMonthYear(monthValue) + offset, getMonthNumber(monthValue));
+};
+
+const buildFixedPlayerCalendarCells = (monthValue: string) => {
+  const cells = buildCalendarCells(monthValue);
+
+  return [
+    ...cells,
+    ...Array.from({ length: Math.max(0, FIXED_PLAYER_CALENDAR_CELL_COUNT - cells.length) }, () => ({
+      date: null,
+      isCurrentMonth: false,
+    })),
+  ];
+};
+
 const PlayerPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -718,6 +788,8 @@ const PlayerPage = () => {
   const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
   const [currentPlaybackSeconds, setCurrentPlaybackSeconds] = useState(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+  const [arePlayerControlsVisible, setArePlayerControlsVisible] = useState(true);
   const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
   const [lessonProgressByLessonId, setLessonProgressByLessonId] = useState<
     Partial<Record<string, LearningPlayerLessonProgress>>
@@ -729,6 +801,7 @@ const PlayerPage = () => {
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number[]>>({});
   const [quizFlaggedQuestionIds, setQuizFlaggedQuestionIds] = useState<Set<number>>(new Set());
   const [quizCurrentQuestionIndex, setQuizCurrentQuestionIndex] = useState(0);
+  const [isQuizQuestionListExpanded, setIsQuizQuestionListExpanded] = useState(true);
   const [quizClockAnchor, setQuizClockAnchor] = useState<QuizClockAnchor | null>(null);
   const [quizClockNowMs, setQuizClockNowMs] = useState(() => Date.now());
   const [quizElapsedSeconds, setQuizElapsedSeconds] = useState(0);
@@ -740,13 +813,21 @@ const PlayerPage = () => {
   const [practicumSelectedDateValue, setPracticumSelectedDateValue] = useState(() =>
     toDateInputValue(new Date()),
   );
+  const [isPracticumMonthPickerOpen, setIsPracticumMonthPickerOpen] = useState(false);
+  const [offlineCalendarMonthValue, setOfflineCalendarMonthValue] = useState(() =>
+    toMonthValue(new Date()),
+  );
+  const [isOfflineMonthPickerOpen, setIsOfflineMonthPickerOpen] = useState(false);
   const hlsRef = useRef<Hls | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const settingsPanelRef = useRef<HTMLDivElement | null>(null);
+  const practicumMonthPickerRef = useRef<HTMLDivElement | null>(null);
+  const offlineMonthPickerRef = useRef<HTMLDivElement | null>(null);
   const curriculumSectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const lastSavedProgressRef = useRef<Record<number, number>>({});
   const saveInFlightRef = useRef<Record<number, boolean>>({});
   const progressTimerRef = useRef<number | null>(null);
+  const playerControlsHideTimerRef = useRef<number | null>(null);
   const quizElapsedTimerRef = useRef<number | null>(null);
   const quizSessionDirtyRef = useRef(false);
   const quizSessionSaveInFlightRef = useRef(false);
@@ -759,6 +840,31 @@ const PlayerPage = () => {
     ? playerItems.find((item) => item.id === resolvedItemId) || null
     : null;
   const selectedLesson = selectedItem?.lesson ?? null;
+
+  const clearPlayerControlsHideTimer = () => {
+    if (playerControlsHideTimerRef.current !== null) {
+      window.clearTimeout(playerControlsHideTimerRef.current);
+      playerControlsHideTimerRef.current = null;
+    }
+  };
+
+  const schedulePlayerControlsHide = () => {
+    clearPlayerControlsHideTimer();
+
+    if (!isVideoPlaying || activeSettingsPanel !== null) {
+      return;
+    }
+
+    playerControlsHideTimerRef.current = window.setTimeout(() => {
+      setArePlayerControlsVisible(false);
+      playerControlsHideTimerRef.current = null;
+    }, PLAYER_CONTROLS_AUTO_HIDE_MS);
+  };
+
+  const revealPlayerControls = () => {
+    setArePlayerControlsVisible(true);
+    schedulePlayerControlsHide();
+  };
   const completedLessonIds = useMemo(() => {
     const lessonIds = new Set(snapshot?.completedLessonIds ?? []);
     Object.entries(lessonProgressByLessonId)
@@ -1104,7 +1210,7 @@ const PlayerPage = () => {
     return grouped;
   }, [selectedPracticumReservations]);
   const practicumCalendarCells = useMemo(() => {
-    return buildCalendarCells(practicumMonthValue);
+    return buildFixedPlayerCalendarCells(practicumMonthValue);
   }, [practicumMonthValue]);
   const practicumSlotsByDate = useMemo(() => {
     const grouped = new Map<string, PracticumSlot[]>();
@@ -1125,6 +1231,15 @@ const PlayerPage = () => {
     ? practicumSelectedDateValue
     : `${practicumMonthValue}-01`;
   const practicumSelectedDateSlots = practicumSlotsByDate.get(practicumSelectedDate) ?? [];
+  const updatePracticumMonth = useCallback((nextMonthValue: string) => {
+    setPracticumMonthValue(nextMonthValue);
+    setPracticumSelectedDateValue((current) =>
+      current.startsWith(nextMonthValue) ? current : `${nextMonthValue}-01`,
+    );
+  }, []);
+  const updateOfflineMonth = useCallback((nextMonthValue: string) => {
+    setOfflineCalendarMonthValue(nextMonthValue);
+  }, []);
   const practicumSidebarStatesByLessonId = useMemo(() => {
     const entries = lessons
       .filter((lesson) => lesson.deliveryType === 'practicum')
@@ -1169,15 +1284,8 @@ const PlayerPage = () => {
   }, [offlineScheduleEntries]);
   const firstOfflineDate =
     offlineScheduleEntries.find((entry) => entry.date)?.date ?? selectedLesson?.startDate ?? null;
-  const offlineCalendarMonthValue = useMemo(() => {
-    if (firstOfflineDate) {
-      return firstOfflineDate.slice(0, 7);
-    }
-
-    return toMonthValue(new Date());
-  }, [firstOfflineDate]);
   const offlineCalendarCells = useMemo(() => {
-    return buildCalendarCells(offlineCalendarMonthValue);
+    return buildFixedPlayerCalendarCells(offlineCalendarMonthValue);
   }, [offlineCalendarMonthValue]);
 
   useEffect(() => {
@@ -1191,6 +1299,17 @@ const PlayerPage = () => {
       getPracticumDefaultSelectedDate(selectedPracticumLecture, defaultMonthValue),
     );
   }, [selectedPracticumLecture]);
+
+  useEffect(() => {
+    if (!isOfflineLesson) {
+      return;
+    }
+
+    setOfflineCalendarMonthValue(
+      firstOfflineDate ? firstOfflineDate.slice(0, 7) : toMonthValue(new Date()),
+    );
+    setIsOfflineMonthPickerOpen(false);
+  }, [firstOfflineDate, isOfflineLesson, selectedLesson?.id]);
 
   const quizQuestions = quizQuery.data?.questions ?? [];
   const quizTimeLimitSeconds =
@@ -1226,6 +1345,10 @@ const PlayerPage = () => {
   const shouldShowQuizQuestion =
     Boolean(currentQuizQuestion) &&
     (isQuizSessionActive || Boolean(quizAttemptResult && quizReviewMode));
+  const shouldShowQuizQuestionNavigator =
+    isQuizQuestionListExpanded && Boolean(isQuizSessionActive || quizAttemptResult);
+  const shouldShowQuizNavigatorEmptyText =
+    isQuizQuestionListExpanded && !isQuizSessionActive && !quizAttemptResult;
   const currentQuizResult = currentQuizQuestion
     ? (quizAttemptResult?.results.find((result) => result.questionId === currentQuizQuestion.id) ??
       null)
@@ -1385,6 +1508,7 @@ const PlayerPage = () => {
     setQuizAnswers({});
     setQuizFlaggedQuestionIds(new Set());
     setQuizCurrentQuestionIndex(0);
+    setIsQuizQuestionListExpanded(true);
     setQuizClockAnchor(null);
     setQuizClockNowMs(Date.now());
     setQuizElapsedSeconds(0);
@@ -1624,6 +1748,58 @@ const PlayerPage = () => {
   }, [activeSettingsPanel]);
 
   useEffect(() => {
+    if (!isPracticumMonthPickerOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!practicumMonthPickerRef.current?.contains(event.target as Node)) {
+        setIsPracticumMonthPickerOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsPracticumMonthPickerOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isPracticumMonthPickerOpen]);
+
+  useEffect(() => {
+    if (!isOfflineMonthPickerOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!offlineMonthPickerRef.current?.contains(event.target as Node)) {
+        setIsOfflineMonthPickerOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOfflineMonthPickerOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOfflineMonthPickerOpen]);
+
+  useEffect(() => {
     if (
       isValidEnrollmentId &&
       snapshot &&
@@ -1687,6 +1863,10 @@ const PlayerPage = () => {
       setCurrentPlaybackSeconds(videoElement.currentTime || 0);
     };
 
+    const handleVolumeChange = () => {
+      setIsVideoMuted(videoElement.muted || videoElement.volume === 0);
+    };
+
     const clearProgressTimer = () => {
       if (progressTimerRef.current !== null) {
         window.clearInterval(progressTimerRef.current);
@@ -1717,6 +1897,7 @@ const PlayerPage = () => {
     const handlePause = () => {
       clearProgressTimer();
       setIsVideoPlaying(false);
+      setArePlayerControlsVisible(true);
     };
 
     const handlePlay = () => {
@@ -1740,10 +1921,12 @@ const PlayerPage = () => {
 
     videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
     videoElement.addEventListener('timeupdate', handleTimeUpdate);
+    videoElement.addEventListener('volumechange', handleVolumeChange);
     videoElement.addEventListener('play', handlePlay);
     videoElement.addEventListener('pause', handlePause);
     videoElement.addEventListener('ended', handleEnded);
     window.addEventListener('pagehide', handlePageHide);
+    handleVolumeChange();
 
     const ProtectedLoader = createProtectedHlsLoader(selectedHlsKeyUrl);
     hls = new Hls({
@@ -1784,6 +1967,7 @@ const PlayerPage = () => {
       videoElement.removeAttribute('src');
       videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
       videoElement.removeEventListener('timeupdate', handleTimeUpdate);
+      videoElement.removeEventListener('volumechange', handleVolumeChange);
       videoElement.removeEventListener('play', handlePlay);
       videoElement.removeEventListener('pause', handlePause);
       videoElement.removeEventListener('ended', handleEnded);
@@ -1804,6 +1988,25 @@ const PlayerPage = () => {
     supportsHlsPlayback,
     selectedLessonHasStream,
   ]);
+
+  useEffect(() => {
+    if (!selectedLessonHasStream) {
+      clearPlayerControlsHideTimer();
+      setArePlayerControlsVisible(true);
+      return;
+    }
+
+    if (!isVideoPlaying || activeSettingsPanel !== null) {
+      clearPlayerControlsHideTimer();
+      setArePlayerControlsVisible(true);
+      return;
+    }
+
+    setArePlayerControlsVisible(true);
+    schedulePlayerControlsHide();
+
+    return clearPlayerControlsHideTimer;
+  }, [activeSettingsPanel, isVideoPlaying, selectedLessonHasStream]);
 
   const isLoading = playerSnapshotQuery.isLoading;
   const hasError = playerSnapshotQuery.isError;
@@ -1850,6 +2053,51 @@ const PlayerPage = () => {
     videoElement.pause();
   };
 
+  const toggleMute = () => {
+    const videoElement = videoRef.current;
+
+    if (!videoElement || !selectedLessonHasStream) {
+      return;
+    }
+
+    videoElement.muted = !videoElement.muted;
+    setIsVideoMuted(videoElement.muted || videoElement.volume === 0);
+    revealPlayerControls();
+  };
+
+  const handlePlayerFrameKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== ' ' && event.code !== 'Space') {
+      return;
+    }
+
+    const eventTarget = event.target;
+
+    if (
+      eventTarget instanceof HTMLElement &&
+      eventTarget.closest('button, a, input, select, textarea')
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    revealPlayerControls();
+    togglePlayback();
+  };
+
+  const handlePlayerFrameClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const eventTarget = event.target;
+
+    if (
+      eventTarget instanceof HTMLElement &&
+      eventTarget.closest('button, a, input, select, textarea, [role="dialog"]')
+    ) {
+      return;
+    }
+
+    revealPlayerControls();
+    togglePlayback();
+  };
+
   const requestPlayerFullscreen = () => {
     const videoElement = videoRef.current;
 
@@ -1866,6 +2114,15 @@ const PlayerPage = () => {
     questionType: StudentProblem['questions'][number]['questionType'],
   ) => {
     quizSessionDirtyRef.current = true;
+    setQuizFlaggedQuestionIds((current) => {
+      if (!current.has(questionId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete(questionId);
+      return next;
+    });
     setQuizAnswers((current) => {
       if (questionType === 'MULTIPLE') {
         const currentOptionIds = current[questionId] ?? [];
@@ -1896,6 +2153,13 @@ const PlayerPage = () => {
 
   const setQuizFlaggedQuestion = (questionId: number, flagged: boolean) => {
     quizSessionDirtyRef.current = true;
+    setIsQuizQuestionListExpanded(true);
+    if (flagged) {
+      setQuizAnswers((current) => ({
+        ...current,
+        [questionId]: [],
+      }));
+    }
     setQuizFlaggedQuestionIds((current) => {
       const next = new Set(current);
       if (flagged) {
@@ -2032,26 +2296,96 @@ const PlayerPage = () => {
           <div className={styles['practicumWorkspace']}>
             <section className={styles['practicumCalendarPanel']}>
               <div className={styles['practicumCalendarHeader']}>
-                <div>
-                  <strong className={styles['practicumPanelTitle']}>
+                <div className={styles['practicumMonthPicker']} ref={practicumMonthPickerRef}>
+                  <button
+                    aria-label='이전 달'
+                    className={styles['practicumMonthNavButton']}
+                    onClick={() => {
+                      updatePracticumMonth(shiftMonthValue(practicumMonthValue, -1));
+                    }}
+                    type='button'
+                  >
+                    ‹
+                  </button>
+                  <button
+                    aria-expanded={isPracticumMonthPickerOpen}
+                    className={styles['practicumMonthTrigger']}
+                    onClick={() => {
+                      setIsPracticumMonthPickerOpen((current) => !current);
+                    }}
+                    type='button'
+                  >
                     {formatMonthLabel(practicumMonthValue)}
-                  </strong>
-                  <p className={styles['practicumPanelDescription']}>
-                    예약한 날짜는 보더로 강조되고, 날짜를 눌러 가능한 시간을 확인할 수 있습니다.
-                  </p>
+                  </button>
+                  <button
+                    aria-label='다음 달'
+                    className={styles['practicumMonthNavButton']}
+                    onClick={() => {
+                      updatePracticumMonth(shiftMonthValue(practicumMonthValue, 1));
+                    }}
+                    type='button'
+                  >
+                    ›
+                  </button>
+
+                  {isPracticumMonthPickerOpen ? (
+                    <div className={styles['practicumMonthPopover']} role='dialog'>
+                      <div className={styles['practicumMonthPopoverHeader']}>
+                        <button
+                          aria-label='이전 연도'
+                          className={styles['practicumMonthYearButton']}
+                          onClick={() => {
+                            updatePracticumMonth(shiftMonthYear(practicumMonthValue, -1));
+                          }}
+                          type='button'
+                        >
+                          ‹
+                        </button>
+                        <strong>{`${String(getMonthYear(practicumMonthValue))}년`}</strong>
+                        <button
+                          aria-label='다음 연도'
+                          className={styles['practicumMonthYearButton']}
+                          onClick={() => {
+                            updatePracticumMonth(shiftMonthYear(practicumMonthValue, 1));
+                          }}
+                          type='button'
+                        >
+                          ›
+                        </button>
+                      </div>
+                      <div className={styles['practicumMonthGrid']}>
+                        {MONTH_OPTIONS.map((month) => {
+                          const monthValue = buildMonthValue(
+                            getMonthYear(practicumMonthValue),
+                            month,
+                          );
+
+                          return (
+                            <button
+                              className={styles['practicumMonthOption']}
+                              data-selected={monthValue === practicumMonthValue}
+                              key={month}
+                              onClick={() => {
+                                updatePracticumMonth(monthValue);
+                                setIsPracticumMonthPickerOpen(false);
+                              }}
+                              type='button'
+                            >
+                              {`${String(month)}월`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-                <input
-                  className={styles['practicumMonthInput']}
-                  onChange={(event) => {
-                    const nextMonthValue = event.target.value;
-                    setPracticumMonthValue(nextMonthValue);
-                    setPracticumSelectedDateValue((current) =>
-                      current.startsWith(nextMonthValue) ? current : `${nextMonthValue}-01`,
-                    );
-                  }}
-                  type='month'
-                  value={practicumMonthValue}
-                />
+
+                <div className={styles['practicumCalendarLegend']} aria-label='실습 예약 상태'>
+                  <span data-tone='available'>예약가능</span>
+                  <span data-tone='reserved'>예약됨</span>
+                  <span data-tone='absent'>불참</span>
+                  <span data-tone='disabled'>예약불가</span>
+                </div>
               </div>
 
               <div className={styles['practicumCalendarWeekdays']}>
@@ -2082,6 +2416,18 @@ const PlayerPage = () => {
                   const previewReservation = [...dayReservations].sort(
                     (left, right) => Date.parse(left.startAt) - Date.parse(right.startAt),
                   )[0];
+                  const hasNoShowReservation = dayReservations.some(
+                    (reservation) => reservation.status === 'NO_SHOW',
+                  );
+                  const dayStatus = previewReservation
+                    ? hasNoShowReservation
+                      ? 'absent'
+                      : 'reserved'
+                    : availableCount > 0
+                      ? 'available'
+                      : daySlots.length > 0
+                        ? 'disabled'
+                        : 'empty';
 
                   return (
                     <button
@@ -2089,6 +2435,7 @@ const PlayerPage = () => {
                       data-has-items={availableCount > 0 || dayReservations.length > 0}
                       data-reserved={practicumReservationDateKeys.has(date)}
                       data-selected={date === practicumSelectedDate}
+                      data-status={dayStatus}
                       key={date}
                       onClick={() => {
                         setPracticumSelectedDateValue(date);
@@ -2101,15 +2448,15 @@ const PlayerPage = () => {
                         </span>
                         {previewReservation ? (
                           <span className={styles['practicumCalendarDayReservation']}>
-                            {previewReservation.status === 'NO_SHOW'
-                              ? '불참'
-                              : Date.parse(previewReservation.endAt) < Date.now()
-                                ? '완료'
-                                : '예정'}
+                            {hasNoShowReservation ? '불참' : '예약됨'}
                           </span>
                         ) : availableCount ? (
                           <span className={styles['practicumCalendarDayCount']}>
-                            {`가능 ${String(availableCount)}건`}
+                            {`${String(availableCount)}개 가능`}
+                          </span>
+                        ) : daySlots.length ? (
+                          <span className={styles['practicumCalendarDayUnavailable']}>
+                            예약불가
                           </span>
                         ) : null}
                       </div>
@@ -2120,7 +2467,13 @@ const PlayerPage = () => {
                             {formatTimeRange(previewReservation.startAt, previewReservation.endAt)}
                           </span>
                         ) : availableCount ? (
-                          <span className={styles['practicumCalendarPreviewOpen']}>예약 가능</span>
+                          <span className={styles['practicumCalendarPreviewOpen']}>
+                            {formatTimeRange(daySlots[0].startAt, daySlots[0].endAt)}
+                          </span>
+                        ) : daySlots.length ? (
+                          <span className={styles['practicumCalendarPreviewUnavailable']}>
+                            {formatTimeRange(daySlots[0].startAt, daySlots[0].endAt)}
+                          </span>
                         ) : (
                           <span className={styles['practicumCalendarPreviewEmpty']}>일정 없음</span>
                         )}
@@ -2296,10 +2649,88 @@ const PlayerPage = () => {
               styles['offlineCalendarHeader'],
             )}
           >
-            <div>
-              <strong className={styles['practicumPanelTitle']}>
+            <div className={styles['practicumMonthPicker']} ref={offlineMonthPickerRef}>
+              <button
+                aria-label='이전 달'
+                className={styles['practicumMonthNavButton']}
+                onClick={() => {
+                  updateOfflineMonth(shiftMonthValue(offlineCalendarMonthValue, -1));
+                }}
+                type='button'
+              >
+                ‹
+              </button>
+              <button
+                aria-expanded={isOfflineMonthPickerOpen}
+                className={styles['practicumMonthTrigger']}
+                onClick={() => {
+                  setIsOfflineMonthPickerOpen((current) => !current);
+                }}
+                type='button'
+              >
                 {formatMonthLabel(offlineCalendarMonthValue)}
-              </strong>
+              </button>
+              <button
+                aria-label='다음 달'
+                className={styles['practicumMonthNavButton']}
+                onClick={() => {
+                  updateOfflineMonth(shiftMonthValue(offlineCalendarMonthValue, 1));
+                }}
+                type='button'
+              >
+                ›
+              </button>
+
+              {isOfflineMonthPickerOpen ? (
+                <div className={styles['practicumMonthPopover']} role='dialog'>
+                  <div className={styles['practicumMonthPopoverHeader']}>
+                    <button
+                      aria-label='이전 연도'
+                      className={styles['practicumMonthYearButton']}
+                      onClick={() => {
+                        updateOfflineMonth(shiftMonthYear(offlineCalendarMonthValue, -1));
+                      }}
+                      type='button'
+                    >
+                      ‹
+                    </button>
+                    <strong>{`${String(getMonthYear(offlineCalendarMonthValue))}년`}</strong>
+                    <button
+                      aria-label='다음 연도'
+                      className={styles['practicumMonthYearButton']}
+                      onClick={() => {
+                        updateOfflineMonth(shiftMonthYear(offlineCalendarMonthValue, 1));
+                      }}
+                      type='button'
+                    >
+                      ›
+                    </button>
+                  </div>
+                  <div className={styles['practicumMonthGrid']}>
+                    {MONTH_OPTIONS.map((month) => {
+                      const monthValue = buildMonthValue(
+                        getMonthYear(offlineCalendarMonthValue),
+                        month,
+                      );
+
+                      return (
+                        <button
+                          className={styles['practicumMonthOption']}
+                          data-selected={monthValue === offlineCalendarMonthValue}
+                          key={month}
+                          onClick={() => {
+                            updateOfflineMonth(monthValue);
+                            setIsOfflineMonthPickerOpen(false);
+                          }}
+                          type='button'
+                        >
+                          {`${String(month)}월`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </div>
             {primaryOfflineEntry ? (
               <div className={styles['offlineScheduleSummary']} aria-label='오프라인 일정 요약'>
@@ -2401,26 +2832,18 @@ const PlayerPage = () => {
                     <span className={styles['practicumCalendarDayNumber']}>
                       {Number(cell.date.split('-')[2])}
                     </span>
-                    {dayEntries.length ? (
-                      <span className={styles['practicumCalendarDayCount']}>일정 확인</span>
-                    ) : null}
                   </div>
 
                   <div className={styles['practicumCalendarPreviewList']}>
-                    {previewEntries.length ? (
-                      previewEntries.map((entry) => (
-                        <span className={styles['offlineCalendarPreviewItem']} key={entry.id}>
-                          <span className={styles['offlineCalendarPreviewTime']}>
-                            {entry.timeLabel ?? '오프라인 수업'}
+                    {previewEntries.length
+                      ? previewEntries.map((entry) => (
+                          <span className={styles['offlineCalendarPreviewItem']} key={entry.id}>
+                            <span className={styles['offlineCalendarPreviewTime']}>
+                              {entry.timeLabel ?? '오프라인 수업'}
+                            </span>
                           </span>
-                          <span className={styles['offlineCalendarPreviewLocation']}>
-                            {entry.location ?? '장소 안내 예정'}
-                          </span>
-                        </span>
-                      ))
-                    ) : (
-                      <span className={styles['offlineCalendarPreviewEmpty']}>일정 없음</span>
-                    )}
+                        ))
+                      : null}
                   </div>
                 </div>
               );
@@ -2469,10 +2892,6 @@ const PlayerPage = () => {
   };
 
   const renderResourcePanel = () => {
-    if (!lessonResourceAttachments.length) {
-      return null;
-    }
-
     return (
       <div className={styles['resourceBoardViewport']}>
         <div className={styles['resourceBoard']}>
@@ -2482,42 +2901,54 @@ const PlayerPage = () => {
             <span>업데이트</span>
             <span>다운로드</span>
           </div>
-          <div className={styles['resourceBoardList']}>
-            {lessonResourceAttachments.map((attachment) => (
-              <article className={styles['resourceBoardRow']} key={attachment.id}>
-                <div className={styles['resourceFileCell']}>
-                  <span className={styles['resourceFileType']}>
-                    {formatResourceFileTypeLabel(attachment)}
+          {lessonResourceAttachments.length ? (
+            <div className={styles['resourceBoardList']}>
+              {lessonResourceAttachments.map((attachment) => (
+                <article className={styles['resourceBoardRow']} key={attachment.id}>
+                  <div className={styles['resourceFileCell']}>
+                    <span className={styles['resourceFileType']}>
+                      {formatResourceFileTypeLabel(attachment)}
+                    </span>
+                    <strong className={styles['resourceBoardTitle']}>
+                      {attachment.title?.trim() || attachment.fileName}
+                    </strong>
+                  </div>
+                  <span className={styles['resourceBoardSize']}>
+                    {formatResourceFileSize(attachment.fileSize)}
                   </span>
-                  <strong className={styles['resourceBoardTitle']}>
-                    {attachment.title?.trim() || attachment.fileName}
-                  </strong>
-                </div>
-                <span className={styles['resourceBoardSize']}>
-                  {formatResourceFileSize(attachment.fileSize)}
-                </span>
-                <span className={styles['resourceBoardDate']}>
-                  {formatResourceUpdatedDate(attachment.updatedAt)}
-                </span>
-                <div className={styles['resourceBoardActions']}>
-                  <button
-                    className={styles['resourceDownloadButton']}
-                    onClick={() => {
-                      handleDownloadResourceAttachment(attachment);
-                    }}
-                    type='button'
-                  >
-                    다운로드
-                    <span
-                      aria-hidden='true'
-                      className={styles['resourceDownloadIcon']}
-                      style={playerArrowDownToLineIconStyle}
-                    />
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+                  <span className={styles['resourceBoardDate']}>
+                    {formatResourceUpdatedDate(attachment.updatedAt)}
+                  </span>
+                  <div className={styles['resourceBoardActions']}>
+                    <button
+                      className={styles['resourceDownloadButton']}
+                      onClick={() => {
+                        handleDownloadResourceAttachment(attachment);
+                      }}
+                      type='button'
+                    >
+                      다운로드
+                      <span
+                        aria-hidden='true'
+                        className={styles['resourceDownloadIcon']}
+                        style={playerArrowDownToLineIconStyle}
+                      />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className={styles['resourceBoardEmptyState']}>
+              <span
+                aria-hidden='true'
+                className={styles['resourceBoardEmptyIcon']}
+                style={playerFolderOpenIconStyle}
+              />
+              <strong>등록된 첨부파일이 없습니다.</strong>
+              <span>자료가 등록되면 여기에서 확인할 수 있습니다.</span>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -2534,6 +2965,7 @@ const PlayerPage = () => {
           const isCurrentQuestion = question.id === currentQuizQuestion?.id;
           const selectedOptionIds = quizAnswers[question.id] ?? [];
           const isFlagged = quizFlaggedQuestionIds.has(question.id);
+          const selectedAnswerLabel = formatSelectedQuizAnswerLabel(question, selectedOptionIds);
           const sidebarStatusLabel = getQuizSidebarStatusLabel(
             selectedOptionIds,
             isFlagged,
@@ -2553,24 +2985,28 @@ const PlayerPage = () => {
               type='button'
             >
               <span className={styles['quizNavigatorStateRow']}>
-                <span className={styles['quizNavigatorNumber']}>
+                <span
+                  className={classNames(
+                    styles['quizNavigatorNumber'],
+                    selectedOptionIds.length > 0 && styles['quizNavigatorNumberAnswered'],
+                  )}
+                >
                   {String(index + 1).padStart(2, '0')}
                 </span>
                 <span className={styles['quizNavigatorQuestionTitle']}>
-                  {question.questionText}
+                  {formatQuizQuestionLabel(index)}
                 </span>
                 <span
                   className={classNames(
                     styles['quizNavigatorStateBadge'],
-                    !isFlagged &&
-                      selectedOptionIds.length > 0 &&
-                      !isCurrentQuestion &&
-                      styles['quizNavigatorStateBadgeAnswered'],
-                    isFlagged && styles['quizNavigatorStateBadgeFlagged'],
-                    isCurrentQuestion && styles['quizNavigatorStateBadgeCurrent'],
+                    selectedAnswerLabel && styles['quizNavigatorStateBadgeAnswered'],
+                    !selectedAnswerLabel && isFlagged && styles['quizNavigatorStateBadgeFlagged'],
+                    !selectedAnswerLabel &&
+                      isCurrentQuestion &&
+                      styles['quizNavigatorStateBadgeCurrent'],
                   )}
                 >
-                  {sidebarStatusLabel}
+                  {selectedAnswerLabel ?? sidebarStatusLabel}
                 </span>
               </span>
             </button>
@@ -2626,301 +3062,316 @@ const PlayerPage = () => {
                         isResourceLesson && styles['resourceStageCard'],
                       )}
                     >
-                      {!isResourceLesson || lessonResourceAttachments.length ? (
-                        <div className={styles['stageHeader']}>
-                          <div className={styles['stageCopy']}>
-                            <h1 className={styles['lessonTitle']}>{selectedLesson?.title}</h1>
-                            {isResourceLesson && selectedLesson?.description?.trim() ? (
-                              <p className={styles['resourceStageDescription']}>
-                                {selectedLesson.description}
-                              </p>
-                            ) : null}
-                            {progressSaveError ? (
-                              <p className={styles['stageProgressWarning']}>{progressSaveError}</p>
-                            ) : null}
+                      <div className={styles['stageHeader']}>
+                        <div className={styles['stageCopy']}>
+                          <h1 className={styles['lessonTitle']}>{selectedLesson?.title}</h1>
+                          {isResourceLesson && selectedLesson?.description?.trim() ? (
+                            <p className={styles['resourceStageDescription']}>
+                              {selectedLesson.description}
+                            </p>
+                          ) : null}
+                          {progressSaveError ? (
+                            <p className={styles['stageProgressWarning']}>{progressSaveError}</p>
+                          ) : null}
+                        </div>
+                        {selectedLesson ? (
+                          <div className={styles['stageMeta']} aria-label='현재 강의 정보'>
+                            {isResourceLesson ? (
+                              <button
+                                className={styles['resourceDownloadAllButton']}
+                                onClick={handleDownloadAllResourceAttachments}
+                                type='button'
+                              >
+                                모두 다운로드
+                                <span
+                                  aria-hidden='true'
+                                  className={styles['resourceDownloadIcon']}
+                                  style={playerArrowDownToLineIconStyle}
+                                />
+                              </button>
+                            ) : (
+                              <span className={styles['metaChip']}>
+                                {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
+                              </span>
+                            )}
                           </div>
-                          {selectedLesson ? (
-                            <div className={styles['stageMeta']} aria-label='현재 강의 정보'>
-                              {isResourceLesson ? (
-                                <button
-                                  className={styles['resourceDownloadAllButton']}
-                                  onClick={handleDownloadAllResourceAttachments}
-                                  type='button'
-                                >
-                                  모두 다운로드
-                                  <span
-                                    aria-hidden='true'
-                                    className={styles['resourceDownloadIcon']}
-                                    style={playerArrowDownToLineIconStyle}
-                                  />
-                                </button>
-                              ) : (
-                                <span className={styles['metaChip']}>
-                                  {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
-                                </span>
-                              )}
+                        ) : null}
+                      </div>
+
+                      <div
+                        className={classNames(
+                          styles['playerShell'],
+                          isResourceLesson && styles['resourcePlayerShell'],
+                        )}
+                      >
+                        <div
+                          aria-label='영상 플레이어'
+                          className={classNames(
+                            styles['playerFrame'],
+                            (isOfflineLesson || isResourceLesson) && styles['playerFrameSchedule'],
+                            selectedLessonHasStream &&
+                              !arePlayerControlsVisible &&
+                              styles['playerFrameControlsHidden'],
+                          )}
+                          onFocus={selectedLessonHasStream ? revealPlayerControls : undefined}
+                          onClick={selectedLessonHasStream ? handlePlayerFrameClick : undefined}
+                          onKeyDown={selectedLessonHasStream ? handlePlayerFrameKeyDown : undefined}
+                          onPointerDown={selectedLessonHasStream ? revealPlayerControls : undefined}
+                          onPointerMove={selectedLessonHasStream ? revealPlayerControls : undefined}
+                          role={selectedLessonHasStream ? 'region' : undefined}
+                          tabIndex={selectedLessonHasStream ? 0 : undefined}
+                        >
+                          {isOfflineLesson ? (
+                            renderOfflineSchedulePanel()
+                          ) : isResourceLesson ? (
+                            renderResourcePanel()
+                          ) : selectedLessonHasStream ? (
+                            <video
+                              className={styles['playerElement']}
+                              controlsList='nodownload noremoteplayback'
+                              disablePictureInPicture
+                              disableRemotePlayback
+                              playsInline
+                              poster={selectedSource.posterUrl ?? undefined}
+                              preload='auto'
+                              ref={videoRef}
+                            />
+                          ) : (
+                            <div className={styles['playerPlaceholder']}>
+                              <div className={styles['playerOverlayCopy']}>
+                                <p className={styles['overlayTitle']}>
+                                  이 강의는 영상 없이 제공되는 강의입니다.
+                                </p>
+                                <p className={styles['overlayDescription']}>
+                                  실습, 첨부자료, 강의 설명 중심으로 진행되며 영상이 연결되면
+                                  여기에서 바로 재생할 수 있습니다.
+                                </p>
+                                {selectedLesson?.description ? (
+                                  <p className={styles['playerPlaceholderDescription']}>
+                                    {selectedLesson.description}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedLessonHasStream && streamLoading ? (
+                            <div className={styles['playerOverlay']} data-state='loading'>
+                              <span aria-hidden='true' className={styles['playerLoadingSpinner']} />
+                              <div className={styles['playerOverlayCopy']}>
+                                <p className={styles['overlayTitle']}>스트리밍 준비 중</p>
+                                <p className={styles['overlayDescription']}>
+                                  잠시만 기다려 주세요. 영상 재생을 준비하고 있습니다.
+                                </p>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {isUnsupportedPlayback ? (
+                            <div className={styles['playerOverlay']} data-state='notice'>
+                              <div className={styles['playerOverlayCopy']}>
+                                <p className={styles['overlayTitle']}>
+                                  현재 브라우저에서는 재생이 지원되지 않습니다.
+                                </p>
+                                <p className={styles['overlayDescription']}>
+                                  최신 버전의 Chrome 또는 Edge 사용을 권장합니다.
+                                </p>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {!isOfflineLesson && !isResourceLesson && !selectedSource ? (
+                            <div className={styles['playerOverlay']} data-state='notice'>
+                              <p className={styles['overlayTitle']}>
+                                재생할 강의를 찾을 수 없습니다.
+                              </p>
+                            </div>
+                          ) : null}
+
+                          {playerError ? (
+                            <div className={styles['playerOverlay']} data-state='error'>
+                              <div className={styles['playerOverlayCopy']}>
+                                <p className={styles['overlayTitle']}>
+                                  영상 재생에 문제가 발생했습니다.
+                                </p>
+                                <p className={styles['overlayDescription']}>
+                                  잠시 후 다시 시도해 주세요.
+                                </p>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {selectedLessonHasStream ? (
+                            <div className={styles['playerFrameControls']} ref={settingsPanelRef}>
+                              <div className={styles['playerTimeline']}>
+                                <span className={styles['playerTimelineTrack']} />
+                                <span
+                                  className={styles['playerTimelineBuffer']}
+                                  style={{ width: '31%' }}
+                                />
+                                <span
+                                  className={styles['playerTimelineFill']}
+                                  style={{ width: `${String(playerProgressRatio)}%` }}
+                                />
+                                <span
+                                  aria-hidden='true'
+                                  className={styles['playerTimelineThumb']}
+                                  style={{ left: `${String(playerProgressRatio)}%` }}
+                                />
+                              </div>
+                              <div className={styles['playerControlRow']}>
+                                <div className={styles['playerPrimaryControls']}>
+                                  <button
+                                    aria-label={isVideoPlaying ? '멈춤' : '재생'}
+                                    className={styles['playerIconButton']}
+                                    onClick={togglePlayback}
+                                    title={isVideoPlaying ? '멈춤' : '재생'}
+                                    type='button'
+                                  >
+                                    <span
+                                      aria-hidden='true'
+                                      className={classNames(
+                                        styles['playerControlIcon'],
+                                        isVideoPlaying && styles['playerPauseIcon'],
+                                      )}
+                                      style={isVideoPlaying ? undefined : playerPlayIconStyle}
+                                    />
+                                  </button>
+                                  <button
+                                    aria-label={isVideoMuted ? '음소거 해제' : '음소거'}
+                                    className={styles['playerIconButton']}
+                                    onClick={toggleMute}
+                                    title={isVideoMuted ? '음소거 해제' : '음소거'}
+                                    type='button'
+                                  >
+                                    <span
+                                      aria-hidden='true'
+                                      className={styles['playerControlIcon']}
+                                      style={playerVolumeIconStyle}
+                                    />
+                                    {isVideoMuted ? (
+                                      <span
+                                        aria-hidden='true'
+                                        className={styles['playerMuteSlash']}
+                                      />
+                                    ) : null}
+                                  </button>
+                                  <span className={styles['playerTimeText']}>
+                                    {formatSeconds(Math.floor(currentPlaybackSeconds))} /{' '}
+                                    {formatSeconds(playerDurationSeconds || 45 * 60)}
+                                  </span>
+                                </div>
+                                <div className={styles['playerSecondaryControls']}>
+                                  <div className={styles['settingsAnchor']}>
+                                    <button
+                                      aria-expanded={activeSettingsPanel === 'speed'}
+                                      aria-haspopup='dialog'
+                                      aria-label='재생 설정'
+                                      className={styles['playerTextButton']}
+                                      onClick={() => {
+                                        setActiveSettingsPanel((current) =>
+                                          current === 'speed' ? null : 'speed',
+                                        );
+                                      }}
+                                      type='button'
+                                    >
+                                      {playbackRate}x
+                                    </button>
+                                    {activeSettingsPanel === 'speed' ? (
+                                      <div
+                                        aria-label='재생 속도 설정 패널'
+                                        className={classNames(
+                                          styles['settingsPanel'],
+                                          styles['settingsPanelSpeed'],
+                                        )}
+                                        role='dialog'
+                                      >
+                                        <div className={styles['settingsOptionList']}>
+                                          {PLAYBACK_SPEED_OPTIONS.map((speedOption) => (
+                                            <button
+                                              className={classNames(
+                                                styles['settingsOption'],
+                                                playbackRate === speedOption &&
+                                                  styles['settingsOptionActive'],
+                                              )}
+                                              key={speedOption}
+                                              onClick={() => {
+                                                applyPlaybackRate(speedOption);
+                                                setActiveSettingsPanel(null);
+                                              }}
+                                              type='button'
+                                            >
+                                              {speedOption}x
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <div className={styles['settingsAnchor']}>
+                                    <button
+                                      aria-expanded={activeSettingsPanel === 'quality'}
+                                      aria-haspopup='dialog'
+                                      aria-label='화질 설정'
+                                      className={styles['playerTextButton']}
+                                      onClick={() => {
+                                        setActiveSettingsPanel((current) =>
+                                          current === 'quality' ? null : 'quality',
+                                        );
+                                      }}
+                                      type='button'
+                                    >
+                                      화질 {selectedQualityLabel}
+                                    </button>
+                                    {activeSettingsPanel === 'quality' ? (
+                                      <div
+                                        aria-label='화질 설정 패널'
+                                        className={classNames(
+                                          styles['settingsPanel'],
+                                          styles['settingsPanelQuality'],
+                                        )}
+                                        role='dialog'
+                                      >
+                                        <div className={styles['settingsOptionList']}>
+                                          {qualityOptions.map((quality) => (
+                                            <button
+                                              className={classNames(
+                                                styles['settingsOption'],
+                                                selectedQualityLevel === quality.levelIndex &&
+                                                  styles['settingsOptionActive'],
+                                              )}
+                                              key={`${quality.label}-${String(quality.levelIndex)}`}
+                                              onClick={() => {
+                                                applyQualityLevel(quality.levelIndex);
+                                                setActiveSettingsPanel(null);
+                                              }}
+                                              type='button'
+                                            >
+                                              {quality.label}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <button
+                                    aria-label='전체화면'
+                                    className={styles['playerIconButton']}
+                                    onClick={requestPlayerFullscreen}
+                                    type='button'
+                                  >
+                                    <span
+                                      aria-hidden='true'
+                                      className={styles['playerControlIcon']}
+                                      style={playerFullscreenIconStyle}
+                                    />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           ) : null}
                         </div>
-                      ) : null}
-
-                      {isResourceLesson && !lessonResourceAttachments.length ? null : (
-                        <div
-                          className={classNames(
-                            styles['playerShell'],
-                            isResourceLesson && styles['resourcePlayerShell'],
-                          )}
-                        >
-                          <div
-                            className={classNames(
-                              styles['playerFrame'],
-                              (isOfflineLesson || isResourceLesson) &&
-                                styles['playerFrameSchedule'],
-                            )}
-                          >
-                            {isOfflineLesson ? (
-                              renderOfflineSchedulePanel()
-                            ) : isResourceLesson ? (
-                              renderResourcePanel()
-                            ) : selectedLessonHasStream ? (
-                              <video
-                                className={styles['playerElement']}
-                                controlsList='nodownload noremoteplayback'
-                                disablePictureInPicture
-                                disableRemotePlayback
-                                playsInline
-                                poster={selectedSource.posterUrl ?? playerDemoImage}
-                                preload='auto'
-                                ref={videoRef}
-                              />
-                            ) : (
-                              <div className={styles['playerPlaceholder']}>
-                                <div className={styles['playerOverlayCopy']}>
-                                  <p className={styles['overlayTitle']}>
-                                    이 강의는 영상 없이 제공되는 강의입니다.
-                                  </p>
-                                  <p className={styles['overlayDescription']}>
-                                    실습, 첨부자료, 강의 설명 중심으로 진행되며 영상이 연결되면
-                                    여기에서 바로 재생할 수 있습니다.
-                                  </p>
-                                  {selectedLesson?.description ? (
-                                    <p className={styles['playerPlaceholderDescription']}>
-                                      {selectedLesson.description}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              </div>
-                            )}
-
-                            {selectedLessonHasStream && streamLoading ? (
-                              <div className={styles['playerOverlay']} data-state='loading'>
-                                <span
-                                  aria-hidden='true'
-                                  className={styles['playerLoadingSpinner']}
-                                />
-                                <div className={styles['playerOverlayCopy']}>
-                                  <p className={styles['overlayTitle']}>스트리밍 준비 중</p>
-                                  <p className={styles['overlayDescription']}>
-                                    잠시만 기다려 주세요. 영상 재생을 준비하고 있습니다.
-                                  </p>
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {isUnsupportedPlayback ? (
-                              <div className={styles['playerOverlay']} data-state='notice'>
-                                <div className={styles['playerOverlayCopy']}>
-                                  <p className={styles['overlayTitle']}>
-                                    현재 브라우저에서는 재생이 지원되지 않습니다.
-                                  </p>
-                                  <p className={styles['overlayDescription']}>
-                                    최신 버전의 Chrome 또는 Edge 사용을 권장합니다.
-                                  </p>
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {!isOfflineLesson && !isResourceLesson && !selectedSource ? (
-                              <div className={styles['playerOverlay']} data-state='notice'>
-                                <p className={styles['overlayTitle']}>
-                                  재생할 강의를 찾을 수 없습니다.
-                                </p>
-                              </div>
-                            ) : null}
-
-                            {playerError ? (
-                              <div className={styles['playerOverlay']} data-state='error'>
-                                <div className={styles['playerOverlayCopy']}>
-                                  <p className={styles['overlayTitle']}>
-                                    영상 재생에 문제가 발생했습니다.
-                                  </p>
-                                  <p className={styles['overlayDescription']}>
-                                    잠시 후 다시 시도해 주세요.
-                                  </p>
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {selectedLessonHasStream ? (
-                              <div className={styles['playerFrameControls']} ref={settingsPanelRef}>
-                                <div className={styles['playerTimeline']}>
-                                  <span className={styles['playerTimelineTrack']} />
-                                  <span
-                                    className={styles['playerTimelineBuffer']}
-                                    style={{ width: '31%' }}
-                                  />
-                                  <span
-                                    className={styles['playerTimelineFill']}
-                                    style={{ width: `${String(playerProgressRatio)}%` }}
-                                  />
-                                  <span
-                                    aria-hidden='true'
-                                    className={styles['playerTimelineThumb']}
-                                    style={{ left: `${String(playerProgressRatio)}%` }}
-                                  />
-                                </div>
-                                <div className={styles['playerControlRow']}>
-                                  <div className={styles['playerPrimaryControls']}>
-                                    <button
-                                      aria-label={isVideoPlaying ? '일시정지' : '재생'}
-                                      className={styles['playerIconButton']}
-                                      onClick={togglePlayback}
-                                      type='button'
-                                    >
-                                      <span
-                                        aria-hidden='true'
-                                        className={styles['playerControlIcon']}
-                                        style={playerPlayIconStyle}
-                                      />
-                                    </button>
-                                    <button
-                                      aria-label='볼륨'
-                                      className={styles['playerIconButton']}
-                                      type='button'
-                                    >
-                                      <span
-                                        aria-hidden='true'
-                                        className={styles['playerControlIcon']}
-                                        style={playerVolumeIconStyle}
-                                      />
-                                    </button>
-                                    <span className={styles['playerTimeText']}>
-                                      {formatSeconds(Math.floor(currentPlaybackSeconds))} /{' '}
-                                      {formatSeconds(playerDurationSeconds || 45 * 60)}
-                                    </span>
-                                  </div>
-                                  <div className={styles['playerSecondaryControls']}>
-                                    <div className={styles['settingsAnchor']}>
-                                      <button
-                                        aria-expanded={activeSettingsPanel === 'speed'}
-                                        aria-haspopup='dialog'
-                                        aria-label='재생 설정'
-                                        className={styles['playerTextButton']}
-                                        onClick={() => {
-                                          setActiveSettingsPanel((current) =>
-                                            current === 'speed' ? null : 'speed',
-                                          );
-                                        }}
-                                        type='button'
-                                      >
-                                        {playbackRate}x
-                                      </button>
-                                      {activeSettingsPanel === 'speed' ? (
-                                        <div
-                                          aria-label='재생 속도 설정 패널'
-                                          className={classNames(
-                                            styles['settingsPanel'],
-                                            styles['settingsPanelSpeed'],
-                                          )}
-                                          role='dialog'
-                                        >
-                                          <div className={styles['settingsOptionList']}>
-                                            {PLAYBACK_SPEED_OPTIONS.map((speedOption) => (
-                                              <button
-                                                className={classNames(
-                                                  styles['settingsOption'],
-                                                  playbackRate === speedOption &&
-                                                    styles['settingsOptionActive'],
-                                                )}
-                                                key={speedOption}
-                                                onClick={() => {
-                                                  applyPlaybackRate(speedOption);
-                                                  setActiveSettingsPanel(null);
-                                                }}
-                                                type='button'
-                                              >
-                                                {speedOption}x
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                    <div className={styles['settingsAnchor']}>
-                                      <button
-                                        aria-expanded={activeSettingsPanel === 'quality'}
-                                        aria-haspopup='dialog'
-                                        aria-label='화질 설정'
-                                        className={styles['playerTextButton']}
-                                        onClick={() => {
-                                          setActiveSettingsPanel((current) =>
-                                            current === 'quality' ? null : 'quality',
-                                          );
-                                        }}
-                                        type='button'
-                                      >
-                                        화질 {selectedQualityLabel}
-                                      </button>
-                                      {activeSettingsPanel === 'quality' ? (
-                                        <div
-                                          aria-label='화질 설정 패널'
-                                          className={classNames(
-                                            styles['settingsPanel'],
-                                            styles['settingsPanelQuality'],
-                                          )}
-                                          role='dialog'
-                                        >
-                                          <div className={styles['settingsOptionList']}>
-                                            {qualityOptions.map((quality) => (
-                                              <button
-                                                className={classNames(
-                                                  styles['settingsOption'],
-                                                  selectedQualityLevel === quality.levelIndex &&
-                                                    styles['settingsOptionActive'],
-                                                )}
-                                                key={`${quality.label}-${String(quality.levelIndex)}`}
-                                                onClick={() => {
-                                                  applyQualityLevel(quality.levelIndex);
-                                                  setActiveSettingsPanel(null);
-                                                }}
-                                                type='button'
-                                              >
-                                                {quality.label}
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                    <button
-                                      aria-label='전체화면'
-                                      className={styles['playerIconButton']}
-                                      onClick={requestPlayerFullscreen}
-                                      type='button'
-                                    >
-                                      <span
-                                        aria-hidden='true'
-                                        className={styles['playerControlIcon']}
-                                        style={playerFullscreenIconStyle}
-                                      />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </section>
 
                     {renderPracticumPanel()}
@@ -3009,11 +3460,6 @@ const PlayerPage = () => {
                                 <strong className={styles['quizQuestionTitle']}>
                                   {currentQuizQuestion.questionText}
                                 </strong>
-                                {quizQuery.data.description ? (
-                                  <p className={styles['quizQuestionDescription']}>
-                                    {quizQuery.data.description}
-                                  </p>
-                                ) : null}
                                 {currentQuizResult ? (
                                   <span
                                     className={classNames(
@@ -3051,6 +3497,8 @@ const PlayerPage = () => {
                                           styles['quizOptionRow'],
                                           checked && styles['quizOptionRowSelected'],
                                         )}
+                                        data-checked={checked ? 'true' : 'false'}
+                                        data-type={currentQuizQuestion.questionType}
                                         key={option.id}
                                       >
                                         <input
@@ -3070,6 +3518,10 @@ const PlayerPage = () => {
                                               ? 'checkbox'
                                               : 'radio'
                                           }
+                                        />
+                                        <span
+                                          aria-hidden='true'
+                                          className={styles['quizOptionIndicator']}
                                         />
                                         <div className={styles['quizOptionContent']}>
                                           <span className={styles['quizOptionLabel']}>
@@ -3112,7 +3564,14 @@ const PlayerPage = () => {
 
                               <div className={styles['quizControlBar']}>
                                 {!quizReviewMode ? (
-                                  <label className={styles['quizFlagToggleBottom']}>
+                                  <label
+                                    className={styles['quizFlagToggleBottom']}
+                                    data-checked={
+                                      quizFlaggedQuestionIds.has(currentQuizQuestion.id)
+                                        ? 'true'
+                                        : 'false'
+                                    }
+                                  >
                                     <input
                                       checked={quizFlaggedQuestionIds.has(currentQuizQuestion.id)}
                                       onChange={(event) => {
@@ -3122,6 +3581,12 @@ const PlayerPage = () => {
                                         );
                                       }}
                                       type='checkbox'
+                                    />
+                                    <img
+                                      alt=''
+                                      aria-hidden='true'
+                                      className={styles['quizFlagToggleIcon']}
+                                      src={iconBookmark}
                                     />
                                     <span>나중에 풀기</span>
                                   </label>
@@ -3249,13 +3714,11 @@ const PlayerPage = () => {
                 <aside className={styles['quizNavigatorPanel']}>
                   <div className={styles['curriculumHeader']}>
                     <div className={styles['curriculumHeaderCopy']}>
-                      <h2 className={styles['curriculumTitle']}>
-                        {selectedLesson?.title ?? curriculumPanelTitle}
-                      </h2>
+                      <h2 className={styles['curriculumTitle']}>{curriculumPanelTitle}</h2>
                     </div>
                     <div className={styles['panelSwitchRow']}>
                       <button
-                        aria-label='문제 목록 패널'
+                        aria-label='프로그램 패널'
                         className={classNames(
                           styles['panelSwitchButton'],
                           activeQuizSidebarPanel === 'curriculum' &&
@@ -3300,27 +3763,208 @@ const PlayerPage = () => {
                           />
                         </div>
                       </div>
-                      <div className={styles['quizNavigatorLessonSummary']}>
-                        <div className={styles['quizNavigatorLessonTitleRow']}>
-                          <span aria-hidden='true' className={styles['quizNavigatorLessonDot']} />
-                          <h3 className={styles['quizNavigatorLessonTitle']}>
-                            {selectedLesson?.title ?? curriculumPanelTitle}
-                          </h3>
-                          <span aria-hidden='true' className={styles['quizNavigatorChevron']} />
-                        </div>
-                        <div className={styles['quizNavigatorLessonMeta']}>
-                          <span className={styles['quizNavigatorTypeBadge']}>문제풀이</span>
-                          <span>{String(quizQuestions.length)}문항</span>
-                          <span>{formatProblemTimeLimit(quizTimeLimitSeconds)}</span>
+                      <div className={styles['curriculumPanelContent']}>
+                        <div className={styles['curriculumBody']}>
+                          {snapshot.curriculumTrack.sections.map((section) => {
+                            const isSectionOpen = expandedCurriculumSectionIds.has(section.id);
+
+                            return (
+                              <section
+                                className={classNames(
+                                  styles['sectionBlock'],
+                                  isSectionOpen && styles['sectionBlockOpen'],
+                                )}
+                                key={section.id}
+                                ref={(node) => {
+                                  curriculumSectionRefs.current[section.id] = node;
+                                }}
+                              >
+                                <button
+                                  aria-expanded={isSectionOpen}
+                                  className={styles['sectionHeader']}
+                                  onClick={() => {
+                                    toggleCurriculumSection(section.id);
+                                  }}
+                                  type='button'
+                                >
+                                  <h3 className={styles['sectionTitle']}>{section.title}</h3>
+                                  <span className={styles['sectionToggle']}>
+                                    <span
+                                      aria-hidden='true'
+                                      className={styles['sectionToggleIcon']}
+                                      style={playerChevronDownIconStyle}
+                                    />
+                                  </span>
+                                </button>
+
+                                <div
+                                  className={styles['sectionContent']}
+                                  aria-hidden={!isSectionOpen}
+                                >
+                                  <div className={styles['lessonList']}>
+                                    {flattenPlayerItems([
+                                      {
+                                        id: section.id,
+                                        lessons: section.lessons,
+                                        title: section.title,
+                                      },
+                                    ]).map((item) => {
+                                      const lesson = item.lesson;
+                                      const isCurrent = item.id === selectedItem.id;
+                                      const isCompleted = completedLessonIds.has(lesson.id);
+                                      const isProblemCompleted = quizAttemptedLessonIds.has(
+                                        lesson.id,
+                                      );
+                                      const practicumSidebarState =
+                                        lesson.deliveryType === 'practicum'
+                                          ? (practicumSidebarStatesByLessonId.get(lesson.id) ??
+                                            null)
+                                          : null;
+                                      const practicumLessonBadgeLabel =
+                                        lesson.deliveryType === 'practicum'
+                                          ? resolvePracticumLessonBadgeLabel(
+                                              practicumLectureByLectureId.get(
+                                                snapshot?.lessonPlaybackById[lesson.id]
+                                                  ?.lectureId ??
+                                                  lesson.lectureId ??
+                                                  -1,
+                                              ) ?? null,
+                                            )
+                                          : null;
+                                      const offlineSidebarState = getOfflineSidebarState(lesson);
+                                      const lessonSummaryActionLabel = getLessonSummaryActionLabel(
+                                        lesson,
+                                        practicumSidebarState?.label ?? null,
+                                      );
+                                      const lessonActionLabel =
+                                        lesson.deliveryType === 'problem' && isProblemCompleted
+                                          ? '문제 완료'
+                                          : lessonSummaryActionLabel;
+                                      const lessonMetaItems = getLessonMetaItems(lesson);
+                                      const isItemCompleted =
+                                        lesson.deliveryType === 'problem'
+                                          ? isProblemCompleted
+                                          : isCompleted;
+                                      const isLocked = lockedLessonIds.has(lesson.id);
+
+                                      return (
+                                        <div
+                                          className={classNames(
+                                            styles['lessonLinkGroup'],
+                                            isCurrent &&
+                                              lesson.deliveryType === 'problem' &&
+                                              styles['lessonLinkGroupExpanded'],
+                                          )}
+                                          key={item.id}
+                                        >
+                                          <Link
+                                            className={classNames(
+                                              styles['lessonLink'],
+                                              isCurrent && styles['lessonLinkCurrent'],
+                                              isLocked && styles['lessonLinkLocked'],
+                                            )}
+                                            tabIndex={isSectionOpen ? undefined : -1}
+                                            to={routePaths.learningLesson(
+                                              String(resolvedEnrollmentId),
+                                              item.id,
+                                            )}
+                                          >
+                                            <span
+                                              aria-hidden='true'
+                                              className={classNames(
+                                                styles['lessonStatusIcon'],
+                                                isItemCompleted &&
+                                                  styles['lessonStatusIconCompleted'],
+                                                isCurrent &&
+                                                  !isItemCompleted &&
+                                                  styles['lessonStatusIconCurrent'],
+                                                isLocked && styles['lessonStatusIconLocked'],
+                                              )}
+                                              style={
+                                                isItemCompleted
+                                                  ? completedStatusStyle
+                                                  : isCurrent
+                                                    ? playerCurrentLessonIndicatorStyle
+                                                    : undefined
+                                              }
+                                            />
+                                            <div className={styles['lessonLinkBody']}>
+                                              <div className={styles['lessonBadgeRow']}>
+                                                <span className={styles['lessonTypeBadge']}>
+                                                  {PLAYER_LESSON_TYPE_LABELS[lesson.deliveryType]}
+                                                </span>
+                                                {practicumSidebarState ? (
+                                                  <span
+                                                    className={styles['lessonPracticumBadge']}
+                                                    data-tone={practicumSidebarState.tone}
+                                                  >
+                                                    {practicumLessonBadgeLabel ??
+                                                      practicumSidebarState.label}
+                                                  </span>
+                                                ) : null}
+                                                {offlineSidebarState ? (
+                                                  <span
+                                                    className={styles['lessonPracticumBadge']}
+                                                    data-tone={offlineSidebarState.tone}
+                                                  >
+                                                    {offlineSidebarState.label}
+                                                  </span>
+                                                ) : null}
+                                              </div>
+                                              <div className={styles['lessonTitleRow']}>
+                                                <strong className={styles['lessonLinkTitle']}>
+                                                  {item.title}
+                                                </strong>
+                                                {lesson.deliveryType !== 'problem' ? (
+                                                  <span className={styles['lessonSummaryAction']}>
+                                                    {lessonActionLabel}
+                                                  </span>
+                                                ) : isProblemCompleted ? (
+                                                  <span
+                                                    className={styles['lessonSummaryAction']}
+                                                    data-tone='completed'
+                                                  >
+                                                    {lessonActionLabel}
+                                                  </span>
+                                                ) : null}
+                                              </div>
+                                              {lessonMetaItems.length ? (
+                                                <div className={styles['lessonLinkMeta']}>
+                                                  {lessonMetaItems.map((metaItem) => (
+                                                    <span
+                                                      className={styles['lessonLinkDuration']}
+                                                      key={`${item.id}-${metaItem}`}
+                                                    >
+                                                      {metaItem}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              ) : null}
+                                            </div>
+                                          </Link>
+
+                                          {isCurrent && lesson.deliveryType === 'problem' ? (
+                                            <div className={styles['quizLessonDropdown']}>
+                                              {shouldShowQuizQuestionNavigator
+                                                ? renderQuizQuestionNavigator()
+                                                : null}
+                                              {shouldShowQuizNavigatorEmptyText ? (
+                                                <p className={styles['quizNavigatorEmptyText']}>
+                                                  문제 풀이를 시작하면 문항 목록이 표시됩니다.
+                                                </p>
+                                              ) : null}
+                                            </div>
+                                          ) : null}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </section>
+                            );
+                          })}
                         </div>
                       </div>
-                      {isQuizSessionActive || quizAttemptResult ? (
-                        renderQuizQuestionNavigator()
-                      ) : (
-                        <p className={styles['quizNavigatorEmptyText']}>
-                          문제 풀이를 시작하면 문항 목록이 표시됩니다.
-                        </p>
-                      )}
                     </>
                   ) : (
                     <div className={styles['curriculumPanelContent']}>

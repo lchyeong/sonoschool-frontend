@@ -55,6 +55,12 @@ const normalizeDraftDetail = (detail: AdminProgramDraftDetail): AdminProgramDraf
       })),
       problems: detail.payload.problems.map((problem) => ({
         ...problem,
+        questions: problem.questions.map((question) => ({
+          ...question,
+          mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
+          mediaUploadFileName: question.mediaUploadFileName ?? null,
+          mediaUploadStatus: question.mediaUploadStatus ?? (question.mediaAssetId ? 'READY' : null),
+        })),
       })),
       resources: detail.payload.resources.map((resource) => ({
         ...resource,
@@ -87,6 +93,15 @@ const normalizeDraftPayload = (payload: AdminProgramDraftPayload) => {
       lectures: section.lectures.map((lecture) => ({
         ...lecture,
         preview: false,
+      })),
+    })),
+    problems: payload.problems.map((problem) => ({
+      ...problem,
+      questions: problem.questions.map((question) => ({
+        ...question,
+        mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
+        mediaUploadFileName: question.mediaUploadFileName ?? null,
+        mediaUploadStatus: question.mediaUploadStatus ?? (question.mediaAssetId ? 'READY' : null),
       })),
     })),
   };

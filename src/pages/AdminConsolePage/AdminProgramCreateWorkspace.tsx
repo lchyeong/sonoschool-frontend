@@ -117,6 +117,15 @@ interface PendingLocalFile {
   sizeLabel: string;
 }
 
+interface PendingQuestionMediaFile extends PendingLocalFile {
+  previousMediaAssetId: number | null;
+  previousMediaType: AdminProblemMediaType | null;
+  previousMediaUploadErrorMessage: string | null;
+  previousMediaUploadFileName: string | null;
+  previousMediaUploadStatus: AdminDraftUploadStatus | null;
+  previousMediaUrl: string | null;
+}
+
 interface PendingThumbnailFile extends PendingLocalFile {
   previewObjectUrl: string | null;
 }
@@ -172,6 +181,20 @@ const isOfflineLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureT
 const isResourceLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'RESOURCE';
 const supportsLectureVideo = (lecture: AdminProgramDraftLecture) =>
   lecture.lectureType === 'VIDEO' || lecture.lectureType === 'OFFLINE';
+
+const normalizeLectureByType = (lecture: AdminProgramDraftLecture): AdminProgramDraftLecture => {
+  if (supportsLectureVideo(lecture)) {
+    return lecture;
+  }
+
+  return {
+    ...lecture,
+    videoId: null,
+    videoUploadErrorMessage: null,
+    videoUploadFileName: null,
+    videoUploadStatus: null,
+  };
+};
 
 const createClientKey = (prefix: string): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -281,6 +304,9 @@ const createEmptyQuestion = (): AdminProgramDraftProblemQuestion => ({
   explanation: null,
   mediaAssetId: null,
   mediaType: null,
+  mediaUploadErrorMessage: null,
+  mediaUploadFileName: null,
+  mediaUploadStatus: null,
   mediaUrl: null,
   options: createFiveChoiceOptions(),
   questionText: '',
@@ -289,7 +315,6 @@ const createEmptyQuestion = (): AdminProgramDraftProblemQuestion => ({
 });
 
 const createEmptyProblem = (lectureKey: string): AdminProgramDraftProblem => ({
-  description: null,
   lectureKey,
   passScore: 60,
   questions: [createEmptyQuestion()],
@@ -432,14 +457,22 @@ const normalizeDraftPayloadShape = (
     return {
       ...problem,
       title: problem.title?.trim() || lectureTitle || '문제',
+      questions: problem.questions.map((question) => ({
+        ...question,
+        mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
+        mediaUploadFileName: question.mediaUploadFileName ?? null,
+        mediaUploadStatus: normalizeQuestionMediaUploadStatus(question),
+      })),
     };
   }),
   sections: payload.sections.map((section) => ({
     ...section,
-    lectures: section.lectures.map((lecture) => ({
-      ...lecture,
-      offlineSchedules: normalizeLegacyOfflineSchedules(lecture),
-    })),
+    lectures: section.lectures.map((lecture) =>
+      normalizeLectureByType({
+        ...lecture,
+        offlineSchedules: normalizeLegacyOfflineSchedules(lecture),
+      }),
+    ),
   })),
 });
 
@@ -529,17 +562,6 @@ const formatDraftLectureCardLabel = (
   return `강의 ${String(lectureIndex + 1)}-${LECTURE_TYPE_SHORT_LABELS[lectureType]}`;
 };
 
-const getQuestionMediaAccept = (mediaType: AdminProblemMediaType | null) => {
-  if (mediaType === 'IMAGE') {
-    return 'image/*';
-  }
-  if (mediaType === 'VIDEO') {
-    return 'video/*';
-  }
-
-  return undefined;
-};
-
 const formatFileSizeInMb = (bytes: number | null): string => {
   if (bytes === null || bytes <= 0) {
     return '';
@@ -580,6 +602,15 @@ const formatUploadStatusLabel = (
 const isUploadInProgress = (status: AdminDraftUploadStatus | null): boolean =>
   status === 'UPLOADING' || status === 'PROCESSING';
 
+const normalizeQuestionMediaUploadStatus = (
+  question: Pick<AdminProgramDraftProblemQuestion, 'mediaAssetId' | 'mediaUploadStatus'>,
+): AdminDraftUploadStatus | null => {
+  if (question.mediaUploadStatus) {
+    return question.mediaUploadStatus;
+  }
+  return question.mediaAssetId ? 'READY' : null;
+};
+
 const programTypeOptions = [
   { value: 'ONLINE', label: '온라인' },
   { value: 'OFFLINE', label: '오프라인' },
@@ -598,11 +629,6 @@ const accessPolicyOptions = [
   { value: 'UNLIMITED', label: '무제한' },
   { value: 'FIXED_DURATION', label: '고정 기간' },
   { value: 'COHORT', label: '기수형' },
-] as const;
-
-const mediaTypeOptions = [
-  { value: 'IMAGE', label: '이미지' },
-  { value: 'VIDEO', label: '영상' },
 ] as const;
 
 const PROGRAM_CREATE_WORKSPACE_PATH_PREFIX = routePaths.adminProgramCreate;
@@ -830,8 +856,12 @@ const uploadPart = async (uploadUrl: string, chunk: Blob, contentType: string): 
   return stripETagQuotes(eTag);
 };
 
-const formatProgressLabel = (label: string, progressPercent: number | null | undefined): string => {
-  if (progressPercent === null || progressPercent === undefined) {
+const formatProgressLabel = (
+  label: string,
+  progressPercent: number | null | undefined,
+  showProgress: boolean,
+): string => {
+  if (!showProgress || progressPercent === null || progressPercent === undefined) {
     return label;
   }
 
@@ -881,6 +911,9 @@ const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgr
         ...problem,
         questions: problem.questions.map((question) => ({
           ...question,
+          mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
+          mediaUploadFileName: question.mediaUploadFileName ?? null,
+          mediaUploadStatus: normalizeQuestionMediaUploadStatus(question),
           options: normalizeQuestionOptions(question.options),
           questionType: resolveQuestionType(question.options),
         })),
@@ -888,16 +921,18 @@ const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgr
     sections: nextPayload.sections?.length
       ? nextPayload.sections.map((section) => ({
           ...section,
-          lectures: section.lectures.map((lecture) => ({
-            ...lecture,
-            lectureType:
-              lecture.lectureType ??
-              getDefaultLectureType(nextPayload.basicInfo?.programType ?? 'ONLINE'),
-            offlineSchedules: lecture.offlineSchedules ?? [],
-            videoUploadErrorMessage: lecture.videoUploadErrorMessage ?? null,
-            videoUploadFileName: lecture.videoUploadFileName ?? null,
-            videoUploadStatus: lecture.videoUploadStatus ?? null,
-          })),
+          lectures: section.lectures.map((lecture) =>
+            normalizeLectureByType({
+              ...lecture,
+              lectureType:
+                lecture.lectureType ??
+                getDefaultLectureType(nextPayload.basicInfo?.programType ?? 'ONLINE'),
+              offlineSchedules: lecture.offlineSchedules ?? [],
+              videoUploadErrorMessage: lecture.videoUploadErrorMessage ?? null,
+              videoUploadFileName: lecture.videoUploadFileName ?? null,
+              videoUploadStatus: lecture.videoUploadStatus ?? null,
+            }),
+          ),
         }))
       : [createEmptySection(0)],
     resources: (nextPayload.resources ?? []).map((resource) => ({
@@ -933,7 +968,7 @@ const AdminProgramCreateWorkspace = ({
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [questionUploadStatus, setQuestionUploadStatus] = useState<Record<string, string>>({});
   const [pendingQuestionMediaSelections, setPendingQuestionMediaSelections] = useState<
-    Record<string, PendingLocalFile>
+    Record<string, PendingQuestionMediaFile>
   >({});
   const [pendingVideoSelections, setPendingVideoSelections] = useState<
     Record<string, PendingLocalFile>
@@ -977,6 +1012,7 @@ const AdminProgramCreateWorkspace = ({
   const lectureTypeMenuRef = useRef<HTMLDivElement | null>(null);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const numericInputsInitializedForDraftRef = useRef<number | null>(null);
+  const resumingVideoIdsRef = useRef<Set<number>>(new Set());
 
   const createDraftMutation = useMutation({
     mutationFn: () => {
@@ -1897,7 +1933,7 @@ const AdminProgramCreateWorkspace = ({
       return next;
     });
     setPendingQuestionMediaSelections((current) => {
-      const next: Record<string, PendingLocalFile> = {};
+      const next: Record<string, PendingQuestionMediaFile> = {};
       const prefix = `${lectureKey}:`;
 
       for (const [key, value] of Object.entries(current)) {
@@ -1974,7 +2010,7 @@ const AdminProgramCreateWorkspace = ({
       return next;
     });
     setPendingQuestionMediaSelections((current) => {
-      const next: Record<string, PendingLocalFile> = {};
+      const next: Record<string, PendingQuestionMediaFile> = {};
       const prefix = `${lectureKey}:`;
 
       for (const [key, value] of Object.entries(current)) {
@@ -2061,26 +2097,23 @@ const AdminProgramCreateWorkspace = ({
       <div className={styles['lectureWorkspaceSection']}>
         {problem ? (
           <div className={styles['stackListCompact']}>
-            <div className={styles['inlineFieldGrid']}>
-              <TextAreaField
-                label='문제 설명'
-                name={`problem-description-${lectureKey}`}
-                onChange={(event) => {
-                  upsertProblem(lectureKey, (current) => ({
-                    ...current,
-                    description: event.target.value || null,
-                  }));
-                }}
-                rows={2}
-                value={problem.description ?? ''}
-              />
-            </div>
             {problem.questions.map((question, questionIndex) => {
               const uploadKey = `${lectureKey}:${String(questionIndex)}`;
               const pendingQuestionMediaSelection =
                 pendingQuestionMediaSelections[uploadKey] ?? null;
-              const questionMediaAccept = getQuestionMediaAccept(question.mediaType);
               const questionMediaInputId = `problem-question-media-upload-${lectureKey}-${String(questionIndex)}`;
+              const questionMediaUploadStatus = normalizeQuestionMediaUploadStatus(question);
+              const questionMediaStatusLabel =
+                questionUploadStatus[uploadKey] ??
+                formatUploadStatusLabel(
+                  questionMediaUploadStatus,
+                  question.mediaAssetId ? '업로드 완료' : '파일 미선택',
+                  question.mediaUploadErrorMessage,
+                );
+              const questionMediaFileLabel =
+                pendingQuestionMediaSelection?.file.name ??
+                question.mediaUploadFileName ??
+                (question.mediaAssetId ? '업로드된 미디어' : '아직 선택한 파일이 없습니다.');
 
               return (
                 <article
@@ -2091,8 +2124,7 @@ const AdminProgramCreateWorkspace = ({
                     <div>
                       <h6 className={styles['panelTitle']}>문제 {String(questionIndex + 1)}</h6>
                       <p className={styles['metaText']}>
-                        {questionUploadStatus[uploadKey] ??
-                          (question.mediaAssetId ? '미디어 연결됨' : '미디어 없음')}
+                        {question.mediaType ? questionMediaStatusLabel : '미디어 없음'}
                       </p>
                     </div>
                     <Button
@@ -2106,63 +2138,40 @@ const AdminProgramCreateWorkspace = ({
                     </Button>
                   </div>
 
-                  <TextAreaField
-                    label='문제 내용'
-                    name={`problem-question-text-${lectureKey}-${String(questionIndex)}`}
-                    onChange={(event) => {
-                      updateProblemQuestion(lectureKey, questionIndex, (current) => ({
-                        ...current,
-                        questionText: event.target.value,
-                      }));
-                    }}
-                    value={question.questionText}
-                  />
-
-                  <TextAreaField
-                    label='해설'
-                    name={`problem-question-explanation-${lectureKey}-${String(questionIndex)}`}
-                    onChange={(event) => {
-                      updateProblemQuestion(lectureKey, questionIndex, (current) => ({
-                        ...current,
-                        explanation: event.target.value,
-                      }));
-                    }}
-                    rows={3}
-                    value={question.explanation ?? ''}
-                  />
-
-                  <div className={styles['questionMediaRow']}>
-                    <AdminDropdownField
-                      compact
-                      label='미디어 유형'
-                      onChange={(nextValue) => {
+                  <div className={styles['problemQuestionBody']}>
+                    <TextAreaField
+                      label='문제'
+                      name={`problem-question-text-${lectureKey}-${String(questionIndex)}`}
+                      onChange={(event) => {
                         updateProblemQuestion(lectureKey, questionIndex, (current) => ({
                           ...current,
-                          mediaAssetId: nextValue ? current.mediaAssetId : null,
-                          mediaType: nextValue ? (nextValue as AdminProblemMediaType) : null,
-                          mediaUrl: nextValue ? current.mediaUrl : null,
+                          questionText: event.target.value,
                         }));
-                        if (!nextValue) {
-                          setPendingQuestionMediaSelections((current) => {
-                            const next = { ...current };
-                            delete next[uploadKey];
-                            return next;
-                          });
-                          setQuestionUploadStatus((current) => {
-                            const next = { ...current };
-                            delete next[uploadKey];
-                            return next;
-                          });
-                        }
                       }}
-                      options={[{ value: '', label: '선택 안 함' }, ...mediaTypeOptions]}
-                      value={question.mediaType ?? ''}
+                      value={question.questionText}
                     />
 
-                    {question.mediaType ? (
-                      <div className={styles['questionMediaActions']}>
+                    <TextAreaField
+                      label='설명'
+                      name={`problem-question-explanation-${lectureKey}-${String(questionIndex)}`}
+                      onChange={(event) => {
+                        updateProblemQuestion(lectureKey, questionIndex, (current) => ({
+                          ...current,
+                          explanation: event.target.value,
+                        }));
+                      }}
+                      rows={3}
+                      value={question.explanation ?? ''}
+                    />
+
+                    <div className={styles['problemQuestionMediaBlock']}>
+                      <div className={styles['problemQuestionSectionHeader']}>
+                        <strong>이미지 / 영상</strong>
+                        <span>문제 이해에 필요한 자료가 있을 때만 연결합니다.</span>
+                      </div>
+                      <div className={styles['questionMediaRow']}>
                         <input
-                          accept={questionMediaAccept}
+                          accept='image/*,video/*'
                           hidden
                           id={questionMediaInputId}
                           onChange={(event) => {
@@ -2175,159 +2184,174 @@ const AdminProgramCreateWorkspace = ({
                           }}
                           type='file'
                         />
-                        <Button
-                          onClick={() => {
-                            document.getElementById(questionMediaInputId)?.click();
-                          }}
-                          type='button'
-                          variant='secondary'
-                        >
-                          {pendingQuestionMediaSelection || question.mediaAssetId
-                            ? '파일 변경'
-                            : '파일 선택'}
-                        </Button>
-                        {pendingQuestionMediaSelection ? (
+                        <div className={styles['questionMediaActions']}>
                           <Button
                             onClick={() => {
-                              void handleQuestionMediaUpload(lectureKey, questionIndex);
+                              document.getElementById(questionMediaInputId)?.click();
                             }}
+                            size='sm'
                             type='button'
                             variant='secondary'
                           >
-                            업로드 시작
+                            {pendingQuestionMediaSelection || question.mediaAssetId
+                              ? '파일 변경'
+                              : '파일 선택'}
                           </Button>
-                        ) : null}
-                        {pendingQuestionMediaSelection ? (
-                          <Button
-                            onClick={() => {
-                              setPendingQuestionMediaSelections((current) => {
-                                const next = { ...current };
-                                delete next[uploadKey];
-                                return next;
-                              });
-                              setQuestionUploadStatus((current) => {
-                                const next = { ...current };
-                                delete next[uploadKey];
-                                return next;
-                              });
-                            }}
-                            type='button'
-                            variant='secondary'
-                          >
-                            선택 취소
-                          </Button>
-                        ) : null}
-                        {question.mediaAssetId && !pendingQuestionMediaSelection ? (
-                          <Button
-                            onClick={() => {
-                              updateProblemQuestion(lectureKey, questionIndex, (current) => ({
-                                ...current,
-                                mediaAssetId: null,
-                                mediaUrl: null,
-                              }));
-                              setQuestionUploadStatus((current) => {
-                                const next = { ...current };
-                                delete next[uploadKey];
-                                return next;
-                              });
-                            }}
-                            type='button'
-                            variant='secondary'
-                          >
-                            미디어 제거
-                          </Button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {pendingQuestionMediaSelection ? (
-                    <div className={styles['curriculumStatGrid']}>
-                      <div className={styles['curriculumStatCard']}>
-                        <span className={styles['curriculumStatLabel']}>선택한 파일</span>
-                        <strong className={styles['curriculumStatValue']}>
-                          {pendingQuestionMediaSelection.file.name}
-                        </strong>
-                      </div>
-                      <div className={styles['curriculumStatCard']}>
-                        <span className={styles['curriculumStatLabel']}>파일 크기</span>
-                        <strong className={styles['curriculumStatValue']}>
-                          {pendingQuestionMediaSelection.sizeLabel}
-                        </strong>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {question.mediaUrl ? (
-                    <TextField
-                      label='미디어 미리보기 URL'
-                      name={`problem-question-media-${lectureKey}-${String(questionIndex)}`}
-                      onChange={(event) => {
-                        updateProblemQuestion(lectureKey, questionIndex, (current) => ({
-                          ...current,
-                          mediaUrl: event.target.value,
-                        }));
-                      }}
-                      value={question.mediaUrl}
-                    />
-                  ) : null}
-
-                  <div className={styles['stackListCompact']}>
-                    <div className={styles['quizOptionHeader']}>
-                      <span />
-                      <span className={styles['quizOptionHeaderLabel']}>
-                        정답 보기에 체크하세요. 복수정답이면 여러 개를 체크하면 됩니다.
-                      </span>
-                    </div>
-                    {question.options.map((option, optionIndex) => (
-                      <div
-                        className={styles['quizOptionRow']}
-                        key={`problem-option-${String(optionIndex)}`}
-                      >
-                        <label className={styles['quizOptionCheckbox']}>
-                          <input
-                            aria-label={`${String(optionIndex + 1)}번 보기 정답 선택`}
-                            checked={option.correct}
-                            onChange={(event) => {
-                              updateProblemQuestion(lectureKey, questionIndex, (current) => {
-                                const nextOptions = current.options.map(
-                                  (currentOption, currentOptionIndex) =>
-                                    currentOptionIndex === optionIndex
-                                      ? {
-                                          ...currentOption,
-                                          correct: event.target.checked,
-                                        }
-                                      : currentOption,
-                                );
-
-                                return {
+                          {pendingQuestionMediaSelection ? (
+                            <Button
+                              onClick={() => {
+                                void handleQuestionMediaUpload(lectureKey, questionIndex);
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              업로드 시작
+                            </Button>
+                          ) : null}
+                          {pendingQuestionMediaSelection ? (
+                            <Button
+                              onClick={() => {
+                                setPendingQuestionMediaSelections((current) => {
+                                  const next = { ...current };
+                                  delete next[uploadKey];
+                                  return next;
+                                });
+                                setQuestionUploadStatus((current) => {
+                                  const next = { ...current };
+                                  delete next[uploadKey];
+                                  return next;
+                                });
+                                updateProblemQuestion(lectureKey, questionIndex, (current) => ({
                                   ...current,
-                                  options: nextOptions,
-                                  questionType: resolveQuestionType(nextOptions),
-                                };
-                              });
-                            }}
-                            type='checkbox'
-                          />
-                        </label>
-                        <TextField
-                          label={`보기 ${String(optionIndex + 1)}`}
-                          name={`problem-option-${lectureKey}-${String(questionIndex)}-${String(optionIndex)}`}
-                          onChange={(event) => {
-                            updateProblemOption(
-                              lectureKey,
-                              questionIndex,
-                              optionIndex,
-                              (current) => ({
-                                ...current,
-                                optionText: event.target.value,
-                              }),
-                            );
-                          }}
-                          value={option.optionText}
-                        />
+                                  mediaAssetId: pendingQuestionMediaSelection.previousMediaAssetId,
+                                  mediaType: pendingQuestionMediaSelection.previousMediaType,
+                                  mediaUploadErrorMessage:
+                                    pendingQuestionMediaSelection.previousMediaUploadErrorMessage,
+                                  mediaUploadFileName:
+                                    pendingQuestionMediaSelection.previousMediaUploadFileName,
+                                  mediaUploadStatus:
+                                    pendingQuestionMediaSelection.previousMediaUploadStatus,
+                                  mediaUrl: pendingQuestionMediaSelection.previousMediaUrl,
+                                }));
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              선택 취소
+                            </Button>
+                          ) : null}
+                          {question.mediaAssetId && !pendingQuestionMediaSelection ? (
+                            <Button
+                              onClick={() => {
+                                updateProblemQuestion(lectureKey, questionIndex, (current) => ({
+                                  ...current,
+                                  mediaAssetId: null,
+                                  mediaType: null,
+                                  mediaUploadErrorMessage: null,
+                                  mediaUploadFileName: null,
+                                  mediaUploadStatus: null,
+                                  mediaUrl: null,
+                                }));
+                                setQuestionUploadStatus((current) => {
+                                  const next = { ...current };
+                                  delete next[uploadKey];
+                                  return next;
+                                });
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              미디어 제거
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
-                    ))}
+
+                      {question.mediaType ? (
+                        <div className={styles['curriculumStatGrid']}>
+                          <div className={styles['curriculumStatCard']}>
+                            <span className={styles['curriculumStatLabel']}>현재 상태</span>
+                            <strong className={styles['curriculumStatValue']}>
+                              {questionMediaStatusLabel}
+                            </strong>
+                          </div>
+                          <div className={styles['curriculumStatCard']}>
+                            <span className={styles['curriculumStatLabel']}>선택 파일</span>
+                            <strong className={styles['curriculumStatValue']}>
+                              {questionMediaFileLabel}
+                            </strong>
+                          </div>
+                          <div className={styles['curriculumStatCard']}>
+                            <span className={styles['curriculumStatLabel']}>파일 크기</span>
+                            <strong className={styles['curriculumStatValue']}>
+                              {pendingQuestionMediaSelection?.sizeLabel ?? '미확인'}
+                            </strong>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className={styles['problemQuestionOptionsBlock']}>
+                      <div className={styles['problemQuestionSectionHeader']}>
+                        <strong>보기</strong>
+                        <span>정답 보기에 체크하세요. 복수정답이면 여러 개를 체크하면 됩니다.</span>
+                      </div>
+                      <div className={styles['stackListCompact']}>
+                        {question.options.map((option, optionIndex) => (
+                          <div
+                            className={styles['quizOptionRow']}
+                            key={`problem-option-${String(optionIndex)}`}
+                          >
+                            <TextField
+                              label={`보기 ${String(optionIndex + 1)}`}
+                              name={`problem-option-${lectureKey}-${String(questionIndex)}-${String(optionIndex)}`}
+                              onChange={(event) => {
+                                updateProblemOption(
+                                  lectureKey,
+                                  questionIndex,
+                                  optionIndex,
+                                  (current) => ({
+                                    ...current,
+                                    optionText: event.target.value,
+                                  }),
+                                );
+                              }}
+                              value={option.optionText}
+                            />
+                            <label className={styles['quizOptionCheckbox']}>
+                              <input
+                                aria-label={`${String(optionIndex + 1)}번 보기 정답 선택`}
+                                checked={option.correct}
+                                onChange={(event) => {
+                                  updateProblemQuestion(lectureKey, questionIndex, (current) => {
+                                    const nextOptions = current.options.map(
+                                      (currentOption, currentOptionIndex) =>
+                                        currentOptionIndex === optionIndex
+                                          ? {
+                                              ...currentOption,
+                                              correct: event.target.checked,
+                                            }
+                                          : currentOption,
+                                    );
+
+                                    return {
+                                      ...current,
+                                      options: nextOptions,
+                                      questionType: resolveQuestionType(nextOptions),
+                                    };
+                                  });
+                                }}
+                                type='checkbox'
+                              />
+                              <span>정답</span>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </article>
               );
@@ -2539,10 +2563,11 @@ const AdminProgramCreateWorkspace = ({
       }
     }
 
-    const nextPayload =
+    const nextPayload = normalizeDraftPayloadShape(
       mode === 'create'
         ? withServerManagedSlug(currentPayloadRef.current)
-        : currentPayloadRef.current;
+        : currentPayloadRef.current,
+    );
     if (nextPayload === null) {
       return false;
     }
@@ -2626,12 +2651,6 @@ const AdminProgramCreateWorkspace = ({
   const pollVideoReady = async (videoId: number, lectureKey: string): Promise<number | null> => {
     for (;;) {
       const status = await fetchAdminVideoStatus(videoId);
-      if (status.status === 'PROCESSING' && status.progressPercent !== null) {
-        setLectureVideoProgressByKey((current) => ({
-          ...current,
-          [lectureKey]: status.progressPercent ?? current[lectureKey] ?? 0,
-        }));
-      }
       if (status.status === 'READY') {
         setLectureVideoProgressByKey((current) => ({
           ...current,
@@ -2645,6 +2664,87 @@ const AdminProgramCreateWorkspace = ({
       await new Promise((resolve) => window.setTimeout(resolve, VIDEO_ENCODING_POLL_INTERVAL_MS));
     }
   };
+
+  useEffect(() => {
+    if (draftId === null || payload === null) {
+      return;
+    }
+
+    payload.sections.forEach((section) => {
+      section.lectures.forEach((lecture) => {
+        if (lecture.videoUploadStatus !== 'PROCESSING' || lecture.videoId === null) {
+          return;
+        }
+        if (resumingVideoIdsRef.current.has(lecture.videoId)) {
+          return;
+        }
+
+        resumingVideoIdsRef.current.add(lecture.videoId);
+        void (async () => {
+          try {
+            const durationSeconds = await pollVideoReady(lecture.videoId as number, lecture.key);
+
+            updatePayload((current) => ({
+              ...current,
+              sections: current.sections.map((currentSection) => ({
+                ...currentSection,
+                lectures: currentSection.lectures.map((currentLecture) =>
+                  currentLecture.key === lecture.key
+                    ? {
+                        ...currentLecture,
+                        durationSeconds: durationSeconds ?? currentLecture.durationSeconds,
+                        videoUploadErrorMessage: null,
+                        videoUploadStatus: 'READY',
+                      }
+                    : currentLecture,
+                ),
+              })),
+            }));
+            await persistLectureVideoUploadState(draftId, lecture.key, {
+              durationSeconds,
+              errorMessage: null,
+              fileName: lecture.videoUploadFileName,
+              status: 'READY',
+              videoId: lecture.videoId,
+            });
+            setLectureVideoProgressByKey((current) => {
+              const next = { ...current };
+              delete next[lecture.key];
+              return next;
+            });
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : '영상 인코딩 상태를 확인하지 못했습니다.';
+            updatePayload((current) => ({
+              ...current,
+              sections: current.sections.map((currentSection) => ({
+                ...currentSection,
+                lectures: currentSection.lectures.map((currentLecture) =>
+                  currentLecture.key === lecture.key
+                    ? {
+                        ...currentLecture,
+                        videoUploadErrorMessage: errorMessage,
+                        videoUploadStatus: 'FAILED',
+                      }
+                    : currentLecture,
+                ),
+              })),
+            }));
+            await persistLectureVideoUploadState(draftId, lecture.key, {
+              errorMessage,
+              fileName: lecture.videoUploadFileName,
+              status: 'FAILED',
+              videoId: lecture.videoId,
+            });
+          } finally {
+            if (lecture.videoId !== null) {
+              resumingVideoIdsRef.current.delete(lecture.videoId);
+            }
+          }
+        })();
+      });
+    });
+  }, [draftId, payload]);
 
   const handleLectureVideoSelection = (lectureKey: string, file: File) => {
     const sizeLabel = `${formatFileSizeInMb(file.size)} MB`;
@@ -2784,7 +2884,7 @@ const AdminProgramCreateWorkspace = ({
         errorMessage: null,
         fileName: file.name,
         status: 'PROCESSING',
-        videoId: null,
+        videoId: session.videoId,
       });
       await completeAdminVideoUpload(session.videoId, {
         parts: completedParts,
@@ -2863,17 +2963,37 @@ const AdminProgramCreateWorkspace = ({
 
   const handleQuestionMediaSelection = (lectureKey: string, questionIndex: number, file: File) => {
     const uploadKey = `${lectureKey}:${String(questionIndex)}`;
+    const previousQuestion =
+      currentPayloadRef.current?.problems.find((problem) => problem.lectureKey === lectureKey)
+        ?.questions[questionIndex] ?? null;
 
     setPendingQuestionMediaSelections((current) => ({
       ...current,
       [uploadKey]: {
         file,
+        previousMediaAssetId: previousQuestion?.mediaAssetId ?? null,
+        previousMediaType: previousQuestion?.mediaType ?? null,
+        previousMediaUploadErrorMessage: previousQuestion?.mediaUploadErrorMessage ?? null,
+        previousMediaUploadFileName: previousQuestion?.mediaUploadFileName ?? null,
+        previousMediaUploadStatus: normalizeQuestionMediaUploadStatus(
+          previousQuestion ?? { mediaAssetId: null, mediaUploadStatus: null },
+        ),
+        previousMediaUrl: previousQuestion?.mediaUrl ?? null,
         sizeLabel: `${formatFileSizeInMb(file.size)} MB`,
       },
     }));
     setQuestionUploadStatus((current) => ({
       ...current,
       [uploadKey]: `업로드 대기 · ${file.name}`,
+    }));
+    updateProblemQuestion(lectureKey, questionIndex, (question) => ({
+      ...question,
+      mediaAssetId: null,
+      mediaType: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
+      mediaUploadErrorMessage: null,
+      mediaUploadFileName: file.name,
+      mediaUploadStatus: 'UPLOADING',
+      mediaUrl: null,
     }));
   };
 
@@ -2903,6 +3023,9 @@ const AdminProgramCreateWorkspace = ({
         ...question,
         mediaAssetId: uploadTarget.assetId,
         mediaType: uploadTarget.mediaType,
+        mediaUploadErrorMessage: null,
+        mediaUploadFileName: file.name,
+        mediaUploadStatus: 'READY',
         mediaUrl: uploadTarget.previewUrl,
       }));
 
@@ -2920,6 +3043,12 @@ const AdminProgramCreateWorkspace = ({
         variant: 'success',
       });
     } catch (error) {
+      updateProblemQuestion(lectureKey, questionIndex, (question) => ({
+        ...question,
+        mediaUploadErrorMessage:
+          error instanceof Error ? error.message : '문제 미디어 업로드에 실패했습니다.',
+        mediaUploadStatus: 'FAILED',
+      }));
       setQuestionUploadStatus((current) => ({
         ...current,
         [uploadKey]: '업로드 실패',
@@ -3122,6 +3251,37 @@ const AdminProgramCreateWorkspace = ({
           messages.push(`${lectureLabel} / ${resourceLabel}: 자료 파일을 업로드해야 합니다.`);
         }
       }
+
+      const lectureProblem = payload.problems.find((problem) => problem.lectureKey === lecture.key);
+      lectureProblem?.questions.forEach((question, questionIndex) => {
+        const questionUploadKey = `${lecture.key}:${String(questionIndex)}`;
+        const questionLabel = question.questionText.trim() || `문제 ${String(questionIndex + 1)}`;
+        if (pendingQuestionMediaSelections[questionUploadKey]) {
+          messages.push(
+            `${lectureLabel} / ${questionLabel}: 선택한 문제 미디어 업로드 시작이 필요합니다.`,
+          );
+          return;
+        }
+        if (isUploadInProgress(question.mediaUploadStatus)) {
+          messages.push(
+            `${lectureLabel} / ${questionLabel}: 문제 미디어 업로드가 아직 진행 중입니다.`,
+          );
+          return;
+        }
+        if (question.mediaUploadStatus === 'FAILED') {
+          messages.push(`${lectureLabel} / ${questionLabel}: 문제 미디어 업로드가 실패했습니다.`);
+          return;
+        }
+        if (
+          question.mediaUploadStatus === 'READY' &&
+          question.mediaAssetId === null &&
+          !question.mediaUrl
+        ) {
+          messages.push(
+            `${lectureLabel} / ${questionLabel}: 문제 미디어 연결 정보가 누락되었습니다.`,
+          );
+        }
+      });
 
       return messages;
     }),
@@ -4141,6 +4301,7 @@ const AdminProgramCreateWorkspace = ({
                                           lecture.videoUploadErrorMessage,
                                         ),
                                         lectureVideoProgressByKey[lecture.key],
+                                        lecture.videoUploadStatus === 'UPLOADING',
                                       )
                                     : formatUploadStatusLabel(
                                         lecture.videoUploadStatus,
