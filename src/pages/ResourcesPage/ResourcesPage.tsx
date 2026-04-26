@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
+import Pagination from '@/components/ui/Pagination/Pagination';
 import { useGlobalResourcesQuery } from '@/query/useResourceQueries';
 import { routePaths } from '@/routes/routeRegistry';
 
@@ -176,45 +177,12 @@ const ResourcesPage = () => {
             </div>
 
             <div className={styles['boardFooter']}>
-              <div className={styles['pagination']}>
-                <button
-                  className={styles['pageNavButton']}
-                  disabled={currentPage === 1}
-                  onClick={() => {
-                    setPage((value) => Math.max(1, value - 1));
-                  }}
-                  type='button'
-                >
-                  {'<'}
-                </button>
-
-                {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => {
-                  return (
-                    <button
-                      className={styles['pageButton']}
-                      data-active={pageNumber === currentPage}
-                      key={pageNumber}
-                      onClick={() => {
-                        setPage(pageNumber);
-                      }}
-                      type='button'
-                    >
-                      {String(pageNumber)}
-                    </button>
-                  );
-                })}
-
-                <button
-                  className={styles['pageNavButton']}
-                  disabled={currentPage === totalPages}
-                  onClick={() => {
-                    setPage((value) => Math.min(totalPages, value + 1));
-                  }}
-                  type='button'
-                >
-                  {'>'}
-                </button>
-              </div>
+              <Pagination
+                ariaLabel='자료실 페이지 이동'
+                currentPage={currentPage}
+                onChange={setPage}
+                totalPages={totalPages}
+              />
             </div>
           </>
         ) : null}

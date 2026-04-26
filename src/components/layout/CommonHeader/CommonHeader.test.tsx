@@ -102,10 +102,10 @@ describe('CommonHeader', () => {
     renderCommonHeader();
 
     const cartIcon = screen.getAllByRole('link', { name: '장바구니' })[0]?.querySelector('img');
-    const accountIcon = screen.getByRole('button', { name: '계정 메뉴' }).querySelector('img');
+    const accountIcon = screen.getByRole('button', { name: '계정 메뉴' }).querySelector('span');
 
-    expect(cartIcon).toHaveClass(styles['iconImage'], styles['iconImageCart']);
-    expect(accountIcon).toHaveClass(styles['iconImage'], styles['iconImageMy']);
+    expect(cartIcon).toHaveClass(styles['iconImage'], styles['headerCartIcon']);
+    expect(accountIcon).toHaveClass(styles['accountMenuIcon']);
   });
 
   it('shows a cart count badge when cart items exist', async () => {
@@ -220,12 +220,12 @@ describe('CommonHeader', () => {
     fireEvent.focus(onlineCoursesLink);
 
     await waitFor(() => {
-      expect(screen.getByText('소아초음파 하이브리드 과정')).toBeInTheDocument();
+      expect(screen.getByText('POCUS 라이브러리')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('상복부·비뇨기 하이브리드 과정')).toBeInTheDocument();
-    expect(screen.getByText('GI tract 실습 포함 과정')).toBeInTheDocument();
-    expect(screen.getByText('두경부 실습 포함 과정')).toBeInTheDocument();
+    expect(screen.getByText('상복부 이론+스캔 동영상')).toBeInTheDocument();
+    expect(screen.getByText('Abdominal PHYSICS')).toBeInTheDocument();
+    expect(screen.getByText('여성초음파 이론')).toBeInTheDocument();
   });
 
   it('hides the header when scrolling down and shows it again when scrolling up slightly', async () => {

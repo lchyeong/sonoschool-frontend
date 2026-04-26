@@ -135,28 +135,28 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     return <AdminProgramCreateWorkspace view='resources' />;
   }),
   adminProgramEdit: createLazyRoute(async () => {
-    const { default: AdminProgramEditorSection } = await import(
-      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    const { default: AdminProgramCreateWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
     );
-    return <AdminProgramEditorSection mode='edit' />;
+    return <AdminProgramCreateWorkspace mode='edit' />;
   }),
   adminProgramCurriculum: createLazyRoute(async () => {
-    const { default: AdminProgramEditorSection } = await import(
-      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    const { default: AdminProgramCreateWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
     );
-    return <AdminProgramEditorSection mode='edit' view='curriculum' />;
+    return <AdminProgramCreateWorkspace mode='edit' view='curriculum' />;
   }),
   adminProgramProblems: createLazyRoute(async () => {
-    const { default: AdminProgramEditorSection } = await import(
-      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    const { default: AdminProgramCreateWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
     );
-    return <AdminProgramEditorSection mode='edit' view='problems' />;
+    return <AdminProgramCreateWorkspace mode='edit' view='problems' />;
   }),
   adminProgramResources: createLazyRoute(async () => {
-    const { default: AdminProgramEditorSection } = await import(
-      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    const { default: AdminProgramCreateWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
     );
-    return <AdminProgramEditorSection mode='edit' view='resources' />;
+    return <AdminProgramCreateWorkspace mode='edit' view='resources' />;
   }),
   adminProgramDuplicate: createLazyRoute(async () => {
     const { default: AdminProgramEditorSection } = await import(

@@ -3,6 +3,7 @@ import { toApiError } from '@/api/errors';
 import type {
   AdminCurriculumLecture,
   AdminCurriculumSection,
+  AdminLectureDeleteImpact,
   AdminLectureOfflineScheduleUpsertPayload,
   AdminLectureOfflineSchedulesReplacePayload,
   AdminLectureUpsertPayload,
@@ -32,7 +33,7 @@ const normalizeSectionPayload = (payload: AdminSectionUpsertPayload): AdminSecti
 };
 
 const normalizeLecturePayload = (payload: AdminLectureUpsertPayload): AdminLectureUpsertPayload => {
-  const { problemOnly, ...restPayload } = payload;
+  const { problemOnly: _problemOnly, ...restPayload } = payload;
 
   return {
     ...restPayload,
@@ -167,6 +168,19 @@ export const deleteAdminLecture = async (lectureId: number): Promise<void> => {
     await axiosInstance.delete(`/api/v1/admin/lectures/${String(lectureId)}`);
   } catch (error: unknown) {
     throw toApiError(error, '강의를 삭제하지 못했습니다.');
+  }
+};
+
+export const fetchAdminLectureDeleteImpact = async (
+  lectureId: number,
+): Promise<AdminLectureDeleteImpact> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<AdminLectureDeleteImpact>>(
+      `/api/v1/admin/lectures/${String(lectureId)}/delete-impact`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '강의 삭제 영향도를 확인하지 못했습니다.');
   }
 };
 

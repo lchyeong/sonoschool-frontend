@@ -11,23 +11,33 @@ import {
   fetchMyQuestions,
   fetchMyRefunds,
 } from '@/api/mypage';
-import type { MyQuestionScope } from '@/types/mypage';
 import { fetchPaymentHistory } from '@/api/payments';
+import { getMyPageMockQueryKeySegment } from '@/mocks/mypage/runtime';
+import { getPlayerMockQueryKeySegment } from '@/mocks/player/runtime';
 import { useAuthStore } from '@/stores/useAuthStore';
+import type { MyQuestionScope } from '@/types/mypage';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 
-export const myProfileQueryKey = ['mypage', 'profile'] as const;
-export const myEnrollmentsQueryKey = ['mypage', 'enrollments'] as const;
+export const myProfileQueryKey = ['mypage', 'profile', getMyPageMockQueryKeySegment()] as const;
+export const myEnrollmentsQueryKey = [
+  'mypage',
+  'enrollments',
+  getMyPageMockQueryKeySegment(),
+] as const;
 export const myEnrollmentDetailQueryKey = (enrollmentId: number | null) =>
-  ['mypage', 'enrollmentDetail', enrollmentId] as const;
+  ['mypage', 'enrollmentDetail', enrollmentId, getMyPageMockQueryKeySegment()] as const;
 export const myLearningPlayerQueryKey = (enrollmentId: number | null) =>
-  ['mypage', 'learningPlayer', enrollmentId] as const;
+  ['mypage', 'learningPlayer', enrollmentId, getPlayerMockQueryKeySegment()] as const;
 export const myEnrollmentPracticumQueryKey = (enrollmentId: number | null) =>
   ['mypage', 'enrollmentPracticum', enrollmentId] as const;
 export const myCartQueryKey = (scope: 'authenticated' | 'guest') =>
   ['mypage', 'cart', scope] as const;
 export const myApplicationSummaryQueryKey = ['mypage', 'applicationSummary'] as const;
-export const myPaymentHistoryQueryKey = ['mypage', 'paymentHistory'] as const;
+export const myPaymentHistoryQueryKey = [
+  'mypage',
+  'paymentHistory',
+  getMyPageMockQueryKeySegment(),
+] as const;
 export const myRefundsQueryKey = ['mypage', 'refunds'] as const;
 export const myQuestionsQueryKey = (params: {
   answered?: boolean | undefined;
@@ -36,7 +46,16 @@ export const myQuestionsQueryKey = (params: {
   scope: MyQuestionScope | 'ALL';
   size: number;
 }) =>
-  ['mypage', 'questions', params.scope, params.answered ?? null, params.keyword ?? '', params.page, params.size] as const;
+  [
+    'mypage',
+    'questions',
+    getMyPageMockQueryKeySegment(),
+    params.scope,
+    params.answered ?? null,
+    params.keyword ?? '',
+    params.page,
+    params.size,
+  ] as const;
 
 export const useMyProfileQuery = () => {
   return useQuery({

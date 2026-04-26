@@ -476,22 +476,30 @@ export const handlers = [
   http.patch('*/api/v1/users/me', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
-    if (
-      !isRecord(body) ||
-      typeof body['name'] !== 'string' ||
-      typeof body['nickname'] !== 'string'
-    ) {
+    if (!isRecord(body) || typeof body['nickname'] !== 'string') {
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
     return HttpResponse.json(
       createApiEnvelope(
         updateMockMyProfile({
-          name: body['name'],
           nickname: body['nickname'],
         }),
       ),
     );
+  }),
+  http.post('*/api/v1/users/me/password/verify', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (!isRecord(body) || typeof body['password'] !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    if (body['password'] !== 'password123') {
+      return HttpResponse.json({ message: '비밀번호가 일치하지 않습니다.' }, { status: 401 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(null));
   }),
   http.post('*/api/v1/users/me/phone/send', async ({ request }) => {
     const body = await request.json().catch(() => null);
@@ -1214,6 +1222,36 @@ export const handlers = [
 
     return new HttpResponse(null, { status: 204 });
   }),
+  http.post('*/api/v1/admin/notice-media/upload-targets', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+
+    if (
+      !body ||
+      typeof body['filename'] !== 'string' ||
+      typeof body['contentType'] !== 'string' ||
+      typeof body['fileSize'] !== 'number'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const assetId = Date.now();
+    const safeName = encodeURIComponent(body['filename']);
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        assetId,
+        expiresInSeconds: 900,
+        mediaType: 'IMAGE',
+        previewUrl: `https://cdn.mock/notices/${String(assetId)}.png`,
+        storageUrl: `s3://mock-bucket/assets/notices/images/${String(assetId)}/${safeName}`,
+        uploadUrl: `https://upload.mock/notices/${String(assetId)}`,
+      }),
+      { status: 201 },
+    );
+  }),
+  http.put('https://upload.mock/notices/:assetId', () => {
+    return new HttpResponse(null, { status: 200 });
+  }),
   http.get('*/api/v1/admin/popups', () => {
     return HttpResponse.json(createApiEnvelope(getMockAdminPopups()));
   }),
@@ -1240,6 +1278,9 @@ export const handlers = [
         uploadUrl: `https://upload.mock/popups/${String(assetId)}`,
       }),
     );
+  }),
+  http.put('https://upload.mock/popups/:assetId', () => {
+    return new HttpResponse(null, { status: 200 });
   }),
   http.post('*/api/v1/admin/programs/thumbnail-upload-targets', async ({ request }) => {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
@@ -1942,6 +1983,10 @@ export const handlers = [
             lectureCompleted: true,
             loginId: 'minji01',
             phoneNumber: '010-1111-2222',
+            prerequisiteCompleted: true,
+            prerequisiteCompletedCount: 2,
+            prerequisiteLastLearningAt: '2026-03-29T04:00:00Z',
+            prerequisiteTotalCount: 2,
             userId: 101,
             userName: '김민지',
           },
@@ -1952,6 +1997,10 @@ export const handlers = [
             lectureCompleted: false,
             loginId: 'junseo02',
             phoneNumber: '010-3333-4444',
+            prerequisiteCompleted: false,
+            prerequisiteCompletedCount: 1,
+            prerequisiteLastLearningAt: '2026-03-29T02:00:00Z',
+            prerequisiteTotalCount: 2,
             userId: 102,
             userName: '박준서',
           },
@@ -1967,7 +2016,7 @@ export const handlers = [
         ruleId,
         sectionTitle: '2주차',
         startAt: '2026-03-30T05:00:00Z',
-        videoAttached: true,
+        videoAttached: false,
       }),
     );
   }),

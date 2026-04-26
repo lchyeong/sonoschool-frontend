@@ -1,6 +1,6 @@
 .section {
   width: 100%;
-  padding-top: 148px;
+  padding-top: 186px;
 }
 
 .inner {
@@ -8,26 +8,40 @@
   margin: 0 auto;
 }
 
+.headingBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 7px 17px 8px;
+  border-radius: 50px;
+  background: #ecf9f7;
+  color: #34b29f;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 16px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.96px;
+  line-height: 1.3;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
 .heading {
   margin: 0;
   color: var(--color-gray-900);
   font-family: Pretendard, var(--font-family-base);
-  font-size: 34px;
+  font-size: 60px;
   font-weight: var(--font-weight-extrabold);
   letter-spacing: var(--letter-spacing-normal);
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.description {
-  max-width: 682px;
-  margin: 24px 0 0;
-  color: var(--color-gray-900);
-  font-family: Pretendard, var(--font-family-base);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-normal);
-  letter-spacing: var(--letter-spacing-normal);
   line-height: normal;
+  white-space: nowrap;
 }
 
 .courseGrid {
@@ -72,53 +86,9 @@
 
 .carouselControls {
   display: flex;
-  gap: 34px;
-  justify-content: center;
-  margin-top: 36px;
-}
-
-.carouselButton {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  padding: 10px 11px 10px 9px;
-  border: 0;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  transition:
-    background-color 180ms ease,
-    transform 180ms ease;
-
-  &:hover,
-  &:focus-visible {
-    background: rgba(229, 231, 235, 0.4);
-  }
-
-  &:disabled {
-    cursor: default;
-    opacity: 0.45;
-  }
-}
-
-.carouselButtonNext {
-  padding: 10px 9px 10px 11px;
-}
-
-.carouselButtonIcon {
-  display: block;
-  width: 10px;
-  height: 5px;
-}
-
-.carouselButtonIconPrev {
-  transform: rotate(90deg);
-}
-
-.carouselButtonIconNext {
-  transform: rotate(-90deg);
+  margin-top: 46px;
 }
 
 .cardLink {
@@ -274,13 +244,15 @@
 }
 
 @media (width < 1500px) {
-  .courseGrid {
+  .courseGrid,
+  .carouselPageGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (width < 1120px) {
-  .courseGrid {
+  .courseGrid,
+  .carouselPageGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -295,21 +267,34 @@
   }
 
   .heading {
-    font-size: 28px;
+    font-size: 42px;
     white-space: normal;
   }
 
-  .description {
-    font-size: var(--font-size-base);
-  }
-
-  .courseGrid {
+  .courseGrid,
+  .carouselPageGrid {
     grid-template-columns: 1fr;
     gap: 20px;
   }
 
-  .carouselPageGrid {
-    gap: 20px;
+  .carouselControls {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .paginationArrowButton,
+  .paginationPageButton {
+    width: 44px;
+    height: 44px;
+  }
+
+  .paginationArrowButton {
+    padding: 10px;
+  }
+
+  .paginationEllipsis {
+    min-width: 36px;
+    height: 44px;
   }
 
   .statusTitle {

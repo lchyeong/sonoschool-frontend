@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
-import searchScopeChevronIconSrc from '@/assets/icons/search-scope-chevron.svg';
+import Pagination from '@/components/ui/Pagination/Pagination';
 import { useProgramLectureCatalogQuery } from '@/query/useProgramLectureCatalogQuery';
-import { classNames } from '@/utils/classNames';
 
 import styles from './HomeFeaturedCoursesSection.module.scss';
 
 const HOME_FEATURED_COURSE_CARD_LIMIT = 12;
-const HOME_FEATURED_COURSE_AUTO_PLAY_DURATION_MS = 8000;
 
 const loadingCards = Array.from({ length: HOME_FEATURED_COURSE_CARD_LIMIT }, (_, index) => {
   return {
@@ -38,55 +36,25 @@ const HomeFeaturedCoursesSection = () => {
   }, [courses]);
 
   const pageCount = coursePages.length;
-  const canNavigate = pageCount > 1;
   const activePageIndex = pageCount ? Math.min(requestedPageIndex, pageCount - 1) : 0;
+  const activePage = activePageIndex + 1;
 
-  useEffect(() => {
-    if (!canNavigate || typeof window === 'undefined') {
-      return;
-    }
-
-    if (
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setRequestedPageIndex((currentPageIndex) => {
-        return (Math.min(currentPageIndex, pageCount - 1) + 1) % pageCount;
-      });
-    }, HOME_FEATURED_COURSE_AUTO_PLAY_DURATION_MS);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [canNavigate, pageCount]);
-
-  const handleMovePage = (direction: -1 | 1) => {
-    if (!pageCount) {
-      return;
-    }
-
-    setRequestedPageIndex((currentPageIndex) => {
-      return (Math.min(currentPageIndex, pageCount - 1) + direction + pageCount) % pageCount;
-    });
+  const handleSelectPage = (page: number) => {
+    setRequestedPageIndex(page - 1);
   };
 
   return (
     <section aria-labelledby='home-featured-courses-heading' className={styles['section']}>
       <div className={styles['inner']}>
-        <h2 className={styles['heading']} id='home-featured-courses-heading'>
-          대표 과정 먼저 보기
-        </h2>
-        <p className={styles['description']}>
-          스노스쿨의 전체 커리큘럼 중 문의가 잦거나 흐름을 이해하기 좋은 대표 과정을 먼저
-          배치했습니다.
-        </p>
+        <div className={styles['headingBlock']}>
+          <span className={styles['eyebrow']}>COURSE PREVIEW</span>
+          <h2 className={styles['heading']} id='home-featured-courses-heading'>
+            전체 강의 살펴보기
+          </h2>
+        </div>
 
         {isPending ? (
-          <ul aria-label='대표 과정 로딩 중' className={styles['courseGrid']}>
+          <ul aria-label='전체 강의 로딩 중' className={styles['courseGrid']}>
             {loadingCards.map((course) => {
               return (
                 <li className={styles['courseItem']} key={course.id}>
@@ -134,7 +102,7 @@ const HomeFeaturedCoursesSection = () => {
                       className={styles['carouselPage']}
                       key={`home-featured-courses-page-${String(pageIndex + 1)}`}
                     >
-                      <ul aria-label='대표 과정 카드 목록' className={styles['carouselPageGrid']}>
+                      <ul aria-label='전체 강의 카드 목록' className={styles['carouselPageGrid']}>
                         {page.map((course) => {
                           return (
                             <li className={styles['courseItem']} key={course.id}>
@@ -167,45 +135,12 @@ const HomeFeaturedCoursesSection = () => {
             </div>
 
             <div className={styles['carouselControls']}>
-              <button
-                aria-label='이전 대표 과정 페이지'
-                className={styles['carouselButton']}
-                disabled={!canNavigate}
-                onClick={() => {
-                  handleMovePage(-1);
-                }}
-                type='button'
-              >
-                <img
-                  alt=''
-                  aria-hidden='true'
-                  className={classNames(
-                    styles['carouselButtonIcon'],
-                    styles['carouselButtonIconPrev'],
-                  )}
-                  src={searchScopeChevronIconSrc}
-                />
-              </button>
-
-              <button
-                aria-label='다음 대표 과정 페이지'
-                className={classNames(styles['carouselButton'], styles['carouselButtonNext'])}
-                disabled={!canNavigate}
-                onClick={() => {
-                  handleMovePage(1);
-                }}
-                type='button'
-              >
-                <img
-                  alt=''
-                  aria-hidden='true'
-                  className={classNames(
-                    styles['carouselButtonIcon'],
-                    styles['carouselButtonIconNext'],
-                  )}
-                  src={searchScopeChevronIconSrc}
-                />
-              </button>
+              <Pagination
+                ariaLabel='전체 강의 페이지 이동'
+                currentPage={activePage}
+                onChange={handleSelectPage}
+                totalPages={pageCount}
+              />
             </div>
           </>
         )}

@@ -46,7 +46,6 @@ const AdminEnrollmentsSection = () => {
             placeholder='이름, 아이디, 이메일 검색'
             value={memberKeyword}
           />
-          <p className={styles['metaText']}>회원(클릭시 상세보기)</p>
         </div>
 
         {membersQuery.isPending ? (
@@ -68,15 +67,14 @@ const AdminEnrollmentsSection = () => {
 const renderMembersTable = (items: AdminUserManagementItem[]) => {
   return (
     <div className={styles['tableWrap']}>
-      <table className={styles['table']}>
+      <table className={`${styles['table']} ${styles['userTable']}`}>
         <thead>
           <tr>
-            <th scope='col'>회원(클릭시 상세보기)</th>
+            <th scope='col'>회원</th>
             <th scope='col'>연락처</th>
-            <th scope='col'>이메일</th>
-            <th scope='col'>수강중</th>
-            <th scope='col'>예정 실습</th>
+            <th scope='col'>수강/실습</th>
             <th scope='col'>가입일</th>
+            <th scope='col'>관리</th>
           </tr>
         </thead>
         <tbody>
@@ -93,11 +91,31 @@ const renderMembersTable = (items: AdminUserManagementItem[]) => {
                   <span className={styles['cellSecondary']}>아이디 {user.loginId}</span>
                 </div>
               </td>
-              <td>{user.phoneNumber}</td>
-              <td>{user.email}</td>
-              <td>{String(user.activeEnrollmentCount)}건</td>
-              <td>{String(user.upcomingPracticumCount)}건</td>
+              <td>
+                <div className={styles['cellStack']}>
+                  <span className={styles['cellPrimary']}>{user.phoneNumber}</span>
+                  <span className={styles['cellSecondary']}>{user.email}</span>
+                </div>
+              </td>
+              <td>
+                <div className={styles['cellStack']}>
+                  <span className={styles['cellPrimary']}>
+                    수강중 {String(user.activeEnrollmentCount)}건
+                  </span>
+                  <span className={styles['cellSecondary']}>
+                    예정 실습 {String(user.upcomingPracticumCount)}건
+                  </span>
+                </div>
+              </td>
               <td>{formatDate(user.joinedAt)}</td>
+              <td>
+                <Link
+                  className={styles['tableActionButton']}
+                  to={routePaths.adminUserDetail(String(user.id))}
+                >
+                  상세
+                </Link>
+              </td>
             </tr>
           ))}
         </tbody>

@@ -185,31 +185,42 @@
 
 .detailTabs {
   display: flex;
-  gap: 0;
+  flex-wrap: wrap;
+  gap: 31px;
   width: min(100%, 780px);
-  border: 1px solid var(--color-brand-lighten-35);
-  background: #ffffff;
+  border-bottom: 1px solid #d1d5db;
+  background: transparent;
 }
 
 .detailTab {
-  flex: 1 1 0;
-  min-height: 48px;
-  padding: 0 var(--space-4);
+  position: relative;
+  min-height: 58px;
+  padding: 16px 36px;
   border: 0;
-  border-right: 1px solid var(--color-brand-lighten-35);
   background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  color: #4b5563;
+  font-size: 20px;
   font-weight: var(--font-weight-semibold);
-}
-
-.detailTab:last-child {
-  border-right: 0;
+  line-height: 1.3;
 }
 
 .detailTabActive {
-  background: var(--color-brand-lighten-45);
-  color: var(--color-text-primary);
+  color: #34b29f;
+}
+
+.detailTabActive::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  content: '';
+  background: #34b29f;
+}
+
+.detailTab:hover,
+.detailTab:focus-visible {
+  color: #34b29f;
 }
 
 .selectionSummaryRow {
@@ -306,19 +317,19 @@
   text-decoration: underline;
 }
 
-@media (max-width: 1200px) {
+@media (width <= 1200px) {
   .browserGrid {
     min-width: 720px;
   }
 }
 
-@media (max-width: 900px) {
+@media (width <= 900px) {
   .detailPanel {
     width: 100%;
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .browserGrid {
     grid-template-columns: minmax(0, 1fr);
   }

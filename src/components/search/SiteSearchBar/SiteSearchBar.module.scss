@@ -45,6 +45,15 @@
     font-weight: var(--site-search-font-weight);
     letter-spacing: var(--letter-spacing-normal);
     line-height: var(--site-search-line-height);
+    transition:
+      background-color 180ms ease,
+      color 180ms ease;
+
+    &:hover,
+    &Open {
+      color: #34b29f;
+      background: #ecf9f7;
+    }
 
     &:focus-visible {
       outline: 2px solid rgba(52, 178, 159, 0.24);
@@ -88,7 +97,7 @@
   &Chevron {
     width: 10px;
     height: 5px;
-    object-fit: contain;
+    color: currentColor;
   }
 
   &MenuPanel {
@@ -163,8 +172,7 @@
       background-color 180ms ease,
       color 180ms ease;
 
-    &:hover,
-    &Selected {
+    &:hover {
       color: var(--color-brand-darken-10);
       background: var(--color-brand-lighten-50);
     }

@@ -112,13 +112,13 @@ const curriculumSectionSchema = z.object({
   description: z.string().min(1),
   durationLabel: z.string().min(1),
   id: z.string().min(1),
-  lessons: z.array(curriculumLessonSchema).min(1).max(16),
+  lessons: z.array(curriculumLessonSchema).max(16),
   title: z.string().min(1),
 });
 
 const curriculumTrackSchema = z.object({
   id: z.string().min(1),
-  sections: z.array(curriculumSectionSchema).min(1).max(8),
+  sections: z.array(curriculumSectionSchema).max(8),
   summaryItems: z.array(z.string().trim().min(1)).min(1).max(8),
   summaryKind: z.enum(['decimal', 'disc']),
   title: z.string().min(1).optional(),
@@ -146,7 +146,7 @@ const programCollectionPageResponseSchema = z.object({
   heroImageSrc: z.string().min(1),
   instructor: instructorSchema,
   kicker: z.string().min(1),
-  lectures: z.array(lectureCardSchema).min(1).max(120),
+  lectures: z.array(lectureCardSchema).max(120),
   pageKind: z.literal('collection'),
   stats: z.array(programStatSchema).min(1).max(6),
   title: z.string().min(1),

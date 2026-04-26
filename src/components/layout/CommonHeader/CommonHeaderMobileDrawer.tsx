@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import myPageIconSrc from '@/assets/icons/icon_my.svg';
-import cartIconSrc from '@/assets/icons/shopping-cart.svg';
+import headerCartIconSrc from '@/assets/icons/lucide_shopping-cart.svg';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import CloseIcon from '@/components/ui/icons/CloseIcon';
 import { routePaths } from '@/routes/routeRegistry';
@@ -151,7 +151,12 @@ const CommonHeaderMobileDrawer = ({
             onClick={onCloseMenu}
             to={routePaths.cart}
           >
-            <img alt='' aria-hidden='true' className={styles['textActionIcon']} src={cartIconSrc} />
+            <img
+              alt=''
+              aria-hidden='true'
+              className={styles['textActionIcon']}
+              src={headerCartIconSrc}
+            />
             <span>장바구니</span>
           </LinkComponent>
         </div>

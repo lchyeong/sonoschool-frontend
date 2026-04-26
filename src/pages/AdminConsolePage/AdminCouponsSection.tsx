@@ -11,6 +11,7 @@ import {
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
+import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { adminCouponsQueryKey, useAdminCouponsQuery } from '@/query/useAdminCouponsQuery';
 import { useToastStore } from '@/stores/useToastStore';
@@ -74,6 +75,7 @@ const formatDateRange = (coupon: AdminCoupon): string => {
 
   const formatter = new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'short',
+    hour12: false,
     timeStyle: 'short',
   });
   const validFrom = coupon.validFrom ? formatter.format(new Date(coupon.validFrom)) : '즉시';
@@ -359,10 +361,7 @@ const AdminCouponsSection = () => {
       <div className={styles['stackList']}>
         <section className={styles['panelWide']}>
           <div className={styles['panelToolbar']}>
-            <div>
-              <h2 className={styles['panelTitle']}>쿠폰 목록</h2>
-              <p className={styles['metaText']}>총 {filteredCoupons.length}개</p>
-            </div>
+            <p className={styles['metaText']}>총 {filteredCoupons.length}개</p>
 
             <UnifiedSearchBar
               className={styles['adminSearchBar']}
@@ -553,27 +552,29 @@ const AdminCouponsSection = () => {
         </section>
 
         <section className={styles['panelWide']}>
-          <div className={styles['editorTabs']}>
-            <button
-              className={editorTab === 'create' ? styles['editorTabActive'] : styles['editorTab']}
-              onClick={() => {
+          <SectionTabs
+            ariaLabel='쿠폰 작업'
+            items={[
+              { label: '새 쿠폰 등록', value: 'create' },
+              {
+                disabled: editingCouponId === null,
+                label:
+                  editingCouponId === null
+                    ? '쿠폰 수정'
+                    : `${formState.name || '선택한 쿠폰'} 수정`,
+                value: 'edit',
+              },
+            ]}
+            onChange={(nextTab) => {
+              if (nextTab === 'create') {
                 resetCreateForm();
-              }}
-              type='button'
-            >
-              새 쿠폰 등록
-            </button>
-            <button
-              className={editorTab === 'edit' ? styles['editorTabActive'] : styles['editorTab']}
-              disabled={editingCouponId === null}
-              onClick={() => {
-                setEditorTab('edit');
-              }}
-              type='button'
-            >
-              {editingCouponId === null ? '쿠폰 수정' : `${formState.name || '선택한 쿠폰'} 수정`}
-            </button>
-          </div>
+                return;
+              }
+
+              setEditorTab('edit');
+            }}
+            value={editorTab}
+          />
 
           <div className={styles['editorTabBody']}>
             <div className={styles['formGrid']}>

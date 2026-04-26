@@ -150,13 +150,13 @@ const createLearningLesson = (
   if (deliveryType === 'resource') {
     return {
       deliveryType,
-      description: `${detail.programTitle} 첨부자료와 체크리스트를 제공합니다.`,
+      description: '표준 스캔 순서에 대한 핵심 자료입니다. 다운로드하여 학습에 활용하세요.',
       durationLabel: '첨부자료',
       durationMinutes: null,
       endDate: null,
       id: lessonId,
       startDate: null,
-      title: `${detail.programTitle} ${String(lessonNumber)}강 첨부자료`,
+      title: '표준 스캔 순서 자료',
     };
   }
 
@@ -188,28 +188,56 @@ const createLearningLesson = (
 const createLearningResourceAttachments = (detail: EnrollmentDetail, lessonNumber: number) => {
   return [
     {
-      description: `${detail.programTitle} ${String(lessonNumber)}강 핵심 정리 자료입니다.`,
-      fileName: `${detail.programTitle.replaceAll(' ', '-')}-${String(lessonNumber)}-summary.pdf`,
-      fileSize: 2_400_000,
+      description: '표준 스캔 순서에 대한 핵심 자료입니다.',
+      fileName: 'standard-scan-order.pdf',
+      fileSize: 18_700_000,
       fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
         lessonNumber,
       )}-summary.pdf`,
       id: lessonNumber * 100 + 1,
       mimeType: 'application/pdf',
       sortOrder: 0,
-      title: '강의 요약 자료',
+      title: '표준 스캔 순서',
+      updatedAt: '2026-04-10T00:00:00.000Z',
     },
     {
-      description: `${detail.programTitle} ${String(lessonNumber)}강 점검 체크리스트입니다.`,
-      fileName: `${detail.programTitle.replaceAll(' ', '-')}-${String(lessonNumber)}-checklist.xlsx`,
-      fileSize: 980_000,
+      description: '복부 초음파 실습 전 점검 항목입니다.',
+      fileName: 'abdominal-ultrasound-checklist.docx',
+      fileSize: 1_800_000,
       fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
         lessonNumber,
-      )}-checklist.xlsx`,
+      )}-checklist.docx`,
       id: lessonNumber * 100 + 2,
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       sortOrder: 1,
-      title: '실습 체크리스트',
+      title: '복부 초음파 체크리스트',
+      updatedAt: '2026-04-08T00:00:00.000Z',
+    },
+    {
+      description: '실습 중 기록할 수 있는 표준 스캔 순서 기록표입니다.',
+      fileName: 'abdominal-scan-practice-log.xlsx',
+      fileSize: 824_000,
+      fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
+        lessonNumber,
+      )}-practice-log.xlsx`,
+      id: lessonNumber * 100 + 3,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      sortOrder: 2,
+      title: '복부 초음파 표준 스캔 순서 실습 기록표',
+      updatedAt: '2026-04-05T00:00:00.000Z',
+    },
+    {
+      description: '예제 영상에서 캡처한 참고 이미지 모음입니다.',
+      fileName: 'example-video-captures.zip',
+      fileSize: 824_000,
+      fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
+        lessonNumber,
+      )}-captures.zip`,
+      id: lessonNumber * 100 + 4,
+      mimeType: 'application/zip',
+      sortOrder: 3,
+      title: '예제 영상 캡쳐 모음',
+      updatedAt: '2026-04-05T00:00:00.000Z',
     },
   ];
 };
@@ -1611,8 +1639,7 @@ export const getMockMyProfile = (): UserProfile => {
 export const updateMockMyProfile = (payload: UserProfileUpdatePayload): UserProfile => {
   profileState = {
     ...profileState,
-    displayName: payload.nickname.trim() || payload.name,
-    name: payload.name,
+    displayName: payload.nickname.trim() || profileState.name,
     nickname: payload.nickname,
   };
 

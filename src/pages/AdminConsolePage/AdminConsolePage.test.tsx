@@ -465,7 +465,7 @@ describe('AdminConsolePage', () => {
     renderAdminConsoleRoute('/admin/programs/2001/resources');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 커리큘럼' }),
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 강의 구성' }),
     ).toBeInTheDocument();
     expect(await screen.findByText('강의 자료')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '자료 등록' })).toBeInTheDocument();
@@ -503,6 +503,9 @@ describe('AdminConsolePage', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: '팝업 관리' })).toBeInTheDocument();
     expect(await screen.findByLabelText('팝업 이미지 파일')).toBeInTheDocument();
+    expect(screen.queryByLabelText('노출 우선순위')).not.toBeInTheDocument();
+    expect(screen.queryByText('노출 우선순위')).not.toBeInTheDocument();
+    expect(screen.getAllByText('노출 선택됨').length).toBeGreaterThan(0);
     expect(screen.queryByLabelText('팝업 제목')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('팝업 본문')).not.toBeInTheDocument();
   });
@@ -686,8 +689,8 @@ describe('AdminConsolePage', () => {
     expect(await screen.findByText('박준서')).toBeInTheDocument();
     expect(await screen.findByText(/minji01\s+·\s+010-1111-2222/)).toBeInTheDocument();
     expect(await screen.findByText(/junseo02\s+·\s+010-3333-4444/)).toBeInTheDocument();
-    expect(await screen.findByText('선행학습 완료')).toBeInTheDocument();
-    expect(await screen.findByText('선행학습 미완료')).toBeInTheDocument();
+    expect(await screen.findByText('선행 2/2')).toBeInTheDocument();
+    expect(await screen.findByText('선행 1/2')).toBeInTheDocument();
     expect(await screen.findByText('실습복 지참')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '강의일자 변경' })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: '김민지 출석 상태' })).toBeInTheDocument();
@@ -855,6 +858,10 @@ describe('AdminConsolePage', () => {
                 lectureCompleted: true,
                 loginId: 'minji01',
                 phoneNumber: '010-1111-2222',
+                prerequisiteCompleted: true,
+                prerequisiteCompletedCount: 2,
+                prerequisiteLastLearningAt: '2026-03-29T04:00:00Z',
+                prerequisiteTotalCount: 2,
                 userId: 101,
                 userName: '김민지',
               },
@@ -865,6 +872,10 @@ describe('AdminConsolePage', () => {
                 lectureCompleted: false,
                 loginId: 'junseo02',
                 phoneNumber: '010-3333-4444',
+                prerequisiteCompleted: false,
+                prerequisiteCompletedCount: 1,
+                prerequisiteLastLearningAt: '2026-03-29T02:00:00Z',
+                prerequisiteTotalCount: 2,
                 userId: 102,
                 userName: '박준서',
               },
@@ -880,7 +891,7 @@ describe('AdminConsolePage', () => {
             ruleId,
             sectionTitle: '2주차',
             startAt: '2026-03-30T05:00:00Z',
-            videoAttached: true,
+            videoAttached: false,
           },
         });
       }),
@@ -1107,12 +1118,12 @@ describe('AdminConsolePage', () => {
     renderAdminConsoleRoute('/admin/programs/2001/problems?lectureId=9101');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 커리큘럼' }),
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 강의 구성' }),
     ).toBeInTheDocument();
     expect(await screen.findByText('강의별 문제 현황')).toBeInTheDocument();
     expect(screen.queryByLabelText('강의 검색')).not.toBeInTheDocument();
     expect(await screen.findAllByText('오리엔테이션')).toHaveLength(3);
-    expect(await screen.findByLabelText('문제 제목')).toBeInTheDocument();
+    expect(await screen.findByLabelText('문제 설명')).toBeInTheDocument();
     expect(await screen.findByLabelText('합격 점수')).toBeInTheDocument();
   });
 

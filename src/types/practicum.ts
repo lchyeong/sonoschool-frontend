@@ -126,6 +126,10 @@ export interface AdminPracticumOfflineScheduleAttendeeItem {
   lectureCompleted: boolean;
   absent: boolean;
   attendanceStatus?: 'PRESENT' | 'ABSENT' | 'UNCHECKED' | null;
+  prerequisiteCompletedCount: number;
+  prerequisiteTotalCount: number;
+  prerequisiteCompleted: boolean;
+  prerequisiteLastLearningAt: string | null;
 }
 
 export interface AdminPracticumOfflineScheduleDetail {

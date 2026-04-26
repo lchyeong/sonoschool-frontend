@@ -140,8 +140,22 @@ describe('ProgramPage', () => {
     renderProgramPage('/programs/general-course/abdomen/abdomen-basic-6-weeks');
 
     const heading = await screen.findByRole('heading', { level: 1, name: '복부 Basic 스캔 6주' });
+    const breadcrumb = screen.getByRole('navigation', { name: '교육과정 경로' });
 
     expect(heading).toBeInTheDocument();
+    expect(within(breadcrumb).queryByText('교육과정')).toBeNull();
+    expect(within(breadcrumb).getByRole('link', { name: '일반과정' })).toHaveAttribute(
+      'href',
+      '/programs/general-course',
+    );
+    expect(within(breadcrumb).getByRole('link', { name: '복부과정' })).toHaveAttribute(
+      'href',
+      '/programs/general-course/abdomen',
+    );
+    expect(within(breadcrumb).getByText('복부 Basic 스캔 6주')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     expect(within(heading.closest('section') as HTMLElement).queryByText('복부과정')).toBeNull();
     expect(getLectureCountText(3)).toBeInTheDocument();
     expect(screen.getByText('2026.03.01 - 2026.04.30 진행')).toBeInTheDocument();

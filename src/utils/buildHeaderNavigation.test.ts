@@ -103,14 +103,7 @@ describe('buildHeaderNavigation', () => {
     expect(navigation[1]?.description).toBe('의사과정 설명');
     expect(navigation[1]?.children?.[0]?.label).toBe('심장과정');
     expect(navigation[1]?.isFixed).toBe(true);
-    expect(navigation[3]?.children?.map((item) => item.label)).toEqual([
-      '이론+스캔',
-      'ARDMS 시험 대비',
-      '소아초음파 하이브리드 과정',
-      '상복부·비뇨기 하이브리드 과정',
-      'GI tract 실습 포함 과정',
-      '두경부 실습 포함 과정',
-    ]);
+    expect(navigation[3]?.children?.map((item) => item.label)).toEqual(['POCUS 라이브러리']);
   });
 
   it('preserves optional descriptions across nested navigation items', () => {

@@ -8,18 +8,24 @@ import styles from './TextField.module.scss';
 interface BaseFieldProps {
   label: string;
   errorMessage?: string | undefined;
+  errorClassName?: string | undefined;
+  fieldClassName?: string | undefined;
+  labelClassName?: string | undefined;
 }
 
 export interface TextFieldProps extends BaseFieldProps, InputHTMLAttributes<HTMLInputElement> {}
 
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
-  ({ className, errorMessage, id, label, ...rest }, ref) => {
+  (
+    { className, errorClassName, errorMessage, fieldClassName, id, label, labelClassName, ...rest },
+    ref,
+  ) => {
     const resolvedId = id ?? rest.name ?? undefined;
     const errorId = resolvedId ? `${resolvedId}_error` : undefined;
 
     return (
-      <div className={styles['field']}>
-        <label className={styles['label']} htmlFor={resolvedId}>
+      <div className={classNames(styles['field'], fieldClassName)}>
+        <label className={classNames(styles['label'], labelClassName)} htmlFor={resolvedId}>
           {label}
         </label>
         <input
@@ -32,7 +38,11 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
         />
         <div
           aria-hidden={!errorMessage}
-          className={classNames(styles['error'], !errorMessage && styles['errorHidden'])}
+          className={classNames(
+            styles['error'],
+            errorClassName,
+            !errorMessage && styles['errorHidden'],
+          )}
           id={errorMessage && errorId ? errorId : undefined}
           role={errorMessage ? 'alert' : undefined}
         >
@@ -50,13 +60,16 @@ export interface TextAreaFieldProps
     TextareaHTMLAttributes<HTMLTextAreaElement> {}
 
 export const TextAreaField = forwardRef<HTMLTextAreaElement, TextAreaFieldProps>(
-  ({ className, errorMessage, id, label, ...rest }, ref) => {
+  (
+    { className, errorClassName, errorMessage, fieldClassName, id, label, labelClassName, ...rest },
+    ref,
+  ) => {
     const resolvedId = id ?? rest.name ?? undefined;
     const errorId = resolvedId ? `${resolvedId}_error` : undefined;
 
     return (
-      <div className={styles['field']}>
-        <label className={styles['label']} htmlFor={resolvedId}>
+      <div className={classNames(styles['field'], fieldClassName)}>
+        <label className={classNames(styles['label'], labelClassName)} htmlFor={resolvedId}>
           {label}
         </label>
         <textarea
@@ -69,7 +82,11 @@ export const TextAreaField = forwardRef<HTMLTextAreaElement, TextAreaFieldProps>
         />
         <div
           aria-hidden={!errorMessage}
-          className={classNames(styles['error'], !errorMessage && styles['errorHidden'])}
+          className={classNames(
+            styles['error'],
+            errorClassName,
+            !errorMessage && styles['errorHidden'],
+          )}
           id={errorMessage && errorId ? errorId : undefined}
           role={errorMessage ? 'alert' : undefined}
         >

@@ -12,6 +12,7 @@ export interface CommonHeaderLinkProps {
   children: ReactNode;
   onClick?: MouseEventHandler<HTMLElement> | undefined;
   onFocus?: FocusEventHandler<HTMLElement> | undefined;
+  onMouseEnter?: MouseEventHandler<HTMLElement> | undefined;
   'aria-expanded'?: AriaAttributes['aria-expanded'];
   'aria-haspopup'?: AriaAttributes['aria-haspopup'];
 }

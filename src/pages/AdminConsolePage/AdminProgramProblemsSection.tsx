@@ -10,6 +10,7 @@ import {
 import { createAdminProblem, deleteAdminProblem, updateAdminProblem } from '@/api/adminProblems';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
+import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { useAdminCurriculumQuery } from '@/query/useAdminCurriculumQuery';
 import {
@@ -146,6 +147,7 @@ const formatDateTime = (value: string | null | undefined) => {
   return date.toLocaleString('ko-KR', {
     day: 'numeric',
     hour: '2-digit',
+    hour12: false,
     minute: '2-digit',
     month: 'short',
   });
@@ -244,7 +246,10 @@ const createFormState = (problem: AdminProblem | null): ProblemFormState => {
   };
 };
 
-const toPayload = (formState: ProblemFormState): AdminProblemUpsertPayload => ({
+const toPayload = (
+  formState: ProblemFormState,
+  fallbackTitle: string,
+): AdminProblemUpsertPayload => ({
   description: formState.description.trim() || null,
   passScore: Number(formState.passScore),
   timeLimitSeconds: formState.timeLimitMinutes.trim()
@@ -266,14 +271,10 @@ const toPayload = (formState: ProblemFormState): AdminProblemUpsertPayload => ({
     questionType: question.questionType,
     sortOrder: questionIndex,
   })),
-  title: formState.title.trim(),
+  title: formState.title.trim() || fallbackTitle.trim() || '문제',
 });
 
 const validateForm = (formState: ProblemFormState): string | null => {
-  if (!formState.title.trim()) {
-    return '문제 제목을 입력해 주세요.';
-  }
-
   if (!formState.passScore.trim() || Number.isNaN(Number(formState.passScore))) {
     return '합격 점수를 숫자로 입력해 주세요.';
   }
@@ -426,10 +427,12 @@ const ProblemAttemptsPanel = ({ problemId }: { problemId: number | null }) => {
 
 const ProblemEditor = ({
   lectureId,
+  lectureTitle,
   programId,
   problem,
 }: {
   lectureId: number;
+  lectureTitle: string;
   programId: number;
   problem: AdminProblem | null;
 }) => {
@@ -560,10 +563,13 @@ const ProblemEditor = ({
       })),
     }));
 
-    return toPayload({
-      ...formState,
-      questions: nextQuestions,
-    });
+    return toPayload(
+      {
+        ...formState,
+        questions: nextQuestions,
+      },
+      lectureTitle,
+    );
   };
 
   const handleSubmit = async () => {
@@ -640,17 +646,6 @@ const ProblemEditor = ({
         </div>
 
         <div className={styles['stackListCompact']}>
-          <TextField
-            label='문제 제목'
-            name='problem-title'
-            onChange={(event) => {
-              setFormState((current) => ({
-                ...current,
-                title: event.target.value,
-              }));
-            }}
-            value={formState.title}
-          />
           <TextAreaField
             label='문제 설명'
             name='problem-description'
@@ -1247,7 +1242,7 @@ const AdminProgramProblemsSection = ({ enabled, programId }: AdminProgramProblem
   }
 
   if (!lectures.length) {
-    return <p className={styles['helperText']}>먼저 커리큘럼에서 강의를 추가해 주세요.</p>;
+    return <p className={styles['helperText']}>먼저 강의 구성에서 강의를 추가해 주세요.</p>;
   }
 
   return (
@@ -1369,32 +1364,24 @@ const AdminProgramProblemsSection = ({ enabled, programId }: AdminProgramProblem
 
         {selectedLecture ? (
           <>
-            <div className={styles['editorTabs']}>
-              <button
-                className={
-                  visibleActiveTab === 'editor' ? styles['editorTabActive'] : styles['editorTab']
-                }
-                onClick={() => {
+            <SectionTabs
+              ariaLabel='문제 관리 작업'
+              items={[
+                { label: '문항 편집', value: 'editor' },
+                { label: '응시 결과', value: 'attempts' },
+              ]}
+              onChange={(nextTab) => {
+                if (nextTab === 'editor') {
                   setActiveTab('editor');
                   setAttemptsLectureId(null);
-                }}
-                type='button'
-              >
-                문항 편집
-              </button>
-              <button
-                className={
-                  visibleActiveTab === 'attempts' ? styles['editorTabActive'] : styles['editorTab']
+                  return;
                 }
-                onClick={() => {
-                  setAttemptsLectureId(selectedLecture.id);
-                  setActiveTab('attempts');
-                }}
-                type='button'
-              >
-                응시 결과
-              </button>
-            </div>
+
+                setAttemptsLectureId(selectedLecture.id);
+                setActiveTab('attempts');
+              }}
+              value={visibleActiveTab}
+            />
 
             <div className={styles['editorTabBody']}>
               {visibleActiveTab === 'editor' ? (
@@ -1409,6 +1396,7 @@ const AdminProgramProblemsSection = ({ enabled, programId }: AdminProgramProblem
                 ) : (
                   <ProblemEditor
                     lectureId={selectedLecture.id}
+                    lectureTitle={selectedLecture.title}
                     programId={programId}
                     problem={problemQuery.data ?? null}
                   />

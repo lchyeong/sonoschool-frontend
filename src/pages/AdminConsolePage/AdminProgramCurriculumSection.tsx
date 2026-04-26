@@ -8,6 +8,7 @@ import {
   deleteAdminLecture,
   deleteAdminLectureOfflineSchedules,
   deleteAdminSection,
+  fetchAdminLectureDeleteImpact,
   publishAdminLecture,
   replaceAdminLectureOfflineSchedules,
   reorderAdminLectures,
@@ -34,6 +35,7 @@ import { adminCurriculumQueryKey, useAdminCurriculumQuery } from '@/query/useAdm
 import { useToastStore } from '@/stores/useToastStore';
 import type {
   AdminCurriculumLecture,
+  AdminLectureDeleteImpact,
   AdminLectureOfflineSchedule,
   AdminLectureOfflineSchedulesReplacePayload,
   AdminCurriculumSection,
@@ -48,6 +50,24 @@ import { classNames } from '@/utils/classNames';
 import styles from './AdminProgramCurriculumSection.module.scss';
 
 const TARGET_PART_SIZE_BYTES = 8 * 1024 * 1024;
+const VIDEO_ENCODING_POLL_INTERVAL_MS = 5000;
+
+const buildLectureDeleteConfirmMessage = (impact: AdminLectureDeleteImpact): string => {
+  if (!impact.hasHistory) {
+    return `'${impact.lectureTitle}' 강의를 삭제하시겠습니까?`;
+  }
+
+  return [
+    `'${impact.lectureTitle}' 강의에는 학습/응시 이력이 있어 완전 삭제하지 않고 목록에서 숨김 처리합니다.`,
+    '',
+    `수강 진행률 ${String(impact.progressCount)}건`,
+    `문제 응시 기록 ${String(impact.problemAttemptCount)}건`,
+    `실습 예약 기록 ${String(impact.reservationCount)}건`,
+    `연결 자료 ${String(impact.documentCount)}건`,
+    '',
+    '계속 진행하시겠습니까?',
+  ].join('\n');
+};
 
 interface AdminProgramCurriculumSectionProps {
   embedded?: boolean;
@@ -114,7 +134,7 @@ const normalizeDescription = (value: string): string | null => {
   return trimmed ? trimmed : null;
 };
 
-const parseDurationSeconds = (value: string): number | null => {
+const parseDurationMinutes = (value: string): number | null => {
   const trimmed = value.trim();
 
   if (!trimmed) {
@@ -127,6 +147,19 @@ const parseDurationSeconds = (value: string): number | null => {
   }
 
   return Math.floor(parsed);
+};
+
+const durationSecondsToMinutesInput = (durationSeconds: number | null): string => {
+  if (durationSeconds === null) {
+    return '';
+  }
+
+  return String(Math.ceil(durationSeconds / 60));
+};
+
+const parseDurationMinutesToSeconds = (value: string): number | null => {
+  const durationMinutes = parseDurationMinutes(value);
+  return durationMinutes === null ? null : durationMinutes * 60;
 };
 
 const validateSectionForm = (formState: SectionFormState): string | null => {
@@ -144,9 +177,9 @@ const validateLectureForm = (formState: LectureFormState): string | null => {
 
   if (
     formState.durationSeconds.trim() &&
-    parseDurationSeconds(formState.durationSeconds) === null
+    parseDurationMinutes(formState.durationSeconds) === null
   ) {
-    return '강의 길이는 0 이상의 숫자로 입력해 주세요.';
+    return '강의 길이는 0분 이상의 숫자로 입력해 주세요.';
   }
 
   return null;
@@ -177,7 +210,7 @@ const toLecturePayload = (
     durationSeconds:
       !formState.problemOnly && formState.practicumEnabled
         ? null
-        : parseDurationSeconds(formState.durationSeconds),
+        : parseDurationMinutesToSeconds(formState.durationSeconds),
     lectureType,
     problemOnly: formState.problemOnly,
     preview: false,
@@ -252,6 +285,7 @@ const formatPracticumDateTime = (value: string) => {
   return date.toLocaleString('ko-KR', {
     day: 'numeric',
     hour: '2-digit',
+    hour12: false,
     minute: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -305,6 +339,14 @@ const formatLectureMeta = (lecture: AdminCurriculumLecture): string => {
   return `영상 ID ${String(lecture.videoId)}`;
 };
 
+const isVideoUploadStatusInProgress = (status: string | null): boolean => {
+  return Boolean(
+    status?.startsWith('영상 업로드 중') ||
+      status?.startsWith('영상 인코딩 준비 중') ||
+      status?.startsWith('영상 인코딩 중'),
+  );
+};
+
 const formatOfflineScheduleLabel = (schedule: AdminLectureOfflineSchedule): string => {
   return `${schedule.date} ${schedule.startTime}~${schedule.endTime}`;
 };
@@ -314,10 +356,7 @@ const formatDurationLabel = (durationSeconds: number | null): string => {
     return '길이 미설정';
   }
 
-  const totalMinutes = Math.floor(durationSeconds / 60);
-  if (totalMinutes <= 0) {
-    return `${String(durationSeconds)}초`;
-  }
+  const totalMinutes = Math.ceil(durationSeconds / 60);
 
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -403,6 +442,14 @@ const uploadPart = async (uploadUrl: string, chunk: Blob, contentType: string): 
   return stripETagQuotes(eTag);
 };
 
+const formatProgressLabel = (label: string, progressPercent: number | null | undefined): string => {
+  if (progressPercent === null || progressPercent === undefined) {
+    return label;
+  }
+
+  return `${label} ${String(Math.max(0, Math.min(100, Math.round(progressPercent))))}%`;
+};
+
 const buildVideoChunks = (
   file: File,
   parts: ReadonlyArray<{ partNumber: number; uploadUrl: string }>,
@@ -461,7 +508,7 @@ const LectureCard = ({
 }) => {
   const [formState, setFormState] = useState<LectureFormState>({
     description: lecture.description ?? '',
-    durationSeconds: lecture.durationSeconds === null ? '' : String(lecture.durationSeconds),
+    durationSeconds: durationSecondsToMinutesInput(lecture.durationSeconds),
     problemOnly: lecture.problemOnly ?? false,
     preview: lecture.preview,
     practicumEnabled: lecture.practicumEnabled ?? false,
@@ -567,7 +614,14 @@ const LectureCard = ({
             <div className={styles['summaryItem']}>
               <span className={styles['summaryLabel']}>영상</span>
               <strong className={styles['summaryValue']}>
-                {videoUploadStatus ?? formatLectureMeta(lecture)}
+                {isVideoUploadStatusInProgress(videoUploadStatus) ? (
+                  <span className={styles['inlineStatus']}>
+                    <span aria-hidden='true' className={styles['inlineStatusSpinner']} />
+                    <span>{videoUploadStatus}</span>
+                  </span>
+                ) : (
+                  (videoUploadStatus ?? formatLectureMeta(lecture))
+                )}
               </strong>
             </div>
             <div className={styles['summaryItem']}>
@@ -824,7 +878,7 @@ const LectureCard = ({
                 />
                 {!formState.practicumEnabled || formState.problemOnly ? (
                   <TextField
-                    label='강의 길이(초)'
+                    label='강의 길이(분)'
                     name={`lecture-duration-${String(lecture.id)}`}
                     onChange={(event) => {
                       setFormState((current) => ({
@@ -1280,7 +1334,7 @@ const SectionCard = ({
             <span className={styles['levelBadge']} data-level='section'>
               {`섹션 ${String(section.sortOrder + 1)}`}
             </span>
-            <span className={styles['levelHint']}>커리큘럼 최상위 묶음</span>
+            <span className={styles['levelHint']}>강의 구성 최상위 묶음</span>
           </div>
           <h3 className={styles['cardTitle']}>{section.title}</h3>
           <p className={styles['sectionDescription']}>
@@ -1557,7 +1611,7 @@ const SectionCard = ({
                 />
                 {!newLectureForm.practicumEnabled || newLectureForm.problemOnly ? (
                   <TextField
-                    label='새 강의 길이(초)'
+                    label='새 강의 길이(분)'
                     name={`new-lecture-duration-${String(section.id)}`}
                     onChange={(event) => {
                       setNewLectureForm((current) => ({
@@ -1753,17 +1807,31 @@ const AdminProgramCurriculumSection = ({
   });
 
   const deleteLectureMutation = useMutation({
-    mutationFn: (lectureId: number) => deleteAdminLecture(lectureId),
+    mutationFn: async (lectureId: number) => {
+      const impact = await fetchAdminLectureDeleteImpact(lectureId);
+      if (!window.confirm(buildLectureDeleteConfirmMessage(impact))) {
+        return { impact, deleted: false };
+      }
+
+      await deleteAdminLecture(lectureId);
+      return { impact, deleted: true };
+    },
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '강의를 삭제하지 못했습니다.',
         variant: 'error',
       });
     },
-    onSuccess: async () => {
+    onSuccess: async ({ impact, deleted }) => {
+      if (!deleted) {
+        return;
+      }
+
       await invalidateCurriculum();
       showToast({
-        message: '강의를 삭제했습니다.',
+        message: impact.hasHistory
+          ? '학습 이력이 있어 강의를 숨김 처리했습니다.'
+          : '강의를 삭제했습니다.',
         variant: 'success',
       });
     },
@@ -1861,9 +1929,9 @@ const AdminProgramCurriculumSection = ({
       <section className={classNames(styles['section'], embedded && styles['sectionEmbedded'])}>
         <div className={styles['header']}>
           <div>
-            {!embedded ? <h2 className={styles['title']}>커리큘럼 관리</h2> : null}
+            {!embedded ? <h2 className={styles['title']}>강의 구성 관리</h2> : null}
             <p className={styles['description']}>
-              커리큘럼은 프로그램 기본정보를 먼저 저장한 뒤 관리할 수 있습니다.
+              강의 구성은 프로그램 기본정보를 먼저 저장한 뒤 관리할 수 있습니다.
             </p>
           </div>
         </div>
@@ -1908,7 +1976,7 @@ const AdminProgramCurriculumSection = ({
   const handleCreateLecture = (sectionId: number, payload: AdminLectureUpsertPayload): boolean => {
     const validationMessage = validateLectureForm({
       description: payload.description ?? '',
-      durationSeconds: payload.durationSeconds === null ? '' : String(payload.durationSeconds),
+      durationSeconds: durationSecondsToMinutesInput(payload.durationSeconds),
       problemOnly: payload.problemOnly ?? false,
       preview: payload.preview,
       practicumEnabled: payload.practicumEnabled ?? false,
@@ -1930,7 +1998,7 @@ const AdminProgramCurriculumSection = ({
   const handleSaveLecture = (lectureId: number, payload: AdminLectureUpsertPayload) => {
     const validationMessage = validateLectureForm({
       description: payload.description ?? '',
-      durationSeconds: payload.durationSeconds === null ? '' : String(payload.durationSeconds),
+      durationSeconds: durationSecondsToMinutesInput(payload.durationSeconds),
       problemOnly: payload.problemOnly ?? false,
       preview: payload.preview,
       practicumEnabled: payload.practicumEnabled ?? false,
@@ -1974,19 +2042,23 @@ const AdminProgramCurriculumSection = ({
     reorderLecturesMutation.mutate({ items, sectionId });
   };
 
-  const pollVideoReady = async (videoId: number): Promise<void> => {
-    for (let attempt = 0; attempt < 120; attempt += 1) {
+  const pollVideoReady = async (videoId: number, lectureId: number): Promise<void> => {
+    for (;;) {
       const status = await fetchAdminVideoStatus(videoId);
+      if (status.status === 'PROCESSING') {
+        setVideoUploadStatusByLectureId((current) => ({
+          ...current,
+          [lectureId]: formatProgressLabel('영상 인코딩 중', status.progressPercent),
+        }));
+      }
       if (status.status === 'READY') {
         return;
       }
       if (status.status === 'FAILED') {
         throw new Error(status.errorMessage || '영상 인코딩에 실패했습니다.');
       }
-      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, VIDEO_ENCODING_POLL_INTERVAL_MS));
     }
-
-    throw new Error('영상 인코딩 대기 시간이 초과되었습니다.');
   };
 
   const handleUploadLectureVideo = async (lectureId: number, file: File) => {
@@ -2024,15 +2096,27 @@ const AdminProgramCurriculumSection = ({
       });
 
       const chunks = buildVideoChunks(file, session.parts);
+      let completedUploadPartCount = 0;
       const completedParts = await Promise.all(
-        chunks.map(async (chunk) => ({
-          eTag: await uploadPart(
+        chunks.map(async (chunk) => {
+          const eTag = await uploadPart(
             chunk.uploadUrl,
             chunk.blob,
             file.type || 'application/octet-stream',
-          ),
-          partNumber: chunk.partNumber,
-        })),
+          );
+          completedUploadPartCount += 1;
+          setVideoUploadStatusByLectureId((current) => ({
+            ...current,
+            [lectureId]: formatProgressLabel(
+              '영상 업로드 중',
+              (completedUploadPartCount / chunks.length) * 100,
+            ),
+          }));
+          return {
+            eTag,
+            partNumber: chunk.partNumber,
+          };
+        }),
       );
 
       setVideoUploadStatusByLectureId((current) => ({
@@ -2051,7 +2135,7 @@ const AdminProgramCurriculumSection = ({
         [lectureId]: '영상 인코딩 중',
       }));
 
-      await pollVideoReady(session.videoId);
+      await pollVideoReady(session.videoId, lectureId);
       await assignAdminLectureVideo(String(lectureId), session.videoId);
       await invalidateCurriculum();
 
@@ -2079,7 +2163,7 @@ const AdminProgramCurriculumSection = ({
     <section className={classNames(styles['section'], embedded && styles['sectionEmbedded'])}>
       <div className={styles['header']}>
         <div>
-          {!embedded ? <h2 className={styles['title']}>커리큘럼 관리</h2> : null}
+          {!embedded ? <h2 className={styles['title']}>강의 구성 관리</h2> : null}
           {!embedded ? (
             <p className={styles['description']}>
               섹션과 강의를 편집하고 공개 상태를 관리합니다. 영상은 강의 카드 안에서 바로 업로드하고
@@ -2090,14 +2174,14 @@ const AdminProgramCurriculumSection = ({
       </div>
 
       {curriculumQuery.isPending ? (
-        <p className={styles['helperText']}>커리큘럼을 불러오는 중입니다.</p>
+        <p className={styles['helperText']}>강의 구성을 불러오는 중입니다.</p>
       ) : null}
 
       {curriculumQuery.isError ? (
         <p className={styles['helperText']}>
           {curriculumQuery.error instanceof Error
             ? curriculumQuery.error.message
-            : '커리큘럼을 불러오지 못했습니다.'}
+            : '강의 구성을 불러오지 못했습니다.'}
         </p>
       ) : null}
 
@@ -2111,7 +2195,7 @@ const AdminProgramCurriculumSection = ({
               </strong>
             </div>
             <p className={styles['helperText']}>
-              섹션은 커리큘럼의 최상위 뎁스입니다. 먼저 섹션을 만든 뒤, 각 섹션 안에 강의를
+              섹션은 강의 구성의 최상위 뎁스입니다. 먼저 섹션을 만든 뒤, 각 섹션 안에 강의를
               넣습니다.
             </p>
             <div className={styles['fieldGrid']}>

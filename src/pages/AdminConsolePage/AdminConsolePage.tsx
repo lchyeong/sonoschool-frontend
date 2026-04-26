@@ -1,10 +1,6 @@
 import styles from './AdminConsolePage.module.scss';
 import { type AdminConsoleSection } from './adminConsolePageShared';
-import {
-  AdminConsolePageHeader,
-  AdminDeferredSection,
-  AdminPaymentsSection,
-} from './AdminConsoleSectionViews';
+import { AdminDeferredSection, AdminPaymentsSection } from './AdminConsoleSectionViews';
 import AdminEnrollmentsSection from './AdminEnrollmentsSection';
 import AdminNoticesSection from './AdminNoticesSection';
 import AdminPopupsSection from './AdminPopupsSection';
@@ -21,8 +17,6 @@ interface AdminConsolePageProps {
 const AdminConsolePage = ({ section }: AdminConsolePageProps) => {
   return (
     <div className={styles['page']}>
-      {section !== 'programs' ? <AdminConsolePageHeader section={section} /> : null}
-
       {section === 'notices' ? <AdminNoticesSection /> : null}
       {section === 'popups' ? <AdminPopupsSection /> : null}
       {section === 'qna' ? <AdminQnaSection /> : null}

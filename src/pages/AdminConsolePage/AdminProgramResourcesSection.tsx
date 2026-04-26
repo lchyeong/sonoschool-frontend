@@ -82,6 +82,7 @@ const visibilityOptions = [
 const formatDateTime = (value: string): string => {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
+    hour12: false,
     timeStyle: 'short',
   }).format(new Date(value));
 };
@@ -304,7 +305,7 @@ const AdminProgramResourcesSection = ({
   }
 
   if (!lectureOptions.length) {
-    return <p className={styles['helperText']}>먼저 커리큘럼에 강의를 추가해 주세요.</p>;
+    return <p className={styles['helperText']}>먼저 강의 구성에 강의를 추가해 주세요.</p>;
   }
 
   return (

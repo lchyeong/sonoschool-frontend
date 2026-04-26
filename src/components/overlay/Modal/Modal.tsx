@@ -31,6 +31,14 @@ interface ModalProps {
   headerLeading?: ReactNode;
   headerLeadingStacked?: boolean | undefined;
   hideTitle?: boolean | undefined;
+  panelClassName?: string | undefined;
+  headerClassName?: string | undefined;
+  bodyClassName?: string | undefined;
+  titleClassName?: string | undefined;
+  descriptionClassName?: string | undefined;
+  closeButtonClassName?: string | undefined;
+  closeButtonContent?: ReactNode;
+  closeButtonLabel?: string | undefined;
   onClose: () => void;
   initialFocusRef?: RefObject<HTMLElement | null> | undefined;
   restoreFocusElement?: HTMLElement | null | undefined;
@@ -43,6 +51,14 @@ const Modal = ({
   headerLeading,
   headerLeadingStacked = false,
   hideTitle = false,
+  panelClassName,
+  headerClassName,
+  bodyClassName,
+  titleClassName,
+  descriptionClassName,
+  closeButtonClassName,
+  closeButtonContent,
+  closeButtonLabel,
   initialFocusRef,
   onClose,
   restoreFocusElement,
@@ -136,13 +152,13 @@ const Modal = ({
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}
         aria-modal='true'
-        className={classNames(styles['panel'], size === 'lg' && styles['panelLg'])}
+        className={classNames(styles['panel'], size === 'lg' && styles['panelLg'], panelClassName)}
         onKeyDown={handlePanelKeyDown}
         ref={dialogRef}
         role='dialog'
         tabIndex={-1}
       >
-        <div className={styles['header']}>
+        <div className={classNames(styles['header'], headerClassName)}>
           <div
             className={classNames(
               styles['headerMain'],
@@ -160,11 +176,14 @@ const Modal = ({
               </div>
             ) : null}
             <div className={styles['headingGroup']}>
-              <h2 className={styles['title']} id={titleId}>
+              <h2 className={classNames(styles['title'], titleClassName)} id={titleId}>
                 <span className={classNames(hideTitle && styles['titleHidden'])}>{title}</span>
               </h2>
               {description ? (
-                <p className={styles['description']} id={descriptionId}>
+                <p
+                  className={classNames(styles['description'], descriptionClassName)}
+                  id={descriptionId}
+                >
                   {description}
                 </p>
               ) : null}
@@ -172,16 +191,16 @@ const Modal = ({
           </div>
 
           <button
-            aria-label='모달 닫기'
-            className={styles['closeButton']}
+            aria-label={closeButtonLabel ?? '모달 닫기'}
+            className={classNames(styles['closeButton'], closeButtonClassName)}
             onClick={onClose}
             type='button'
           >
-            <span aria-hidden='true'>x</span>
+            {closeButtonContent ?? <span aria-hidden='true'>x</span>}
           </button>
         </div>
 
-        <div className={styles['body']}>{children}</div>
+        <div className={classNames(styles['body'], bodyClassName)}>{children}</div>
       </div>
     </div>,
     document.body,

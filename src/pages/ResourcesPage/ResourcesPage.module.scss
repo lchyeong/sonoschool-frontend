@@ -86,8 +86,6 @@
 }
 
 .searchButton,
-.pageButton,
-.pageNavButton,
 .downloadButton {
   border: 0;
 }
@@ -225,47 +223,6 @@
   display: flex;
   justify-content: center;
   padding-top: 0.5rem;
-}
-
-.pagination {
-  display: flex;
-  gap: 0.45rem;
-  align-items: center;
-}
-
-.pageButton,
-.pageNavButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 38px;
-  min-height: 38px;
-  border: 1px solid #e1e4ea;
-  color: #707789;
-  font-weight: 600;
-  background: #ffffff;
-  cursor: pointer;
-}
-
-.pageButton[data-active='true'] {
-  border-color: var(--color-primary);
-  color: #ffffff;
-  background: var(--color-primary);
-}
-
-.pageButton:hover,
-.pageNavButton:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.pageButton[data-active='true']:hover {
-  color: #ffffff;
-}
-
-.pageNavButton:disabled {
-  cursor: default;
-  opacity: 0.45;
 }
 
 @media (width < 960px) {

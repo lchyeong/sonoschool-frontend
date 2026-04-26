@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -13,7 +13,9 @@ import {
   unpublishAdminPopupLive,
   updateAdminPopupLive,
 } from '@/api/popups';
+import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
+import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
 import { TextField } from '@/components/ui/TextField/TextField';
 import {
   adminPopupsQueryKey,
@@ -22,41 +24,57 @@ import {
 } from '@/query/usePopupQueries';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AdminPopupCreatePayload, AdminPopupUpdatePayload, PopupItem } from '@/types/popup';
+import { classNames } from '@/utils/classNames';
+import {
+  buildCalendarCells,
+  calendarWeekdays,
+  formatDate,
+  formatMonthLabel,
+  toMonthValue,
+} from '@/utils/practicumCalendar';
 
 import styles from './AdminConsolePage.module.scss';
 
 interface PopupFormState {
   imageAlt: string;
   imageAssetId: number | null;
+  imagePreviewObjectUrl: string | null;
   imageUrl: string;
+  pendingImageFile: File | null;
   published: boolean;
   sortOrder: number;
   visibleEndAt: string;
   visibleStartAt: string;
 }
 
+type PopupAdminTab = 'form' | 'list';
+
 const createEmptyForm = (sortOrder = 0): PopupFormState => ({
   imageAlt: '',
   imageAssetId: null,
+  imagePreviewObjectUrl: null,
   imageUrl: '',
+  pendingImageFile: null,
   published: true,
   sortOrder,
   visibleEndAt: '',
   visibleStartAt: '',
 });
 
-const formatDateTime = (value: string | null): string => {
+const formatDisplayDate = (value: string | null): string => {
   if (!value) {
     return '-';
   }
 
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${String(year)}.${month}.${day}`;
 };
 
-const formatDateTimeInputValue = (value: string | null): string => {
+const formatDateInputValue = (value: string | null): string => {
   if (!value) {
     return '';
   }
@@ -65,25 +83,179 @@ const formatDateTimeInputValue = (value: string | null): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
 
-  return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
+  return `${String(year)}-${month}-${day}`;
 };
 
-const toIsoStringOrNull = (value: string): string | null => {
+const formatEndDateInputValue = (value: string | null): string => {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  date.setMilliseconds(date.getMilliseconds() - 1);
+
+  return formatDateInputValue(date.toISOString());
+};
+
+const toStartOfDayIsoStringOrNull = (value: string): string | null => {
   const trimmed = value.trim();
 
   if (!trimmed) {
     return null;
   }
 
-  const date = new Date(trimmed);
+  const date = new Date(`${trimmed}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+const toEndOfDayIsoStringOrNull = (value: string): string | null => {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const date = new Date(`${trimmed}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+const addMonths = (value: Date, amount: number): Date => {
+  return new Date(value.getFullYear(), value.getMonth() + amount, 1);
+};
+
+const formatPopupDateRangeText = (startDate: string, endDate: string): string => {
+  if (!startDate && !endDate) {
+    return '상시 노출';
+  }
+
+  if (startDate && endDate) {
+    return `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
+  }
+
+  if (startDate) {
+    return `${formatDate(startDate)}부터`;
+  }
+
+  return `${formatDate(endDate)}까지`;
+};
+
+const isDateInRange = (date: string, startDate: string, endDate: string): boolean => {
+  if (!startDate) {
+    return false;
+  }
+
+  if (!endDate) {
+    return date === startDate;
+  }
+
+  return date >= startDate && date <= endDate;
 };
 
 const buildPopupLabelFromFilename = (filename: string): string => {
   return filename.replace(/\.[^.]+$/, '').trim() || '홈 팝업';
+};
+
+const POPUP_IMAGE_MAX_WIDTH = 1200;
+const POPUP_IMAGE_MAX_HEIGHT = 1600;
+const POPUP_IMAGE_WEBP_QUALITY = 0.82;
+
+const shouldSkipClientImageOptimization = (file: File): boolean => {
+  const contentType = file.type.toLowerCase();
+  return (
+    !contentType.startsWith('image/') || contentType.includes('gif') || contentType.includes('svg')
+  );
+};
+
+const buildOptimizedPopupFilename = (filename: string): string => {
+  const basename = filename.replace(/\.[^.]+$/, '').trim() || 'popup-image';
+  return `${basename}.webp`;
+};
+
+const loadPopupImageElement = async (file: File): Promise<HTMLImageElement> => {
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = new Image();
+    const loaded = new Promise<HTMLImageElement>((resolve, reject) => {
+      image.onload = () => {
+        resolve(image);
+      };
+      image.onerror = () => {
+        reject(new Error('팝업 이미지 파일을 읽지 못했습니다.'));
+      };
+    });
+    image.src = objectUrl;
+    return await loaded;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
+const calculatePopupImageSize = (width: number, height: number) => {
+  const ratio = Math.min(POPUP_IMAGE_MAX_WIDTH / width, POPUP_IMAGE_MAX_HEIGHT / height, 1);
+
+  return {
+    height: Math.max(1, Math.round(height * ratio)),
+    resized: ratio < 1,
+    width: Math.max(1, Math.round(width * ratio)),
+  };
+};
+
+const canvasToWebpBlob = async (canvas: HTMLCanvasElement): Promise<Blob | null> => {
+  return await new Promise((resolve) => {
+    canvas.toBlob(resolve, 'image/webp', POPUP_IMAGE_WEBP_QUALITY);
+  });
+};
+
+const optimizePopupImageFile = async (file: File): Promise<File> => {
+  if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') {
+    return file;
+  }
+
+  if (shouldSkipClientImageOptimization(file)) {
+    return file;
+  }
+
+  try {
+    const image = await loadPopupImageElement(file);
+    const sourceWidth = image.naturalWidth;
+    const sourceHeight = image.naturalHeight;
+
+    if (sourceWidth <= 0 || sourceHeight <= 0) {
+      return file;
+    }
+
+    const targetSize = calculatePopupImageSize(sourceWidth, sourceHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = targetSize.width;
+    canvas.height = targetSize.height;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return file;
+    }
+
+    context.drawImage(image, 0, 0, targetSize.width, targetSize.height);
+
+    const optimizedBlob = await canvasToWebpBlob(canvas);
+    if (!optimizedBlob) {
+      return file;
+    }
+
+    if (!targetSize.resized && optimizedBlob.size >= file.size) {
+      return file;
+    }
+
+    return new File([optimizedBlob], buildOptimizedPopupFilename(file.name), {
+      lastModified: Date.now(),
+      type: 'image/webp',
+    });
+  } catch {
+    return file;
+  }
 };
 
 const createFormState = (popup?: PopupItem | null): PopupFormState => {
@@ -94,11 +266,13 @@ const createFormState = (popup?: PopupItem | null): PopupFormState => {
   return {
     imageAlt: popup.altText,
     imageAssetId: popup.imageAssetId,
+    imagePreviewObjectUrl: null,
     imageUrl: popup.imageUrl,
+    pendingImageFile: null,
     published: popup.published,
     sortOrder: popup.sortOrder,
-    visibleEndAt: formatDateTimeInputValue(popup.visibleEndAt),
-    visibleStartAt: formatDateTimeInputValue(popup.visibleStartAt),
+    visibleEndAt: formatEndDateInputValue(popup.visibleEndAt),
+    visibleStartAt: formatDateInputValue(popup.visibleStartAt),
   };
 };
 
@@ -108,14 +282,21 @@ const formatVisibilityWindow = (popup: PopupItem): string => {
   }
 
   if (popup.visibleStartAt && popup.visibleEndAt) {
-    return `${formatDateTime(popup.visibleStartAt)} ~ ${formatDateTime(popup.visibleEndAt)}`;
+    return `${formatDisplayDate(popup.visibleStartAt)} ~ ${formatDisplayDate(
+      new Date(Date.parse(popup.visibleEndAt) - 1).toISOString(),
+    )}`;
   }
 
   if (popup.visibleStartAt) {
-    return `${formatDateTime(popup.visibleStartAt)}부터`;
+    return `${formatDisplayDate(popup.visibleStartAt)}부터`;
   }
 
-  return `${formatDateTime(popup.visibleEndAt)}까지`;
+  const visibleEndAt = popup.visibleEndAt;
+  if (!visibleEndAt) {
+    return '상시 노출';
+  }
+
+  return `${formatDisplayDate(new Date(Date.parse(visibleEndAt) - 1).toISOString())}까지`;
 };
 
 const getNextSortOrder = (popups: PopupItem[]): number => {
@@ -145,7 +326,7 @@ const isPopupVisibleNow = (popup: PopupItem, now = Date.now()): boolean => {
   return true;
 };
 
-const comparePopupPriority = (left: PopupItem, right: PopupItem): number => {
+const comparePopupDisplayOrder = (left: PopupItem, right: PopupItem): number => {
   if (left.sortOrder !== right.sortOrder) {
     return left.sortOrder - right.sortOrder;
   }
@@ -157,31 +338,60 @@ const AdminPopupsSection = () => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const popupsQuery = useAdminPopupsQuery();
-  const [selectedPopupIdState, setSelectedPopupId] = useState<number | null>(null);
+  const [previewPopupId, setPreviewPopupId] = useState<number | null>(null);
   const [editingPopupIdState, setEditingPopupId] = useState<number | null>(null);
   const [formState, setFormState] = useState<PopupFormState>(createEmptyForm());
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [activeTab, setActiveTab] = useState<PopupAdminTab>('list');
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [hoveredCalendarDate, setHoveredCalendarDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    const previewObjectUrl = formState.imagePreviewObjectUrl;
+
+    return () => {
+      if (previewObjectUrl) {
+        URL.revokeObjectURL(previewObjectUrl);
+      }
+    };
+  }, [formState.imagePreviewObjectUrl]);
 
   const popups = useMemo(() => popupsQuery.data ?? [], [popupsQuery.data]);
-  const firstPopup = popups.at(0) ?? null;
+  const rightCalendarMonth = useMemo(() => addMonths(calendarMonth, 1), [calendarMonth]);
+  const leftCalendarCells = useMemo(
+    () => buildCalendarCells(toMonthValue(calendarMonth)),
+    [calendarMonth],
+  );
+  const rightCalendarCells = useMemo(
+    () => buildCalendarCells(toMonthValue(rightCalendarMonth)),
+    [rightCalendarMonth],
+  );
+  const visibleRangeText = useMemo(
+    () => formatPopupDateRangeText(formState.visibleStartAt, formState.visibleEndAt),
+    [formState.visibleEndAt, formState.visibleStartAt],
+  );
+  const previewVisibleEndAt =
+    formState.visibleEndAt ||
+    (formState.visibleStartAt &&
+    hoveredCalendarDate &&
+    hoveredCalendarDate >= formState.visibleStartAt
+      ? hoveredCalendarDate
+      : '');
   const currentDisplayPopup = useMemo(() => {
     return (
       [...popups]
         .filter((popup) => isPopupVisibleNow(popup))
-        .sort(comparePopupPriority)
+        .sort(comparePopupDisplayOrder)
         .at(0) ?? null
     );
   }, [popups]);
 
-  const selectedPopupId =
-    selectedPopupIdState !== null && popups.some((popup) => popup.id === selectedPopupIdState)
-      ? selectedPopupIdState
-      : (firstPopup?.id ?? null);
   const editingPopupId =
     editingPopupIdState !== null && popups.some((popup) => popup.id === editingPopupIdState)
       ? editingPopupIdState
       : null;
-  const selectedPopup = popups.find((popup) => popup.id === selectedPopupId) ?? null;
+  const previewPopup = popups.find((popup) => popup.id === previewPopupId) ?? null;
 
   const refreshPopups = async () => {
     await Promise.all([
@@ -199,10 +409,16 @@ const AdminPopupsSection = () => {
       });
     },
     onSuccess: async (popup) => {
+      if (popup.published) {
+        await Promise.all(
+          popups
+            .filter((item) => item.id !== popup.id && item.published)
+            .map((item) => unpublishAdminPopupLive(item.id)),
+        );
+      }
       await refreshPopups();
       setEditingPopupId(null);
       setFormState(createEmptyForm(popup.sortOrder + 1));
-      setSelectedPopupId(popup.id);
       showToast({
         message: '팝업을 등록했습니다.',
         variant: 'success',
@@ -219,11 +435,10 @@ const AdminPopupsSection = () => {
         variant: 'error',
       });
     },
-    onSuccess: async (popup) => {
+    onSuccess: async () => {
       await refreshPopups();
       setEditingPopupId(null);
       setFormState(createEmptyForm(getNextSortOrder(popups)));
-      setSelectedPopupId(popup.id);
       showToast({
         message: '팝업을 수정했습니다.',
         variant: 'success',
@@ -232,17 +447,25 @@ const AdminPopupsSection = () => {
   });
 
   const publishMutation = useMutation({
-    mutationFn: (popupId: number) => publishAdminPopupLive(popupId),
+    mutationFn: async (popupId: number) => {
+      await Promise.all(
+        popups
+          .filter((popup) => popup.id !== popupId && popup.published)
+          .map((popup) => unpublishAdminPopupLive(popup.id)),
+      );
+
+      return publishAdminPopupLive(popupId);
+    },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '팝업 게시 처리에 실패했습니다.',
+        message: error instanceof Error ? error.message : '팝업 노출 처리에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await refreshPopups();
       showToast({
-        message: '팝업 게시 상태를 반영했습니다.',
+        message: '팝업 노출 상태를 반영했습니다.',
         variant: 'success',
       });
     },
@@ -252,14 +475,14 @@ const AdminPopupsSection = () => {
     mutationFn: (popupId: number) => unpublishAdminPopupLive(popupId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '팝업 게시 중지에 실패했습니다.',
+        message: error instanceof Error ? error.message : '팝업 노출 중지에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await refreshPopups();
       showToast({
-        message: '팝업 게시를 중지했습니다.',
+        message: '팝업 노출을 중지했습니다.',
         variant: 'success',
       });
     },
@@ -276,8 +499,8 @@ const AdminPopupsSection = () => {
     onSuccess: async (_, popupId) => {
       await refreshPopups();
 
-      if (selectedPopupId === popupId) {
-        setSelectedPopupId(null);
+      if (previewPopupId === popupId) {
+        setPreviewPopupId(null);
       }
       if (editingPopupId === popupId) {
         setEditingPopupId(null);
@@ -293,60 +516,111 @@ const AdminPopupsSection = () => {
 
   const startCreate = () => {
     setEditingPopupId(null);
-    setFormState(createEmptyForm(getNextSortOrder(popups)));
+    const nextFormState = createEmptyForm(getNextSortOrder(popups));
+    setFormState(nextFormState);
+    setCalendarMonth(new Date());
+    setActiveTab('form');
   };
 
   const startEdit = (popup: PopupItem) => {
-    setSelectedPopupId(popup.id);
+    const nextFormState = createFormState(popup);
     setEditingPopupId(popup.id);
-    setFormState(createFormState(popup));
+    setFormState(nextFormState);
+    setCalendarMonth(
+      nextFormState.visibleStartAt
+        ? new Date(`${nextFormState.visibleStartAt}T00:00:00`)
+        : new Date(),
+    );
+    setActiveTab('form');
+    setPreviewPopupId(null);
   };
 
-  const handleImageFileChange = async (file: File | null) => {
+  const handleImageFileChange = (file: File | null) => {
     if (!file) {
       return;
     }
 
+    const previewObjectUrl =
+      typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null;
+
+    setFormState((current) => ({
+      ...current,
+      imageAlt: current.imageAlt.trim() ? current.imageAlt : buildPopupLabelFromFilename(file.name),
+      imageAssetId: null,
+      imagePreviewObjectUrl: previewObjectUrl,
+      imageUrl: previewObjectUrl ?? '',
+      pendingImageFile: file,
+    }));
+  };
+
+  const uploadPendingPopupImage = async (file: File) => {
     setIsUploadingImage(true);
 
     try {
+      const uploadFile = await optimizePopupImageFile(file);
       const uploadTarget = await createAdminPopupMediaUploadTarget({
-        contentType: file.type || 'application/octet-stream',
-        fileSize: file.size,
-        filename: file.name,
+        contentType: uploadFile.type || 'application/octet-stream',
+        fileSize: uploadFile.size,
+        filename: uploadFile.name,
       });
 
-      await uploadAdminPopupMediaFile(uploadTarget.uploadUrl, file);
+      await uploadAdminPopupMediaFile(uploadTarget.uploadUrl, uploadFile);
 
       setFormState((current) => ({
         ...current,
-        imageAlt: current.imageAlt.trim()
-          ? current.imageAlt
-          : buildPopupLabelFromFilename(file.name),
         imageAssetId: uploadTarget.assetId,
+        imagePreviewObjectUrl: null,
         imageUrl: uploadTarget.previewUrl,
+        pendingImageFile: null,
       }));
 
-      showToast({
-        message: '팝업 이미지를 업로드했습니다.',
-        variant: 'success',
-      });
-    } catch (error: unknown) {
-      showToast({
-        message: error instanceof Error ? error.message : '팝업 이미지 업로드에 실패했습니다.',
-        variant: 'error',
-      });
+      return uploadTarget;
     } finally {
       setIsUploadingImage(false);
     }
   };
 
-  const handleSubmit = () => {
-    const imageAlt = formState.imageAlt.trim();
-    const visibleStartAt = toIsoStringOrNull(formState.visibleStartAt);
-    const visibleEndAt = toIsoStringOrNull(formState.visibleEndAt);
+  const handleCalendarDateSelect = (dateValue: string) => {
+    setFormState((current) => {
+      if (!current.visibleStartAt || current.visibleEndAt) {
+        return {
+          ...current,
+          visibleEndAt: '',
+          visibleStartAt: dateValue,
+        };
+      }
 
-    if (formState.imageAssetId === null || !formState.imageUrl.trim()) {
+      if (dateValue < current.visibleStartAt) {
+        return {
+          ...current,
+          visibleEndAt: '',
+          visibleStartAt: dateValue,
+        };
+      }
+
+      setIsDatePickerOpen(false);
+
+      return {
+        ...current,
+        visibleEndAt: dateValue,
+      };
+    });
+  };
+
+  const resetVisibleRange = () => {
+    setFormState((current) => ({
+      ...current,
+      visibleEndAt: '',
+      visibleStartAt: '',
+    }));
+  };
+
+  const handleSubmit = async () => {
+    const imageAlt = formState.imageAlt.trim();
+    const visibleStartAt = toStartOfDayIsoStringOrNull(formState.visibleStartAt);
+    const visibleEndAt = toEndOfDayIsoStringOrNull(formState.visibleEndAt);
+
+    if (formState.imageAssetId === null && formState.pendingImageFile === null) {
       showToast({ message: '팝업 이미지를 첨부해 주세요.', variant: 'error' });
       return;
     }
@@ -356,20 +630,43 @@ const AdminPopupsSection = () => {
       return;
     }
 
-    if (formState.sortOrder < 0) {
-      showToast({ message: '정렬 순서는 0 이상이어야 합니다.', variant: 'error' });
+    if (
+      (formState.visibleStartAt && !formState.visibleEndAt) ||
+      (!formState.visibleStartAt && formState.visibleEndAt)
+    ) {
+      showToast({ message: '노출기간은 시작일과 종료일을 모두 선택해 주세요.', variant: 'error' });
       return;
     }
 
     if (visibleStartAt && visibleEndAt && new Date(visibleStartAt) > new Date(visibleEndAt)) {
-      showToast({ message: '노출 시작은 종료보다 늦을 수 없습니다.', variant: 'error' });
+      showToast({ message: '노출 시작일은 종료일보다 늦을 수 없습니다.', variant: 'error' });
+      return;
+    }
+
+    let imageAssetId = formState.imageAssetId;
+
+    if (formState.pendingImageFile) {
+      try {
+        const uploadTarget = await uploadPendingPopupImage(formState.pendingImageFile);
+        imageAssetId = uploadTarget.assetId;
+      } catch (error: unknown) {
+        showToast({
+          message: error instanceof Error ? error.message : '팝업 이미지 업로드에 실패했습니다.',
+          variant: 'error',
+        });
+        return;
+      }
+    }
+
+    if (imageAssetId === null) {
+      showToast({ message: '팝업 이미지를 첨부해 주세요.', variant: 'error' });
       return;
     }
 
     const payload = {
       altText: imageAlt,
-      imageAssetId: formState.imageAssetId,
-      sortOrder: formState.sortOrder,
+      imageAssetId,
+      sortOrder: Math.max(0, formState.sortOrder),
       visibleEndAt,
       visibleStartAt,
     };
@@ -377,7 +674,7 @@ const AdminPopupsSection = () => {
     if (editingPopupId === null) {
       createMutation.mutate({
         ...payload,
-        published: formState.published,
+        published: true,
       });
       return;
     }
@@ -388,10 +685,10 @@ const AdminPopupsSection = () => {
     });
   };
 
-  const summary = {
-    publishedCount: popups.filter((popup) => popup.published).length,
-    totalCount: popups.length,
-  };
+  const popupTabs = [
+    { count: popups.length, label: '팝업 목록', value: 'list' },
+    { label: editingPopupId === null ? '팝업 등록' : '팝업 수정', value: 'form' },
+  ] satisfies Array<{ count?: number; label: string; value: PopupAdminTab }>;
 
   if (popupsQuery.isPending) {
     return (
@@ -417,58 +714,40 @@ const AdminPopupsSection = () => {
 
   return (
     <section className={styles['workspace']}>
-      <section className={styles['summaryGrid']}>
-        <article className={styles['summaryCard']} data-tone='brand'>
-          <p className={styles['summaryLabel']}>전체 팝업</p>
-          <strong className={styles['summaryValue']}>{String(summary.totalCount)}건</strong>
-          <p className={styles['summaryDescription']}>
-            홈에서는 항상 1개만 노출하며, 우선순위가 가장 높은 팝업이 선택됩니다.
-          </p>
-        </article>
-        <article className={styles['summaryCard']} data-tone='accent'>
-          <p className={styles['summaryLabel']}>게시 중</p>
-          <strong className={styles['summaryValue']}>{String(summary.publishedCount)}건</strong>
-          <p className={styles['summaryDescription']}>게시 상태인 팝업 수입니다.</p>
-        </article>
-        <article className={styles['summaryCard']} data-tone='neutral'>
-          <p className={styles['summaryLabel']}>현재 노출 대상</p>
-          <strong className={styles['summaryValue']}>{currentDisplayPopup ? '1건' : '없음'}</strong>
-          <p className={styles['summaryDescription']}>
-            게시 상태, 노출 기간, 정렬 순서를 기준으로 현재 사용자에게 보일 팝업입니다.
-          </p>
-        </article>
-      </section>
+      <SectionTabs
+        ariaLabel='팝업 관리 작업'
+        items={popupTabs}
+        onChange={setActiveTab}
+        value={activeTab}
+      />
 
-      <div className={styles['contentGrid']}>
+      {activeTab === 'form' ? (
         <article className={styles['panel']}>
-          <header className={styles['panelHeader']}>
-            <h2 className={styles['panelTitle']}>
-              {editingPopupId === null ? '새 팝업 등록' : '팝업 수정'}
-            </h2>
-          </header>
-
           <div className={styles['form']}>
-            <div className={styles['mediaField']}>
-              <div className={styles['mediaFieldHeader']}>
-                <div className={styles['mediaFieldCopy']}>
-                  <p className={styles['fieldLabel']}>팝업 이미지</p>
-                  <p className={styles['fieldHint']}>
-                    텍스트 없이 이미지 한 장만 팝업으로 노출합니다.
-                  </p>
-                </div>
+            <div className={styles['popupMediaField']}>
+              <div className={styles['popupFileField']}>
+                <p className={styles['fieldLabel']}>팝업 이미지</p>
+                <label className={styles['popupFilePicker']} data-disabled={isUploadingImage}>
+                  <input
+                    accept='image/*'
+                    className={styles['srOnly']}
+                    disabled={isUploadingImage}
+                    name='popupImageFile'
+                    onChange={(event) => {
+                      handleImageFileChange(event.target.files?.[0] ?? null);
+                      event.currentTarget.value = '';
+                    }}
+                    type='file'
+                  />
+                  <span className={styles['popupFileButton']}>
+                    {isUploadingImage ? '업로드 중' : '파일 선택'}
+                  </span>
+                  <span className={styles['popupFileName']}>
+                    {formState.pendingImageFile?.name ??
+                      (formState.imageUrl ? '등록된 이미지' : '선택된 파일 없음')}
+                  </span>
+                </label>
               </div>
-
-              <TextField
-                accept='image/*'
-                disabled={isUploadingImage}
-                label={isUploadingImage ? '팝업 이미지 업로드 중' : '팝업 이미지 파일'}
-                name='popupImageFile'
-                onChange={(event) => {
-                  void handleImageFileChange(event.target.files?.[0] ?? null);
-                  event.currentTarget.value = '';
-                }}
-                type='file'
-              />
 
               {formState.imageUrl ? (
                 <div className={styles['thumbnailPreview']}>
@@ -477,11 +756,14 @@ const AdminPopupsSection = () => {
                     className={styles['thumbnailPreviewImage']}
                     src={formState.imageUrl}
                   />
+                  {formState.pendingImageFile ? (
+                    <p className={styles['thumbnailFileCaption']}>
+                      등록 대기 중 · {formState.pendingImageFile.name}
+                    </p>
+                  ) : null}
                 </div>
               ) : (
-                <div className={styles['thumbnailEmptyState']}>
-                  업로드한 이미지가 여기에 미리보기로 표시됩니다.
-                </div>
+                <div className={styles['thumbnailEmptyState']}>이미지를 선택해 주세요.</div>
               )}
             </div>
 
@@ -491,73 +773,169 @@ const AdminPopupsSection = () => {
               onChange={(event) => {
                 setFormState((current) => ({ ...current, imageAlt: event.target.value }));
               }}
-              placeholder='접근성용 설명입니다. 비워 두지 않는 편이 좋습니다.'
+              placeholder='이미지 설명'
               value={formState.imageAlt}
             />
 
-            <div className={styles['compactFieldRow']}>
-              <TextField
-                label='정렬 순서'
-                min={0}
-                name='popupSortOrder'
-                onChange={(event) => {
-                  const nextValue = Number(event.target.value);
-                  setFormState((current) => ({
-                    ...current,
-                    sortOrder: Number.isFinite(nextValue) ? nextValue : 0,
-                  }));
-                }}
-                type='number'
-                value={String(formState.sortOrder)}
-              />
-              <TextField
-                label='노출 시작'
-                name='popupVisibleStartAt'
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, visibleStartAt: event.target.value }));
-                }}
-                type='datetime-local'
-                value={formState.visibleStartAt}
-              />
-              <TextField
-                label='노출 종료'
-                name='popupVisibleEndAt'
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, visibleEndAt: event.target.value }));
-                }}
-                type='datetime-local'
-                value={formState.visibleEndAt}
-              />
-            </div>
-
-            {editingPopupId === null ? (
-              <label className={styles['checkboxRow']}>
-                <input
-                  checked={formState.published}
-                  onChange={(event) => {
-                    setFormState((current) => ({ ...current, published: event.target.checked }));
+            <div className={styles['popupDateRangeField']}>
+              <p className={styles['fieldLabel']}>노출기간</p>
+              <div className={styles['popupDateRangePicker']}>
+                <button
+                  className={classNames(
+                    styles['popupDateRangeTrigger'],
+                    isDatePickerOpen && styles['popupDateRangeTriggerActive'],
+                  )}
+                  onClick={() => {
+                    setIsDatePickerOpen((current) => !current);
                   }}
-                  type='checkbox'
-                />
-                등록과 동시에 게시
-              </label>
-            ) : (
-              <p className={styles['fieldHint']}>
-                게시 상태는 목록 또는 우측 미리보기의 게시/중지 액션으로 관리합니다.
-              </p>
-            )}
+                  type='button'
+                >
+                  <span aria-hidden='true' className={styles['popupDateRangeIcon']} />
+                  <span>{visibleRangeText}</span>
+                </button>
+
+                {isDatePickerOpen ? (
+                  <div
+                    className={styles['popupDateRangePopover']}
+                    onMouseLeave={() => {
+                      setHoveredCalendarDate(null);
+                    }}
+                  >
+                    <div className={styles['popupDateRangeCalendarGrid']}>
+                      {[
+                        { cells: leftCalendarCells, key: 'left', month: calendarMonth },
+                        { cells: rightCalendarCells, key: 'right', month: rightCalendarMonth },
+                      ].map((calendar) => (
+                        <div
+                          className={styles['paymentDatePickerCalendarPanel']}
+                          key={calendar.key}
+                        >
+                          <div className={styles['paymentDatePickerCalendarHead']}>
+                            {calendar.key === 'left' ? (
+                              <button
+                                className={styles['paymentDatePickerNav']}
+                                onClick={() => {
+                                  setCalendarMonth((previous) => addMonths(previous, -1));
+                                }}
+                                type='button'
+                              >
+                                이전
+                              </button>
+                            ) : (
+                              <span className={styles['paymentDatePickerNavSpacer']} />
+                            )}
+                            <strong className={styles['paymentDatePickerMonthLabel']}>
+                              {formatMonthLabel(toMonthValue(calendar.month))}
+                            </strong>
+                            {calendar.key === 'right' ? (
+                              <button
+                                className={styles['paymentDatePickerNav']}
+                                onClick={() => {
+                                  setCalendarMonth((previous) => addMonths(previous, 1));
+                                }}
+                                type='button'
+                              >
+                                다음
+                              </button>
+                            ) : (
+                              <span className={styles['paymentDatePickerNavSpacer']} />
+                            )}
+                          </div>
+                          <div className={styles['paymentDatePickerWeekdays']}>
+                            {calendarWeekdays.map((label) => (
+                              <span key={`${calendar.key}-weekday-${label}`}>{label}</span>
+                            ))}
+                          </div>
+                          <div className={styles['paymentDatePickerDays']}>
+                            {calendar.cells.map((cell, index) => {
+                              const dateValue = cell.date;
+                              const isInRange = Boolean(
+                                dateValue &&
+                                  cell.isCurrentMonth &&
+                                  isDateInRange(
+                                    dateValue,
+                                    formState.visibleStartAt,
+                                    previewVisibleEndAt,
+                                  ),
+                              );
+                              const isSelectedStart = Boolean(
+                                dateValue &&
+                                  cell.isCurrentMonth &&
+                                  formState.visibleStartAt === dateValue,
+                              );
+                              const isSelectedEnd = Boolean(
+                                dateValue &&
+                                  cell.isCurrentMonth &&
+                                  formState.visibleEndAt === dateValue,
+                              );
+
+                              return (
+                                <button
+                                  aria-label={dateValue ? formatDate(dateValue) : undefined}
+                                  className={`${styles['paymentDatePickerDay']} ${
+                                    !cell.isCurrentMonth
+                                      ? styles['paymentDatePickerDayOutside']
+                                      : ''
+                                  } ${isInRange ? styles['paymentDatePickerDayInRange'] : ''} ${
+                                    isSelectedStart
+                                      ? styles['paymentDatePickerDaySelectedStart']
+                                      : ''
+                                  } ${
+                                    isSelectedEnd ? styles['paymentDatePickerDaySelectedEnd'] : ''
+                                  }`}
+                                  disabled={!cell.isCurrentMonth || !dateValue}
+                                  key={`${calendar.key}-${dateValue ?? 'empty'}-${String(index)}`}
+                                  onClick={() => {
+                                    if (dateValue) {
+                                      handleCalendarDateSelect(dateValue);
+                                    }
+                                  }}
+                                  onMouseEnter={() => {
+                                    setHoveredCalendarDate(dateValue);
+                                  }}
+                                  type='button'
+                                >
+                                  {dateValue ? Number(dateValue.slice(-2)) : ''}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className={styles['popupDateRangeActions']}>
+                      <button
+                        className={styles['tableActionButton']}
+                        disabled={!formState.visibleStartAt && !formState.visibleEndAt}
+                        onClick={() => {
+                          resetVisibleRange();
+                          setIsDatePickerOpen(false);
+                        }}
+                        type='button'
+                      >
+                        상시 노출
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
 
             <div className={styles['actionRow']}>
               <Button
                 disabled={createMutation.isPending || updateMutation.isPending || isUploadingImage}
-                onClick={handleSubmit}
+                onClick={() => {
+                  void handleSubmit();
+                }}
                 type='button'
               >
-                {createMutation.isPending || updateMutation.isPending
-                  ? '저장 중...'
-                  : editingPopupId === null
-                    ? '팝업 등록'
-                    : '팝업 수정'}
+                {isUploadingImage
+                  ? '이미지 업로드 중...'
+                  : createMutation.isPending || updateMutation.isPending
+                    ? '저장 중...'
+                    : editingPopupId === null
+                      ? '팝업 등록'
+                      : '팝업 수정'}
               </Button>
               <Button onClick={startCreate} type='button' variant='secondary'>
                 새 팝업 작성
@@ -569,7 +947,9 @@ const AdminPopupsSection = () => {
                       ...current,
                       imageAlt: '',
                       imageAssetId: null,
+                      imagePreviewObjectUrl: null,
                       imageUrl: '',
+                      pendingImageFile: null,
                     }));
                   }}
                   type='button'
@@ -581,203 +961,192 @@ const AdminPopupsSection = () => {
             </div>
           </div>
         </article>
+      ) : null}
 
-        <article className={styles['panel']}>
-          <header className={styles['panelHeader']}>
-            <h2 className={styles['panelTitle']}>선택한 팝업</h2>
-          </header>
+      {activeTab === 'list' ? (
+        <article className={styles['panelWide']}>
+          <div className={styles['panelToolbar']}>
+            <p className={styles['metaText']}>총 {popups.length}개</p>
+            <Button onClick={startCreate} size='sm' type='button'>
+              새 팝업 등록
+            </Button>
+          </div>
 
-          {selectedPopup ? (
-            <div className={styles['stackList']}>
-              <article className={styles['stackItem']}>
-                <div className={styles['metaRow']}>
-                  {currentDisplayPopup?.id === selectedPopup.id ? (
-                    <span className={styles['badge']}>현재 노출</span>
-                  ) : null}
-                  {selectedPopup.published ? (
-                    <span className={styles['badgeSuccess']}>게시 중</span>
-                  ) : (
-                    <span className={styles['badgeDanger']}>비공개</span>
-                  )}
-                  <span className={styles['badgeAccent']}>
-                    정렬 {String(selectedPopup.sortOrder)}
-                  </span>
-                </div>
-
-                <div className={styles['thumbnailPreview']}>
-                  <img
-                    alt={selectedPopup.altText || '팝업 이미지'}
-                    className={styles['thumbnailPreviewImage']}
-                    src={selectedPopup.imageUrl}
-                  />
-                </div>
-
-                <p className={styles['metaText']}>이미지 설명 {selectedPopup.altText}</p>
-                <p className={styles['metaText']}>
-                  노출 기간 {formatVisibilityWindow(selectedPopup)}
-                </p>
-                <p className={styles['metaText']}>
-                  노출 판단{' '}
-                  {currentDisplayPopup?.id === selectedPopup.id
-                    ? '현재 홈에서 이 팝업이 노출됩니다.'
-                    : isPopupVisibleNow(selectedPopup)
-                      ? '노출 조건은 맞지만 우선순위가 더 높은 팝업이 있습니다.'
-                      : '현재는 노출 대상이 아닙니다.'}
-                </p>
-                <p className={styles['metaText']}>
-                  등록일 {formatDateTime(selectedPopup.createdAt)} · 수정일{' '}
-                  {formatDateTime(selectedPopup.updatedAt)}
-                </p>
-                <div className={styles['actionRow']}>
-                  <Button
-                    onClick={() => {
-                      startEdit(selectedPopup);
-                    }}
-                    type='button'
-                    variant='secondary'
-                  >
-                    팝업 수정
-                  </Button>
-                  {selectedPopup.published ? (
-                    <Button
-                      disabled={unpublishMutation.isPending}
-                      onClick={() => {
-                        unpublishMutation.mutate(selectedPopup.id);
-                      }}
-                      type='button'
-                      variant='secondary'
-                    >
-                      게시 중지
-                    </Button>
-                  ) : (
-                    <Button
-                      disabled={publishMutation.isPending}
-                      onClick={() => {
-                        publishMutation.mutate(selectedPopup.id);
-                      }}
-                      type='button'
-                    >
-                      게시하기
-                    </Button>
-                  )}
-                </div>
-              </article>
-            </div>
-          ) : (
+          {!popups.length ? (
             <section className={styles['stateSection']}>
-              <h3 className={styles['stateTitle']}>등록된 팝업이 없습니다.</h3>
-              <p className={styles['stateDescription']}>
-                첫 팝업을 등록하면 홈에서 우선순위 기준으로 1개만 노출됩니다.
-              </p>
+              <h3 className={styles['stateTitle']}>표시할 팝업이 없습니다.</h3>
             </section>
+          ) : (
+            <div className={styles['tableWrap']}>
+              <table className={`${styles['table']} ${styles['popupTable']}`}>
+                <thead>
+                  <tr>
+                    <th scope='col'>팝업</th>
+                    <th scope='col'>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {popups.map((popup) => {
+                    const isCurrentDisplayPopup = currentDisplayPopup?.id === popup.id;
+
+                    return (
+                      <tr key={popup.id}>
+                        <td>
+                          <div className={styles['cellStack']}>
+                            <span className={styles['noticeTitleRow']}>
+                              <span className={styles['cellPrimary']}>
+                                {popup.altText || '홈 팝업'}
+                              </span>
+                              {isCurrentDisplayPopup ? (
+                                <span className={styles['badgeSuccess']}>노출중</span>
+                              ) : popup.published ? (
+                                <span className={styles['badge']}>예약/기간 외</span>
+                              ) : (
+                                <span className={styles['badgeDanger']}>중지</span>
+                              )}
+                            </span>
+                            <span className={styles['cellSecondary']}>
+                              {formatVisibilityWindow(popup)}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className={styles['tableActionGroup']}>
+                            <button
+                              className={styles['tableActionButton']}
+                              onClick={() => {
+                                setPreviewPopupId(popup.id);
+                              }}
+                              type='button'
+                            >
+                              보기
+                            </button>
+                            <button
+                              className={styles['tableActionButton']}
+                              onClick={() => {
+                                startEdit(popup);
+                              }}
+                              type='button'
+                            >
+                              수정
+                            </button>
+                            {popup.published ? (
+                              <button
+                                className={styles['tableActionButton']}
+                                onClick={() => {
+                                  unpublishMutation.mutate(popup.id);
+                                }}
+                                type='button'
+                              >
+                                중지
+                              </button>
+                            ) : (
+                              <button
+                                className={styles['tableActionButton']}
+                                onClick={() => {
+                                  publishMutation.mutate(popup.id);
+                                }}
+                                type='button'
+                              >
+                                노출
+                              </button>
+                            )}
+                            <button
+                              className={styles['tableActionButtonDanger']}
+                              onClick={() => {
+                                if (!window.confirm('이 팝업을 삭제하시겠습니까?')) {
+                                  return;
+                                }
+
+                                deleteMutation.mutate(popup.id);
+                              }}
+                              type='button'
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </article>
-      </div>
+      ) : null}
 
-      <article className={styles['panelWide']}>
-        <header className={styles['panelHeader']}>
-          <h2 className={styles['panelTitle']}>홈 팝업 목록</h2>
-        </header>
+      {previewPopup ? (
+        <Modal
+          onClose={() => {
+            setPreviewPopupId(null);
+          }}
+          size='lg'
+          title={previewPopup.altText || '팝업 미리보기'}
+        >
+          <div className={styles['popupPreviewModalBody']}>
+            <div className={styles['metaRow']}>
+              {currentDisplayPopup?.id === previewPopup.id ? (
+                <span className={styles['badgeSuccess']}>노출중</span>
+              ) : previewPopup.published ? (
+                <span className={styles['badge']}>예약/기간 외</span>
+              ) : (
+                <span className={styles['badgeDanger']}>중지</span>
+              )}
+            </div>
 
-        {!popups.length ? (
-          <section className={styles['stateSection']}>
-            <h3 className={styles['stateTitle']}>표시할 팝업이 없습니다.</h3>
-            <p className={styles['stateDescription']}>새 팝업을 등록하면 여기에 바로 반영됩니다.</p>
-          </section>
-        ) : (
-          <div className={styles['tableWrap']}>
-            <table className={styles['table']}>
-              <thead>
-                <tr>
-                  <th scope='col'>이미지 설명</th>
-                  <th scope='col'>현재 노출</th>
-                  <th scope='col'>정렬</th>
-                  <th scope='col'>게시 상태</th>
-                  <th scope='col'>노출 기간</th>
-                  <th scope='col'>등록일</th>
-                  <th scope='col'>수정일</th>
-                  <th scope='col'>관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {popups.map((popup) => {
-                  const isCurrentDisplayPopup = currentDisplayPopup?.id === popup.id;
-                  const isVisibleCandidate = isPopupVisibleNow(popup);
+            <div className={styles['thumbnailPreview']}>
+              <img
+                alt={previewPopup.altText || '팝업 이미지'}
+                className={styles['thumbnailPreviewImage']}
+                src={previewPopup.imageUrl}
+              />
+            </div>
 
-                  return (
-                    <tr key={popup.id}>
-                      <td>
-                        <div className={styles['cellStack']}>
-                          <span className={styles['cellPrimary']}>
-                            {popup.altText || '홈 팝업'}
-                          </span>
-                          <span className={styles['cellSecondary']}>이미지 팝업</span>
-                        </div>
-                      </td>
-                      <td>
-                        {isCurrentDisplayPopup ? '현재 노출' : isVisibleCandidate ? '대기' : '-'}
-                      </td>
-                      <td>{String(popup.sortOrder)}</td>
-                      <td>{popup.published ? '게시 중' : '비공개'}</td>
-                      <td>{formatVisibilityWindow(popup)}</td>
-                      <td>{formatDateTime(popup.createdAt)}</td>
-                      <td>{formatDateTime(popup.updatedAt)}</td>
-                      <td>
-                        <div className={styles['tableActionGroup']}>
-                          <button
-                            className={styles['tableActionButton']}
-                            onClick={() => {
-                              setSelectedPopupId(popup.id);
-                              startEdit(popup);
-                            }}
-                            type='button'
-                          >
-                            수정
-                          </button>
-                          {popup.published ? (
-                            <button
-                              className={styles['tableActionButton']}
-                              onClick={() => {
-                                unpublishMutation.mutate(popup.id);
-                              }}
-                              type='button'
-                            >
-                              중지
-                            </button>
-                          ) : (
-                            <button
-                              className={styles['tableActionButton']}
-                              onClick={() => {
-                                publishMutation.mutate(popup.id);
-                              }}
-                              type='button'
-                            >
-                              게시
-                            </button>
-                          )}
-                          <button
-                            className={styles['tableActionButtonDanger']}
-                            onClick={() => {
-                              if (!window.confirm('이 팝업을 삭제하시겠습니까?')) {
-                                return;
-                              }
+            <div className={styles['cellStack']}>
+              <p className={styles['metaText']}>{previewPopup.altText || '홈 팝업'}</p>
+              <p className={styles['metaText']}>{formatVisibilityWindow(previewPopup)}</p>
+            </div>
 
-                              deleteMutation.mutate(popup.id);
-                            }}
-                            type='button'
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className={styles['actionRow']}>
+              <Button
+                onClick={() => {
+                  startEdit(previewPopup);
+                }}
+                size='sm'
+                type='button'
+                variant='secondary'
+              >
+                수정
+              </Button>
+              {previewPopup.published ? (
+                <Button
+                  disabled={unpublishMutation.isPending}
+                  onClick={() => {
+                    unpublishMutation.mutate(previewPopup.id);
+                  }}
+                  size='sm'
+                  type='button'
+                  variant='secondary'
+                >
+                  중지
+                </Button>
+              ) : (
+                <Button
+                  disabled={publishMutation.isPending}
+                  onClick={() => {
+                    publishMutation.mutate(previewPopup.id);
+                  }}
+                  size='sm'
+                  type='button'
+                >
+                  노출
+                </Button>
+              )}
+            </div>
           </div>
-        )}
-      </article>
+        </Modal>
+      ) : null}
     </section>
   );
 };

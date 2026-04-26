@@ -65,33 +65,34 @@
 }
 
 .boardLink {
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  justify-content: center;
+  gap: 71px;
   width: 210px;
-  min-height: 44px;
+  min-height: 45px;
   padding: 10px 16px;
-  box-sizing: border-box;
   border: 1px solid #4b5563;
-  border-radius: 100px;
+  border-radius: 10px;
   color: #111827;
   text-decoration: none;
   background: #ffffff;
   transition:
-    transform 180ms ease,
-    box-shadow 180ms ease,
-    background-color 180ms ease;
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 18px -16px rgba(17, 24, 39, 0.28);
-    background: rgba(255, 255, 255, 0.98);
+  &:hover,
+  &:focus-visible {
+    border-color: #34b29f;
+    background: #ecf9f7;
+    color: #34b29f;
   }
 }
 
 .boardLinkLabel {
-  color: #111827;
+  color: currentColor;
   font-family: Pretendard, var(--font-family-base);
   font-size: 18px;
   font-weight: var(--font-weight-normal);
@@ -106,15 +107,13 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  padding: 5px;
-  box-sizing: border-box;
 }
 
 .boardLinkArrowIcon {
   display: block;
-  width: 14px;
-  height: 14px;
-  object-fit: contain;
+  width: 24px;
+  height: 24px;
+  color: currentColor;
 }
 
 .noticeRail {

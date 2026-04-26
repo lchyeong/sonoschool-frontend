@@ -162,7 +162,7 @@ const resolveSalePriceFromPercent = (priceValue: string, percentValue: string): 
 
 const confirmProgramDelete = (): boolean => {
   return window.confirm(
-    '프로그램을 삭제하면 되돌릴 수 없습니다.\n커리큘럼이나 수강 이력이 있는 프로그램은 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
+    '프로그램을 삭제하면 되돌릴 수 없습니다.\n강의 구성이나 수강 이력이 있는 프로그램은 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
   );
 };
 
@@ -188,6 +188,7 @@ const formatDateTime = (value: string | null): string => {
 
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
+    hour12: false,
     timeStyle: 'short',
   }).format(new Date(value));
 };
@@ -555,7 +556,7 @@ const buildEditorTitle = (
     return '새 프로그램 등록';
   }
   if (view === 'curriculum') {
-    return detail ? `${detail.title} 커리큘럼` : '커리큘럼 관리';
+    return detail ? `${detail.title} 강의 구성` : '강의 구성 관리';
   }
   if (view === 'problems') {
     return detail ? `${detail.title} 문제` : '강의 문제';
@@ -1092,7 +1093,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
         <h1 className={styles['stateTitle']}>프로그램 편집 화면을 준비하는 중입니다.</h1>
         <p className={styles['stateDescription']}>
           {isCurriculumView
-            ? '프로그램 상세와 커리큘럼, 강의별 문제/자료를 불러오고 있습니다.'
+            ? '프로그램 상세와 강의 구성, 강의별 문제/자료를 불러오고 있습니다.'
             : '카테고리와 프로그램 상세를 불러오고 있습니다.'}
         </p>
       </section>
@@ -1230,7 +1231,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                 className={isCurriculumView ? styles['workspaceTabActive'] : styles['workspaceTab']}
                 to={routePaths.adminProgramCurriculum(String(currentDetail.id))}
               >
-                커리큘럼
+                강의 구성
               </Link>
             </div>
             <div className={styles['workspaceTabStat']} role='status'>

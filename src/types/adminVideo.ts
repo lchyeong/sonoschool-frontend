@@ -53,6 +53,7 @@ export interface AdminVideoStatusResponse {
   fileSize: number | null;
   id: number;
   originalFilename: string;
+  progressPercent: number | null;
   status: AdminVideoStatus;
 }
 

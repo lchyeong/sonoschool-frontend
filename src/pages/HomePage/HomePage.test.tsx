@@ -60,6 +60,12 @@ describe('HomePage', () => {
     expect(
       (await screen.findAllByRole('list', { name: '소노스쿨 연혁 타임라인' })).length,
     ).toBeGreaterThan(0);
+    expect(screen.getByText('COURSE PREVIEW')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '전체 강의 살펴보기' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '1페이지' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     expect(screen.getByRole('heading', { name: '공지사항' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '공지사항 게시판 보기' })).toBeInTheDocument();
     expect(

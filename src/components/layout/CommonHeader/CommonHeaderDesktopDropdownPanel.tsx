@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import type { HeaderNavigationItem } from '@/utils/buildHeaderNavigation';
 import { classNames } from '@/utils/classNames';
 
@@ -12,41 +14,26 @@ interface CommonHeaderDesktopDropdownPanelProps {
   onCloseMenu: () => void;
 }
 
-const MAX_DROPDOWN_SECTIONS_PER_COLUMN = 4;
-
-const distributeDropdownSections = <Item,>(items: readonly Item[]): Item[][] => {
-  if (!items.length) {
-    return [];
-  }
-
-  const columnCount = Math.ceil(items.length / MAX_DROPDOWN_SECTIONS_PER_COLUMN);
-  const baseColumnSize = Math.floor(items.length / columnCount);
-  const columnsWithExtraItem = items.length % columnCount;
-  const columns: Item[][] = [];
-  let startIndex = 0;
-
-  for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
-    const columnSize = baseColumnSize + (columnIndex < columnsWithExtraItem ? 1 : 0);
-    const endIndex = startIndex + columnSize;
-
-    columns.push(items.slice(startIndex, endIndex));
-    startIndex = endIndex;
-  }
-
-  return columns;
-};
-
 const CommonHeaderDesktopDropdownPanel = ({
   item,
   isVisible,
   LinkComponent,
   onCloseMenu,
 }: CommonHeaderDesktopDropdownPanelProps) => {
+  const [hoveredSectionId, setHoveredSectionId] = useState<string | null>(null);
+
   if (!item.children?.length) {
     return null;
   }
 
-  const sectionColumns = distributeDropdownSections(item.children);
+  const sections = item.children;
+  const hoveredSection =
+    hoveredSectionId === null
+      ? undefined
+      : sections.find((section) => section.id === hoveredSectionId);
+  const activeSection =
+    hoveredSection ?? sections.find((section) => hasNavigationChildren(section)) ?? sections[0];
+  const activeSectionChildren = activeSection.children ?? [];
 
   return (
     <div
@@ -65,61 +52,80 @@ const CommonHeaderDesktopDropdownPanel = ({
             </LinkComponent>
             <p className={styles['dropdownDescription']}>{item.label}을 살펴보세요.</p>
           </div>
-          <div className={styles['dropdownSectionGrid']}>
-            {sectionColumns.map((sections, columnIndex) => {
-              return (
-                <div className={styles['dropdownSectionColumn']} key={columnIndex}>
-                  {sections.map((section) => {
-                    const hasGrandChildren = hasNavigationChildren(section);
-                    const sectionDescription = section.description?.trim();
+          <div className={styles['dropdownDepthLayout']}>
+            <div className={styles['dropdownSecondLevelColumn']}>
+              {sections.map((section) => {
+                const hasGrandChildren = hasNavigationChildren(section);
+                const isActive = activeSection.id === section.id;
+                const sectionDescription =
+                  section.description?.trim() || `${section.label} 과정을 살펴보세요.`;
 
-                    return (
-                      <section className={styles['dropdownSection']} key={section.id}>
-                        <LinkComponent
-                          className={styles['dropdownSectionTitle']}
-                          onClick={onCloseMenu}
-                          to={section.to}
-                        >
-                          {section.label}
-                        </LinkComponent>
-                        {hasGrandChildren && sectionDescription ? (
-                          <p className={styles['dropdownSectionDescription']}>
-                            {sectionDescription}
-                          </p>
-                        ) : null}
+                return (
+                  <LinkComponent
+                    className={classNames(
+                      styles['dropdownDepthCard'],
+                      isActive && styles['dropdownDepthCardActive'],
+                    )}
+                    key={section.id}
+                    onClick={onCloseMenu}
+                    onFocus={() => {
+                      setHoveredSectionId(section.id);
+                    }}
+                    onMouseEnter={() => {
+                      setHoveredSectionId(section.id);
+                    }}
+                    to={section.to}
+                  >
+                    <span className={styles['dropdownDepthCopy']}>
+                      <span className={styles['dropdownDepthTitle']}>{section.label}</span>
+                      <span className={styles['dropdownDepthDescription']}>
+                        {sectionDescription}
+                      </span>
+                    </span>
+                    {hasGrandChildren ? (
+                      <svg
+                        aria-hidden='true'
+                        className={styles['dropdownDepthArrow']}
+                        fill='none'
+                        focusable='false'
+                        viewBox='0 0 6 12'
+                      >
+                        <path
+                          d='M1 1L5 6L1 11'
+                          stroke='currentColor'
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          strokeWidth='1.5'
+                        />
+                      </svg>
+                    ) : null}
+                  </LinkComponent>
+                );
+              })}
+            </div>
 
-                        {hasGrandChildren ? (
-                          <ul className={styles['dropdownLinkList']}>
-                            {section.children?.map((child) => {
-                              const childDescription = child.description?.trim();
+            {activeSectionChildren.length ? (
+              <div className={styles['dropdownGrandchildGrid']}>
+                {activeSectionChildren.map((child) => {
+                  const childDescription =
+                    child.description?.trim() || `${child.label} 온라인과정을 살펴보세요.`;
 
-                              return (
-                                <li className={styles['dropdownLinkItem']} key={child.id}>
-                                  <LinkComponent
-                                    className={styles['dropdownLink']}
-                                    onClick={onCloseMenu}
-                                    to={child.to}
-                                  >
-                                    {child.label}
-                                  </LinkComponent>
-                                  {childDescription ? (
-                                    <p className={styles['dropdownLinkDescription']}>
-                                      {childDescription}
-                                    </p>
-                                  ) : null}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : sectionDescription ? (
-                          <p className={styles['dropdownSectionHint']}>{sectionDescription}</p>
-                        ) : null}
-                      </section>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                  return (
+                    <LinkComponent
+                      className={styles['dropdownGrandchildCard']}
+                      key={child.id}
+                      onClick={onCloseMenu}
+                      to={child.to}
+                    >
+                      <span className={styles['dropdownGrandchildTitle']}>{child.label}</span>
+                      <span className={styles['dropdownGrandchildDescription']}>
+                        {childDescription}
+                      </span>
+                    </LinkComponent>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
+import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { adminProgramTagsQueryKey } from '@/query/useAdminProgramTagsQuery';
 import { adminTagsQueryKey, useAdminTagsQuery } from '@/query/useAdminTagsQuery';
@@ -107,7 +108,7 @@ const AdminTagsSection = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const deferredSearchTerm = useDeferredValue(searchTerm.trim().toLowerCase());
 
-  const tags = tagsQuery.data ?? [];
+  const tags = useMemo(() => tagsQuery.data ?? [], [tagsQuery.data]);
   const editingTag = tags.find((tag) => tag.id === editingTagId) ?? null;
 
   const filteredTags = useMemo(() => {
@@ -266,10 +267,7 @@ const AdminTagsSection = () => {
       <div className={styles['stackList']}>
         <section className={styles['panelWide']}>
           <div className={styles['panelToolbar']}>
-            <div>
-              <h2 className={styles['panelTitle']}>태그 목록</h2>
-              <p className={styles['metaText']}>총 {filteredTags.length}개</p>
-            </div>
+            <p className={styles['metaText']}>총 {filteredTags.length}개</p>
 
             <UnifiedSearchBar
               className={styles['adminSearchBar']}
@@ -427,32 +425,31 @@ const AdminTagsSection = () => {
         </section>
 
         <section className={styles['panelWide']}>
-          <div className={styles['editorTabs']}>
-            <button
-              className={editorTab === 'create' ? styles['editorTabActive'] : styles['editorTab']}
-              onClick={() => {
+          <SectionTabs
+            ariaLabel='태그 작업'
+            items={[
+              { label: '새 태그 등록', value: 'create' },
+              {
+                disabled: !editingTag,
+                label: editingTag ? `${editingTag.name} 수정` : '태그 수정',
+                value: 'edit',
+              },
+            ]}
+            onChange={(nextTab) => {
+              if (nextTab === 'create') {
                 resetCreateForm();
-              }}
-              type='button'
-            >
-              새 태그 등록
-            </button>
-            <button
-              className={editorTab === 'edit' ? styles['editorTabActive'] : styles['editorTab']}
-              disabled={!editingTag}
-              onClick={() => {
-                if (!editingTag) {
-                  return;
-                }
+                return;
+              }
 
-                setEditorTab('edit');
-                setFormState(createFormState(editingTag));
-              }}
-              type='button'
-            >
-              {editingTag ? `${editingTag.name} 수정` : '태그 수정'}
-            </button>
-          </div>
+              if (!editingTag) {
+                return;
+              }
+
+              setEditorTab('edit');
+              setFormState(createFormState(editingTag));
+            }}
+            value={editorTab}
+          />
 
           <div className={styles['editorTabBody']}>
             {editorTab === 'edit' && !editingTag ? (

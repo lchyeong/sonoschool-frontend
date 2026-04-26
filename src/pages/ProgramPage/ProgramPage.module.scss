@@ -5,6 +5,10 @@
   padding-top: 24px;
 }
 
+.archiveBreadcrumb {
+  margin-bottom: 36px;
+}
+
 .archiveHeaderSection {
   position: relative;
   overflow: hidden;
@@ -189,6 +193,34 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 452px));
   gap: 40px;
+}
+
+.archiveEmptyState {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  max-width: 560px;
+  padding: 32px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  background: #f9fafb;
+}
+
+.archiveEmptyTitle,
+.archiveEmptyDescription {
+  margin: 0;
+}
+
+.archiveEmptyTitle {
+  color: #111827;
+  font-size: 20px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.35;
+}
+
+.archiveEmptyDescription {
+  color: #4b5563;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 .stateSection {

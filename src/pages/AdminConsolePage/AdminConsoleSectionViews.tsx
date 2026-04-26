@@ -27,10 +27,6 @@ import {
 import styles from './AdminConsolePage.module.scss';
 import { sectionContent, type AdminConsoleSection } from './adminConsolePageShared';
 
-interface AdminConsolePageHeaderProps {
-  section: AdminConsoleSection;
-}
-
 interface DeferredSectionProps {
   section: Extract<AdminConsoleSection, 'reviews'>;
 }
@@ -44,6 +40,7 @@ const formatDateTime = (value: string | null): string => {
 
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
+    hour12: false,
     timeStyle: 'short',
   }).format(new Date(value));
 };
@@ -157,6 +154,10 @@ const formatDateRangeText = (startDate: string, endDate: string): string => {
     return '조회 기간 선택';
   }
 
+  if (startDate === endDate) {
+    return formatDate(startDate);
+  }
+
   return `${formatDate(startDate)} - ${formatDate(endDate)}`;
 };
 
@@ -234,8 +235,8 @@ const buildWeeklySalesPoints = (
     return {
       amount,
       fullLabel: `${String(pointDate.getMonth() + 1)}/${String(pointDate.getDate())}`,
-      label: `${pointDate.getMonth() + 1}/${pointDate.getDate()}`,
-      pointKey: `${pointDate.toISOString()}`,
+      label: `${String(pointDate.getMonth() + 1)}/${String(pointDate.getDate())}`,
+      pointKey: pointDate.toISOString(),
     };
   });
 };
@@ -275,7 +276,9 @@ const SalesLineChart = ({
       tooltipAlign: xPercent < 14 ? 'left' : xPercent > 86 ? 'right' : 'center',
     };
   });
-  const polylinePoints = chartPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const polylinePoints = chartPoints
+    .map((point) => `${String(point.x)},${String(point.y)}`)
+    .join(' ');
   const areaPoints = `0,${String(height)} ${polylinePoints} ${String(width)},${String(height)}`;
   const axisPoints =
     axisMode === 'all'
@@ -411,16 +414,6 @@ const getDeferredDescription = (_section: DeferredSectionProps['section']): stri
   return '교육후기 운영 화면은 게시 정책과 공개 구조를 정리한 뒤 별도 관리자 페이지로 연결합니다.';
 };
 
-export const AdminConsolePageHeader = ({ section }: AdminConsolePageHeaderProps) => {
-  const sectionMeta = sectionContent[section];
-
-  return (
-    <header className={styles['pageHeader']}>
-      <h1 className={styles['pageTitle']}>{sectionMeta.title}</h1>
-    </header>
-  );
-};
-
 export const AdminDeferredSection = ({ section }: DeferredSectionProps) => {
   const sectionMeta = sectionContent[section];
 
@@ -548,10 +541,6 @@ export const AdminPaymentsSection = () => {
     };
   }, [isDatePickerOpen]);
 
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [requestedDateFrom, requestedDateTo, searchField, searchKeyword]);
-
   const cancelMutation = useMutation({
     mutationFn: ({ paymentId, reason }: { paymentId: number; reason: string }) =>
       cancelAdminPayment(paymentId, { reason }),
@@ -610,21 +599,14 @@ export const AdminPaymentsSection = () => {
   };
 
   const handleCalendarDateSelect = (dateValue: string) => {
-    setDatePickerMessage(null);
-
-    if (!draftRequestedDateFrom || draftRequestedDateTo) {
-      setDraftRequestedDateFrom(dateValue);
-      setDraftRequestedDateTo('');
-      return;
-    }
-
-    if (dateValue < draftRequestedDateFrom) {
-      setDraftRequestedDateFrom(dateValue);
-      setDraftRequestedDateTo('');
-      return;
-    }
-
+    setRequestedDateFrom(dateValue);
+    setRequestedDateTo(dateValue);
+    setDraftRequestedDateFrom(dateValue);
     setDraftRequestedDateTo(dateValue);
+    setCurrentPage(0);
+    setDatePickerMessage(null);
+    setIsDatePickerOpen(false);
+    void queryClient.invalidateQueries({ queryKey: adminPaymentsQueryKey() });
   };
 
   const handleApplyDateFilter = () => {
@@ -644,12 +626,14 @@ export const AdminPaymentsSection = () => {
     setDraftRequestedDateTo('');
     setRequestedDateFrom('');
     setRequestedDateTo('');
+    setCurrentPage(0);
     setDatePickerMessage(null);
     setIsDatePickerOpen(false);
   };
 
   const handleApplySearch = () => {
     setSearchKeyword(searchInput.trim());
+    setCurrentPage(0);
   };
 
   const handleOpenPaymentDetail = (paymentId: number) => {
@@ -907,6 +891,7 @@ export const AdminPaymentsSection = () => {
                       setSearchField(
                         event.target.value as 'orderNumber' | 'buyerDisplayName' | 'orderName',
                       );
+                      setCurrentPage(0);
                     }}
                     value={searchField}
                   >
@@ -1154,8 +1139,8 @@ export const AdminPaymentsSection = () => {
                       <span className={styles['paymentDetailLabel']}>진도율</span>
                       <strong className={styles['paymentDetailValue']}>
                         {formatLectureProgressLabel(
-                          selectedPayment.completedLectureCount ?? 0,
-                          selectedPayment.totalLectureCount ?? 0,
+                          selectedPayment.completedLectureCount,
+                          selectedPayment.totalLectureCount,
                         )}
                       </strong>
                     </div>

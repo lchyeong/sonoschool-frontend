@@ -8,7 +8,6 @@ import {
   type FormEvent,
 } from 'react';
 
-import scopeChevronIconSrc from '@/assets/icons/search-scope-chevron.svg';
 import searchIconSrc from '@/assets/icons/search.svg';
 import {
   defaultSearchScope,
@@ -171,7 +170,20 @@ const SiteSearchBar = ({
                 isScopeMenuOpen && styles['scopeChevronFrameOpen'],
               )}
             >
-              <img alt='' className={styles['scopeChevron']} src={scopeChevronIconSrc} />
+              <svg
+                className={styles['scopeChevron']}
+                fill='none'
+                focusable='false'
+                viewBox='0 0 10 5'
+              >
+                <path
+                  d='M0 0L5 5L10 0'
+                  stroke='currentColor'
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth='1.5'
+                />
+              </svg>
             </span>
           </span>
         </button>
@@ -193,10 +205,7 @@ const SiteSearchBar = ({
                   <li className={styles['scopeOptionItem']} key={option.value}>
                     <button
                       aria-pressed={isSelected}
-                      className={classNames(
-                        styles['scopeOptionButton'],
-                        isSelected && styles['scopeOptionButtonSelected'],
-                      )}
+                      className={styles['scopeOptionButton']}
                       onClick={() => {
                         setSelectedScope(option.value);
                         closeScopeMenu();

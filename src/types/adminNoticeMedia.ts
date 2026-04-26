@@ -13,5 +13,6 @@ export interface AdminNoticeMediaUploadTarget {
   expiresInSeconds: number;
   mediaType: AdminNoticeMediaType;
   previewUrl: string;
+  storageUrl: string;
   uploadUrl: string;
 }

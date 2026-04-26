@@ -1,9 +1,159 @@
+.page {
+  min-height: 1126px;
+  padding: 100px 20px 400px;
+  background: #ffffff;
+}
+
+.shell {
+  width: min(100%, 820px);
+}
+
 .surface {
-  gap: var(--space-6);
+  gap: 0;
+  padding: 60px;
+  border: 0;
+  background: #ffffff;
+}
+
+.header {
+  margin-bottom: 57px;
+}
+
+.title {
+  color: #111827;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: normal;
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+.form {
+  width: 700px;
+  max-width: 100%;
+}
+
+.field {
+  gap: 0;
+}
+
+.fieldLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.input {
+  height: 75px;
+  padding: 0 25px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  color: #111827;
+  font-size: 18px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+  background: #ffffff;
+}
+
+.input::placeholder {
+  color: #6b7280;
+}
+
+.input:hover {
+  border-width: 2px;
+  border-color: #34b29f;
+}
+
+.input:focus {
+  border-width: 2px;
+  border-color: #34b29f;
+  box-shadow: none;
+}
+
+.fieldError {
+  min-height: 0;
+  margin-top: 6px;
+  font-size: 14px;
 }
 
 .actionLinks {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: 14px;
+  align-items: center;
+}
+
+.actionLink {
+  display: inline-flex;
+  align-items: center;
+  color: #4b5563;
+  font-size: 18px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.actionLink:hover {
+  color: #111827;
+  text-decoration: underline;
+}
+
+.actionDivider {
+  width: 1px;
+  height: 16px;
+  background: #d1d5db;
+}
+
+.submitButton {
+  height: 75px !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  color: #ffffff !important;
+  font-size: 24px !important;
+  font-weight: var(--font-weight-bold) !important;
+  line-height: 1.3 !important;
+  background: #34b29f !important;
+}
+
+.submitButton:hover,
+.submitButton:focus-visible {
+  background: #2fa08f !important;
+}
+
+@media (width < 768px) {
+  .page {
+    min-height: auto;
+    padding: 64px 16px 120px;
+  }
+
+  .surface {
+    padding: 32px 0;
+  }
+
+  .header {
+    margin-bottom: 36px;
+  }
+
+  .title {
+    font-size: 34px;
+  }
+
+  .input,
+  .submitButton {
+    height: 60px !important;
+  }
+
+  .actionLinks {
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .actionLink {
+    font-size: 15px;
+  }
 }

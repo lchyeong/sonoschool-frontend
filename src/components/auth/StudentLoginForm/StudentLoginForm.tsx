@@ -1,4 +1,4 @@
-import type { ChangeEvent, FormEvent, ReactNode, RefObject } from 'react';
+import type { ChangeEvent, CSSProperties, FormEvent, ReactNode, RefObject } from 'react';
 import { useRef, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
@@ -8,6 +8,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { loginStudent, verifyStudentLoginSms } from '@/api/auth';
 import { clearGuestCart, getGuestCart, retainGuestCartPrograms } from '@/api/guestCart';
 import { mergeMyCartItems } from '@/api/mypage';
+import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
+import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { myCartQueryKey } from '@/query/useMyPageQueries';
@@ -17,6 +19,7 @@ import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { StudentLoginChallenge } from '@/types/auth';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
+import { classNames } from '@/utils/classNames';
 
 import styles from './StudentLoginForm.module.scss';
 
@@ -31,13 +34,26 @@ interface LoginFormErrors {
   password?: string;
 }
 
+type LoginEyeIconStyle = CSSProperties & {
+  '--login-eye-icon': string;
+};
+
 interface StudentLoginFormProps {
+  className?: string | undefined;
+  inputClassName?: string | undefined;
+  inputErrorClassName?: string | undefined;
+  inputFieldClassName?: string | undefined;
+  inputLabelClassName?: string | undefined;
+  rememberLoginIdLabel?: string | undefined;
   secondaryAction?: ReactNode;
+  showRememberLoginId?: boolean | undefined;
   submitLabel?: string;
+  submitButtonClassName?: string | undefined;
   supportText?: string;
   onSuccess?: () => void;
   loginIdInputRef?: RefObject<HTMLInputElement | null>;
   initialValues?: Partial<LoginFormValues> | undefined;
+  variant?: 'default' | 'page';
 }
 
 interface LoginRedirectState {
@@ -52,14 +68,24 @@ const INITIAL_FORM_VALUES: LoginFormValues = {
   password: '',
 };
 const MOCK_SMS_CODE = '123456';
+const LOGIN_AUTH_ERROR_MESSAGE = '아이디 및 비밀번호를 확인해주세요.';
 
 const StudentLoginForm = ({
+  className,
   secondaryAction,
+  inputClassName,
+  inputErrorClassName,
+  inputFieldClassName,
+  inputLabelClassName,
+  rememberLoginIdLabel = '아이디 저장',
+  showRememberLoginId = false,
   submitLabel = '로그인',
+  submitButtonClassName,
   supportText,
   onSuccess,
   loginIdInputRef,
   initialValues,
+  variant = 'default',
 }: StudentLoginFormProps) => {
   const internalLoginIdInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -78,6 +104,10 @@ const StudentLoginForm = ({
   const [formErrors, setFormErrors] = useState<LoginFormErrors>({});
   const [verificationCode, setVerificationCode] = useState('');
   const [loginChallenge, setLoginChallenge] = useState<StudentLoginChallenge | null>(null);
+  const [rememberLoginId, setRememberLoginId] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
+  const isPageVariant = variant === 'page';
 
   const mergeGuestCartIntoServer = async () => {
     const guestCart = getGuestCart();
@@ -170,6 +200,11 @@ const StudentLoginForm = ({
   const loginMutation = useMutation({
     mutationFn: loginStudent,
     onError: (error: unknown) => {
+      if (isPageVariant) {
+        setAuthErrorMessage(LOGIN_AUTH_ERROR_MESSAGE);
+        return;
+      }
+
       showToast({
         message:
           error instanceof Error ? error.message : '로그인에 실패했습니다. 다시 시도해 주세요.',
@@ -216,6 +251,7 @@ const StudentLoginForm = ({
     (fieldName: keyof LoginFormValues) => (event: ChangeEvent<HTMLInputElement>) => {
       const nextValue = event.target.value;
 
+      setAuthErrorMessage(null);
       setFormValues((current) => ({
         ...current,
         [fieldName]: nextValue,
@@ -231,6 +267,7 @@ const StudentLoginForm = ({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setAuthErrorMessage(null);
 
     if (loginChallenge) {
       const trimmedCode = verificationCode.trim();
@@ -300,7 +337,11 @@ const StudentLoginForm = ({
   };
 
   return (
-    <form className={styles['form']} noValidate onSubmit={handleSubmit}>
+    <form
+      className={classNames(styles['form'], isPageVariant && styles['formPage'], className)}
+      noValidate
+      onSubmit={handleSubmit}
+    >
       {supportText ? <p className={styles['supportText']}>{supportText}</p> : null}
 
       <div className={styles['fieldGroup']}>
@@ -328,33 +369,98 @@ const StudentLoginForm = ({
           <>
             <TextField
               autoComplete='username'
+              className={inputClassName}
+              errorClassName={inputErrorClassName}
               errorMessage={formErrors.loginId}
+              fieldClassName={inputFieldClassName}
               label='아이디'
+              labelClassName={inputLabelClassName}
               name='loginId'
               onChange={handleFieldChange('loginId')}
-              placeholder='student01'
+              placeholder='아이디 또는 이메일을 입력해주세요.'
               ref={resolvedLoginIdInputRef}
               value={formValues.loginId}
             />
 
-            <TextField
-              autoComplete='current-password'
-              errorMessage={formErrors.password}
-              label='비밀번호'
-              name='password'
-              onChange={handleFieldChange('password')}
-              placeholder='비밀번호를 입력해 주세요'
-              ref={passwordInputRef}
-              type='password'
-              value={formValues.password}
-            />
+            <div className={styles['passwordFieldWrap']}>
+              <TextField
+                autoComplete='current-password'
+                className={classNames(inputClassName, isPageVariant && styles['passwordInput'])}
+                errorClassName={inputErrorClassName}
+                errorMessage={formErrors.password}
+                fieldClassName={inputFieldClassName}
+                label='비밀번호'
+                labelClassName={inputLabelClassName}
+                name='password'
+                onChange={handleFieldChange('password')}
+                placeholder='비밀번호를 입력해주세요.'
+                ref={passwordInputRef}
+                type={isPasswordVisible ? 'text' : 'password'}
+                value={formValues.password}
+              />
+              {isPageVariant ? (
+                <button
+                  aria-label={isPasswordVisible ? '비밀번호 숨기기' : '비밀번호 보기'}
+                  className={styles['passwordVisibilityButton']}
+                  onClick={() => {
+                    setIsPasswordVisible((current) => !current);
+                  }}
+                  type='button'
+                >
+                  <span
+                    aria-hidden='true'
+                    className={styles['passwordVisibilityIcon']}
+                    style={
+                      {
+                        '--login-eye-icon': `url("${
+                          isPasswordVisible ? eyeIconSrc : eyeOffIconSrc
+                        }")`,
+                      } as LoginEyeIconStyle
+                    }
+                  />
+                </button>
+              ) : null}
+            </div>
           </>
         )}
       </div>
 
+      {!loginChallenge && (showRememberLoginId || secondaryAction) && isPageVariant ? (
+        <div className={styles['utilityRow']}>
+          {showRememberLoginId ? (
+            <label className={styles['rememberLabel']}>
+              <input
+                checked={rememberLoginId}
+                className={styles['rememberInput']}
+                onChange={(event) => {
+                  setRememberLoginId(event.currentTarget.checked);
+                }}
+                type='checkbox'
+              />
+              <span aria-hidden='true' className={styles['rememberBox']} />
+              <span>{rememberLoginIdLabel}</span>
+            </label>
+          ) : null}
+          {secondaryAction}
+        </div>
+      ) : null}
+
+      {!loginChallenge && isPageVariant ? (
+        <p
+          aria-hidden={!authErrorMessage}
+          className={classNames(
+            styles['formErrorText'],
+            !authErrorMessage && styles['formErrorTextHidden'],
+          )}
+          role={authErrorMessage ? 'alert' : undefined}
+        >
+          {authErrorMessage ?? LOGIN_AUTH_ERROR_MESSAGE}
+        </p>
+      ) : null}
+
       <div className={styles['actionGroup']}>
         <Button
-          className={styles['submitButton']}
+          className={classNames(styles['submitButton'], submitButtonClassName)}
           disabled={loginMutation.isPending || verifyMutation.isPending}
           type='submit'
         >
@@ -371,7 +477,7 @@ const StudentLoginForm = ({
             다시 입력
           </Button>
         ) : null}
-        {secondaryAction}
+        {!isPageVariant ? secondaryAction : null}
       </div>
     </form>
   );

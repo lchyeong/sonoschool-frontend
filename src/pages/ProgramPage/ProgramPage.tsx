@@ -4,7 +4,10 @@ import { useProgramPageQuery } from '@/query/useProgramPageQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { classNames } from '@/utils/classNames';
 
-import { ProgramArchiveLectureCardItem } from '../ProgramsPage/programCatalogShared';
+import {
+  ProgramArchiveLectureCardItem,
+  ProgramBreadcrumbs,
+} from '../ProgramsPage/programCatalogShared';
 import { useProgramCatalogActions } from '../ProgramsPage/useProgramCatalogActions';
 
 import styles from './ProgramPage.module.scss';
@@ -62,6 +65,12 @@ const ProgramPage = () => {
 
     return (
       <div className={styles['container']}>
+        <ProgramBreadcrumbs
+          className={styles['archiveBreadcrumb']}
+          items={data.breadcrumbItems}
+          maxDepth={3}
+        />
+
         <section className={styles['archiveHeaderSection']}>
           <div aria-hidden='true' className={styles['archiveHeaderDecor']}>
             <span className={styles['archiveHeaderDecorLeft']} />
@@ -107,25 +116,37 @@ const ProgramPage = () => {
             </p>
           </div>
 
-          <div className={styles['archiveLectureGrid']}>
-            {data.lectures.map((lecture) => {
-              return (
-                <ProgramArchiveLectureCardItem
-                  isAlertPending={isAlertPending(lecture.programId)}
-                  isAlertSubscribed={
-                    typeof lecture.programId === 'number' &&
-                    subscribedProgramIds.has(lecture.programId)
-                  }
-                  isAuthenticated={isAuthenticated}
-                  isCartPending={isAddToCartPending(lecture.programId)}
-                  item={lecture}
-                  key={lecture.id}
-                  onAddToCart={handleAddToCart}
-                  onSubscribeAlert={handleSubscribeAlert}
-                />
-              );
-            })}
-          </div>
+          {data.lectures.length > 0 ? (
+            <div className={styles['archiveLectureGrid']}>
+              {data.lectures.map((lecture) => {
+                return (
+                  <ProgramArchiveLectureCardItem
+                    isAlertPending={isAlertPending(lecture.programId)}
+                    isAlertSubscribed={
+                      typeof lecture.programId === 'number' &&
+                      subscribedProgramIds.has(lecture.programId)
+                    }
+                    isAuthenticated={isAuthenticated}
+                    isCartPending={isAddToCartPending(lecture.programId)}
+                    item={lecture}
+                    key={lecture.id}
+                    onAddToCart={handleAddToCart}
+                    onSubscribeAlert={handleSubscribeAlert}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className={styles['archiveEmptyState']}>
+              <p className={styles['archiveEmptyTitle']}>현재 모집 중인 과정이 없습니다.</p>
+              <p className={styles['archiveEmptyDescription']}>
+                상위 교육과정으로 이동해 다른 카테고리의 모집 과정을 확인해 주세요.
+              </p>
+              <Link className={styles['secondaryActionLink']} to={routePaths.programs}>
+                전체 교육과정 보기
+              </Link>
+            </div>
+          )}
         </section>
       </div>
     );

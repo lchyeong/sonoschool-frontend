@@ -75,7 +75,7 @@
 .breadcrumbList {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  row-gap: var(--space-2);
   padding: 0;
   margin: 0;
   list-style: none;
@@ -84,17 +84,13 @@
 .breadcrumbItem {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
-
-  &::after {
-    content: '/';
-  }
-
-  &:last-child::after {
-    display: none;
-  }
+  color: #4b5563;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: normal;
+  white-space: nowrap;
 }
 
 .breadcrumbLink {
@@ -107,8 +103,18 @@
 }
 
 .breadcrumbCurrent {
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-semibold);
+  color: #111827;
+  font-weight: var(--font-weight-normal);
+}
+
+.breadcrumbChevron {
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: 0 14px;
+  object-fit: contain;
+  transform: rotate(-90deg);
+  opacity: 0.72;
 }
 
 .inlineTagList {

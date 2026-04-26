@@ -2267,12 +2267,8 @@ const AdminPracticumSection = () => {
                             <strong>
                               {`${String(selectedOfflineScheduleDetail.activeEnrollmentCount)}명`}
                             </strong>
-                            <span>선행 영상</span>
-                            <strong>
-                              {selectedOfflineScheduleDetail.videoAttached
-                                ? '연결됨'
-                                : '연결된 영상 없음'}
-                            </strong>
+                            <span>선행학습 기준</span>
+                            <strong>커리큘럼상 앞선 영상/문제/자료 강의</strong>
                             {selectedOfflineScheduleDetail.notes?.trim() ? (
                               <>
                                 <span>비고</span>
@@ -2309,18 +2305,20 @@ const AdminPracticumSection = () => {
                                       </div>
                                       <div className={styles['practicumDetailReservationActions']}>
                                         <div className={styles['practicumDetailReservationBadges']}>
-                                          {selectedOfflineScheduleDetail.videoAttached ? (
-                                            attendee.lectureCompleted ? (
+                                          {attendee.prerequisiteTotalCount > 0 ? (
+                                            attendee.prerequisiteCompleted ? (
                                               <span className={styles['badgeSuccess']}>
-                                                선행학습 완료
+                                                선행{' '}
+                                                {`${String(attendee.prerequisiteCompletedCount)}/${String(attendee.prerequisiteTotalCount)}`}
                                               </span>
                                             ) : (
                                               <span className={styles['badgeDanger']}>
-                                                선행학습 미완료
+                                                선행{' '}
+                                                {`${String(attendee.prerequisiteCompletedCount)}/${String(attendee.prerequisiteTotalCount)}`}
                                               </span>
                                             )
                                           ) : (
-                                            <span className={styles['badge']}>영상 없음</span>
+                                            <span className={styles['badge']}>선행 없음</span>
                                           )}
                                           {renderOfflineAttendanceBadge(attendanceStatus)}
                                         </div>

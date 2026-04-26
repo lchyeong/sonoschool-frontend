@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
+import { discardAdminProgramDraft } from '@/api/adminProgramDrafts';
 import {
   deleteAdminProgramLive,
   publishAdminProgramLive,
@@ -12,7 +13,10 @@ import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
-import { useAdminProgramDraftsQuery } from '@/query/useAdminProgramDraftsQuery';
+import {
+  adminProgramDraftsQueryKey,
+  useAdminProgramDraftsQuery,
+} from '@/query/useAdminProgramDraftsQuery';
 import {
   adminProgramsLiveQueryKey,
   useAdminProgramsLiveQuery,
@@ -110,11 +114,24 @@ const typeOptions = [
 
 const confirmProgramDelete = (): boolean => {
   return window.confirm(
-    '프로그램을 삭제하면 되돌릴 수 없습니다.\n커리큘럼이나 수강 이력이 있는 프로그램은 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
+    '프로그램을 삭제하면 되돌릴 수 없습니다.\n강의 구성이나 수강 이력이 있는 프로그램은 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
   );
 };
 
+const confirmDraftDelete = (draft: AdminProgramDraftSummary): boolean => {
+  const title = draft.titlePreview?.trim() || `제목 없는 초안 #${String(draft.id)}`;
+  return window.confirm(`'${title}' 초안을 삭제하면 복구할 수 없습니다.\n계속하시겠습니까?`);
+};
+
 const isProgramDeletable = (item: AdminProgramListItem): boolean => item.deletable !== false;
+
+const buildDraftContinuePath = (draft: AdminProgramDraftSummary): string => {
+  const search = `?draftId=${String(draft.id)}`;
+  if (draft.finalProgramId !== null) {
+    return `${routePaths.adminProgramEdit(String(draft.finalProgramId))}${search}`;
+  }
+  return `${routePaths.adminProgramCreate}${search}`;
+};
 
 const AdminProgramListSection = () => {
   const navigate = useNavigate();
@@ -130,6 +147,12 @@ const AdminProgramListSection = () => {
   const refreshPrograms = async () => {
     await queryClient.invalidateQueries({
       queryKey: adminProgramsLiveQueryKey(),
+    });
+  };
+
+  const refreshDrafts = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: adminProgramDraftsQueryKey(),
     });
   };
 
@@ -184,6 +207,23 @@ const AdminProgramListSection = () => {
     },
   });
 
+  const deleteDraftMutation = useMutation({
+    mutationFn: (draftId: number) => discardAdminProgramDraft(draftId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '초안 삭제에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await refreshDrafts();
+      showToast({
+        message: '초안을 삭제했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
   const filteredItems = useMemo(() => {
     const items = programsQuery.data ?? [];
     const normalizedKeyword = searchKeyword.trim().toLowerCase();
@@ -232,27 +272,40 @@ const AdminProgramListSection = () => {
               <p className={styles['listPanelMeta']}>진행 중 초안</p>
             </div>
 
-            <div className={styles['stackListCompact']}>
+            <div className={styles['draftList']}>
               {draftsQuery.data.map((draft: AdminProgramDraftSummary) => (
-                <article className={styles['panel']} key={draft.id}>
-                  <div className={styles['panelToolbar']}>
-                    <div>
-                      <h2 className={styles['panelTitle']}>
-                        {draft.titlePreview?.trim() || `제목 없는 초안 #${String(draft.id)}`}
-                      </h2>
-                      <p className={styles['metaText']}>
-                        마지막 저장 {formatDate(draft.updatedAt)}
-                      </p>
-                    </div>
+                <article className={styles['draftRow']} key={draft.id}>
+                  <div className={styles['draftTitleCell']}>
+                    <strong className={styles['draftTitle']}>
+                      {draft.titlePreview?.trim() || `제목 없는 초안 #${String(draft.id)}`}
+                    </strong>
+                    <span className={styles['draftMeta']}>
+                      {draft.finalProgramId === null ? '신규 등록 초안' : '수정 초안'} · 마지막 저장{' '}
+                      {formatDate(draft.updatedAt)}
+                    </span>
+                  </div>
+                  <div className={styles['draftActionGroup']}>
                     <Button
                       onClick={() => {
-                        void navigate(
-                          `${routePaths.adminProgramCreate}?draftId=${String(draft.id)}`,
-                        );
+                        void navigate(buildDraftContinuePath(draft));
                       }}
                       type='button'
+                      variant='secondary'
                     >
                       이어서 작성
+                    </Button>
+                    <Button
+                      disabled={deleteDraftMutation.isPending}
+                      onClick={() => {
+                        if (!confirmDraftDelete(draft)) {
+                          return;
+                        }
+                        deleteDraftMutation.mutate(draft.id);
+                      }}
+                      type='button'
+                      variant='danger'
+                    >
+                      삭제
                     </Button>
                   </div>
                 </article>
@@ -261,7 +314,7 @@ const AdminProgramListSection = () => {
           </section>
         ) : null}
 
-        <div className={styles['toolbar']}>
+        <div className={`${styles['toolbar']} ${styles['programToolbar']}`}>
           <div className={styles['toolbarFilters']}>
             <div className={styles['toolbarFilterRow']}>
               <div className={styles['toolbarSearchField']}>

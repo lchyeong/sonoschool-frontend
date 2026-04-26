@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 
-import noticeBoardLinkArrowIconSrc from '@/assets/icons/notice-board-link-arrow.svg';
 import { useGlobalNoticesQuery } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
 
@@ -38,11 +37,27 @@ const HomeNoticeSection = () => {
             >
               <span className={styles['boardLinkLabel']}>게시판 보기</span>
               <span aria-hidden='true' className={styles['boardLinkArrowFrame']}>
-                <img
-                  alt=''
+                <svg
                   className={styles['boardLinkArrowIcon']}
-                  src={noticeBoardLinkArrowIconSrc}
-                />
+                  fill='none'
+                  focusable='false'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    d='M5 12H19'
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='2'
+                  />
+                  <path
+                    d='M12 5L19 12L12 19'
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='2'
+                  />
+                </svg>
               </span>
             </Link>
           </div>

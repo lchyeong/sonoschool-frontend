@@ -3,6 +3,10 @@
   gap: 20px;
 }
 
+.formPage {
+  gap: 0;
+}
+
 .supportText {
   margin: 0;
   color: rgb(86 90 102);
@@ -13,6 +17,108 @@
 .fieldGroup {
   display: grid;
   gap: 14px;
+}
+
+.formPage .fieldGroup {
+  gap: 16px;
+}
+
+.formErrorText {
+  min-height: 23px;
+  margin: 28px 0 0;
+  color: #dd383e;
+  font-size: 18px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+}
+
+.formErrorTextHidden {
+  visibility: hidden;
+}
+
+.passwordFieldWrap {
+  position: relative;
+}
+
+.passwordVisibilityButton {
+  position: absolute;
+  top: 26px;
+  right: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  color: #6b7280;
+  background: transparent;
+}
+
+.passwordVisibilityIcon {
+  width: 24px;
+  height: 24px;
+  background: currentcolor;
+  mask: var(--login-eye-icon) center / contain no-repeat;
+  -webkit-mask: var(--login-eye-icon) center / contain no-repeat;
+}
+
+.passwordInput {
+  padding-right: 74px !important;
+}
+
+.utilityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 26px;
+}
+
+.rememberLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #111827;
+  font-size: 18px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.rememberInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rememberBox {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.rememberInput:checked + .rememberBox {
+  border-color: #34b29f;
+  background: #34b29f;
+}
+
+.rememberInput:checked + .rememberBox::after {
+  position: absolute;
+  top: 7px;
+  left: 6px;
+  width: 13px;
+  height: 7px;
+  border-bottom: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  content: '';
+  transform: rotate(-45deg);
 }
 
 .challengeSummary {
@@ -34,6 +140,21 @@
   gap: 12px;
 }
 
+.formPage .actionGroup {
+  margin-top: 33px;
+}
+
 .submitButton {
   width: 100%;
+}
+
+@media (width < 768px) {
+  .passwordVisibilityButton {
+    top: 18px;
+    right: 22px;
+  }
+
+  .passwordInput {
+    padding-right: 64px !important;
+  }
 }

@@ -48,14 +48,20 @@ const calculatePartCount = (fileSize: number): number => {
 
 const formatVideoStatusLabel = (
   status: AdminVideoStatusResponse['status'] | null | undefined,
+  progressPercent?: number | null,
 ): string => {
+  const progressSuffix =
+    progressPercent === null || progressPercent === undefined
+      ? ''
+      : ` ${String(Math.max(0, Math.min(100, Math.round(progressPercent))))}%`;
+
   switch (status) {
     case 'UPLOADING':
       return '영상 파일 업로드 중';
     case 'UPLOADED':
       return '영상 등록 준비 중';
     case 'PROCESSING':
-      return '영상 등록 중';
+      return `영상 등록 중${progressSuffix}`;
     case 'READY':
       return '강의 영상 등록 완료';
     case 'FAILED':
@@ -567,7 +573,7 @@ const AdminVideoUploadPage = () => {
             <div className={styles['resultItem']}>
               <span className={styles['resultLabel']}>현재 상태</span>
               <strong className={styles['statusValue']}>
-                {formatVideoStatusLabel(videoStatus?.status)}
+                {formatVideoStatusLabel(videoStatus?.status, videoStatus?.progressPercent)}
               </strong>
             </div>
             <div className={styles['resultItem']}>

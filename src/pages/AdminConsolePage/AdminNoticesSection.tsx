@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import {
   unpublishAdminNoticeLive,
 } from '@/api/notices';
 import Button from '@/components/ui/Button/Button';
+import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
 import {
   adminNoticesQueryKey,
   globalNoticesQueryKey,
@@ -20,6 +21,8 @@ import { summarizeHtmlContent } from '@/utils/htmlContent';
 
 import styles from './AdminConsolePage.module.scss';
 
+type NoticeFilter = 'all' | 'published' | 'private' | 'pinned';
+
 const formatDateTime = (value: string | null): string => {
   if (!value) {
     return '-';
@@ -27,6 +30,7 @@ const formatDateTime = (value: string | null): string => {
 
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
+    hour12: false,
     timeStyle: 'short',
   }).format(new Date(value));
 };
@@ -36,10 +40,27 @@ const AdminNoticesSection = () => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const noticesQuery = useAdminNoticesQuery();
+  const [noticeFilter, setNoticeFilter] = useState<NoticeFilter>('all');
 
   const globalNotices = useMemo(() => {
     return (noticesQuery.data ?? []).filter((notice) => notice.scope === 'GLOBAL');
   }, [noticesQuery.data]);
+
+  const filteredNotices = useMemo(() => {
+    if (noticeFilter === 'published') {
+      return globalNotices.filter((notice) => notice.published);
+    }
+
+    if (noticeFilter === 'private') {
+      return globalNotices.filter((notice) => !notice.published);
+    }
+
+    if (noticeFilter === 'pinned') {
+      return globalNotices.filter((notice) => notice.pinned);
+    }
+
+    return globalNotices;
+  }, [globalNotices, noticeFilter]);
 
   const refreshNotices = async () => {
     await Promise.all([
@@ -100,10 +121,18 @@ const AdminNoticesSection = () => {
   });
 
   const summary = {
+    privateCount: globalNotices.filter((notice) => !notice.published).length,
     pinnedCount: globalNotices.filter((notice) => notice.pinned).length,
     publishedCount: globalNotices.filter((notice) => notice.published).length,
     totalCount: globalNotices.length,
   };
+
+  const noticeTabs = [
+    { count: summary.totalCount, label: '전체', value: 'all' },
+    { count: summary.publishedCount, label: '게시 중', value: 'published' },
+    { count: summary.privateCount, label: '비공개', value: 'private' },
+    { count: summary.pinnedCount, label: '고정', value: 'pinned' },
+  ] satisfies Array<{ count: number; label: string; value: NoticeFilter }>;
 
   if (noticesQuery.isPending) {
     return (
@@ -129,34 +158,16 @@ const AdminNoticesSection = () => {
 
   return (
     <section className={styles['workspace']}>
-      <section className={styles['summaryGrid']}>
-        <article className={styles['summaryCard']} data-tone='brand'>
-          <p className={styles['summaryLabel']}>전체 전역 공지</p>
-          <strong className={styles['summaryValue']}>{String(summary.totalCount)}건</strong>
-          <p className={styles['summaryDescription']}>
-            운영 중인 전역 공지를 같은 계약으로 관리합니다.
-          </p>
-        </article>
-        <article className={styles['summaryCard']} data-tone='accent'>
-          <p className={styles['summaryLabel']}>게시 중</p>
-          <strong className={styles['summaryValue']}>{String(summary.publishedCount)}건</strong>
-          <p className={styles['summaryDescription']}>
-            공개 페이지에 실제 노출 가능한 공지 수입니다.
-          </p>
-        </article>
-        <article className={styles['summaryCard']} data-tone='brand'>
-          <p className={styles['summaryLabel']}>고정 공지</p>
-          <strong className={styles['summaryValue']}>{String(summary.pinnedCount)}건</strong>
-          <p className={styles['summaryDescription']}>목록 상단 우선 배치되는 필독 공지입니다.</p>
-        </article>
-      </section>
+      <SectionTabs
+        ariaLabel='공지 상태'
+        items={noticeTabs}
+        onChange={setNoticeFilter}
+        value={noticeFilter}
+      />
 
       <section className={styles['panelWide']}>
         <div className={styles['panelToolbar']}>
-          <div>
-            <h2 className={styles['panelTitle']}>전역 공지 목록</h2>
-            <p className={styles['metaText']}>작성과 수정은 별도 페이지에서 처리합니다.</p>
-          </div>
+          <p className={styles['metaText']}>총 {filteredNotices.length}개</p>
           <Button
             onClick={() => {
               void navigate(routePaths.adminNoticeCreate);
@@ -167,40 +178,54 @@ const AdminNoticesSection = () => {
           </Button>
         </div>
 
-        {!globalNotices.length ? (
+        {!filteredNotices.length ? (
           <section className={styles['stateSection']}>
             <h3 className={styles['stateTitle']}>표시할 공지가 없습니다.</h3>
-            <p className={styles['stateDescription']}>새 공지를 등록하면 여기에 바로 반영됩니다.</p>
           </section>
         ) : (
           <div className={styles['tableWrap']}>
-            <table className={styles['table']}>
+            <table className={`${styles['table']} ${styles['noticeTable']}`}>
               <thead>
                 <tr>
                   <th scope='col'>제목</th>
-                  <th scope='col'>게시 상태</th>
-                  <th scope='col'>고정</th>
-                  <th scope='col'>등록일</th>
-                  <th scope='col'>수정일</th>
+                  <th scope='col'>일시</th>
                   <th scope='col'>관리</th>
                 </tr>
               </thead>
               <tbody>
-                {globalNotices.map((notice) => {
+                {filteredNotices.map((notice) => {
                   return (
                     <tr key={notice.id}>
                       <td>
                         <div className={styles['cellStack']}>
-                          <span className={styles['cellPrimary']}>{notice.title}</span>
+                          <span className={styles['noticeTitleRow']}>
+                            <span className={styles['cellPrimary']}>{notice.title}</span>
+                            <span
+                              className={
+                                notice.published ? styles['badgeSuccess'] : styles['badge']
+                              }
+                            >
+                              {notice.published ? '게시 중' : '비공개'}
+                            </span>
+                            {notice.pinned ? (
+                              <span className={styles['badgeAccent']}>고정</span>
+                            ) : null}
+                          </span>
                           <span className={styles['cellSecondary']}>
                             {summarizeHtmlContent(notice.content, 110)}
                           </span>
                         </div>
                       </td>
-                      <td>{notice.published ? '게시 중' : '비공개'}</td>
-                      <td>{notice.pinned ? '고정' : '-'}</td>
-                      <td>{formatDateTime(notice.createdAt)}</td>
-                      <td>{formatDateTime(notice.updatedAt)}</td>
+                      <td>
+                        <div className={styles['cellStack']}>
+                          <span className={styles['cellSecondary']}>
+                            등록 {formatDateTime(notice.createdAt)}
+                          </span>
+                          <span className={styles['cellSecondary']}>
+                            수정 {formatDateTime(notice.updatedAt)}
+                          </span>
+                        </div>
+                      </td>
                       <td>
                         <div className={styles['tableActionGroup']}>
                           <button

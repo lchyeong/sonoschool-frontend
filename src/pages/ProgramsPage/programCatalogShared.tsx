@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 
 import cartIconSrc from '@/assets/icons/icon_cart.svg';
+import searchScopeChevronIconSrc from '@/assets/icons/search-scope-chevron.svg';
 import { routePaths } from '@/routes/routeRegistry';
 import type {
   ProgramBreadcrumbItem,
@@ -20,7 +21,9 @@ interface ProgramStatListProps {
 }
 
 interface ProgramBreadcrumbsProps {
+  className?: string | undefined;
   items: ProgramBreadcrumbItem[];
+  maxDepth?: number | undefined;
 }
 
 interface ProgramCollectionCardItemProps {
@@ -268,12 +271,28 @@ export const ProgramStatList = ({ items }: ProgramStatListProps) => {
 
 // 현재 사용자가 어느 경로까지 들어왔는지 한 번에 이해할 수 있게
 // 교육과정 페이지에는 브레드크럼을 항상 노출합니다.
-export const ProgramBreadcrumbs = ({ items }: ProgramBreadcrumbsProps) => {
+const getCategoryBreadcrumbItems = (items: readonly ProgramBreadcrumbItem[], maxDepth?: number) => {
+  const categoryItems = items[0]?.label === '교육과정' ? items.slice(1) : [...items];
+
+  if (typeof maxDepth !== 'number' || maxDepth <= 0) {
+    return categoryItems;
+  }
+
+  return categoryItems.slice(-maxDepth);
+};
+
+export const ProgramBreadcrumbs = ({ className, items, maxDepth }: ProgramBreadcrumbsProps) => {
+  const displayItems = getCategoryBreadcrumbItems(items, maxDepth);
+
+  if (!displayItems.length) {
+    return null;
+  }
+
   return (
-    <nav aria-label='교육과정 경로' className={styles['breadcrumbNav']}>
+    <nav aria-label='교육과정 경로' className={classNames(styles['breadcrumbNav'], className)}>
       <ol className={styles['breadcrumbList']}>
-        {items.map((item, index) => {
-          const isLast = index === items.length - 1;
+        {displayItems.map((item, index) => {
+          const isLast = index === displayItems.length - 1;
 
           return (
             <li className={styles['breadcrumbItem']} key={`${item.to}-${item.label}`}>
@@ -286,6 +305,14 @@ export const ProgramBreadcrumbs = ({ items }: ProgramBreadcrumbsProps) => {
                   {item.label}
                 </Link>
               )}
+              {!isLast ? (
+                <img
+                  alt=''
+                  aria-hidden='true'
+                  className={styles['breadcrumbChevron']}
+                  src={searchScopeChevronIconSrc}
+                />
+              ) : null}
             </li>
           );
         })}

@@ -1,5 +1,5 @@
-import type { ChangeEvent, FormEvent } from 'react';
-import { startTransition, useEffect, useState } from 'react';
+import type { ChangeEvent, CSSProperties, FormEvent } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -12,11 +12,25 @@ import {
   updateMyEnrollmentReview,
   updateMyProfile,
   verifyMyPhoneChange,
+  verifyMyProfilePassword,
 } from '@/api/mypage';
+import mypageCertificateDownloadIconSrc from '@/assets/icons/lucide_arrow-down-to-line.svg';
+import mypageQuestionChevronDownIconSrc from '@/assets/icons/lucide_chevron-down.svg';
+import mypageQuestionChevronUpIconSrc from '@/assets/icons/lucide_chevron-up.svg';
+import mypageProfileCircleCheckIconSrc from '@/assets/icons/lucide_circle-check.svg';
+import mypagePasswordEyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
+import mypageCertificateInfoIconSrc from '@/assets/icons/lucide_info.svg';
+import mypageQuestionReplyIconSrc from '@/assets/icons/lucide_reply.svg';
+import mypageReviewStarIconSrc from '@/assets/icons/lucide_star.svg';
+import mypageReviewCloseIconSrc from '@/assets/icons/lucide_x.svg';
+import mypageBookOpenIconSrc from '@/assets/icons/mypage-menu-book-open.svg';
+import mypageLogOutIconSrc from '@/assets/icons/mypage-menu-log-out.svg';
+import mypageReceiptTextIconSrc from '@/assets/icons/mypage-menu-receipt-text.svg';
+import mypageSquarePenIconSrc from '@/assets/icons/mypage-menu-square-pen.svg';
+import mypageUserIconSrc from '@/assets/icons/mypage-menu-user.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
-import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import {
   myEnrollmentDetailQueryKey,
   myEnrollmentsQueryKey,
@@ -52,6 +66,7 @@ type MyPageViewKey = 'learning' | 'payments' | 'profile' | 'questions';
 interface SidebarItem {
   key: MyPageViewKey;
   label: string;
+  iconSrc: string;
 }
 
 interface ReviewFormDraftState {
@@ -64,20 +79,37 @@ interface PhoneFormErrors {
   code?: string;
 }
 
+interface ProfileFormErrors {
+  nickname?: string;
+}
+
 const DEFAULT_VIEW: MyPageViewKey = 'learning';
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
-  { key: 'learning', label: '내 강의' },
-  { key: 'payments', label: '결제내역' },
-  { key: 'profile', label: '내정보관리' },
-  { key: 'questions', label: 'Q&A관리' },
+  { key: 'learning', label: '내 강의', iconSrc: mypageBookOpenIconSrc },
+  { key: 'payments', label: '결제 내역', iconSrc: mypageReceiptTextIconSrc },
+  { key: 'profile', label: '내 정보 관리', iconSrc: mypageUserIconSrc },
+  { key: 'questions', label: 'Q&A 관리', iconSrc: mypageSquarePenIconSrc },
 ];
 
-const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
-  ACTIVE: '수강 중',
-  EXPIRED: '수강 종료',
-  CANCELLED: '취소 완료',
+type MaskIconStyle = CSSProperties & Record<'--mypage-menu-icon', string>;
+
+const buildMaskIconStyle = (iconSrc: string): MaskIconStyle => {
+  return {
+    '--mypage-menu-icon': `url("${iconSrc}")`,
+  };
 };
+
+const certificateInfoIconStyle = buildMaskIconStyle(mypageCertificateInfoIconSrc);
+const certificateDownloadIconStyle = buildMaskIconStyle(mypageCertificateDownloadIconSrc);
+const questionChevronDownIconStyle = buildMaskIconStyle(mypageQuestionChevronDownIconSrc);
+const questionChevronUpIconStyle = buildMaskIconStyle(mypageQuestionChevronUpIconSrc);
+const questionInfoIconStyle = buildMaskIconStyle(mypageCertificateInfoIconSrc);
+const questionReplyIconStyle = buildMaskIconStyle(mypageQuestionReplyIconSrc);
+const profileCircleCheckIconStyle = buildMaskIconStyle(mypageProfileCircleCheckIconSrc);
+const profilePasswordEyeOffIconStyle = buildMaskIconStyle(mypagePasswordEyeOffIconSrc);
+const reviewCloseIconStyle = buildMaskIconStyle(mypageReviewCloseIconSrc);
+const reviewStarIconStyle = buildMaskIconStyle(mypageReviewStarIconSrc);
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 
@@ -94,13 +126,39 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleDateString('ko-KR');
 };
 
-const formatDateTime = (value?: string | null) => {
+const formatPaymentDateTime = (value?: string | null) => {
   if (!value) return '-';
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
 
-  return date.toLocaleString('ko-KR');
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = date.getHours();
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  const period = hour < 12 ? '오전' : '오후';
+  const hour12 = hour % 12 || 12;
+
+  return `${String(year)}. ${month}. ${day}. ${period} ${String(hour12)}:${minute}:${second}`;
+};
+
+const formatQuestionDateTime = (value?: string | null) => {
+  if (!value) return '-';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = date.getHours();
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const period = hour < 12 ? '오전' : '오후';
+  const hour12 = hour % 12 || 12;
+
+  return `${String(year)}.${month}.${day} ${period} ${String(hour12)}:${minute}`;
 };
 
 const formatOrderNumberPreview = (value?: string | null) => {
@@ -146,10 +204,6 @@ const formatDateRange = (startValue?: string | null, endValue?: string | null) =
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
 
-const formatStatusLabel = (value: string, labels: Record<string, string>) => {
-  return labels[value] ?? '상태 확인 필요';
-};
-
 const formatQuestionScopeLabel = (value: QuestionScopeFilterValue) => {
   return QUESTION_SCOPE_LABELS[value];
 };
@@ -158,21 +212,35 @@ const formatQuestionAnsweredLabel = (answered: boolean) => {
   return answered ? '답변 완료' : '답변 대기';
 };
 
+const getRemainingSeconds = (expiresAt: string | null): number => {
+  if (!expiresAt) return 0;
+
+  const remainingMilliseconds = new Date(expiresAt).getTime() - Date.now();
+  return remainingMilliseconds > 0 ? Math.ceil(remainingMilliseconds / 1000) : 0;
+};
+
+const formatRemainingTimeLabel = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
 const MY_COURSE_PAGE_SIZE = 6;
-const ORDER_LIST_PAGE_SIZE = 4;
+const ORDER_LIST_PAGE_SIZE = 8;
+const REVIEW_MINIMUM_COMPLETION_RATE = 30;
 const PHONE_ALREADY_EXISTS_ERROR_MESSAGE = '이미 등록된 휴대폰 번호입니다.';
 const PHONE_UNCHANGED_ERROR_MESSAGE = '현재 사용 중인 휴대폰 번호입니다.';
+const PHONE_NUMBER_INVALID_ERROR_MESSAGE = '휴대폰 번호를 정확히 입력해 주세요.';
 const PHONE_CHANGE_REQUEST_INVALID_ERROR_MESSAGE = '휴대폰 인증을 다시 진행해 주세요.';
 const PHONE_VERIFICATION_CODE_ERROR_MESSAGE = '인증번호를 확인해 주세요.';
+const NICKNAME_ALREADY_EXISTS_ERROR_MESSAGE = '이미 사용 중인 닉네임입니다.';
+const PHONE_VERIFICATION_LIMIT_SECONDS = 180;
 
 type EnrollmentCourseTabValue = 'ACTIVE' | 'EXPIRED' | 'CERTIFICATE';
 type PaymentStatusFilterValue = 'ALL' | PaymentStatus;
 type QuestionScopeFilterValue = MyQuestionScope | 'ALL';
-
-interface SegmentOption<TValue extends string> {
-  label: string;
-  value: TValue;
-}
+type PhoneVerificationStep = 'send' | 'verify';
 
 const getCertificateFileName = (programTitle: string) => {
   return `${programTitle.replace(/[\\/:*?"<>|]/g, '_')}_수료증.txt`;
@@ -189,6 +257,34 @@ const getPageCount = (itemCount: number, pageSize: number): number => {
   return Math.max(1, Math.ceil(itemCount / pageSize));
 };
 
+const getEnrollmentCompletionRate = (completedLectures: number, totalLectures: number): number => {
+  if (totalLectures <= 0) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, Math.round((completedLectures / totalLectures) * 100)));
+};
+
+const canManageEnrollmentReview = ({
+  completionRate,
+  reviewWritten,
+  status,
+}: {
+  completionRate: number;
+  reviewWritten: boolean | undefined;
+  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+}) => {
+  if (reviewWritten) {
+    return true;
+  }
+
+  if (status === 'EXPIRED') {
+    return true;
+  }
+
+  return completionRate >= REVIEW_MINIMUM_COMPLETION_RATE;
+};
+
 const omitPhoneFormError = (
   errors: PhoneFormErrors,
   fieldName: keyof PhoneFormErrors,
@@ -198,8 +294,24 @@ const omitPhoneFormError = (
   return nextErrors;
 };
 
+const normalizePhoneDigits = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  return digits.startsWith('82') ? `0${digits.slice(2)}` : digits;
+};
+
+const getPhoneNumberValidationError = (value: string): string | null => {
+  return /^01\d{8,9}$/.test(normalizePhoneDigits(value))
+    ? null
+    : PHONE_NUMBER_INVALID_ERROR_MESSAGE;
+};
+
+const getPhoneCodeValidationError = (value: string): string | null => {
+  return /^\d{6}$/.test(value.trim()) ? null : PHONE_VERIFICATION_CODE_ERROR_MESSAGE;
+};
+
 const resolvePhoneFormApiError = (
   error: unknown,
+  step: PhoneVerificationStep,
 ): {
   message: string;
   fieldErrors: PhoneFormErrors;
@@ -212,6 +324,21 @@ const resolvePhoneFormApiError = (
   }
 
   switch (error.code) {
+    case 'AUTH_400_SMS_PHONE':
+      return {
+        fieldErrors: { phoneNumber: PHONE_NUMBER_INVALID_ERROR_MESSAGE },
+        message: PHONE_NUMBER_INVALID_ERROR_MESSAGE,
+      };
+    case 'GLOBAL_400':
+      return step === 'send'
+        ? {
+            fieldErrors: { phoneNumber: PHONE_NUMBER_INVALID_ERROR_MESSAGE },
+            message: PHONE_NUMBER_INVALID_ERROR_MESSAGE,
+          }
+        : {
+            fieldErrors: { code: PHONE_VERIFICATION_CODE_ERROR_MESSAGE },
+            message: PHONE_VERIFICATION_CODE_ERROR_MESSAGE,
+          };
     case 'USER_400_PHONE':
       return {
         fieldErrors: { phoneNumber: PHONE_ALREADY_EXISTS_ERROR_MESSAGE },
@@ -240,40 +367,6 @@ const resolvePhoneFormApiError = (
         message: error.message,
       };
   }
-};
-
-const SegmentFilter = <TValue extends string>({
-  onChange,
-  options,
-  value,
-}: {
-  onChange: (nextValue: TValue) => void;
-  options: SegmentOption<TValue>[];
-  value: TValue;
-}) => {
-  return (
-    <div className={sharedStyles['segmentRow']}>
-      {options.map((option) => {
-        const isActive = option.value === value;
-
-        return (
-          <button
-            className={classNames(
-              sharedStyles['segmentButton'],
-              isActive && sharedStyles['segmentButtonActive'],
-            )}
-            key={option.value}
-            onClick={() => {
-              onChange(option.value);
-            }}
-            type='button'
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
 };
 
 const PaginationControls = ({
@@ -314,45 +407,6 @@ const PaginationControls = ({
   );
 };
 
-const DividerFilter = <TValue extends string>({
-  onChange,
-  options,
-  value,
-}: {
-  onChange: (nextValue: TValue) => void;
-  options: SegmentOption<TValue>[];
-  value: TValue;
-}) => {
-  return (
-    <div className={styles['dividerFilter']} role='tablist'>
-      {options.map((option, index) => {
-        const isActive = option.value === value;
-
-        return (
-          <div className={styles['dividerFilterItem']} key={option.value}>
-            <button
-              aria-selected={isActive}
-              className={classNames(
-                styles['dividerFilterButton'],
-                isActive && styles['dividerFilterButtonActive'],
-              )}
-              onClick={() => {
-                onChange(option.value);
-              }}
-              type='button'
-            >
-              {option.label}
-            </button>
-            {index < options.length - 1 ? (
-              <span aria-hidden='true' className={styles['dividerFilterDivider']} />
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
 interface ProfileFormValues {
   email: string;
   name: string;
@@ -366,7 +420,7 @@ interface ReviewFormValues {
 
 const DEFAULT_REVIEW_FORM_VALUES: ReviewFormValues = {
   content: '',
-  rating: '5',
+  rating: '',
 };
 
 const QUESTION_SCOPE_LABELS: Record<QuestionScopeFilterValue, string> = {
@@ -383,6 +437,7 @@ const MyPagePage = () => {
   const storeDisplayName = useAuthStore((state) => state.displayName);
   const syncProfileSnapshot = useAuthStore((state) => state.syncProfileSnapshot);
   const showToast = useToastStore((state) => state.showToast);
+  const profilePasswordInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeViewParam = searchParams.get('view');
   const activeView = isMyPageViewKey(activeViewParam) ? activeViewParam : DEFAULT_VIEW;
@@ -399,6 +454,11 @@ const MyPagePage = () => {
   const [questionPage, setQuestionPage] = useState(1);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
   const [profileFormValues, setProfileFormValues] = useState<ProfileFormValues | null>(null);
+  const [profileFormErrors, setProfileFormErrors] = useState<ProfileFormErrors>({});
+  const [isProfilePasswordVerified, setIsProfilePasswordVerified] = useState(false);
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profilePasswordError, setProfilePasswordError] = useState<string | null>(null);
+  const [isProfilePasswordVisible, setIsProfilePasswordVisible] = useState(false);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
   const [reviewFormDraft, setReviewFormDraft] = useState<ReviewFormDraftState>({
@@ -412,7 +472,8 @@ const MyPagePage = () => {
   });
   const [phoneFormErrors, setPhoneFormErrors] = useState<PhoneFormErrors>({});
   const [sentVerification, setSentVerification] = useState<SmsSendResponse | null>(null);
-  const [isPhoneEditorOpen, setIsPhoneEditorOpen] = useState(false);
+  const [phoneCountdownSeconds, setPhoneCountdownSeconds] = useState(0);
+  const [optionalMarketingConsent, setOptionalMarketingConsent] = useState(false);
 
   const profileQuery = useMyProfileQuery();
   const enrollmentsQuery = useMyEnrollmentsQuery();
@@ -476,8 +537,11 @@ const MyPagePage = () => {
       ? reviewFormDraft.values
       : {
           content: enrollmentDetailQuery.data?.review?.content ?? '',
-          rating: String(enrollmentDetailQuery.data?.review?.rating ?? 5),
+          rating: enrollmentDetailQuery.data?.review
+            ? String(enrollmentDetailQuery.data.review.rating)
+            : '',
         };
+  const isPhoneVerificationExpired = sentVerification !== null && phoneCountdownSeconds === 0;
 
   useEffect(() => {
     if (!profileQuery.data) return;
@@ -488,6 +552,27 @@ const MyPagePage = () => {
       role: profileQuery.data.role,
     });
   }, [profileQuery.data, syncProfileSnapshot]);
+
+  useEffect(() => {
+    if (!sentVerification || phoneCountdownSeconds === 0) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setPhoneCountdownSeconds((current) => {
+        if (current <= 1) {
+          window.clearInterval(intervalId);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [phoneCountdownSeconds, sentVerification]);
 
   useEffect(() => {
     const totalPages = questionsQuery.data?.totalPages ?? 1;
@@ -519,6 +604,13 @@ const MyPagePage = () => {
   };
 
   const handleViewChange = (viewKey: MyPageViewKey) => {
+    if (viewKey !== 'profile') {
+      setIsProfilePasswordVerified(false);
+      setProfilePassword('');
+      setProfilePasswordError(null);
+      setIsProfilePasswordVisible(false);
+    }
+
     const nextParams = new URLSearchParams(searchParams);
 
     if (viewKey === DEFAULT_VIEW) {
@@ -554,6 +646,13 @@ const MyPagePage = () => {
       values: DEFAULT_REVIEW_FORM_VALUES,
     });
     setReviewFormError(null);
+  };
+
+  const closeProfilePasswordModal = () => {
+    setProfilePassword('');
+    setProfilePasswordError(null);
+    setIsProfilePasswordVisible(false);
+    handleViewChange(DEFAULT_VIEW);
   };
 
   const handleCertificateDownload = (programTitle: string, completedAt?: string | null) => {
@@ -600,7 +699,7 @@ const MyPagePage = () => {
   };
 
   const handleProfileFieldChange =
-    (fieldName: 'email' | 'name' | 'nickname') => (event: ChangeEvent<HTMLInputElement>) => {
+    (fieldName: 'email' | 'nickname') => (event: ChangeEvent<HTMLInputElement>) => {
       const nextValue = event.target.value;
 
       setProfileFormValues((currentValues) => ({
@@ -608,13 +707,16 @@ const MyPagePage = () => {
           fieldName === 'email'
             ? nextValue
             : (currentValues?.email ?? profileQuery.data?.email ?? ''),
-        name:
-          fieldName === 'name' ? nextValue : (currentValues?.name ?? profileQuery.data?.name ?? ''),
+        name: currentValues?.name ?? profileQuery.data?.name ?? '',
         nickname:
           fieldName === 'nickname'
             ? nextValue
             : (currentValues?.nickname ?? profileQuery.data?.nickname ?? ''),
       }));
+
+      if (fieldName === 'nickname') {
+        setProfileFormErrors({});
+      }
     };
 
   const handlePhoneFieldChange =
@@ -629,6 +731,7 @@ const MyPagePage = () => {
 
       if (fieldName === 'phoneNumber') {
         setSentVerification(null);
+        setPhoneCountdownSeconds(0);
       }
     };
 
@@ -654,6 +757,15 @@ const MyPagePage = () => {
   const updateProfileMutation = useMutation({
     mutationFn: updateMyProfile,
     onError: (error: unknown) => {
+      if (error instanceof ApiError && error.code === 'USER_400_NICKNAME') {
+        setProfileFormErrors({ nickname: NICKNAME_ALREADY_EXISTS_ERROR_MESSAGE });
+        showToast({
+          message: NICKNAME_ALREADY_EXISTS_ERROR_MESSAGE,
+          variant: 'error',
+        });
+        return;
+      }
+
       showToast({
         message:
           error instanceof Error
@@ -674,6 +786,7 @@ const MyPagePage = () => {
         name: updatedProfile.name,
         nickname: updatedProfile.nickname ?? '',
       });
+      setProfileFormErrors({});
       showToast({
         message: '회원 정보를 수정했습니다.',
         variant: 'success',
@@ -684,9 +797,10 @@ const MyPagePage = () => {
   const sendPhoneVerificationMutation = useMutation({
     mutationFn: sendMyPhoneVerification,
     onError: (error: unknown) => {
-      const { fieldErrors, message } = resolvePhoneFormApiError(error);
+      const { fieldErrors, message } = resolvePhoneFormApiError(error, 'send');
       setPhoneFormErrors(fieldErrors);
       setSentVerification(null);
+      setPhoneCountdownSeconds(0);
       showToast({
         message,
         variant: 'error',
@@ -694,6 +808,9 @@ const MyPagePage = () => {
     },
     onSuccess: (response) => {
       setSentVerification(response);
+      setPhoneCountdownSeconds(
+        Math.min(PHONE_VERIFICATION_LIMIT_SECONDS, getRemainingSeconds(response.expiresAt)),
+      );
       setPhoneFormErrors({});
       showToast({
         message: '인증번호를 발송했습니다.',
@@ -705,7 +822,7 @@ const MyPagePage = () => {
   const verifyPhoneMutation = useMutation({
     mutationFn: verifyMyPhoneChange,
     onError: (error: unknown) => {
-      const { fieldErrors, message } = resolvePhoneFormApiError(error);
+      const { fieldErrors, message } = resolvePhoneFormApiError(error, 'verify');
       setPhoneFormErrors(fieldErrors);
       showToast({
         message,
@@ -725,13 +842,88 @@ const MyPagePage = () => {
       });
       setPhoneFormErrors({});
       setSentVerification(null);
-      setIsPhoneEditorOpen(false);
+      setPhoneCountdownSeconds(0);
       showToast({
         message: '휴대폰 번호를 변경했습니다.',
         variant: 'success',
       });
     },
   });
+
+  const verifyProfilePasswordMutation = useMutation({
+    mutationFn: verifyMyProfilePassword,
+    onError: (error: unknown) => {
+      setProfilePasswordError(
+        error instanceof Error ? error.message : '비밀번호를 확인하지 못했습니다.',
+      );
+    },
+    onSuccess: () => {
+      setIsProfilePasswordVerified(true);
+      setProfilePassword('');
+      setProfilePasswordError(null);
+      setIsProfilePasswordVisible(false);
+    },
+  });
+
+  const handleProfilePasswordSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const password = profilePassword.trim();
+    if (!password) {
+      setProfilePasswordError('비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    setProfilePasswordError(null);
+    verifyProfilePasswordMutation.mutate({ password });
+  };
+
+  const handleSendPhoneVerification = () => {
+    const phoneNumber = phoneFormValues.phoneNumber.trim();
+    const phoneNumberError = getPhoneNumberValidationError(phoneNumber);
+
+    if (phoneNumberError) {
+      setSentVerification(null);
+      setPhoneCountdownSeconds(0);
+      setPhoneFormErrors((currentErrors) => ({
+        ...omitPhoneFormError(currentErrors, 'code'),
+        phoneNumber: phoneNumberError,
+      }));
+      showToast({
+        message: phoneNumberError,
+        variant: 'error',
+      });
+      return;
+    }
+
+    setSentVerification(null);
+    setPhoneCountdownSeconds(0);
+    sendPhoneVerificationMutation.mutate({ phoneNumber });
+  };
+
+  const handleVerifyPhoneChange = () => {
+    const phoneNumber = phoneFormValues.phoneNumber.trim();
+    const code = phoneFormValues.code.trim();
+    const phoneNumberError = getPhoneNumberValidationError(phoneNumber);
+    const codeError = getPhoneCodeValidationError(code);
+
+    if (phoneNumberError || codeError) {
+      setPhoneFormErrors({
+        ...(phoneNumberError ? { phoneNumber: phoneNumberError } : {}),
+        ...(codeError ? { code: codeError } : {}),
+      });
+      showToast({
+        message: phoneNumberError ?? codeError ?? '입력값을 확인해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    verifyPhoneMutation.mutate({
+      code,
+      phoneNumber,
+    });
+  };
 
   const reviewMutation = useMutation({
     mutationFn: async ({
@@ -808,19 +1000,26 @@ const MyPagePage = () => {
     });
   };
 
-  const renderReviewAction = (enrollment: (typeof allEnrollments)[number]) => {
-    if (!enrollment.reviewWritable && !enrollment.reviewWritten) {
+  const renderReviewAction = (enrollment: (typeof allEnrollments)[number], className?: string) => {
+    if (
+      !canManageEnrollmentReview({
+        completionRate: enrollment.completionRate,
+        reviewWritten: enrollment.reviewWritten,
+        status: enrollment.status,
+      })
+    ) {
       return null;
     }
 
     return (
       <Button
-        className={styles['compactButton']}
+        className={classNames(styles['courseSecondaryAction'], className)}
         onClick={() => {
           openReviewModal(enrollment.id);
         }}
         size='sm'
         type='button'
+        variant='secondary'
       >
         {enrollment.reviewWritten ? '후기 수정' : '후기 작성'}
       </Button>
@@ -841,13 +1040,6 @@ const MyPagePage = () => {
       { count: certificateCount, key: 'CERTIFICATE', label: '수료증' },
     ];
 
-    const tabDescription =
-      courseTab === 'ACTIVE'
-        ? `수강 중인 ${String(filteredEnrollments.length)}개 강의를 보고 있습니다.`
-        : courseTab === 'EXPIRED'
-          ? `수강 종료된 ${String(filteredEnrollments.length)}개 강의를 보고 있습니다.`
-          : `다운로드 가능한 수료증 ${String(filteredEnrollments.length)}개를 보고 있습니다.`;
-
     if (enrollmentsQuery.isLoading) {
       return <p className={sharedStyles['mutedText']}>수강 내역을 불러오는 중입니다.</p>;
     }
@@ -866,14 +1058,107 @@ const MyPagePage = () => {
       return <p className={sharedStyles['mutedText']}>수강 중인 강의가 없습니다.</p>;
     }
 
+    const renderCertificateEnrollments = () => {
+      const hasCertificateEnrollments = filteredEnrollments.length > 0;
+
+      return (
+        <>
+          <div className={styles['certificateNotice']}>
+            <span
+              aria-hidden='true'
+              className={styles['certificateNoticeIcon']}
+              style={certificateInfoIconStyle}
+            />
+            <p className={styles['certificateNoticeText']}>
+              수료증은 진도율 100% 및 수료 기준 충족 시 발급됩니다.
+            </p>
+          </div>
+
+          {!hasCertificateEnrollments ? (
+            <p
+              className={classNames(
+                sharedStyles['mutedText'],
+                styles['learningEmptyState'],
+                styles['certificateEmptyState'],
+              )}
+            >
+              다운로드 가능한 수료증이 없습니다.
+            </p>
+          ) : (
+            <div
+              className={classNames(
+                styles['learningCoursesBody'],
+                styles['certificateCoursesBody'],
+              )}
+            >
+              <div className={styles['certificateList']}>
+                {paginatedEnrollments.map((enrollment) => {
+                  return (
+                    <article className={styles['certificateListItem']} key={enrollment.id}>
+                      <div className={styles['certificateRow']}>
+                        <div className={styles['certificateMedia']}>
+                          {enrollment.programThumbnailUrl ? (
+                            <img
+                              alt={`${enrollment.programTitle} 대표 이미지`}
+                              className={styles['certificateImage']}
+                              loading='lazy'
+                              src={enrollment.programThumbnailUrl}
+                            />
+                          ) : (
+                            <div aria-hidden='true' className={styles['certificateFallback']}>
+                              <span>SS</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <strong className={styles['certificateTitle']}>
+                          {enrollment.programTitle}
+                        </strong>
+
+                        <button
+                          className={styles['certificateDownloadButton']}
+                          onClick={() => {
+                            handleCertificateDownload(
+                              enrollment.programTitle,
+                              enrollment.completedAt ?? enrollment.lastLearningAt,
+                            );
+                          }}
+                          type='button'
+                        >
+                          <span>수료증 다운로드</span>
+                          <span
+                            aria-hidden='true'
+                            className={styles['certificateDownloadButtonIcon']}
+                            style={certificateDownloadIconStyle}
+                          />
+                        </button>
+                      </div>
+                      <div aria-hidden='true' className={styles['certificateDivider']} />
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className={styles['learningPagination']}>
+                <PaginationControls
+                  currentPage={coursePage}
+                  onChange={setCoursePage}
+                  totalPages={coursePageCount}
+                />
+              </div>
+            </div>
+          )}
+        </>
+      );
+    };
+
     return (
-      <section className={styles['contentSection']}>
-        <div className={sharedStyles['sectionHeader']}>
-          <h2 className={sharedStyles['sectionTitle']}>내 강의</h2>
-          <p className={sharedStyles['sectionDescription']}>{tabDescription}</p>
+      <section className={classNames(styles['contentSection'], styles['learningSection'])}>
+        <div className={styles['learningHeader']}>
+          <h2 className={styles['learningTitle']}>내 강의</h2>
         </div>
 
-        <div className={styles['courseOverviewGrid']}>
+        <div className={styles['courseOverviewGrid']} role='tablist' aria-label='내 강의 상태'>
           {courseOverviewItems.map((item) => {
             const isActive = courseTab === item.key;
 
@@ -890,139 +1175,163 @@ const MyPagePage = () => {
                 }}
                 type='button'
               >
-                <span className={styles['summaryLabel']}>{item.label}</span>
-                <strong className={styles['courseOverviewValue']}>{item.count}</strong>
+                <span
+                  className={classNames(
+                    styles['courseOverviewLabel'],
+                    isActive && styles['courseOverviewLabelActive'],
+                  )}
+                >
+                  {item.label}
+                </span>
+                <span
+                  className={classNames(
+                    styles['courseOverviewCount'],
+                    isActive
+                      ? styles['courseOverviewCountActive']
+                      : styles['courseOverviewCountInactive'],
+                  )}
+                >
+                  {item.count}
+                </span>
               </button>
             );
           })}
         </div>
 
-        {!filteredEnrollments.length ? (
-          <p className={sharedStyles['mutedText']}>
-            {courseTab === 'CERTIFICATE'
-              ? '다운로드 가능한 수료증이 없습니다.'
-              : '선택한 탭에 표시할 강의가 없습니다.'}
+        {courseTab === 'CERTIFICATE' ? (
+          renderCertificateEnrollments()
+        ) : !filteredEnrollments.length ? (
+          <p className={classNames(sharedStyles['mutedText'], styles['learningEmptyState'])}>
+            선택한 탭에 표시할 강의가 없습니다.
           </p>
         ) : (
-          <div className={styles['courseGrid']}>
-            {paginatedEnrollments.map((enrollment) => {
-              const cardBody = (
-                <>
-                  <div className={styles['courseCardMedia']}>
-                    {enrollment.programThumbnailUrl ? (
-                      <img
-                        alt={`${enrollment.programTitle} 대표 이미지`}
-                        className={styles['courseCardImage']}
-                        loading='lazy'
-                        src={enrollment.programThumbnailUrl}
-                      />
-                    ) : (
-                      <div aria-hidden='true' className={styles['courseCardFallback']}>
-                        <span>SS</span>
+          <div className={styles['learningCoursesBody']}>
+            <div className={styles['courseGrid']}>
+              {paginatedEnrollments.map((enrollment) => {
+                const completionRate = getEnrollmentCompletionRate(
+                  enrollment.completedLectures,
+                  enrollment.totalLectures,
+                );
+                const reviewAction =
+                  courseTab === 'EXPIRED'
+                    ? renderReviewAction(enrollment, styles['courseSecondaryActionWide'])
+                    : renderReviewAction(enrollment);
+
+                const cardBody = (
+                  <>
+                    <div className={styles['courseCardMedia']}>
+                      {enrollment.programThumbnailUrl ? (
+                        <img
+                          alt={`${enrollment.programTitle} 대표 이미지`}
+                          className={styles['courseCardImage']}
+                          loading='lazy'
+                          src={enrollment.programThumbnailUrl}
+                        />
+                      ) : (
+                        <div aria-hidden='true' className={styles['courseCardFallback']}>
+                          <span>SS</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className={styles['courseCardBody']}>
+                      <div className={styles['courseCardHeader']}>
+                        <strong className={styles['courseCardTitle']}>
+                          {enrollment.programTitle}
+                        </strong>
                       </div>
-                    )}
-                    {courseTab !== 'CERTIFICATE' ? (
-                      <span className={styles['courseCardBadge']}>
-                        {formatStatusLabel(enrollment.status, ENROLLMENT_STATUS_LABELS)}
-                      </span>
-                    ) : null}
-                  </div>
 
-                  <div className={styles['courseCardBody']}>
-                    <div className={styles['courseCardHeader']}>
-                      <strong className={styles['courseCardTitle']}>
-                        {enrollment.programTitle}
-                      </strong>
-                      {courseTab === 'CERTIFICATE' ? (
-                        <span className={styles['statusChip']}>다운로드 가능</span>
-                      ) : null}
-                    </div>
-
-                    <div className={styles['courseProgressMeta']}>
-                      <span>
-                        {enrollment.completedLectures} / {enrollment.totalLectures}강
-                      </span>
-                      <span>{enrollment.completionRate}%</span>
-                    </div>
-                    <div aria-hidden='true' className={styles['courseProgressTrack']}>
-                      <span
-                        className={styles['courseProgressFill']}
-                        style={{ width: `${String(enrollment.completionRate)}%` }}
-                      />
-                    </div>
-
-                    <div className={styles['courseMetaList']}>
-                      <p className={styles['courseMetaText']}>
-                        수강 기간 {formatDateRange(enrollment.enrolledAt, enrollment.expireAt)}
-                      </p>
-                      <p className={styles['courseMetaText']}>
-                        {courseTab === 'CERTIFICATE'
-                          ? `수료일 ${formatDate(enrollment.completedAt)}`
-                          : `최근 학습 ${formatDate(enrollment.lastLearningAt)}`}
-                      </p>
-                    </div>
-
-                    {courseTab === 'CERTIFICATE' ? (
-                      <div className={styles['courseCardFooter']}>
-                        <div className={styles['courseActionGroup']}>
-                          <Button
-                            className={styles['compactButton']}
-                            onClick={() => {
-                              handleCertificateDownload(
-                                enrollment.programTitle,
-                                enrollment.completedAt ?? enrollment.lastLearningAt,
-                              );
-                            }}
-                            size='sm'
-                            type='button'
+                      <div className={styles['courseProgressSection']}>
+                        <div className={styles['courseProgressMeta']}>
+                          <span className={styles['courseProgressCount']}>
+                            <span className={styles['courseProgressCountText']}>
+                              {enrollment.completedLectures}
+                            </span>
+                            <span className={styles['courseProgressSeparator']}>/</span>
+                            <span className={styles['courseProgressCountText']}>
+                              {enrollment.totalLectures}강
+                            </span>
+                          </span>
+                          <span
+                            className={classNames(
+                              styles['courseProgressPercent'],
+                              completionRate >= 100 && styles['courseProgressPercentComplete'],
+                            )}
                           >
-                            수료증 다운로드
-                          </Button>
-                          {renderReviewAction(enrollment)}
+                            {completionRate}%
+                          </span>
+                        </div>
+                        <div aria-hidden='true' className={styles['courseProgressTrack']}>
+                          <span
+                            className={styles['courseProgressFill']}
+                            style={{ width: `${String(completionRate)}%` }}
+                          />
                         </div>
                       </div>
-                    ) : courseTab === 'EXPIRED' ? (
-                      <div className={styles['courseCardFooter']}>
-                        <p className={styles['courseMetaText']}>
-                          {enrollment.status === 'CANCELLED'
-                            ? '취소된 강의입니다.'
-                            : '수강 종료된 강의입니다.'}
-                        </p>
-                        {renderReviewAction(enrollment)}
-                      </div>
-                    ) : (
-                      <div className={styles['courseCardFooter']}>
-                        <div className={styles['courseActionGroup']}>
-                          <Link
-                            className={styles['learningActionLink']}
-                            to={routePaths.learningPlayer(String(enrollment.id))}
-                          >
-                            이어보기
-                          </Link>
-                          {renderReviewAction(enrollment)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              );
 
-              return (
-                <article className={styles['courseCard']} key={enrollment.id}>
-                  {cardBody}
-                </article>
-              );
-            })}
+                      <div className={styles['courseMetaList']}>
+                        {courseTab === 'EXPIRED' ? (
+                          <p className={styles['courseMetaStatus']}>수강 종료</p>
+                        ) : null}
+                        <div className={styles['courseMetaRow']}>
+                          <span className={styles['courseMetaLabel']}>수강 기간</span>
+                          <span className={styles['courseMetaValue']}>
+                            {formatDateRange(enrollment.enrolledAt, enrollment.expireAt)}
+                          </span>
+                        </div>
+                        {courseTab !== 'EXPIRED' ? (
+                          <div className={styles['courseMetaRow']}>
+                            <span className={styles['courseMetaLabel']}>최근 학습</span>
+                            <span className={styles['courseMetaValue']}>
+                              {formatDate(enrollment.lastLearningAt)}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {courseTab === 'EXPIRED' ? (
+                        <div
+                          className={classNames(
+                            styles['courseCardFooter'],
+                            styles['courseCardFooterExpired'],
+                          )}
+                        >
+                          {reviewAction}
+                        </div>
+                      ) : (
+                        <div className={styles['courseCardFooter']}>
+                          <div className={styles['courseActionGroup']}>
+                            <Link
+                              className={styles['learningActionLink']}
+                              to={routePaths.learningPlayer(String(enrollment.id))}
+                            >
+                              이어보기
+                            </Link>
+                            {reviewAction}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+
+                return (
+                  <article className={styles['courseCard']} key={enrollment.id}>
+                    {cardBody}
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className={styles['learningPagination']}>
+              <PaginationControls
+                currentPage={coursePage}
+                onChange={setCoursePage}
+                totalPages={coursePageCount}
+              />
+            </div>
           </div>
         )}
-
-        {filteredEnrollments.length ? (
-          <PaginationControls
-            currentPage={coursePage}
-            onChange={setCoursePage}
-            totalPages={coursePageCount}
-          />
-        ) : null}
       </section>
     );
   };
@@ -1035,33 +1344,70 @@ const MyPagePage = () => {
     const cancelledCount = visiblePayments.filter(
       (payment) => payment.status === 'CANCELLED',
     ).length;
+    const paymentFilterItems: Array<{
+      count: number;
+      label: string;
+      value: PaymentStatusFilterValue;
+    }> = [
+      { count: paymentCount, label: '전체', value: 'ALL' },
+      { count: completedCount, label: '결제 완료', value: 'COMPLETED' },
+      { count: cancelledCount, label: '결제 취소', value: 'CANCELLED' },
+    ];
 
     return (
-      <section className={styles['contentSection']}>
-        <div className={sharedStyles['sectionHeader']}>
-          <h2 className={sharedStyles['sectionTitle']}>결제 내역</h2>
-          <p className={sharedStyles['sectionDescription']}>
-            전체 {paymentCount}건 · 표시 {filteredPayments.length}건 · 완료 {completedCount}건 ·
-            취소 {cancelledCount}건
-          </p>
+      <section className={classNames(styles['contentSection'], styles['paymentSection'])}>
+        <div className={styles['paymentHeader']}>
+          <h2 className={styles['paymentTitle']}>결제내역</h2>
         </div>
 
-        <SegmentFilter
-          onChange={handlePaymentFilterChange}
-          options={[
-            { label: '전체', value: 'ALL' },
-            { label: '결제 완료', value: 'COMPLETED' },
-            { label: '결제 취소', value: 'CANCELLED' },
-          ]}
-          value={paymentStatusFilter}
-        />
+        <div className={styles['paymentOverviewGrid']} role='tablist' aria-label='결제 상태'>
+          {paymentFilterItems.map((item) => {
+            const isActive = item.value === paymentStatusFilter;
+
+            return (
+              <button
+                aria-pressed={isActive}
+                className={classNames(
+                  styles['paymentOverviewButton'],
+                  isActive && styles['paymentOverviewButtonActive'],
+                )}
+                key={item.value}
+                onClick={() => {
+                  handlePaymentFilterChange(item.value);
+                }}
+                type='button'
+              >
+                <span
+                  className={classNames(
+                    styles['paymentOverviewLabel'],
+                    isActive && styles['paymentOverviewLabelActive'],
+                  )}
+                >
+                  {item.label}
+                </span>
+                <span
+                  className={classNames(
+                    styles['paymentOverviewCount'],
+                    isActive
+                      ? styles['paymentOverviewCountActive']
+                      : styles['paymentOverviewCountInactive'],
+                  )}
+                >
+                  {item.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
         {paymentHistoryQuery.isLoading ? (
-          <p className={sharedStyles['mutedText']}>결제 내역을 불러오는 중입니다.</p>
+          <p className={classNames(sharedStyles['mutedText'], styles['paymentEmptyState'])}>
+            결제 내역을 불러오는 중입니다.
+          </p>
         ) : null}
 
         {paymentHistoryQuery.isError ? (
-          <p className={styles['errorText']}>
+          <p className={classNames(styles['errorText'], styles['paymentEmptyState'])}>
             {paymentHistoryQuery.error instanceof Error
               ? paymentHistoryQuery.error.message
               : '결제 내역을 불러오지 못했습니다.'}
@@ -1071,61 +1417,65 @@ const MyPagePage = () => {
         {!paymentHistoryQuery.isLoading &&
         !paymentHistoryQuery.isError &&
         filteredPayments.length ? (
-          <div className={styles['stackList']}>
-            {paginatedPayments.map((payment) => (
-              <article className={styles['paymentCard']} key={payment.id}>
-                <div className={styles['paymentCardHeader']}>
-                  <div className={styles['paymentCardTitleGroup']}>
-                    <strong className={styles['stackItemTitle']}>{payment.orderName}</strong>
-                    <p className={styles['stackItemText']} title={payment.orderNumber ?? undefined}>
-                      주문번호 {formatOrderNumberPreview(payment.orderNumber)} ·{' '}
-                      {formatPaymentMethodLabel(payment.paymentMethod)}
-                    </p>
-                  </div>
-                  <span className={styles['statusChip']}>
-                    {paymentStatusLabels[payment.status]}
-                  </span>
-                </div>
+          <div className={styles['paymentList']}>
+            {paginatedPayments.map((payment) => {
+              const statusTone = payment.status === 'CANCELLED' ? 'cancelled' : 'completed';
 
-                <div className={styles['paymentMetaGrid']}>
-                  <div className={styles['paymentMetaItem']}>
-                    <span className={styles['summaryLabel']}>결제일</span>
-                    <strong className={styles['paymentMetaValue']}>
-                      {formatDateTime(
-                        payment.paidAt ||
-                          payment.cancelledAt ||
-                          payment.registeredAt ||
-                          payment.requestedAt,
-                      )}
-                    </strong>
-                  </div>
-                  <div className={styles['paymentMetaItem']}>
-                    <span className={styles['summaryLabel']}>결제 수단</span>
-                    <strong className={styles['paymentMetaValue']}>
-                      {formatPaymentMethodLabel(payment.paymentMethod)}
-                    </strong>
-                  </div>
-                  <div className={styles['paymentMetaItem']}>
-                    <span className={styles['summaryLabel']}>결제 금액</span>
-                    <strong className={styles['paymentMetaValue']}>
-                      {formatCurrency(payment.amount)}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className={styles['paymentActionRow']}>
+              return (
+                <article className={styles['paymentCard']} key={payment.id}>
                   <button
-                    className={styles['paymentActionLink']}
+                    aria-label={`${payment.orderName} 결제 상세보기`}
+                    className={styles['paymentCardClickTarget']}
                     onClick={() => {
                       openPaymentDetailModal(payment.id);
                     }}
                     type='button'
-                  >
-                    결제 상세 보기
-                  </button>
-                </div>
-              </article>
-            ))}
+                  />
+                  <div className={styles['paymentCardHeader']}>
+                    <div className={styles['paymentCardTitleGroup']}>
+                      <strong className={styles['paymentCardTitle']}>{payment.orderName}</strong>
+                      <p
+                        className={styles['paymentOrderNumber']}
+                        title={payment.orderNumber ?? undefined}
+                      >
+                        주문번호 {formatOrderNumberPreview(payment.orderNumber)}
+                      </p>
+                    </div>
+                    <span
+                      className={classNames(
+                        styles['paymentStatusChip'],
+                        statusTone === 'completed'
+                          ? styles['paymentStatusChipCompleted']
+                          : styles['paymentStatusChipCancelled'],
+                      )}
+                    >
+                      {paymentStatusLabels[payment.status]}
+                    </span>
+                  </div>
+
+                  <div className={styles['paymentMetaGrid']}>
+                    <div className={styles['paymentMetaItem']}>
+                      <span className={styles['paymentMetaLabel']}>결제일</span>
+                      <strong className={styles['paymentMetaValue']}>
+                        {formatPaymentDateTime(resolvePaymentProcessedAt(payment))}
+                      </strong>
+                    </div>
+                    <div className={styles['paymentMetaItem']}>
+                      <span className={styles['paymentMetaLabel']}>결제 수단</span>
+                      <strong className={styles['paymentMetaValue']}>
+                        {formatPaymentMethodLabel(payment.paymentMethod)}
+                      </strong>
+                    </div>
+                    <div className={styles['paymentMetaItem']}>
+                      <span className={styles['paymentMetaLabel']}>결제 금액</span>
+                      <strong className={styles['paymentMetaValue']}>
+                        {formatCurrency(payment.amount)}
+                      </strong>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         ) : null}
 
@@ -1133,21 +1483,27 @@ const MyPagePage = () => {
         !paymentHistoryQuery.isError &&
         paymentCount > 0 &&
         filteredPayments.length === 0 ? (
-          <p className={sharedStyles['mutedText']}>선택한 상태의 결제 내역이 없습니다.</p>
+          <p className={classNames(sharedStyles['mutedText'], styles['paymentEmptyState'])}>
+            선택한 상태의 결제 내역이 없습니다.
+          </p>
         ) : null}
 
         {!paymentHistoryQuery.isLoading &&
         !paymentHistoryQuery.isError &&
         filteredPayments.length ? (
-          <PaginationControls
-            currentPage={paymentPage}
-            onChange={setPaymentPage}
-            totalPages={paymentPageCount}
-          />
+          <div className={styles['paymentPagination']}>
+            <PaginationControls
+              currentPage={paymentPage}
+              onChange={setPaymentPage}
+              totalPages={paymentPageCount}
+            />
+          </div>
         ) : null}
 
         {!paymentHistoryQuery.isLoading && !paymentHistoryQuery.isError && paymentCount === 0 ? (
-          <p className={sharedStyles['mutedText']}>결제 내역이 없습니다.</p>
+          <p className={classNames(sharedStyles['mutedText'], styles['paymentEmptyState'])}>
+            결제 내역이 없습니다.
+          </p>
         ) : null}
       </section>
     );
@@ -1160,56 +1516,90 @@ const MyPagePage = () => {
     const questionTotalPages = Math.max(1, questionPageData?.totalPages ?? 1);
 
     return (
-      <section className={styles['contentSection']}>
-        <div className={sharedStyles['sectionHeader']}>
-          <h2 className={sharedStyles['sectionTitle']}>Q&A관리</h2>
-          <p className={sharedStyles['sectionDescription']}>
-            내가 남긴 운영 Q&A와 강의 Q&A를 확인하고 답변 상태를 볼 수 있습니다.
-          </p>
-        </div>
+      <section className={styles['questionSection']}>
+        <h2 className={styles['questionTitle']}>Q&A 관리</h2>
 
-        <div className={styles['stackList']}>
-          <div className={styles['stackItem']}>
-            <div className={styles['stackItemHeader']}>
-              <strong className={styles['stackItemTitle']}>이용 안내</strong>
-            </div>
-            <p className={styles['stackItemText']}>
-              운영 Q&A는 상단 헤더의 Q&A에서 남길 수 있고, 강의 Q&A는 각 과정의 강의 화면에서 남길
-              수 있습니다. 마이페이지에서는 내가 남긴 질문과 답변만 확인합니다.
+        <div className={styles['questionNotice']}>
+          <span
+            aria-hidden='true'
+            className={styles['questionNoticeIcon']}
+            style={questionInfoIconStyle}
+          />
+          <div className={styles['questionNoticeBody']}>
+            <strong className={styles['questionNoticeTitle']}>이용 안내</strong>
+            <p className={styles['questionNoticeText']}>
+              운영 Q&A는 상단 헤더의 Q&A에서, 강의 Q&A는 각 과정의 강의 화면에서 남길 수 있습니다.
+            </p>
+            <p className={styles['questionNoticeText']}>
+              마이페이지에서는 내가 남긴 질문과 답변을 확인할 수 있습니다.
             </p>
           </div>
         </div>
 
-        <DividerFilter
-          onChange={handleQuestionScopeFilterChange}
-          options={[
-            { label: '전체', value: 'ALL' },
-            { label: '운영 Q&A', value: 'GLOBAL' },
-            { label: '강의 Q&A', value: 'PROGRAM' },
-          ]}
-          value={questionScopeFilter}
-        />
+        <div className={styles['questionFilters']}>
+          <div className={styles['questionFilterRow']} role='tablist' aria-label='Q&A 유형 필터'>
+            {[
+              { label: '전체', value: 'ALL' },
+              { label: '운영 Q&A', value: 'GLOBAL' },
+              { label: '강의 Q&A', value: 'PROGRAM' },
+            ].map((option) => {
+              const isActive = questionScopeFilter === option.value;
 
-        <DividerFilter
-          onChange={handleQuestionAnsweredFilterChange}
-          options={[
-            { label: '전체', value: 'ALL' },
-            { label: '답변 완료', value: 'ANSWERED' },
-            { label: '답변 대기', value: 'WAITING' },
-          ]}
-          value={questionAnsweredFilter}
-        />
+              return (
+                <button
+                  aria-selected={isActive}
+                  className={classNames(
+                    styles['questionFilterButton'],
+                    isActive && styles['questionFilterButtonActive'],
+                  )}
+                  key={option.value}
+                  onClick={() => {
+                    handleQuestionScopeFilterChange(option.value as QuestionScopeFilterValue);
+                  }}
+                  role='tab'
+                  type='button'
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
 
-        <form
-          className={styles['inlineEditor']}
-          onSubmit={(event) => {
-            event.preventDefault();
-            setQuestionKeyword(questionSearchInput);
-            setQuestionPage(1);
-          }}
-        >
+          <div className={styles['questionFilterRow']} role='tablist' aria-label='답변 상태 필터'>
+            {[
+              { label: '전체', value: 'ALL' },
+              { label: '답변 완료', value: 'ANSWERED' },
+              { label: '답변 대기', value: 'WAITING' },
+            ].map((option) => {
+              const isActive = questionAnsweredFilter === option.value;
+
+              return (
+                <button
+                  aria-selected={isActive}
+                  className={classNames(
+                    styles['questionFilterButton'],
+                    isActive && styles['questionFilterButtonActive'],
+                  )}
+                  key={option.value}
+                  onClick={() => {
+                    handleQuestionAnsweredFilterChange(option.value as MyQuestionAnsweredFilter);
+                  }}
+                  role='tab'
+                  type='button'
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className={styles['questionToolbar']}>
+          <p className={styles['questionTotalCount']}>
+            총 <strong>{totalQuestionCount}</strong>건
+          </p>
           <UnifiedSearchBar
-            className={styles['sectionSearchBar']}
+            className={styles['questionSearchBar']}
             inputAriaLabel='내 질문 검색'
             onChange={(nextValue) => {
               setQuestionSearchInput(nextValue);
@@ -1221,14 +1611,16 @@ const MyPagePage = () => {
             placeholder='제목, 내용, 프로그램명, 강의명을 검색해 주세요.'
             value={questionSearchInput}
           />
-        </form>
+        </div>
 
         {questionsQuery.isLoading ? (
-          <p className={sharedStyles['mutedText']}>내 질문을 불러오는 중입니다.</p>
+          <p className={classNames(sharedStyles['mutedText'], styles['questionEmptyState'])}>
+            내 질문을 불러오는 중입니다.
+          </p>
         ) : null}
 
         {questionsQuery.isError ? (
-          <p className={styles['errorText']}>
+          <p className={classNames(styles['errorText'], styles['questionEmptyState'])}>
             {questionsQuery.error instanceof Error
               ? questionsQuery.error.message
               : '내 질문을 불러오지 못했습니다.'}
@@ -1236,70 +1628,98 @@ const MyPagePage = () => {
         ) : null}
 
         {!questionsQuery.isLoading && !questionsQuery.isError && questions.length ? (
-          <div className={styles['stackList']}>
+          <div className={styles['questionList']}>
             {questions.map((question) => {
               const isExpanded = expandedQuestionId === question.id;
+              const programLabel = question.programTitle ?? '운영 문의';
+              const replyCount = question.replies.length;
+              const hasAnswer = replyCount > 0;
+              const toggleIconStyle = isExpanded
+                ? questionChevronUpIconStyle
+                : questionChevronDownIconStyle;
 
               return (
-                <div className={styles['stackItem']} key={question.id}>
-                  <div className={styles['stackItemHeader']}>
-                    <div>
-                      <strong className={styles['stackItemTitle']}>{question.title}</strong>
-                      <p className={styles['stackItemText']}>
-                        {formatQuestionScopeLabel(question.scope)} ·{' '}
-                        {question.programTitle ?? '운영 문의'}
-                      </p>
+                <article className={styles['questionCard']} key={question.id}>
+                  <div className={styles['questionCardMain']}>
+                    <div className={styles['questionCardHeader']}>
+                      <strong className={styles['questionCardTitle']}>{question.title}</strong>
+                      <span
+                        className={classNames(
+                          styles['questionStatusChip'],
+                          hasAnswer
+                            ? styles['questionStatusChipAnswered']
+                            : styles['questionStatusChipWaiting'],
+                        )}
+                      >
+                        {formatQuestionAnsweredLabel(hasAnswer)}
+                      </span>
                     </div>
-                    <span className={styles['statusChip']}>
-                      {formatQuestionAnsweredLabel(question.answered)}
-                    </span>
-                  </div>
 
-                  <p className={styles['stackItemText']}>
-                    작성일 {formatDateTime(question.createdAt)} · 답글 {question.replyCount}개
-                  </p>
-                  <p className={styles['stackItemText']}>{question.content}</p>
+                    <div className={styles['questionMetaRow']}>
+                      <span>{formatQuestionScopeLabel(question.scope)}</span>
+                      <span aria-hidden='true' className={styles['questionMetaDot']} />
+                      <span>{programLabel}</span>
+                    </div>
 
-                  <div className={styles['actionRow']}>
-                    <Button
-                      className={styles['compactButton']}
+                    <div className={styles['questionMetaRow']}>
+                      <span>작성일 {formatQuestionDateTime(question.createdAt)}</span>
+                      <span aria-hidden='true' className={styles['questionMetaDot']} />
+                      <span>
+                        답글 <strong>{replyCount}</strong>개
+                      </span>
+                    </div>
+
+                    <p className={styles['questionContent']}>{question.content}</p>
+
+                    <button
+                      className={classNames(
+                        styles['questionReplyToggleButton'],
+                        isExpanded && styles['questionReplyToggleButtonActive'],
+                      )}
                       onClick={() => {
                         setExpandedQuestionId((current) =>
                           current === question.id ? null : question.id,
                         );
                       }}
-                      size='sm'
                       type='button'
                     >
-                      {isExpanded ? '답변 닫기' : '답변 확인'}
-                    </Button>
+                      {isExpanded ? '답변 접기' : '답변 보기'}
+                      <span
+                        aria-hidden='true'
+                        className={styles['questionReplyToggleIcon']}
+                        style={toggleIconStyle}
+                      />
+                    </button>
                   </div>
 
-                  {isExpanded ? (
-                    question.replies.length ? (
-                      <div className={styles['stackList']}>
-                        {question.replies.map((reply) => (
-                          <div className={styles['stackItem']} key={reply.id}>
-                            <div className={styles['stackItemHeader']}>
-                              <strong className={styles['stackItemTitle']}>
-                                {reply.authorName}
+                  {isExpanded && hasAnswer ? (
+                    <div className={styles['questionReplies']}>
+                      {question.replies.map((reply) => (
+                        <div className={styles['questionReply']} key={reply.id}>
+                          <span
+                            aria-hidden='true'
+                            className={styles['questionReplyIcon']}
+                            style={questionReplyIconStyle}
+                          />
+                          <div className={styles['questionReplyBody']}>
+                            <div className={styles['questionReplyHeader']}>
+                              <strong className={styles['questionReplyAuthor']}>
+                                {reply.adminReply ? '관리자' : reply.authorName}
                               </strong>
-                              <span className={styles['statusChip']}>
+                              <span className={styles['questionReplyBadge']}>
                                 {reply.adminReply ? '운영 답변' : '답글'}
                               </span>
                             </div>
-                            <p className={styles['stackItemText']}>
-                              {formatDateTime(reply.createdAt)}
+                            <p className={styles['questionReplyDate']}>
+                              {formatQuestionDateTime(reply.createdAt)}
                             </p>
-                            <p className={styles['stackItemText']}>{reply.content}</p>
+                            <p className={styles['questionReplyContent']}>{reply.content}</p>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className={sharedStyles['mutedText']}>아직 등록된 답변이 없습니다.</p>
-                    )
+                        </div>
+                      ))}
+                    </div>
                   ) : null}
-                </div>
+                </article>
               );
             })}
           </div>
@@ -1314,7 +1734,9 @@ const MyPagePage = () => {
         ) : null}
 
         {!questionsQuery.isLoading && !questionsQuery.isError && totalQuestionCount === 0 ? (
-          <p className={sharedStyles['mutedText']}>등록된 질문이 없습니다.</p>
+          <p className={classNames(sharedStyles['mutedText'], styles['questionEmptyState'])}>
+            등록된 질문이 없습니다.
+          </p>
         ) : null}
       </section>
     );
@@ -1335,182 +1757,266 @@ const MyPagePage = () => {
       );
     }
 
+    const resetProfileForm = () => {
+      setProfileFormValues({
+        email: profileQuery.data.email,
+        name: profileQuery.data.name,
+        nickname: profileQuery.data.nickname ?? '',
+      });
+      setProfileFormErrors({});
+      setPhoneFormValues({
+        code: '',
+        phoneNumber: '',
+      });
+      setPhoneFormErrors({});
+      setSentVerification(null);
+      setPhoneCountdownSeconds(0);
+    };
+
     return (
-      <div className={styles['detailColumn']}>
-        <section className={styles['contentSection']}>
-          <h2 className={sharedStyles['sectionTitle']}>기본 정보</h2>
-          <div className={styles['profileBlock']}>
-            <div className={sharedStyles['fieldGrid']}>
-              <TextField label='아이디' name='loginId' readOnly value={profileQuery.data.loginId} />
-              <TextField
-                label='이메일'
-                name='email'
-                placeholder='name@example.com'
-                readOnly
-                type='email'
-                value={resolvedProfileFormValues.email}
-              />
-              <TextField
-                label='이름'
-                name='name'
-                onChange={handleProfileFieldChange('name')}
-                placeholder='이름'
-                value={resolvedProfileFormValues.name}
-              />
-              <TextField
-                label='닉네임'
-                name='nickname'
-                onChange={handleProfileFieldChange('nickname')}
-                placeholder='닉네임'
-                value={resolvedProfileFormValues.nickname}
-              />
-              <TextField
-                label='휴대폰 번호'
-                name='currentPhoneNumber'
-                readOnly
-                value={profileQuery.data.phoneNumber || '-'}
-              />
+      <section className={styles['profileSection']}>
+        <h2 className={styles['profileTitle']}>내 정보 관리</h2>
+
+        <div className={styles['profileAccountBlock']}>
+          <h3 className={styles['profileSectionTitle']}>계정 정보</h3>
+
+          <div className={styles['profileFormRows']}>
+            <div className={styles['profileFormRow']}>
+              <span className={styles['profileRowLabel']}>아이디</span>
+              <div className={styles['profileFieldShell']}>
+                <input
+                  className={classNames(styles['profileInlineInput'], styles['profileInputMuted'])}
+                  name='loginId'
+                  readOnly
+                  value={profileQuery.data.loginId}
+                />
+              </div>
+              <span className={styles['profileRowHint']}>변경이 불가능합니다.</span>
             </div>
-          </div>
 
-          <div className={classNames(styles['profileBlock'], styles['profileDivider'])}>
-            <div className={styles['phoneMetaRow']}>
-              <div className={styles['phoneValueGroup']}>
-                {profileQuery.data.phoneVerifiedAt ? (
-                  <span aria-label='휴대폰 인증 완료' className={styles['verifiedBadge']}>
-                    인증 완료
-                  </span>
-                ) : (
-                  <span className={sharedStyles['mutedText']}>휴대폰 인증 필요</span>
-                )}
-                <button
-                  className={styles['metaActionButton']}
-                  onClick={() => {
-                    setIsPhoneEditorOpen((current) => {
-                      const nextValue = !current;
+            <div className={styles['profileFormRow']}>
+              <span className={styles['profileRowLabel']}>이메일</span>
+              <div className={styles['profileFieldShell']}>
+                <input
+                  className={classNames(styles['profileInlineInput'], styles['profileInputMuted'])}
+                  name='email'
+                  readOnly
+                  type='email'
+                  value={resolvedProfileFormValues.email}
+                />
+              </div>
+              <span className={styles['profileRowHint']}>변경이 불가능합니다.</span>
+            </div>
 
-                      if (nextValue) {
-                        setPhoneFormValues({
-                          code: '',
-                          phoneNumber: '',
-                        });
-                        setPhoneFormErrors({});
-                        setSentVerification(null);
-                      }
-
-                      return nextValue;
-                    });
-                  }}
-                  type='button'
-                >
-                  {isPhoneEditorOpen ? '닫기' : '휴대폰 번호 변경'}
-                </button>
+            <div className={styles['profileFormRow']}>
+              <span className={styles['profileRowLabel']}>이름</span>
+              <div className={styles['profileFieldShell']}>
+                <input
+                  className={styles['profileInlineInput']}
+                  name='name'
+                  readOnly
+                  value={resolvedProfileFormValues.name}
+                />
               </div>
             </div>
-          </div>
 
-          <div className={classNames(styles['profileBlock'], styles['profileDivider'])}>
-            <div className={styles['consentGroup']}>
-              <p className={styles['consentTitle']}>선택정보 동의</p>
-              <p className={sharedStyles['mutedText']}>
-                이메일 변경과 마케팅 수신 동의 변경은 현재 준비 중입니다. 현재는 이름, 닉네임,
-                휴대폰 번호만 수정할 수 있습니다.
-              </p>
-            </div>
-          </div>
-
-          {isPhoneEditorOpen ? (
-            <div className={classNames(styles['profileBlock'], styles['profileDivider'])}>
-              <div className={styles['inlineEditor']}>
-                <h3 className={styles['contentTitle']}>휴대폰 번호 변경</h3>
-                <div className={sharedStyles['fieldGrid']}>
-                  <TextField
-                    errorMessage={phoneFormErrors.phoneNumber}
-                    label='새 휴대폰 번호'
-                    name='phoneNumber'
-                    onChange={handlePhoneFieldChange('phoneNumber')}
-                    placeholder='010-1234-5678'
-                    value={phoneFormValues.phoneNumber}
-                  />
-                  <div className={styles['inlineFieldRow']}>
-                    <TextField
-                      className={styles['codeField']}
-                      errorMessage={phoneFormErrors.code}
-                      label='인증번호'
-                      maxLength={6}
-                      name='code'
-                      onChange={handlePhoneFieldChange('code')}
-                      placeholder='6자리 숫자'
-                      value={phoneFormValues.code}
-                    />
-                    <Button
-                      className={classNames(styles['compactButton'], styles['inlineActionButton'])}
-                      disabled={
-                        sendPhoneVerificationMutation.isPending ||
-                        phoneFormValues.phoneNumber.trim().length === 0
-                      }
-                      onClick={() => {
-                        setSentVerification(null);
-                        sendPhoneVerificationMutation.mutate({
-                          phoneNumber: phoneFormValues.phoneNumber.trim(),
-                        });
-                      }}
-                      type='button'
-                    >
-                      {sendPhoneVerificationMutation.isPending ? '발송 중...' : '인증번호 받기'}
-                    </Button>
-                  </div>
-                </div>
-
-                {sentVerification ? (
-                  <p className={sharedStyles['mutedText']}>인증번호를 보냈습니다.</p>
+            <div className={styles['profileFormRow']}>
+              <label className={styles['profileRowLabel']} htmlFor='profile_nickname'>
+                닉네임
+              </label>
+              <div className={styles['profileFieldShell']}>
+                <input
+                  aria-describedby={
+                    profileFormErrors.nickname ? 'profile_nickname_error' : undefined
+                  }
+                  aria-invalid={Boolean(profileFormErrors.nickname)}
+                  className={styles['profileInlineInput']}
+                  id='profile_nickname'
+                  name='nickname'
+                  onChange={handleProfileFieldChange('nickname')}
+                  placeholder='닉네임'
+                  value={resolvedProfileFormValues.nickname}
+                />
+                {profileFormErrors.nickname ? (
+                  <p className={styles['profileFieldErrorText']} id='profile_nickname_error'>
+                    {profileFormErrors.nickname}
+                  </p>
                 ) : null}
-
-                <div className={styles['actionRow']}>
-                  <Button
-                    className={styles['compactButton']}
-                    disabled={
-                      verifyPhoneMutation.isPending ||
-                      phoneFormValues.phoneNumber.trim().length === 0 ||
-                      phoneFormValues.code.trim().length !== 6
-                    }
-                    onClick={() => {
-                      verifyPhoneMutation.mutate({
-                        code: phoneFormValues.code.trim(),
-                        phoneNumber: phoneFormValues.phoneNumber.trim(),
-                      });
-                    }}
-                    type='button'
-                  >
-                    {verifyPhoneMutation.isPending ? '변경 중...' : '번호 변경'}
-                  </Button>
-                </div>
               </div>
             </div>
-          ) : null}
+          </div>
+        </div>
 
-          <div className={classNames(styles['profileBlock'], styles['profileDivider'])}>
-            <div className={styles['actionRow']}>
-              <Button
-                className={styles['compactButton']}
+        <div className={styles['profilePhoneBlock']}>
+          <div className={styles['profileFormRows']}>
+            <div className={styles['profileStaticRow']}>
+              <span className={styles['profileRowLabel']}>현재 휴대폰 번호</span>
+              <strong className={styles['profileStaticValue']}>
+                {profileQuery.data.phoneNumber || '-'}
+              </strong>
+            </div>
+
+            <div className={styles['profileStaticRow']}>
+              <span className={styles['profileRowLabel']}>휴대폰 인증 상태</span>
+              {profileQuery.data.phoneVerifiedAt ? (
+                <span aria-label='휴대폰 인증 완료' className={styles['profileVerifiedBadge']}>
+                  <span
+                    aria-hidden='true'
+                    className={styles['profileVerifiedIcon']}
+                    style={profileCircleCheckIconStyle}
+                  />
+                  인증 완료
+                </span>
+              ) : (
+                <span className={styles['profileUnverifiedText']}>휴대폰 인증 필요</span>
+              )}
+            </div>
+
+            <div className={styles['profileFormRow']}>
+              <label className={styles['profileRowLabel']} htmlFor='profile_new_phone'>
+                새 휴대폰 번호
+              </label>
+              <div className={styles['profilePhoneFieldGroup']}>
+                <input
+                  aria-describedby={
+                    phoneFormErrors.phoneNumber ? 'profile_new_phone_error' : undefined
+                  }
+                  aria-invalid={Boolean(phoneFormErrors.phoneNumber)}
+                  className={styles['profileInlineInput']}
+                  id='profile_new_phone'
+                  inputMode='tel'
+                  name='phoneNumber'
+                  onChange={handlePhoneFieldChange('phoneNumber')}
+                  placeholder='- 없이 숫자만 입력해주세요'
+                  type='tel'
+                  value={phoneFormValues.phoneNumber}
+                />
+                {phoneFormErrors.phoneNumber ? (
+                  <p className={styles['profileFieldErrorText']} id='profile_new_phone_error'>
+                    {phoneFormErrors.phoneNumber}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                className={styles['profileOutlineButton']}
                 disabled={
-                  updateProfileMutation.isPending ||
-                  resolvedProfileFormValues.name.trim().length === 0
+                  sendPhoneVerificationMutation.isPending ||
+                  phoneFormValues.phoneNumber.trim().length === 0 ||
+                  (sentVerification !== null && !isPhoneVerificationExpired)
                 }
-                onClick={() => {
-                  updateProfileMutation.mutate({
-                    name: resolvedProfileFormValues.name.trim(),
-                    nickname: resolvedProfileFormValues.nickname.trim(),
-                  });
-                }}
+                onClick={handleSendPhoneVerification}
                 type='button'
               >
-                {updateProfileMutation.isPending ? '저장 중...' : '저장하기'}
-              </Button>
+                {sendPhoneVerificationMutation.isPending
+                  ? '발송 중...'
+                  : sentVerification && !isPhoneVerificationExpired
+                    ? '발송 완료'
+                    : '인증번호 받기'}
+              </button>
+            </div>
+
+            <div className={styles['profileFormRow']}>
+              <label className={styles['profileRowLabel']} htmlFor='profile_phone_code'>
+                인증번호 입력
+              </label>
+              <div className={styles['profilePhoneFieldGroup']}>
+                <input
+                  aria-describedby={
+                    phoneFormErrors.code || sentVerification
+                      ? 'profile_phone_code_status'
+                      : undefined
+                  }
+                  aria-invalid={Boolean(phoneFormErrors.code)}
+                  className={styles['profileInlineInput']}
+                  id='profile_phone_code'
+                  inputMode='numeric'
+                  maxLength={6}
+                  name='code'
+                  onChange={handlePhoneFieldChange('code')}
+                  pattern='[0-9]{6}'
+                  placeholder='인증번호 6자리를입력해주세요'
+                  value={phoneFormValues.code}
+                />
+                {phoneFormErrors.code ? (
+                  <p className={styles['profileFieldErrorText']} id='profile_phone_code_status'>
+                    {phoneFormErrors.code}
+                  </p>
+                ) : sentVerification ? (
+                  <p className={styles['profileAssistText']} id='profile_phone_code_status'>
+                    {isPhoneVerificationExpired
+                      ? '인증 시간이 만료되었습니다. 다시 발송해 주세요.'
+                      : `남은 시간 ${formatRemainingTimeLabel(phoneCountdownSeconds)}`}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                className={styles['profileDisabledButton']}
+                disabled={
+                  verifyPhoneMutation.isPending ||
+                  isPhoneVerificationExpired ||
+                  phoneFormValues.phoneNumber.trim().length === 0 ||
+                  phoneFormValues.code.trim().length !== 6
+                }
+                onClick={handleVerifyPhoneChange}
+                type='button'
+              >
+                {verifyPhoneMutation.isPending ? '변경 중...' : '번호 변경'}
+              </button>
             </div>
           </div>
-        </section>
-      </div>
+        </div>
+
+        <div className={styles['profileConsentBlock']}>
+          <h3 className={styles['profileSectionTitle']}>선택 정보 동의</h3>
+
+          <label className={styles['profileConsentRow']}>
+            <input
+              checked={optionalMarketingConsent}
+              className={styles['profileConsentInput']}
+              onChange={(event) => {
+                setOptionalMarketingConsent(event.target.checked);
+              }}
+              type='checkbox'
+            />
+            <span className={styles['profileConsentBox']} aria-hidden='true'>
+              <span className={styles['profileConsentCheck']} />
+            </span>
+            <span className={styles['profileConsentText']}>
+              이메일 변경과 마케팅 수신 동의 변경은 현재 준비 중입니다.
+            </span>
+          </label>
+
+          <button className={styles['profileConsentLink']} type='button'>
+            마케팅 수신 동의서 (임시)
+            <span aria-hidden='true' className={styles['profileConsentArrow']} />
+          </button>
+        </div>
+
+        <div className={styles['profileActionRow']}>
+          <button
+            className={styles['profileCancelButton']}
+            onClick={resetProfileForm}
+            type='button'
+          >
+            취소하기
+          </button>
+          <button
+            className={styles['profileSaveButton']}
+            disabled={
+              updateProfileMutation.isPending ||
+              resolvedProfileFormValues.nickname.trim().length === 0
+            }
+            onClick={() => {
+              updateProfileMutation.mutate({
+                nickname: resolvedProfileFormValues.nickname.trim(),
+              });
+            }}
+            type='button'
+          >
+            {updateProfileMutation.isPending ? '저장 중...' : '저장하기'}
+          </button>
+        </div>
+      </section>
     );
   };
 
@@ -1529,6 +2035,104 @@ const MyPagePage = () => {
     }
   };
 
+  const renderProfilePasswordModal = () => {
+    if (activeView !== 'profile' || isProfilePasswordVerified) {
+      return null;
+    }
+
+    return (
+      <Modal
+        bodyClassName={styles['profilePasswordModalBody']}
+        closeButtonClassName={styles['profilePasswordModalCloseButton']}
+        closeButtonContent={
+          <span
+            aria-hidden='true'
+            className={styles['profilePasswordModalCloseIcon']}
+            style={reviewCloseIconStyle}
+          />
+        }
+        closeButtonLabel='비밀번호 확인 모달 닫기'
+        headerClassName={styles['profilePasswordModalHeader']}
+        initialFocusRef={profilePasswordInputRef}
+        onClose={closeProfilePasswordModal}
+        panelClassName={styles['profilePasswordModalPanel']}
+        title='비밀번호 확인'
+        titleClassName={styles['profilePasswordModalTitle']}
+      >
+        <form className={styles['profilePasswordForm']} onSubmit={handleProfilePasswordSubmit}>
+          <p className={styles['profilePasswordDescription']}>
+            내 정보 관리에 접근하기 위해
+            <br />
+            비밀번호를 다시 입력해주세요.
+          </p>
+
+          <label className={styles['profilePasswordLabel']} htmlFor='profile_password_confirm'>
+            비밀번호
+          </label>
+
+          <div className={styles['profilePasswordInputWrap']}>
+            <input
+              aria-describedby={profilePasswordError ? 'profile_password_confirm_error' : undefined}
+              aria-invalid={Boolean(profilePasswordError)}
+              autoComplete='current-password'
+              className={styles['profilePasswordInput']}
+              id='profile_password_confirm'
+              onChange={(event) => {
+                setProfilePassword(event.target.value);
+                setProfilePasswordError(null);
+              }}
+              placeholder='비밀번호를 입력해 주세요.'
+              ref={profilePasswordInputRef}
+              type={isProfilePasswordVisible ? 'text' : 'password'}
+              value={profilePassword}
+            />
+            <button
+              aria-label={isProfilePasswordVisible ? '비밀번호 숨기기' : '비밀번호 보기'}
+              className={styles['profilePasswordVisibilityButton']}
+              onClick={() => {
+                setIsProfilePasswordVisible((currentValue) => !currentValue);
+              }}
+              type='button'
+            >
+              <span
+                aria-hidden='true'
+                className={styles['profilePasswordEyeIcon']}
+                style={profilePasswordEyeOffIconStyle}
+              />
+            </button>
+          </div>
+
+          {profilePasswordError ? (
+            <p className={styles['profilePasswordError']} id='profile_password_confirm_error'>
+              {profilePasswordError}
+            </p>
+          ) : null}
+
+          <Link className={styles['profilePasswordRecoveryLink']} to={routePaths.accountRecovery}>
+            비밀번호를 잊으셨나요?
+          </Link>
+
+          <div className={styles['profilePasswordActions']}>
+            <button
+              className={styles['profilePasswordCancelButton']}
+              onClick={closeProfilePasswordModal}
+              type='button'
+            >
+              취소
+            </button>
+            <button
+              className={styles['profilePasswordConfirmButton']}
+              disabled={verifyProfilePasswordMutation.isPending}
+              type='submit'
+            >
+              {verifyProfilePasswordMutation.isPending ? '확인 중...' : '확인'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    );
+  };
+
   const renderReviewModal = () => {
     if (selectedEnrollmentId === null) {
       return null;
@@ -1536,15 +2140,44 @@ const MyPagePage = () => {
 
     const detail = enrollmentDetailQuery.data;
     const reviewWritten = Boolean(detail?.reviewWritten);
-    const reviewWritable = Boolean(detail?.reviewWritable);
-    const canManageReview = reviewWritten || reviewWritable;
+    const canManageReview = detail
+      ? canManageEnrollmentReview({
+          completionRate: detail.completionRate,
+          reviewWritten: detail.reviewWritten,
+          status: detail.status,
+        })
+      : false;
+    const modalTitle = reviewWritten ? '후기 수정' : '후기 작성';
     const title = selectedEnrollment?.programTitle ?? detail?.programTitle ?? '강의 후기';
+    const thumbnailUrl = selectedEnrollment?.programThumbnailUrl ?? null;
+    const selectedRating = Number.parseInt(reviewFormValues.rating, 10);
+    const normalizedRating =
+      Number.isInteger(selectedRating) && selectedRating >= 1 && selectedRating <= 5
+        ? selectedRating
+        : 0;
+    const reviewSubmitLabel = reviewWritten ? '후기 수정' : '후기 등록';
+    const isReviewSubmitDisabled =
+      reviewMutation.isPending ||
+      normalizedRating === 0 ||
+      reviewFormValues.content.trim().length === 0;
 
     return (
       <Modal
-        description={`${title}에 대한 학습 후기를 남겨 주세요.`}
+        bodyClassName={styles['reviewModalBody']}
+        closeButtonClassName={styles['reviewModalCloseButton']}
+        closeButtonContent={
+          <span
+            aria-hidden='true'
+            className={styles['reviewModalCloseIcon']}
+            style={reviewCloseIconStyle}
+          />
+        }
+        closeButtonLabel='후기 모달 닫기'
+        headerClassName={styles['reviewModalHeader']}
         onClose={closeReviewModal}
-        title={reviewWritten ? '후기 수정' : '후기 작성'}
+        panelClassName={styles['reviewModalPanel']}
+        title={modalTitle}
+        titleClassName={styles['reviewModalTitle']}
       >
         {enrollmentDetailQuery.isLoading ? (
           <p className={sharedStyles['mutedText']}>후기 정보를 불러오는 중입니다.</p>
@@ -1562,72 +2195,122 @@ const MyPagePage = () => {
           canManageReview ? (
             <form className={styles['reviewForm']} onSubmit={handleReviewSubmit}>
               <div className={styles['reviewSummary']}>
-                <strong className={styles['contentTitle']}>{detail.programTitle}</strong>
-                <p className={sharedStyles['mutedText']}>
-                  수강 경험과 도움이 된 포인트를 간단히 정리해 주세요.
-                </p>
+                <div className={styles['reviewThumbnail']}>
+                  {thumbnailUrl ? (
+                    <img
+                      alt={`${title} 대표 이미지`}
+                      className={styles['reviewThumbnailImage']}
+                      loading='lazy'
+                      src={thumbnailUrl}
+                    />
+                  ) : (
+                    <div aria-hidden='true' className={styles['reviewThumbnailFallback']} />
+                  )}
+                </div>
+                <strong className={styles['reviewProgramTitle']}>{title}</strong>
               </div>
+
               <div className={styles['reviewFieldGrid']}>
-                <TextField
-                  label='평점'
-                  max={5}
-                  min={1}
-                  name='rating'
-                  onChange={(event) => {
-                    setReviewFormDraft({
-                      enrollmentId: selectedEnrollmentId,
-                      values: {
-                        ...reviewFormValues,
-                        rating: event.target.value,
-                      },
-                    });
-                  }}
-                  type='number'
-                  value={reviewFormValues.rating}
-                />
-                <TextAreaField
-                  label='후기 내용'
-                  name='content'
-                  onChange={(event) => {
-                    setReviewFormDraft({
-                      enrollmentId: selectedEnrollmentId,
-                      values: {
-                        ...reviewFormValues,
-                        content: event.target.value,
-                      },
-                    });
-                  }}
-                  rows={6}
-                  value={reviewFormValues.content}
-                />
+                <div className={styles['reviewRatingSection']}>
+                  <p className={styles['reviewFieldLabel']}>평점</p>
+                  <div className={styles['reviewStarRow']} role='group' aria-label='평점 선택'>
+                    {Array.from({ length: 5 }, (_, index) => {
+                      const ratingValue = index + 1;
+                      const isSelected = ratingValue <= normalizedRating;
+
+                      return (
+                        <button
+                          aria-label={`${String(ratingValue)}점`}
+                          aria-pressed={ratingValue === normalizedRating}
+                          className={styles['reviewStarButton']}
+                          key={ratingValue}
+                          onClick={() => {
+                            setReviewFormDraft({
+                              enrollmentId: selectedEnrollmentId,
+                              values: {
+                                ...reviewFormValues,
+                                rating: String(ratingValue),
+                              },
+                            });
+                            setReviewFormError(null);
+                          }}
+                          type='button'
+                        >
+                          <span
+                            aria-hidden='true'
+                            className={classNames(
+                              styles['reviewStarIcon'],
+                              isSelected && styles['reviewStarIconActive'],
+                            )}
+                            style={reviewStarIconStyle}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p
+                    className={classNames(
+                      styles['reviewRatingHint'],
+                      normalizedRating === 0 && styles['reviewRatingHintHidden'],
+                    )}
+                  >
+                    만족해요
+                  </p>
+                </div>
+
+                <div className={styles['reviewContentSection']}>
+                  <label className={styles['reviewFieldLabel']} htmlFor='review_content'>
+                    후기 내용
+                  </label>
+                  <textarea
+                    className={styles['reviewTextArea']}
+                    id='review_content'
+                    name='content'
+                    onChange={(event) => {
+                      setReviewFormDraft({
+                        enrollmentId: selectedEnrollmentId,
+                        values: {
+                          ...reviewFormValues,
+                          content: event.target.value,
+                        },
+                      });
+                      setReviewFormError(null);
+                    }}
+                    placeholder='수강 경험과 도움이 되었던 점을 간단히 작성해 주세요.'
+                    rows={6}
+                    value={reviewFormValues.content}
+                  />
+                </div>
               </div>
+
               {reviewFormError ? <p className={styles['errorText']}>{reviewFormError}</p> : null}
+
               <div className={styles['reviewActionRow']}>
-                <Button
-                  className={styles['compactButton']}
+                <button
+                  className={styles['reviewCancelButton']}
                   onClick={closeReviewModal}
                   type='button'
                 >
-                  닫기
-                </Button>
-                <Button
-                  className={styles['compactButton']}
-                  disabled={reviewMutation.isPending}
+                  취소
+                </button>
+                <button
+                  className={classNames(
+                    styles['reviewSubmitButton'],
+                    isReviewSubmitDisabled && styles['reviewSubmitButtonDisabled'],
+                  )}
+                  disabled={isReviewSubmitDisabled}
                   type='submit'
                 >
-                  {reviewMutation.isPending
-                    ? '저장 중...'
-                    : reviewWritten
-                      ? '후기 수정하기'
-                      : '후기 등록하기'}
-                </Button>
+                  {reviewMutation.isPending ? '저장 중...' : reviewSubmitLabel}
+                </button>
               </div>
             </form>
           ) : (
             <div className={styles['reviewBlockedState']}>
               <strong className={styles['contentTitle']}>{detail.programTitle}</strong>
               <p className={sharedStyles['mutedText']}>
-                후기는 현재 수강 중이거나 이미 작성한 강의에서만 관리할 수 있습니다.
+                후기는 수강 종료 강의이거나 진도율 {String(REVIEW_MINIMUM_COMPLETION_RATE)}% 이상인
+                강의에서 관리할 수 있습니다.
               </p>
               <div className={styles['reviewActionRow']}>
                 <Button
@@ -1673,7 +2356,7 @@ const MyPagePage = () => {
       },
       {
         label: '처리 시각',
-        value: formatDateTime(resolvePaymentProcessedAt(selectedPayment)),
+        value: formatPaymentDateTime(resolvePaymentProcessedAt(selectedPayment)),
       },
     ];
 
@@ -1684,63 +2367,76 @@ const MyPagePage = () => {
       });
     }
 
+    const statusTone = selectedPayment.status === 'CANCELLED' ? 'cancelled' : 'completed';
+
     return (
       <Modal
-        description='결제 내용을 확인할 수 있습니다.'
+        bodyClassName={styles['paymentDetailModalBody']}
+        closeButtonClassName={styles['paymentDetailModalCloseButton']}
+        closeButtonContent={
+          <span
+            aria-hidden='true'
+            className={styles['paymentDetailModalCloseIcon']}
+            style={reviewCloseIconStyle}
+          />
+        }
+        closeButtonLabel='결제 상세 모달 닫기'
+        headerClassName={styles['paymentDetailModalHeader']}
         onClose={closePaymentDetailModal}
-        size='lg'
+        panelClassName={styles['paymentDetailModalPanel']}
         title='결제 상세'
+        titleClassName={styles['paymentDetailModalTitle']}
       >
-        <div className={styles['paymentReceipt']}>
-          <div className={styles['paymentReceiptHeader']}>
-            <div className={styles['paymentReceiptTitleBlock']}>
-              <p className={styles['paymentReceiptEyebrow']}>결제 내역서</p>
-              <strong className={styles['contentTitle']}>{selectedPayment.orderName}</strong>
-              <p
-                className={sharedStyles['mutedText']}
-                title={selectedPayment.orderNumber ?? undefined}
-              >
-                주문번호 {formatOrderNumberPreview(selectedPayment.orderNumber)} ·{' '}
-                {formatPaymentMethodLabel(selectedPayment.paymentMethod)}
-              </p>
+        <div className={styles['paymentDetailReceipt']}>
+          <div className={styles['paymentDetailReceiptHeader']}>
+            <div className={styles['paymentDetailTitleGroup']}>
+              <p className={styles['paymentDetailEyebrow']}>결제 내역서</p>
+              <strong className={styles['paymentDetailOrderTitle']}>
+                {selectedPayment.orderName}
+              </strong>
             </div>
-            <span className={styles['statusChip']}>
+            <span
+              className={classNames(
+                styles['paymentDetailStatusChip'],
+                statusTone === 'completed'
+                  ? styles['paymentDetailStatusChipCompleted']
+                  : styles['paymentDetailStatusChipCancelled'],
+              )}
+            >
               {paymentStatusLabels[selectedPayment.status]}
             </span>
           </div>
 
-          <div className={styles['paymentReceiptDivider']} />
+          <div className={styles['paymentDetailDivider']} />
 
-          <div className={styles['paymentReceiptBody']}>
+          <div className={styles['paymentDetailRows']}>
             {detailItems.map((item) => (
-              <div className={styles['paymentReceiptRow']} key={item.label}>
-                <span className={styles['paymentReceiptLabel']}>{item.label}</span>
-                <strong className={styles['paymentReceiptValue']}>{item.value}</strong>
+              <div className={styles['paymentDetailRow']} key={item.label}>
+                <span className={styles['paymentDetailLabel']}>{item.label}</span>
+                <strong className={styles['paymentDetailValue']}>{item.value}</strong>
               </div>
             ))}
           </div>
 
-          <div className={styles['paymentReceiptDivider']} />
-
-          <div className={styles['paymentReceiptActions']}>
-            <Button
-              className={styles['compactButton']}
-              onClick={closePaymentDetailModal}
-              type='button'
-            >
-              닫기
-            </Button>
-          </div>
+          <div className={styles['paymentDetailDivider']} />
         </div>
+
+        <button
+          className={styles['paymentDetailCloseCta']}
+          onClick={closePaymentDetailModal}
+          type='button'
+        >
+          닫기
+        </button>
       </Modal>
     );
   };
 
   return (
-    <section className={sharedStyles['page']}>
-      <div className={sharedStyles['shell']}>
+    <section className={classNames(sharedStyles['page'], styles['page'])}>
+      <div className={classNames(sharedStyles['shell'], styles['shell'])}>
         <div className={classNames(sharedStyles['surface'], styles['surface'])}>
-          <header className={sharedStyles['header']}>
+          <header className={classNames(sharedStyles['header'], styles['pageHeader'])}>
             <h1 className={sharedStyles['title']}>마이페이지</h1>
           </header>
 
@@ -1768,6 +2464,11 @@ const MyPagePage = () => {
                         }}
                         type='button'
                       >
+                        <span
+                          aria-hidden='true'
+                          className={styles['menuIcon']}
+                          style={buildMaskIconStyle(item.iconSrc)}
+                        />
                         <span className={styles['menuLabel']}>{item.label}</span>
                       </button>
                     );
@@ -1782,8 +2483,14 @@ const MyPagePage = () => {
                   onClick={() => {
                     logoutMutation.mutate();
                   }}
+                  variant='secondary'
                   type='button'
                 >
+                  <span
+                    aria-hidden='true'
+                    className={styles['logoutIcon']}
+                    style={buildMaskIconStyle(mypageLogOutIconSrc)}
+                  />
                   {logoutMutation.isPending ? '로그아웃 중...' : '로그아웃'}
                 </Button>
               </div>
@@ -1795,6 +2502,7 @@ const MyPagePage = () => {
       </div>
       {renderReviewModal()}
       {renderPaymentDetailModal()}
+      {renderProfilePasswordModal()}
     </section>
   );
 };

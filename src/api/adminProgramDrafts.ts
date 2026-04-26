@@ -114,6 +114,19 @@ export const createAdminProgramDraft = async (): Promise<AdminProgramDraftDetail
   }
 };
 
+export const createAdminProgramEditDraft = async (
+  programId: number,
+): Promise<AdminProgramDraftDetail> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<AdminProgramDraftDetail>>(
+      `/api/v1/admin/program-drafts/from-program/${String(programId)}`,
+    );
+    return normalizeDraftDetail(unwrapApiEnvelope(response.data));
+  } catch (error: unknown) {
+    throw toApiError(error, '프로그램 수정 초안을 생성하지 못했습니다.');
+  }
+};
+
 export const fetchAdminProgramDraft = async (draftId: number): Promise<AdminProgramDraftDetail> => {
   try {
     const response = await axiosInstance.get<ApiEnvelope<AdminProgramDraftDetail>>(

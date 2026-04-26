@@ -7,13 +7,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Blocker } from 'react-router';
 import { useBlocker } from 'react-router';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import {
   createAdminProblemMediaUploadTarget,
   uploadAdminProblemMediaFile,
 } from '@/api/adminProblemMedia';
 import {
+  createAdminProgramEditDraft,
   createAdminProgramDraft,
   discardAdminProgramDraft,
   finalizeAdminProgramDraft,
@@ -67,6 +68,14 @@ import type {
   AdminProgramLevel,
   AdminProgramType,
 } from '@/types/adminProgramsLive';
+import { classNames } from '@/utils/classNames';
+import {
+  buildCalendarCells,
+  calendarWeekdays,
+  formatDate,
+  formatMonthLabel,
+  toMonthValue,
+} from '@/utils/practicumCalendar';
 
 import styles from './AdminConsolePage.module.scss';
 import {
@@ -75,12 +84,15 @@ import {
 } from './adminConsolePageShared';
 
 const TARGET_PART_SIZE_BYTES = 8 * 1024 * 1024;
+const VIDEO_ENCODING_POLL_INTERVAL_MS = 5000;
 const RESOURCE_FILE_ACCEPT = '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
 
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
 type AdminProgramCreateView = 'details' | 'curriculum' | 'problems' | 'resources';
+type NumericBasicInfoField = 'accessDays' | 'maxStudents' | 'price';
 
 interface AdminProgramCreateWorkspaceProps {
+  mode?: 'create' | 'edit';
   view?: AdminProgramCreateView;
 }
 
@@ -103,6 +115,10 @@ interface CreateWorkspaceSnapshot {
 interface PendingLocalFile {
   file: File;
   sizeLabel: string;
+}
+
+interface PendingThumbnailFile extends PendingLocalFile {
+  previewObjectUrl: string | null;
 }
 
 interface UploadProgressModalState {
@@ -290,7 +306,7 @@ const createEmptyLecture = (
   lectureType,
   offlineSchedules: [],
   preview: false,
-  published: false,
+  published: true,
   sortOrder,
   title: '',
   videoId: null,
@@ -351,6 +367,16 @@ const createEmptyPayload = (): AdminProgramDraftPayload => ({
   sections: [createEmptySection(0)],
 });
 
+const withServerManagedSlug = (
+  draftPayload: AdminProgramDraftPayload,
+): AdminProgramDraftPayload => ({
+  ...draftPayload,
+  basicInfo: {
+    ...draftPayload.basicInfo,
+    slug: null,
+  },
+});
+
 const normalizeLegacyOfflineSchedules = (
   lecture: AdminProgramDraftLecture & {
     offlineScheduleRule?: {
@@ -397,6 +423,17 @@ const normalizeDraftPayloadShape = (
   payload: AdminProgramDraftPayload,
 ): AdminProgramDraftPayload => ({
   ...payload,
+  problems: payload.problems.map((problem) => {
+    const lectureTitle = payload.sections
+      .flatMap((section) => section.lectures)
+      .find((lecture) => lecture.key === problem.lectureKey)
+      ?.title?.trim();
+
+    return {
+      ...problem,
+      title: problem.title?.trim() || lectureTitle || '문제',
+    };
+  }),
   sections: payload.sections.map((section) => ({
     ...section,
     lectures: section.lectures.map((lecture) => ({
@@ -448,10 +485,7 @@ const formatDraftDurationLabel = (durationSeconds: number | null): string => {
     return '자동 반영 대기';
   }
 
-  const totalMinutes = Math.floor(durationSeconds / 60);
-  if (totalMinutes <= 0) {
-    return `${String(durationSeconds)}초`;
-  }
+  const totalMinutes = Math.ceil(durationSeconds / 60);
 
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -464,6 +498,28 @@ const formatDraftDurationLabel = (durationSeconds: number | null): string => {
   }
 
   return `${String(totalMinutes)}분`;
+};
+
+const formatDurationMinutesInput = (durationSeconds: number | null): string => {
+  if (durationSeconds === null) {
+    return '';
+  }
+
+  return String(Math.ceil(durationSeconds / 60));
+};
+
+const parseDurationMinutesInput = (value: string): number | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return Math.floor(parsed) * 60;
 };
 
 const formatDraftLectureCardLabel = (
@@ -510,7 +566,7 @@ const formatUploadStatusLabel = (
     return '업로드 중';
   }
   if (status === 'PROCESSING') {
-    return '처리 중';
+    return '처리중';
   }
   if (status === 'READY') {
     return readyFallback;
@@ -520,6 +576,9 @@ const formatUploadStatusLabel = (
   }
   return '미설정';
 };
+
+const isUploadInProgress = (status: AdminDraftUploadStatus | null): boolean =>
+  status === 'UPLOADING' || status === 'PROCESSING';
 
 const programTypeOptions = [
   { value: 'ONLINE', label: '온라인' },
@@ -547,6 +606,8 @@ const mediaTypeOptions = [
 ] as const;
 
 const PROGRAM_CREATE_WORKSPACE_PATH_PREFIX = routePaths.adminProgramCreate;
+const PROGRAM_EDIT_WORKSPACE_PATH_PATTERN =
+  /^\/admin\/programs\/[^/]+\/(edit|curriculum|problems|resources)$/;
 
 const toDateTimeLocal = (value: string | null): string => {
   if (!value) {
@@ -602,6 +663,90 @@ const toIsoStringOrNull = (value: string): string | null => {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
+const toStartOfDayIsoStringOrNull = (value: string): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const date = new Date(`${trimmed}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+const toEndOfDayIsoStringOrNull = (value: string): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const date = new Date(`${trimmed}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+const addMonths = (value: Date, amount: number): Date => {
+  return new Date(value.getFullYear(), value.getMonth() + amount, 1);
+};
+
+const formatProgramRecruitmentRangeText = (startDate: string, endDate: string): string => {
+  if (!startDate && !endDate) {
+    return '상시 모집';
+  }
+
+  if (startDate && endDate) {
+    return `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
+  }
+
+  if (startDate) {
+    return `${formatDate(startDate)}부터`;
+  }
+
+  return `${formatDate(endDate)}까지`;
+};
+
+const isDateInRange = (date: string, startDate: string, endDate: string): boolean => {
+  if (!startDate) {
+    return false;
+  }
+
+  if (!endDate) {
+    return date === startDate;
+  }
+
+  return date >= startDate && date <= endDate;
+};
+
+const parseNonNegativeIntegerInput = (value: string, label: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { errorMessage: undefined, value: null };
+  }
+
+  if (!/^\d+$/.test(trimmed)) {
+    return { errorMessage: `${label}는 숫자만 입력해 주세요.`, value: null };
+  }
+
+  return { errorMessage: undefined, value: Number(trimmed) };
+};
+
+const parseDiscountPercentInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { errorMessage: undefined, value: null };
+  }
+
+  if (!/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    return { errorMessage: '할인율은 숫자만 입력해 주세요.', value: null };
+  }
+
+  const percent = Number(trimmed);
+  if (percent > 100) {
+    return { errorMessage: '할인율은 100% 이하로 입력해 주세요.', value: null };
+  }
+
+  return { errorMessage: undefined, value: percent };
+};
+
 const formatDateTime = (value: string | null | undefined): string => {
   if (!value) {
     return '아직 저장되지 않음';
@@ -609,6 +754,7 @@ const formatDateTime = (value: string | null | undefined): string => {
 
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
+    hour12: false,
     timeStyle: 'short',
   }).format(new Date(value));
 };
@@ -622,6 +768,9 @@ const stripETagQuotes = (value: string): string => value.replace(/^"+|"+$/g, '')
 const isProgramCreateWorkspacePath = (pathname: string): boolean =>
   pathname === PROGRAM_CREATE_WORKSPACE_PATH_PREFIX ||
   pathname.startsWith(`${PROGRAM_CREATE_WORKSPACE_PATH_PREFIX}/`);
+
+const isProgramWorkspacePath = (pathname: string): boolean =>
+  isProgramCreateWorkspacePath(pathname) || PROGRAM_EDIT_WORKSPACE_PATH_PATTERN.test(pathname);
 
 const buildCreateWorkspaceSnapshotKey = (draftId: number): string =>
   `admin-program-create-workspace:${String(draftId)}`;
@@ -681,6 +830,14 @@ const uploadPart = async (uploadUrl: string, chunk: Blob, contentType: string): 
   return stripETagQuotes(eTag);
 };
 
+const formatProgressLabel = (label: string, progressPercent: number | null | undefined): string => {
+  if (progressPercent === null || progressPercent === undefined) {
+    return label;
+  }
+
+  return `${label} ${String(Math.max(0, Math.min(100, Math.round(progressPercent))))}%`;
+};
+
 const buildVideoChunks = (
   file: File,
   parts: ReadonlyArray<{ partNumber: number; uploadUrl: string }>,
@@ -715,6 +872,7 @@ const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgr
           label: `학습 성과 ${String(index + 1)}`,
           value: item,
         })),
+      programType: nextPayload.basicInfo?.programType ?? 'ONLINE',
       recommendedFor: nextPayload.basicInfo?.recommendedFor ?? [],
       summaryItems: nextPayload.basicInfo?.summaryItems ?? [],
     },
@@ -751,14 +909,23 @@ const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgr
   };
 };
 
-const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWorkspaceProps) => {
+const AdminProgramCreateWorkspace = ({
+  mode = 'create',
+  view = 'details',
+}: AdminProgramCreateWorkspaceProps) => {
   const navigate = useNavigate();
+  const params = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const requestedDraftId = Number(searchParams.get('draftId') ?? '');
   const draftId =
     Number.isFinite(requestedDraftId) && requestedDraftId > 0 ? requestedDraftId : null;
+  const requestedEditProgramId = Number(params['programId'] ?? '');
+  const editProgramId =
+    mode === 'edit' && Number.isFinite(requestedEditProgramId) && requestedEditProgramId > 0
+      ? requestedEditProgramId
+      : null;
   const detailQuery = useAdminProgramDraftDetailQuery(draftId, draftId !== null);
   const categoriesQuery = useAdminCategoriesTreeQuery(true);
   const [payload, setPayload] = useState<AdminProgramDraftPayload | null>(null);
@@ -771,16 +938,33 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   const [pendingVideoSelections, setPendingVideoSelections] = useState<
     Record<string, PendingLocalFile>
   >({});
+  const [lectureVideoProgressByKey, setLectureVideoProgressByKey] = useState<
+    Record<string, number>
+  >({});
   const [lectureVideoSizeLabels, setLectureVideoSizeLabels] = useState<Record<string, string>>({});
   const [pendingResourceSelections, setPendingResourceSelections] = useState<
     Record<string, PendingLocalFile>
   >({});
+  const [pendingThumbnailSelection, setPendingThumbnailSelection] =
+    useState<PendingThumbnailFile | null>(null);
+  const [numericInputValues, setNumericInputValues] = useState<
+    Record<NumericBasicInfoField, string>
+  >({
+    accessDays: '',
+    maxStudents: '',
+    price: '',
+  });
+  const [discountPercentInput, setDiscountPercentInput] = useState('');
+  const [basicInfoErrors, setBasicInfoErrors] = useState<Record<string, string | undefined>>({});
   const [expandedSectionKeys, setExpandedSectionKeys] = useState<string[]>([]);
   const [expandedLectureKeys, setExpandedLectureKeys] = useState<string[]>([]);
   const [openLectureTypeMenuSectionKey, setOpenLectureTypeMenuSectionKey] = useState<string | null>(
     null,
   );
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const [recruitmentCalendarMonth, setRecruitmentCalendarMonth] = useState(() => new Date());
+  const [isRecruitmentDatePickerOpen, setIsRecruitmentDatePickerOpen] = useState(false);
+  const [hoveredRecruitmentDate, setHoveredRecruitmentDate] = useState<string | null>(null);
   const [uploadProgressModal, setUploadProgressModal] = useState<UploadProgressModalState | null>(
     null,
   );
@@ -792,12 +976,26 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   const bypassNavigationBlockRef = useRef(false);
   const lectureTypeMenuRef = useRef<HTMLDivElement | null>(null);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
+  const numericInputsInitializedForDraftRef = useRef<number | null>(null);
 
   const createDraftMutation = useMutation({
-    mutationFn: () => createAdminProgramDraft(),
+    mutationFn: () => {
+      if (mode === 'edit') {
+        if (editProgramId === null) {
+          throw new Error('수정할 프로그램을 찾지 못했습니다.');
+        }
+        return createAdminProgramEditDraft(editProgramId);
+      }
+      return createAdminProgramDraft();
+    },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '프로그램 초안을 생성하지 못했습니다.',
+        message:
+          error instanceof Error
+            ? error.message
+            : mode === 'edit'
+              ? '프로그램 수정 초안을 생성하지 못했습니다.'
+              : '프로그램 초안을 생성하지 못했습니다.',
         variant: 'error',
       });
     },
@@ -853,17 +1051,20 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
 
   const finalizeMutation = useMutation({
     mutationFn: async (targetDraftId: number) => {
-      if (payload) {
-        const serializedPayload = JSON.stringify(payload);
-        if (serializedPayload !== lastSavedPayloadRef.current) {
-          await saveMutation.mutateAsync({ draftId: targetDraftId, nextPayload: payload });
-        }
+      const saved = await flushPendingDraftSave();
+      if (!saved) {
+        throw new Error('입력값 또는 업로드 항목을 확인해 주세요.');
       }
       return finalizeAdminProgramDraft(targetDraftId);
     },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '프로그램 등록을 완료하지 못했습니다.',
+        message:
+          error instanceof Error
+            ? error.message
+            : mode === 'edit'
+              ? '프로그램 수정을 완료하지 못했습니다.'
+              : '프로그램 등록을 완료하지 못했습니다.',
         variant: 'error',
       });
     },
@@ -873,7 +1074,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         queryClient.invalidateQueries({ queryKey: adminProgramDraftsQueryKey() }),
       ]);
       showToast({
-        message: '프로그램 등록을 완료했습니다. 숨김 상태로 생성되었습니다.',
+        message:
+          mode === 'edit'
+            ? '프로그램 수정을 완료했습니다.'
+            : '프로그램 등록을 완료했습니다. 숨김 상태로 생성되었습니다.',
         variant: 'success',
       });
       clearCreateWorkspaceSnapshot(targetDraftId);
@@ -885,14 +1089,20 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     mutationFn: (targetDraftId: number) => discardAdminProgramDraft(targetDraftId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '프로그램 초안을 폐기하지 못했습니다.',
+        message:
+          error instanceof Error
+            ? error.message
+            : mode === 'edit'
+              ? '프로그램 수정 초안을 폐기하지 못했습니다.'
+              : '프로그램 초안을 폐기하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async (_, targetDraftId) => {
       await queryClient.invalidateQueries({ queryKey: adminProgramDraftsQueryKey() });
       showToast({
-        message: '프로그램 초안을 폐기했습니다.',
+        message:
+          mode === 'edit' ? '프로그램 수정 초안을 폐기했습니다.' : '프로그램 초안을 폐기했습니다.',
         variant: 'success',
       });
       clearCreateWorkspaceSnapshot(targetDraftId);
@@ -906,6 +1116,35 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     () => getAllowedLectureTypes(payload?.basicInfo.programType ?? null),
     [payload?.basicInfo.programType],
   );
+  const recruitmentRightCalendarMonth = useMemo(
+    () => addMonths(recruitmentCalendarMonth, 1),
+    [recruitmentCalendarMonth],
+  );
+  const recruitmentLeftCalendarCells = useMemo(
+    () => buildCalendarCells(toMonthValue(recruitmentCalendarMonth)),
+    [recruitmentCalendarMonth],
+  );
+  const recruitmentRightCalendarCells = useMemo(
+    () => buildCalendarCells(toMonthValue(recruitmentRightCalendarMonth)),
+    [recruitmentRightCalendarMonth],
+  );
+  const recruitmentStartDate = toDateInputValue(payload?.basicInfo.saleStartAt ?? null);
+  const recruitmentEndDate = toDateInputValue(
+    payload?.basicInfo.saleEndAt
+      ? new Date(Date.parse(payload.basicInfo.saleEndAt) - 1).toISOString()
+      : null,
+  );
+  const visibleRecruitmentRangeText = formatProgramRecruitmentRangeText(
+    recruitmentStartDate,
+    recruitmentEndDate,
+  );
+  const previewRecruitmentEndDate =
+    recruitmentEndDate ||
+    (recruitmentStartDate &&
+    hoveredRecruitmentDate &&
+    hoveredRecruitmentDate >= recruitmentStartDate
+      ? hoveredRecruitmentDate
+      : '');
   const offlineScheduleMinDate = toDateInputValue(payload?.basicInfo.learningStartAt ?? null);
   const offlineScheduleMaxDate = toDateInputValue(payload?.basicInfo.learningEndAt ?? null);
   const hasOfflineSchedulePeriod =
@@ -920,8 +1159,8 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         !bypassNavigationBlockRef.current &&
         hasUnsavedChanges &&
         !(
-          isProgramCreateWorkspacePath(currentLocation.pathname) &&
-          isProgramCreateWorkspacePath(nextLocation.pathname)
+          isProgramWorkspacePath(currentLocation.pathname) &&
+          isProgramWorkspacePath(nextLocation.pathname)
         ) &&
         (currentLocation.pathname !== nextLocation.pathname ||
           currentLocation.search !== nextLocation.search ||
@@ -938,7 +1177,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
 
     hasRequestedDraftRef.current = true;
     createDraftMutation.mutate();
-  }, [createDraftMutation, draftId]);
+  }, [createDraftMutation, draftId, editProgramId, mode]);
 
   useEffect(() => {
     if (openLectureTypeMenuSectionKey === null) {
@@ -997,6 +1236,38 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     });
     setSaveState(serializedPayload === lastSavedPayloadRef.current ? 'saved' : 'dirty');
   }, [draftId, lastSavedAt, payload]);
+
+  useEffect(() => {
+    if (
+      draftId === null ||
+      payload === null ||
+      numericInputsInitializedForDraftRef.current === draftId
+    ) {
+      return;
+    }
+
+    numericInputsInitializedForDraftRef.current = draftId;
+    setNumericInputValues({
+      accessDays: payload.basicInfo.accessDays === null ? '' : String(payload.basicInfo.accessDays),
+      maxStudents:
+        payload.basicInfo.maxStudents === null ? '' : String(payload.basicInfo.maxStudents),
+      price: payload.basicInfo.price === null ? '' : String(payload.basicInfo.price),
+    });
+    setDiscountPercentInput(
+      formatDiscountPercent(payload.basicInfo.price, payload.basicInfo.salePrice),
+    );
+    setBasicInfoErrors({});
+  }, [draftId, payload]);
+
+  useEffect(() => {
+    const previewObjectUrl = pendingThumbnailSelection?.previewObjectUrl;
+
+    return () => {
+      if (previewObjectUrl) {
+        URL.revokeObjectURL(previewObjectUrl);
+      }
+    };
+  }, [pendingThumbnailSelection?.previewObjectUrl]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -1098,20 +1369,12 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     }));
   };
 
-  const handleProgramThumbnailFileChange = async (file: File | null) => {
-    if (!file) {
-      return;
+  const uploadPendingProgramThumbnail = async (): Promise<boolean> => {
+    if (!pendingThumbnailSelection) {
+      return true;
     }
 
-    const validationMessage = validateProgramThumbnailFile(file);
-    if (validationMessage) {
-      showToast({
-        message: validationMessage,
-        variant: 'error',
-      });
-      return;
-    }
-
+    const file = pendingThumbnailSelection.file;
     setIsUploadingThumbnail(true);
     setUploadProgressModal({
       description: '대표 이미지 업로드가 끝날 때까지 잠시 기다려 주세요.',
@@ -1135,20 +1398,160 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
           thumbnailUrl: uploadTarget.storageUrl,
         },
       }));
-
-      showToast({
-        message: '대표 이미지를 업로드했습니다.',
-        variant: 'success',
-      });
+      setPendingThumbnailSelection(null);
+      return true;
     } catch (error: unknown) {
       showToast({
         message: error instanceof Error ? error.message : '대표 이미지 업로드에 실패했습니다.',
         variant: 'error',
       });
+      return false;
     } finally {
       setIsUploadingThumbnail(false);
       setUploadProgressModal(null);
     }
+  };
+
+  const validateBasicInfoInputs = (): boolean => {
+    const nextErrors: Record<string, string | undefined> = {};
+
+    if (numericInputValues.price.trim() && !/^\d+$/.test(numericInputValues.price.trim())) {
+      nextErrors['price'] = '정가는 숫자만 입력해 주세요.';
+    }
+    if (
+      numericInputValues.maxStudents.trim() &&
+      !/^\d+$/.test(numericInputValues.maxStudents.trim())
+    ) {
+      nextErrors['maxStudents'] = '정원은 숫자만 입력해 주세요.';
+    }
+    if (
+      numericInputValues.accessDays.trim() &&
+      !/^\d+$/.test(numericInputValues.accessDays.trim())
+    ) {
+      nextErrors['accessDays'] = '수강 가능 일수는 숫자만 입력해 주세요.';
+    }
+    if (
+      discountPercentInput.trim() &&
+      (!/^\d+(?:\.\d+)?$/.test(discountPercentInput.trim()) ||
+        Number(discountPercentInput.trim()) > 100)
+    ) {
+      nextErrors['discountPercent'] = '할인율은 0부터 100까지 숫자로 입력해 주세요.';
+    }
+
+    setBasicInfoErrors(nextErrors);
+    return Object.values(nextErrors).every((message) => !message);
+  };
+
+  const handleProgramThumbnailFileChange = (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    const validationMessage = validateProgramThumbnailFile(file);
+    if (validationMessage) {
+      showToast({
+        message: validationMessage,
+        variant: 'error',
+      });
+      return;
+    }
+
+    const previewObjectUrl =
+      typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null;
+    setPendingThumbnailSelection({
+      file,
+      previewObjectUrl,
+      sizeLabel: `${formatFileSizeInMb(file.size)} MB`,
+    });
+    updatePayload((current) => ({
+      ...current,
+      basicInfo: {
+        ...current.basicInfo,
+        thumbnailPreviewUrl: previewObjectUrl,
+        thumbnailUrl: null,
+      },
+    }));
+  };
+
+  const handleNumericBasicInfoChange = (
+    field: NumericBasicInfoField,
+    label: string,
+    value: string,
+  ) => {
+    setNumericInputValues((current) => ({ ...current, [field]: value }));
+    const parsed = parseNonNegativeIntegerInput(value, label);
+    setBasicInfoErrors((current) => ({ ...current, [field]: parsed.errorMessage }));
+    if (!parsed.errorMessage) {
+      updateBasicInfo(field, parsed.value);
+    }
+  };
+
+  const handleDiscountPercentChange = (value: string) => {
+    setDiscountPercentInput(value);
+    const parsed = parseDiscountPercentInput(value);
+    setBasicInfoErrors((current) => ({ ...current, discountPercent: parsed.errorMessage }));
+    if (!parsed.errorMessage) {
+      updateBasicInfo(
+        'salePrice',
+        parsed.value === null
+          ? null
+          : calculateSalePriceFromPercent(payload?.basicInfo.price ?? null, value),
+      );
+    }
+  };
+
+  const handleRecruitmentDateSelect = (dateValue: string) => {
+    updatePayload((current) => {
+      const currentStartDate = toDateInputValue(current.basicInfo.saleStartAt);
+      const currentEndDate = toDateInputValue(
+        current.basicInfo.saleEndAt
+          ? new Date(Date.parse(current.basicInfo.saleEndAt) - 1).toISOString()
+          : null,
+      );
+
+      if (!currentStartDate || currentEndDate) {
+        return {
+          ...current,
+          basicInfo: {
+            ...current.basicInfo,
+            saleEndAt: null,
+            saleStartAt: toStartOfDayIsoStringOrNull(dateValue),
+          },
+        };
+      }
+
+      if (dateValue < currentStartDate) {
+        return {
+          ...current,
+          basicInfo: {
+            ...current.basicInfo,
+            saleEndAt: null,
+            saleStartAt: toStartOfDayIsoStringOrNull(dateValue),
+          },
+        };
+      }
+
+      setIsRecruitmentDatePickerOpen(false);
+
+      return {
+        ...current,
+        basicInfo: {
+          ...current.basicInfo,
+          saleEndAt: toEndOfDayIsoStringOrNull(dateValue),
+        },
+      };
+    });
+  };
+
+  const resetRecruitmentRange = () => {
+    updatePayload((current) => ({
+      ...current,
+      basicInfo: {
+        ...current.basicInfo,
+        saleEndAt: null,
+        saleStartAt: null,
+      },
+    }));
   };
 
   const updateStringList = (
@@ -1452,10 +1855,17 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     updater: (problem: AdminProgramDraftProblem) => AdminProgramDraftProblem,
   ) => {
     updatePayload((current) => {
+      const lectureTitle = current.sections
+        .flatMap((section) => section.lectures)
+        .find((lecture) => lecture.key === lectureKey)
+        ?.title?.trim();
       const existingProblem =
         current.problems.find((problem) => problem.lectureKey === lectureKey) ??
         createEmptyProblem(lectureKey);
-      const nextProblem = updater(existingProblem);
+      const nextProblem = updater({
+        ...existingProblem,
+        title: existingProblem.title?.trim() || lectureTitle || '문제',
+      });
       const hasProblem = current.problems.some((problem) => problem.lectureKey === lectureKey);
 
       return {
@@ -1651,6 +2061,20 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       <div className={styles['lectureWorkspaceSection']}>
         {problem ? (
           <div className={styles['stackListCompact']}>
+            <div className={styles['inlineFieldGrid']}>
+              <TextAreaField
+                label='문제 설명'
+                name={`problem-description-${lectureKey}`}
+                onChange={(event) => {
+                  upsertProblem(lectureKey, (current) => ({
+                    ...current,
+                    description: event.target.value || null,
+                  }));
+                }}
+                rows={2}
+                value={problem.description ?? ''}
+              />
+            </div>
             {problem.questions.map((question, questionIndex) => {
               const uploadKey = `${lectureKey}:${String(questionIndex)}`;
               const pendingQuestionMediaSelection =
@@ -2096,11 +2520,39 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   };
 
   const flushPendingDraftSave = async (): Promise<boolean> => {
-    if (draftId === null || payload === null) {
+    if (draftId === null || currentPayloadRef.current === null) {
       return true;
     }
 
-    const serializedPayload = JSON.stringify(payload);
+    if (!validateBasicInfoInputs()) {
+      showToast({
+        message: '숫자 입력값을 확인해 주세요.',
+        variant: 'error',
+      });
+      return false;
+    }
+
+    if (pendingThumbnailSelection) {
+      const uploaded = await uploadPendingProgramThumbnail();
+      if (!uploaded) {
+        return false;
+      }
+    }
+
+    const nextPayload =
+      mode === 'create'
+        ? withServerManagedSlug(currentPayloadRef.current)
+        : currentPayloadRef.current;
+    if (nextPayload === null) {
+      return false;
+    }
+
+    if (nextPayload !== currentPayloadRef.current) {
+      currentPayloadRef.current = nextPayload;
+      setPayload(nextPayload);
+    }
+
+    const serializedPayload = JSON.stringify(nextPayload);
     if (serializedPayload === lastSavedPayloadRef.current) {
       return true;
     }
@@ -2108,7 +2560,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     setSaveState('saving');
 
     try {
-      await saveMutation.mutateAsync({ draftId, nextPayload: payload });
+      await saveMutation.mutateAsync({ draftId, nextPayload });
       return true;
     } catch {
       return false;
@@ -2128,7 +2580,13 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       return;
     }
 
-    if (!window.confirm('작성 중인 초안을 폐기하면 되돌릴 수 없습니다. 계속하시겠습니까?')) {
+    if (
+      !window.confirm(
+        mode === 'edit'
+          ? '작성 중인 수정 초안을 폐기하면 저장하지 않은 수정 내용이 사라집니다. 계속하시겠습니까?'
+          : '작성 중인 초안을 폐기하면 되돌릴 수 없습니다. 계속하시겠습니까?',
+      )
+    ) {
       return;
     }
 
@@ -2165,19 +2623,27 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     }
   };
 
-  const pollVideoReady = async (videoId: number): Promise<number | null> => {
-    for (let attempt = 0; attempt < 120; attempt += 1) {
+  const pollVideoReady = async (videoId: number, lectureKey: string): Promise<number | null> => {
+    for (;;) {
       const status = await fetchAdminVideoStatus(videoId);
+      if (status.status === 'PROCESSING' && status.progressPercent !== null) {
+        setLectureVideoProgressByKey((current) => ({
+          ...current,
+          [lectureKey]: status.progressPercent ?? current[lectureKey] ?? 0,
+        }));
+      }
       if (status.status === 'READY') {
+        setLectureVideoProgressByKey((current) => ({
+          ...current,
+          [lectureKey]: 100,
+        }));
         return status.durationSeconds;
       }
       if (status.status === 'FAILED') {
         throw new Error(status.errorMessage || '영상 인코딩에 실패했습니다.');
       }
-      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, VIDEO_ENCODING_POLL_INTERVAL_MS));
     }
-
-    throw new Error('영상 인코딩 대기 시간이 초과되었습니다.');
   };
 
   const handleLectureVideoSelection = (lectureKey: string, file: File) => {
@@ -2222,15 +2688,15 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       return;
     }
 
-    setUploadProgressModal({
-      description: '영상 업로드와 인코딩이 끝날 때까지 잠시 기다려 주세요.',
-      title: '동영상 업로드 중',
-    });
-
     try {
       if (draftId === null) {
         throw new Error('프로그램 초안을 먼저 저장해 주세요.');
       }
+
+      showToast({
+        message: '영상 업로드와 인코딩을 백그라운드에서 진행합니다.',
+        variant: 'success',
+      });
 
       updatePayload((current) => ({
         ...current,
@@ -2256,6 +2722,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         status: 'UPLOADING',
         videoId: null,
       });
+      setLectureVideoProgressByKey((current) => ({
+        ...current,
+        [lectureKey]: 0,
+      }));
       setPendingVideoSelections((current) => {
         const next = { ...current };
         delete next[lectureKey];
@@ -2270,17 +2740,30 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       });
 
       const chunks = buildVideoChunks(file, session.parts);
+      let completedUploadPartCount = 0;
       const completedParts = await Promise.all(
-        chunks.map(async (chunk) => ({
-          eTag: await uploadPart(
+        chunks.map(async (chunk) => {
+          const eTag = await uploadPart(
             chunk.uploadUrl,
             chunk.blob,
             file.type || 'application/octet-stream',
-          ),
-          partNumber: chunk.partNumber,
-        })),
+          );
+          completedUploadPartCount += 1;
+          setLectureVideoProgressByKey((current) => ({
+            ...current,
+            [lectureKey]: Math.round((completedUploadPartCount / chunks.length) * 100),
+          }));
+          return {
+            eTag,
+            partNumber: chunk.partNumber,
+          };
+        }),
       );
 
+      setLectureVideoProgressByKey((current) => ({
+        ...current,
+        [lectureKey]: 0,
+      }));
       updatePayload((current) => ({
         ...current,
         sections: current.sections.map((section) => ({
@@ -2308,7 +2791,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         uploadId: session.uploadId,
       });
       await startAdminVideoEncoding(session.videoId);
-      const durationSeconds = await pollVideoReady(session.videoId);
+      const durationSeconds = await pollVideoReady(session.videoId, lectureKey);
 
       updateLecture(sectionKey, lectureKey, (lecture) => ({
         ...lecture,
@@ -2324,6 +2807,11 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
         fileName: file.name,
         status: 'READY',
         videoId: session.videoId,
+      });
+      setLectureVideoProgressByKey((current) => {
+        const next = { ...current };
+        delete next[lectureKey];
+        return next;
       });
       showToast({
         message: '강의 영상을 초안에 연결했습니다.',
@@ -2361,12 +2849,15 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
           // Preserve local failure state even if status persistence fails.
         }
       }
+      setLectureVideoProgressByKey((current) => {
+        const next = { ...current };
+        delete next[lectureKey];
+        return next;
+      });
       showToast({
         message: error instanceof Error ? error.message : '강의 영상 업로드에 실패했습니다.',
         variant: 'error',
       });
-    } finally {
-      setUploadProgressModal(null);
     }
   };
 
@@ -2637,6 +3128,14 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
   );
   const activeView: Exclude<AdminProgramCreateView, 'problems' | 'resources'> =
     view === 'problems' || view === 'resources' ? 'curriculum' : view;
+  const baseDetailsPath =
+    mode === 'edit' && editProgramId !== null
+      ? routePaths.adminProgramEdit(String(editProgramId))
+      : routePaths.adminProgramCreate;
+  const baseCurriculumPath =
+    mode === 'edit' && editProgramId !== null
+      ? routePaths.adminProgramCurriculum(String(editProgramId))
+      : routePaths.adminProgramCreateCurriculum;
   const createTabs: ReadonlyArray<{
     key: Exclude<AdminProgramCreateView, 'problems' | 'resources'>;
     label: string;
@@ -2645,12 +3144,12 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
     {
       key: 'details',
       label: '기본정보',
-      path: `${routePaths.adminProgramCreate}${createDraftSearch}`,
+      path: `${baseDetailsPath}${createDraftSearch}`,
     },
     {
       key: 'curriculum',
-      label: '커리큘럼',
-      path: `${routePaths.adminProgramCreateCurriculum}${createDraftSearch}`,
+      label: '강의 구성',
+      path: `${baseCurriculumPath}${createDraftSearch}`,
     },
   ];
 
@@ -2677,7 +3176,11 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
               type='button'
               variant='secondary'
             >
-              {saveMutation.isPending ? '저장 중...' : '임시저장'}
+              {saveMutation.isPending
+                ? '저장 중...'
+                : mode === 'edit'
+                  ? '수정사항 저장'
+                  : '임시저장'}
             </Button>
             <Button
               disabled={
@@ -2692,7 +3195,13 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
               }}
               type='button'
             >
-              {finalizeMutation.isPending ? '등록 중...' : '등록 완료'}
+              {finalizeMutation.isPending
+                ? mode === 'edit'
+                  ? '반영 중...'
+                  : '등록 중...'
+                : mode === 'edit'
+                  ? '수정 완료'
+                  : '등록 완료'}
             </Button>
             <Button
               disabled={discardMutation.isPending || finalizeMutation.isPending}
@@ -2700,7 +3209,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
               type='button'
               variant='danger'
             >
-              초안 폐기
+              {mode === 'edit' ? '수정 취소' : '초안 폐기'}
             </Button>
           </div>
         </div>
@@ -2794,7 +3303,10 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
       ) : null}
 
       <section className={styles['editorWorkspacePanel']}>
-        <nav aria-label='새 프로그램 등록 섹션' className={styles['workspaceTabs']}>
+        <nav
+          aria-label={mode === 'edit' ? '프로그램 수정 섹션' : '새 프로그램 등록 섹션'}
+          className={styles['workspaceTabs']}
+        >
           <div className={styles['workspaceTabGroup']}>
             {createTabs.map((tab) => (
               <button
@@ -2850,17 +3362,17 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       label='프로그램명'
                       name='draft-title'
                       onChange={(event) => {
-                        updateBasicInfo('title', event.target.value);
+                        const nextTitle = event.target.value;
+                        updatePayload((current) => ({
+                          ...current,
+                          basicInfo: {
+                            ...current.basicInfo,
+                            slug: mode === 'create' ? null : current.basicInfo.slug,
+                            title: nextTitle,
+                          },
+                        }));
                       }}
                       value={payload.basicInfo.title ?? ''}
-                    />
-                    <TextField
-                      label='슬러그'
-                      name='draft-slug'
-                      onChange={(event) => {
-                        updateBasicInfo('slug', event.target.value);
-                      }}
-                      value={payload.basicInfo.slug ?? ''}
                     />
                   </div>
 
@@ -2869,7 +3381,20 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       compact
                       label='프로그램 형태'
                       onChange={(nextValue) => {
-                        updateBasicInfo('programType', nextValue as AdminProgramType);
+                        updatePayload((current) => ({
+                          ...current,
+                          basicInfo: {
+                            ...current.basicInfo,
+                            accessDays:
+                              nextValue === 'OFFLINE' ? null : current.basicInfo.accessDays,
+                            accessPolicy:
+                              nextValue === 'OFFLINE' ? 'COHORT' : current.basicInfo.accessPolicy,
+                            programType: nextValue as AdminProgramType,
+                          },
+                        }));
+                        if (nextValue === 'OFFLINE') {
+                          setNumericInputValues((current) => ({ ...current, accessDays: '' }));
+                        }
                       }}
                       options={programTypeOptions}
                       value={payload.basicInfo.programType ?? 'ONLINE'}
@@ -2891,7 +3416,18 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       disabled={payload.basicInfo.programType === 'OFFLINE'}
                       label='수강 정책'
                       onChange={(nextValue) => {
-                        updateBasicInfo('accessPolicy', nextValue as AdminProgramAccessPolicy);
+                        updatePayload((current) => ({
+                          ...current,
+                          basicInfo: {
+                            ...current.basicInfo,
+                            accessDays:
+                              nextValue === 'FIXED_DURATION' ? current.basicInfo.accessDays : null,
+                            accessPolicy: nextValue as AdminProgramAccessPolicy,
+                          },
+                        }));
+                        if (nextValue !== 'FIXED_DURATION') {
+                          setNumericInputValues((current) => ({ ...current, accessDays: '' }));
+                        }
                       }}
                       options={accessPolicyOptions}
                       value={
@@ -2916,7 +3452,8 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       <div className={styles['mediaFieldCopy']}>
                         <p className={styles['fieldLabel']}>대표 이미지</p>
                         <p className={styles['mediaFieldHint']}>
-                          프로그램 카드와 상세 상단에 노출될 이미지를 업로드합니다.
+                          프로그램 카드와 상세 상단에 노출될 이미지를 선택합니다. 실제 업로드는
+                          임시저장 또는 등록 완료 시 진행됩니다.
                         </p>
                       </div>
                     </div>
@@ -2925,7 +3462,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                       className={styles['thumbnailFileInput']}
                       name='draft-thumbnail-file'
                       onChange={(event) => {
-                        void handleProgramThumbnailFileChange(event.target.files?.[0] ?? null);
+                        handleProgramThumbnailFileChange(event.target.files?.[0] ?? null);
                         event.currentTarget.value = '';
                       }}
                       ref={thumbnailInputRef}
@@ -2955,6 +3492,12 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
 
                       <div className={styles['thumbnailPreviewMeta']}>
                         <p className={styles['thumbnailPreviewTitle']}>대표 이미지 미리보기</p>
+                        {pendingThumbnailSelection ? (
+                          <p className={styles['thumbnailFileCaption']}>
+                            업로드 대기 중 · {pendingThumbnailSelection.file.name} ·{' '}
+                            {pendingThumbnailSelection.sizeLabel}
+                          </p>
+                        ) : null}
                         <div className={styles['thumbnailActionRow']}>
                           <Button
                             disabled={isUploadingThumbnail}
@@ -2979,6 +3522,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                     thumbnailUrl: null,
                                   },
                                 }));
+                                setPendingThumbnailSelection(null);
                               }}
                               size='sm'
                               type='button'
@@ -3016,95 +3560,207 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
+                      errorMessage={basicInfoErrors['price']}
+                      inputMode='numeric'
                       label='정가'
                       name='draft-price'
                       onChange={(event) => {
-                        updateBasicInfo(
-                          'price',
-                          event.target.value.trim() ? Number(event.target.value) : null,
-                        );
+                        handleNumericBasicInfoChange('price', '정가', event.target.value);
                       }}
-                      value={
-                        payload.basicInfo.price === null ? '' : String(payload.basicInfo.price)
-                      }
+                      value={numericInputValues.price}
                     />
                     <TextField
+                      errorMessage={basicInfoErrors['discountPercent']}
+                      inputMode='decimal'
                       label='할인율(%)'
                       name='draft-discount-percent'
                       onChange={(event) => {
-                        updateBasicInfo(
-                          'salePrice',
-                          calculateSalePriceFromPercent(
-                            payload.basicInfo.price,
-                            event.target.value,
-                          ),
-                        );
+                        handleDiscountPercentChange(event.target.value);
                       }}
-                      value={formatDiscountPercent(
-                        payload.basicInfo.price,
-                        payload.basicInfo.salePrice,
-                      )}
+                      value={discountPercentInput}
                     />
                   </div>
 
-                  <div className={styles['inlineFieldGrid']}>
+                  <div
+                    className={classNames(
+                      styles['inlineFieldGrid'],
+                      payload.basicInfo.accessPolicy !== 'FIXED_DURATION' &&
+                        styles['inlineFieldGridSingle'],
+                    )}
+                  >
                     <TextField
+                      errorMessage={basicInfoErrors['maxStudents']}
+                      inputMode='numeric'
                       label='정원'
                       name='draft-max-students'
                       onChange={(event) => {
-                        updateBasicInfo(
-                          'maxStudents',
-                          event.target.value.trim() ? Number(event.target.value) : null,
-                        );
+                        handleNumericBasicInfoChange('maxStudents', '정원', event.target.value);
                       }}
-                      value={
-                        payload.basicInfo.maxStudents === null
-                          ? ''
-                          : String(payload.basicInfo.maxStudents)
-                      }
+                      value={numericInputValues.maxStudents}
                     />
-                    <TextField
-                      label='수강일수'
-                      name='draft-access-days'
-                      onChange={(event) => {
-                        updateBasicInfo(
-                          'accessDays',
-                          event.target.value.trim() ? Number(event.target.value) : null,
-                        );
-                      }}
-                      value={
-                        payload.basicInfo.accessDays === null
-                          ? ''
-                          : String(payload.basicInfo.accessDays)
-                      }
-                    />
+                    {payload.basicInfo.accessPolicy === 'FIXED_DURATION' ? (
+                      <TextField
+                        errorMessage={basicInfoErrors['accessDays']}
+                        inputMode='numeric'
+                        label='수강 가능 일수'
+                        name='draft-access-days'
+                        onChange={(event) => {
+                          handleNumericBasicInfoChange(
+                            'accessDays',
+                            '수강 가능 일수',
+                            event.target.value,
+                          );
+                        }}
+                        value={numericInputValues.accessDays}
+                      />
+                    ) : null}
                   </div>
 
-                  <div className={styles['inlineFieldGrid']}>
-                    <TextField
-                      label='판매 시작일'
-                      name='draft-sale-start-at'
-                      onChange={(event) => {
-                        updateBasicInfo('saleStartAt', toIsoStringOrNull(event.target.value));
-                      }}
-                      type='datetime-local'
-                      value={toDateTimeLocal(payload.basicInfo.saleStartAt)}
-                    />
-                    <TextField
-                      label='판매 종료일'
-                      name='draft-sale-end-at'
-                      onChange={(event) => {
-                        updateBasicInfo('saleEndAt', toIsoStringOrNull(event.target.value));
-                      }}
-                      type='datetime-local'
-                      value={toDateTimeLocal(payload.basicInfo.saleEndAt)}
-                    />
+                  <div className={styles['popupDateRangeField']}>
+                    <p className={styles['fieldLabel']}>모집 기간</p>
+                    <div className={styles['popupDateRangePicker']}>
+                      <button
+                        className={classNames(
+                          styles['popupDateRangeTrigger'],
+                          isRecruitmentDatePickerOpen && styles['popupDateRangeTriggerActive'],
+                        )}
+                        onClick={() => {
+                          setIsRecruitmentDatePickerOpen((current) => !current);
+                        }}
+                        type='button'
+                      >
+                        <span aria-hidden='true' className={styles['popupDateRangeIcon']} />
+                        <span>{visibleRecruitmentRangeText}</span>
+                      </button>
+
+                      {isRecruitmentDatePickerOpen ? (
+                        <div
+                          className={styles['popupDateRangePopover']}
+                          onMouseLeave={() => {
+                            setHoveredRecruitmentDate(null);
+                          }}
+                        >
+                          <div className={styles['popupDateRangeCalendarGrid']}>
+                            {[
+                              {
+                                cells: recruitmentLeftCalendarCells,
+                                key: 'left',
+                                month: recruitmentCalendarMonth,
+                              },
+                              {
+                                cells: recruitmentRightCalendarCells,
+                                key: 'right',
+                                month: recruitmentRightCalendarMonth,
+                              },
+                            ].map((calendar) => (
+                              <div
+                                className={styles['paymentDatePickerCalendarPanel']}
+                                key={calendar.key}
+                              >
+                                <div className={styles['paymentDatePickerCalendarHead']}>
+                                  {calendar.key === 'left' ? (
+                                    <button
+                                      className={styles['paymentDatePickerNav']}
+                                      onClick={() => {
+                                        setRecruitmentCalendarMonth((previous) =>
+                                          addMonths(previous, -1),
+                                        );
+                                      }}
+                                      type='button'
+                                    >
+                                      이전
+                                    </button>
+                                  ) : (
+                                    <span className={styles['paymentDatePickerNavSpacer']} />
+                                  )}
+                                  <strong className={styles['paymentDatePickerMonthLabel']}>
+                                    {formatMonthLabel(toMonthValue(calendar.month))}
+                                  </strong>
+                                  {calendar.key === 'right' ? (
+                                    <button
+                                      className={styles['paymentDatePickerNav']}
+                                      onClick={() => {
+                                        setRecruitmentCalendarMonth((previous) =>
+                                          addMonths(previous, 1),
+                                        );
+                                      }}
+                                      type='button'
+                                    >
+                                      다음
+                                    </button>
+                                  ) : (
+                                    <span className={styles['paymentDatePickerNavSpacer']} />
+                                  )}
+                                </div>
+                                <div className={styles['paymentDatePickerWeekdays']}>
+                                  {calendarWeekdays.map((weekday) => (
+                                    <span key={weekday}>{weekday}</span>
+                                  ))}
+                                </div>
+                                <div className={styles['paymentDatePickerDays']}>
+                                  {calendar.cells.map((cell, cellIndex) => {
+                                    const dateValue = cell.date ?? '';
+                                    const selectedStart = dateValue === recruitmentStartDate;
+                                    const selectedEnd = dateValue === recruitmentEndDate;
+                                    const inRange =
+                                      cell.isCurrentMonth &&
+                                      isDateInRange(
+                                        dateValue,
+                                        recruitmentStartDate,
+                                        previewRecruitmentEndDate,
+                                      );
+
+                                    return (
+                                      <button
+                                        className={classNames(
+                                          styles['paymentDatePickerDay'],
+                                          !cell.isCurrentMonth &&
+                                            styles['paymentDatePickerDayOutside'],
+                                          inRange && styles['paymentDatePickerDayInRange'],
+                                          selectedStart &&
+                                            styles['paymentDatePickerDaySelectedStart'],
+                                          selectedEnd && styles['paymentDatePickerDaySelectedEnd'],
+                                        )}
+                                        disabled={!cell.isCurrentMonth}
+                                        key={`${calendar.key}-${String(cellIndex)}-${dateValue}`}
+                                        onClick={() => {
+                                          handleRecruitmentDateSelect(dateValue);
+                                        }}
+                                        onMouseEnter={() => {
+                                          setHoveredRecruitmentDate(dateValue);
+                                        }}
+                                        type='button'
+                                      >
+                                        {dateValue ? Number(dateValue.split('-')[2]) : ''}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className={styles['popupDateRangeActions']}>
+                            <Button
+                              onClick={() => {
+                                resetRecruitmentRange();
+                                setIsRecruitmentDatePickerOpen(false);
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              상시 모집
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
 
                   <p className={styles['policyHint']}>
                     {payload.basicInfo.programType === 'OFFLINE'
                       ? '오프라인 프로그램은 개강일이 지나면 관리자 화면에서 개강됨 상태로 표시됩니다.'
-                      : '온라인·하이브리드 프로그램은 판매 종료일을 비워 두면 상시 판매로 운영할 수 있습니다.'}
+                      : '모집 종료일을 비워 두면 상시 모집으로 운영할 수 있습니다.'}
                   </p>
 
                   <div className={styles['inlineFieldGrid']}>
@@ -3301,7 +3957,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
               <section className={styles['panel']}>
                 <div className={styles['panelToolbar']}>
                   <div>
-                    <h2 className={styles['panelTitle']}>커리큘럼</h2>
+                    <h2 className={styles['panelTitle']}>강의 구성</h2>
                     <p className={styles['metaText']}>
                       통합등록에서도 섹션이 최상위입니다. 각 섹션을 펼친 뒤 강의를 만들고{' '}
                       {getCurriculumGuideText(payload.basicInfo.programType ?? null)}
@@ -3325,7 +3981,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                 {`섹션 ${String(sectionIndex + 1)}`}
                               </span>
                               <span className={styles['curriculumLevelHint']}>
-                                커리큘럼 최상위 단위
+                                강의 구성 최상위 단위
                               </span>
                             </div>
                             <div className={styles['curriculumTitleRow']}>
@@ -3475,13 +4131,27 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                   pendingVideoSelections[lecture.key] ?? null;
                                 const lectureVideoStatus = pendingVideoSelection
                                   ? `업로드 대기 · ${pendingVideoSelection.sizeLabel}`
-                                  : formatUploadStatusLabel(
-                                      lecture.videoUploadStatus,
-                                      lecture.videoId
-                                        ? `연결 완료 · videoId ${String(lecture.videoId)}`
-                                        : '영상 미연결',
-                                      lecture.videoUploadErrorMessage,
-                                    );
+                                  : isUploadInProgress(lecture.videoUploadStatus)
+                                    ? formatProgressLabel(
+                                        formatUploadStatusLabel(
+                                          lecture.videoUploadStatus,
+                                          lecture.videoId
+                                            ? `연결 완료 · videoId ${String(lecture.videoId)}`
+                                            : '영상 미연결',
+                                          lecture.videoUploadErrorMessage,
+                                        ),
+                                        lectureVideoProgressByKey[lecture.key],
+                                      )
+                                    : formatUploadStatusLabel(
+                                        lecture.videoUploadStatus,
+                                        lecture.videoId
+                                          ? `연결 완료 · videoId ${String(lecture.videoId)}`
+                                          : '영상 미연결',
+                                        lecture.videoUploadErrorMessage,
+                                      );
+                                const isLectureVideoInProgress = isUploadInProgress(
+                                  lecture.videoUploadStatus,
+                                );
                                 const uploadedVideoName =
                                   pendingVideoSelection?.file.name ??
                                   lecture.videoUploadFileName ??
@@ -3609,7 +4279,7 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                               <div className={styles['compactFieldRow']}>
                                                 <div className={styles['compactTextField']}>
                                                   <TextField
-                                                    label='제한시간(초)'
+                                                    label='제한시간(분)'
                                                     name={`lecture-duration-${lecture.key}`}
                                                     onChange={(event) => {
                                                       updateLecture(
@@ -3617,17 +4287,16 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                         lecture.key,
                                                         (current) => ({
                                                           ...current,
-                                                          durationSeconds: event.target.value.trim()
-                                                            ? Number(event.target.value)
-                                                            : null,
+                                                          durationSeconds:
+                                                            parseDurationMinutesInput(
+                                                              event.target.value,
+                                                            ),
                                                         }),
                                                       );
                                                     }}
-                                                    value={
-                                                      lecture.durationSeconds === null
-                                                        ? ''
-                                                        : String(lecture.durationSeconds)
-                                                    }
+                                                    value={formatDurationMinutesInput(
+                                                      lecture.durationSeconds,
+                                                    )}
                                                   />
                                                 </div>
                                                 {supportsProblem ? (
@@ -3674,7 +4343,17 @@ const AdminProgramCreateWorkspace = ({ view = 'details' }: AdminProgramCreateWor
                                                     현재 상태
                                                   </span>
                                                   <strong className={styles['curriculumStatValue']}>
-                                                    {lectureVideoStatus}
+                                                    {isLectureVideoInProgress ? (
+                                                      <span className={styles['inlineStatus']}>
+                                                        <span
+                                                          aria-hidden='true'
+                                                          className={styles['inlineStatusSpinner']}
+                                                        />
+                                                        <span>{lectureVideoStatus}</span>
+                                                      </span>
+                                                    ) : (
+                                                      lectureVideoStatus
+                                                    )}
                                                   </strong>
                                                 </div>
                                                 <div className={styles['curriculumStatCard']}>

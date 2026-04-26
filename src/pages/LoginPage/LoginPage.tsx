@@ -9,28 +9,35 @@ import styles from './LoginPage.module.scss';
 
 const LoginPage = () => {
   return (
-    <section className={sharedStyles['page']}>
-      <div className={classNames(sharedStyles['shell'], sharedStyles['shellNarrow'])}>
+    <section className={classNames(sharedStyles['page'], styles['page'])}>
+      <div
+        className={classNames(sharedStyles['shell'], sharedStyles['shellNarrow'], styles['shell'])}
+      >
         <div className={classNames(sharedStyles['surface'], styles['surface'])}>
-          <header className={sharedStyles['header']}>
-            <h1 className={sharedStyles['title']}>로그인</h1>
+          <header className={classNames(sharedStyles['header'], styles['header'])}>
+            <h1 className={classNames(sharedStyles['title'], styles['title'])}>로그인</h1>
           </header>
 
           <StudentLoginForm
-            initialValues={{
-              loginId: 'student01',
-              password: 'password123',
-            }}
+            className={styles['form']}
+            inputClassName={styles['input']}
+            inputErrorClassName={styles['fieldError']}
+            inputFieldClassName={styles['field']}
+            inputLabelClassName={styles['fieldLabel']}
+            showRememberLoginId
             secondaryAction={
               <div className={styles['actionLinks']}>
-                <Link className={sharedStyles['textLink']} to={routePaths.signup}>
+                <Link className={styles['actionLink']} to={routePaths.signup}>
                   회원가입
                 </Link>
-                <Link className={sharedStyles['textLink']} to={routePaths.accountRecovery}>
+                <span aria-hidden='true' className={styles['actionDivider']} />
+                <Link className={styles['actionLink']} to={routePaths.accountRecovery}>
                   아이디/비밀번호 찾기
                 </Link>
               </div>
             }
+            submitButtonClassName={styles['submitButton']}
+            variant='page'
           />
         </div>
       </div>

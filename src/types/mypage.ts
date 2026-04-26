@@ -28,8 +28,11 @@ export interface UserProfile {
 }
 
 export interface UserProfileUpdatePayload {
-  name: string;
   nickname: string;
+}
+
+export interface UserPasswordVerifyPayload {
+  password: string;
 }
 
 export interface EnrollmentSummary {
@@ -158,6 +161,7 @@ export interface LearningPlayerResourceAttachment {
   fileUrl: string | null;
   mimeType: string | null;
   sortOrder: number;
+  updatedAt?: string | null;
 }
 
 export interface ProtectedLectureStream {

@@ -21,11 +21,18 @@ import {
   startStudentProblemSession,
   submitStudentProblem,
 } from '@/api/studentProblems';
-import iconCheck from '@/assets/icons/icon_check.png';
-import iconBack from '@/assets/icons/icons8-왼쪽-64.png';
-import iconSectionToggle from '@/assets/icons/icons_down.png';
+import iconArrowDownToLine from '@/assets/icons/lucide_arrow-down-to-line.svg';
+import iconArrowLeft from '@/assets/icons/lucide_arrow-left.svg';
+import iconCheck from '@/assets/icons/lucide_check.svg';
+import iconChevronDown from '@/assets/icons/lucide_chevron-down.svg';
+import iconFullscreen from '@/assets/icons/lucide_fullscreen.svg';
+import iconPlay from '@/assets/icons/lucide_play.svg';
+import iconVolume from '@/assets/icons/lucide_volume-2.svg';
+import iconCurrentLessonIndicator from '@/assets/icons/player-current-indicator.svg';
+import playerDemoImage from '@/assets/images/player-ultrasound-demo.png';
 import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import Button from '@/components/ui/Button/Button';
+import { getPlayerMockQueryKeySegment } from '@/mocks/player/runtime';
 import {
   myEnrollmentPracticumQueryKey,
   myLearningPlayerQueryKey,
@@ -77,13 +84,18 @@ type LessonStatusStyle = CSSProperties & {
   '--lesson-check-icon'?: string;
 };
 
+type PlayerIconStyle = CSSProperties & {
+  '--player-icon': string;
+};
+
 interface QualityOption {
   label: string;
   levelIndex: number | 'auto';
 }
 
 type SidebarPanel = 'curriculum' | 'qna';
-type QuizSidebarPanel = 'curriculum' | 'questions';
+type QuizSidebarPanel = 'curriculum' | 'qna';
+type SettingsPanel = 'quality' | 'speed';
 
 interface QuizClockAnchor {
   elapsedSeconds: number;
@@ -105,6 +117,25 @@ const LESSON_TYPE_LABELS: Record<ProgramCurriculumLessonDeliveryType, string> = 
   problem: '문제 풀이 강의',
   resource: '첨부파일 강의',
 };
+const PLAYER_LESSON_TYPE_LABELS: Record<ProgramCurriculumLessonDeliveryType, string> = {
+  offline: '오프라인',
+  online: '영상',
+  practicum: '실습',
+  problem: '문제풀이',
+  resource: '첨부파일',
+};
+
+const buildPlayerIconStyle = (iconSrc: string): PlayerIconStyle => ({
+  '--player-icon': `url("${iconSrc}")`,
+});
+
+const playerArrowLeftIconStyle = buildPlayerIconStyle(iconArrowLeft);
+const playerChevronDownIconStyle = buildPlayerIconStyle(iconChevronDown);
+const playerPlayIconStyle = buildPlayerIconStyle(iconPlay);
+const playerVolumeIconStyle = buildPlayerIconStyle(iconVolume);
+const playerFullscreenIconStyle = buildPlayerIconStyle(iconFullscreen);
+const playerCurrentLessonIndicatorStyle = buildPlayerIconStyle(iconCurrentLessonIndicator);
+const playerArrowDownToLineIconStyle = buildPlayerIconStyle(iconArrowDownToLine);
 
 type HlsLoaderConstructor = typeof Hls.DefaultConfig.loader;
 type HlsLoaderInstance = InstanceType<HlsLoaderConstructor>;
@@ -343,14 +374,32 @@ const formatResourceFileTypeLabel = (attachment: LearningPlayerResourceAttachmen
 
 const formatResourceFileSize = (fileSize: number | null | undefined) => {
   if (!fileSize || fileSize <= 0) {
-    return '용량 정보 없음';
+    return '-';
   }
 
   if (fileSize >= 1024 * 1024) {
-    return `${(fileSize / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(fileSize / (1024 * 1024)).toFixed(1)}MB`;
   }
 
-  return `${String(Math.max(1, Math.round(fileSize / 1024)))} KB`;
+  return `${String(Math.max(1, Math.round(fileSize / 1024)))}KB`;
+};
+
+const formatResourceUpdatedDate = (dateValue: string | null | undefined) => {
+  if (!dateValue) {
+    return '-';
+  }
+
+  const parsedDate = new Date(dateValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return dateValue;
+  }
+
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+  const day = String(parsedDate.getDate()).padStart(2, '0');
+
+  return `${String(year)}. ${month}. ${day}.`;
 };
 
 interface OfflineScheduleEntry {
@@ -439,32 +488,24 @@ const getOfflineSidebarState = (lesson: ProgramCurriculumLesson) => {
     : null;
 };
 
-const getQuizNavigatorStatusLabel = (
-  question: StudentProblem['questions'][number],
+const getQuizSidebarStatusLabel = (
   selectedOptionIds: number[],
   isFlagged: boolean,
+  isCurrentQuestion: boolean,
 ) => {
+  if (isCurrentQuestion) {
+    return '현재 진행';
+  }
+
   if (isFlagged) {
     return '나중에 풀기';
   }
 
-  if (selectedOptionIds.length === 0) {
-    return '미입력';
-  }
-
-  const selectedIndexes = question.options
-    .filter((option) => selectedOptionIds.includes(option.id))
-    .map((option) => {
-      const optionIndex = question.options.findIndex((item) => item.id === option.id);
-      return optionIndex >= 0 ? optionIndex + 1 : null;
-    })
-    .filter((optionIndex): optionIndex is number => optionIndex !== null);
-
-  if (!selectedIndexes.length) {
+  if (selectedOptionIds.length > 0) {
     return '답변 완료';
   }
 
-  return `답안 입력 ${selectedIndexes.join(', ')}번`;
+  return '미응답';
 };
 
 const getLessonMetaItems = (lesson: ProgramCurriculumLesson) => {
@@ -670,15 +711,20 @@ const PlayerPage = () => {
   const [playbackRate, setPlaybackRate] = useState<(typeof PLAYBACK_SPEED_OPTIONS)[number]>(1);
   const [qualityOptions, setQualityOptions] = useState<QualityOption[]>(DEFAULT_QUALITY_OPTIONS);
   const [selectedQualityLevel, setSelectedQualityLevel] = useState<number | 'auto'>('auto');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeSettingsPanel, setActiveSettingsPanel] = useState<SettingsPanel | null>(null);
   const [activeSidebarPanel, setActiveSidebarPanel] = useState<SidebarPanel>('curriculum');
   const [activeQuizSidebarPanel, setActiveQuizSidebarPanel] =
-    useState<QuizSidebarPanel>('questions');
+    useState<QuizSidebarPanel>('curriculum');
   const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
+  const [currentPlaybackSeconds, setCurrentPlaybackSeconds] = useState(0);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
   const [lessonProgressByLessonId, setLessonProgressByLessonId] = useState<
     Partial<Record<string, LearningPlayerLessonProgress>>
   >({});
+  const [expandedCurriculumSectionIds, setExpandedCurriculumSectionIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [quizAttemptedLessonIds, setQuizAttemptedLessonIds] = useState<Set<string>>(new Set());
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number[]>>({});
   const [quizFlaggedQuestionIds, setQuizFlaggedQuestionIds] = useState<Set<number>>(new Set());
@@ -697,6 +743,7 @@ const PlayerPage = () => {
   const hlsRef = useRef<Hls | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const settingsPanelRef = useRef<HTMLDivElement | null>(null);
+  const curriculumSectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const lastSavedProgressRef = useRef<Record<number, number>>({});
   const saveInFlightRef = useRef<Record<number, boolean>>({});
   const progressTimerRef = useRef<number | null>(null);
@@ -766,7 +813,7 @@ const PlayerPage = () => {
       ? selectedSource.lectureId
       : null;
   const lectureStreamQuery = useQuery<ProtectedLectureStream>({
-    queryKey: ['lecture-stream', activeLectureId, playbackDeviceId],
+    queryKey: ['lecture-stream', activeLectureId, playbackDeviceId, getPlayerMockQueryKeySegment()],
     queryFn: () => fetchLectureStream(activeLectureId as number, playbackDeviceId),
     enabled: activeLectureId !== null && supportsHlsPlayback,
     retry: false,
@@ -1012,6 +1059,14 @@ const PlayerPage = () => {
     (selectedLesson ? playbackErrorsByLessonId[selectedLesson.id] : null) || streamErrorMessage;
   const selectedQualityLabel =
     qualityOptions.find((quality) => quality.levelIndex === selectedQualityLevel)?.label || '자동';
+  const playerDurationSeconds =
+    mediaDurationSeconds > 0
+      ? mediaDurationSeconds
+      : Math.max(0, (selectedLesson?.durationMinutes ?? 0) * 60);
+  const playerProgressRatio =
+    playerDurationSeconds > 0
+      ? Math.min(100, Math.max(0, (currentPlaybackSeconds / playerDurationSeconds) * 100))
+      : 0;
   const qnaContext = snapshot?.qnaContext ?? null;
   const qnaProgramId = enrollmentState?.programId ?? qnaContext?.programId ?? null;
   const practicumLectures = useMemo(() => {
@@ -1483,6 +1538,8 @@ const PlayerPage = () => {
   useEffect(() => {
     setProgressSaveError(null);
     setMediaDurationSeconds(0);
+    setCurrentPlaybackSeconds(0);
+    setIsVideoPlaying(false);
     if (!selectedSource || !selectedLessonHasStream) {
       return;
     }
@@ -1499,7 +1556,7 @@ const PlayerPage = () => {
   }, [playbackRate, selectedLesson?.id, protectedStream?.hlsUrl]);
 
   useEffect(() => {
-    setIsSettingsOpen(false);
+    setActiveSettingsPanel(null);
   }, [selectedLesson?.id]);
 
   useEffect(() => {
@@ -1507,19 +1564,53 @@ const PlayerPage = () => {
   }, [selectedItem?.id]);
 
   useEffect(() => {
-    if (!isSettingsOpen) {
+    setExpandedCurriculumSectionIds(
+      new Set(snapshot?.curriculumTrack.sections.map((section) => section.id) ?? []),
+    );
+  }, [snapshot?.curriculumTrack.sections]);
+
+  const toggleCurriculumSection = useCallback(
+    (sectionId: string) => {
+      const willOpen = !expandedCurriculumSectionIds.has(sectionId);
+
+      setExpandedCurriculumSectionIds((current) => {
+        const next = new Set(current);
+
+        if (next.has(sectionId)) {
+          next.delete(sectionId);
+        } else {
+          next.add(sectionId);
+        }
+
+        return next;
+      });
+
+      if (willOpen) {
+        window.setTimeout(() => {
+          curriculumSectionRefs.current[sectionId]?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+          });
+        }, 180);
+      }
+    },
+    [expandedCurriculumSectionIds],
+  );
+
+  useEffect(() => {
+    if (!activeSettingsPanel) {
       return;
     }
 
     const handlePointerDown = (event: MouseEvent) => {
       if (!settingsPanelRef.current?.contains(event.target as Node)) {
-        setIsSettingsOpen(false);
+        setActiveSettingsPanel(null);
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsSettingsOpen(false);
+        setActiveSettingsPanel(null);
       }
     };
 
@@ -1530,7 +1621,7 @@ const PlayerPage = () => {
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isSettingsOpen]);
+  }, [activeSettingsPanel]);
 
   useEffect(() => {
     if (
@@ -1589,6 +1680,11 @@ const PlayerPage = () => {
           : 0,
       );
       syncResumeTime();
+      setCurrentPlaybackSeconds(videoElement.currentTime || 0);
+    };
+
+    const handleTimeUpdate = () => {
+      setCurrentPlaybackSeconds(videoElement.currentTime || 0);
     };
 
     const clearProgressTimer = () => {
@@ -1620,14 +1716,17 @@ const PlayerPage = () => {
 
     const handlePause = () => {
       clearProgressTimer();
+      setIsVideoPlaying(false);
     };
 
     const handlePlay = () => {
+      setIsVideoPlaying(true);
       scheduleProgressTimer();
     };
 
     const handleEnded = () => {
       clearProgressTimer();
+      setIsVideoPlaying(false);
       const durationSeconds =
         Number.isFinite(videoElement.duration) && videoElement.duration > 0
           ? videoElement.duration
@@ -1640,6 +1739,7 @@ const PlayerPage = () => {
     };
 
     videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+    videoElement.addEventListener('timeupdate', handleTimeUpdate);
     videoElement.addEventListener('play', handlePlay);
     videoElement.addEventListener('pause', handlePause);
     videoElement.addEventListener('ended', handleEnded);
@@ -1683,6 +1783,7 @@ const PlayerPage = () => {
       hlsRef.current = null;
       videoElement.removeAttribute('src');
       videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
       videoElement.removeEventListener('play', handlePlay);
       videoElement.removeEventListener('pause', handlePause);
       videoElement.removeEventListener('ended', handleEnded);
@@ -1734,6 +1835,31 @@ const PlayerPage = () => {
     hlsRef.current.nextLevel = levelIndex;
   };
 
+  const togglePlayback = () => {
+    const videoElement = videoRef.current;
+
+    if (!videoElement || !selectedLessonHasStream) {
+      return;
+    }
+
+    if (videoElement.paused || videoElement.ended) {
+      void videoElement.play();
+      return;
+    }
+
+    videoElement.pause();
+  };
+
+  const requestPlayerFullscreen = () => {
+    const videoElement = videoRef.current;
+
+    if (!videoElement?.parentElement?.requestFullscreen) {
+      return;
+    }
+
+    void videoElement.parentElement.requestFullscreen();
+  };
+
   const updateQuizAnswer = (
     questionId: number,
     optionId: number,
@@ -1779,13 +1905,6 @@ const PlayerPage = () => {
       }
       return next;
     });
-
-    if (flagged) {
-      setQuizAnswers((answers) => {
-        const { [questionId]: _removedAnswer, ...remainingAnswers } = answers;
-        return remainingAnswers;
-      });
-    }
   };
 
   const handleQuizStart = () => {
@@ -2331,203 +2450,74 @@ const PlayerPage = () => {
     anchor.remove();
   };
 
-  const renderResourcePanel = () => {
-    if (!lessonResourceAttachments.length) {
-      return (
-        <div className={styles['resourceBoard']}>
-          <p className={styles['resourceBoardEmpty']}>등록된 첨부파일이 아직 없습니다.</p>
-        </div>
-      );
+  const handleDownloadAllResourceAttachments = () => {
+    const downloadableAttachments = lessonResourceAttachments.filter((attachment) =>
+      Boolean(attachment.fileUrl),
+    );
+
+    if (!downloadableAttachments.length) {
+      showToast({
+        message: '다운로드할 수 있는 첨부파일이 아직 없습니다.',
+        variant: 'error',
+      });
+      return;
     }
 
-    return (
-      <div className={styles['resourceBoard']}>
-        <div className={styles['resourceBoardList']}>
-          {lessonResourceAttachments.map((attachment, index) => (
-            <article className={styles['resourceBoardRow']} key={attachment.id}>
-              <span aria-hidden='true' className={styles['resourceBoardIndex']}>
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <div className={styles['resourceBoardMain']}>
-                <div className={styles['resourceBoardTitleRow']}>
-                  <strong className={styles['resourceBoardTitle']}>
-                    {attachment.title?.trim() || attachment.fileName}
-                  </strong>
-                  <span className={styles['resourceBoardBadge']}>
-                    {formatResourceFileTypeLabel(attachment)}
-                  </span>
-                </div>
-                {attachment.description?.trim() ? (
-                  <p className={styles['resourceBoardDescription']}>{attachment.description}</p>
-                ) : null}
-                <div className={styles['resourceBoardMeta']}>
-                  <span>{attachment.fileName}</span>
-                  <span>{formatResourceFileSize(attachment.fileSize)}</span>
-                </div>
-              </div>
-              <div className={styles['resourceBoardActions']}>
-                <Button
-                  onClick={() => {
-                    handleDownloadResourceAttachment(attachment);
-                  }}
-                  size='sm'
-                  type='button'
-                  variant='secondary'
-                >
-                  다운로드
-                </Button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    );
+    downloadableAttachments.forEach((attachment) => {
+      handleDownloadResourceAttachment(attachment);
+    });
   };
 
-  const renderCurriculumListContent = () => {
-    if (!snapshot || !selectedItem) {
+  const renderResourcePanel = () => {
+    if (!lessonResourceAttachments.length) {
       return null;
     }
 
     return (
-      <div className={styles['curriculumPanelContent']}>
-        <div className={styles['curriculumBody']}>
-          {snapshot.curriculumTrack.sections.map((section) => (
-            <details className={styles['sectionBlock']} key={section.id} open>
-              <summary className={styles['sectionHeader']}>
-                <h3 className={styles['sectionTitle']}>{section.title}</h3>
-                <span className={styles['sectionToggle']}>
-                  <span
-                    aria-hidden='true'
-                    className={styles['sectionToggleIcon']}
-                    style={{ backgroundImage: `url(${iconSectionToggle})` }}
-                  />
+      <div className={styles['resourceBoardViewport']}>
+        <div className={styles['resourceBoard']}>
+          <div className={styles['resourceBoardHeader']} aria-hidden='true'>
+            <span className={styles['resourceBoardHeaderFile']}>파일</span>
+            <span>크기</span>
+            <span>업데이트</span>
+            <span>다운로드</span>
+          </div>
+          <div className={styles['resourceBoardList']}>
+            {lessonResourceAttachments.map((attachment) => (
+              <article className={styles['resourceBoardRow']} key={attachment.id}>
+                <div className={styles['resourceFileCell']}>
+                  <span className={styles['resourceFileType']}>
+                    {formatResourceFileTypeLabel(attachment)}
+                  </span>
+                  <strong className={styles['resourceBoardTitle']}>
+                    {attachment.title?.trim() || attachment.fileName}
+                  </strong>
+                </div>
+                <span className={styles['resourceBoardSize']}>
+                  {formatResourceFileSize(attachment.fileSize)}
                 </span>
-              </summary>
-
-              <div className={styles['lessonList']}>
-                {flattenPlayerItems([
-                  {
-                    id: section.id,
-                    lessons: section.lessons,
-                    title: section.title,
-                  },
-                ]).map((item) => {
-                  const lesson = item.lesson;
-                  const isCurrent = item.id === selectedItem.id;
-                  const isCompleted = completedLessonIds.has(lesson.id);
-                  const isProblemCompleted = quizAttemptedLessonIds.has(lesson.id);
-                  const practicumSidebarState =
-                    lesson.deliveryType === 'practicum'
-                      ? (practicumSidebarStatesByLessonId.get(lesson.id) ?? null)
-                      : null;
-                  const practicumLessonBadgeLabel =
-                    lesson.deliveryType === 'practicum'
-                      ? resolvePracticumLessonBadgeLabel(
-                          practicumLectureByLectureId.get(
-                            snapshot?.lessonPlaybackById[lesson.id]?.lectureId ??
-                              lesson.lectureId ??
-                              -1,
-                          ) ?? null,
-                        )
-                      : null;
-                  const offlineSidebarState = getOfflineSidebarState(lesson);
-                  const lessonSummaryActionLabel = getLessonSummaryActionLabel(
-                    lesson,
-                    practicumSidebarState?.label ?? null,
-                  );
-                  const lessonActionLabel =
-                    lesson.deliveryType === 'problem' && isProblemCompleted
-                      ? '문제 완료'
-                      : lessonSummaryActionLabel;
-                  const lessonMetaItems = getLessonMetaItems(lesson);
-                  const isItemCompleted =
-                    lesson.deliveryType === 'problem' ? isProblemCompleted : isCompleted;
-                  const isLocked = lockedLessonIds.has(lesson.id);
-                  const linkContent = (
-                    <>
-                      <span
-                        aria-hidden='true'
-                        className={classNames(
-                          styles['lessonStatusIcon'],
-                          isItemCompleted && styles['lessonStatusIconCompleted'],
-                          isCurrent && styles['lessonStatusIconCurrent'],
-                          isLocked && styles['lessonStatusIconLocked'],
-                        )}
-                        style={isItemCompleted ? completedStatusStyle : undefined}
-                      />
-                      <div className={styles['lessonLinkBody']}>
-                        <div className={styles['lessonBadgeRow']}>
-                          <span className={styles['lessonTypeBadge']}>
-                            {LESSON_TYPE_LABELS[lesson.deliveryType]}
-                          </span>
-                          {practicumSidebarState ? (
-                            <span
-                              className={styles['lessonPracticumBadge']}
-                              data-tone={practicumSidebarState.tone}
-                            >
-                              {practicumLessonBadgeLabel ?? practicumSidebarState.label}
-                            </span>
-                          ) : null}
-                          {offlineSidebarState ? (
-                            <span
-                              className={styles['lessonPracticumBadge']}
-                              data-tone={offlineSidebarState.tone}
-                            >
-                              {offlineSidebarState.label}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className={styles['lessonTitleRow']}>
-                          <strong className={styles['lessonLinkTitle']}>{item.title}</strong>
-                          <span
-                            className={styles['lessonSummaryAction']}
-                            data-tone={
-                              lesson.deliveryType === 'problem' && isProblemCompleted
-                                ? 'completed'
-                                : undefined
-                            }
-                          >
-                            {lessonActionLabel}
-                          </span>
-                        </div>
-                        {lessonMetaItems.length ? (
-                          <div className={styles['lessonLinkMeta']}>
-                            {lessonMetaItems.map((metaItem) => (
-                              <span
-                                className={styles['lessonLinkDuration']}
-                                key={`${item.id}-${metaItem}`}
-                              >
-                                {metaItem}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    </>
-                  );
-
-                  return (
-                    <Link
-                      className={classNames(
-                        styles['lessonLink'],
-                        isCurrent && styles['lessonLinkCurrent'],
-                      )}
-                      key={item.id}
-                      onClick={() => {
-                        if (lesson.deliveryType === 'problem') {
-                          setActiveQuizSidebarPanel('questions');
-                        }
-                      }}
-                      to={routePaths.learningLesson(String(resolvedEnrollmentId), item.id)}
-                    >
-                      {linkContent}
-                    </Link>
-                  );
-                })}
-              </div>
-            </details>
-          ))}
+                <span className={styles['resourceBoardDate']}>
+                  {formatResourceUpdatedDate(attachment.updatedAt)}
+                </span>
+                <div className={styles['resourceBoardActions']}>
+                  <button
+                    className={styles['resourceDownloadButton']}
+                    onClick={() => {
+                      handleDownloadResourceAttachment(attachment);
+                    }}
+                    type='button'
+                  >
+                    다운로드
+                    <span
+                      aria-hidden='true'
+                      className={styles['resourceDownloadIcon']}
+                      style={playerArrowDownToLineIconStyle}
+                    />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -2544,6 +2534,11 @@ const PlayerPage = () => {
           const isCurrentQuestion = question.id === currentQuizQuestion?.id;
           const selectedOptionIds = quizAnswers[question.id] ?? [];
           const isFlagged = quizFlaggedQuestionIds.has(question.id);
+          const sidebarStatusLabel = getQuizSidebarStatusLabel(
+            selectedOptionIds,
+            isFlagged,
+            isCurrentQuestion,
+          );
 
           return (
             <button
@@ -2558,17 +2553,24 @@ const PlayerPage = () => {
               type='button'
             >
               <span className={styles['quizNavigatorStateRow']}>
-                <span className={styles['quizNavigatorQuestionTitle']}>문제 {index + 1}</span>
+                <span className={styles['quizNavigatorNumber']}>
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <span className={styles['quizNavigatorQuestionTitle']}>
+                  {question.questionText}
+                </span>
                 <span
                   className={classNames(
                     styles['quizNavigatorStateBadge'],
                     !isFlagged &&
                       selectedOptionIds.length > 0 &&
+                      !isCurrentQuestion &&
                       styles['quizNavigatorStateBadgeAnswered'],
                     isFlagged && styles['quizNavigatorStateBadgeFlagged'],
+                    isCurrentQuestion && styles['quizNavigatorStateBadgeCurrent'],
                   )}
                 >
-                  {getQuizNavigatorStatusLabel(question, selectedOptionIds, isFlagged)}
+                  {sidebarStatusLabel}
                 </span>
               </span>
             </button>
@@ -2584,7 +2586,11 @@ const PlayerPage = () => {
         <header className={styles['topBar']}>
           <div className={styles['topBarCopy']}>
             <Link className={styles['backLink']} to={routePaths.mypage}>
-              <img alt='' aria-hidden='true' className={styles['backLinkIcon']} src={iconBack} />
+              <span
+                aria-hidden='true'
+                className={styles['backLinkIcon']}
+                style={playerArrowLeftIconStyle}
+              />
               <span>내 강의</span>
             </Link>
           </div>
@@ -2614,193 +2620,307 @@ const PlayerPage = () => {
               <section className={styles['viewerColumn']}>
                 {!selectedItemLocked && isLessonItem && !isQuizMode ? (
                   <>
-                    <section className={styles['stageCard']}>
-                      <div className={styles['stageHeader']}>
-                        <div className={styles['stageCopy']}>
-                          <h1 className={styles['lessonTitle']}>{selectedLesson?.title}</h1>
-                          {progressSaveError ? (
-                            <p className={styles['stageProgressWarning']}>{progressSaveError}</p>
-                          ) : null}
-                        </div>
-                        {selectedLesson ? (
-                          <div className={styles['stageMeta']} aria-label='현재 강의 정보'>
-                            <span className={styles['metaChip']}>
-                              {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
-                            </span>
+                    <section
+                      className={classNames(
+                        styles['stageCard'],
+                        isResourceLesson && styles['resourceStageCard'],
+                      )}
+                    >
+                      {!isResourceLesson || lessonResourceAttachments.length ? (
+                        <div className={styles['stageHeader']}>
+                          <div className={styles['stageCopy']}>
+                            <h1 className={styles['lessonTitle']}>{selectedLesson?.title}</h1>
+                            {isResourceLesson && selectedLesson?.description?.trim() ? (
+                              <p className={styles['resourceStageDescription']}>
+                                {selectedLesson.description}
+                              </p>
+                            ) : null}
+                            {progressSaveError ? (
+                              <p className={styles['stageProgressWarning']}>{progressSaveError}</p>
+                            ) : null}
                           </div>
-                        ) : null}
-                      </div>
-
-                      <div className={styles['playerShell']}>
-                        <div
-                          className={classNames(
-                            styles['playerFrame'],
-                            (isOfflineLesson || isResourceLesson) && styles['playerFrameSchedule'],
-                          )}
-                        >
-                          {isOfflineLesson ? (
-                            renderOfflineSchedulePanel()
-                          ) : isResourceLesson ? (
-                            renderResourcePanel()
-                          ) : selectedLessonHasStream ? (
-                            <video
-                              className={styles['playerElement']}
-                              controls
-                              controlsList='nodownload noremoteplayback'
-                              disablePictureInPicture
-                              disableRemotePlayback
-                              playsInline
-                              poster={selectedSource.posterUrl ?? undefined}
-                              preload='auto'
-                              ref={videoRef}
-                            />
-                          ) : (
-                            <div className={styles['playerPlaceholder']}>
-                              <div className={styles['playerOverlayCopy']}>
-                                <p className={styles['overlayTitle']}>
-                                  이 강의는 영상 없이 제공되는 강의입니다.
-                                </p>
-                                <p className={styles['overlayDescription']}>
-                                  실습, 첨부자료, 강의 설명 중심으로 진행되며 영상이 연결되면
-                                  여기에서 바로 재생할 수 있습니다.
-                                </p>
-                                {selectedLesson?.description ? (
-                                  <p className={styles['playerPlaceholderDescription']}>
-                                    {selectedLesson.description}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          )}
-
-                          {selectedLessonHasStream && streamLoading ? (
-                            <div className={styles['playerOverlay']}>
-                              <p className={styles['overlayTitle']}>
-                                보호된 스트리밍을 준비하고 있습니다.
-                              </p>
-                            </div>
-                          ) : null}
-
-                          {isUnsupportedPlayback ? (
-                            <div className={styles['playerOverlay']}>
-                              <div className={styles['playerOverlayCopy']}>
-                                <p className={styles['overlayTitle']}>
-                                  현재 브라우저에서는 스트리밍을 재생할 수 없습니다.
-                                </p>
-                                <p className={styles['overlayDescription']}>
-                                  최신 Chrome, Edge, Firefox 또는 Safari로 접속해 주세요.
-                                </p>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {!isOfflineLesson && !selectedSource ? (
-                            <div className={styles['playerOverlay']}>
-                              <p className={styles['overlayTitle']}>
-                                재생할 강의를 찾을 수 없습니다.
-                              </p>
-                            </div>
-                          ) : null}
-
-                          {playerError ? (
-                            <div className={styles['playerErrorBanner']}>
-                              <p className={styles['playerErrorText']}>{playerError}</p>
-                            </div>
-                          ) : null}
-
-                          {selectedLessonHasStream ? (
-                            <div className={styles['playerFrameControls']} ref={settingsPanelRef}>
-                              <div className={styles['settingsWrap']}>
+                          {selectedLesson ? (
+                            <div className={styles['stageMeta']} aria-label='현재 강의 정보'>
+                              {isResourceLesson ? (
                                 <button
-                                  aria-expanded={isSettingsOpen}
-                                  aria-haspopup='dialog'
-                                  aria-label='재생 설정'
-                                  className={styles['settingsButton']}
-                                  onClick={() => {
-                                    setIsSettingsOpen((previous) => !previous);
-                                  }}
+                                  className={styles['resourceDownloadAllButton']}
+                                  onClick={handleDownloadAllResourceAttachments}
                                   type='button'
                                 >
-                                  <svg
+                                  모두 다운로드
+                                  <span
                                     aria-hidden='true'
-                                    className={styles['settingsIcon']}
-                                    fill='currentColor'
-                                    viewBox='0 0 24 24'
-                                  >
-                                    <circle cx='12' cy='5' r='1.8' />
-                                    <circle cx='12' cy='12' r='1.8' />
-                                    <circle cx='12' cy='19' r='1.8' />
-                                  </svg>
+                                    className={styles['resourceDownloadIcon']}
+                                    style={playerArrowDownToLineIconStyle}
+                                  />
                                 </button>
-
-                                {isSettingsOpen ? (
-                                  <div
-                                    aria-label='재생 설정 패널'
-                                    className={styles['settingsPanel']}
-                                    role='dialog'
-                                  >
-                                    <section className={styles['settingsSection']}>
-                                      <div className={styles['settingsSectionHeader']}>
-                                        <strong className={styles['settingsTitle']}>
-                                          재생 속도
-                                        </strong>
-                                        <span className={styles['settingsCurrentValue']}>
-                                          {playbackRate}x
-                                        </span>
-                                      </div>
-                                      <div className={styles['settingsOptionList']}>
-                                        {PLAYBACK_SPEED_OPTIONS.map((speedOption) => (
-                                          <button
-                                            className={classNames(
-                                              styles['settingsOption'],
-                                              playbackRate === speedOption &&
-                                                styles['settingsOptionActive'],
-                                            )}
-                                            key={speedOption}
-                                            onClick={() => {
-                                              applyPlaybackRate(speedOption);
-                                            }}
-                                            type='button'
-                                          >
-                                            {speedOption}x
-                                          </button>
-                                        ))}
-                                      </div>
-                                    </section>
-
-                                    <section className={styles['settingsSection']}>
-                                      <div className={styles['settingsSectionHeader']}>
-                                        <strong className={styles['settingsTitle']}>해상도</strong>
-                                        <span className={styles['settingsCurrentValue']}>
-                                          {selectedQualityLabel}
-                                        </span>
-                                      </div>
-                                      <div className={styles['settingsOptionList']}>
-                                        {qualityOptions.map((quality) => (
-                                          <button
-                                            className={classNames(
-                                              styles['settingsOption'],
-                                              selectedQualityLevel === quality.levelIndex &&
-                                                styles['settingsOptionActive'],
-                                            )}
-                                            key={`${quality.label}-${String(quality.levelIndex)}`}
-                                            onClick={() => {
-                                              applyQualityLevel(quality.levelIndex);
-                                            }}
-                                            type='button'
-                                          >
-                                            {quality.label}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    </section>
-                                  </div>
-                                ) : null}
-                              </div>
+                              ) : (
+                                <span className={styles['metaChip']}>
+                                  {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
+                                </span>
+                              )}
                             </div>
                           ) : null}
                         </div>
-                      </div>
+                      ) : null}
+
+                      {isResourceLesson && !lessonResourceAttachments.length ? null : (
+                        <div
+                          className={classNames(
+                            styles['playerShell'],
+                            isResourceLesson && styles['resourcePlayerShell'],
+                          )}
+                        >
+                          <div
+                            className={classNames(
+                              styles['playerFrame'],
+                              (isOfflineLesson || isResourceLesson) &&
+                                styles['playerFrameSchedule'],
+                            )}
+                          >
+                            {isOfflineLesson ? (
+                              renderOfflineSchedulePanel()
+                            ) : isResourceLesson ? (
+                              renderResourcePanel()
+                            ) : selectedLessonHasStream ? (
+                              <video
+                                className={styles['playerElement']}
+                                controlsList='nodownload noremoteplayback'
+                                disablePictureInPicture
+                                disableRemotePlayback
+                                playsInline
+                                poster={selectedSource.posterUrl ?? playerDemoImage}
+                                preload='auto'
+                                ref={videoRef}
+                              />
+                            ) : (
+                              <div className={styles['playerPlaceholder']}>
+                                <div className={styles['playerOverlayCopy']}>
+                                  <p className={styles['overlayTitle']}>
+                                    이 강의는 영상 없이 제공되는 강의입니다.
+                                  </p>
+                                  <p className={styles['overlayDescription']}>
+                                    실습, 첨부자료, 강의 설명 중심으로 진행되며 영상이 연결되면
+                                    여기에서 바로 재생할 수 있습니다.
+                                  </p>
+                                  {selectedLesson?.description ? (
+                                    <p className={styles['playerPlaceholderDescription']}>
+                                      {selectedLesson.description}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            )}
+
+                            {selectedLessonHasStream && streamLoading ? (
+                              <div className={styles['playerOverlay']} data-state='loading'>
+                                <span
+                                  aria-hidden='true'
+                                  className={styles['playerLoadingSpinner']}
+                                />
+                                <div className={styles['playerOverlayCopy']}>
+                                  <p className={styles['overlayTitle']}>스트리밍 준비 중</p>
+                                  <p className={styles['overlayDescription']}>
+                                    잠시만 기다려 주세요. 영상 재생을 준비하고 있습니다.
+                                  </p>
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {isUnsupportedPlayback ? (
+                              <div className={styles['playerOverlay']} data-state='notice'>
+                                <div className={styles['playerOverlayCopy']}>
+                                  <p className={styles['overlayTitle']}>
+                                    현재 브라우저에서는 재생이 지원되지 않습니다.
+                                  </p>
+                                  <p className={styles['overlayDescription']}>
+                                    최신 버전의 Chrome 또는 Edge 사용을 권장합니다.
+                                  </p>
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {!isOfflineLesson && !isResourceLesson && !selectedSource ? (
+                              <div className={styles['playerOverlay']} data-state='notice'>
+                                <p className={styles['overlayTitle']}>
+                                  재생할 강의를 찾을 수 없습니다.
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {playerError ? (
+                              <div className={styles['playerOverlay']} data-state='error'>
+                                <div className={styles['playerOverlayCopy']}>
+                                  <p className={styles['overlayTitle']}>
+                                    영상 재생에 문제가 발생했습니다.
+                                  </p>
+                                  <p className={styles['overlayDescription']}>
+                                    잠시 후 다시 시도해 주세요.
+                                  </p>
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {selectedLessonHasStream ? (
+                              <div className={styles['playerFrameControls']} ref={settingsPanelRef}>
+                                <div className={styles['playerTimeline']}>
+                                  <span className={styles['playerTimelineTrack']} />
+                                  <span
+                                    className={styles['playerTimelineBuffer']}
+                                    style={{ width: '31%' }}
+                                  />
+                                  <span
+                                    className={styles['playerTimelineFill']}
+                                    style={{ width: `${String(playerProgressRatio)}%` }}
+                                  />
+                                  <span
+                                    aria-hidden='true'
+                                    className={styles['playerTimelineThumb']}
+                                    style={{ left: `${String(playerProgressRatio)}%` }}
+                                  />
+                                </div>
+                                <div className={styles['playerControlRow']}>
+                                  <div className={styles['playerPrimaryControls']}>
+                                    <button
+                                      aria-label={isVideoPlaying ? '일시정지' : '재생'}
+                                      className={styles['playerIconButton']}
+                                      onClick={togglePlayback}
+                                      type='button'
+                                    >
+                                      <span
+                                        aria-hidden='true'
+                                        className={styles['playerControlIcon']}
+                                        style={playerPlayIconStyle}
+                                      />
+                                    </button>
+                                    <button
+                                      aria-label='볼륨'
+                                      className={styles['playerIconButton']}
+                                      type='button'
+                                    >
+                                      <span
+                                        aria-hidden='true'
+                                        className={styles['playerControlIcon']}
+                                        style={playerVolumeIconStyle}
+                                      />
+                                    </button>
+                                    <span className={styles['playerTimeText']}>
+                                      {formatSeconds(Math.floor(currentPlaybackSeconds))} /{' '}
+                                      {formatSeconds(playerDurationSeconds || 45 * 60)}
+                                    </span>
+                                  </div>
+                                  <div className={styles['playerSecondaryControls']}>
+                                    <div className={styles['settingsAnchor']}>
+                                      <button
+                                        aria-expanded={activeSettingsPanel === 'speed'}
+                                        aria-haspopup='dialog'
+                                        aria-label='재생 설정'
+                                        className={styles['playerTextButton']}
+                                        onClick={() => {
+                                          setActiveSettingsPanel((current) =>
+                                            current === 'speed' ? null : 'speed',
+                                          );
+                                        }}
+                                        type='button'
+                                      >
+                                        {playbackRate}x
+                                      </button>
+                                      {activeSettingsPanel === 'speed' ? (
+                                        <div
+                                          aria-label='재생 속도 설정 패널'
+                                          className={classNames(
+                                            styles['settingsPanel'],
+                                            styles['settingsPanelSpeed'],
+                                          )}
+                                          role='dialog'
+                                        >
+                                          <div className={styles['settingsOptionList']}>
+                                            {PLAYBACK_SPEED_OPTIONS.map((speedOption) => (
+                                              <button
+                                                className={classNames(
+                                                  styles['settingsOption'],
+                                                  playbackRate === speedOption &&
+                                                    styles['settingsOptionActive'],
+                                                )}
+                                                key={speedOption}
+                                                onClick={() => {
+                                                  applyPlaybackRate(speedOption);
+                                                  setActiveSettingsPanel(null);
+                                                }}
+                                                type='button'
+                                              >
+                                                {speedOption}x
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                    <div className={styles['settingsAnchor']}>
+                                      <button
+                                        aria-expanded={activeSettingsPanel === 'quality'}
+                                        aria-haspopup='dialog'
+                                        aria-label='화질 설정'
+                                        className={styles['playerTextButton']}
+                                        onClick={() => {
+                                          setActiveSettingsPanel((current) =>
+                                            current === 'quality' ? null : 'quality',
+                                          );
+                                        }}
+                                        type='button'
+                                      >
+                                        화질 {selectedQualityLabel}
+                                      </button>
+                                      {activeSettingsPanel === 'quality' ? (
+                                        <div
+                                          aria-label='화질 설정 패널'
+                                          className={classNames(
+                                            styles['settingsPanel'],
+                                            styles['settingsPanelQuality'],
+                                          )}
+                                          role='dialog'
+                                        >
+                                          <div className={styles['settingsOptionList']}>
+                                            {qualityOptions.map((quality) => (
+                                              <button
+                                                className={classNames(
+                                                  styles['settingsOption'],
+                                                  selectedQualityLevel === quality.levelIndex &&
+                                                    styles['settingsOptionActive'],
+                                                )}
+                                                key={`${quality.label}-${String(quality.levelIndex)}`}
+                                                onClick={() => {
+                                                  applyQualityLevel(quality.levelIndex);
+                                                  setActiveSettingsPanel(null);
+                                                }}
+                                                type='button'
+                                              >
+                                                {quality.label}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                    <button
+                                      aria-label='전체화면'
+                                      className={styles['playerIconButton']}
+                                      onClick={requestPlayerFullscreen}
+                                      type='button'
+                                    >
+                                      <span
+                                        aria-hidden='true'
+                                        className={styles['playerControlIcon']}
+                                        style={playerFullscreenIconStyle}
+                                      />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      )}
                     </section>
 
                     {renderPracticumPanel()}
@@ -2808,295 +2928,319 @@ const PlayerPage = () => {
                 ) : null}
 
                 {isQuizMode ? (
-                  <section className={styles['stageCard']}>
-                    <div className={styles['stageHeader']}>
+                  <section className={classNames(styles['stageCard'], styles['quizStageCard'])}>
+                    <div className={classNames(styles['stageHeader'], styles['quizStageHeader'])}>
                       <div className={styles['stageCopy']}>
                         <h1 className={styles['lessonTitle']}>{selectedLesson?.title}</h1>
                       </div>
-                      <div className={styles['stageMeta']} aria-label='현재 강의 정보'>
+                      <div className={styles['quizTimerCard']} aria-label='현재 강의 정보'>
                         {selectedLesson ? (
-                          <span className={styles['metaChip']}>
+                          <span className={styles['srOnly']}>
                             {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
                           </span>
                         ) : null}
-                        <span className={styles['metaChip']}>
-                          남은시간 {quizRemainingTimeLabel}
+                        <span className={styles['quizTimerLabel']}>
+                          <span aria-hidden='true' className={styles['quizTimerIcon']} />
+                          남은 시간
                         </span>
-                        <span className={styles['metaChip']}>
-                          문항수 {String(quizQuestions.length)}문항
-                        </span>
+                        <span className={styles['quizTimerValue']}>{quizRemainingTimeLabel}</span>
                       </div>
                     </div>
-                  </section>
-                ) : null}
 
-                {isQuizMode ? (
-                  <section className={styles['quizWorkspace']}>
-                    {quizQuery.isLoading ? (
-                      <p className={styles['quizMutedText']}>문제 정보를 불러오는 중입니다.</p>
-                    ) : quizQuery.isError ? (
-                      <p className={styles['quizErrorText']}>
-                        {quizQuery.error instanceof Error
-                          ? quizQuery.error.message
-                          : '문제 정보를 불러오지 못했습니다.'}
-                      </p>
-                    ) : !quizQuery.data ? (
-                      <p className={styles['quizMutedText']}>이 강의에는 등록된 문제가 없습니다.</p>
-                    ) : (
-                      <>
-                        {shouldShowQuizStartPrompt ? (
-                          <section className={styles['quizStartCard']}>
-                            <div className={styles['quizResultHeader']}>
-                              <div>
-                                <strong className={styles['quizResultTitle']}>
-                                  문제 풀이를 시작할까요?
-                                </strong>
-                                <p className={styles['quizMutedText']}>
-                                  시작하면 제한시간이 흐르고, 남은 시간이 끝나면 현재 저장된
-                                  답안으로 자동 제출됩니다.
-                                </p>
-                              </div>
-                              <Button
-                                disabled={startQuizSessionMutation.isPending}
-                                onClick={handleQuizStart}
-                                size='sm'
-                                type='button'
-                              >
-                                {startQuizSessionMutation.isPending ? '시작 중...' : '시작하기'}
-                              </Button>
-                            </div>
-                            <div className={styles['quizStartMetaGrid']}>
-                              <div className={styles['quizStartMetaItem']}>
-                                <span>제한시간</span>
-                                <strong>{quizRemainingTimeLabel}</strong>
-                              </div>
-                              <div className={styles['quizStartMetaItem']}>
-                                <span>문항수</span>
-                                <strong>{String(quizQuestions.length)}문항</strong>
-                              </div>
-                              <div className={styles['quizStartMetaItem']}>
-                                <span>통과 기준</span>
-                                <strong>{String(quizQuery.data?.passScore ?? 0)}점</strong>
-                              </div>
-                            </div>
-                          </section>
-                        ) : null}
-
-                        {shouldShowQuizQuestion && currentQuizQuestion ? (
-                          <section className={styles['quizQuestionCard']}>
-                            <div className={styles['quizQuestionHeader']}>
-                              <strong className={styles['quizQuestionTitle']}>
-                                문제 {resolvedQuizQuestionIndex + 1}.{' '}
-                                {currentQuizQuestion.questionText}
-                              </strong>
-                              {currentQuizResult ? (
-                                <span
-                                  className={classNames(
-                                    styles['quizResultState'],
-                                    currentQuizResult.correct && styles['quizResultStateCorrect'],
-                                  )}
+                    <section className={styles['quizWorkspace']}>
+                      {quizQuery.isLoading ? (
+                        <p className={styles['quizMutedText']}>문제 정보를 불러오는 중입니다.</p>
+                      ) : quizQuery.isError ? (
+                        <p className={styles['quizErrorText']}>
+                          {quizQuery.error instanceof Error
+                            ? quizQuery.error.message
+                            : '문제 정보를 불러오지 못했습니다.'}
+                        </p>
+                      ) : !quizQuery.data ? (
+                        <p className={styles['quizMutedText']}>
+                          이 강의에는 등록된 문제가 없습니다.
+                        </p>
+                      ) : (
+                        <>
+                          {shouldShowQuizStartPrompt ? (
+                            <section className={styles['quizStartCard']}>
+                              <div className={styles['quizResultHeader']}>
+                                <div>
+                                  <strong className={styles['quizResultTitle']}>
+                                    문제 풀이를 시작할까요?
+                                  </strong>
+                                  <p className={styles['quizMutedText']}>
+                                    시작하면 제한시간이 흐르고, 남은 시간이 끝나면 현재 저장된
+                                    답안으로 자동 제출됩니다.
+                                  </p>
+                                </div>
+                                <Button
+                                  disabled={startQuizSessionMutation.isPending}
+                                  onClick={handleQuizStart}
+                                  size='sm'
+                                  type='button'
                                 >
-                                  {currentQuizResult.correct ? 'O' : 'X'}
+                                  {startQuizSessionMutation.isPending ? '시작 중...' : '시작하기'}
+                                </Button>
+                              </div>
+                              <div className={styles['quizStartMetaGrid']}>
+                                <div className={styles['quizStartMetaItem']}>
+                                  <span>제한시간</span>
+                                  <strong>{quizRemainingTimeLabel}</strong>
+                                </div>
+                                <div className={styles['quizStartMetaItem']}>
+                                  <span>문항수</span>
+                                  <strong>{String(quizQuestions.length)}문항</strong>
+                                </div>
+                                <div className={styles['quizStartMetaItem']}>
+                                  <span>통과 기준</span>
+                                  <strong>{String(quizQuery.data?.passScore ?? 0)}점</strong>
+                                </div>
+                              </div>
+                            </section>
+                          ) : null}
+
+                          {shouldShowQuizQuestion && currentQuizQuestion ? (
+                            <section className={styles['quizQuestionCard']}>
+                              <div className={styles['quizQuestionHeader']}>
+                                <span className={styles['quizQuestionEyebrow']}>
+                                  Question {String(resolvedQuizQuestionIndex + 1).padStart(2, '0')}
                                 </span>
-                              ) : null}
-                            </div>
-                            {!quizReviewMode ? (
-                              <label className={styles['quizFlagToggle']}>
-                                <input
-                                  checked={quizFlaggedQuestionIds.has(currentQuizQuestion.id)}
-                                  onChange={(event) => {
-                                    setQuizFlaggedQuestion(
-                                      currentQuizQuestion.id,
-                                      event.currentTarget.checked,
-                                    );
-                                  }}
-                                  type='checkbox'
-                                />
-                                <span>나중에 풀기</span>
-                              </label>
-                            ) : null}
-
-                            {renderQuizMedia(
-                              currentQuizQuestion.mediaType,
-                              currentQuizQuestion.mediaPreviewUrl,
-                              currentQuizQuestion.mediaUrl,
-                              `${String(resolvedQuizQuestionIndex + 1)}번 문항 미디어`,
-                              styles['quizMediaImage'],
-                            )}
-
-                            <div className={styles['quizOptionList']}>
-                              {currentQuizQuestion.options.map((option, optionIndex) => {
-                                const selectedOptionIds = quizAnswers[currentQuizQuestion.id] ?? [];
-                                const submittedOptionIds =
-                                  currentQuizResult?.submittedOptionIds ?? selectedOptionIds;
-                                const checked = quizReviewMode
-                                  ? submittedOptionIds.includes(option.id)
-                                  : selectedOptionIds.includes(option.id);
-
-                                return (
-                                  <label
+                                <strong className={styles['quizQuestionTitle']}>
+                                  {currentQuizQuestion.questionText}
+                                </strong>
+                                {quizQuery.data.description ? (
+                                  <p className={styles['quizQuestionDescription']}>
+                                    {quizQuery.data.description}
+                                  </p>
+                                ) : null}
+                                {currentQuizResult ? (
+                                  <span
                                     className={classNames(
-                                      styles['quizOptionRow'],
-                                      checked && styles['quizOptionRowSelected'],
+                                      styles['quizResultState'],
+                                      currentQuizResult.correct && styles['quizResultStateCorrect'],
                                     )}
-                                    key={option.id}
                                   >
-                                    <input
-                                      checked={checked}
-                                      aria-label={`${String(optionIndex + 1)}. ${option.optionText}`}
-                                      disabled={quizReviewMode}
-                                      name={`problem-question-${String(currentQuizQuestion.id)}`}
-                                      onChange={() => {
-                                        updateQuizAnswer(
-                                          currentQuizQuestion.id,
-                                          option.id,
-                                          currentQuizQuestion.questionType,
-                                        );
-                                      }}
-                                      type={
-                                        currentQuizQuestion.questionType === 'MULTIPLE'
-                                          ? 'checkbox'
-                                          : 'radio'
-                                      }
-                                    />
-                                    <div className={styles['quizOptionContent']}>
-                                      <span className={styles['quizOptionLabel']}>
-                                        {optionIndex + 1}. {option.optionText}
-                                      </span>
-                                      {renderQuizMedia(
-                                        option.mediaType,
-                                        option.mediaPreviewUrl,
-                                        option.mediaUrl,
-                                        `${String(resolvedQuizQuestionIndex + 1)}번 문항 ${String(optionIndex + 1)}번 보기 미디어`,
-                                        styles['quizOptionMedia'],
-                                      )}
-                                    </div>
-                                  </label>
-                                );
-                              })}
-                            </div>
-
-                            {quizReviewMode && currentQuizResult ? (
-                              <div className={styles['quizReviewSummary']}>
-                                {currentQuizResult.explanation ? (
-                                  <details className={styles['quizExplanationDetails']}>
-                                    <summary>해설 보기</summary>
-                                    <p className={styles['quizResultExplanation']}>
-                                      {currentQuizResult.explanation}
-                                    </p>
-                                  </details>
+                                    {currentQuizResult.correct ? 'O' : 'X'}
+                                  </span>
                                 ) : null}
                               </div>
-                            ) : null}
-
-                            <div className={styles['quizControlBar']}>
-                              <div className={styles['quizControlNavigation']}>
-                                <Button
-                                  disabled={resolvedQuizQuestionIndex === 0}
-                                  onClick={() => {
-                                    moveToQuizQuestion(resolvedQuizQuestionIndex - 1);
-                                  }}
-                                  size='sm'
-                                  type='button'
-                                  variant='secondary'
-                                >
-                                  이전
-                                </Button>
-                                <Button
-                                  disabled={resolvedQuizQuestionIndex + 1 >= quizQuestions.length}
-                                  onClick={() => {
-                                    moveToQuizQuestion(resolvedQuizQuestionIndex + 1);
-                                  }}
-                                  size='sm'
-                                  type='button'
-                                  variant='secondary'
-                                >
-                                  다음
-                                </Button>
-                              </div>
-                              {quizReviewMode ? (
-                                <Button
-                                  onClick={() => {
-                                    setQuizReviewMode(false);
-                                  }}
-                                  size='sm'
-                                  type='button'
-                                  variant='secondary'
-                                >
-                                  결과로 돌아가기
-                                </Button>
-                              ) : (
-                                <Button
-                                  disabled={
-                                    submitQuizMutation.isPending || quizRemainingSeconds === 0
-                                  }
-                                  onClick={handleQuizSubmit}
-                                  size='sm'
-                                  type='button'
-                                >
-                                  {submitQuizMutation.isPending ? '제출 중...' : '제출하기'}
-                                </Button>
-                              )}
-                            </div>
-                          </section>
-                        ) : !shouldShowQuizStartPrompt && !quizAttemptResult ? (
-                          <p className={styles['quizMutedText']}>
-                            {shouldShowSubmittedWithoutResult
-                              ? '이미 제출한 문제입니다. 결과 정보를 불러오지 못했습니다.'
-                              : '등록된 문제가 없습니다.'}
-                          </p>
-                        ) : null}
-
-                        {quizAttemptResult && !quizReviewMode ? (
-                          <div className={styles['quizResultCard']}>
-                            <div className={styles['quizResultHeader']}>
-                              <strong className={styles['quizResultTitle']}>채점 결과</strong>
-                              <span
+                              <div
                                 className={classNames(
-                                  styles['quizResultBadge'],
-                                  quizAttemptResult.passed && styles['quizResultBadgePassed'],
+                                  styles['quizQuestionBody'],
+                                  !(
+                                    currentQuizQuestion.mediaType &&
+                                    (currentQuizQuestion.mediaPreviewUrl ||
+                                      currentQuizQuestion.mediaUrl)
+                                  ) && styles['quizQuestionBodyTextOnly'],
                                 )}
                               >
-                                {quizAttemptResult.score}점
-                              </span>
-                            </div>
-                            <div className={styles['quizResultActions']}>
-                              <Button
-                                onClick={() => {
-                                  setQuizReviewMode(true);
-                                }}
-                                size='sm'
-                                type='button'
-                                variant='secondary'
-                              >
-                                문항 다시 보기
-                              </Button>
-                            </div>
+                                <div className={styles['quizOptionList']}>
+                                  {currentQuizQuestion.options.map((option, optionIndex) => {
+                                    const selectedOptionIds =
+                                      quizAnswers[currentQuizQuestion.id] ?? [];
+                                    const submittedOptionIds =
+                                      currentQuizResult?.submittedOptionIds ?? selectedOptionIds;
+                                    const checked = quizReviewMode
+                                      ? submittedOptionIds.includes(option.id)
+                                      : selectedOptionIds.includes(option.id);
 
-                            <table className={styles['quizResultTable']}>
-                              <thead>
-                                <tr>
-                                  <th scope='col'>문항</th>
-                                  <th scope='col'>결과</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {quizAttemptResult.results.map((result, resultIndex) => (
-                                  <tr key={result.questionId}>
-                                    <td>{resultIndex + 1}번</td>
-                                    <td>
-                                      <span className={styles['quizResultMark']}>
-                                        {result.correct ? 'O' : 'X'}
-                                      </span>
-                                    </td>
+                                    return (
+                                      <label
+                                        className={classNames(
+                                          styles['quizOptionRow'],
+                                          checked && styles['quizOptionRowSelected'],
+                                        )}
+                                        key={option.id}
+                                      >
+                                        <input
+                                          checked={checked}
+                                          aria-label={`${String(optionIndex + 1)}. ${option.optionText}`}
+                                          disabled={quizReviewMode}
+                                          name={`problem-question-${String(currentQuizQuestion.id)}`}
+                                          onChange={() => {
+                                            updateQuizAnswer(
+                                              currentQuizQuestion.id,
+                                              option.id,
+                                              currentQuizQuestion.questionType,
+                                            );
+                                          }}
+                                          type={
+                                            currentQuizQuestion.questionType === 'MULTIPLE'
+                                              ? 'checkbox'
+                                              : 'radio'
+                                          }
+                                        />
+                                        <div className={styles['quizOptionContent']}>
+                                          <span className={styles['quizOptionLabel']}>
+                                            {optionIndex + 1}. {option.optionText}
+                                          </span>
+                                          {renderQuizMedia(
+                                            option.mediaType,
+                                            option.mediaPreviewUrl,
+                                            option.mediaUrl,
+                                            `${String(resolvedQuizQuestionIndex + 1)}번 문항 ${String(optionIndex + 1)}번 보기 미디어`,
+                                            styles['quizOptionMedia'],
+                                          )}
+                                        </div>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+
+                                {renderQuizMedia(
+                                  currentQuizQuestion.mediaType,
+                                  currentQuizQuestion.mediaPreviewUrl,
+                                  currentQuizQuestion.mediaUrl,
+                                  `${String(resolvedQuizQuestionIndex + 1)}번 문항 미디어`,
+                                  styles['quizMediaImage'],
+                                )}
+                              </div>
+
+                              {quizReviewMode && currentQuizResult ? (
+                                <div className={styles['quizReviewSummary']}>
+                                  {currentQuizResult.explanation ? (
+                                    <details className={styles['quizExplanationDetails']}>
+                                      <summary>해설 보기</summary>
+                                      <p className={styles['quizResultExplanation']}>
+                                        {currentQuizResult.explanation}
+                                      </p>
+                                    </details>
+                                  ) : null}
+                                </div>
+                              ) : null}
+
+                              <div className={styles['quizControlBar']}>
+                                {!quizReviewMode ? (
+                                  <label className={styles['quizFlagToggleBottom']}>
+                                    <input
+                                      checked={quizFlaggedQuestionIds.has(currentQuizQuestion.id)}
+                                      onChange={(event) => {
+                                        setQuizFlaggedQuestion(
+                                          currentQuizQuestion.id,
+                                          event.currentTarget.checked,
+                                        );
+                                      }}
+                                      type='checkbox'
+                                    />
+                                    <span>나중에 풀기</span>
+                                  </label>
+                                ) : (
+                                  <span aria-hidden='true' />
+                                )}
+                                <div className={styles['quizControlNavigation']}>
+                                  <button
+                                    className={styles['quizNavButton']}
+                                    disabled={resolvedQuizQuestionIndex === 0}
+                                    onClick={() => {
+                                      moveToQuizQuestion(resolvedQuizQuestionIndex - 1);
+                                    }}
+                                    type='button'
+                                  >
+                                    이전
+                                  </button>
+                                  <span className={styles['quizQuestionCounter']}>
+                                    <strong>{resolvedQuizQuestionIndex + 1}</strong>
+                                    <span>/</span>
+                                    <span>{quizQuestions.length}</span>
+                                  </span>
+                                  <button
+                                    className={styles['quizNavButton']}
+                                    disabled={resolvedQuizQuestionIndex + 1 >= quizQuestions.length}
+                                    onClick={() => {
+                                      moveToQuizQuestion(resolvedQuizQuestionIndex + 1);
+                                    }}
+                                    type='button'
+                                  >
+                                    다음
+                                  </button>
+                                </div>
+                                {quizReviewMode ? (
+                                  <button
+                                    className={classNames(
+                                      styles['quizSubmitButton'],
+                                      styles['quizSubmitButtonSecondary'],
+                                    )}
+                                    onClick={() => {
+                                      setQuizReviewMode(false);
+                                    }}
+                                    type='button'
+                                  >
+                                    결과로 돌아가기
+                                  </button>
+                                ) : (
+                                  <button
+                                    className={styles['quizSubmitButton']}
+                                    disabled={
+                                      submitQuizMutation.isPending || quizRemainingSeconds === 0
+                                    }
+                                    onClick={handleQuizSubmit}
+                                    type='button'
+                                  >
+                                    {submitQuizMutation.isPending ? '제출 중...' : '최종 제출'}
+                                  </button>
+                                )}
+                              </div>
+                            </section>
+                          ) : !shouldShowQuizStartPrompt && !quizAttemptResult ? (
+                            <p className={styles['quizMutedText']}>
+                              {shouldShowSubmittedWithoutResult
+                                ? '이미 제출한 문제입니다. 결과 정보를 불러오지 못했습니다.'
+                                : '등록된 문제가 없습니다.'}
+                            </p>
+                          ) : null}
+
+                          {quizAttemptResult && !quizReviewMode ? (
+                            <div className={styles['quizResultCard']}>
+                              <div className={styles['quizResultHeader']}>
+                                <strong className={styles['quizResultTitle']}>채점 결과</strong>
+                                <span
+                                  className={classNames(
+                                    styles['quizResultBadge'],
+                                    quizAttemptResult.passed && styles['quizResultBadgePassed'],
+                                  )}
+                                >
+                                  {quizAttemptResult.score}점
+                                </span>
+                              </div>
+                              <div className={styles['quizResultActions']}>
+                                <Button
+                                  onClick={() => {
+                                    setQuizReviewMode(true);
+                                  }}
+                                  size='sm'
+                                  type='button'
+                                  variant='secondary'
+                                >
+                                  문항 다시 보기
+                                </Button>
+                              </div>
+
+                              <table className={styles['quizResultTable']}>
+                                <thead>
+                                  <tr>
+                                    <th scope='col'>문항</th>
+                                    <th scope='col'>결과</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : null}
-                      </>
-                    )}
+                                </thead>
+                                <tbody>
+                                  {quizAttemptResult.results.map((result, resultIndex) => (
+                                    <tr key={result.questionId}>
+                                      <td>{resultIndex + 1}번</td>
+                                      <td>
+                                        <span className={styles['quizResultMark']}>
+                                          {result.correct ? 'O' : 'X'}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : null}
+                        </>
+                      )}
+                    </section>
                   </section>
                 ) : null}
               </section>
@@ -3105,11 +3249,13 @@ const PlayerPage = () => {
                 <aside className={styles['quizNavigatorPanel']}>
                   <div className={styles['curriculumHeader']}>
                     <div className={styles['curriculumHeaderCopy']}>
-                      <h2 className={styles['curriculumTitle']}>{curriculumPanelTitle}</h2>
+                      <h2 className={styles['curriculumTitle']}>
+                        {selectedLesson?.title ?? curriculumPanelTitle}
+                      </h2>
                     </div>
                     <div className={styles['panelSwitchRow']}>
                       <button
-                        aria-label='강의 목록 패널'
+                        aria-label='문제 목록 패널'
                         className={classNames(
                           styles['panelSwitchButton'],
                           activeQuizSidebarPanel === 'curriculum' &&
@@ -3123,30 +3269,78 @@ const PlayerPage = () => {
                         <span className={styles['panelSwitchLabel']}>목록</span>
                       </button>
                       <button
-                        aria-label='문제 목록 패널'
+                        aria-label='Q&A 패널'
                         className={classNames(
                           styles['panelSwitchButton'],
-                          activeQuizSidebarPanel === 'questions' &&
-                            styles['panelSwitchButtonActive'],
+                          activeQuizSidebarPanel === 'qna' && styles['panelSwitchButtonActive'],
                         )}
                         onClick={() => {
-                          setActiveQuizSidebarPanel('questions');
+                          setActiveQuizSidebarPanel('qna');
                         }}
                         type='button'
                       >
-                        <span className={styles['panelSwitchLabel']}>문제</span>
+                        <span className={styles['panelSwitchLabel']}>Q&amp;A</span>
                       </button>
                     </div>
                   </div>
 
                   {activeQuizSidebarPanel === 'curriculum' ? (
-                    renderCurriculumListContent()
-                  ) : isQuizSessionActive || quizAttemptResult ? (
-                    renderQuizQuestionNavigator()
+                    <>
+                      <div className={styles['progressPanel']}>
+                        <div className={styles['progressSummary']}>
+                          <strong className={styles['progressValue']}>{completedRatio}%</strong>
+                          <span className={styles['progressText']}>
+                            {completedLessonCount} / {totalLessonCount} 완료
+                          </span>
+                        </div>
+                        <div aria-hidden='true' className={styles['progressTrack']}>
+                          <span
+                            className={styles['progressFill']}
+                            style={{ width: `${String(completedRatio)}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className={styles['quizNavigatorLessonSummary']}>
+                        <div className={styles['quizNavigatorLessonTitleRow']}>
+                          <span aria-hidden='true' className={styles['quizNavigatorLessonDot']} />
+                          <h3 className={styles['quizNavigatorLessonTitle']}>
+                            {selectedLesson?.title ?? curriculumPanelTitle}
+                          </h3>
+                          <span aria-hidden='true' className={styles['quizNavigatorChevron']} />
+                        </div>
+                        <div className={styles['quizNavigatorLessonMeta']}>
+                          <span className={styles['quizNavigatorTypeBadge']}>문제풀이</span>
+                          <span>{String(quizQuestions.length)}문항</span>
+                          <span>{formatProblemTimeLimit(quizTimeLimitSeconds)}</span>
+                        </div>
+                      </div>
+                      {isQuizSessionActive || quizAttemptResult ? (
+                        renderQuizQuestionNavigator()
+                      ) : (
+                        <p className={styles['quizNavigatorEmptyText']}>
+                          문제 풀이를 시작하면 문항 목록이 표시됩니다.
+                        </p>
+                      )}
+                    </>
                   ) : (
-                    <p className={styles['quizNavigatorEmptyText']}>
-                      문제 풀이를 시작하면 문항 목록이 표시됩니다.
-                    </p>
+                    <div className={styles['curriculumPanelContent']}>
+                      <div className={styles['qnaPanelBody']}>
+                        <ProgramQnaPanel
+                          allowReplies={false}
+                          answerSource='adminOnly'
+                          boardLayout='compact'
+                          detailDisplay='answersOnly'
+                          enabled
+                          exclusiveWriteMode
+                          hideBoardTitle
+                          programId={qnaProgramId}
+                          programThreadCount={qnaContext?.programThreadCount ?? null}
+                          showBoardSummary={false}
+                          title='Q&A'
+                          variant='board'
+                        />
+                      </div>
+                    </div>
                   )}
                 </aside>
               ) : (
@@ -3205,145 +3399,182 @@ const PlayerPage = () => {
                   {activeSidebarPanel === 'curriculum' ? (
                     <div className={styles['curriculumPanelContent']}>
                       <div className={styles['curriculumBody']}>
-                        {snapshot.curriculumTrack.sections.map((section) => (
-                          <details className={styles['sectionBlock']} key={section.id} open>
-                            <summary className={styles['sectionHeader']}>
-                              <h3 className={styles['sectionTitle']}>{section.title}</h3>
-                              <span className={styles['sectionToggle']}>
-                                <span
-                                  aria-hidden='true'
-                                  className={styles['sectionToggleIcon']}
-                                  style={{ backgroundImage: `url(${iconSectionToggle})` }}
-                                />
-                              </span>
-                            </summary>
+                        {snapshot.curriculumTrack.sections.map((section) => {
+                          const isSectionOpen = expandedCurriculumSectionIds.has(section.id);
 
-                            <div className={styles['lessonList']}>
-                              {flattenPlayerItems([
-                                {
-                                  id: section.id,
-                                  lessons: section.lessons,
-                                  title: section.title,
-                                },
-                              ]).map((item) => {
-                                const lesson = item.lesson;
-                                const isCurrent = item.id === selectedItem.id;
-                                const isCompleted = completedLessonIds.has(lesson.id);
-                                const isProblemCompleted = quizAttemptedLessonIds.has(lesson.id);
-                                const practicumSidebarState =
-                                  lesson.deliveryType === 'practicum'
-                                    ? (practicumSidebarStatesByLessonId.get(lesson.id) ?? null)
-                                    : null;
-                                const practicumLessonBadgeLabel =
-                                  lesson.deliveryType === 'practicum'
-                                    ? resolvePracticumLessonBadgeLabel(
-                                        practicumLectureByLectureId.get(
-                                          snapshot?.lessonPlaybackById[lesson.id]?.lectureId ??
-                                            lesson.lectureId ??
-                                            -1,
-                                        ) ?? null,
-                                      )
-                                    : null;
-                                const offlineSidebarState = getOfflineSidebarState(lesson);
-                                const lessonSummaryActionLabel = getLessonSummaryActionLabel(
-                                  lesson,
-                                  practicumSidebarState?.label ?? null,
-                                );
-                                const lessonActionLabel =
-                                  lesson.deliveryType === 'problem' && isProblemCompleted
-                                    ? '문제 완료'
-                                    : lessonSummaryActionLabel;
-                                const lessonMetaItems = getLessonMetaItems(lesson);
-                                const isItemCompleted =
-                                  lesson.deliveryType === 'problem'
-                                    ? isProblemCompleted
-                                    : isCompleted;
-                                const isLocked = lockedLessonIds.has(lesson.id);
-                                const linkContent = (
-                                  <>
-                                    <span
-                                      aria-hidden='true'
-                                      className={classNames(
-                                        styles['lessonStatusIcon'],
-                                        isItemCompleted && styles['lessonStatusIconCompleted'],
-                                        isCurrent && styles['lessonStatusIconCurrent'],
-                                        isLocked && styles['lessonStatusIconLocked'],
-                                      )}
-                                      style={isItemCompleted ? completedStatusStyle : undefined}
-                                    />
-                                    <div className={styles['lessonLinkBody']}>
-                                      <div className={styles['lessonBadgeRow']}>
-                                        <span className={styles['lessonTypeBadge']}>
-                                          {LESSON_TYPE_LABELS[lesson.deliveryType]}
-                                        </span>
-                                        {practicumSidebarState ? (
-                                          <span
-                                            className={styles['lessonPracticumBadge']}
-                                            data-tone={practicumSidebarState.tone}
-                                          >
-                                            {practicumLessonBadgeLabel ??
-                                              practicumSidebarState.label}
-                                          </span>
-                                        ) : null}
-                                        {offlineSidebarState ? (
-                                          <span
-                                            className={styles['lessonPracticumBadge']}
-                                            data-tone={offlineSidebarState.tone}
-                                          >
-                                            {offlineSidebarState.label}
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                      <div className={styles['lessonTitleRow']}>
-                                        <strong className={styles['lessonLinkTitle']}>
-                                          {item.title}
-                                        </strong>
+                          return (
+                            <section
+                              className={classNames(
+                                styles['sectionBlock'],
+                                isSectionOpen && styles['sectionBlockOpen'],
+                              )}
+                              key={section.id}
+                              ref={(node) => {
+                                curriculumSectionRefs.current[section.id] = node;
+                              }}
+                            >
+                              <button
+                                aria-expanded={isSectionOpen}
+                                className={styles['sectionHeader']}
+                                onClick={() => {
+                                  toggleCurriculumSection(section.id);
+                                }}
+                                type='button'
+                              >
+                                <h3 className={styles['sectionTitle']}>{section.title}</h3>
+                                <span className={styles['sectionToggle']}>
+                                  <span
+                                    aria-hidden='true'
+                                    className={styles['sectionToggleIcon']}
+                                    style={playerChevronDownIconStyle}
+                                  />
+                                </span>
+                              </button>
+
+                              <div
+                                className={styles['sectionContent']}
+                                aria-hidden={!isSectionOpen}
+                              >
+                                <div className={styles['lessonList']}>
+                                  {flattenPlayerItems([
+                                    {
+                                      id: section.id,
+                                      lessons: section.lessons,
+                                      title: section.title,
+                                    },
+                                  ]).map((item) => {
+                                    const lesson = item.lesson;
+                                    const isCurrent = item.id === selectedItem.id;
+                                    const isCompleted = completedLessonIds.has(lesson.id);
+                                    const isProblemCompleted = quizAttemptedLessonIds.has(
+                                      lesson.id,
+                                    );
+                                    const practicumSidebarState =
+                                      lesson.deliveryType === 'practicum'
+                                        ? (practicumSidebarStatesByLessonId.get(lesson.id) ?? null)
+                                        : null;
+                                    const practicumLessonBadgeLabel =
+                                      lesson.deliveryType === 'practicum'
+                                        ? resolvePracticumLessonBadgeLabel(
+                                            practicumLectureByLectureId.get(
+                                              snapshot?.lessonPlaybackById[lesson.id]?.lectureId ??
+                                                lesson.lectureId ??
+                                                -1,
+                                            ) ?? null,
+                                          )
+                                        : null;
+                                    const offlineSidebarState = getOfflineSidebarState(lesson);
+                                    const lessonSummaryActionLabel = getLessonSummaryActionLabel(
+                                      lesson,
+                                      practicumSidebarState?.label ?? null,
+                                    );
+                                    const lessonActionLabel =
+                                      lesson.deliveryType === 'problem' && isProblemCompleted
+                                        ? '문제 완료'
+                                        : lessonSummaryActionLabel;
+                                    const lessonMetaItems = getLessonMetaItems(lesson);
+                                    const isItemCompleted =
+                                      lesson.deliveryType === 'problem'
+                                        ? isProblemCompleted
+                                        : isCompleted;
+                                    const isLocked = lockedLessonIds.has(lesson.id);
+                                    const linkContent = (
+                                      <>
                                         <span
-                                          className={styles['lessonSummaryAction']}
-                                          data-tone={
-                                            lesson.deliveryType === 'problem' && isProblemCompleted
-                                              ? 'completed'
-                                              : undefined
+                                          aria-hidden='true'
+                                          className={classNames(
+                                            styles['lessonStatusIcon'],
+                                            isItemCompleted && styles['lessonStatusIconCompleted'],
+                                            isCurrent &&
+                                              !isItemCompleted &&
+                                              styles['lessonStatusIconCurrent'],
+                                            isLocked && styles['lessonStatusIconLocked'],
+                                          )}
+                                          style={
+                                            isItemCompleted
+                                              ? completedStatusStyle
+                                              : isCurrent
+                                                ? playerCurrentLessonIndicatorStyle
+                                                : undefined
                                           }
-                                        >
-                                          {lessonActionLabel}
-                                        </span>
-                                      </div>
-                                      {lessonMetaItems.length ? (
-                                        <div className={styles['lessonLinkMeta']}>
-                                          {lessonMetaItems.map((metaItem) => (
-                                            <span
-                                              className={styles['lessonLinkDuration']}
-                                              key={`${item.id}-${metaItem}`}
-                                            >
-                                              {metaItem}
+                                        />
+                                        <div className={styles['lessonLinkBody']}>
+                                          <div className={styles['lessonBadgeRow']}>
+                                            <span className={styles['lessonTypeBadge']}>
+                                              {PLAYER_LESSON_TYPE_LABELS[lesson.deliveryType]}
                                             </span>
-                                          ))}
+                                            {practicumSidebarState ? (
+                                              <span
+                                                className={styles['lessonPracticumBadge']}
+                                                data-tone={practicumSidebarState.tone}
+                                              >
+                                                {practicumLessonBadgeLabel ??
+                                                  practicumSidebarState.label}
+                                              </span>
+                                            ) : null}
+                                            {offlineSidebarState ? (
+                                              <span
+                                                className={styles['lessonPracticumBadge']}
+                                                data-tone={offlineSidebarState.tone}
+                                              >
+                                                {offlineSidebarState.label}
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                          <div className={styles['lessonTitleRow']}>
+                                            <strong className={styles['lessonLinkTitle']}>
+                                              {item.title}
+                                            </strong>
+                                            <span
+                                              className={styles['lessonSummaryAction']}
+                                              data-tone={
+                                                lesson.deliveryType === 'problem' &&
+                                                isProblemCompleted
+                                                  ? 'completed'
+                                                  : undefined
+                                              }
+                                            >
+                                              {lessonActionLabel}
+                                            </span>
+                                          </div>
+                                          {lessonMetaItems.length ? (
+                                            <div className={styles['lessonLinkMeta']}>
+                                              {lessonMetaItems.map((metaItem) => (
+                                                <span
+                                                  className={styles['lessonLinkDuration']}
+                                                  key={`${item.id}-${metaItem}`}
+                                                >
+                                                  {metaItem}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          ) : null}
                                         </div>
-                                      ) : null}
-                                    </div>
-                                  </>
-                                );
+                                      </>
+                                    );
 
-                                return (
-                                  <Link
-                                    className={classNames(
-                                      styles['lessonLink'],
-                                      isCurrent && styles['lessonLinkCurrent'],
-                                    )}
-                                    key={item.id}
-                                    to={routePaths.learningLesson(
-                                      String(resolvedEnrollmentId),
-                                      item.id,
-                                    )}
-                                  >
-                                    {linkContent}
-                                  </Link>
-                                );
-                              })}
-                            </div>
-                          </details>
-                        ))}
+                                    return (
+                                      <Link
+                                        className={classNames(
+                                          styles['lessonLink'],
+                                          isCurrent && styles['lessonLinkCurrent'],
+                                        )}
+                                        key={item.id}
+                                        tabIndex={isSectionOpen ? undefined : -1}
+                                        to={routePaths.learningLesson(
+                                          String(resolvedEnrollmentId),
+                                          item.id,
+                                        )}
+                                      >
+                                        {linkContent}
+                                      </Link>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </section>
+                          );
+                        })}
                       </div>
                     </div>
                   ) : (

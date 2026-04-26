@@ -246,30 +246,9 @@
     height: 20px;
     object-fit: contain;
   }
-
-  &ImageCart {
-    width: 20px;
-    height: 20px;
-
-    @include m.lg {
-      width: 24px;
-      height: 24px;
-    }
-  }
-
-  &ImageMy {
-    width: 22px;
-    height: 22px;
-
-    @include m.lg {
-      width: 24px;
-      height: 24px;
-      transform: translateY(1px);
-    }
-  }
 }
 
-.cartIconLink {
+.headerCartLink {
   position: relative;
 
   @include m.lg {
@@ -281,6 +260,31 @@
     &:hover {
       background: transparent;
     }
+  }
+}
+
+.headerCartIcon {
+  width: 20px;
+  height: 20px;
+
+  @include m.lg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.accountMenuIcon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentcolor;
+  mask: var(--header-account-icon) center / contain no-repeat;
+  -webkit-mask: var(--header-account-icon) center / contain no-repeat;
+
+  @include m.lg {
+    width: 24px;
+    height: 24px;
+    transform: translateY(1px);
   }
 }
 
@@ -329,8 +333,13 @@
     height: 24px;
     min-height: 24px;
     border-radius: 0;
+    color: #374151;
+    transition: color 160ms ease;
 
-    &:hover {
+    &:hover,
+    &:focus-visible,
+    &[aria-expanded='true'] {
+      color: #34b29f;
       background: transparent;
     }
   }
@@ -341,12 +350,14 @@
   top: calc(100% + 10px);
   right: 0;
   display: grid;
-  min-width: 168px;
-  padding: 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-primary);
-  box-shadow: var(--shadow-md);
+  width: 190px;
+  min-width: 190px;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .accountMenuLink,
@@ -354,28 +365,38 @@
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  min-height: 42px;
-  padding: 0 12px;
+  min-height: 50px;
+  padding: 0 24px;
   border: 0;
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
+  border-radius: 0;
+  color: #374151;
   font: inherit;
-  font-size: var(--font-size-sm);
+  font-size: 18px;
   font-weight: var(--font-weight-medium);
-  line-height: 1.4;
+  line-height: 1.3;
+  letter-spacing: var(--letter-spacing-normal);
   text-decoration: none;
-  background: transparent;
+  background: #ffffff;
 }
 
 .accountMenuLink:hover,
-.accountMenuButton:hover {
-  background: var(--color-bg-tertiary);
+.accountMenuLink:focus-visible {
+  color: #34b29f;
+  background: #ecf9f7;
 }
 
 .accountMenuButton {
   width: 100%;
+  color: #374151;
+  background: #ffffff;
   cursor: pointer;
   text-align: left;
+
+  &:hover,
+  &:focus-visible {
+    color: #34b29f;
+    background: #ecf9f7;
+  }
 }
 
 .textAction,
@@ -453,6 +474,27 @@
   }
 }
 
+.desktopLoginLink {
+  color: #ffffff;
+  background: #34b29f;
+
+  &:hover {
+    background: #2fa18f;
+  }
+
+  @include m.lg {
+    width: 106px;
+    min-height: auto;
+    padding: 12px 30px;
+    border-radius: 10px;
+    font-family: Pretendard, var(--font-family-base);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--letter-spacing-normal);
+    line-height: normal;
+  }
+}
+
 .dropdown {
   &Panel {
     position: absolute;
@@ -494,7 +536,8 @@
     @include m.container(1440px);
 
     display: flex;
-    height: 474px;
+    align-items: stretch;
+    min-height: 624px;
     padding: 0;
   }
 
@@ -504,7 +547,7 @@
     gap: 10px;
     width: 300px;
     min-width: 300px;
-    height: 100%;
+    min-height: 624px;
     padding: 28px;
     border-right: 1px solid #e5e7eb;
   }
@@ -532,81 +575,156 @@
     line-height: 1.3;
   }
 
-  &SectionGrid {
+  &DepthLayout {
     display: flex;
     min-width: 0;
-    height: 100%;
+    min-height: 624px;
     flex: 1;
     overflow: auto hidden;
   }
 
-  &SectionColumn {
+  &SecondLevelColumn {
+    position: relative;
     display: grid;
     align-content: start;
-    gap: 24px;
-    width: 300px;
-    min-width: 300px;
-    height: 100%;
-    padding: 28px;
-    border-right: 1px solid #e5e7eb;
+    width: 390px;
+    min-width: 390px;
+    min-height: 624px;
+    padding: 0;
     background: #ffffff;
-  }
 
-  &Section {
-    display: grid;
-    align-content: start;
-    gap: 14px;
-    min-width: 0;
-  }
-
-  &SectionTitle,
-  &Link {
-    &:hover {
-      color: var(--color-primary);
+    &::after {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1;
+      width: 1px;
+      background: #e5e7eb;
+      content: '';
+      pointer-events: none;
     }
   }
 
-  &SectionTitle {
-    display: inline-flex;
-    width: fit-content;
+  &DepthCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    width: 390px;
+    min-height: 104px;
+    padding: 25px 28px;
     color: #000000;
-    font-family: Pretendard, var(--font-family-base);
-    font-size: 18px;
-    font-weight: var(--font-weight-semibold);
-    line-height: 1.3;
+    text-decoration: none;
+    background: #ffffff;
+    box-sizing: border-box;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+
+    &:hover,
+    &:focus-visible {
+      background: #ecf9f7;
+
+      .dropdownDepthTitle,
+      .dropdownDepthArrow {
+        color: #34b29f;
+      }
+    }
   }
 
-  &SectionDescription {
-    color: #6b7280;
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-relaxed);
+  &DepthCardActive {
+    background: #ecf9f7;
+
+    .dropdownDepthTitle,
+    .dropdownDepthArrow {
+      color: #34b29f;
+    }
   }
 
-  &LinkList {
+  &DepthCopy {
     display: grid;
     gap: 10px;
+    min-width: 0;
   }
 
-  &LinkItem {
+  &DepthTitle,
+  &GrandchildTitle {
+    overflow: hidden;
+    font-family: Pretendard, var(--font-family-base);
+    font-size: 18px;
+    letter-spacing: var(--letter-spacing-normal);
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &DepthTitle {
+    color: currentColor;
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &DepthDescription,
+  &GrandchildDescription {
+    overflow: hidden;
+    color: #6b7280;
+    font-family: Pretendard, var(--font-family-base);
+    font-size: 16px;
+    font-weight: var(--font-weight-normal);
+    letter-spacing: var(--letter-spacing-normal);
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &DepthArrow {
+    width: 6px;
+    height: 12px;
+    flex: 0 0 6px;
+    color: #34b29f;
+  }
+
+  &GrandchildGrid {
     display: grid;
-    gap: var(--space-1);
+    grid-template-columns: repeat(2, 355px);
+    column-gap: 40px;
+    align-content: start;
+    min-width: 750px;
+    min-height: 624px;
+    padding: 0;
+    border-left: 1px solid #e5e7eb;
+    margin-left: -1px;
+    background: #ffffff;
   }
 
-  &Link {
-    display: inline-flex;
-    color: var(--color-gray-900);
-    line-height: var(--line-height-normal);
+  &GrandchildCard {
+    display: grid;
+    align-content: center;
+    gap: 10px;
+    width: 355px;
+    min-height: 104px;
+    padding: 25px 28px;
+    color: #000000;
+    text-decoration: none;
+    background: #ffffff;
+    box-sizing: border-box;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+
+    &:hover,
+    &:focus-visible {
+      background: #ecf9f7;
+
+      .dropdownGrandchildTitle {
+        color: #34b29f;
+      }
+    }
   }
 
-  &LinkDescription {
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-relaxed);
-  }
-
-  &SectionHint {
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
+  &GrandchildTitle {
+    color: #000000;
+    font-weight: var(--font-weight-medium);
   }
 }
 

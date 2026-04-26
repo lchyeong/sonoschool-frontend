@@ -62,6 +62,19 @@ export interface AdminLectureOfflineSchedulesReplacePayload {
   offlineSchedules: AdminLectureOfflineScheduleUpsertPayload[];
 }
 
+export type AdminLectureDeleteAction = 'DELETE' | 'ARCHIVE';
+
+export interface AdminLectureDeleteImpact {
+  documentCount: number;
+  hasHistory: boolean;
+  lectureId: number;
+  lectureTitle: string;
+  problemAttemptCount: number;
+  progressCount: number;
+  recommendedAction: AdminLectureDeleteAction;
+  reservationCount: number;
+}
+
 export interface AdminSortOrderItem {
   id: number;
   sortOrder: number;

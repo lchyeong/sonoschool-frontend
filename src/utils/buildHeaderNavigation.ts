@@ -172,10 +172,6 @@ export const buildHeaderNavigation = (
   const resolvedCourseNavigation = DEFAULT_COURSE_NAVIGATION.map((item) => {
     const dynamicMatch = dynamicNavigationByPath.get(item.to);
 
-    if (item.id === 'fixed-online-courses') {
-      return item;
-    }
-
     if (!dynamicMatch) {
       return item;
     }

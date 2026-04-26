@@ -823,24 +823,33 @@ export const ProgramPageDetailMainContent = ({
                     )}
                   </div>
 
-                  <div className={styles['curriculumWeekList']}>
-                    {curriculumTrack.sections.map((section, sectionIndex) => {
-                      const rowKey = `${curriculumTrack.id}-${String(sectionIndex)}`;
+                  {curriculumTrack.sections.length > 0 ? (
+                    <div className={styles['curriculumWeekList']}>
+                      {curriculumTrack.sections.map((section, sectionIndex) => {
+                        const rowKey = `${curriculumTrack.id}-${String(sectionIndex)}`;
 
-                      return (
-                        <CurriculumWeekRow
-                          isOpen={openCurriculumRows[rowKey] ?? false}
-                          key={rowKey}
-                          onOpenOfflineSchedule={setSelectedOfflineLesson}
-                          onToggle={() => {
-                            toggleCurriculumRow(rowKey);
-                          }}
-                          section={section}
-                          sectionIndex={sectionIndex}
-                        />
-                      );
-                    })}
-                  </div>
+                        return (
+                          <CurriculumWeekRow
+                            isOpen={openCurriculumRows[rowKey] ?? false}
+                            key={rowKey}
+                            onOpenOfflineSchedule={setSelectedOfflineLesson}
+                            onToggle={() => {
+                              toggleCurriculumRow(rowKey);
+                            }}
+                            section={section}
+                            sectionIndex={sectionIndex}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className={styles['curriculumEmptyState']}>
+                      <p className={styles['curriculumEmptyTitle']}>강의 구성이 준비 중입니다.</p>
+                      <p className={styles['curriculumEmptyDescription']}>
+                        등록된 섹션과 강의가 아직 없습니다.
+                      </p>
+                    </div>
+                  )}
                 </section>
               </div>
             </section>

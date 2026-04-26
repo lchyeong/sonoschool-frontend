@@ -113,7 +113,6 @@ describe('app API fallback', () => {
 
     await expect(
       updateMyProfile({
-        name: '김학생',
         nickname: '학생',
       }),
     ).rejects.toBeTruthy();

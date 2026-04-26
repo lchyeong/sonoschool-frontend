@@ -215,6 +215,7 @@ const AdminNoticeWorkspaceForm = ({
 
     return {
       alt: file.name,
+      storageUrl: uploadTarget.storageUrl,
       url: uploadTarget.previewUrl,
     };
   };
@@ -223,131 +224,112 @@ const AdminNoticeWorkspaceForm = ({
 
   return (
     <div className={styles['page']}>
-      <header className={styles['pageHeader']}>
-        <h1 className={styles['pageTitle']}>{mode === 'create' ? '새 공지 등록' : '공지 수정'}</h1>
-      </header>
-
       <section className={styles['editorShell']}>
         <div className={styles['editorToolbar']}>
-          <div className={styles['editorHeaderCompact']}>
-            <p className={styles['metaText']}>
-              공지 작성은 별도 페이지에서 처리하고, 목록에서는 게시 상태만 빠르게 관리합니다.
-            </p>
-            {mode === 'edit' && editingNotice ? (
-              <div className={styles['editorMetaRow']}>
-                <span className={styles['badge']}>
-                  {editingNotice.published ? '게시 중' : '비공개'}
-                </span>
-                {editingNotice.pinned ? <span className={styles['badgeSuccess']}>고정</span> : null}
-              </div>
-            ) : null}
-          </div>
-
           <div className={styles['editorToolbarActions']}>
             <Button
               onClick={() => {
                 void navigate(routePaths.adminNotices);
               }}
+              size='sm'
               type='button'
               variant='secondary'
             >
               목록으로
             </Button>
-            {mode === 'edit' && editingNotice ? (
-              editingNotice.published ? (
-                <Button
-                  disabled={unpublishMutation.isPending}
-                  onClick={() => {
-                    unpublishMutation.mutate(editingNotice.id);
-                  }}
-                  type='button'
-                  variant='secondary'
-                >
-                  게시 중지
-                </Button>
-              ) : (
-                <Button
-                  disabled={publishMutation.isPending}
-                  onClick={() => {
-                    publishMutation.mutate(editingNotice.id);
-                  }}
-                  type='button'
-                >
-                  게시하기
-                </Button>
-              )
-            ) : null}
           </div>
+
+          {mode === 'edit' && editingNotice ? (
+            <div className={styles['editorMetaRow']}>
+              <span className={editingNotice.published ? styles['badgeSuccess'] : styles['badge']}>
+                {editingNotice.published ? '게시 중' : '비공개'}
+              </span>
+              {editingNotice.pinned ? <span className={styles['badgeAccent']}>고정</span> : null}
+            </div>
+          ) : null}
         </div>
 
-        <div className={styles['form']}>
+        <div className={`${styles['form']} ${styles['noticeEditorForm']}`}>
           <TextField
             label='공지 제목'
+            labelClassName={styles['srOnly']}
             name='noticeTitle'
             onChange={(event) => {
               setFormState((current) => ({ ...current, title: event.target.value }));
             }}
-            placeholder='운영 공지 제목을 입력해 주세요.'
+            placeholder='제목'
             value={formState.title}
           />
 
           <AdminRichTextEditor
-            hint='볼드, 색상, 형광펜, 표, 이미지까지 같은 에디터에서 처리합니다.'
-            label='공지 본문'
             onChange={(nextContent) => {
               setFormState((current) => ({ ...current, content: nextContent }));
             }}
             onImageUpload={uploadNoticeImage}
-            placeholder='공지 본문을 입력해 주세요.'
+            placeholder='본문'
             value={formState.content}
           />
 
-          <label className={styles['checkboxRow']}>
-            <input
-              checked={formState.pinned}
-              onChange={(event) => {
-                setFormState((current) => ({ ...current, pinned: event.target.checked }));
-              }}
-              type='checkbox'
-            />
-            상단 고정 공지로 노출
-          </label>
+          <div className={styles['noticeEditorActionBar']}>
+            <div className={styles['actionRow']}>
+              <Button disabled={isSubmitting} onClick={handleSubmit} size='sm' type='button'>
+                {isSubmitting ? '저장 중...' : mode === 'create' ? '공지 등록' : '공지 저장'}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (mode === 'edit' && editingNotice) {
+                    setFormState(createFormState(editingNotice));
+                    return;
+                  }
 
-          {mode === 'create' ? (
-            <label className={styles['checkboxRow']}>
-              <input
-                checked={formState.published}
-                onChange={(event) => {
-                  setFormState((current) => ({ ...current, published: event.target.checked }));
+                  setFormState(EMPTY_FORM);
                 }}
-                type='checkbox'
-              />
-              등록과 동시에 게시
-            </label>
-          ) : (
-            <p className={styles['fieldHint']}>
-              게시 상태는 상단 게시하기/게시 중지 버튼으로 관리합니다.
-            </p>
-          )}
+                size='sm'
+                type='button'
+                variant='secondary'
+              >
+                {mode === 'create' ? '초기화' : '변경 취소'}
+              </Button>
+              {mode === 'edit' && editingNotice ? (
+                editingNotice.published ? (
+                  <Button
+                    disabled={unpublishMutation.isPending}
+                    onClick={() => {
+                      unpublishMutation.mutate(editingNotice.id);
+                    }}
+                    size='sm'
+                    type='button'
+                    variant='secondary'
+                  >
+                    게시 중지
+                  </Button>
+                ) : (
+                  <Button
+                    disabled={publishMutation.isPending}
+                    onClick={() => {
+                      publishMutation.mutate(editingNotice.id);
+                    }}
+                    size='sm'
+                    type='button'
+                  >
+                    게시하기
+                  </Button>
+                )
+              ) : null}
+            </div>
 
-          <div className={styles['actionRow']}>
-            <Button disabled={isSubmitting} onClick={handleSubmit} type='button'>
-              {isSubmitting ? '저장 중...' : mode === 'create' ? '공지 등록' : '공지 저장'}
-            </Button>
-            <Button
-              onClick={() => {
-                if (mode === 'edit' && editingNotice) {
-                  setFormState(createFormState(editingNotice));
-                  return;
-                }
-
-                setFormState(EMPTY_FORM);
-              }}
-              type='button'
-              variant='secondary'
-            >
-              {mode === 'create' ? '초기화' : '변경 취소'}
-            </Button>
+            {mode === 'create' ? (
+              <label className={styles['checkboxRow']}>
+                <input
+                  checked={formState.published}
+                  onChange={(event) => {
+                    setFormState((current) => ({ ...current, published: event.target.checked }));
+                  }}
+                  type='checkbox'
+                />
+                즉시 게시
+              </label>
+            ) : null}
           </div>
         </div>
       </section>

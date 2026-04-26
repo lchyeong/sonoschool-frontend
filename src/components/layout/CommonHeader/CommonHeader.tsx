@@ -1,11 +1,19 @@
-import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  type CSSProperties,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { logoutStudent } from '@/api/auth';
 import myPageIconSrc from '@/assets/icons/icon_my.svg';
-import cartIconSrc from '@/assets/icons/shopping-cart.svg';
+import headerCartIconSrc from '@/assets/icons/lucide_shopping-cart.svg';
 import CloseIcon from '@/components/ui/icons/CloseIcon';
 import MenuIcon from '@/components/ui/icons/MenuIcon';
 import { useMyCartQuery } from '@/query/useMyPageQueries';
@@ -30,6 +38,8 @@ import { useCommonHeaderDesktopDropdown } from './useCommonHeaderDesktopDropdown
 
 const KCP_PAYMENT_VISIBILITY_EVENT = 'sonoschool:kcp-payment-visibility';
 
+type MaskIconStyle = CSSProperties & Record<'--header-account-icon', string>;
+
 interface KcpPaymentVisibilityEventDetail {
   visible: boolean;
 }
@@ -43,6 +53,12 @@ const isKcpPaymentVisibilityEventDetail = (
     'visible' in value &&
     typeof value.visible === 'boolean'
   );
+};
+
+const buildAccountIconStyle = (iconSrc: string): MaskIconStyle => {
+  return {
+    '--header-account-icon': `url("${iconSrc}")`,
+  };
 };
 
 export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
@@ -398,7 +414,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
           장바구니와 로그인/마이페이지 액션을 표시합니다. */}
           <div className={styles['desktopUtilityArea']}>
             <LinkComponent
-              className={classNames(styles['iconLink'], styles['cartIconLink'])}
+              className={classNames(styles['iconLink'], styles['headerCartLink'])}
               onClick={() => {
                 closeDesktopMenu();
                 closeAccountMenu();
@@ -411,8 +427,8 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
               <img
                 alt=''
                 aria-hidden='true'
-                className={classNames(styles['iconImage'], styles['iconImageCart'])}
-                src={cartIconSrc}
+                className={classNames(styles['iconImage'], styles['headerCartIcon'])}
+                src={headerCartIconSrc}
               />
               {cartItemCount > 0 ? (
                 <span
@@ -440,11 +456,10 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
                     }}
                     type='button'
                   >
-                    <img
-                      alt=''
+                    <span
                       aria-hidden='true'
-                      className={classNames(styles['iconImage'], styles['iconImageMy'])}
-                      src={myPageIconSrc}
+                      className={styles['accountMenuIcon']}
+                      style={buildAccountIconStyle(myPageIconSrc)}
                     />
                   </button>
 
@@ -474,7 +489,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
                 </div>
               ) : (
                 <LinkComponent
-                  className={classNames(styles['textActionLink'], styles['textActionLinkPrimary'])}
+                  className={classNames(styles['textActionLink'], styles['desktopLoginLink'])}
                   onClick={() => {
                     closeDesktopMenu();
                     closeAccountMenu();
@@ -491,7 +506,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
           데스크톱과 달리 장바구니와 메뉴 열기/닫기 버튼만 보여 줍니다. */}
           <div className={styles['mobileUtilityArea']}>
             <LinkComponent
-              className={classNames(styles['iconLink'], styles['cartIconLink'])}
+              className={classNames(styles['iconLink'], styles['headerCartLink'])}
               onClick={() => {
                 closeMobileMenu();
                 closeAccountMenu();
@@ -503,8 +518,8 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
               <img
                 alt=''
                 aria-hidden='true'
-                className={classNames(styles['iconImage'], styles['iconImageCart'])}
-                src={cartIconSrc}
+                className={classNames(styles['iconImage'], styles['headerCartIcon'])}
+                src={headerCartIconSrc}
               />
               {cartItemCount > 0 ? (
                 <span

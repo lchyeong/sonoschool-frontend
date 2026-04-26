@@ -15,10 +15,9 @@ interface FooterNavigationItem {
 }
 
 interface FooterInfoItem {
-  label?: string;
+  label: string;
   value: string;
   href?: string;
-  withColon?: boolean;
 }
 
 const ADMIN_LOGIN_TRIGGER_CLICK_COUNT = 5;
@@ -36,22 +35,22 @@ const footerNavigationItems: readonly FooterNavigationItem[] = [
 
 const footerInformationLines: readonly (readonly FooterInfoItem[])[] = [
   [
-    { value: '소노스쿨 국제초음파연수원' },
-    { label: '대표', value: '장은희' },
+    { label: '상호명', value: '소노스쿨 국제초음파연수원' },
+    { label: '대표자', value: '장은희' },
+    { label: '주소', value: '경기도 화성시 동탄구 동탄신리천로5길 79, 3832동 603호' },
+  ],
+  [
+    { label: '통신판매업', value: '2018-성남분당B-0062' },
+    { label: '개인정보보호책임자', value: '장은희' },
     { label: '사업자 등록번호', value: '139-17-02906' },
   ],
   [
-    { label: '통신판매업', value: '2018-성남분당B-0062', withColon: true },
-    { label: '개인정보보호책임자', value: '장은희', withColon: true },
+    { label: '대표 번호', value: '031-934-6224', href: 'tel:0319346224' },
+    { label: '이메일', value: 'sonoschool@naver.com', href: 'mailto:sonoschool@naver.com' },
   ],
-  [
-    { value: '031-934-6224', href: 'tel:0319346224' },
-    { value: 'sonoschool@naver.com', href: 'mailto:sonoschool@naver.com' },
-  ],
-  [{ value: '경기도 화성시 동탄구 동탄신리천로5길 79, 3832동 603호' }],
 ] as const;
 
-const footerLegalTexts = ['개인정보처리방침', '쿠키 설정'] as const;
+const footerLegalTexts = ['개인정보처리방침', '쿠키 설정', '이용약관'] as const;
 
 const CommonFooter = () => {
   const navigate = useNavigate();
@@ -79,10 +78,6 @@ const CommonFooter = () => {
     <footer className={styles['footer']}>
       <div className={styles['inner']}>
         <div className={styles['topRow']}>
-          <div className={styles['brandArea']}>
-            <img alt='SONO SCHOOL 로고' className={styles['brandImage']} src='/SRDMS_logo_3x.png' />
-          </div>
-
           <nav aria-label='푸터 메뉴' className={styles['navigation']}>
             <ul className={styles['navigationList']}>
               {footerNavigationItems.map((item) => {
@@ -111,42 +106,60 @@ const CommonFooter = () => {
               })}
             </ul>
           </nav>
+
+          <div className={styles['legalLinks']} aria-label='푸터 정책 링크'>
+            {footerLegalTexts.map((text) => {
+              return (
+                <span className={styles['legalText']} key={text}>
+                  {text}
+                </span>
+              );
+            })}
+          </div>
         </div>
 
-        <section aria-labelledby='common-footer-heading' className={styles['informationBlock']}>
-          <h2 className={styles['visuallyHidden']} id='common-footer-heading'>
-            소노스쿨 사업자 정보
-          </h2>
+        <div aria-hidden='true' className={styles['divider']} />
 
-          <div className={styles['informationLines']}>
-            {footerInformationLines.map((line, lineIndex) => {
-              return (
-                <p
-                  className={styles['informationLine']}
-                  key={`footer-line-${String(lineIndex + 1)}`}
-                >
-                  {line.map((item, itemIndex) => {
-                    const itemKey = `${item.label ?? item.value}-${String(itemIndex)}`;
+        <div className={styles['contentRow']}>
+          <div className={styles['brandColumn']}>
+            <div className={styles['brandArea']}>
+              <img
+                alt='SONO SCHOOL 로고'
+                className={styles['brandImage']}
+                src='/SRDMS_logo_3x.png'
+              />
+            </div>
 
-                    return (
-                      <span className={styles['informationFragment']} key={itemKey}>
-                        {itemIndex > 0 ? (
-                          <span aria-hidden='true' className={styles['informationDivider']}>
-                            |
+            <button
+              className={styles['copyrightButton']}
+              onClick={handleAdminTriggerClick}
+              type='button'
+            >
+              <span className={styles['copyright']}>
+                Copyright © {currentYearText} {env.appName} All rights reserved.
+              </span>
+            </button>
+          </div>
+
+          <section aria-labelledby='common-footer-heading' className={styles['informationBlock']}>
+            <h2 className={styles['visuallyHidden']} id='common-footer-heading'>
+              소노스쿨 사업자 정보
+            </h2>
+
+            <div className={styles['informationLines']}>
+              {footerInformationLines.map((line, lineIndex) => {
+                return (
+                  <p
+                    className={styles['informationLine']}
+                    key={`footer-line-${String(lineIndex + 1)}`}
+                  >
+                    {line.map((item) => {
+                      return (
+                        <span className={styles['informationItem']} key={item.label}>
+                          <span className={styles['informationLabel']}>{item.label}</span>
+                          <span aria-hidden='true' className={styles['informationColon']}>
+                            :
                           </span>
-                        ) : null}
-
-                        <span className={styles['informationItem']}>
-                          {item.label ? (
-                            <>
-                              <span className={styles['informationLabel']}>{item.label}</span>
-                              {item.withColon ? (
-                                <span aria-hidden='true' className={styles['informationColon']}>
-                                  :
-                                </span>
-                              ) : null}
-                            </>
-                          ) : null}
                           {item.href ? (
                             <a className={styles['informationLink']} href={item.href}>
                               {item.value}
@@ -155,32 +168,13 @@ const CommonFooter = () => {
                             <span className={styles['informationValue']}>{item.value}</span>
                           )}
                         </span>
-                      </span>
-                    );
-                  })}
-                </p>
-              );
-            })}
-          </div>
-        </section>
-
-        <div className={styles['legalRow']}>
-          {footerLegalTexts.map((text, index) => {
-            return (
-              <span className={styles['legalText']} key={`${text}-${String(index)}`}>
-                {text}
-              </span>
-            );
-          })}
-          <button
-            className={styles['copyrightButton']}
-            onClick={handleAdminTriggerClick}
-            type='button'
-          >
-            <span className={styles['copyright']}>
-              Copyright © {currentYearText} {env.appName} All rights reserved.
-            </span>
-          </button>
+                      );
+                    })}
+                  </p>
+                );
+              })}
+            </div>
+          </section>
         </div>
       </div>
     </footer>

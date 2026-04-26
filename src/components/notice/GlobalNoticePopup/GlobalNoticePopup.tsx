@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
@@ -38,13 +38,10 @@ const dismissForToday = (popupId: number) => {
 const GlobalNoticePopup = () => {
   const popupsQuery = useGlobalPopupsQuery();
   const [closedPopupIds, setClosedPopupIds] = useState<number[]>([]);
+  const [preloadedImageUrl, setPreloadedImageUrl] = useState<string | null>(null);
 
   const activePopup = useMemo(() => {
-    const popups = Array.isArray(popupsQuery.data)
-      ? popupsQuery.data
-      : popupsQuery.data
-        ? [popupsQuery.data]
-        : [];
+    const popups = popupsQuery.data ?? [];
 
     return (
       popups.find((popup) => {
@@ -53,7 +50,36 @@ const GlobalNoticePopup = () => {
     );
   }, [closedPopupIds, popupsQuery.data]);
 
-  if (popupsQuery.isPending || popupsQuery.isError || !activePopup) {
+  useEffect(() => {
+    if (!activePopup) {
+      return;
+    }
+
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (!cancelled) {
+        setPreloadedImageUrl(activePopup.imageUrl);
+      }
+    };
+    image.onerror = () => {
+      if (!cancelled) {
+        setPreloadedImageUrl(activePopup.imageUrl);
+      }
+    };
+    image.src = activePopup.imageUrl;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePopup]);
+
+  if (
+    popupsQuery.isPending ||
+    popupsQuery.isError ||
+    !activePopup ||
+    preloadedImageUrl !== activePopup.imageUrl
+  ) {
     return null;
   }
 
@@ -67,7 +93,10 @@ const GlobalNoticePopup = () => {
         <img
           alt={activePopup.altText || '홈 팝업'}
           className={styles['image']}
-          src={activePopup.imageUrl}
+          decoding='async'
+          fetchPriority='high'
+          loading='eager'
+          src={preloadedImageUrl}
         />
       </div>
       <div className={styles['actionRow']}>

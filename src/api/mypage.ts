@@ -3,6 +3,29 @@ import { toApiError } from '@/api/errors';
 import { addGuestCartItem, getGuestCart, removeGuestCartItem } from '@/api/guestCart';
 import { fetchPaymentHistory } from '@/api/payments';
 import { env } from '@/config/env';
+import { isMyPageMockModeEnabled } from '@/mocks/mypage/runtime';
+import {
+  createMockedMyEnrollmentReview,
+  createMockedMyGlobalQuestion,
+  deleteMockedMyQuestion,
+  getMockedMyEnrollmentDetail,
+  getMockedMyEnrollments,
+  getMockedMyPageProfile,
+  getMockedMyQuestions,
+  getMockedMyRefunds,
+  sendMockedMyPagePhoneVerification,
+  updateMockedMyEnrollmentReview,
+  updateMockedMyPageProfile,
+  updateMockedMyQuestion,
+  verifyMockedMyPagePhoneChange,
+  verifyMockedMyPagePassword,
+} from '@/mocks/mypage/state';
+import { isPlayerMockModeEnabled } from '@/mocks/player/runtime';
+import {
+  getMockedLearningPlayerSnapshot,
+  getMockedLectureStream,
+  saveMockedLectureProgress,
+} from '@/mocks/player/state';
 import { getStudentAccessToken, isStudentAuthenticated } from '@/stores/useAuthStore';
 import type { ApiEnvelope, SmsSendPayload, SmsSendResponse, SmsVerifyPayload } from '@/types/auth';
 import type {
@@ -19,6 +42,7 @@ import type {
   MyQuestionScope,
   ProtectedLectureStream,
   RefundHistory,
+  UserPasswordVerifyPayload,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
@@ -85,6 +109,10 @@ const toRefundHistory = (payment: PaymentResult): RefundHistory | null => {
 };
 
 export const fetchMyProfile = async (): Promise<UserProfile> => {
+  if (isMyPageMockModeEnabled()) {
+    return getMockedMyPageProfile();
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<BackendUserProfile>>('/api/v1/users/me');
     return toUserProfile(unwrapApiEnvelope(response.data));
@@ -94,11 +122,14 @@ export const fetchMyProfile = async (): Promise<UserProfile> => {
 };
 
 export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promise<UserProfile> => {
+  if (isMyPageMockModeEnabled()) {
+    return updateMockedMyPageProfile(payload);
+  }
+
   try {
     const response = await axiosInstance.patch<ApiEnvelope<BackendUserProfile>>(
       '/api/v1/users/me',
       {
-        name: payload.name,
         nickname: payload.nickname,
       },
     );
@@ -108,9 +139,37 @@ export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promis
   }
 };
 
+export const verifyMyProfilePassword = async (
+  payload: UserPasswordVerifyPayload,
+): Promise<void> => {
+  if (isMyPageMockModeEnabled()) {
+    if (!verifyMockedMyPagePassword(payload.password)) {
+      throw new Error('비밀번호가 일치하지 않습니다.');
+    }
+
+    return;
+  }
+
+  try {
+    await axiosInstance.post('/api/v1/users/me/password/verify', payload);
+  } catch (error: unknown) {
+    throw toApiError(error, '비밀번호를 확인하지 못했습니다.');
+  }
+};
+
 export const sendMyPhoneVerification = async (
   payload: SmsSendPayload,
 ): Promise<SmsSendResponse> => {
+  if (isMyPageMockModeEnabled()) {
+    const response = sendMockedMyPagePhoneVerification(payload);
+
+    if (!response) {
+      throw new Error('인증번호 발송에 실패했습니다.');
+    }
+
+    return response;
+  }
+
   try {
     const response = await axiosInstance.post<ApiEnvelope<SmsSendResponse>>(
       '/api/v1/users/me/phone/send',
@@ -123,6 +182,16 @@ export const sendMyPhoneVerification = async (
 };
 
 export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<UserProfile> => {
+  if (isMyPageMockModeEnabled()) {
+    const response = verifyMockedMyPagePhoneChange(payload);
+
+    if (!response) {
+      throw new Error('휴대폰 번호를 변경하지 못했습니다.');
+    }
+
+    return response;
+  }
+
   try {
     const response = await axiosInstance.post<ApiEnvelope<BackendUserProfile>>(
       '/api/v1/users/me/phone/verify',
@@ -135,6 +204,10 @@ export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<Us
 };
 
 export const fetchMyEnrollments = async (): Promise<EnrollmentSummary[]> => {
+  if (isMyPageMockModeEnabled()) {
+    return getMockedMyEnrollments();
+  }
+
   try {
     const response =
       await axiosInstance.get<ApiEnvelope<EnrollmentSummary[]>>('/api/v1/my/enrollments');
@@ -145,6 +218,16 @@ export const fetchMyEnrollments = async (): Promise<EnrollmentSummary[]> => {
 };
 
 export const fetchMyEnrollmentDetail = async (enrollmentId: number): Promise<EnrollmentDetail> => {
+  if (isMyPageMockModeEnabled()) {
+    const detail = getMockedMyEnrollmentDetail(enrollmentId);
+
+    if (!detail) {
+      throw new Error('수강 상세 정보를 불러오지 못했습니다.');
+    }
+
+    return detail;
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<EnrollmentDetail>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}`,
@@ -159,6 +242,11 @@ export const createMyEnrollmentReview = async (
   programId: number,
   payload: EnrollmentReviewPayload,
 ): Promise<void> => {
+  if (isMyPageMockModeEnabled()) {
+    createMockedMyEnrollmentReview(programId, payload);
+    return;
+  }
+
   try {
     await axiosInstance.post(`/api/v1/programs/${String(programId)}/reviews`, payload);
   } catch (error: unknown) {
@@ -170,6 +258,11 @@ export const updateMyEnrollmentReview = async (
   reviewId: number,
   payload: EnrollmentReviewPayload,
 ): Promise<void> => {
+  if (isMyPageMockModeEnabled()) {
+    updateMockedMyEnrollmentReview(reviewId, payload);
+    return;
+  }
+
   try {
     await axiosInstance.put(`/api/v1/reviews/${String(reviewId)}`, payload);
   } catch (error: unknown) {
@@ -180,6 +273,16 @@ export const updateMyEnrollmentReview = async (
 export const fetchMyLearningPlayerSnapshot = async (
   enrollmentId: number,
 ): Promise<LearningPlayerSnapshot> => {
+  if (isPlayerMockModeEnabled()) {
+    const snapshot = getMockedLearningPlayerSnapshot(enrollmentId);
+
+    if (!snapshot) {
+      throw new Error('플레이어 목데이터를 찾지 못했습니다.');
+    }
+
+    return snapshot;
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<LearningPlayerSnapshot>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}/player`,
@@ -207,6 +310,16 @@ export const fetchLectureStream = async (
   lectureId: number,
   deviceId: string,
 ): Promise<ProtectedLectureStream> => {
+  if (isPlayerMockModeEnabled()) {
+    const stream = getMockedLectureStream(lectureId, deviceId);
+
+    if (!stream) {
+      throw new Error('플레이어 스트림 목데이터를 찾지 못했습니다.');
+    }
+
+    return stream;
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<ProtectedLectureStream>>(
       `/api/v1/lectures/${String(lectureId)}/stream`,
@@ -227,6 +340,10 @@ export const saveLectureProgress = async (
   lectureId: number,
   watchedSeconds: number,
 ): Promise<LectureProgressSaveResponse> => {
+  if (isPlayerMockModeEnabled()) {
+    return saveMockedLectureProgress(lectureId, watchedSeconds);
+  }
+
   try {
     const response = await axiosInstance.post<ApiEnvelope<LectureProgressSaveResponse>>(
       `/api/v1/lectures/${String(lectureId)}/progress`,
@@ -327,6 +444,10 @@ export const sendLectureProgressBeacon = (
   lectureId: number,
   watchedSeconds: number,
 ) => {
+  if (isPlayerMockModeEnabled()) {
+    return false;
+  }
+
   if (typeof fetch !== 'function') {
     return false;
   }
@@ -445,6 +566,10 @@ export const removeMyCartItem = async (cartItemId: number): Promise<CartSummary>
 };
 
 export const fetchMyRefunds = async (): Promise<RefundHistory[]> => {
+  if (isMyPageMockModeEnabled()) {
+    return getMockedMyRefunds();
+  }
+
   try {
     const payments = await fetchPaymentHistory();
     return payments
@@ -458,6 +583,10 @@ export const fetchMyRefunds = async (): Promise<RefundHistory[]> => {
 export const fetchMyQuestions = async (
   options?: MyQuestionsQueryOptions,
 ): Promise<MyQuestionPage> => {
+  if (isMyPageMockModeEnabled()) {
+    return getMockedMyQuestions(options);
+  }
+
   try {
     const response = await axiosInstance.get<ApiEnvelope<MyQuestionPage>>('/api/v1/my/questions', {
       params: {
@@ -478,6 +607,10 @@ export const createMyGlobalQuestion = async (payload: {
   content: string;
   title: string;
 }): Promise<MyQuestionItem> => {
+  if (isMyPageMockModeEnabled()) {
+    return createMockedMyGlobalQuestion(payload);
+  }
+
   try {
     const response = await axiosInstance.post<ApiEnvelope<MyQuestionItem>>('/api/v1/qna', payload);
     return unwrapApiEnvelope(response.data);
@@ -493,6 +626,10 @@ export const updateMyQuestion = async (
     title: string;
   },
 ): Promise<MyQuestionItem> => {
+  if (isMyPageMockModeEnabled()) {
+    return updateMockedMyQuestion(question, payload);
+  }
+
   try {
     if (question.scope === 'PROGRAM') {
       const response = await axiosInstance.put<ApiEnvelope<MyQuestionItem>>(
@@ -518,6 +655,11 @@ export const updateMyQuestion = async (
 export const deleteMyQuestion = async (
   question: Pick<MyQuestionItem, 'id' | 'programId' | 'scope'>,
 ): Promise<void> => {
+  if (isMyPageMockModeEnabled()) {
+    deleteMockedMyQuestion(question);
+    return;
+  }
+
   try {
     if (question.scope === 'PROGRAM') {
       await axiosInstance.delete(
