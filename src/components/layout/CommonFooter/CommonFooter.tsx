@@ -51,7 +51,7 @@ const footerInformationLines: readonly (readonly FooterInfoItem[])[] = [
 
 const footerLegalTexts = ['이용약관', '쿠키 설정', '개인정보처리방침'] as const;
 const footerCopyrightText =
-  'Copyright 2026 ㈜국제티엔씨. All right reserved. Built by newzest studio.';
+  'Copyright 2026 소노스쿨 국제초음파연수원. All right reserved. Built by newzest studio.';
 
 const footerCompanyInformationItems = footerInformationLines[0];
 const footerBusinessInformationItems = footerInformationLines.slice(1).flat();

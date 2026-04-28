@@ -1,0 +1,170 @@
+.philosophyAnimationRoot {
+  .philosophyHeadingBlock,
+  .philosophyCopy {
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    filter: blur(8px);
+    transition-duration: 980ms;
+    transition-property: opacity, filter;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, filter;
+  }
+
+  .philosophyHeadingBlock::after,
+  .philosophyCopy::after {
+    position: absolute;
+    inset: -24%;
+    background: linear-gradient(
+      115deg,
+      transparent 0%,
+      transparent 38%,
+      rgba(255, 255, 255, 0.18) 47%,
+      rgba(255, 255, 255, 0.56) 50%,
+      rgba(255, 255, 255, 0.18) 53%,
+      transparent 62%,
+      transparent 100%
+    );
+    content: '';
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-58%);
+  }
+}
+
+.philosophyActive {
+  .philosophyHeadingBlock,
+  .philosophyCopy {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  .philosophyHeadingBlock::after,
+  .philosophyCopy::after {
+    animation: philosophyShine 980ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .philosophyHeadingBlock {
+    transition-delay: 80ms;
+  }
+
+  .philosophyCopy {
+    transition-delay: 320ms;
+
+    &::after {
+      animation-delay: 320ms;
+    }
+  }
+}
+
+.directorPanelAnimationRoot {
+  &::before,
+  &::after,
+  .directorCopy,
+  .directorImageWrap {
+    opacity: 0;
+    filter: blur(10px);
+    transition-duration: 900ms;
+    transition-property: opacity, filter, transform;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, filter, transform;
+  }
+
+  &::before {
+    transform: translateY(28px);
+    transition-delay: 620ms;
+  }
+
+  &::after {
+    transform: translateY(42px) rotate(-25deg);
+    transition-delay: 120ms;
+  }
+
+  .directorCopy {
+    transform: translateY(38px);
+    transition-delay: 420ms;
+  }
+
+  .directorImageWrap {
+    transform: translateY(58px);
+    transition-delay: 80ms;
+  }
+}
+
+.directorPanelActive {
+  &::before,
+  &::after,
+  .directorCopy,
+  .directorImageWrap {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  &::before {
+    transform: translateY(0);
+    transition-delay: 80ms;
+  }
+
+  .directorCopy {
+    transform: translateY(0);
+    transition-delay: 260ms;
+  }
+
+  &::after {
+    transform: translateY(0) rotate(-25deg);
+    transition-delay: 500ms;
+  }
+
+  .directorImageWrap {
+    transform: translateY(0);
+    transition-delay: 560ms;
+  }
+}
+
+@keyframes philosophyShine {
+  0% {
+    opacity: 0;
+    transform: translateX(-58%);
+  }
+
+  28% {
+    opacity: 0.75;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(58%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .philosophyAnimationRoot {
+    .philosophyHeadingBlock,
+    .philosophyCopy {
+      opacity: 1;
+      filter: blur(0);
+      transition: none;
+    }
+
+    .philosophyHeadingBlock::after,
+    .philosophyCopy::after {
+      display: none;
+    }
+  }
+
+  .directorPanelAnimationRoot {
+    &::before,
+    &::after,
+    .directorCopy,
+    .directorImageWrap {
+      opacity: 1;
+      filter: blur(0);
+      transform: none;
+      transition: none;
+    }
+
+    &::after {
+      transform: rotate(-25deg);
+    }
+  }
+}

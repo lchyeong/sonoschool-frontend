@@ -1736,6 +1736,12 @@
 .learningActionLink:hover {
   background: #2fa08f;
 }
+.learningActionLinkDisabled,
+.learningActionLinkDisabled:hover {
+  color: #6b7280;
+  background: #e5e7eb;
+  cursor: not-allowed;
+}
 .courseSecondaryAction {
   width: 133px;
   min-width: 133px;

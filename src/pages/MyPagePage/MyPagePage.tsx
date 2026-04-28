@@ -50,6 +50,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import type { SmsSendResponse } from '@/types/auth';
 import type {
+  EnrollmentSummary,
   EnrollmentReviewPayload,
   MyQuestionAnsweredFilter,
   MyQuestionScope,
@@ -206,6 +207,14 @@ const formatDateRange = (startValue?: string | null, endValue?: string | null) =
   }
 
   return `${startDate} ~ ${endDate === '-' ? '기간 제한 없음' : endDate}`;
+};
+
+const isEnrollmentPending = (enrollment: EnrollmentSummary) => {
+  if (enrollment.status !== 'ACTIVE' || enrollment.active) {
+    return false;
+  }
+
+  return new Date(enrollment.enrolledAt).getTime() > Date.now();
 };
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
@@ -484,9 +493,13 @@ const MyPagePage = () => {
   const profileQuery = useMyProfileQuery();
   const enrollmentsQuery = useMyEnrollmentsQuery();
   const allEnrollments = enrollmentsQuery.data ?? [];
-  const activeEnrollments = allEnrollments.filter((enrollment) => enrollment.active);
+  const pendingEnrollments = allEnrollments.filter(isEnrollmentPending);
+  const activeEnrollments = allEnrollments.filter(
+    (enrollment) => enrollment.active || isEnrollmentPending(enrollment),
+  );
   const expiredEnrollments = allEnrollments.filter(
-    (enrollment) => !enrollment.active && enrollment.status !== 'CANCELLED',
+    (enrollment) =>
+      !enrollment.active && enrollment.status !== 'CANCELLED' && !isEnrollmentPending(enrollment),
   );
   const certificateEnrollments = allEnrollments.filter(
     (enrollment) => enrollment.certificateEligible && enrollment.status !== 'CANCELLED',
@@ -1041,7 +1054,11 @@ const MyPagePage = () => {
       key: EnrollmentCourseTabValue;
       label: string;
     }> = [
-      { count: activeCount, key: 'ACTIVE', label: '수강 중' },
+      {
+        count: activeCount,
+        key: 'ACTIVE',
+        label: pendingEnrollments.length > 0 ? '수강 중/예정' : '수강 중',
+      },
       { count: expiredCount, key: 'EXPIRED', label: '수강 종료' },
       { count: certificateCount, key: 'CERTIFICATE', label: '수료증' },
     ];
@@ -1250,6 +1267,7 @@ const MyPagePage = () => {
                   enrollment.completedLectures,
                   enrollment.totalLectures,
                 );
+                const isPendingEnrollment = isEnrollmentPending(enrollment);
                 const reviewAction =
                   courseTab === 'EXPIRED'
                     ? renderReviewAction(enrollment, styles['courseSecondaryActionWide'])
@@ -1311,6 +1329,9 @@ const MyPagePage = () => {
                         {courseTab === 'EXPIRED' ? (
                           <p className={styles['courseMetaStatus']}>수강 종료</p>
                         ) : null}
+                        {isPendingEnrollment ? (
+                          <p className={styles['courseMetaStatus']}>수강 예정</p>
+                        ) : null}
                         <div className={styles['courseMetaRow']}>
                           <span className={styles['courseMetaLabel']}>수강 기간</span>
                           <span className={styles['courseMetaValue']}>
@@ -1339,12 +1360,24 @@ const MyPagePage = () => {
                       ) : (
                         <div className={styles['courseCardFooter']}>
                           <div className={styles['courseActionGroup']}>
-                            <Link
-                              className={styles['learningActionLink']}
-                              to={routePaths.learningPlayer(String(enrollment.id))}
-                            >
-                              이어보기
-                            </Link>
+                            {isPendingEnrollment ? (
+                              <span
+                                aria-disabled='true'
+                                className={classNames(
+                                  styles['learningActionLink'],
+                                  styles['learningActionLinkDisabled'],
+                                )}
+                              >
+                                시작 전
+                              </span>
+                            ) : (
+                              <Link
+                                className={styles['learningActionLink']}
+                                to={routePaths.learningPlayer(String(enrollment.id))}
+                              >
+                                이어보기
+                              </Link>
+                            )}
                             {reviewAction}
                           </div>
                         </div>

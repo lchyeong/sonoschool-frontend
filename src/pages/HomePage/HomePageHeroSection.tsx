@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 
 import homeHeroChevronIconSrc from '@/assets/icons/home-hero-chevron.svg';
 import type { HomeHeroSlide } from '@/types/homeHeroSlides';
@@ -96,13 +96,93 @@ const HomePageHeroSection = ({
   onProgressAnimationEnd,
   slideCount,
 }: HomePageHeroSectionProps) => {
+  const sliderSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const sliderSection = sliderSectionRef.current;
+
+    if (!sliderSection) {
+      return undefined;
+    }
+
+    const reducedMotionQuery =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+    let animationFrameId = 0;
+
+    const applyDefaultState = () => {
+      sliderSection.style.setProperty('--home-hero-scroll-opacity', '1');
+      sliderSection.style.setProperty('--home-hero-scroll-y', '0px');
+      sliderSection.style.setProperty('--home-hero-scroll-scale', '1');
+    };
+
+    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+    const smoothStep = (value: number) => value * value * (3 - 2 * value);
+
+    const updateScrollState = () => {
+      animationFrameId = 0;
+
+      if (reducedMotionQuery?.matches === true) {
+        applyDefaultState();
+        return;
+      }
+
+      const sectionRect = sliderSection.getBoundingClientRect();
+      const sectionTop = sectionRect.top + window.scrollY;
+      const sectionHeight = sectionRect.height;
+      const fadeStart = sectionTop + sectionHeight * 0.38;
+      const fadeEnd = sectionTop + sectionHeight * 0.9;
+      const progress = clamp((window.scrollY - fadeStart) / (fadeEnd - fadeStart), 0, 1);
+      const easedProgress = smoothStep(progress);
+
+      sliderSection.style.setProperty(
+        '--home-hero-scroll-opacity',
+        String(Math.max(0, 1 - easedProgress)),
+      );
+      sliderSection.style.setProperty('--home-hero-scroll-y', `${String(-34 * easedProgress)}px`);
+      sliderSection.style.setProperty(
+        '--home-hero-scroll-scale',
+        String(1 - 0.025 * easedProgress),
+      );
+    };
+
+    const requestUpdate = () => {
+      if (animationFrameId > 0) {
+        return;
+      }
+
+      animationFrameId = window.requestAnimationFrame(updateScrollState);
+    };
+
+    requestUpdate();
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+    window.addEventListener('resize', requestUpdate);
+    reducedMotionQuery?.addEventListener('change', requestUpdate);
+
+    return () => {
+      if (animationFrameId > 0) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+
+      window.removeEventListener('scroll', requestUpdate);
+      window.removeEventListener('resize', requestUpdate);
+      reducedMotionQuery?.removeEventListener('change', requestUpdate);
+    };
+  }, []);
+
   // 강의형 슬라이드는 배경 이미지를 CSS background-image로 깔기 때문에 style 객체를 준비합니다.
   const lectureBackgroundStyle = {
     backgroundImage: `url(${getHomeHeroSlideBackgroundImageSrc(activeSlide)})`,
   } as CSSProperties;
 
   return (
-    <section aria-labelledby='home-hero-heading' className={styles['sliderSection']}>
+    <section
+      aria-labelledby='home-hero-heading'
+      className={styles['sliderSection']}
+      ref={sliderSectionRef}
+    >
       {/* 화면에는 숨기지만, 페이지의 메인 히어로 영역 제목을 접근성 트리에 남깁니다. */}
       <h1 className={styles['srOnly']} id='home-hero-heading'>
         SONO SCHOOL 메인 슬라이드

@@ -57,6 +57,8 @@
 
     @include m.lg {
       justify-self: start;
+      width: 214px;
+      height: 71px;
     }
   }
 
@@ -83,8 +85,8 @@
     height: 46px;
 
     @include m.lg {
-      width: 214px;
-      height: 71px;
+      width: 156px;
+      height: auto;
       object-fit: contain;
     }
   }
@@ -252,9 +254,9 @@
   position: relative;
 
   @include m.lg {
-    width: 24px;
-    height: 24px;
-    min-height: 24px;
+    width: 45px;
+    height: 45px;
+    min-height: 45px;
     border-radius: 0;
 
     &:hover {
@@ -307,6 +309,11 @@
   line-height: 1.3;
   letter-spacing: 0;
   pointer-events: none;
+
+  @include m.lg {
+    top: 2px;
+    right: 2px;
+  }
 }
 
 .authActionGroup {
@@ -322,16 +329,32 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 45px;
+    height: 45px;
+  }
+}
+
+.accountLoginLink {
+  @include m.lg {
+    width: 45px;
+    height: 45px;
+    min-height: 45px;
+    border-radius: 0;
+    color: #374151;
+
+    &:hover,
+    &:focus-visible {
+      color: #34b29f;
+      background: transparent;
+    }
   }
 }
 
 .accountMenuTrigger {
   @include m.lg {
-    width: 24px;
-    height: 24px;
-    min-height: 24px;
+    width: 45px;
+    height: 45px;
+    min-height: 45px;
     border-radius: 0;
     color: #374151;
     transition: color 160ms ease;

@@ -2,6 +2,7 @@ import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
 import { addGuestCartItem, getGuestCart, removeGuestCartItem } from '@/api/guestCart';
 import { fetchPaymentHistory } from '@/api/payments';
+import { fetchProgramSearchIndex } from '@/api/programSearch';
 import { env } from '@/config/env';
 import { isMyPageMockModeEnabled } from '@/mocks/mypage/runtime';
 import {
@@ -105,6 +106,77 @@ const toRefundHistory = (payment: PaymentResult): RefundHistory | null => {
     refundAmount: payment.approvedAmount ?? payment.amount,
     requestedAt: payment.cancelledAt ?? payment.requestedAt,
     status: 'REFUNDED',
+  };
+};
+
+const isS3StorageUrl = (value: string | null | undefined): value is string => {
+  return typeof value === 'string' && value.startsWith('s3://');
+};
+
+const getProgramIdFromSearchItemId = (id: string): number | null => {
+  const match = /^lecture-(\d+)$/.exec(id);
+
+  if (!match) {
+    return null;
+  }
+
+  const programId = Number(match[1]);
+
+  return Number.isInteger(programId) && programId > 0 ? programId : null;
+};
+
+const resolveCartSummaryThumbnailUrls = async (
+  cart: CartSummary,
+  thumbnailOverrides: ReadonlyMap<number, string | null> = new Map(),
+): Promise<CartSummary> => {
+  const hasUnresolvedS3Thumbnail = cart.items.some(
+    (item) => !thumbnailOverrides.has(item.programId) && isS3StorageUrl(item.thumbnailUrl),
+  );
+
+  let catalogThumbnailByProgramId = new Map<number, string>();
+
+  if (hasUnresolvedS3Thumbnail) {
+    try {
+      const searchIndex = await fetchProgramSearchIndex();
+      const thumbnailEntries: Array<readonly [number, string]> = [];
+
+      searchIndex.items.forEach((item) => {
+        const programId = getProgramIdFromSearchItemId(item.id);
+
+        if (!programId || isS3StorageUrl(item.thumbnailSrc)) {
+          return;
+        }
+
+        thumbnailEntries.push([programId, item.thumbnailSrc]);
+      });
+
+      catalogThumbnailByProgramId = new Map(thumbnailEntries);
+    } catch {
+      catalogThumbnailByProgramId = new Map();
+    }
+  }
+
+  return {
+    ...cart,
+    items: cart.items.map((item) => {
+      const overrideThumbnailUrl = thumbnailOverrides.get(item.programId);
+
+      if (overrideThumbnailUrl !== undefined) {
+        return {
+          ...item,
+          thumbnailUrl: overrideThumbnailUrl,
+        };
+      }
+
+      if (!isS3StorageUrl(item.thumbnailUrl)) {
+        return item;
+      }
+
+      return {
+        ...item,
+        thumbnailUrl: catalogThumbnailByProgramId.get(item.programId) ?? null,
+      };
+    }),
   };
 };
 
@@ -488,7 +560,7 @@ export const fetchMyCart = async (): Promise<CartSummary> => {
 
   try {
     const response = await axiosInstance.get<ApiEnvelope<CartSummary>>('/api/v1/cart');
-    return unwrapApiEnvelope(response.data);
+    return await resolveCartSummaryThumbnailUrls(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '장바구니를 불러오지 못했습니다.');
   }
@@ -514,7 +586,10 @@ export const addMyCartItem = async (payload: AddToCartPayload): Promise<CartSumm
     const response = await axiosInstance.post<ApiEnvelope<CartSummary>>('/api/v1/cart/items', {
       programId: payload.programId,
     });
-    return unwrapApiEnvelope(response.data);
+    return await resolveCartSummaryThumbnailUrls(
+      unwrapApiEnvelope(response.data),
+      new Map([[payload.programId, payload.thumbnailUrl]]),
+    );
   } catch (error: unknown) {
     throw toApiError(error, '장바구니에 담지 못했습니다.');
   }
@@ -544,7 +619,12 @@ export const mergeMyCartItems = async (programIds: number[]): Promise<MergeMyCar
         programIds,
       },
     );
-    return unwrapApiEnvelope(response.data);
+    const result = unwrapApiEnvelope(response.data);
+
+    return {
+      ...result,
+      cart: await resolveCartSummaryThumbnailUrls(result.cart),
+    };
   } catch (error: unknown) {
     throw toApiError(error, '장바구니를 로그인 계정에 옮기지 못했습니다.');
   }
@@ -559,7 +639,7 @@ export const removeMyCartItem = async (cartItemId: number): Promise<CartSummary>
     const response = await axiosInstance.delete<ApiEnvelope<CartSummary>>(
       `/api/v1/cart/items/${String(cartItemId)}`,
     );
-    return unwrapApiEnvelope(response.data);
+    return await resolveCartSummaryThumbnailUrls(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '장바구니에서 제거하지 못했습니다.');
   }

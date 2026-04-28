@@ -1,4 +1,7 @@
+import { useEffect, useRef } from 'react';
+
 import homeDirectorImageSrc from '@/assets/sample/home_director.png';
+import { classNames } from '@/utils/classNames';
 
 import styles from './HomeHistoryTimelineSection.module.scss';
 
@@ -17,9 +20,59 @@ const careers = [
 ] as const;
 
 const HomeHistoryTimelineSection = () => {
+  const philosophyRef = useRef<HTMLDivElement>(null);
+  const directorPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const philosophyElement = philosophyRef.current;
+    const directorPanelElement = directorPanelRef.current;
+
+    if (!philosophyElement || !directorPanelElement) {
+      return undefined;
+    }
+
+    const philosophyObserver = new IntersectionObserver(
+      ([entry]) => {
+        philosophyElement.classList.toggle(styles['philosophyActive'], entry.isIntersecting);
+      },
+      {
+        root: null,
+        rootMargin: '0px 0px -24% 0px',
+        threshold: 0.22,
+      },
+    );
+
+    const directorPanelObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) {
+          return;
+        }
+
+        directorPanelElement.classList.add(styles['directorPanelActive']);
+        directorPanelObserver.unobserve(directorPanelElement);
+      },
+      {
+        root: null,
+        rootMargin: '0px 0px -20% 0px',
+        threshold: 0.24,
+      },
+    );
+
+    philosophyObserver.observe(philosophyElement);
+    directorPanelObserver.observe(directorPanelElement);
+
+    return () => {
+      philosophyObserver.disconnect();
+      directorPanelObserver.disconnect();
+    };
+  }, []);
+
   return (
     <section aria-labelledby='home-philosophy-heading' className={styles['section']}>
-      <div className={styles['philosophy']}>
+      <div
+        className={classNames(styles['philosophy'], styles['philosophyAnimationRoot'])}
+        ref={philosophyRef}
+      >
         <div className={styles['philosophyHeadingBlock']}>
           <h2 className={styles['philosophyHeading']} id='home-philosophy-heading'>
             <span>진료 현장에서 즉각 발휘되는</span>
@@ -37,7 +90,10 @@ const HomeHistoryTimelineSection = () => {
         </div>
       </div>
 
-      <div className={styles['directorPanel']}>
+      <div
+        className={classNames(styles['directorPanel'], styles['directorPanelAnimationRoot'])}
+        ref={directorPanelRef}
+      >
         <div className={styles['directorInner']}>
           <div className={styles['directorCopy']}>
             <div className={styles['directorNameRow']}>

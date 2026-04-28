@@ -20,6 +20,7 @@ import {
   sendLectureProgressBeacon,
   updateMyOfflineScheduleAbsence,
 } from '@/api/mypage';
+import { downloadProgramResourceFile } from '@/api/resources';
 import {
   fetchStudentProblem,
   saveStudentProblemSession,
@@ -50,6 +51,7 @@ import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
 import type {
   LearningPlayerLessonProgress,
+  LearningPlayerSnapshot,
   LearningPlayerResourceAttachment,
   ProtectedLectureStream,
 } from '@/types/mypage';
@@ -439,6 +441,150 @@ const formatResourceUpdatedDate = (dateValue: string | null | undefined) => {
   const day = String(parsedDate.getDate()).padStart(2, '0');
 
   return `${String(year)}. ${month}. ${day}.`;
+};
+
+type UnknownRecord = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is UnknownRecord => {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+};
+
+const getStringValue = (record: UnknownRecord, keys: readonly string[]): string | null => {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === 'string' && value.trim()) {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+const getNumberValue = (record: UnknownRecord, keys: readonly string[]): number | null => {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+const normalizeResourceAttachment = (
+  value: unknown,
+  fallbackIndex: number,
+): LearningPlayerResourceAttachment | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const fileName = getStringValue(value, ['fileName', 'filename', 'name']);
+
+  if (!fileName) {
+    return null;
+  }
+
+  return {
+    description: getStringValue(value, ['description']),
+    fileName,
+    fileSize: getNumberValue(value, ['fileSize', 'size']),
+    fileUrl: getStringValue(value, ['fileUrl', 'downloadUrl', 'url']),
+    id: getNumberValue(value, ['id', 'documentId', 'resourceId']) ?? fallbackIndex + 1,
+    mimeType: getStringValue(value, ['mimeType', 'contentType']),
+    sortOrder: getNumberValue(value, ['sortOrder', 'order']) ?? fallbackIndex,
+    title: getStringValue(value, ['title']),
+    updatedAt: getStringValue(value, ['updatedAt', 'createdAt']),
+  };
+};
+
+const normalizeResourceAttachmentList = (value: unknown): LearningPlayerResourceAttachment[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => normalizeResourceAttachment(item, index))
+    .filter((item): item is LearningPlayerResourceAttachment => item !== null)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
+};
+
+const getRecordArrayByKey = (
+  record: UnknownRecord,
+  keys: readonly string[],
+  id: number | string,
+) => {
+  const normalizedId = String(id);
+
+  for (const key of keys) {
+    const mapValue = record[key];
+
+    if (!isRecord(mapValue)) {
+      continue;
+    }
+
+    const attachments = normalizeResourceAttachmentList(mapValue[normalizedId]);
+
+    if (attachments.length) {
+      return attachments;
+    }
+  }
+
+  return [];
+};
+
+const resolveLessonResourceAttachments = (
+  snapshot: LearningPlayerSnapshot | undefined,
+  lesson: ProgramCurriculumLesson | null,
+): LearningPlayerResourceAttachment[] => {
+  if (!snapshot || !lesson) {
+    return [];
+  }
+
+  const attachmentsByLessonId = normalizeResourceAttachmentList(
+    snapshot.resourceAttachmentsByLessonId?.[lesson.id],
+  );
+
+  if (attachmentsByLessonId.length) {
+    return attachmentsByLessonId;
+  }
+
+  const snapshotRecord = snapshot as unknown as UnknownRecord;
+  const fallbackByLessonId = getRecordArrayByKey(
+    snapshotRecord,
+    ['resourcesByLessonId', 'documentsByLessonId', 'attachmentsByLessonId'],
+    lesson.id,
+  );
+
+  if (fallbackByLessonId.length) {
+    return fallbackByLessonId;
+  }
+
+  const lessonRecord = lesson as unknown as UnknownRecord;
+  const fallbackFromLesson = normalizeResourceAttachmentList(
+    lessonRecord['resourceAttachments'] ??
+      lessonRecord['resources'] ??
+      lessonRecord['documents'] ??
+      lessonRecord['attachments'],
+  );
+
+  if (fallbackFromLesson.length) {
+    return fallbackFromLesson;
+  }
+
+  const lectureId = snapshot.lessonPlaybackById[lesson.id]?.lectureId ?? lesson.lectureId ?? null;
+
+  if (!lectureId) {
+    return [];
+  }
+
+  return getRecordArrayByKey(
+    snapshotRecord,
+    ['resourceAttachmentsByLectureId', 'resourcesByLectureId', 'documentsByLectureId'],
+    lectureId,
+  );
 };
 
 interface OfflineScheduleEntry {
@@ -1238,6 +1384,7 @@ const PlayerPage = () => {
   const shouldShowPlayerPoster = Boolean(selectedSource?.posterUrl) && !hasStartedPlayback;
   const qnaContext = snapshot?.qnaContext ?? null;
   const qnaProgramId = enrollmentState?.programId ?? qnaContext?.programId ?? null;
+  const resourceProgramId = enrollmentState?.programId ?? null;
   const practicumLectures = useMemo(() => {
     return practicumOverviewQuery.data?.lectures ?? [];
   }, [practicumOverviewQuery.data?.lectures]);
@@ -1331,9 +1478,10 @@ const PlayerPage = () => {
     return new Map(entries);
   }, [lessons, practicumLectureByLectureId, snapshot?.lessonPlaybackById]);
   const isOfflineLesson = selectedLesson?.deliveryType === 'offline';
-  const lessonResourceAttachments = selectedLesson
-    ? (snapshot?.resourceAttachmentsByLessonId?.[selectedLesson.id] ?? [])
-    : [];
+  const lessonResourceAttachments = useMemo(
+    () => resolveLessonResourceAttachments(snapshot, selectedLesson),
+    [selectedLesson, snapshot],
+  );
   const offlineScheduleEntries = useMemo(
     () => buildOfflineScheduleEntries(selectedLesson),
     [selectedLesson],
@@ -2289,12 +2437,6 @@ const PlayerPage = () => {
   const setQuizFlaggedQuestion = (questionId: number, flagged: boolean) => {
     quizSessionDirtyRef.current = true;
     setIsQuizQuestionListExpanded(true);
-    if (flagged) {
-      setQuizAnswers((current) => ({
-        ...current,
-        [questionId]: [],
-      }));
-    }
     setQuizFlaggedQuestionIds((current) => {
       const next = new Set(current);
       if (flagged) {
@@ -2941,15 +3083,17 @@ const PlayerPage = () => {
                   </div>
 
                   <div className={styles['practicumCalendarPreviewList']}>
-                    {previewEntries.length
-                      ? previewEntries.map((entry) => (
-                          <span className={styles['offlineCalendarPreviewItem']} key={entry.id}>
-                            <span className={styles['offlineCalendarPreviewTime']}>
-                              {entry.timeLabel ?? '오프라인 수업'}
-                            </span>
+                    {previewEntries.length ? (
+                      previewEntries.map((entry) => (
+                        <span className={styles['offlineCalendarPreviewItem']} key={entry.id}>
+                          <span className={styles['offlineCalendarPreviewTime']}>
+                            {entry.timeLabel ?? '오프라인 수업'}
                           </span>
-                        ))
-                      : null}
+                        </span>
+                      ))
+                    ) : (
+                      <span className={styles['practicumCalendarPreviewEmpty']}>일정 없음</span>
+                    )}
                   </div>
                 </div>
               );
@@ -2960,29 +3104,42 @@ const PlayerPage = () => {
     );
   };
 
-  const handleDownloadResourceAttachment = (attachment: LearningPlayerResourceAttachment) => {
-    if (!attachment.fileUrl) {
+  const resourceDownloadMutation = useMutation({
+    mutationFn: ({
+      documentId,
+      fileName,
+      programId,
+    }: {
+      documentId: number;
+      fileName: string;
+      programId: number;
+    }) => downloadProgramResourceFile(programId, documentId, fileName),
+    onError: (error: unknown) => {
       showToast({
-        message: '이 자료는 아직 다운로드할 수 있는 파일 주소가 준비되지 않았습니다.',
+        message: error instanceof Error ? error.message : '자료 파일을 다운로드하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+  });
+
+  const handleDownloadResourceAttachment = (attachment: LearningPlayerResourceAttachment) => {
+    if (!resourceProgramId) {
+      showToast({
+        message: '프로그램 정보를 확인하지 못해 자료를 다운로드할 수 없습니다.',
         variant: 'error',
       });
       return;
     }
 
-    const anchor = document.createElement('a');
-    anchor.href = attachment.fileUrl;
-    anchor.download = attachment.fileName;
-    anchor.rel = 'noopener noreferrer';
-    anchor.target = '_blank';
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
+    resourceDownloadMutation.mutate({
+      documentId: attachment.id,
+      fileName: attachment.fileName,
+      programId: resourceProgramId,
+    });
   };
 
   const handleDownloadAllResourceAttachments = () => {
-    const downloadableAttachments = lessonResourceAttachments.filter((attachment) =>
-      Boolean(attachment.fileUrl),
-    );
+    const downloadableAttachments = resourceProgramId ? lessonResourceAttachments : [];
 
     if (!downloadableAttachments.length) {
       showToast({
@@ -3028,6 +3185,10 @@ const PlayerPage = () => {
                   <div className={styles['resourceBoardActions']}>
                     <button
                       className={styles['resourceDownloadButton']}
+                      disabled={
+                        resourceDownloadMutation.isPending &&
+                        resourceDownloadMutation.variables?.documentId === attachment.id
+                      }
                       onClick={() => {
                         handleDownloadResourceAttachment(attachment);
                       }}
@@ -3077,6 +3238,10 @@ const PlayerPage = () => {
             isFlagged,
             isCurrentQuestion,
           );
+          const shouldShowSidebarStatus = isCurrentQuestion || isFlagged;
+          const displayedStatusLabel = shouldShowSidebarStatus
+            ? sidebarStatusLabel
+            : (selectedAnswerLabel ?? sidebarStatusLabel);
 
           return (
             <button
@@ -3112,7 +3277,7 @@ const PlayerPage = () => {
                       styles['quizNavigatorStateBadgeCurrent'],
                   )}
                 >
-                  {selectedAnswerLabel ?? sidebarStatusLabel}
+                  {displayedStatusLabel}
                 </span>
               </span>
             </button>

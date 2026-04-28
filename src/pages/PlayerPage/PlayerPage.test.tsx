@@ -28,6 +28,7 @@ const {
   cancelMyLecturePracticumMock,
   createProgramQnaReplyMock,
   createProgramQnaThreadMock,
+  downloadProgramResourceFileMock,
   fetchLectureStreamMock,
   fetchMyEnrollmentPracticumOverviewMock,
   fetchMyLearningPlayerSnapshotMock,
@@ -62,6 +63,8 @@ const {
         payload: { content: string; title: string },
       ) => Promise<ProgramQnaThreadItem>
     >(),
+  downloadProgramResourceFileMock:
+    vi.fn<(programId: number, documentId: number, fileName: string) => Promise<void>>(),
   fetchLectureStreamMock:
     vi.fn<(lectureId: number, deviceId: string) => Promise<ProtectedLectureStream>>(),
   fetchMyEnrollmentPracticumOverviewMock:
@@ -198,6 +201,11 @@ vi.mock('@/api/programQna', () => ({
   fetchProgramQna: (programId: number, options?: { page?: number; size?: number }) =>
     fetchProgramQnaMock(programId, options),
   programQnaQueryKey: (programId: number | null) => ['programQna', programId],
+}));
+
+vi.mock('@/api/resources', () => ({
+  downloadProgramResourceFile: (programId: number, documentId: number, fileName: string) =>
+    downloadProgramResourceFileMock(programId, documentId, fileName),
 }));
 
 vi.mock('@/utils/playbackDeviceId', () => ({
@@ -707,6 +715,7 @@ beforeEach(() => {
   cancelMyLecturePracticumMock.mockResolvedValue(undefined);
   createProgramQnaReplyMock.mockResolvedValue(testProgramQnaResponse.content[0].replies[0]);
   createProgramQnaThreadMock.mockResolvedValue(testProgramQnaResponse.content[0]);
+  downloadProgramResourceFileMock.mockResolvedValue(undefined);
   fetchStudentProblemMock.mockResolvedValue(null);
   fetchMyEnrollmentPracticumOverviewMock.mockResolvedValue(testPracticumOverview);
   moveMyLecturePracticumMock.mockResolvedValue(practicumReservation);
@@ -989,6 +998,62 @@ describe('PlayerPage', () => {
     expect(screen.getByText('2026. 04. 10.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '모두 다운로드' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '다운로드' })).toHaveLength(2);
+  });
+
+  it('downloads resource attachments through the protected program resource endpoint', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testResourceSnapshot);
+
+    renderPlayerPage();
+
+    fireEvent.click((await screen.findAllByRole('button', { name: '다운로드' }))[0]);
+
+    await waitFor(() => {
+      expect(downloadProgramResourceFileMock).toHaveBeenCalledWith(
+        2001,
+        201,
+        'abdomen-summary.pdf',
+      );
+    });
+  });
+
+  it('renders resource attachments embedded in the selected lesson payload', async () => {
+    const { resourceAttachmentsByLessonId: _resourceAttachmentsByLessonId, ...snapshotBase } =
+      testResourceSnapshot;
+
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
+      ...snapshotBase,
+      curriculumTrack: {
+        ...testResourceSnapshot.curriculumTrack,
+        sections: testResourceSnapshot.curriculumTrack.sections.map((section) => ({
+          ...section,
+          lessons: section.lessons.map((lesson) =>
+            lesson.id === 'enrollment-101-lesson-2'
+              ? ({
+                  ...lesson,
+                  documents: [
+                    {
+                      fileName: 'linked-lecture-resource.pdf',
+                      fileSize: 1_024_000,
+                      fileUrl: 'https://example.com/resources/linked-lecture-resource.pdf',
+                      id: 301,
+                      mimeType: 'application/pdf',
+                      sortOrder: 0,
+                      title: '강의에 연결된 첨부파일',
+                      updatedAt: '2026-04-12T00:00:00.000Z',
+                    },
+                  ],
+                } as typeof lesson)
+              : lesson,
+          ),
+        })),
+      },
+    });
+
+    renderPlayerPage();
+
+    expect(await screen.findByText('강의에 연결된 첨부파일')).toBeInTheDocument();
+    expect(screen.queryByText('등록된 첨부파일이 없습니다.')).not.toBeInTheDocument();
+    expect(screen.getByText('1000KB')).toBeInTheDocument();
   });
 
   it('renders the resource lesson empty state when no attachments are registered', async () => {

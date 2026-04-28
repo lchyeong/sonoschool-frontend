@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
@@ -16,6 +16,7 @@ const loadingCards = Array.from({ length: HOME_FEATURED_COURSE_CARD_LIMIT }, (_,
 });
 
 const HomeFeaturedCoursesSection = () => {
+  const sectionRef = useRef<HTMLElement>(null);
   const { data, error, isError, isPending } = useProgramLectureCatalogQuery();
   const courses = useMemo(() => data?.items ?? [], [data?.items]);
   const [requestedPageIndex, setRequestedPageIndex] = useState(0);
@@ -43,8 +44,73 @@ const HomeFeaturedCoursesSection = () => {
     setRequestedPageIndex(page - 1);
   };
 
+  useEffect(() => {
+    const sectionElement = sectionRef.current;
+
+    if (!sectionElement) {
+      return undefined;
+    }
+
+    let animationFrameId = 0;
+
+    const updateSectionIntro = () => {
+      animationFrameId = 0;
+
+      const rect = sectionElement.getBoundingClientRect();
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const enterProgress = Math.min(
+        Math.max((viewportHeight * 0.95 - rect.top) / (viewportHeight * 0.4), 0),
+        1,
+      );
+      const headingSwitchPoint = viewportHeight * 0.46;
+      const isLightTheme = rect.top <= headingSwitchPoint;
+      const nextIntroTone = isLightTheme ? 'light' : 'contrast';
+      const showcasePanelElement = document.querySelector<HTMLElement>(
+        '[data-home-showcase-panel]',
+      );
+
+      sectionElement.style.setProperty(
+        '--featured-courses-heading-y',
+        `${((1 - enterProgress) * 82).toFixed(2)}px`,
+      );
+      sectionElement.style.setProperty(
+        '--featured-courses-heading-opacity',
+        enterProgress.toFixed(4),
+      );
+      sectionElement.dataset['introTone'] = nextIntroTone;
+      showcasePanelElement?.setAttribute('data-following-tone', nextIntroTone);
+    };
+
+    const requestSectionIntroUpdate = () => {
+      if (animationFrameId) {
+        return;
+      }
+
+      animationFrameId = window.requestAnimationFrame(updateSectionIntro);
+    };
+
+    updateSectionIntro();
+
+    window.addEventListener('scroll', requestSectionIntroUpdate, { passive: true });
+    window.addEventListener('resize', requestSectionIntroUpdate);
+
+    return () => {
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+
+      window.removeEventListener('scroll', requestSectionIntroUpdate);
+      window.removeEventListener('resize', requestSectionIntroUpdate);
+    };
+  }, []);
+
   return (
-    <section aria-labelledby='home-featured-courses-heading' className={styles['section']}>
+    <section
+      aria-labelledby='home-featured-courses-heading'
+      className={styles['section']}
+      data-intro-tone='contrast'
+      ref={sectionRef}
+    >
       <div className={styles['inner']}>
         <div className={styles['headingBlock']}>
           <h2 className={styles['heading']} id='home-featured-courses-heading'>

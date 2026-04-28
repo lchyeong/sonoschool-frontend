@@ -1,3 +1,5 @@
+@use './HomeHistoryTimelineSection.animations';
+
 .section {
   width: 100%;
   padding-top: 205px;
@@ -5,6 +7,8 @@
 }
 
 .philosophy {
+  --philosophy-heading-font-size: clamp(28px, 2.55vw, 36px);
+
   display: grid;
   grid-template-columns: minmax(0, 665px) minmax(0, 620px);
   gap: 151px;
@@ -25,9 +29,14 @@
   display: flex;
   flex-direction: column;
   width: 665px;
-  font-size: 44px;
+  max-width: 100%;
+  font-size: var(--philosophy-heading-font-size);
   font-weight: var(--font-weight-semibold);
   line-height: 1.5;
+
+  span {
+    white-space: nowrap;
+  }
 }
 
 .philosophyCopy {
@@ -35,14 +44,14 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  padding-top: 80px;
-  font-size: 26px;
+  padding-top: calc((var(--philosophy-heading-font-size) * 1.5 * 2) + 80px);
+  font-size: clamp(18px, 1.55vw, 22px);
   font-weight: var(--font-weight-medium);
   line-height: 1.5;
 }
 
 .philosophyLead {
-  font-size: 32px;
+  font-size: clamp(22px, 1.85vw, 26px);
   font-weight: var(--font-weight-bold);
   line-height: 1.5;
 }
@@ -52,17 +61,28 @@
   overflow: hidden;
   width: 100%;
   min-height: 665px;
+  background: transparent;
+}
+
+.directorPanel::before,
+.directorPanel::after {
+  position: absolute;
+  content: '';
+}
+
+.directorPanel::before {
+  z-index: 0;
+  inset: 0;
   background: linear-gradient(90deg, rgba(194, 241, 234, 0.2) 0%, rgba(157, 226, 216, 0.2) 100%);
 }
 
 .directorPanel::after {
-  position: absolute;
   right: calc(50% - 702px);
   bottom: -88px;
+  z-index: 0;
   width: 594px;
   height: 387px;
   border-radius: 999px;
-  content: '';
   background: rgba(52, 178, 159, 0.16);
   transform: rotate(-25deg);
 }
@@ -130,7 +150,7 @@
 }
 
 .certificationTitle {
-  margin: 30px 0 0 31px;
+  margin: 30px 0 0 22px;
   color: #111827;
   font-family: Pretendard, var(--font-family-base);
   font-size: 20px;
@@ -202,10 +222,16 @@
   }
 
   .philosophyHeading {
+    width: 100%;
     font-size: 30px;
   }
 
-  .philosophyCopy,
+  .philosophyCopy {
+    gap: 16px;
+    padding-top: 0;
+    font-size: 20px;
+  }
+
   .philosophyLead {
     font-size: 20px;
   }

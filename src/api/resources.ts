@@ -19,7 +19,8 @@ export const fetchGlobalResourceDetail = async (resourceId: number): Promise<Res
   }
 };
 
-const RESOURCE_DOWNLOAD_ERROR_MESSAGE = '자료 파일을 다운로드하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+const RESOURCE_DOWNLOAD_ERROR_MESSAGE =
+  '자료 파일을 다운로드하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
 const resolveApiUrl = (path: string): string => {
   return env.apiBaseUrl ? new URL(path, env.apiBaseUrl).toString() : path;
@@ -77,6 +78,31 @@ export const downloadGlobalResourceFile = async (
     credentials: 'include',
     method: 'GET',
   });
+
+  if (!response.ok) {
+    throw new ApiError({
+      cause: response,
+      status: response.status,
+      userMessage: await resolveDownloadErrorMessage(response),
+    });
+  }
+
+  const blob = await response.blob();
+  saveBlobAsFile(blob, fileName);
+};
+
+export const downloadProgramResourceFile = async (
+  programId: number,
+  documentId: number,
+  fileName: string,
+): Promise<void> => {
+  const response = await fetch(
+    resolveApiUrl(`/api/v1/programs/${String(programId)}/resources/${String(documentId)}/download`),
+    {
+      credentials: 'include',
+      method: 'GET',
+    },
+  );
 
   if (!response.ok) {
     throw new ApiError({

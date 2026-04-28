@@ -22,10 +22,15 @@
 }
 
 .sliderSection {
-  width: min(1850px, calc(100% - 70px));
+  width: min(1850px, calc(100% - 80px));
   margin-top: 31px;
   margin-left: 50%;
-  transform: translateX(-50%);
+  padding-bottom: 50px;
+  opacity: var(--home-hero-scroll-opacity, 1);
+  transform: translateX(-50%) translate3d(0, var(--home-hero-scroll-y, 0px), 0)
+    scale(var(--home-hero-scroll-scale, 1));
+  transform-origin: center top;
+  will-change: opacity, transform;
 }
 
 .slideFrame,
@@ -346,10 +351,6 @@
 }
 
 @media (width < 1024px) {
-  .sliderSection {
-    width: min(100%, calc(100% - 48px));
-  }
-
   .lecture {
     &Layout {
       grid-template-columns: minmax(0, 1fr) 240px;
@@ -370,10 +371,6 @@
 }
 
 @media (width < 768px) {
-  .sliderSection {
-    width: min(100%, calc(100% - 32px));
-  }
-
   .slideFrame,
   .loadingSlide,
   .errorSlide {

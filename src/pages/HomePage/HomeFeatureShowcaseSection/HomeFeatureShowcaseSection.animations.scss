@@ -1,0 +1,184 @@
+.introHeadingText {
+  pointer-events: none;
+  opacity: var(--intro-heading-progress);
+  transform: translate3d(0, var(--intro-heading-y), 0);
+  filter: blur(var(--intro-heading-blur));
+  will-change: opacity, transform, filter;
+}
+
+.showcasePanel {
+  &::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    background: #3ac5b0;
+    content: '';
+    opacity: 0;
+    transition:
+      opacity 920ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 920ms cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translateY(28px);
+    will-change: opacity, transform;
+  }
+}
+
+.showcasePanelAnimationRoot {
+  .copyColumn,
+  .cardItem {
+    opacity: 0;
+    filter: blur(10px);
+    transition-duration: 860ms;
+    transition-property: color, opacity, filter, transform;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .copyColumn {
+    transform: translateY(46px);
+  }
+
+  .cardItem {
+    transform: translateY(18%);
+  }
+
+  .cardItem:nth-child(2n) {
+    transform: translateY(30%);
+  }
+}
+
+.showcasePanel[data-showcase-step='1'],
+.showcasePanel[data-showcase-step='2'],
+.showcasePanel[data-showcase-step='3'],
+.showcasePanel[data-showcase-step='4'],
+.showcasePanel[data-showcase-step='5'],
+.showcasePanel[data-showcase-step='6'],
+.showcasePanel[data-showcase-step='7'] {
+  &::before {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .copyColumn {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.showcasePanel[data-showcase-step='2'],
+.showcasePanel[data-showcase-step='3'],
+.showcasePanel[data-showcase-step='4'],
+.showcasePanel[data-showcase-step='5'],
+.showcasePanel[data-showcase-step='6'],
+.showcasePanel[data-showcase-step='7'] {
+  .cardItem:nth-child(1) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.showcasePanel[data-showcase-step='3'],
+.showcasePanel[data-showcase-step='4'],
+.showcasePanel[data-showcase-step='5'],
+.showcasePanel[data-showcase-step='6'],
+.showcasePanel[data-showcase-step='7'] {
+  .cardItem:nth-child(2) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.showcasePanel[data-showcase-step='4'],
+.showcasePanel[data-showcase-step='5'],
+.showcasePanel[data-showcase-step='6'],
+.showcasePanel[data-showcase-step='7'] {
+  .cardItem:nth-child(3) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.showcasePanel[data-showcase-step='5'],
+.showcasePanel[data-showcase-step='6'],
+.showcasePanel[data-showcase-step='7'] {
+  .cardItem:nth-child(4) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.showcasePanel[data-showcase-step='6'],
+.showcasePanel[data-showcase-step='7'] {
+  .cardItem:nth-child(5) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.showcasePanel[data-showcase-step='8'] {
+  &::before {
+    opacity: 1;
+    transition-duration: 260ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translateY(0);
+  }
+
+  .copyColumn,
+  .cardItem {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+
+  .heading,
+  .headingPrimaryLine,
+  .description,
+  .courseLink {
+    color: #ffffff;
+  }
+}
+
+.showcasePanel[data-following-tone='light'] {
+  &::before {
+    opacity: 0;
+    transition-duration: 260ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translateY(0);
+  }
+}
+
+@media (width < 960px) {
+  .showcasePanelAnimationRoot .copyColumn {
+    transform: translateY(0);
+  }
+
+  .showcasePanelAnimationRoot .cardItem,
+  .showcasePanelAnimationRoot .cardItem:nth-child(n) {
+    transform: translateY(34px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .introHeadingText {
+    opacity: 1;
+    filter: none;
+    transform: none;
+
+    span {
+      background-position-x: 0%;
+    }
+  }
+
+  .showcasePanel::before,
+  .showcasePanelAnimationRoot .copyColumn,
+  .showcasePanelAnimationRoot .cardItem {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+    transition: none;
+  }
+}

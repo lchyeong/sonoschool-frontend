@@ -1,52 +1,100 @@
+@use './HomeFeatureShowcaseSection.animations';
+
 .section {
   width: 100%;
-  padding: 248px 0 0;
+  padding: 280px 0 0;
   background: #ffffff;
 }
 
+.introScene {
+  --intro-heading-blur: 5px;
+  --intro-heading-line-1-position: 100%;
+  --intro-heading-line-2-position: 100%;
+  --intro-heading-line-3-position: 100%;
+  --intro-heading-progress: 0;
+  --intro-heading-y: 34px;
+
+  position: relative;
+  height: max(1360px, 220vh);
+}
+
 .intro {
+  position: sticky;
+  top: 0;
+  display: grid;
+  place-items: center;
   width: min(820px, calc(100% - 48px));
-  margin: 0 auto 248px;
+  min-height: 100vh;
+  margin: 0 auto;
   text-align: center;
 }
 
 .introHeading {
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
+  align-items: center;
   margin: 0;
-  color: #111827;
   font-family: Pretendard, var(--font-family-base);
   font-size: clamp(44px, 3.55vw, 68px);
   font-weight: var(--font-weight-bold);
   letter-spacing: 1.36px;
   line-height: 1.5;
+  text-align: center;
+}
 
-  span:last-child {
-    color: #d1d5db;
+.introHeadingText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  span {
+    display: inline;
+    color: transparent;
+    background: linear-gradient(to right, #111827 50%, rgba(17, 24, 39, 0.14) 50%);
+    background-clip: text;
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+
+    &:nth-child(1) {
+      background-position-x: var(--intro-heading-line-1-position);
+    }
+
+    &:nth-child(2) {
+      background-position-x: var(--intro-heading-line-2-position);
+    }
+
+    &:nth-child(3) {
+      background-position-x: var(--intro-heading-line-3-position);
+    }
   }
 }
 
 .showcasePanel {
+  --showcase-card-scroll-y: 54vh;
+
   position: relative;
+  isolation: isolate;
   overflow: visible;
   width: 100%;
-  height: min(2001px, calc((100vw - 48px) * 1.2926));
+  height: min(3900px, calc((100vw - 48px) * 1.2926 + 1500px));
   padding: 0;
-  background: #3ac5b0;
+  background: transparent;
 }
 
 .inner {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 1;
   display: block;
   width: min(1548px, calc(100% - 48px));
-  height: 100%;
+  height: 100vh;
   margin: 0 auto;
   container-type: inline-size;
 }
 
 .copyColumn {
   position: absolute;
+  z-index: 2;
   top: 11.628cqw;
   left: 0;
   display: flex;
@@ -112,7 +160,8 @@
 
 .cardList {
   position: absolute;
-  top: -3.789cqw;
+  z-index: 2;
+  top: 2.584cqw;
   right: 0;
   left: auto;
   width: 60.336cqw;
@@ -123,6 +172,8 @@
   padding: 0;
   margin: 0;
   list-style: none;
+  transform: translate3d(0, var(--showcase-card-scroll-y), 0);
+  will-change: transform;
 }
 
 .cardItem {
@@ -238,41 +289,24 @@
   -webkit-line-clamp: 2;
 }
 
-.panelClosing {
-  position: absolute;
-  bottom: 2.649cqw;
-  left: 50%;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  width: min(49.096cqw, calc(100% - 48px));
-  margin: 0;
-  color: #ffffff;
-  font-family: Pretendard, var(--font-family-base);
-  font-size: 3.876cqw;
-  font-weight: var(--font-weight-bold);
-  line-height: 1.5;
-  text-align: center;
-  white-space: nowrap;
-  transform: translateX(-50%);
-}
-
 @media (width < 960px) {
   .section {
     padding-top: 120px;
   }
 
-  .intro {
-    margin-bottom: 120px;
+  .introScene {
+    height: max(1080px, 195vh);
   }
 
   .showcasePanel {
     height: auto;
-    padding: 96px 0 140px;
+    padding: 96px 0 220px;
     overflow: hidden;
   }
 
   .inner {
+    position: relative;
+    top: auto;
     display: block;
     height: auto;
   }
@@ -321,6 +355,7 @@
     width: 100%;
     aspect-ratio: auto;
     height: auto;
+    transform: none;
   }
 
   .cardItem,
@@ -362,12 +397,6 @@
   .cardDescription {
     font-size: var(--font-size-base);
   }
-
-  .panelClosing {
-    bottom: 41px;
-    width: min(760px, calc(100% - 48px));
-    font-size: clamp(42px, 3.2vw, 60px);
-  }
 }
 
 @media (width < 768px) {
@@ -377,7 +406,6 @@
 
   .intro {
     width: min(100%, calc(100% - 32px));
-    margin-bottom: 80px;
   }
 
   .introHeading {
@@ -386,7 +414,7 @@
   }
 
   .showcasePanel {
-    padding: 72px 0 96px;
+    padding: 72px 0 180px;
   }
 
   .inner {
@@ -421,13 +449,5 @@
     right: 24px;
     bottom: 24px;
     left: 24px;
-  }
-
-  .panelClosing {
-    position: static;
-    transform: none;
-    margin-top: 72px;
-    font-size: 34px;
-    white-space: normal;
   }
 }
