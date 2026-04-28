@@ -12,5 +12,5 @@ export const isHomeHeroLectureSlide = (slide: HomeHeroSlide): slide is HomeHeroL
 // 강의형 슬라이드는 `thumbnailSrc`를,
 // 배너형 슬라이드는 `imageSrc`를 배경 이미지로 사용해야 하므로 공통 헬퍼로 분리합니다.
 export const getHomeHeroSlideBackgroundImageSrc = (slide: HomeHeroSlide): string => {
-  return slide.type === 'banner' ? slide.imageSrc : slide.thumbnailSrc;
+  return slide.type === 'banner' ? slide.imageSrc : (slide.backgroundSrc ?? slide.thumbnailSrc);
 };

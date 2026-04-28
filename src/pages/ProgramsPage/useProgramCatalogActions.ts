@@ -1,20 +1,20 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { addMyCartItem } from '@/api/mypage';
+import { addMyCartItem, fetchMyCart } from '@/api/mypage';
 import {
   subscribeMyProgramAvailabilityAlert,
   type ProgramAvailabilityAlertStatusResponse,
 } from '@/api/programAvailabilityAlerts';
-import { myCartQueryKey } from '@/query/useMyPageQueries';
+import { myCartQueryKey, useMyCartQuery } from '@/query/useMyPageQueries';
 import {
   programAvailabilityAlertStatusQueryKey,
   useProgramAvailabilityAlertStatusQuery,
 } from '@/query/useProgramAvailabilityAlertStatusQuery';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type { AddToCartPayload, ProgramType } from '@/types/mypage';
+import type { AddToCartPayload, CartItem, CartSummary, ProgramType } from '@/types/mypage';
 import type { ProgramLectureCard } from '@/types/programCatalog';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 
@@ -68,17 +68,25 @@ const addSubscribedProgramId = (
   };
 };
 
+const findCartItemByProgramId = (cart: CartSummary, programId: number): CartItem | null => {
+  return [...cart.items].reverse().find((item) => item.programId === programId) ?? null;
+};
+
 export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]) => {
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const showToast = useToastStore((state) => state.showToast);
   const cartScope = resolveCartQueryScope(isAuthenticated);
+  const [addedCartItem, setAddedCartItem] = useState<CartItem | null>(null);
+  const cartQuery = useMyCartQuery();
   const programIds = useMemo(() => {
     return Array.from(
       new Set(
         lectures
           .map((lecture) => lecture.programId)
-          .filter((programId): programId is number => typeof programId === 'number' && programId > 0),
+          .filter(
+            (programId): programId is number => typeof programId === 'number' && programId > 0,
+          ),
       ),
     ).sort((left, right) => left - right);
   }, [lectures]);
@@ -93,6 +101,9 @@ export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]
   const subscribedProgramIds = useMemo(() => {
     return new Set(alertStatusQuery.data?.subscribedProgramIds ?? []);
   }, [alertStatusQuery.data]);
+  const cartProgramIds = useMemo(() => {
+    return new Set((cartQuery.data?.items ?? []).map((item) => item.programId));
+  }, [cartQuery.data]);
 
   const handleAddToCart = (lecture: ProgramLectureCard) => {
     let payload: AddToCartPayload;
@@ -113,7 +124,30 @@ export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]
     addToCartMutation.mutate(payload, {
       onError: (error: unknown) => {
         const message =
-          error instanceof Error ? error.message : '장바구니에 담지 못했습니다. 다시 시도해 주세요.';
+          error instanceof Error
+            ? error.message
+            : '장바구니에 담지 못했습니다. 다시 시도해 주세요.';
+
+        if (message.includes('이미 장바구니에 담긴 강의')) {
+          void queryClient
+            .fetchQuery({
+              queryFn: fetchMyCart,
+              queryKey: myCartQueryKey(cartScope),
+            })
+            .then((cart) => {
+              const existingItem =
+                typeof lecture.programId === 'number'
+                  ? findCartItemByProgramId(cart, lecture.programId)
+                  : null;
+
+              if (existingItem) {
+                setAddedCartItem(existingItem);
+              }
+            })
+            .catch(() => {
+              return undefined;
+            });
+        }
 
         showToast({
           message,
@@ -122,6 +156,7 @@ export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]
       },
       onSuccess: (cart) => {
         queryClient.setQueryData(myCartQueryKey(cartScope), cart);
+        setAddedCartItem(findCartItemByProgramId(cart, payload.programId));
         showToast({
           message: '장바구니에 담았습니다.',
           variant: 'success',
@@ -131,7 +166,9 @@ export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]
   };
 
   const handleSubscribeAlert = (lecture: ProgramLectureCard) => {
-    if (typeof lecture.programId !== 'number' || lecture.programId <= 0) {
+    const programId = lecture.programId;
+
+    if (typeof programId !== 'number' || programId <= 0) {
       showToast({
         message: '알림을 신청할 과정 정보를 찾지 못했습니다.',
         variant: 'error',
@@ -139,18 +176,20 @@ export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]
       return;
     }
 
-    subscribeAlertMutation.mutate(lecture.programId, {
+    subscribeAlertMutation.mutate(programId, {
       onError: (error: unknown) => {
         showToast({
           message:
-            error instanceof Error ? error.message : '알림 신청을 처리하지 못했습니다. 다시 시도해 주세요.',
+            error instanceof Error
+              ? error.message
+              : '알림 신청을 처리하지 못했습니다. 다시 시도해 주세요.',
           variant: 'error',
         });
       },
       onSuccess: () => {
         queryClient.setQueryData<ProgramAvailabilityAlertStatusResponse>(
           programAvailabilityAlertStatusQueryKey(programIds),
-          (current) => addSubscribedProgramId(current, lecture.programId as number),
+          (current) => addSubscribedProgramId(current, programId),
         );
         showToast({
           message: '마감 해제 알림을 신청했습니다.',
@@ -161,20 +200,25 @@ export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]
   };
 
   return {
+    addedCartItem,
+    cartProgramIds,
+    closeAddedCartModal: () => {
+      setAddedCartItem(null);
+    },
     handleAddToCart,
     handleSubscribeAlert,
     isAddToCartPending: (programId: number | undefined) => {
-      return Boolean(
+      return (
         addToCartMutation.isPending &&
-          typeof programId === 'number' &&
-          addToCartMutation.variables?.programId === programId,
+        typeof programId === 'number' &&
+        addToCartMutation.variables.programId === programId
       );
     },
     isAlertPending: (programId: number | undefined) => {
-      return Boolean(
+      return (
         subscribeAlertMutation.isPending &&
-          typeof programId === 'number' &&
-          subscribeAlertMutation.variables === programId,
+        typeof programId === 'number' &&
+        subscribeAlertMutation.variables === programId
       );
     },
     isAuthenticated,

@@ -1,12 +1,12 @@
+import popupSonoBasicCourseSampleImageSrc from '@/assets/sample/popup_sono_basic_course_sample.png';
 import type { PopupItem } from '@/types/popup';
 
 const initialPopups: PopupItem[] = [
   {
     id: 1,
     imageAssetId: 101,
-    imageUrl:
-      'https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80',
-    altText: '2026 상반기 교육 일정 팝업',
+    imageUrl: popupSonoBasicCourseSampleImageSrc,
+    altText: '복부 Basic 스캔 과정 추천 교육 팝업',
     published: true,
     visibleStartAt: '2026-03-01T00:00:00Z',
     visibleEndAt: null,

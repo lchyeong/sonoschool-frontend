@@ -1,47 +1,46 @@
 .section {
   width: 100%;
-  padding-top: 186px;
+  padding-top: 176px;
 }
 
 .inner {
-  width: min(1436px, calc(100vw - 48px));
+  width: min(1405px, calc(100% - 48px));
   margin: 0 auto;
 }
 
 .headingBlock {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 18px;
-}
-
-.eyebrow {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-height: 36px;
-  padding: 7px 17px 8px;
-  border-radius: 50px;
-  background: #ecf9f7;
-  color: #34b29f;
-  font-family: Pretendard, var(--font-family-base);
-  font-size: 16px;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.96px;
-  line-height: 1.3;
-  white-space: nowrap;
-  box-sizing: border-box;
+  gap: 26px;
+  text-align: center;
 }
 
 .heading {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   color: var(--color-gray-900);
   font-family: Pretendard, var(--font-family-base);
   font-size: 60px;
-  font-weight: var(--font-weight-extrabold);
+  font-weight: var(--font-weight-bold);
   letter-spacing: var(--letter-spacing-normal);
-  line-height: normal;
+  line-height: 1.5;
   white-space: nowrap;
+}
+
+.description,
+.supportText {
+  margin: 0;
+  color: #111827;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 26px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.5;
+}
+
+.supportText {
+  margin-top: 10px;
 }
 
 .courseGrid {
@@ -59,7 +58,7 @@
 }
 
 .carouselViewport {
-  margin-top: 40px;
+  margin-top: 70px;
   overflow: hidden;
 }
 
@@ -107,7 +106,8 @@
 
 .courseCard {
   width: 100%;
-  height: 400px;
+  height: auto;
+  min-height: 360px;
   overflow: hidden;
   border: 1px solid var(--color-gray-200);
   border-radius: 26px;
@@ -121,7 +121,8 @@
 .courseImageFrame,
 .courseImageSkeleton {
   width: 100%;
-  height: 200px;
+  aspect-ratio: 4 / 3;
+  height: auto;
 }
 
 .courseImageFrame {
@@ -134,7 +135,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .courseImageSkeleton {
@@ -144,7 +145,7 @@
 .courseBody {
   display: flex;
   flex-direction: column;
-  height: 200px;
+  min-height: 200px;
   padding: 24px;
   box-sizing: border-box;
 }
@@ -263,7 +264,7 @@
   }
 
   .inner {
-    width: min(100%, calc(100vw - 32px));
+    width: min(100%, calc(100% - 32px));
   }
 
   .heading {

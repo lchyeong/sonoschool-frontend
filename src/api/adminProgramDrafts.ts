@@ -92,6 +92,7 @@ const normalizeDraftPayload = (payload: AdminProgramDraftPayload) => {
       ...section,
       lectures: section.lectures.map((lecture) => ({
         ...lecture,
+        durationSeconds: lecture.lectureType === 'PROBLEM' ? null : lecture.durationSeconds,
         preview: false,
       })),
     })),
@@ -138,7 +139,7 @@ export const createAdminProgramEditDraft = async (
     );
     return normalizeDraftDetail(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
-    throw toApiError(error, '프로그램 수정 초안을 생성하지 못했습니다.');
+    throw toApiError(error, '프로그램 수정 화면을 준비하지 못했습니다.');
   }
 };
 
@@ -156,6 +157,7 @@ export const fetchAdminProgramDraft = async (draftId: number): Promise<AdminProg
 export const updateAdminProgramDraft = async (
   draftId: number,
   payload: AdminProgramDraftPayload,
+  options?: { mode?: 'create' | 'edit' },
 ): Promise<AdminProgramDraftDetail> => {
   try {
     const response = await axiosInstance.put<ApiEnvelope<AdminProgramDraftDetail>>(
@@ -164,12 +166,18 @@ export const updateAdminProgramDraft = async (
     );
     return normalizeDraftDetail(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
-    throw toApiError(error, '프로그램 초안을 저장하지 못했습니다.');
+    throw toApiError(
+      error,
+      options?.mode === 'edit'
+        ? '프로그램 수정 내용을 저장하지 못했습니다.'
+        : '프로그램 초안을 저장하지 못했습니다.',
+    );
   }
 };
 
 export const finalizeAdminProgramDraft = async (
   draftId: number,
+  options?: { mode?: 'create' | 'edit' },
 ): Promise<AdminProgramDraftFinalizeResponse> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<AdminProgramDraftFinalizeResponse>>(
@@ -177,15 +185,28 @@ export const finalizeAdminProgramDraft = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '프로그램 등록을 완료하지 못했습니다.');
+    throw toApiError(
+      error,
+      options?.mode === 'edit'
+        ? '프로그램 수정을 완료하지 못했습니다.'
+        : '프로그램 등록을 완료하지 못했습니다.',
+    );
   }
 };
 
-export const discardAdminProgramDraft = async (draftId: number): Promise<void> => {
+export const discardAdminProgramDraft = async (
+  draftId: number,
+  options?: { mode?: 'create' | 'edit' },
+): Promise<void> => {
   try {
     await axiosInstance.delete(`/api/v1/admin/program-drafts/${String(draftId)}`);
   } catch (error: unknown) {
-    throw toApiError(error, '프로그램 초안을 폐기하지 못했습니다.');
+    throw toApiError(
+      error,
+      options?.mode === 'edit'
+        ? '프로그램 수정을 취소하지 못했습니다.'
+        : '프로그램 초안을 폐기하지 못했습니다.',
+    );
   }
 };
 

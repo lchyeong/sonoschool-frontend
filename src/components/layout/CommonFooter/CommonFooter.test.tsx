@@ -46,6 +46,10 @@ describe('CommonFooter', () => {
       screen.getByText('경기도 화성시 동탄구 동탄신리천로5길 79, 3832동 603호'),
     ).toBeInTheDocument();
     expect(screen.getByAltText('SONO SCHOOL 로고')).toBeInTheDocument();
+
+    const legalLinks = screen.getByLabelText('푸터 정책 링크');
+
+    expect(legalLinks).toHaveTextContent('이용약관쿠키 설정개인정보처리방침');
   });
 
   it('navigates to the admin login page after five rapid clicks on the copyright text', () => {
@@ -57,7 +61,7 @@ describe('CommonFooter', () => {
     );
 
     const adminTriggerButton = screen.getByRole('button', {
-      name: /Copyright © .* All rights reserved\./,
+      name: 'Copyright 2026 ㈜국제티엔씨. All right reserved. Built by newzest studio.',
     });
 
     fireEvent.click(adminTriggerButton);

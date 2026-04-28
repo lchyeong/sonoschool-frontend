@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-import cartIconSrc from '@/assets/icons/icon_cart.svg';
+import cartIconSrc from '@/assets/icons/lucide_shopping-cart.svg';
 import searchScopeChevronIconSrc from '@/assets/icons/search-scope-chevron.svg';
 import { routePaths } from '@/routes/routeRegistry';
 import type {
@@ -36,6 +36,7 @@ interface ProgramLectureCardItemProps {
   isAlertSubscribed?: boolean;
   isAuthenticated?: boolean;
   isCartPending?: boolean;
+  isCartAdded?: boolean;
   onAddToCart?: ((item: ProgramLectureCard) => void) | undefined;
   onSubscribeAlert?: ((item: ProgramLectureCard) => void) | undefined;
 }
@@ -46,6 +47,7 @@ interface ProgramArchiveLectureCardItemProps {
   isAlertSubscribed?: boolean;
   isAuthenticated?: boolean;
   isCartPending?: boolean;
+  isCartAdded?: boolean;
   onAddToCart?: ((item: ProgramLectureCard) => void) | undefined;
   onSubscribeAlert?: ((item: ProgramLectureCard) => void) | undefined;
 }
@@ -160,6 +162,7 @@ const ProgramCardAction = ({
   isAlertSubscribed = false,
   isAuthenticated = false,
   isCartPending = false,
+  isCartAdded = false,
   item,
   onAddToCart,
   onSubscribeAlert,
@@ -168,6 +171,7 @@ const ProgramCardAction = ({
   isAlertSubscribed?: boolean;
   isAuthenticated?: boolean;
   isCartPending?: boolean;
+  isCartAdded?: boolean;
   item: ProgramLectureCard;
   onAddToCart?: ((item: ProgramLectureCard) => void) | undefined;
   onSubscribeAlert?: ((item: ProgramLectureCard) => void) | undefined;
@@ -231,9 +235,15 @@ const ProgramCardAction = ({
     return null;
   }
 
+  const cartActionLabel = isCartAdded
+    ? '장바구니에 담긴 강의 확인'
+    : isCartPending
+      ? '장바구니에 담는 중'
+      : '장바구니 담기';
+
   return (
     <button
-      aria-label={isCartPending ? '장바구니에 담는 중' : '장바구니 담기'}
+      aria-label={cartActionLabel}
       className={classNames(
         styles['cardIconButton'],
         isCartPending && styles['cardIconButtonPending'],
@@ -244,9 +254,7 @@ const ProgramCardAction = ({
       }}
       type='button'
     >
-      <span className={styles['srOnly']}>
-        {isCartPending ? '장바구니에 담는 중' : '장바구니 담기'}
-      </span>
+      <span className={styles['srOnly']}>{cartActionLabel}</span>
       <img alt='' aria-hidden='true' className={styles['cardActionIcon']} src={cartIconSrc} />
     </button>
   );
@@ -363,6 +371,7 @@ export const ProgramLectureCardItem = ({
   isAlertSubscribed = false,
   isAuthenticated = false,
   isCartPending = false,
+  isCartAdded = false,
   onAddToCart,
   onSubscribeAlert,
 }: ProgramLectureCardItemProps) => {
@@ -383,6 +392,7 @@ export const ProgramLectureCardItem = ({
               isAlertPending={isAlertPending}
               isAlertSubscribed={isAlertSubscribed}
               isAuthenticated={isAuthenticated}
+              isCartAdded={isCartAdded}
               isCartPending={isCartPending}
               item={item}
               onAddToCart={onAddToCart}
@@ -428,22 +438,33 @@ export const ProgramLectureCardItem = ({
 
 // 카테고리 아카이브에서는 한 화면에 강의를 많이 훑어봐야 하므로
 // 메타 정보를 줄이고 "강의 선택"에 집중한 더 단순한 카드 버전을 따로 둡니다.
-export const ProgramArchiveLectureCardItem = ({ item }: ProgramArchiveLectureCardItemProps) => {
+export const ProgramArchiveLectureCardItem = ({
+  item,
+  isAlertPending = false,
+  isAlertSubscribed = false,
+  isAuthenticated = false,
+  isCartAdded = false,
+  isCartPending = false,
+  onAddToCart,
+  onSubscribeAlert,
+}: ProgramArchiveLectureCardItemProps) => {
   const archiveStatusLabel = resolveArchiveStatusLabel(item);
   const metaTags = buildArchiveMetaTags(item);
 
   return (
-    <Link aria-label={item.title} className={styles['archiveLectureCardLink']} to={item.to}>
-      <article className={styles['archiveLectureCard']}>
-        <div className={styles['archiveLectureImageFrame']}>
+    <article className={styles['archiveLectureCard']}>
+      <div className={styles['archiveLectureImageFrame']}>
+        <Link className={styles['archiveLectureImageLink']} to={item.to}>
           <img
             alt={item.thumbnailAlt}
             className={styles['archiveLectureImage']}
             src={item.thumbnailSrc}
           />
-        </div>
+        </Link>
+      </div>
 
-        <div className={styles['archiveLectureBody']}>
+      <div className={styles['archiveLectureBody']}>
+        <div className={styles['archiveLectureTopRow']}>
           <p
             className={classNames(
               styles['archiveLectureStatus'],
@@ -453,35 +474,50 @@ export const ProgramArchiveLectureCardItem = ({ item }: ProgramArchiveLectureCar
             {archiveStatusLabel}
           </p>
 
-          <h3 className={styles['archiveLectureTitle']}>{item.title}</h3>
-
-          <div className={styles['archiveLectureBottomMeta']}>
-            <p className={styles['archiveLecturePrice']}>{item.priceLabel}</p>
-
-            <div className={styles['archiveLectureScheduleGroup']}>
-              <p className={styles['archiveLectureScheduleRow']}>
-                <span className={styles['archiveLectureScheduleLabel']}>모집기간</span>
-                <span className={styles['archiveLectureScheduleValue']}>{item.scheduleLabel}</span>
-              </p>
-              <p className={styles['archiveLectureScheduleRow']}>
-                <span className={styles['archiveLectureScheduleLabel']}>수강기간</span>
-                <span className={styles['archiveLectureScheduleValue']}>{item.durationLabel}</span>
-              </p>
-            </div>
-
-            <ul className={styles['programMetaTagList']}>
-              {metaTags.map((tag) => {
-                return (
-                  <li className={styles['programMetaTagItem']} key={tag}>
-                    {tag}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          <ProgramCardAction
+            isAlertPending={isAlertPending}
+            isAlertSubscribed={isAlertSubscribed}
+            isAuthenticated={isAuthenticated}
+            isCartAdded={isCartAdded}
+            isCartPending={isCartPending}
+            item={item}
+            onAddToCart={onAddToCart}
+            onSubscribeAlert={onSubscribeAlert}
+          />
         </div>
-      </article>
-    </Link>
+
+        <h3 className={styles['archiveLectureTitle']}>
+          <Link className={styles['cardLink']} to={item.to}>
+            {item.title}
+          </Link>
+        </h3>
+
+        <div className={styles['archiveLectureBottomMeta']}>
+          <p className={styles['archiveLecturePrice']}>{item.priceLabel}</p>
+
+          <div className={styles['archiveLectureScheduleGroup']}>
+            <p className={styles['archiveLectureScheduleRow']}>
+              <span className={styles['archiveLectureScheduleLabel']}>모집기간</span>
+              <span className={styles['archiveLectureScheduleValue']}>{item.scheduleLabel}</span>
+            </p>
+            <p className={styles['archiveLectureScheduleRow']}>
+              <span className={styles['archiveLectureScheduleLabel']}>수강기간</span>
+              <span className={styles['archiveLectureScheduleValue']}>{item.durationLabel}</span>
+            </p>
+          </div>
+
+          <ul className={styles['programMetaTagList']}>
+            {metaTags.map((tag) => {
+              return (
+                <li className={styles['programMetaTagItem']} key={tag}>
+                  {tag}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </article>
   );
 };
 

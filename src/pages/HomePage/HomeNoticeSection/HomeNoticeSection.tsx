@@ -24,10 +24,13 @@ const HomeNoticeSection = () => {
         <div className={styles['layout']}>
           <div className={styles['header']}>
             <div className={styles['headingBlock']}>
-              <span className={styles['eyebrow']}>NOTICE</span>
               <h2 className={styles['heading']} id='home-notice-heading'>
-                공지사항
+                <span>변화하는 진료 현장에 맞춰</span>
+                <span>소노스쿨의 새로운 소식을 전합니다.</span>
               </h2>
+              <p className={styles['description']}>
+                더 나은 교육을 위한 소노스쿨의 발걸음을 공지사항에서 확인하세요.
+              </p>
             </div>
 
             <Link

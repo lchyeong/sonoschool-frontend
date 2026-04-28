@@ -1,9 +1,4 @@
-import { useNavigate } from 'react-router-dom';
-
-import SiteSearchBar from '@/components/search/SiteSearchBar/SiteSearchBar';
 import { useHomeHeroSlidesQuery } from '@/query/useHomeHeroSlidesQuery';
-import { routePaths } from '@/routes/routeRegistry';
-import { defaultSearchScope, type SearchScope } from '@/search/programSearchShared';
 
 import HomeFeaturedCoursesSection from './HomeFeaturedCoursesSection/HomeFeaturedCoursesSection';
 import HomeFeatureShowcaseSection from './HomeFeatureShowcaseSection/HomeFeatureShowcaseSection';
@@ -15,7 +10,6 @@ import { DEFAULT_HOME_HERO_AUTO_PLAY_DURATION_MS } from './homePageShared';
 import { useHomePageHeroCarousel } from './useHomePageHeroCarousel';
 
 const HomePage = () => {
-  const navigate = useNavigate();
   const { data, error, isError, isPending } = useHomeHeroSlidesQuery();
   const slides = data?.items ?? [];
   const autoPlayDurationMs = data?.autoPlayDurationMs ?? DEFAULT_HOME_HERO_AUTO_PLAY_DURATION_MS;
@@ -25,31 +19,10 @@ const HomePage = () => {
       slideCount: slides.length,
     });
 
-  const handleSubmitSearch = (scope: SearchScope, query: string) => {
-    const normalizedQuery = query.trim();
-    const searchParams = new URLSearchParams();
-
-    searchParams.set('scope', scope);
-
-    if (normalizedQuery) {
-      searchParams.set('q', normalizedQuery);
-    }
-
-    void navigate(`${routePaths.search}?${searchParams.toString()}`);
-  };
-
   const activeSlide = slides[displayedSlideIndex];
 
   return (
     <div className={styles['container']}>
-      <section className={styles['searchSection']}>
-        <SiteSearchBar
-          className={styles['searchBar']}
-          initialScope={defaultSearchScope}
-          onSubmitSearch={handleSubmitSearch}
-        />
-      </section>
-
       {isPending ? (
         <section
           aria-busy='true'
@@ -81,8 +54,8 @@ const HomePage = () => {
       )}
 
       <HomeFeatureShowcaseSection />
-      <HomeHistoryTimelineSection />
       <HomeFeaturedCoursesSection />
+      <HomeHistoryTimelineSection />
       <HomeNoticeSection />
     </div>
   );

@@ -13,12 +13,14 @@ import {
   verifySmsCode,
 } from '@/api/auth';
 import { ApiError } from '@/api/errors';
+import checkIconSrc from '@/assets/icons/lucide_check.svg';
+import circleCheckIconSrc from '@/assets/icons/lucide_circle-check.svg';
+import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
+import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
 import Button from '@/components/ui/Button/Button';
-import { TextField } from '@/components/ui/TextField/TextField';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
-import sharedStyles from '@/styles/accountPage.module.scss';
 import type { RegistrationTerm } from '@/types/auth';
 import { classNames } from '@/utils/classNames';
 
@@ -36,15 +38,15 @@ interface SignupFormValues {
 }
 
 interface SignupFormErrors {
-  loginId?: string;
-  email?: string;
-  name?: string;
-  nickname?: string;
-  password?: string;
-  passwordConfirm?: string;
-  phoneNumber?: string;
-  smsCode?: string;
-  acceptedTermCodes?: string;
+  loginId?: string[];
+  email?: string[];
+  name?: string[];
+  nickname?: string[];
+  password?: string[];
+  passwordConfirm?: string[];
+  phoneNumber?: string[];
+  smsCode?: string[];
+  acceptedTermCodes?: string[];
 }
 
 interface SmsVerificationState {
@@ -83,6 +85,7 @@ const INITIAL_AVAILABILITY_STATE: AvailabilityCheckState = {
 };
 
 const PHONE_ALREADY_EXISTS_ERROR_MESSAGE = '이미 등록된 휴대폰 번호입니다.';
+const SIGNUP_FAILED_TOAST_MESSAGE = '회원가입을 완료하지 못했습니다.\n잠시 후 다시 시도해 주세요.';
 
 const normalizePhoneNumber = (value: string): string => {
   let digits = value.replaceAll(/\D/g, '');
@@ -92,8 +95,10 @@ const normalizePhoneNumber = (value: string): string => {
   return digits;
 };
 
-const LOGIN_ID_PATTERN = /^[a-zA-Z0-9]{4,20}$/;
+const LOGIN_ID_PATTERN = /^[a-z0-9]{4,20}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NAME_ALLOWED_PATTERN = /^[가-힣A-Za-z\s]+$/;
+const NICKNAME_ALLOWED_PATTERN = /^[가-힣A-Za-z0-9]+$/;
 const PASSWORD_ALLOWED_CHARACTER_PATTERN = /^[A-Za-z\d!@#$%&*?]*$/;
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%&*?])[A-Za-z\d!@#$%&*?]{8,32}$/;
 
@@ -135,6 +140,13 @@ const omitSignupFormError = (
   return nextErrors;
 };
 
+const hasSignupFormErrors = (errors: SignupFormErrors): boolean => {
+  return (Object.keys(errors) as Array<keyof SignupFormErrors>).some((fieldName) => {
+    const messages = errors[fieldName];
+    return Boolean(messages && messages.length > 0);
+  });
+};
+
 const SignupPage = () => {
   const navigate = useNavigate();
   const setSession = useAuthStore((state) => state.setSession);
@@ -152,6 +164,8 @@ const SignupPage = () => {
     INITIAL_AVAILABILITY_STATE,
   );
   const [smsCountdownSeconds, setSmsCountdownSeconds] = useState(0);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isPasswordConfirmVisible, setIsPasswordConfirmVisible] = useState(false);
 
   const registrationTermsQuery = useQuery({
     queryKey: ['registrationTerms'],
@@ -167,23 +181,50 @@ const SignupPage = () => {
     smsState.verifiedAt === null &&
     smsState.expiresAt !== null &&
     smsCountdownSeconds === 0;
+  const trimmedLoginId = formValues.loginId.trim();
+  const trimmedEmail = formValues.email.trim();
+  const normalizedPhoneNumber = normalizePhoneNumber(formValues.phoneNumber);
+  const isLoginIdAvailabilityChecked =
+    loginIdAvailability.checkedValue === trimmedLoginId && loginIdAvailability.isAvailable !== null;
+  const isEmailAvailabilityChecked =
+    emailAvailability.checkedValue === trimmedEmail && emailAvailability.isAvailable !== null;
+  const isPasswordValid = PASSWORD_PATTERN.test(formValues.password);
+  const isPasswordConfirmValid =
+    formValues.passwordConfirm.length > 0 && formValues.passwordConfirm === formValues.password;
+  const isPhoneNumberValid = isValidPhoneNumber(formValues.phoneNumber);
+  const isPhoneVerified = smsState.verifiedPhoneNumber === normalizedPhoneNumber;
+  const hasFieldError = (fieldName: keyof SignupFormErrors): boolean =>
+    Boolean(formErrors[fieldName]?.length);
+  const renderErrorMessages = (fieldName: keyof SignupFormErrors) => {
+    const messages = formErrors[fieldName];
+
+    if (!messages?.length) return null;
+
+    return (
+      <div className={styles['errorList']}>
+        {messages.map((message) => (
+          <p className={styles['errorText']} key={message}>
+            {message}
+          </p>
+        ))}
+      </div>
+    );
+  };
 
   useEffect(() => {
-    const nextRemainingSeconds = getRemainingSeconds(smsState.expiresAt);
-    setSmsCountdownSeconds(nextRemainingSeconds);
-
-    if (nextRemainingSeconds === 0 || smsState.verifiedAt) {
+    if (!smsState.expiresAt || smsState.verifiedAt) {
       return undefined;
     }
 
     const intervalId = window.setInterval(() => {
-      setSmsCountdownSeconds((current) => {
-        if (current <= 1) {
+      const nextRemainingSeconds = getRemainingSeconds(smsState.expiresAt);
+
+      setSmsCountdownSeconds(() => {
+        if (nextRemainingSeconds === 0) {
           window.clearInterval(intervalId);
-          return 0;
         }
 
-        return current - 1;
+        return nextRemainingSeconds;
       });
     }, 1000);
 
@@ -203,14 +244,16 @@ const SignupPage = () => {
       if (phoneNumberErrorMessage) {
         setFormErrors((current) => ({
           ...current,
-          phoneNumber: phoneNumberErrorMessage,
+          phoneNumber: [phoneNumberErrorMessage],
         }));
       }
 
       showToast({
         message:
           phoneNumberErrorMessage ??
-          (error instanceof Error ? error.message : '인증번호 발송에 실패했습니다. 다시 시도해 주세요.'),
+          (error instanceof Error
+            ? error.message
+            : '인증번호 발송에 실패했습니다. 다시 시도해 주세요.'),
         variant: 'error',
       });
     },
@@ -225,6 +268,7 @@ const SignupPage = () => {
         verifiedPhoneNumber: null,
         verifiedAt: null,
       });
+      setSmsCountdownSeconds(getRemainingSeconds(response.expiresAt));
       showToast({
         message: `${formatPhoneNumberLabel(response.phoneNumber)} 번호로 인증번호를 보냈습니다.`,
         variant: 'success',
@@ -243,14 +287,16 @@ const SignupPage = () => {
       if (phoneNumberErrorMessage) {
         setFormErrors((current) => ({
           ...current,
-          phoneNumber: phoneNumberErrorMessage,
+          phoneNumber: [phoneNumberErrorMessage],
         }));
       }
 
       showToast({
         message:
           phoneNumberErrorMessage ??
-          (error instanceof Error ? error.message : '인증번호 확인에 실패했습니다. 다시 시도해 주세요.'),
+          (error instanceof Error
+            ? error.message
+            : '인증번호 확인에 실패했습니다. 다시 시도해 주세요.'),
         variant: 'error',
       });
     },
@@ -260,6 +306,7 @@ const SignupPage = () => {
         verifiedPhoneNumber: response.phoneNumber,
         verifiedAt: response.verifiedAt,
       }));
+      setSmsCountdownSeconds(0);
       showToast({
         message: '휴대폰 인증이 완료되었습니다.',
         variant: 'success',
@@ -281,7 +328,14 @@ const SignupPage = () => {
         checkedValue: trimmedLoginId,
         isAvailable: response.available,
       });
-      setFormErrors((current) => omitSignupFormError(current, 'loginId'));
+      setFormErrors((current) =>
+        response.available
+          ? omitSignupFormError(current, 'loginId')
+          : {
+              ...current,
+              loginId: ['이미 사용 중인 아이디입니다.'],
+            },
+      );
       showToast({
         message: response.available ? '사용 가능한 아이디입니다.' : '이미 사용 중인 아이디입니다.',
         variant: response.available ? 'success' : 'error',
@@ -303,7 +357,14 @@ const SignupPage = () => {
         checkedValue: trimmedEmail,
         isAvailable: response.available,
       });
-      setFormErrors((current) => omitSignupFormError(current, 'email'));
+      setFormErrors((current) =>
+        response.available
+          ? omitSignupFormError(current, 'email')
+          : {
+              ...current,
+              email: ['사용할 수 없는 이메일 주소입니다.'],
+            },
+      );
       showToast({
         message: response.available ? '사용 가능한 이메일입니다.' : '이미 사용 중인 이메일입니다.',
         variant: response.available ? 'success' : 'error',
@@ -318,29 +379,29 @@ const SignupPage = () => {
         if (error.code === 'USER_400_LOGIN_ID') {
           setFormErrors((current) => ({
             ...current,
-            loginId: '이미 사용 중인 아이디입니다.',
+            loginId: ['이미 사용 중인 아이디입니다.'],
           }));
         }
 
         if (error.code === 'USER_400_EMAIL') {
           setFormErrors((current) => ({
             ...current,
-            email: '이미 사용 중인 이메일입니다.',
+            email: ['이미 사용 중인 이메일입니다.'],
           }));
         }
 
         if (error.code === 'USER_400_PHONE') {
           setFormErrors((current) => ({
             ...current,
-            phoneNumber: PHONE_ALREADY_EXISTS_ERROR_MESSAGE,
+            phoneNumber: [PHONE_ALREADY_EXISTS_ERROR_MESSAGE],
           }));
         }
       }
 
       showToast({
-        message:
-          error instanceof Error ? error.message : '회원가입에 실패했습니다. 다시 시도해 주세요.',
+        message: SIGNUP_FAILED_TOAST_MESSAGE,
         variant: 'error',
+        durationMs: null,
       });
     },
     onSuccess: (session) => {
@@ -367,6 +428,7 @@ const SignupPage = () => {
         normalizePhoneNumber(formValues.phoneNumber) !== normalizePhoneNumber(nextValue)
       ) {
         setSmsState(INITIAL_SMS_STATE);
+        setSmsCountdownSeconds(0);
       }
 
       if (fieldName === 'loginId' && formValues.loginId !== nextValue) {
@@ -388,10 +450,10 @@ const SignupPage = () => {
         if (fieldName === 'password' && !PASSWORD_ALLOWED_CHARACTER_PATTERN.test(nextValue)) {
           return {
             ...nextErrors,
-            password: '허용되지 않는 문자가 포함되어 있습니다.',
+            password: ['특수문자, 영문, 숫자 포함 8자 이상 입력해주세요.'],
             ...(shouldShowPasswordConfirmError
               ? {
-                  passwordConfirm: '비밀번호 확인이 일치하지 않습니다.',
+                  passwordConfirm: ['비밀번호가 일치하지 않습니다.'],
                 }
               : {}),
           };
@@ -401,7 +463,7 @@ const SignupPage = () => {
           if (shouldShowPasswordConfirmError) {
             return {
               ...nextErrors,
-              passwordConfirm: '비밀번호 확인이 일치하지 않습니다.',
+              passwordConfirm: ['비밀번호가 일치하지 않습니다.'],
             };
           }
 
@@ -416,7 +478,7 @@ const SignupPage = () => {
     if (!isValidPhoneNumber(formValues.phoneNumber)) {
       setFormErrors((current) => ({
         ...current,
-        phoneNumber: '휴대폰 번호를 정확히 입력해 주세요.',
+        phoneNumber: ['올바른 휴대폰 번호 형식이 아닙니다.'],
       }));
       firstInvalidInputRef.current?.focus();
       return;
@@ -431,13 +493,13 @@ const SignupPage = () => {
     const nextErrors: SignupFormErrors = {};
 
     if (!isValidPhoneNumber(formValues.phoneNumber)) {
-      nextErrors.phoneNumber = '휴대폰 번호를 정확히 입력해 주세요.';
+      nextErrors.phoneNumber = ['올바른 휴대폰 번호 형식이 아닙니다.'];
     }
 
     if (!formValues.smsCode.trim()) {
-      nextErrors.smsCode = '인증번호를 입력해 주세요.';
+      nextErrors.smsCode = ['인증번호가 일치하지 않습니다.'];
     } else if (isSmsExpired) {
-      nextErrors.smsCode = '인증 시간이 만료되었습니다. 다시 발송해 주세요.';
+      nextErrors.smsCode = ['인증번호가 만료되었습니다. 다시 발송해주세요.'];
     }
 
     setFormErrors((current) => ({
@@ -445,7 +507,7 @@ const SignupPage = () => {
       ...nextErrors,
     }));
 
-    if (Object.keys(nextErrors).length > 0) {
+    if (hasSignupFormErrors(nextErrors)) {
       return;
     }
 
@@ -464,57 +526,103 @@ const SignupPage = () => {
     const nextErrors: SignupFormErrors = {};
     const requiredTerms = (registrationTermsQuery.data ?? []).filter((term) => term.required);
 
-    if (!LOGIN_ID_PATTERN.test(trimmedLoginId)) {
-      nextErrors.loginId = '아이디는 4~20자의 영문, 숫자만 사용할 수 있습니다.';
-    } else if (loginIdAvailability.checkedValue !== trimmedLoginId) {
-      nextErrors.loginId = '아이디 중복 확인을 진행해 주세요.';
-    } else if (loginIdAvailability.isAvailable === false) {
-      nextErrors.loginId = '이미 사용 중인 아이디입니다.';
+    const loginIdErrors: string[] = [];
+    const emailErrors: string[] = [];
+    const nameErrors: string[] = [];
+    const nicknameErrors: string[] = [];
+    const passwordErrors: string[] = [];
+    const passwordConfirmErrors: string[] = [];
+    const phoneNumberErrors: string[] = [];
+    const smsCodeErrors: string[] = [];
+
+    if (!trimmedLoginId || !LOGIN_ID_PATTERN.test(trimmedLoginId)) {
+      loginIdErrors.push('영문 소문자, 숫자를 조합해 4~20자로 입력해주세요.');
+    }
+    if (loginIdAvailability.checkedValue === trimmedLoginId) {
+      if (loginIdAvailability.isAvailable === false) {
+        loginIdErrors.push('이미 사용 중인 아이디입니다.');
+      }
+    } else {
+      loginIdErrors.push('(회원가입 버튼 눌렀을 때) 아이디 중복확인을 완료해주세요.');
     }
 
-    if (trimmedEmail && !EMAIL_PATTERN.test(trimmedEmail)) {
-      nextErrors.email = '이메일 형식을 확인해 주세요.';
-    } else if (trimmedEmail && emailAvailability.checkedValue !== trimmedEmail) {
-      nextErrors.email = '이메일 중복 확인을 진행해 주세요.';
-    } else if (trimmedEmail && emailAvailability.isAvailable === false) {
-      nextErrors.email = '이미 사용 중인 이메일입니다.';
-    }
-
-    if (!formValues.name.trim()) {
-      nextErrors.name = '이름을 입력해 주세요.';
-    }
-
-    if (!PASSWORD_ALLOWED_CHARACTER_PATTERN.test(formValues.password)) {
-      nextErrors.password = '허용되지 않는 문자가 포함되어 있습니다.';
-    } else if (formValues.password.length > 32) {
-      nextErrors.password = '비밀번호가 너무 깁니다.';
-    } else if (formValues.password && !PASSWORD_PATTERN.test(formValues.password)) {
-      nextErrors.password = '특수문자, 영문, 숫자를 포함해 8자 이상 입력해 주세요.';
-    }
-
-    if (formValues.passwordConfirm !== formValues.password) {
-      nextErrors.passwordConfirm = '비밀번호 확인이 일치하지 않습니다.';
-    }
-
-    if (!isValidPhoneNumber(formValues.phoneNumber)) {
-      nextErrors.phoneNumber = '휴대폰 번호를 정확히 입력해 주세요.';
-    }
-
-    if (smsState.verifiedPhoneNumber !== normalizedPhoneNumber) {
-      if (isSmsCodeVisible) {
-        nextErrors.smsCode = '휴대폰 인증을 먼저 완료해 주세요.';
+    if (trimmedEmail) {
+      if (!EMAIL_PATTERN.test(trimmedEmail)) {
+        emailErrors.push('올바른 이메일 형식이 아닙니다.');
+      }
+      if (emailAvailability.checkedValue === trimmedEmail) {
+        if (emailAvailability.isAvailable === false) {
+          emailErrors.push('사용할 수 없는 이메일 주소입니다.');
+        }
       } else {
-        nextErrors.phoneNumber = '휴대폰 인증을 먼저 완료해 주세요.';
+        emailErrors.push('(회원가입 버튼 눌렀을 때) 이메일 중복확인을 완료해주세요.');
       }
     }
 
+    const trimmedName = formValues.name.trim();
+    if (!trimmedName || !NAME_ALLOWED_PATTERN.test(trimmedName)) {
+      nameErrors.push('한글 또는 영문으로 입력해 주세요.');
+    }
+    if (trimmedName.length < 2 || trimmedName.length > 20) {
+      nameErrors.push('2~20자 이내로 입력해주세요.');
+    }
+
+    const trimmedNickname = formValues.nickname.trim();
+    if (trimmedNickname) {
+      if (trimmedNickname.length < 2 || trimmedNickname.length > 20) {
+        nicknameErrors.push('2~20자 이내로 입력해주세요.');
+      }
+      if (!NICKNAME_ALLOWED_PATTERN.test(trimmedNickname)) {
+        nicknameErrors.push('특수문자를 사용할 수 없습니다.');
+      }
+    }
+
+    if (
+      !PASSWORD_ALLOWED_CHARACTER_PATTERN.test(formValues.password) ||
+      !PASSWORD_PATTERN.test(formValues.password)
+    ) {
+      passwordErrors.push('특수문자, 영문, 숫자 포함 8자 이상 입력해주세요.');
+    }
+
+    if (!formValues.passwordConfirm || formValues.passwordConfirm !== formValues.password) {
+      passwordConfirmErrors.push('비밀번호가 일치하지 않습니다.');
+    }
+
+    if (!isValidPhoneNumber(formValues.phoneNumber)) {
+      phoneNumberErrors.push('올바른 휴대폰 번호 형식이 아닙니다.');
+    }
+
+    if (smsState.verifiedPhoneNumber !== normalizedPhoneNumber) {
+      phoneNumberErrors.push('(회원가입 눌렀을 때) 휴대폰 인증을 완료해주세요.');
+    }
+
+    if (isSmsCodeVisible && isSmsExpired) {
+      smsCodeErrors.push('인증번호가 만료되었습니다. 다시 발송해주세요.');
+    } else if (isSmsCodeVisible && !isPhoneVerified) {
+      smsCodeErrors.push('인증번호가 일치하지 않습니다.');
+    }
+
+    if (loginIdErrors.length) nextErrors.loginId = loginIdErrors;
+    if (emailErrors.length) nextErrors.email = emailErrors;
+    if (nameErrors.length) nextErrors.name = nameErrors;
+    if (nicknameErrors.length) nextErrors.nickname = nicknameErrors;
+    if (passwordErrors.length) nextErrors.password = passwordErrors;
+    if (passwordConfirmErrors.length) nextErrors.passwordConfirm = passwordConfirmErrors;
+    if (phoneNumberErrors.length) nextErrors.phoneNumber = phoneNumberErrors;
+    if (smsCodeErrors.length) nextErrors.smsCode = smsCodeErrors;
+
     if (requiredTerms.some((term) => !acceptedTermCodes.includes(term.code))) {
-      nextErrors.acceptedTermCodes = '필수 약관 동의가 필요합니다.';
+      nextErrors.acceptedTermCodes = ['필수 약관에 동의해주세요.'];
     }
 
     setFormErrors(nextErrors);
 
-    if (Object.keys(nextErrors).length > 0) {
+    if (hasSignupFormErrors(nextErrors)) {
+      showToast({
+        message: SIGNUP_FAILED_TOAST_MESSAGE,
+        variant: 'error',
+        durationMs: null,
+      });
       firstInvalidInputRef.current?.focus();
       return;
     }
@@ -554,7 +662,7 @@ const SignupPage = () => {
     if (!LOGIN_ID_PATTERN.test(trimmedLoginId)) {
       setFormErrors((current) => ({
         ...current,
-        loginId: '아이디는 4~20자의 영문, 숫자만 사용할 수 있습니다.',
+        loginId: ['영문 소문자, 숫자를 조합해 4~20자로 입력해주세요.'],
       }));
       return;
     }
@@ -568,7 +676,7 @@ const SignupPage = () => {
     if (!trimmedEmail) {
       setFormErrors((current) => ({
         ...current,
-        email: '이메일을 입력한 경우에만 중복 확인이 가능합니다.',
+        email: ['이메일을 입력한 경우에만 중복 확인이 가능합니다.'],
       }));
       return;
     }
@@ -576,7 +684,7 @@ const SignupPage = () => {
     if (!EMAIL_PATTERN.test(trimmedEmail)) {
       setFormErrors((current) => ({
         ...current,
-        email: '이메일 형식을 확인해 주세요.',
+        email: ['올바른 이메일 형식이 아닙니다.'],
       }));
       return;
     }
@@ -585,272 +693,453 @@ const SignupPage = () => {
   };
 
   return (
-    <section className={sharedStyles['page']}>
-      <div className={classNames(sharedStyles['shell'], sharedStyles['shellNarrow'])}>
-        <div className={classNames(sharedStyles['surface'], styles['surface'])}>
-          <header className={sharedStyles['header']}>
-            <h1 className={sharedStyles['title']}>회원가입</h1>
-          </header>
+    <section className={styles['page']}>
+      <div className={styles['shell']}>
+        <h1 className={styles['title']}>회원가입</h1>
 
-          <form className={styles['form']} noValidate onSubmit={handleSubmit}>
-            <section className={sharedStyles['section']}>
-              <div className={styles['fieldGrid']}>
-                <div className={styles['checkFieldGroup']}>
-                  <div className={styles['checkFieldRow']}>
-                    <TextField
-                      errorMessage={formErrors.loginId}
-                      label='아이디 *'
+        <form className={styles['form']} noValidate onSubmit={handleSubmit}>
+          <div className={styles['fieldGrid']}>
+            <div className={styles['fieldRow']}>
+              <label className={styles['label']} htmlFor='loginId'>
+                아이디 <span>*</span>
+              </label>
+              <div className={styles['controlGroup']}>
+                <div className={styles['inputStack']}>
+                  <div className={styles['inputWrap']}>
+                    <input
+                      className={classNames(
+                        styles['input'],
+                        hasFieldError('loginId') && styles['inputError'],
+                      )}
+                      id='loginId'
                       name='loginId'
                       onChange={handleFieldChange('loginId')}
+                      placeholder='아이디를 입력해주세요.'
                       ref={firstInvalidInputRef}
                       value={formValues.loginId}
                     />
-                    <div className={styles['fieldAction']}>
-                      <Button
-                        className={styles['checkButton']}
-                        disabled={checkLoginIdMutation.isPending}
-                        onClick={handleCheckLoginId}
-                        type='button'
-                      >
-                        {checkLoginIdMutation.isPending ? '확인 중...' : '중복확인'}
-                      </Button>
-                    </div>
+                    {hasFieldError('loginId') ? (
+                      <span aria-hidden='true' className={styles['errorIcon']}>
+                        ×
+                      </span>
+                    ) : isLoginIdAvailabilityChecked && loginIdAvailability.isAvailable ? (
+                      <img alt='' className={styles['successIcon']} src={circleCheckIconSrc} />
+                    ) : null}
                   </div>
-                  {loginIdAvailability.checkedValue === formValues.loginId.trim() &&
-                  loginIdAvailability.isAvailable !== null ? (
-                    <p
-                      className={classNames(
-                        styles['availabilityText'],
-                        loginIdAvailability.isAvailable
-                          ? styles['availabilityTextSuccess']
-                          : styles['availabilityTextError'],
-                      )}
-                    >
-                      {loginIdAvailability.isAvailable
-                        ? '사용 가능한 아이디입니다.'
-                        : '이미 사용 중인 아이디입니다.'}
-                    </p>
-                  ) : null}
+                  {renderErrorMessages('loginId') ??
+                    (isLoginIdAvailabilityChecked ? (
+                      <p
+                        className={classNames(
+                          styles['statusText'],
+                          loginIdAvailability.isAvailable
+                            ? styles['statusTextSuccess']
+                            : styles['statusTextError'],
+                        )}
+                      >
+                        {loginIdAvailability.isAvailable
+                          ? '사용 가능한 아이디입니다.'
+                          : '이미 사용 중인 아이디입니다.'}
+                      </p>
+                    ) : null)}
                 </div>
+                <Button
+                  className={styles['checkButton']}
+                  disabled={checkLoginIdMutation.isPending}
+                  onClick={handleCheckLoginId}
+                  type='button'
+                  variant='secondary'
+                >
+                  {checkLoginIdMutation.isPending ? '확인 중...' : '중복 확인'}
+                </Button>
+              </div>
+            </div>
 
-                <div className={styles['checkFieldGroup']}>
-                  <div className={styles['checkFieldRow']}>
-                    <TextField
+            <div className={styles['fieldRow']}>
+              <label className={styles['label']} htmlFor='email'>
+                이메일
+              </label>
+              <div className={styles['controlGroup']}>
+                <div className={styles['inputStack']}>
+                  <div className={styles['inputWrap']}>
+                    <input
                       autoComplete='email'
-                      errorMessage={formErrors.email}
-                      label='이메일'
+                      className={classNames(
+                        styles['input'],
+                        hasFieldError('email') && styles['inputError'],
+                      )}
+                      id='email'
                       name='email'
                       onChange={handleFieldChange('email')}
+                      placeholder='이메일을 입력해주세요.'
                       type='email'
                       value={formValues.email}
                     />
-                    <div className={styles['fieldAction']}>
-                      <Button
-                        className={styles['checkButton']}
-                        disabled={checkEmailMutation.isPending || !formValues.email.trim()}
-                        onClick={handleCheckEmail}
-                        type='button'
-                      >
-                        {checkEmailMutation.isPending ? '확인 중...' : '중복확인'}
-                      </Button>
-                    </div>
+                    {hasFieldError('email') ? (
+                      <span aria-hidden='true' className={styles['errorIcon']}>
+                        ×
+                      </span>
+                    ) : isEmailAvailabilityChecked && emailAvailability.isAvailable ? (
+                      <img alt='' className={styles['successIcon']} src={circleCheckIconSrc} />
+                    ) : null}
                   </div>
-                  {emailAvailability.checkedValue === formValues.email.trim() &&
-                  emailAvailability.isAvailable !== null ? (
-                    <p
-                      className={classNames(
-                        styles['availabilityText'],
-                        emailAvailability.isAvailable
-                          ? styles['availabilityTextSuccess']
-                          : styles['availabilityTextError'],
-                      )}
-                    >
-                      {emailAvailability.isAvailable
-                        ? '사용 가능한 이메일입니다.'
-                        : '이미 사용 중인 이메일입니다.'}
-                    </p>
-                  ) : null}
+                  {renderErrorMessages('email') ??
+                    (isEmailAvailabilityChecked ? (
+                      <p
+                        className={classNames(
+                          styles['statusText'],
+                          emailAvailability.isAvailable
+                            ? styles['statusTextSuccess']
+                            : styles['statusTextError'],
+                        )}
+                      >
+                        {emailAvailability.isAvailable
+                          ? '사용 가능한 이메일입니다.'
+                          : '이미 사용 중인 이메일입니다.'}
+                      </p>
+                    ) : null)}
                 </div>
+                <Button
+                  className={styles['checkButton']}
+                  disabled={checkEmailMutation.isPending || !trimmedEmail}
+                  onClick={handleCheckEmail}
+                  type='button'
+                  variant='secondary'
+                >
+                  {checkEmailMutation.isPending ? '확인 중...' : '중복 확인'}
+                </Button>
+              </div>
+            </div>
 
-                <div className={styles['pairFieldRow']}>
-                  <TextField
-                    errorMessage={formErrors.name}
-                    label='이름 *'
+            <div className={styles['fieldRow']}>
+              <label className={styles['label']} htmlFor='name'>
+                이름 <span>*</span>
+              </label>
+              <div className={styles['inputStack']}>
+                <div className={styles['inputWrap']}>
+                  <input
+                    className={classNames(
+                      styles['input'],
+                      hasFieldError('name') && styles['inputError'],
+                    )}
+                    id='name'
                     name='name'
                     onChange={handleFieldChange('name')}
+                    placeholder='이름을 입력해주세요.'
                     value={formValues.name}
                   />
+                  {hasFieldError('name') ? (
+                    <span aria-hidden='true' className={styles['errorIcon']}>
+                      ×
+                    </span>
+                  ) : formValues.name.trim() ? (
+                    <img alt='' className={styles['successIcon']} src={circleCheckIconSrc} />
+                  ) : null}
+                </div>
+                {renderErrorMessages('name')}
+              </div>
+            </div>
 
-                  <TextField
-                    label='닉네임'
+            <div className={styles['fieldRow']}>
+              <label className={styles['label']} htmlFor='nickname'>
+                닉네임
+              </label>
+              <div className={styles['inputStack']}>
+                <div className={styles['inputWrap']}>
+                  <input
+                    className={classNames(
+                      styles['input'],
+                      hasFieldError('nickname') && styles['inputError'],
+                    )}
+                    id='nickname'
                     name='nickname'
                     onChange={handleFieldChange('nickname')}
+                    placeholder='2~20자로 입력해주세요.'
                     value={formValues.nickname}
                   />
+                  {hasFieldError('nickname') ? (
+                    <span aria-hidden='true' className={styles['errorIcon']}>
+                      ×
+                    </span>
+                  ) : formValues.nickname.trim() ? (
+                    <img alt='' className={styles['successIcon']} src={circleCheckIconSrc} />
+                  ) : null}
                 </div>
+                {renderErrorMessages('nickname')}
+              </div>
+            </div>
 
-                <div className={styles['pairFieldRow']}>
-                  <TextField
+            <div className={styles['fieldRow']}>
+              <label className={styles['label']} htmlFor='password'>
+                비밀번호 <span>*</span>
+              </label>
+              <div className={styles['inputStack']}>
+                <div className={styles['inputWrap']}>
+                  <input
                     autoComplete='new-password'
-                    errorMessage={formErrors.password}
-                    label='비밀번호 *'
+                    className={classNames(
+                      styles['input'],
+                      styles['inputWithIcon'],
+                      hasFieldError('password') && styles['inputError'],
+                    )}
+                    id='password'
                     name='password'
                     onChange={handleFieldChange('password')}
-                    placeholder='특수문자 영문 숫자 포함 8자 이상'
-                    type='password'
+                    placeholder='특수문자, 영문, 숫자 포함 8자 이상 입력해주세요.'
+                    type={isPasswordVisible ? 'text' : 'password'}
                     value={formValues.password}
                   />
-
-                  <TextField
-                    autoComplete='new-password'
-                    errorMessage={formErrors.passwordConfirm}
-                    label='비밀번호 확인 *'
-                    name='passwordConfirm'
-                    onChange={handleFieldChange('passwordConfirm')}
-                    type='password'
-                    value={formValues.passwordConfirm}
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section className={sharedStyles['section']}>
-              <div className={styles['smsFieldRow']}>
-                <TextField
-                  errorMessage={formErrors.phoneNumber}
-                  label='휴대폰 번호 *'
-                  name='phoneNumber'
-                  onChange={handleFieldChange('phoneNumber')}
-                  value={formValues.phoneNumber}
-                />
-
-                <div className={styles['fieldAction']}>
-                  <Button
-                    className={styles['smsButton']}
-                    disabled={
-                      sendSmsMutation.isPending ||
-                      smsState.verifiedAt !== null ||
-                      (isSmsCodeVisible && !isSmsExpired)
-                    }
-                    onClick={handleSendSms}
+                  <button
+                    aria-label={isPasswordVisible ? '비밀번호 숨기기' : '비밀번호 보기'}
+                    className={styles['iconButton']}
+                    onClick={() => {
+                      setIsPasswordVisible((current) => !current);
+                    }}
                     type='button'
                   >
-                    {sendSmsMutation.isPending
-                      ? '발송 중...'
-                      : smsState.verifiedAt
-                        ? '발송 완료'
-                        : isSmsCodeVisible && !isSmsExpired
-                          ? formatRemainingTimeLabel(smsCountdownSeconds)
-                          : '인증번호 발송'}
-                  </Button>
-                </div>
-              </div>
-
-              {isSmsCodeVisible ? (
-                <div className={styles['smsFieldRow']}>
-                  <TextField
-                    errorMessage={formErrors.smsCode}
-                    label='인증번호 *'
-                    name='smsCode'
-                    onChange={handleFieldChange('smsCode')}
-                    value={formValues.smsCode}
-                  />
-
-                  <div className={styles['fieldAction']}>
-                    <Button
-                      className={styles['smsButton']}
-                      disabled={
-                        verifySmsMutation.isPending || isSmsExpired || smsState.verifiedAt !== null
-                      }
-                      onClick={handleVerifySms}
-                      type='button'
-                    >
-                      {verifySmsMutation.isPending ? '확인 중...' : '인증번호 확인'}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className={styles['statusInline']}>
-                {isSmsCodeVisible && !smsState.verifiedAt && smsCountdownSeconds > 0 ? (
-                  <p className={sharedStyles['mutedText']}>
-                    남은 시간 {formatRemainingTimeLabel(smsCountdownSeconds)}
-                  </p>
-                ) : null}
-                {isSmsExpired ? (
-                  <p
-                    className={classNames(
-                      styles['availabilityText'],
-                      styles['availabilityTextError'],
-                    )}
-                  >
-                    인증 시간이 만료되었습니다. 다시 발송해 주세요.
-                  </p>
-                ) : null}
-                {smsState.verifiedAt ? (
-                  <p className={sharedStyles['mutedText']}>인증 완료</p>
-                ) : null}
-              </div>
-            </section>
-
-            <section className={sharedStyles['section']}>
-              <div className={styles['consentGroup']}>
-                {registrationTermsQuery.isLoading ? (
-                  <p className={sharedStyles['mutedText']}>약관 정보를 불러오는 중입니다.</p>
-                ) : null}
-                {registrationTermsQuery.isError ? (
-                  <p className={styles['errorText']}>회원가입 약관을 불러오지 못했습니다.</p>
-                ) : null}
-
-                {registrationTerms.length > 0 ? (
-                  <label className={classNames(styles['checkboxRow'], styles['checkboxRowAll'])}>
-                    <input
-                      checked={areAllTermsAccepted}
-                      onChange={handleToggleAllTerms}
-                      type='checkbox'
-                    />
-                    <span>전체 동의</span>
-                  </label>
-                ) : null}
-
-                {registrationTerms.map((term: RegistrationTerm) => (
-                  <label className={styles['checkboxRow']} key={term.code}>
-                    <input
-                      checked={acceptedTermCodes.includes(term.code)}
-                      name={term.code}
-                      onChange={handleToggleTerm(term.code)}
-                      type='checkbox'
-                    />
-                    <span>
-                      [{term.required ? '필수' : '선택'}] {term.title}
+                    <img alt='' src={isPasswordVisible ? eyeIconSrc : eyeOffIconSrc} />
+                  </button>
+                  {hasFieldError('password') ? (
+                    <span aria-hidden='true' className={styles['errorIcon']}>
+                      ×
                     </span>
-                  </label>
-                ))}
-                {formErrors.acceptedTermCodes ? (
-                  <p className={styles['errorText']}>{formErrors.acceptedTermCodes}</p>
-                ) : null}
+                  ) : isPasswordValid ? (
+                    <img alt='' className={styles['successIcon']} src={circleCheckIconSrc} />
+                  ) : null}
+                </div>
+                {renderErrorMessages('password')}
               </div>
-            </section>
-
-            <div className={styles['actionGroup']}>
-              <Button
-                className={styles['submitButton']}
-                disabled={
-                  registerMutation.isPending ||
-                  registrationTermsQuery.isLoading ||
-                  registrationTermsQuery.isError
-                }
-                type='submit'
-              >
-                {registerMutation.isPending ? '가입 처리 중...' : '회원가입'}
-              </Button>
-
-              <Link className={sharedStyles['textLink']} to={routePaths.login}>
-                이미 계정이 있다면 로그인
-              </Link>
             </div>
-          </form>
-        </div>
+
+            <div className={styles['fieldRow']}>
+              <label className={styles['label']} htmlFor='passwordConfirm'>
+                비밀번호 확인 <span>*</span>
+              </label>
+              <div className={styles['inputStack']}>
+                <div className={styles['inputWrap']}>
+                  <input
+                    autoComplete='new-password'
+                    className={classNames(
+                      styles['input'],
+                      styles['inputWithIcon'],
+                      hasFieldError('passwordConfirm') && styles['inputError'],
+                    )}
+                    id='passwordConfirm'
+                    name='passwordConfirm'
+                    onChange={handleFieldChange('passwordConfirm')}
+                    placeholder='비밀번호를 한 번 더 입력해주세요.'
+                    type={isPasswordConfirmVisible ? 'text' : 'password'}
+                    value={formValues.passwordConfirm}
+                  />
+                  <button
+                    aria-label={
+                      isPasswordConfirmVisible ? '비밀번호 확인 숨기기' : '비밀번호 확인 보기'
+                    }
+                    className={styles['iconButton']}
+                    onClick={() => {
+                      setIsPasswordConfirmVisible((current) => !current);
+                    }}
+                    type='button'
+                  >
+                    <img alt='' src={isPasswordConfirmVisible ? eyeIconSrc : eyeOffIconSrc} />
+                  </button>
+                  {hasFieldError('passwordConfirm') ? (
+                    <span aria-hidden='true' className={styles['errorIcon']}>
+                      ×
+                    </span>
+                  ) : isPasswordConfirmValid ? (
+                    <img alt='' className={styles['successIcon']} src={circleCheckIconSrc} />
+                  ) : null}
+                </div>
+                {renderErrorMessages('passwordConfirm') ??
+                  (isPasswordConfirmValid ? (
+                    <p className={classNames(styles['statusText'], styles['statusTextSuccess'])}>
+                      비밀번호가 일치합니다.
+                    </p>
+                  ) : null)}
+              </div>
+            </div>
+
+            <div className={styles['fieldRow']}>
+              <label className={styles['label']} htmlFor='phoneNumber'>
+                휴대폰 번호 <span>*</span>
+              </label>
+              <div className={styles['controlGroup']}>
+                <div className={styles['inputStack']}>
+                  <div className={styles['inputWrap']}>
+                    <input
+                      className={classNames(
+                        styles['input'],
+                        hasFieldError('phoneNumber') && styles['inputError'],
+                      )}
+                      id='phoneNumber'
+                      inputMode='numeric'
+                      name='phoneNumber'
+                      onChange={handleFieldChange('phoneNumber')}
+                      placeholder='- 없이 숫자만 입력해주세요.'
+                      value={formValues.phoneNumber}
+                    />
+                    {hasFieldError('phoneNumber') ? (
+                      <span aria-hidden='true' className={styles['errorIcon']}>
+                        ×
+                      </span>
+                    ) : isPhoneNumberValid ? (
+                      <img alt='' className={styles['successIcon']} src={circleCheckIconSrc} />
+                    ) : null}
+                  </div>
+                  {renderErrorMessages('phoneNumber')}
+                </div>
+                <Button
+                  className={styles['smsButton']}
+                  disabled={
+                    sendSmsMutation.isPending ||
+                    smsState.verifiedAt !== null ||
+                    (isSmsCodeVisible && !isSmsExpired)
+                  }
+                  onClick={handleSendSms}
+                  type='button'
+                  variant='secondary'
+                >
+                  {sendSmsMutation.isPending
+                    ? '발송 중...'
+                    : smsState.verifiedAt
+                      ? '발송 완료'
+                      : '인증번호 받기'}
+                </Button>
+              </div>
+            </div>
+
+            <div className={styles['fieldRow']}>
+              <label className={styles['label']} htmlFor='smsCode'>
+                인증번호 입력 <span>*</span>
+              </label>
+              <div className={styles['controlGroup']}>
+                <div className={styles['inputStack']}>
+                  <div className={styles['inputWrap']}>
+                    <input
+                      className={classNames(
+                        styles['input'],
+                        styles['inputWithTimer'],
+                        hasFieldError('smsCode') && styles['inputError'],
+                      )}
+                      id='smsCode'
+                      inputMode='numeric'
+                      name='smsCode'
+                      onChange={handleFieldChange('smsCode')}
+                      placeholder='인증번호 6자리를입력해주세요.'
+                      value={formValues.smsCode}
+                    />
+                    {isSmsCodeVisible &&
+                    !isPhoneVerified &&
+                    smsCountdownSeconds > 0 &&
+                    !hasFieldError('smsCode') ? (
+                      <span className={styles['timerText']}>
+                        {formatRemainingTimeLabel(smsCountdownSeconds)}
+                      </span>
+                    ) : null}
+                    {hasFieldError('smsCode') ? (
+                      <span aria-hidden='true' className={styles['errorIcon']}>
+                        ×
+                      </span>
+                    ) : isPhoneVerified ? (
+                      <img alt='' className={styles['successIcon']} src={circleCheckIconSrc} />
+                    ) : null}
+                  </div>
+                  {renderErrorMessages('smsCode') ??
+                    (isSmsExpired ? (
+                      <p className={classNames(styles['statusText'], styles['statusTextError'])}>
+                        인증 시간이 만료되었습니다. 다시 발송해 주세요.
+                      </p>
+                    ) : isPhoneVerified ? (
+                      <p className={classNames(styles['statusText'], styles['statusTextSuccess'])}>
+                        휴대폰 인증이 완료되었습니다.
+                      </p>
+                    ) : null)}
+                </div>
+                <Button
+                  className={styles['smsButton']}
+                  disabled={
+                    verifySmsMutation.isPending ||
+                    !isSmsCodeVisible ||
+                    isSmsExpired ||
+                    isPhoneVerified
+                  }
+                  onClick={handleVerifySms}
+                  type='button'
+                  variant='secondary'
+                >
+                  {verifySmsMutation.isPending ? '확인 중...' : '인증번호 확인'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <section className={styles['consentGroup']}>
+            {registrationTermsQuery.isLoading ? (
+              <p className={styles['mutedText']}>약관 정보를 불러오는 중입니다.</p>
+            ) : null}
+            {registrationTermsQuery.isError ? (
+              <p className={styles['errorText']}>회원가입 약관을 불러오지 못했습니다.</p>
+            ) : null}
+
+            {registrationTerms.length > 0 ? (
+              <label className={classNames(styles['checkboxRow'], styles['checkboxRowAll'])}>
+                <input
+                  checked={areAllTermsAccepted}
+                  onChange={handleToggleAllTerms}
+                  type='checkbox'
+                />
+                <span aria-hidden='true' className={styles['checkboxBox']}>
+                  {areAllTermsAccepted ? <img alt='' src={checkIconSrc} /> : null}
+                </span>
+                <strong>전체 동의</strong>
+              </label>
+            ) : null}
+
+            {registrationTerms.map((term: RegistrationTerm) => {
+              const isChecked = acceptedTermCodes.includes(term.code);
+
+              return (
+                <label className={styles['checkboxRow']} key={term.code}>
+                  <input
+                    checked={isChecked}
+                    name={term.code}
+                    onChange={handleToggleTerm(term.code)}
+                    type='checkbox'
+                  />
+                  <span aria-hidden='true' className={styles['checkboxBox']}>
+                    {isChecked ? <img alt='' src={checkIconSrc} /> : null}
+                  </span>
+                  <span>
+                    [{term.required ? '필수' : '선택'}] {term.title}
+                  </span>
+                </label>
+              );
+            })}
+            {formErrors.acceptedTermCodes?.map((message) => (
+              <p className={styles['termsErrorText']} key={message}>
+                {message}
+              </p>
+            ))}
+          </section>
+
+          <div className={styles['actionGroup']}>
+            <Button
+              className={styles['submitButton']}
+              disabled={
+                registerMutation.isPending ||
+                registrationTermsQuery.isLoading ||
+                registrationTermsQuery.isError
+              }
+              type='submit'
+            >
+              {registerMutation.isPending ? '가입 처리 중...' : '회원가입'}
+            </Button>
+
+            <Link className={styles['loginLink']} to={routePaths.login}>
+              로그인하기
+            </Link>
+          </div>
+        </form>
       </div>
     </section>
   );

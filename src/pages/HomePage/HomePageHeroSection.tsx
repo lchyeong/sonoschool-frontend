@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-import slideChevronLeftIconSrc from '@/assets/icons/slide-chevron-left.svg';
+import homeHeroChevronIconSrc from '@/assets/icons/home-hero-chevron.svg';
 import type { HomeHeroSlide } from '@/types/homeHeroSlides';
 import { classNames } from '@/utils/classNames';
 
@@ -51,7 +51,7 @@ const HomePageHeroControlBar = ({
               alt=''
               aria-hidden='true'
               className={styles['controlIcon']}
-              src={slideChevronLeftIconSrc}
+              src={homeHeroChevronIconSrc}
             />
           </span>
         </button>
@@ -69,7 +69,7 @@ const HomePageHeroControlBar = ({
               alt=''
               aria-hidden='true'
               className={styles['controlIcon']}
-              src={slideChevronLeftIconSrc}
+              src={homeHeroChevronIconSrc}
             />
           </span>
         </button>
@@ -147,7 +147,14 @@ const HomePageHeroSection = ({
                   aria-label={activeSlide.thumbnailAlt}
                   className={styles['thumbnailFrame']}
                   role='img'
-                />
+                >
+                  <img
+                    alt=''
+                    aria-hidden='true'
+                    className={styles['thumbnailImage']}
+                    src={activeSlide.thumbnailSrc}
+                  />
+                </div>
               </div>
             </div>
           </>

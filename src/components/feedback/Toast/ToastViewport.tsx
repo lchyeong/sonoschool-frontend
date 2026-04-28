@@ -25,8 +25,13 @@ export const ToastViewport = () => {
               toast.variant === 'info' && styles['variantInfo'],
             )}
             key={toast.id}
-            role='status'
+            role={toast.variant === 'error' ? 'alert' : 'status'}
           >
+            {toast.variant === 'error' ? (
+              <span aria-hidden='true' className={styles['errorIcon']}>
+                !
+              </span>
+            ) : null}
             <div className={styles['message']}>{toast.message}</div>
             <button className={styles['closeButton']} onClick={handleDismiss} type='button'>
               닫기

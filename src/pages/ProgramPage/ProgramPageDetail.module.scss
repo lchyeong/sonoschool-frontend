@@ -1539,8 +1539,8 @@
   }
 
   .reviewPreviewCard {
-    flex-basis: calc(100vw - 88px);
-    width: calc(100vw - 88px);
+    flex-basis: min(100%, 420px);
+    width: min(100%, 420px);
   }
 
   .carouselArrowButton {

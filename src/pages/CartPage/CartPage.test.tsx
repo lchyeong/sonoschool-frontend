@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CartPage from '@/pages/CartPage/CartPage';
-import { resetCartSelectionState } from '@/stores/useCartSelectionStore';
+import { resetCartSelectionState, useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import type { CartItem, CartSummary } from '@/types/mypage';
 
 const cloneData = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -138,10 +138,23 @@ describe('CartPage', () => {
 
     expect(await screen.findByText('POCUS 워크숍')).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole('button', { name: '삭제' })[0] as HTMLButtonElement);
+    fireEvent.click(screen.getByRole('button', { name: 'POCUS 워크숍 삭제' }));
 
     expect(await screen.findByText('심장초음파 실전 마스터 클래스')).toBeInTheDocument();
     expect(screen.queryByText('POCUS 워크숍')).not.toBeInTheDocument();
+  });
+
+  it('removes only selected cart items when the selected delete action is clicked', async () => {
+    renderCartPage();
+
+    expect(await screen.findByText('POCUS 워크숍')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '복부초음파 오프라인 핸즈온 선택' }));
+    fireEvent.click(screen.getByRole('button', { name: '선택 삭제' }));
+
+    expect(await screen.findByText('복부초음파 오프라인 핸즈온')).toBeInTheDocument();
+    expect(screen.queryByText('POCUS 워크숍')).not.toBeInTheDocument();
+    expect(screen.queryByText('심장초음파 실전 마스터 클래스')).not.toBeInTheDocument();
   });
 
   it('updates the total when a cart item is unchecked', async () => {
@@ -152,5 +165,19 @@ describe('CartPage', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: '복부초음파 오프라인 핸즈온 선택' }));
 
     expect(await screen.findByText('1,103,000원')).toBeInTheDocument();
+  });
+
+  it('keeps an intentional empty selection after the cart hydrates again', async () => {
+    renderCartPage();
+
+    expect(await screen.findByRole('checkbox', { name: '전체 선택(3/3)' })).toBeChecked();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '전체 선택(3/3)' }));
+
+    expect(screen.getByRole('checkbox', { name: '전체 선택(0/3)' })).not.toBeChecked();
+
+    useCartSelectionStore.getState().hydrate(currentCart);
+
+    expect(screen.getByRole('checkbox', { name: '전체 선택(0/3)' })).not.toBeChecked();
   });
 });

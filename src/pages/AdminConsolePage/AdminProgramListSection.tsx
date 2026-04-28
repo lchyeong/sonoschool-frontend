@@ -231,10 +231,7 @@ const AdminProgramListSection = () => {
     return items.filter((item) => {
       const matchesKeyword =
         !normalizedKeyword ||
-        [item.title, item.categoryName, item.instructorName ?? '']
-          .join(' ')
-          .toLowerCase()
-          .includes(normalizedKeyword);
+        [item.title, item.categoryName].join(' ').toLowerCase().includes(normalizedKeyword);
       const matchesVisibility =
         visibilityFilter === 'all' ||
         (visibilityFilter === 'published' && item.published) ||
@@ -258,6 +255,10 @@ const AdminProgramListSection = () => {
     const endPage = Math.min(totalPages, startPage + 5);
     return Array.from({ length: endPage - startPage }, (_, index) => startPage + index);
   }, [currentPageIndex, totalPages]);
+  const createDrafts = useMemo(
+    () => (draftsQuery.data ?? []).filter((draft) => draft.finalProgramId === null),
+    [draftsQuery.data],
+  );
 
   return (
     <section className={styles['workspace']}>
@@ -266,22 +267,21 @@ const AdminProgramListSection = () => {
       </header>
 
       <div className={styles['listFrame']}>
-        {!draftsQuery.isPending && !draftsQuery.isError && draftsQuery.data.length > 0 ? (
+        {!draftsQuery.isPending && !draftsQuery.isError && createDrafts.length > 0 ? (
           <section className={styles['listPanel']}>
             <div className={styles['listPanelHeader']}>
               <p className={styles['listPanelMeta']}>진행 중 초안</p>
             </div>
 
             <div className={styles['draftList']}>
-              {draftsQuery.data.map((draft: AdminProgramDraftSummary) => (
+              {createDrafts.map((draft: AdminProgramDraftSummary) => (
                 <article className={styles['draftRow']} key={draft.id}>
                   <div className={styles['draftTitleCell']}>
                     <strong className={styles['draftTitle']}>
                       {draft.titlePreview?.trim() || `제목 없는 초안 #${String(draft.id)}`}
                     </strong>
                     <span className={styles['draftMeta']}>
-                      {draft.finalProgramId === null ? '신규 등록 초안' : '수정 초안'} · 마지막 저장{' '}
-                      {formatDate(draft.updatedAt)}
+                      신규 등록 초안 · 마지막 저장 {formatDate(draft.updatedAt)}
                     </span>
                   </div>
                   <div className={styles['draftActionGroup']}>
@@ -326,7 +326,7 @@ const AdminProgramListSection = () => {
                     setSearchKeyword(nextValue);
                   }}
                   onSubmit={() => undefined}
-                  placeholder='프로그램명, 카테고리, 강사명으로 검색'
+                  placeholder='프로그램명, 카테고리로 검색'
                   value={searchKeyword}
                 />
               </div>

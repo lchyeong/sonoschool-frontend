@@ -6,40 +6,31 @@
 
 .inner {
   box-sizing: border-box;
-  width: min(1832px, calc(100vw - clamp(48px, 10.55vw, 216px)));
-  min-height: 470px;
+  width: min(1400px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 100px 0;
+  padding: 72px 0 76px;
 }
 
 .topRow {
   display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
   align-items: center;
   justify-content: space-between;
+  padding-bottom: 28px;
+  border-bottom: 1px solid #d6ece9;
   min-width: 0;
 }
 
-.brandArea {
-  width: 344px;
-  flex: 0 0 auto;
-  height: 114px;
-}
-
-.brandImage {
-  display: block;
-  width: 344px;
-  height: 114px;
-  object-fit: contain;
-}
-
 .navigation {
+  flex: 1 1 620px;
   min-width: 0;
 }
 
 .navigationList {
   display: flex;
   flex-wrap: wrap;
-  gap: 48px;
+  gap: 18px clamp(22px, 3vw, 48px);
   align-items: center;
   padding: 0;
   margin: 0;
@@ -47,7 +38,8 @@
 }
 
 .navigationItem {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  width: auto !important;
 }
 
 .navigationLink {
@@ -57,7 +49,7 @@
   font-size: 18px;
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--letter-spacing-normal);
-  line-height: normal;
+  line-height: 1.3;
   text-decoration: none;
   white-space: nowrap;
   transition:
@@ -77,15 +69,18 @@
 
 .legalLinks {
   display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 12px clamp(16px, 1.8vw, 28px);
   align-items: center;
-  margin-left: 48px;
+  justify-content: flex-end;
+  margin-left: 0;
   color: #6b7280;
   font-family: Pretendard, var(--font-family-base);
   font-size: 18px;
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-normal);
-  line-height: normal;
-  white-space: nowrap;
+  line-height: 1.3;
 }
 
 .legalText {
@@ -93,30 +88,40 @@
 }
 
 .legalText:nth-child(1) {
-  margin-right: 32px;
+  margin-right: 0;
 }
 
 .legalText:nth-child(2) {
-  margin-right: 13px;
+  margin-right: 0;
 }
 
 .divider {
-  width: 100%;
-  height: 1px;
-  margin-top: 28px;
-  background: #e5e7eb;
+  display: none;
 }
 
-.contentRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 60px;
-  margin-top: 40px;
+.middleRow {
+  display: grid;
+  grid-template-columns: minmax(260px, 344px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(32px, 4.3vw, 60px);
+  padding: 44px 0 28px;
+}
+
+.brandArea {
+  width: clamp(240px, 20vw, 344px);
+  height: auto;
+}
+
+.brandImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .brandColumn {
   display: flex;
-  flex: 0 0 344px;
+  min-width: 0;
   flex-direction: column;
   align-items: flex-start;
 }
@@ -130,47 +135,46 @@
   @include m.visually-hidden;
 }
 
-.informationLines {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
+.informationGroupList {
+  display: grid;
+  gap: 12px;
 }
 
-.informationLine {
-  display: grid;
-  grid-template-columns: 261px 196px minmax(0, 1fr);
-  column-gap: 26px;
-  align-items: center;
+.informationList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px clamp(24px, 3vw, 44px);
+  padding: 0;
   margin: 0;
-  color: #6b7280;
-  font-family: Pretendard, var(--font-family-base);
-  font-size: 18px;
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-normal);
-  line-height: normal;
+  list-style: none;
 }
 
 .informationItem {
   display: inline-flex;
   flex-wrap: nowrap;
   gap: 6px;
-  align-items: center;
-  white-space: nowrap;
+  align-items: baseline;
+  margin: 0;
+  color: #6b7280;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: 1.35;
+  min-width: 0;
 }
 
 .informationLabel {
   color: #6b7280;
   font-weight: var(--font-weight-semibold);
-}
-
-.informationColon {
-  color: #6b7280;
-  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
 }
 
 .informationValue {
+  min-width: 0;
   color: #6b7280;
   font-weight: var(--font-weight-semibold);
+  overflow-wrap: break-word;
 }
 
 .informationLink {
@@ -192,19 +196,22 @@
   border-radius: 4px;
 }
 
-.copyright {
-  display: inline-flex;
-  margin-top: 40px;
+.bottomRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding-top: 8px;
   color: #6b7280;
   font-family: Pretendard, var(--font-family-base);
   font-size: 18px;
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-normal);
   line-height: normal;
-  white-space: nowrap;
 }
 
 .copyrightButton {
+  max-width: 100%;
   padding: 0;
   margin: 0;
   border: 0;
@@ -223,9 +230,8 @@
 
 @media (width < 1200px) {
   .inner {
-    width: min(100%, calc(100vw - 48px));
-    min-height: auto;
-    padding: 80px 0;
+    width: min(100%, calc(100% - 40px));
+    padding: 64px 0 70px;
   }
 
   .topRow {
@@ -235,28 +241,33 @@
   }
 
   .legalLinks {
-    margin-left: 0;
+    justify-content: flex-start;
   }
 
   .navigationList {
     gap: 20px 32px;
   }
 
-  .contentRow {
-    flex-direction: column;
-    gap: 40px;
+  .middleRow {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    align-items: flex-start;
   }
 
-  .informationLine {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: 14px;
+  .brandColumn,
+  .informationBlock {
+    width: 100%;
+  }
+
+  .informationGroupList {
+    gap: 10px;
   }
 }
 
 @media (width < 768px) {
   .inner {
-    width: min(100%, calc(100vw - 32px));
-    padding: 64px 0;
+    width: min(100%, calc(100% - 32px));
+    padding: 48px 0 60px;
   }
 
   .footer {
@@ -264,13 +275,7 @@
   }
 
   .brandArea {
-    width: 220px;
-    height: auto;
-  }
-
-  .brandImage {
-    width: 220px;
-    height: auto;
+    width: min(260px, 100%);
   }
 
   .navigationList {
@@ -279,18 +284,18 @@
 
   .navigationLink,
   .legalLinks,
-  .informationLine,
-  .copyright {
+  .informationItem,
+  .bottomRow {
     font-size: 16px;
+    line-height: 1.45;
   }
 
-  .contentRow {
-    margin-top: 32px;
+  .middleRow {
+    padding: 36px 0 24px;
   }
 
-  .copyright {
-    margin-top: 32px;
-    white-space: normal;
+  .copyrightButton {
+    text-align: left;
   }
 }
 

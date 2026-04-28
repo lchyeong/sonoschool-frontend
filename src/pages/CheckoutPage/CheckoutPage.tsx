@@ -10,6 +10,8 @@ import {
   prepareKcpPcCheckoutPayment,
   registerKcpMobileCheckoutPayment,
 } from '@/api/payments';
+import checkIconSrc from '@/assets/icons/lucide_check.svg';
+import Modal from '@/components/overlay/Modal/Modal';
 import {
   myCartQueryKey,
   myEnrollmentsQueryKey,
@@ -20,7 +22,6 @@ import {
 import { routePaths } from '@/routes/routeRegistry';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
-import sharedStyles from '@/styles/accountPage.module.scss';
 import {
   type CheckoutPaymentMethod,
   type KcpMobileRegisterResponse,
@@ -43,6 +44,41 @@ const pcPaymentApproveErrorMessage = '결제 승인에 실패했습니다. 잠�
 const pcPaymentCancelledMessage = '결제가 취소되었습니다. 다시 결제를 진행해 주세요.';
 const pcPaymentClosedMessage = '결제창이 닫혀 결제가 완료되지 않았습니다. 다시 시도해 주세요.';
 const pcPaymentReturnGraceMs = 1200;
+type CheckoutPolicyKey = 'privacy' | 'purchase' | 'refund';
+
+const checkoutPolicyContent: Record<
+  CheckoutPolicyKey,
+  {
+    title: string;
+    paragraphs: string[];
+  }
+> = {
+  privacy: {
+    title: '개인정보처리방침',
+    paragraphs: [
+      '결제 및 수강 신청 처리를 위해 이름, 이메일, 휴대폰 번호, 결제 정보가 수집 및 이용됩니다.',
+      '수집된 개인정보는 결제 승인, 수강 권한 부여, 고객 문의 대응, 관련 법령에 따른 보관 목적 외에는 사용하지 않습니다.',
+      '개인정보 보관 및 파기 기준은 소노스쿨 개인정보처리방침과 관련 법령을 따릅니다.',
+    ],
+  },
+  purchase: {
+    title: '구매조건',
+    paragraphs: [
+      '선택한 강의, 결제 금액, 할인 금액, 수강기간을 확인한 뒤 결제를 진행해 주세요.',
+      '결제 완료 후 수강 권한은 내 강의에서 확인할 수 있으며, 일부 강의는 운영 정책에 따라 수강 시작일이 별도로 적용될 수 있습니다.',
+      '무료 신청 강의도 동일하게 수강 신청 완료 후 내 강의에 반영됩니다.',
+    ],
+  },
+  refund: {
+    title: '환불정책',
+    paragraphs: [
+      '환불 가능 여부와 환불 금액은 강의 유형, 수강 시작 여부, 콘텐츠 이용 이력, 운영 정책에 따라 달라질 수 있습니다.',
+      '오프라인 및 실습 과정은 예약 일정, 준비물, 운영 비용 발생 시점에 따라 취소 및 환불 조건이 제한될 수 있습니다.',
+      '환불 요청은 고객센터 또는 마이페이지 결제 내역을 통해 접수해 주세요.',
+    ],
+  },
+};
+
 let kcpScrollLockSnapshot: {
   bodyOverflow: string;
   bodyTouchAction: string;
@@ -51,6 +87,48 @@ let kcpScrollLockSnapshot: {
 } | null = null;
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
+
+const formatCheckoutDate = (value: string | null) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${String(year)}.${month}.${day}`;
+};
+
+const getCoursePeriodLabel = (saleStartAt: string | null, saleEndAt: string | null) => {
+  const start = formatCheckoutDate(saleStartAt);
+  const end = formatCheckoutDate(saleEndAt);
+
+  if (start && end) {
+    return `${start}~${end}`;
+  }
+
+  return '상시 수강';
+};
+
+const getDiscountRate = (originalPrice: number, payablePrice: number) => {
+  if (originalPrice <= 0 || payablePrice >= originalPrice) {
+    return 0;
+  }
+
+  return Math.round(((originalPrice - payablePrice) / originalPrice) * 100);
+};
+
+const getCheckoutProgramTypeLabel = (programType: Parameters<typeof getProgramTypeLabel>[0]) => {
+  const label = getProgramTypeLabel(programType);
+  return label.endsWith('과정') ? label : `${label} 과정`;
+};
 
 const isMobileBrowser = (): boolean => {
   if (typeof navigator === 'undefined') {
@@ -283,6 +361,8 @@ const CheckoutPage = () => {
   const [isPcPreparing, setIsPcPreparing] = useState(false);
   const [isPcPaymentReady, setIsPcPaymentReady] = useState(false);
   const [pcPrepareVersion, setPcPrepareVersion] = useState(0);
+  const [isPolicyAgreed, setIsPolicyAgreed] = useState(false);
+  const [activePolicyKey, setActivePolicyKey] = useState<CheckoutPolicyKey | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
@@ -571,6 +651,14 @@ const CheckoutPage = () => {
       return;
     }
 
+    if (!isPolicyAgreed) {
+      showToast({
+        message: '주문 내용, 결제 금액, 환불정책 확인에 동의해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
     const checkoutPayload = {
       cartItemIds: selectedCartItemIds,
       paymentMethod: effectivePaymentMethod,
@@ -638,14 +726,11 @@ const CheckoutPage = () => {
   };
 
   return (
-    <section className={sharedStyles['page']}>
-      <div className={sharedStyles['shell']}>
-        <div className={classNames(sharedStyles['surface'], styles['surface'])}>
-          <header className={sharedStyles['header']}>
-            <h1 className={sharedStyles['title']}>결제하기</h1>
-            <p className={sharedStyles['description']}>
-              장바구니에서 선택한 항목을 확인하고 실제 KCP 결제를 진행합니다.
-            </p>
+    <section className={styles['page']}>
+      <div className={styles['shell']}>
+        <div className={styles['surface']}>
+          <header className={styles['header']}>
+            <h1 className={styles['title']}>결제</h1>
           </header>
 
           <form ref={kcpFormRef} acceptCharset='UTF-8' method='post' name='order_info'>
@@ -684,7 +769,7 @@ const CheckoutPage = () => {
           </form>
 
           {cartQuery.isLoading || profileQuery.isLoading ? (
-            <p className={sharedStyles['mutedText']}>결제 정보를 불러오는 중입니다.</p>
+            <p className={styles['stateText']}>결제 정보를 불러오는 중입니다.</p>
           ) : null}
 
           {cartQuery.isError ? (
@@ -696,10 +781,8 @@ const CheckoutPage = () => {
           ) : null}
 
           {!cartQuery.isLoading && !cartQuery.isError && cart && !cart.items.length ? (
-            <section className={sharedStyles['section']}>
-              <div className={sharedStyles['sectionHeader']}>
-                <h2 className={sharedStyles['sectionTitle']}>장바구니가 비어 있습니다.</h2>
-              </div>
+            <section className={styles['emptyPanel']}>
+              <h2 className={styles['emptyTitle']}>장바구니가 비어 있습니다.</h2>
               <div className={styles['actionRow']}>
                 <Link className={styles['secondaryActionLink']} to={routePaths.cart}>
                   장바구니로 돌아가기
@@ -713,13 +796,9 @@ const CheckoutPage = () => {
           cart &&
           cart.items.length > 0 &&
           pricing.itemCount === 0 ? (
-            <section className={sharedStyles['section']}>
-              <div className={sharedStyles['sectionHeader']}>
-                <h2 className={sharedStyles['sectionTitle']}>선택한 항목이 없습니다.</h2>
-                <p className={sharedStyles['sectionDescription']}>
-                  장바구니에서 결제할 과정을 먼저 선택해 주세요.
-                </p>
-              </div>
+            <section className={styles['emptyPanel']}>
+              <h2 className={styles['emptyTitle']}>선택한 항목이 없습니다.</h2>
+              <p className={styles['stateText']}>장바구니에서 결제할 과정을 먼저 선택해 주세요.</p>
               <div className={styles['actionRow']}>
                 <Link className={styles['secondaryActionLink']} to={routePaths.cart}>
                   장바구니로 돌아가기
@@ -731,92 +810,154 @@ const CheckoutPage = () => {
           {!cartQuery.isLoading && !cartQuery.isError && cart && pricing.itemCount > 0 ? (
             <div className={styles['layout']}>
               <div className={styles['mainColumn']}>
-                <section className={sharedStyles['section']}>
-                  <div className={sharedStyles['sectionHeader']}>
-                    <h2 className={sharedStyles['sectionTitle']}>주문자 정보</h2>
-                  </div>
-                  <div className={sharedStyles['metaList']}>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>이름</span>
-                      <span className={sharedStyles['metaValue']}>{profile?.name || '-'}</span>
+                <section className={styles['buyerPanel']} aria-label='주문자 정보'>
+                  <h2 className={styles['panelTitle']}>주문자 정보</h2>
+                  <div className={styles['buyerRows']}>
+                    <div className={styles['buyerRow']}>
+                      <span>이름</span>
+                      <span>{profile?.name || '-'}</span>
                     </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>이메일</span>
-                      <span className={sharedStyles['metaValue']}>{profile?.email || '-'}</span>
+                    <div className={styles['buyerRow']}>
+                      <span>이메일</span>
+                      <span>{profile?.email || '-'}</span>
                     </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>휴대폰 번호</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {profile?.phoneNumber || '-'}
-                      </span>
+                    <div className={styles['buyerRow']}>
+                      <span>휴대폰 번호</span>
+                      <span>{profile?.phoneNumber || '-'}</span>
                     </div>
                   </div>
                 </section>
 
-                <section className={sharedStyles['section']}>
-                  <div className={sharedStyles['sectionHeader']}>
-                    <h2 className={sharedStyles['sectionTitle']}>선택한 주문 항목</h2>
+                <section className={styles['itemsPanel']} aria-label='선택한 주문 항목'>
+                  <div className={styles['itemsHeader']}>
+                    <h2 className={styles['panelTitle']}>선택한 주문 항목</h2>
+                    <span className={styles['selectedCountBadge']}>
+                      선택 상품 {pricing.itemCount}개
+                    </span>
                   </div>
                   <div className={styles['itemList']}>
-                    {pricing.selectedItems.map((item) => (
-                      <article className={styles['itemCard']} key={item.id}>
-                        <div className={styles['itemInline']}>
-                          <strong className={styles['itemTitle']}>{item.title}</strong>
-                          <span className={styles['itemMeta']}>
-                            강사 {item.instructorName || '-'}
-                          </span>
-                          <span className={styles['itemTypeChip']}>
-                            {getProgramTypeLabel(item.programType)}
-                          </span>
-                        </div>
-                        <p className={classNames(styles['itemMeta'], styles['itemPrice'])}>
-                          {formatCurrency(item.payablePrice)}
-                        </p>
-                      </article>
-                    ))}
+                    {pricing.selectedItems.map((item) => {
+                      const discountAmount = item.originalPrice - item.payablePrice;
+                      const discountRate = getDiscountRate(item.originalPrice, item.payablePrice);
+
+                      return (
+                        <article className={styles['itemRow']} key={item.id}>
+                          {item.thumbnailUrl ? (
+                            <img
+                              alt={`${item.title} 대표 이미지`}
+                              className={styles['itemThumbnailImage']}
+                              loading='lazy'
+                              src={item.thumbnailUrl}
+                            />
+                          ) : (
+                            <div aria-hidden='true' className={styles['itemThumbnailFallback']} />
+                          )}
+                          <div className={styles['itemBody']}>
+                            <span className={styles['itemTypeChip']}>
+                              {getCheckoutProgramTypeLabel(item.programType)}
+                            </span>
+                            <strong className={styles['itemTitle']}>{item.title}</strong>
+                            <p className={styles['itemMeta']}>
+                              <span>수강기간</span>
+                              <span>{getCoursePeriodLabel(item.saleStartAt, item.saleEndAt)}</span>
+                            </p>
+                          </div>
+                          <div className={styles['itemPriceBlock']}>
+                            <p className={styles['itemPrice']}>
+                              {formatCurrency(item.payablePrice)}
+                            </p>
+                            {discountAmount > 0 ? (
+                              <p className={styles['itemDiscount']}>
+                                - {formatCurrency(discountAmount)} ({discountRate}%)
+                              </p>
+                            ) : null}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 </section>
               </div>
 
               <aside className={styles['summaryPanel']}>
-                <section className={sharedStyles['section']}>
-                  <div className={sharedStyles['sectionHeader']}>
-                    <h2 className={sharedStyles['sectionTitle']}>최종 결제 금액</h2>
+                <section className={styles['summaryCard']} aria-label='주문 요약'>
+                  <h2 className={styles['summaryTitle']}>주문 요약</h2>
+                  <div className={styles['summaryRows']}>
+                    <div className={styles['summaryRow']}>
+                      <span>선택 상품 수</span>
+                      <span>{pricing.itemCount}개</span>
+                    </div>
+                    <div className={styles['summaryRow']}>
+                      <span>상품 금액</span>
+                      <span>{formatCurrency(pricing.totalOriginalPrice)}</span>
+                    </div>
+                    <div className={styles['summaryRow']}>
+                      <span>강의 할인</span>
+                      <span className={styles['summaryDiscount']}>
+                        -{formatCurrency(pricing.itemDiscountAmount)}
+                      </span>
+                    </div>
                   </div>
-                  <div className={sharedStyles['metaList']}>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>선택 상품 수</span>
-                      <span className={sharedStyles['metaValue']}>{pricing.itemCount}개</span>
-                    </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>상품 금액</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {formatCurrency(pricing.totalOriginalPrice)}
-                      </span>
-                    </div>
-                    {pricing.itemDiscountAmount > 0 ? (
-                      <div className={sharedStyles['metaItem']}>
-                        <span className={sharedStyles['metaLabel']}>강의 할인</span>
-                        <span className={sharedStyles['metaValue']}>
-                          {formatCurrency(pricing.itemDiscountAmount)}
-                        </span>
-                      </div>
-                    ) : null}
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>최종 결제 금액</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {formatCurrency(pricing.totalPayablePrice)}
-                      </span>
-                    </div>
+                  <div className={styles['summaryTotalRow']}>
+                    <span>총 결제 금액</span>
+                    <strong>{formatCurrency(pricing.totalPayablePrice)}</strong>
+                  </div>
+
+                  <label className={styles['agreementRow']}>
+                    <input
+                      checked={isPolicyAgreed}
+                      onChange={(event) => {
+                        setIsPolicyAgreed(event.target.checked);
+                      }}
+                      type='checkbox'
+                    />
+                    <span
+                      className={classNames(
+                        styles['agreementCheckbox'],
+                        isPolicyAgreed ? styles['agreementCheckboxChecked'] : null,
+                      )}
+                      aria-hidden='true'
+                    >
+                      {isPolicyAgreed ? <img alt='' src={checkIconSrc} /> : null}
+                    </span>
+                    <span>주문 내용, 결제 금액, 환불정책을 확인했습니다.</span>
+                  </label>
+
+                  <div className={styles['policyLinks']} aria-label='결제 약관 링크'>
+                    <button
+                      onClick={() => {
+                        setActivePolicyKey('purchase');
+                      }}
+                      type='button'
+                    >
+                      구매조건
+                    </button>
+                    <span aria-hidden='true' />
+                    <button
+                      onClick={() => {
+                        setActivePolicyKey('refund');
+                      }}
+                      type='button'
+                    >
+                      환불정책
+                    </button>
+                    <span aria-hidden='true' />
+                    <button
+                      onClick={() => {
+                        setActivePolicyKey('privacy');
+                      }}
+                      type='button'
+                    >
+                      개인정보처리방침
+                    </button>
                   </div>
 
                   <div className={styles['actionRow']}>
-                    <Link className={styles['secondaryActionLink']} to={routePaths.cart}>
-                      장바구니로 돌아가기
-                    </Link>
                     <button
                       className={styles['primaryActionButton']}
-                      disabled={isSubmitting || isPcPreparing || pricing.itemCount === 0}
+                      disabled={
+                        isSubmitting || isPcPreparing || pricing.itemCount === 0 || !isPolicyAgreed
+                      }
                       onClick={() => {
                         void handleStartPayment();
                       }}
@@ -830,12 +971,32 @@ const CheckoutPage = () => {
                           ? '결제창 준비 중...'
                           : isFreeCheckout
                             ? '무료 신청'
-                            : '결제 진행'}
+                            : '결제하기'}
                     </button>
                   </div>
+                  <Link className={styles['cartBackLink']} to={routePaths.cart}>
+                    장바구니로 돌아가기
+                  </Link>
                 </section>
               </aside>
             </div>
+          ) : null}
+
+          {activePolicyKey ? (
+            <Modal
+              bodyClassName={styles['policyModalBody']}
+              onClose={() => {
+                setActivePolicyKey(null);
+              }}
+              panelClassName={styles['policyModalPanel']}
+              title={checkoutPolicyContent[activePolicyKey].title}
+            >
+              <div className={styles['policyModalContent']}>
+                {checkoutPolicyContent[activePolicyKey].paragraphs.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
+            </Modal>
           ) : null}
         </div>
       </div>

@@ -263,7 +263,7 @@ describe('ProgramPage', () => {
     expect(scrollToSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('adds the selected lecture to the cart and redirects to the cart page', async () => {
+  it('adds the selected lecture to the cart and opens the cart confirmation modal', async () => {
     renderProgramAndCartRoutes(
       '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
     );
@@ -274,8 +274,14 @@ describe('ProgramPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '장바구니' }));
 
-    expect(await screen.findByRole('heading', { name: '장바구니' })).toBeInTheDocument();
-    expect(await screen.findByText('산과 1삼분기 스캔 4주')).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog');
+
+    expect(dialog).toHaveAccessibleName('장바구니에 담았습니다');
+    expect(within(dialog).getByText('산과 1삼분기 스캔 4주')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '장바구니 보러가기' })).toHaveAttribute(
+      'href',
+      '/cart',
+    );
   });
 
   it('moves directly to checkout when the apply action is clicked', async () => {

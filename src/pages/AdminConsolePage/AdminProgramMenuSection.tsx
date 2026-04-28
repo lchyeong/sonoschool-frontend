@@ -32,7 +32,6 @@ import styles from './AdminProgramMenuSection.module.scss';
 
 interface CategoryFormState {
   name: string;
-  slug: string;
 }
 
 interface CategoryEditDraftState {
@@ -49,18 +48,9 @@ interface FlatCategoryItem extends AdminCategoryTreeItem {
 
 const INITIAL_FORM_STATE: CategoryFormState = {
   name: '',
-  slug: '',
 };
 
 const MAX_DEPTH = 3;
-
-const slugifyCategory = (value: string): string => {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-};
 
 const sortCategoryTree = (items: readonly AdminCategoryTreeItem[]): AdminCategoryTreeItem[] => {
   return [...items]
@@ -230,7 +220,6 @@ const AdminProgramMenuSection = () => {
   const programsQuery = useAdminProgramsLiveQuery();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [createParentId, setCreateParentId] = useState<number | null>(null);
-  const [createSlugDirty, setCreateSlugDirty] = useState(false);
   const [createFormState, setCreateFormState] = useState<CategoryFormState>(INITIAL_FORM_STATE);
   const [detailTab, setDetailTab] = useState<'create' | 'edit'>('edit');
   const [editDraftState, setEditDraftState] = useState<CategoryEditDraftState | null>(null);
@@ -295,7 +284,6 @@ const AdminProgramMenuSection = () => {
 
     return {
       name: selectedCategory.name,
-      slug: selectedCategory.slug,
     };
   }, [editDraftState, selectedCategory]);
   const linkedPrograms = useMemo(() => {
@@ -326,10 +314,9 @@ const AdminProgramMenuSection = () => {
   const createMutation = useMutation({
     mutationFn: async (state: CategoryFormState) => {
       const normalizedName = state.name.trim();
-      const normalizedSlug = slugifyCategory(state.slug);
 
-      if (!normalizedName || !normalizedSlug) {
-        throw new Error('카테고리명과 카테고리 코드를 입력해 주세요.');
+      if (!normalizedName) {
+        throw new Error('카테고리명을 입력해 주세요.');
       }
 
       const nextParentId = resolvedCreateParentId;
@@ -339,7 +326,6 @@ const AdminProgramMenuSection = () => {
       return createAdminCategory({
         parentId: nextParentId,
         name: normalizedName,
-        slug: normalizedSlug,
         sortOrder: nextSortOrder,
       });
     },
@@ -354,7 +340,6 @@ const AdminProgramMenuSection = () => {
       setSelectedCategoryId(category.id);
       setEditDraftState(null);
       setCreateFormState(INITIAL_FORM_STATE);
-      setCreateSlugDirty(false);
       setCreateParentId(null);
       setDetailTab('edit');
       showToast({
@@ -367,15 +352,13 @@ const AdminProgramMenuSection = () => {
   const updateMutation = useMutation({
     mutationFn: async (state: CategoryFormState) => {
       const normalizedName = state.name.trim();
-      const normalizedSlug = slugifyCategory(state.slug);
 
-      if (!normalizedName || !normalizedSlug || !selectedCategory) {
-        throw new Error('카테고리명과 카테고리 코드를 확인해 주세요.');
+      if (!normalizedName || !selectedCategory) {
+        throw new Error('카테고리명을 확인해 주세요.');
       }
 
       return updateAdminCategory(selectedCategory.id, {
         name: normalizedName,
-        slug: normalizedSlug,
         sortOrder: selectedCategory.sortOrder,
       });
     },
@@ -467,7 +450,6 @@ const AdminProgramMenuSection = () => {
           ? current.values
           : {
               name: selectedCategory.name,
-              slug: selectedCategory.slug,
             };
 
       return {
@@ -484,7 +466,6 @@ const AdminProgramMenuSection = () => {
     setCreateFormState((current) => ({
       ...current,
       name: nextName,
-      slug: createSlugDirty ? current.slug : slugifyCategory(nextName),
     }));
   };
 
@@ -673,14 +654,6 @@ const AdminProgramMenuSection = () => {
                       }}
                       value={editFormState.name}
                     />
-                    <TextField
-                      label='카테고리 코드'
-                      name='edit-category-slug'
-                      onChange={(event) => {
-                        updateEditFormState({ slug: event.target.value });
-                      }}
-                      value={editFormState.slug}
-                    />
                   </div>
 
                   <div className={styles['formActions']}>
@@ -752,18 +725,6 @@ const AdminProgramMenuSection = () => {
                   }}
                   value={createFormState.name}
                 />
-                <TextField
-                  label='카테고리 코드'
-                  name='create-category-slug'
-                  onChange={(event) => {
-                    setCreateSlugDirty(true);
-                    setCreateFormState((current) => ({
-                      ...current,
-                      slug: event.target.value,
-                    }));
-                  }}
-                  value={createFormState.slug}
-                />
               </div>
 
               <div className={styles['formActions']}>
@@ -780,7 +741,6 @@ const AdminProgramMenuSection = () => {
                   <Button
                     onClick={() => {
                       setCreateFormState(INITIAL_FORM_STATE);
-                      setCreateSlugDirty(false);
                     }}
                     type='button'
                     variant='secondary'

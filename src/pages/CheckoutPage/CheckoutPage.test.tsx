@@ -117,6 +117,10 @@ const renderCheckoutPage = () => {
   );
 };
 
+const agreePaymentTerms = async () => {
+  fireEvent.click(await screen.findByRole('checkbox', { name: /주문 내용, 결제 금액, 환불정책/ }));
+};
+
 afterEach(() => {
   cleanup();
   resetCartSelectionState();
@@ -142,12 +146,29 @@ describe('CheckoutPage', () => {
   it('shows real-checkout summary and allows multi-item checkout', async () => {
     renderCheckoutPage();
 
-    expect(await screen.findByRole('heading', { name: '결제하기' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '결제' })).toBeInTheDocument();
     expect(await screen.findByText('선택 상품 수')).toBeInTheDocument();
     expect(screen.getByText('9개')).toBeInTheDocument();
     expect(screen.getByText('1,301,000원')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '결제 수단' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '결제 진행' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '결제하기' })).toBeDisabled();
+    await agreePaymentTerms();
+    expect(screen.getByRole('button', { name: '결제하기' })).toBeEnabled();
+  });
+
+  it('opens checkout policy content in a modal instead of navigating away', async () => {
+    renderCheckoutPage();
+
+    expect(await screen.findByRole('heading', { name: '결제' })).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: '구매조건' }));
+
+    expect(await screen.findByRole('dialog', { name: '구매조건' })).toBeInTheDocument();
+    expect(screen.getByText(/선택한 강의, 결제 금액/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '모달 닫기' }));
+
+    expect(screen.queryByRole('dialog', { name: '구매조건' })).not.toBeInTheDocument();
   });
 
   it('sends all selected cart item ids to checkout prepare', async () => {
@@ -177,9 +198,10 @@ describe('CheckoutPage', () => {
 
     expect(await screen.findByText('POCUS 워크숍')).toBeInTheDocument();
     expect(screen.getByText('3개')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: '결제 진행' })).toBeEnabled();
+    await agreePaymentTerms();
+    expect(await screen.findByRole('button', { name: '결제하기' })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole('button', { name: '결제 진행' }));
+    fireEvent.click(screen.getByRole('button', { name: '결제하기' }));
 
     await waitFor(() => {
       expect(prepareKcpPcCheckoutPaymentMock).toHaveBeenCalledWith({
@@ -226,8 +248,9 @@ describe('CheckoutPage', () => {
 
     renderCheckoutPage();
 
-    expect(await screen.findByRole('button', { name: '무료 신청' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: '무료 신청' })).toBeDisabled();
     expect(screen.queryByRole('heading', { name: '결제 수단' })).not.toBeInTheDocument();
+    await agreePaymentTerms();
     fireEvent.click(screen.getByRole('button', { name: '무료 신청' }));
 
     await waitFor(() => {
@@ -281,10 +304,11 @@ describe('CheckoutPage', () => {
     const payButton = await screen.findByRole('button', { name: '결제창 준비 중...' });
 
     await waitFor(() => {
-      expect(payButton).toHaveTextContent('결제 진행');
-      expect(payButton).toBeEnabled();
+      expect(payButton).toHaveTextContent('결제하기');
     });
 
+    await agreePaymentTerms();
+    expect(payButton).toBeEnabled();
     fireEvent.click(payButton);
 
     await waitFor(() => {
@@ -316,7 +340,8 @@ describe('CheckoutPage', () => {
 
     renderCheckoutPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: '결제 진행' }));
+    await agreePaymentTerms();
+    fireEvent.click(await screen.findByRole('button', { name: '결제하기' }));
 
     await waitFor(() => {
       expect(document.body.style.overflow).toBe('hidden');
@@ -357,7 +382,8 @@ describe('CheckoutPage', () => {
 
     renderCheckoutPage();
 
-    const payButton = await screen.findByRole('button', { name: '결제 진행' });
+    const payButton = await screen.findByRole('button', { name: '결제하기' });
+    await agreePaymentTerms();
     delete window.KCP_Pay_Execute_Web;
 
     fireEvent.click(payButton);
@@ -392,7 +418,8 @@ describe('CheckoutPage', () => {
 
     renderCheckoutPage();
 
-    const payButton = await screen.findByRole('button', { name: '결제 진행' });
+    const payButton = await screen.findByRole('button', { name: '결제하기' });
+    await agreePaymentTerms();
     fireEvent.click(payButton);
 
     await waitFor(() => {
@@ -435,7 +462,8 @@ describe('CheckoutPage', () => {
 
     renderCheckoutPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: '결제 진행' }));
+    await agreePaymentTerms();
+    fireEvent.click(await screen.findByRole('button', { name: '결제하기' }));
 
     await waitFor(() => {
       expect(typeof window.m_Completepayment).toBe('function');
@@ -453,7 +481,7 @@ describe('CheckoutPage', () => {
       expect(prepareKcpPcCheckoutPaymentMock).toHaveBeenCalledTimes(2);
     });
     expect(approveKcpPcPaymentMock).not.toHaveBeenCalled();
-    expect(screen.getByRole('heading', { name: '결제하기' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '결제' })).toBeInTheDocument();
     expect(useToastStore.getState().toasts.at(-1)?.message).toBe(
       '결제가 취소되었습니다. 다시 결제를 진행해 주세요.',
     );

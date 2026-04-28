@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 
+import CartAddedModal from '@/components/cart/CartAddedModal/CartAddedModal';
 import { useProgramPageQuery } from '@/query/useProgramPageQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { classNames } from '@/utils/classNames';
@@ -19,6 +20,9 @@ const ProgramPage = () => {
   const location = useLocation();
   const { data, isError, isPending } = useProgramPageQuery(location.pathname);
   const {
+    addedCartItem,
+    cartProgramIds,
+    closeAddedCartModal,
     handleAddToCart,
     handleSubscribeAlert,
     isAddToCartPending,
@@ -127,6 +131,9 @@ const ProgramPage = () => {
                       subscribedProgramIds.has(lecture.programId)
                     }
                     isAuthenticated={isAuthenticated}
+                    isCartAdded={
+                      typeof lecture.programId === 'number' && cartProgramIds.has(lecture.programId)
+                    }
                     isCartPending={isAddToCartPending(lecture.programId)}
                     item={lecture}
                     key={lecture.id}
@@ -148,6 +155,10 @@ const ProgramPage = () => {
             </div>
           )}
         </section>
+
+        {addedCartItem ? (
+          <CartAddedModal item={addedCartItem} onClose={closeAddedCartModal} />
+        ) : null}
       </div>
     );
   }

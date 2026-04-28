@@ -47,39 +47,53 @@ const homeFeatureShowcaseCards = [
 const HomeFeatureShowcaseSection = () => {
   return (
     <section aria-labelledby='home-feature-showcase-heading' className={styles['section']}>
-      <div className={styles['inner']}>
-        <div className={styles['copyColumn']}>
-          <span className={styles['eyebrow']}>SONO SCHOOL</span>
+      <div className={styles['intro']}>
+        <h2 className={styles['introHeading']} id='home-feature-showcase-heading'>
+          <span>의료진의 성장을 위한</span>
+          <span>선명한 초음파 교육,</span>
+          <span>소노스쿨입니다.</span>
+        </h2>
+      </div>
 
-          <h2
-            aria-label='SINCE 2003 의사교육전문 국제자격보유'
-            className={styles['heading']}
-            id='home-feature-showcase-heading'
-          >
-            <span className={styles['headingPrimaryLine']}>SINCE 2003</span>
-            <span>의사교육전문</span>
-            <span>국제자격보유</span>
-          </h2>
+      <div className={styles['showcasePanel']}>
+        <div className={styles['inner']}>
+          <div className={styles['copyColumn']}>
+            <h3 className={styles['heading']}>SINCE 2003</h3>
+
+            <p className={styles['description']}>
+              의사 교육 전문 국제 자격으로 증명된 차별화된 코칭을 경험하세요.
+            </p>
+
+            <a className={styles['courseLink']} href='/programs'>
+              <span>과정 살펴보기</span>
+              <span aria-hidden='true' className={styles['courseLinkArrow']} />
+            </a>
+          </div>
+
+          <ul aria-label='소노스쿨 교육 현장 이미지 5개' className={styles['cardList']}>
+            {homeFeatureShowcaseCards.map((card) => (
+              <li className={styles['cardItem']} key={card.id}>
+                <article className={styles['card']}>
+                  <img alt={card.imageAlt} className={styles['cardImage']} src={card.imageSrc} />
+                  <div aria-hidden='true' className={styles['cardOverlay']} />
+
+                  <div className={styles['cardCopy']}>
+                    <span aria-hidden='true' className={styles['cardDivider']} />
+                    <div className={styles['cardTextBlock']}>
+                      <p className={styles['cardTitle']}>{card.title}</p>
+                      <p className={styles['cardDescription']}>{card.description}</p>
+                    </div>
+                  </div>
+                </article>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <ul aria-label='소노스쿨 교육 현장 이미지 5개' className={styles['cardList']}>
-          {homeFeatureShowcaseCards.map((card) => (
-            <li className={styles['cardItem']} key={card.id}>
-              <article className={styles['card']}>
-                <img alt={card.imageAlt} className={styles['cardImage']} src={card.imageSrc} />
-                <div aria-hidden='true' className={styles['cardOverlay']} />
-
-                <div className={styles['cardCopy']}>
-                  <span aria-hidden='true' className={styles['cardDivider']} />
-                  <div className={styles['cardTextBlock']}>
-                    <p className={styles['cardTitle']}>{card.title}</p>
-                    <p className={styles['cardDescription']}>{card.description}</p>
-                  </div>
-                </div>
-              </article>
-            </li>
-          ))}
-        </ul>
+        <p className={styles['panelClosing']}>
+          <span>진료의 확신을 완성하는</span>
+          <span>초음파 교육, 소노스쿨</span>
+        </p>
       </div>
     </section>
   );

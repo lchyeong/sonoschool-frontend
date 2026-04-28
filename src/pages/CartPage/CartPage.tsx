@@ -4,12 +4,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { removeMyCartItem } from '@/api/mypage';
+import checkIconSrc from '@/assets/icons/lucide_check.svg';
+import trashIconSrc from '@/assets/icons/lucide_trash-2.svg';
+import removeIconSrc from '@/assets/icons/lucide_x.svg';
 import { myCartQueryKey, useMyCartQuery } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
-import sharedStyles from '@/styles/accountPage.module.scss';
 import { calculateSelectedCartPricing } from '@/utils/cartPricing';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 import { classNames } from '@/utils/classNames';
@@ -20,6 +22,43 @@ import styles from './CartPage.module.scss';
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
+
+const formatCartDate = (value: string | null) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${String(year)}.${month}.${day}`;
+};
+
+const getCoursePeriodLabel = (saleStartAt: string | null, saleEndAt: string | null) => {
+  const start = formatCartDate(saleStartAt);
+  const end = formatCartDate(saleEndAt);
+
+  if (start && end) {
+    return `${start}~${end}`;
+  }
+
+  return '상시수강';
+};
+
+const getDiscountRate = (originalPrice: number, payablePrice: number) => {
+  if (originalPrice <= 0 || payablePrice >= originalPrice) {
+    return 0;
+  }
+
+  return Math.round(((originalPrice - payablePrice) / originalPrice) * 100);
+};
 
 const CartPage = () => {
   const navigate = useNavigate();
@@ -68,19 +107,26 @@ const CartPage = () => {
     },
   });
 
+  const handleRemoveSelectedItems = async () => {
+    if (!pricing.selectedItems.length || removeCartItemMutation.isPending) {
+      return;
+    }
+
+    await Promise.all(
+      pricing.selectedItems.map((item) => removeCartItemMutation.mutateAsync(item.id)),
+    );
+  };
+
   return (
-    <section className={sharedStyles['page']}>
-      <div className={sharedStyles['shell']}>
-        <div className={classNames(sharedStyles['surface'], styles['surface'])}>
-          <header className={sharedStyles['header']}>
-            <h1 className={sharedStyles['title']}>장바구니</h1>
-            <p className={sharedStyles['description']}>
-              담은 항목을 선택하고 결제할 과정을 바로 정리합니다.
-            </p>
+    <section className={styles['page']}>
+      <div className={styles['shell']}>
+        <div className={styles['surface']}>
+          <header className={styles['header']}>
+            <h1 className={styles['title']}>장바구니</h1>
           </header>
 
           {cartQuery.isLoading ? (
-            <p className={sharedStyles['mutedText']}>장바구니를 불러오는 중입니다.</p>
+            <p className={styles['stateText']}>장바구니를 불러오는 중입니다.</p>
           ) : null}
 
           {cartQuery.isError ? (
@@ -92,37 +138,59 @@ const CartPage = () => {
           ) : null}
 
           {!cartQuery.isLoading && !cartQuery.isError && isEmpty ? (
-            <section className={sharedStyles['section']}>
-              <div className={sharedStyles['sectionHeader']}>
-                <h2 className={sharedStyles['sectionTitle']}>담긴 강의가 없습니다.</h2>
-              </div>
+            <section className={styles['emptyPanel']}>
+              <h2 className={styles['emptyTitle']}>담긴 강의가 없습니다.</h2>
+              <p className={styles['stateText']}>수강할 강의를 장바구니에 담아 주세요.</p>
             </section>
           ) : null}
 
           {!cartQuery.isLoading && !cartQuery.isError && cart ? (
             <div className={styles['layout']}>
-              <section className={sharedStyles['section']}>
-                <div className={sharedStyles['sectionHeader']}>
-                  <h2 className={sharedStyles['sectionTitle']}>담은 강의</h2>
-                </div>
-
-                <label className={styles['selectAllRow']}>
-                  <input
-                    checked={areAllItemsSelected}
-                    onChange={() => {
-                      toggleAllItems(cart.items.map((item) => item.id));
+              <section className={styles['cartPanel']} aria-label='장바구니 상품 목록'>
+                <div className={styles['cartToolbar']}>
+                  <label className={styles['selectAllRow']}>
+                    <input
+                      checked={areAllItemsSelected}
+                      onChange={() => {
+                        toggleAllItems(cart.items.map((item) => item.id));
+                      }}
+                      type='checkbox'
+                    />
+                    <span
+                      className={classNames(
+                        styles['checkboxVisual'],
+                        areAllItemsSelected ? styles['checkboxVisualChecked'] : null,
+                      )}
+                      aria-hidden='true'
+                    >
+                      {areAllItemsSelected ? <img alt='' src={checkIconSrc} /> : null}
+                    </span>
+                    <span>전체 선택</span>
+                    <span className={styles['selectionCount']}>
+                      ({pricing.itemCount}/{cart.items.length})
+                    </span>
+                  </label>
+                  <button
+                    className={styles['removeSelectedButton']}
+                    disabled={!pricing.itemCount || removeCartItemMutation.isPending}
+                    onClick={() => {
+                      void handleRemoveSelectedItems();
                     }}
-                    type='checkbox'
-                  />
-                  <span>전체 선택</span>
-                </label>
+                    type='button'
+                  >
+                    <span>선택 삭제</span>
+                    <img alt='' aria-hidden='true' src={trashIconSrc} />
+                  </button>
+                </div>
 
                 <div className={styles['itemList']}>
                   {cart.items.map((item) => {
                     const isSelected = selectedItemIds.includes(item.id);
+                    const discountAmount = item.originalPrice - item.payablePrice;
+                    const discountRate = getDiscountRate(item.originalPrice, item.payablePrice);
 
                     return (
-                      <article className={styles['itemCard']} key={item.id}>
+                      <article className={styles['itemRow']} key={item.id}>
                         <label className={styles['itemCheckboxLabel']}>
                           <input
                             aria-label={`${item.title} 선택`}
@@ -132,6 +200,15 @@ const CartPage = () => {
                             }}
                             type='checkbox'
                           />
+                          <span
+                            className={classNames(
+                              styles['checkboxVisual'],
+                              isSelected ? styles['checkboxVisualChecked'] : null,
+                            )}
+                            aria-hidden='true'
+                          >
+                            {isSelected ? <img alt='' src={checkIconSrc} /> : null}
+                          </span>
                         </label>
                         <Link className={styles['itemThumbnailLink']} to={item.detailPath}>
                           {item.thumbnailUrl ? (
@@ -148,32 +225,35 @@ const CartPage = () => {
                           )}
                         </Link>
                         <div className={styles['itemBody']}>
-                          <div className={styles['itemHeader']}>
-                            <Link className={styles['itemTitleLink']} to={item.detailPath}>
-                              <strong className={styles['itemTitle']}>{item.title}</strong>
-                            </Link>
-                            <div className={styles['itemHeaderActions']}>
-                              <span className={styles['itemTypeChip']}>
-                                {getProgramTypeLabel(item.programType)}
-                              </span>
-                              <button
-                                className={styles['removeButton']}
-                                disabled={removeCartItemMutation.isPending}
-                                onClick={() => {
-                                  removeCartItemMutation.mutate(item.id);
-                                }}
-                                type='button'
-                              >
-                                삭제
-                              </button>
-                            </div>
-                          </div>
-                          <div className={styles['itemFooter']}>
-                            <p className={styles['itemMeta']}>강사 {item.instructorName || '-'}</p>
-                            <p className={styles['itemPrice']}>
-                              {formatCurrency(item.payablePrice)}
+                          <span className={styles['itemTypeChip']}>
+                            {getProgramTypeLabel(item.programType)}
+                          </span>
+                          <Link className={styles['itemTitleLink']} to={item.detailPath}>
+                            <strong className={styles['itemTitle']}>{item.title}</strong>
+                          </Link>
+                          <p className={styles['itemMeta']}>
+                            <span>수강기간</span>
+                            <span>{getCoursePeriodLabel(item.saleStartAt, item.saleEndAt)}</span>
+                          </p>
+                        </div>
+                        <button
+                          className={styles['removeButton']}
+                          disabled={removeCartItemMutation.isPending}
+                          onClick={() => {
+                            removeCartItemMutation.mutate(item.id);
+                          }}
+                          type='button'
+                          aria-label={`${item.title} 삭제`}
+                        >
+                          <img alt='' aria-hidden='true' src={removeIconSrc} />
+                        </button>
+                        <div className={styles['itemPriceBlock']}>
+                          <p className={styles['itemPrice']}>{formatCurrency(item.payablePrice)}</p>
+                          {discountAmount > 0 ? (
+                            <p className={styles['itemDiscount']}>
+                              - {formatCurrency(discountAmount)} ({discountRate}%)
                             </p>
-                          </div>
+                          ) : null}
                         </div>
                       </article>
                     );
@@ -182,35 +262,27 @@ const CartPage = () => {
               </section>
 
               <aside className={styles['summaryPanel']}>
-                <section className={sharedStyles['section']}>
-                  <div className={sharedStyles['sectionHeader']}>
-                    <h2 className={sharedStyles['sectionTitle']}>선택 합계</h2>
+                <section className={styles['summaryCard']} aria-label='주문 요약'>
+                  <h2 className={styles['summaryTitle']}>주문 요약</h2>
+                  <div className={styles['summaryRows']}>
+                    <div className={styles['summaryRow']}>
+                      <span>선택 상품 수</span>
+                      <span>{pricing.itemCount}개</span>
+                    </div>
+                    <div className={styles['summaryRow']}>
+                      <span>상품 금액</span>
+                      <span>{formatCurrency(pricing.totalOriginalPrice)}</span>
+                    </div>
+                    <div className={styles['summaryRow']}>
+                      <span>강의 할인</span>
+                      <span className={styles['summaryDiscount']}>
+                        -{formatCurrency(pricing.itemDiscountAmount)}
+                      </span>
+                    </div>
                   </div>
-                  <div className={sharedStyles['metaList']}>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>선택 상품 수</span>
-                      <span className={sharedStyles['metaValue']}>{pricing.itemCount}개</span>
-                    </div>
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>상품 금액</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {formatCurrency(pricing.totalOriginalPrice)}
-                      </span>
-                    </div>
-                    {pricing.itemDiscountAmount > 0 ? (
-                      <div className={sharedStyles['metaItem']}>
-                        <span className={sharedStyles['metaLabel']}>강의 할인</span>
-                        <span className={sharedStyles['metaValue']}>
-                          {formatCurrency(pricing.itemDiscountAmount)}
-                        </span>
-                      </div>
-                    ) : null}
-                    <div className={sharedStyles['metaItem']}>
-                      <span className={sharedStyles['metaLabel']}>총 결제 금액</span>
-                      <span className={sharedStyles['metaValue']}>
-                        {formatCurrency(pricing.totalPayablePrice)}
-                      </span>
-                    </div>
+                  <div className={styles['summaryTotalRow']}>
+                    <span>총 결제 금액</span>
+                    <strong>{formatCurrency(pricing.totalPayablePrice)}</strong>
                   </div>
 
                   <div className={styles['actionRow']}>
@@ -226,16 +298,16 @@ const CartPage = () => {
                       }}
                       type='button'
                     >
-                      결제하기
+                      선택 항목 결제하기
                     </button>
                   </div>
 
                   {!pricing.itemCount ? (
-                    <p className={sharedStyles['mutedText']}>결제할 항목을 먼저 선택해 주세요.</p>
+                    <p className={styles['summaryNotice']}>결제할 항목을 먼저 선택해 주세요.</p>
                   ) : null}
 
                   {!isAuthenticated ? (
-                    <p className={sharedStyles['mutedText']}>
+                    <p className={styles['summaryNotice']}>
                       결제 단계에서는 로그인 확인 후 진행됩니다.
                     </p>
                   ) : null}

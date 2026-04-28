@@ -1626,8 +1626,10 @@ const AdminPracticumSection = () => {
 
               {activeConfigPanel === 'ADMIN_SCHEDULE' ? (
                 <section className={styles['practicumOperationPanel']}>
-                  <div className={styles['practicumOperationFields']}>
-                    <label className={styles['field']}>
+                  <div className={styles['personalScheduleFields']}>
+                    <label
+                      className={`${styles['field']} ${styles['personalScheduleFullWidthField']}`}
+                    >
                       <span className={styles['fieldLabel']}>일정명</span>
                       <input
                         className={styles['searchInput']}
@@ -1643,7 +1645,9 @@ const AdminPracticumSection = () => {
                       />
                     </label>
 
-                    <label className={styles['field']}>
+                    <label
+                      className={`${styles['field']} ${styles['personalScheduleFullWidthField']}`}
+                    >
                       <span className={styles['fieldLabel']}>일정내용</span>
                       <textarea
                         className={styles['textarea']}

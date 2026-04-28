@@ -19,9 +19,12 @@ import mypageQuestionChevronDownIconSrc from '@/assets/icons/lucide_chevron-down
 import mypageQuestionChevronUpIconSrc from '@/assets/icons/lucide_chevron-up.svg';
 import mypageProfileCircleCheckIconSrc from '@/assets/icons/lucide_circle-check.svg';
 import mypagePasswordEyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
+import mypageCertificateEmptyIconSrc from '@/assets/icons/lucide_file-badge.svg';
 import mypageCertificateInfoIconSrc from '@/assets/icons/lucide_info.svg';
+import mypageExpiredEmptyIconSrc from '@/assets/icons/lucide_laptop-minimal-check.svg';
 import mypageQuestionReplyIconSrc from '@/assets/icons/lucide_reply.svg';
 import mypageReviewStarIconSrc from '@/assets/icons/lucide_star.svg';
+import mypageActiveEmptyIconSrc from '@/assets/icons/lucide_tv-minimal-play.svg';
 import mypageReviewCloseIconSrc from '@/assets/icons/lucide_x.svg';
 import mypageBookOpenIconSrc from '@/assets/icons/mypage-menu-book-open.svg';
 import mypageLogOutIconSrc from '@/assets/icons/mypage-menu-log-out.svg';
@@ -102,6 +105,9 @@ const buildMaskIconStyle = (iconSrc: string): MaskIconStyle => {
 
 const certificateInfoIconStyle = buildMaskIconStyle(mypageCertificateInfoIconSrc);
 const certificateDownloadIconStyle = buildMaskIconStyle(mypageCertificateDownloadIconSrc);
+const learningActiveEmptyIconStyle = buildMaskIconStyle(mypageActiveEmptyIconSrc);
+const learningExpiredEmptyIconStyle = buildMaskIconStyle(mypageExpiredEmptyIconSrc);
+const learningCertificateEmptyIconStyle = buildMaskIconStyle(mypageCertificateEmptyIconSrc);
 const questionChevronDownIconStyle = buildMaskIconStyle(mypageQuestionChevronDownIconSrc);
 const questionChevronUpIconStyle = buildMaskIconStyle(mypageQuestionChevronUpIconSrc);
 const questionInfoIconStyle = buildMaskIconStyle(mypageCertificateInfoIconSrc);
@@ -1054,36 +1060,70 @@ const MyPagePage = () => {
       );
     }
 
-    if (!allEnrollments.length) {
-      return <p className={sharedStyles['mutedText']}>수강 중인 강의가 없습니다.</p>;
-    }
+    const emptyStateByTab: Record<
+      EnrollmentCourseTabValue,
+      {
+        description: string;
+        iconStyle: MaskIconStyle;
+        title: string;
+      }
+    > = {
+      ACTIVE: {
+        description: '강의를 둘러보고 새로운 학습을 시작해보세요.',
+        iconStyle: learningActiveEmptyIconStyle,
+        title: '수강 중인 강의가 없습니다.',
+      },
+      EXPIRED: {
+        description: '수강 중인 강의를 마치면 이곳에서 확인할 수 있어요.',
+        iconStyle: learningExpiredEmptyIconStyle,
+        title: '수강 종료된 강의가 없습니다.',
+      },
+      CERTIFICATE: {
+        description: '수료 기준을 충족한 강의가 아직 없어요.',
+        iconStyle: learningCertificateEmptyIconStyle,
+        title: '발급 가능한 수료증이 없습니다.',
+      },
+    };
+
+    const renderLearningEmptyState = (tabValue: EnrollmentCourseTabValue) => {
+      const emptyState = emptyStateByTab[tabValue];
+
+      return (
+        <div className={styles['learningEmptyState']}>
+          <span
+            aria-hidden='true'
+            className={styles['learningEmptyStateIcon']}
+            style={emptyState.iconStyle}
+          />
+          <h3 className={styles['learningEmptyStateTitle']}>{emptyState.title}</h3>
+          <p className={styles['learningEmptyStateDescription']}>{emptyState.description}</p>
+          <Link className={styles['learningEmptyStateLink']} to={routePaths.programs}>
+            강의 둘러보기
+          </Link>
+        </div>
+      );
+    };
 
     const renderCertificateEnrollments = () => {
       const hasCertificateEnrollments = filteredEnrollments.length > 0;
 
       return (
         <>
-          <div className={styles['certificateNotice']}>
-            <span
-              aria-hidden='true'
-              className={styles['certificateNoticeIcon']}
-              style={certificateInfoIconStyle}
-            />
-            <p className={styles['certificateNoticeText']}>
-              수료증은 진도율 100% 및 수료 기준 충족 시 발급됩니다.
-            </p>
-          </div>
+          {hasCertificateEnrollments ? (
+            <div className={styles['certificateNotice']}>
+              <span
+                aria-hidden='true'
+                className={styles['certificateNoticeIcon']}
+                style={certificateInfoIconStyle}
+              />
+              <p className={styles['certificateNoticeText']}>
+                수료증은 진도율 100% 및 수료 기준 충족 시 발급됩니다.
+              </p>
+            </div>
+          ) : null}
 
           {!hasCertificateEnrollments ? (
-            <p
-              className={classNames(
-                sharedStyles['mutedText'],
-                styles['learningEmptyState'],
-                styles['certificateEmptyState'],
-              )}
-            >
-              다운로드 가능한 수료증이 없습니다.
-            </p>
+            renderLearningEmptyState('CERTIFICATE')
           ) : (
             <div
               className={classNames(
@@ -1201,9 +1241,7 @@ const MyPagePage = () => {
         {courseTab === 'CERTIFICATE' ? (
           renderCertificateEnrollments()
         ) : !filteredEnrollments.length ? (
-          <p className={classNames(sharedStyles['mutedText'], styles['learningEmptyState'])}>
-            선택한 탭에 표시할 강의가 없습니다.
-          </p>
+          renderLearningEmptyState(courseTab)
         ) : (
           <div className={styles['learningCoursesBody']}>
             <div className={styles['courseGrid']}>

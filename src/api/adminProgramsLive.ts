@@ -110,8 +110,6 @@ const normalizeUpsertPayload = (payload: AdminProgramUpsertPayload) => {
     accessPolicy: payload.accessPolicy,
     description: toNullableString(payload.description),
     faqs: payload.faqs,
-    instructorBio: toNullableString(payload.instructorBio),
-    instructorName: toNullableString(payload.instructorName),
     learningEndAt: toNullableString(payload.learningEndAt),
     learningPoints: payload.learningPoints,
     learningOutcomes: payload.learningOutcomes.map((item) => ({

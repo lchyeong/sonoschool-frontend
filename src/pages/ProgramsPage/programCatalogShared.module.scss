@@ -7,7 +7,8 @@
   }
 }
 
-.archiveLectureCardLink {
+.archiveLectureCardLink,
+.archiveLectureImageLink {
   display: block;
   height: 100%;
   color: inherit;
@@ -183,6 +184,7 @@
 }
 
 .archiveLectureCard {
+  position: relative;
   grid-template-rows: auto 1fr;
   height: 100%;
   border: 1px solid #d1d5db;
@@ -203,11 +205,11 @@
 }
 
 .lectureImageFrame {
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 4 / 3;
 }
 
 .archiveLectureImageFrame {
-  height: 300px;
+  aspect-ratio: 4 / 3;
   background: #f3f4f6;
 }
 
@@ -218,7 +220,13 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+}
+
+.archiveLectureImageLink {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .archiveLectureImage {
@@ -356,15 +364,16 @@
 }
 
 .cardIconButton {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  padding: 0;
+  width: 44px;
+  height: 44px;
+  padding: 10px;
   border: 1px solid rgba(30, 51, 134, 0.12);
-  border-radius: 999px;
-  background: rgba(30, 51, 134, 0.04);
+  border-radius: 12px;
+  background: #ffffff;
   cursor: pointer;
   transition:
     transform 160ms ease,
@@ -376,20 +385,19 @@
 .cardIconButtonPending,
 .cardIconButton:disabled {
   cursor: default;
-  opacity: 0.6;
   box-shadow: none;
   transform: none;
 }
 
 .cardIconButton:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: rgba(52, 178, 159, 0.28);
-  background: rgba(52, 178, 159, 0.12);
+  border-color: rgba(52, 178, 159, 0.34);
+  background: rgba(52, 178, 159, 0.08);
 }
 
 .cardActionIcon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
 }
 
@@ -433,6 +441,14 @@
 
 .archiveLectureStatusMuted {
   color: #6b7280;
+}
+
+.archiveLectureTopRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
 }
 
 .archiveLectureBottomMeta {
@@ -556,6 +572,7 @@
 .educatorImage {
   height: 88px;
   border-radius: var(--radius-2xl);
+  object-fit: cover;
 }
 
 .educatorCopy {
@@ -602,11 +619,6 @@
   .archiveLectureBody,
   .educatorCard {
     padding: var(--space-4);
-  }
-
-  .archiveLectureImageFrame {
-    height: auto;
-    aspect-ratio: 452 / 300;
   }
 
   .archiveLectureTitle {

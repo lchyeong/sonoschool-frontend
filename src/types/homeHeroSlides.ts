@@ -12,6 +12,7 @@ export interface HomeHeroLectureSlide {
   description: string;
   thumbnailSrc: string;
   thumbnailAlt: string;
+  backgroundSrc?: string | undefined;
   tags?: string[] | undefined;
 }
 

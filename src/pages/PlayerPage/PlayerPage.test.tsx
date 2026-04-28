@@ -24,6 +24,7 @@ import type {
 
 const {
   createdHlsConfigs,
+  loaderRequests,
   cancelMyLecturePracticumMock,
   createProgramQnaReplyMock,
   createProgramQnaThreadMock,
@@ -43,6 +44,7 @@ const {
   testState,
 } = vi.hoisted(() => ({
   createdHlsConfigs: [] as Array<Record<string, unknown>>,
+  loaderRequests: [] as Array<{ type: string | undefined; url: string }>,
   cancelMyLecturePracticumMock:
     vi.fn<(enrollmentId: number, reservationId: number) => Promise<void>>(),
   createProgramQnaReplyMock:
@@ -113,7 +115,9 @@ const {
 
 vi.mock('hls.js/light', () => {
   class LoaderMock {
-    load() {}
+    load(context: { type?: string; url: string }) {
+      loaderRequests.push({ type: context.type, url: context.url });
+    }
   }
 
   class HlsMock {
@@ -743,6 +747,7 @@ afterEach(() => {
   clearStudentSession();
   testState.isHlsSupported = true;
   createdHlsConfigs.length = 0;
+  loaderRequests.length = 0;
   HTMLMediaElement.prototype.canPlayType = originalCanPlayType;
   HTMLMediaElement.prototype.play = originalPlay;
 });
@@ -769,6 +774,27 @@ describe('PlayerPage', () => {
     const latestConfig = createdHlsConfigs.at(-1);
     expect(latestConfig?.['loader']).toBeTypeOf('function');
     expect(latestConfig?.['xhrSetup']).toBeTypeOf('function');
+
+    const ProtectedLoader = latestConfig?.['loader'] as
+      | (new () => {
+          load: (
+            context: { type?: string; url: string },
+            config: unknown,
+            callbacks: unknown,
+          ) => void;
+        })
+      | undefined;
+    const protectedLoader = ProtectedLoader ? new ProtectedLoader() : null;
+    protectedLoader?.load(
+      {
+        type: 'manifest',
+        url: 'https://media.newzest.xyz/stream/videos/13/sample/720p/enc.key',
+      },
+      {},
+      {},
+    );
+
+    expect(loaderRequests.at(-1)?.url).toBe(testStreamResponse.hlsKeyUrl);
 
     const xhrMock = {
       setRequestHeader: vi.fn(),
@@ -831,6 +857,51 @@ describe('PlayerPage', () => {
     expect(await screen.findByRole('dialog', { name: '화질 설정 패널' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '720p' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '1080p' })).toBeInTheDocument();
+  });
+
+  it('seeks the video when the timeline slider changes', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
+    fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
+
+    renderPlayerPage();
+
+    await waitFor(() => {
+      expect(fetchLectureStreamMock).toHaveBeenCalledWith(2, 'test-device-id');
+    });
+
+    const timelineSlider = screen.getByRole('slider', { name: '재생 위치' });
+    const videoElement = document.querySelector('video');
+
+    expect(videoElement).not.toBeNull();
+
+    fireEvent.change(timelineSlider, { target: { value: '120' } });
+
+    expect(videoElement?.currentTime).toBe(120);
+    expect(timelineSlider).toHaveValue('120');
+  });
+
+  it('renders the lesson poster as an initial thumbnail layer', async () => {
+    const posterUrl = 'https://example.com/poster.jpg';
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
+      ...testSnapshot,
+      lessonPlaybackById: {
+        ...testSnapshot.lessonPlaybackById,
+        'enrollment-101-lesson-2': {
+          ...testSnapshot.lessonPlaybackById['enrollment-101-lesson-2'],
+          posterUrl,
+        },
+      },
+    });
+    fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
+
+    const { container } = renderPlayerPage();
+
+    await waitFor(() => {
+      expect(fetchLectureStreamMock).toHaveBeenCalledWith(2, 'test-device-id');
+    });
+
+    expect(container.querySelector(`img[src="${posterUrl}"]`)).not.toBeNull();
+    expect(container.querySelector('video')).toHaveAttribute('poster', posterUrl);
   });
 
   it('renders the player q&a with the same board layout as the program detail page', async () => {
@@ -1275,7 +1346,7 @@ describe('PlayerPage', () => {
         ...testSnapshot.lessonPlaybackById,
         'enrollment-101-lesson-2': {
           lectureId: 2,
-          mimeType: null,
+          mimeType: 'application/x-mpegURL',
           posterUrl: null,
         },
       },
@@ -1286,9 +1357,15 @@ describe('PlayerPage', () => {
     renderPlayerPage();
 
     expect(await screen.findAllByText('복부초음파 기초 2강 실습')).not.toHaveLength(0);
+    expect(screen.getByLabelText('현재 강의 정보')).toHaveTextContent('예약가능예약됨불참예약불가');
+    expect(screen.getAllByText('실습예약').length).toBeGreaterThan(0);
+    expect(screen.getByText(/예약 날짜/)).toBeInTheDocument();
+    expect(screen.queryByText('이 강의는 영상 없이 제공되는 강의입니다.')).not.toBeInTheDocument();
+    expect(document.querySelector('video')).toBeNull();
+    expect(fetchLectureStreamMock).not.toHaveBeenCalled();
     expect(
-      await screen.findByText(/운영 일정과 오프라인 강의를 반영한 시간만 달력에 노출합니다/),
-    ).toBeInTheDocument();
+      screen.queryByText(/운영 일정과 오프라인 강의를 반영한 시간만 달력에 노출합니다/),
+    ).not.toBeInTheDocument();
     expect((await screen.findAllByText(/예약됨/)).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: '2026년 5월' })).toBeInTheDocument();
 
@@ -1300,13 +1377,23 @@ describe('PlayerPage', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
-    const moveButton = screen
-      .getAllByRole('button', { name: '이 일정으로 변경' })
-      .find((button) => !button.hasAttribute('disabled'));
+    const reservedCalendarDay = screen
+      .getAllByText('11:00 - 12:00')
+      .map((node) => node.closest('button'))
+      .find((button): button is HTMLButtonElement => button instanceof HTMLButtonElement);
 
-    if (!moveButton) {
-      throw new Error('예약 변경 버튼을 찾지 못했습니다.');
+    if (!reservedCalendarDay) {
+      throw new Error('예약 날짜 버튼을 찾지 못했습니다.');
     }
+
+    fireEvent.click(reservedCalendarDay);
+
+    expect(await screen.findByRole('dialog', { name: '실습 예약' })).toBeInTheDocument();
+    expect(screen.getByText('선택한 일정으로 예약하시겠습니까?')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '13:00 - 14:00' }));
+
+    const moveButton = screen.getByRole('button', { name: '변경하기' });
 
     fireEvent.click(moveButton);
 

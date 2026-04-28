@@ -435,13 +435,15 @@
 }
 
 .paymentDatePickerDayOutside {
-  color: transparent;
+  background: transparent;
+  color: transparent !important;
+  pointer-events: none;
 }
 
 .paymentDatePickerDayInRange::before {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 3px 0;
   background: #eceff3;
   z-index: -2;
 }
@@ -467,11 +469,19 @@
 }
 
 .paymentDatePickerDaySelectedStart.paymentDatePickerDayInRange::before {
-  background: linear-gradient(to right, transparent 50%, #eceff3 50%);
+  left: 50%;
+  border-radius: 999px 0 0 999px;
+  background: #eceff3;
 }
 
 .paymentDatePickerDaySelectedEnd.paymentDatePickerDayInRange::before {
-  background: linear-gradient(to left, transparent 50%, #eceff3 50%);
+  right: 50%;
+  border-radius: 0 999px 999px 0;
+  background: #eceff3;
+}
+
+.paymentDatePickerDaySelectedStart.paymentDatePickerDaySelectedEnd::before {
+  background: transparent;
 }
 
 .paymentDatePickerFooter {
@@ -1419,6 +1429,12 @@
   max-width: 420px;
 }
 
+.summaryPointFieldGroup {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 700px;
+}
+
 .compactFieldRow {
   display: flex;
   flex-wrap: wrap;
@@ -1473,21 +1489,40 @@
   cursor: pointer;
 }
 
+.datePickerButton {
+  display: block;
+  width: 236px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
 .dateInput {
   border-color: var(--admin-border);
 }
 
-.dateInput:focus {
+.dateInput:focus,
+.datePickerButton:focus-visible .dateInput {
   border-color: var(--color-brand-main);
   box-shadow: 0 0 0 3px rgba(52, 178, 159, 0.14);
 }
 
-.datePickerShell:focus-visible {
+.datePickerShell:focus-visible,
+.datePickerButton:focus-visible {
   outline: none;
 }
 
-.datePickerShell :global(input[type='date']) {
+.datePickerShell :global(input[type='date']),
+.datePickerButton :global(input[type='date']) {
   cursor: pointer;
+}
+
+.datePickerButton :global(input[type='date']::-webkit-calendar-picker-indicator) {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .policyHint {
@@ -2021,8 +2056,7 @@
   font-weight: var(--font-weight-medium);
 }
 
-.checkboxRow input,
-.quizOptionCheckbox input {
+.checkboxRow input {
   width: 18px;
   height: 18px;
   border: 1px solid #7a9ab1;
@@ -2033,15 +2067,13 @@
   cursor: pointer;
 }
 
-.checkboxRow input:checked,
-.quizOptionCheckbox input:checked {
+.checkboxRow input:checked {
   border-color: #2f6f67;
   background: #2f6f67;
   box-shadow: inset 0 0 0 3px #ffffff;
 }
 
-.checkboxRow input:focus-visible,
-.quizOptionCheckbox input:focus-visible {
+.checkboxRow input:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--color-brand-main) 55%, transparent);
   outline-offset: 2px;
 }
@@ -2629,6 +2661,18 @@
   gap: var(--space-4);
 }
 
+.problemQuestionCard {
+  padding-top: var(--space-5);
+  border-top: 2px solid color-mix(in srgb, var(--admin-border-strong) 70%, #ffffff);
+}
+
+.problemQuestionToolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
 .problemQuestionMediaBlock,
 .problemQuestionOptionsBlock {
   display: grid;
@@ -2663,6 +2707,7 @@
 }
 
 .quizOptionCheckbox {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2675,6 +2720,46 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
+}
+
+.quizOptionCheckbox input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.quizOptionCheckboxVisual {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.quizOptionCheckboxVisualChecked {
+  border-color: #34b29f;
+  background: #34b29f;
+}
+
+.quizOptionCheckboxVisual img {
+  width: 20px;
+  height: 20px;
+  filter: brightness(0) invert(1);
+}
+
+.quizOptionCheckbox input:focus-visible + .quizOptionCheckboxVisual {
+  outline: 3px solid rgb(52 178 159 / 24%);
+  outline-offset: 3px;
 }
 
 .panel[data-focused='true'] {
@@ -3803,6 +3888,17 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-3);
+}
+
+.personalScheduleFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  width: min(100%, 720px);
+}
+
+.personalScheduleFullWidthField {
+  grid-column: 1 / -1;
 }
 
 .practicumTimeRangeField {

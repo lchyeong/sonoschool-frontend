@@ -219,8 +219,6 @@ const createMockAdminProgramDraftDetail = () => {
         checklists: [],
         description: null,
         faqs: [],
-        instructorBio: null,
-        instructorName: null,
         learningEndAt: null,
         learningOutcomes: [],
         learningPoints: [],

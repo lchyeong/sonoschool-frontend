@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import CartAddedModal from '@/components/cart/CartAddedModal/CartAddedModal';
 import { useProgramsOverviewQuery } from '@/query/useProgramsOverviewQuery';
 import { routePaths } from '@/routes/routeRegistry';
 
@@ -17,6 +18,9 @@ const ProgramsPage = () => {
   // 목록/상세 공통 데이터 구조를 맞춰 두면, 나중에 실제 백엔드로 교체하기가 쉽습니다.
   const { data, isError, isPending } = useProgramsOverviewQuery();
   const {
+    addedCartItem,
+    cartProgramIds,
+    closeAddedCartModal,
     handleAddToCart,
     handleSubscribeAlert,
     isAddToCartPending,
@@ -104,9 +108,13 @@ const ProgramsPage = () => {
               <ProgramLectureCardItem
                 isAlertPending={isAlertPending(lecture.programId)}
                 isAlertSubscribed={
-                  typeof lecture.programId === 'number' && subscribedProgramIds.has(lecture.programId)
+                  typeof lecture.programId === 'number' &&
+                  subscribedProgramIds.has(lecture.programId)
                 }
                 isAuthenticated={isAuthenticated}
+                isCartAdded={
+                  typeof lecture.programId === 'number' && cartProgramIds.has(lecture.programId)
+                }
                 isCartPending={isAddToCartPending(lecture.programId)}
                 item={lecture}
                 key={lecture.id}
@@ -143,6 +151,8 @@ const ProgramsPage = () => {
           </ul>
         </article>
       </section>
+
+      {addedCartItem ? <CartAddedModal item={addedCartItem} onClose={closeAddedCartModal} /> : null}
     </div>
   );
 };

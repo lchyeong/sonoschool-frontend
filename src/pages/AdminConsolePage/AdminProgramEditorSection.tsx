@@ -79,15 +79,12 @@ interface UploadProgressModalState {
 }
 
 interface AdminProgramFormState {
-  accessDays: string;
   accessPolicy: AdminProgramAccessPolicy;
   categoryId: string;
   checklists: string[];
   discountPercent: string;
   description: string;
   faqs: AdminProgramFaqFormItem[];
-  instructorBio: string;
-  instructorName: string;
   learningEndAt: string;
   learningOutcomes: AdminProgramSummaryFormItem[];
   learningStartAt: string;
@@ -106,15 +103,12 @@ interface AdminProgramFormState {
 }
 
 const INITIAL_FORM_STATE: AdminProgramFormState = {
-  accessDays: '',
   accessPolicy: 'UNLIMITED',
   categoryId: '',
   checklists: [],
   discountPercent: '',
   description: '',
   faqs: [],
-  instructorBio: '',
-  instructorName: '',
   learningEndAt: '',
   learningOutcomes: [],
   learningStartAt: '',
@@ -181,6 +175,14 @@ const toDateTimeLocal = (value: string | null): string => {
   return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
 };
 
+const getTodayDateInputValue = (): string => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${String(year)}-${month}-${day}`;
+};
+
 const formatDateTime = (value: string | null): string => {
   if (!value) {
     return '-';
@@ -201,6 +203,11 @@ const extractDatePart = (value: string): string => {
 
   const [datePart] = trimmed.split('T');
   return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : '';
+};
+
+const isBeforeToday = (value: string): boolean => {
+  const datePart = extractDatePart(value);
+  return Boolean(datePart) && datePart < getTodayDateInputValue();
 };
 
 const extractTimePart = (value: string): string => {
@@ -255,6 +262,7 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
 
 interface DateTimeSplitFieldProps {
   dateLabel: string;
+  minDate?: string | undefined;
   timeLabel: string;
   value: string;
   onChange: (value: string) => void;
@@ -262,12 +270,13 @@ interface DateTimeSplitFieldProps {
 
 interface DatePickerFieldProps {
   label: string;
+  min?: string | undefined;
   name: string;
   value: string;
   onChange: (value: string) => void;
 }
 
-const DatePickerField = ({ label, name, value, onChange }: DatePickerFieldProps) => {
+const DatePickerField = ({ label, min, name, value, onChange }: DatePickerFieldProps) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const openPicker = () => {
@@ -299,6 +308,7 @@ const DatePickerField = ({ label, name, value, onChange }: DatePickerFieldProps)
       <TextField
         className={styles['dateInput']}
         label={label}
+        min={min}
         name={name}
         onChange={(event) => {
           onChange(event.target.value);
@@ -314,7 +324,13 @@ const DatePickerField = ({ label, name, value, onChange }: DatePickerFieldProps)
   );
 };
 
-const DateTimeSplitField = ({ dateLabel, timeLabel, value, onChange }: DateTimeSplitFieldProps) => {
+const DateTimeSplitField = ({
+  dateLabel,
+  minDate,
+  timeLabel,
+  value,
+  onChange,
+}: DateTimeSplitFieldProps) => {
   const dateValue = extractDatePart(value);
   const timeValue = extractTimePart(value);
 
@@ -323,6 +339,7 @@ const DateTimeSplitField = ({ dateLabel, timeLabel, value, onChange }: DateTimeS
       <div className={styles['dateTimeDateField']}>
         <DatePickerField
           label={dateLabel}
+          min={minDate}
           name={`${dateLabel}-date`}
           onChange={(nextDateValue) => {
             onChange(combineDateTimeParts(nextDateValue, timeValue));
@@ -349,7 +366,6 @@ const DateTimeSplitField = ({ dateLabel, timeLabel, value, onChange }: DateTimeS
 
 const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormState => {
   return {
-    accessDays: detail.accessDays === null ? '' : String(detail.accessDays),
     accessPolicy: detail.accessPolicy ?? 'UNLIMITED',
     categoryId: String(detail.categoryId),
     checklists: [...detail.checklists],
@@ -359,8 +375,6 @@ const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormS
       answer: item.answer,
       question: item.question,
     })),
-    instructorBio: detail.instructorBio ?? '',
-    instructorName: detail.instructorName ?? '',
     learningEndAt: toDateTimeLocal(detail.learningEndAt),
     learningOutcomes:
       detail.learningOutcomes.length > 0
@@ -391,17 +405,7 @@ const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormS
   };
 };
 
-const normalizeFormState = (formState: AdminProgramFormState): AdminProgramFormState => {
-  if (formState.programType !== 'OFFLINE') {
-    return formState;
-  }
-
-  return {
-    ...formState,
-    accessDays: '',
-    accessPolicy: 'COHORT',
-  };
-};
+const normalizeFormState = (formState: AdminProgramFormState): AdminProgramFormState => formState;
 
 const sanitizeStringList = (items: readonly string[]): string[] => {
   return items.map((item) => item.trim()).filter((item) => item.length > 0);
@@ -427,15 +431,31 @@ const sanitizeFaqs = (items: readonly AdminProgramFaqFormItem[]): AdminProgramFa
     .filter((item) => item.question.length > 0 && item.answer.length > 0);
 };
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const calculateAccessDaysFromLearningRange = (
+  learningStartAt: string,
+  learningEndAt: string,
+): number | null => {
+  if (!learningStartAt.trim() || !learningEndAt.trim()) {
+    return null;
+  }
+
+  const startTime = new Date(learningStartAt).getTime();
+  const endTime = new Date(learningEndAt).getTime();
+
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime < startTime) {
+    return null;
+  }
+
+  return Math.max(1, Math.ceil((endTime - startTime) / MS_PER_DAY));
+};
+
 const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertPayload => {
   const resolvedAccessDays =
-    formState.accessPolicy === 'FIXED_DURATION' && formState.accessDays.trim()
-      ? Number(formState.accessDays)
+    formState.accessPolicy === 'FIXED_DURATION'
+      ? calculateAccessDaysFromLearningRange(formState.learningStartAt, formState.learningEndAt)
       : null;
-  const resolvedLearningStartAt =
-    formState.accessPolicy === 'COHORT' ? toIsoStringOrNull(formState.learningStartAt) : null;
-  const resolvedLearningEndAt =
-    formState.accessPolicy === 'COHORT' ? toIsoStringOrNull(formState.learningEndAt) : null;
 
   return {
     accessDays: resolvedAccessDays,
@@ -444,12 +464,10 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
     checklists: sanitizeStringList(formState.checklists),
     description: formState.description.trim() || null,
     faqs: sanitizeFaqs(formState.faqs),
-    instructorBio: formState.instructorBio.trim() || null,
-    instructorName: formState.instructorName.trim() || null,
-    learningEndAt: resolvedLearningEndAt,
+    learningEndAt: toIsoStringOrNull(formState.learningEndAt),
     learningOutcomes: sanitizeSummaryItems(formState.learningOutcomes),
     learningPoints: [],
-    learningStartAt: resolvedLearningStartAt,
+    learningStartAt: toIsoStringOrNull(formState.learningStartAt),
     level: formState.level || null,
     maxStudents: formState.maxStudents.trim() ? Number(formState.maxStudents) : null,
     price: Number(formState.price),
@@ -465,7 +483,10 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
   };
 };
 
-const validateFormState = (formState: AdminProgramFormState): string | null => {
+const validateFormState = (
+  formState: AdminProgramFormState,
+  options: { allowPastLearningStartDate?: boolean } = {},
+): string | null => {
   if (!formState.categoryId.trim()) {
     return '카테고리를 선택해 주세요.';
   }
@@ -484,9 +505,6 @@ const validateFormState = (formState: AdminProgramFormState): string | null => {
   if (formState.maxStudents.trim() && Number(formState.maxStudents) < 1) {
     return '정원은 1 이상이어야 합니다.';
   }
-  if (formState.accessDays.trim() && Number(formState.accessDays) < 1) {
-    return '수강일수는 1 이상이어야 합니다.';
-  }
   if (hasPartialDateTime(formState.saleStartAt) || hasPartialDateTime(formState.saleEndAt)) {
     return '판매 시작일과 종료일의 날짜와 시간을 모두 선택해 주세요.';
   }
@@ -496,22 +514,15 @@ const validateFormState = (formState: AdminProgramFormState): string | null => {
   ) {
     return '수강 시작일과 종료일의 날짜와 시간을 모두 선택해 주세요.';
   }
-  if (formState.accessPolicy === 'FIXED_DURATION' && !formState.accessDays.trim()) {
-    return '고정 기간 수강은 수강일수를 입력해 주세요.';
+  if (!options.allowPastLearningStartDate && isBeforeToday(formState.learningStartAt)) {
+    return '수강 시작일은 오늘 이후 날짜만 선택할 수 있습니다.';
   }
   if (
-    formState.accessPolicy === 'COHORT' &&
-    (!formState.learningStartAt.trim() || !formState.learningEndAt.trim())
+    formState.accessPolicy === 'FIXED_DURATION' &&
+    calculateAccessDaysFromLearningRange(formState.learningStartAt, formState.learningEndAt) ===
+      null
   ) {
-    return '기수형 수강은 수강 시작일과 종료일을 모두 입력해 주세요.';
-  }
-  if (
-    formState.accessPolicy === 'COHORT' &&
-    formState.learningStartAt.trim() &&
-    formState.learningEndAt.trim() &&
-    new Date(formState.learningStartAt).getTime() > new Date(formState.learningEndAt).getTime()
-  ) {
-    return '수강 시작일은 종료일보다 늦을 수 없습니다.';
+    return '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
   }
 
   const faqErrors = formState.faqs.some((item) => {
@@ -587,7 +598,6 @@ const levelOptions = [
 const accessPolicyOptions = [
   { value: 'UNLIMITED', label: '무제한' },
   { value: 'FIXED_DURATION', label: '고정 기간' },
-  { value: 'COHORT', label: '기수형' },
 ] as const;
 
 const programTypeLabel: Record<AdminProgramType, string> = {
@@ -598,7 +608,6 @@ const programTypeLabel: Record<AdminProgramType, string> = {
 };
 
 const accessPolicyLabel: Record<AdminProgramAccessPolicy, string> = {
-  COHORT: '기수형',
   FIXED_DURATION: '고정 기간',
   UNLIMITED: '무제한',
 };
@@ -1040,7 +1049,9 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
   };
 
   const handleSubmit = () => {
-    const validationMessage = validateFormState(formState);
+    const validationMessage = validateFormState(formState, {
+      allowPastLearningStartDate: mode === 'edit',
+    });
 
     if (validationMessage) {
       showToast({
@@ -1293,22 +1304,16 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                     />
                     <AdminDropdownField
                       compact
-                      disabled={formState.programType === 'OFFLINE'}
                       label='수강 정책'
                       onChange={(nextValue) => {
                         const policy = nextValue as AdminProgramAccessPolicy;
                         setFormState((current) => ({
                           ...current,
-                          accessDays: policy === 'FIXED_DURATION' ? current.accessDays : '',
                           accessPolicy: policy,
-                          learningEndAt: policy === 'COHORT' ? current.learningEndAt : '',
-                          learningStartAt: policy === 'COHORT' ? current.learningStartAt : '',
                         }));
                       }}
                       options={accessPolicyOptions}
-                      value={
-                        formState.programType === 'OFFLINE' ? 'COHORT' : formState.accessPolicy
-                      }
+                      value={formState.accessPolicy}
                     />
                   </div>
 
@@ -1404,26 +1409,6 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
-                      label='강사명'
-                      name='instructorName'
-                      onChange={(event) => {
-                        updateField('instructorName', event.target.value);
-                      }}
-                      value={formState.instructorName}
-                    />
-                  </div>
-
-                  <TextAreaField
-                    label='강사 소개'
-                    name='instructorBio'
-                    onChange={(event) => {
-                      updateField('instructorBio', event.target.value);
-                    }}
-                    value={formState.instructorBio}
-                  />
-
-                  <div className={styles['inlineFieldGrid']}>
-                    <TextField
                       label='정가'
                       name='price'
                       onChange={(event) => {
@@ -1452,18 +1437,6 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                         value={formState.maxStudents}
                       />
                     </div>
-                    {formState.accessPolicy === 'FIXED_DURATION' ? (
-                      <div className={styles['compactTextField']}>
-                        <TextField
-                          label='수강일수'
-                          name='accessDays'
-                          onChange={(event) => {
-                            updateField('accessDays', event.target.value);
-                          }}
-                          value={formState.accessDays}
-                        />
-                      </div>
-                    ) : null}
                   </div>
 
                   <div className={styles['dateTimeRow']}>
@@ -1486,28 +1459,26 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                         value={formState.saleEndAt}
                       />
                     </div>
-
-                    {formState.accessPolicy === 'COHORT' ? (
-                      <div className={styles['dateTimeGroup']}>
-                        <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
-                        <DateTimeSplitField
-                          dateLabel='수강 시작일'
-                          onChange={(nextValue) => {
-                            updateField('learningStartAt', nextValue);
-                          }}
-                          timeLabel='시작 시간'
-                          value={formState.learningStartAt}
-                        />
-                        <DateTimeSplitField
-                          dateLabel='수강 종료일'
-                          onChange={(nextValue) => {
-                            updateField('learningEndAt', nextValue);
-                          }}
-                          timeLabel='종료 시간'
-                          value={formState.learningEndAt}
-                        />
-                      </div>
-                    ) : null}
+                    <div className={styles['dateTimeGroup']}>
+                      <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
+                      <DateTimeSplitField
+                        dateLabel='수강 시작일'
+                        minDate={mode === 'edit' ? undefined : getTodayDateInputValue()}
+                        onChange={(nextValue) => {
+                          updateField('learningStartAt', nextValue);
+                        }}
+                        timeLabel='시작 시간'
+                        value={formState.learningStartAt}
+                      />
+                      <DateTimeSplitField
+                        dateLabel='수강 종료일'
+                        onChange={(nextValue) => {
+                          updateField('learningEndAt', nextValue);
+                        }}
+                        timeLabel='종료 시간'
+                        value={formState.learningEndAt}
+                      />
+                    </div>
                   </div>
 
                   <p className={styles['policyHint']}>
@@ -1518,18 +1489,14 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
 
                   {formState.accessPolicy === 'UNLIMITED' ? (
                     <p className={styles['policyHint']}>
-                      무제한 수강은 수강일수와 수강 기간을 따로 입력하지 않습니다.
+                      무제한 수강은 수강 가능일수 제한을 두지 않습니다.
                     </p>
                   ) : null}
                   {formState.accessPolicy === 'FIXED_DURATION' ? (
-                    <p className={styles['policyHint']}>고정 기간 수강은 수강일수만 입력합니다.</p>
-                  ) : null}
-                  {formState.accessPolicy === 'COHORT' ? (
                     <p className={styles['policyHint']}>
-                      기수형 수강은 시작일과 종료일을 함께 지정합니다.
+                      고정 기간 수강 가능일수는 수강 시작일과 종료일 기준으로 자동 계산합니다.
                     </p>
                   ) : null}
-
                   <AdminFieldArray
                     addLabel='핵심 포인트 추가'
                     emptyMessage='등록된 핵심 포인트가 없습니다.'
@@ -1543,7 +1510,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                       removeStructuredInfoItem('summaryItems', index);
                     }}
                     renderItem={(item, index) => (
-                      <div className={styles['inlineFieldGrid']}>
+                      <div className={styles['summaryPointFieldGroup']}>
                         <TextField
                           label='핵심 포인트 제목'
                           name={`summary-label-${String(index)}`}
@@ -1557,7 +1524,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                           }}
                           value={item.label}
                         />
-                        <TextField
+                        <TextAreaField
                           label='핵심 포인트 설명'
                           name={`summary-value-${String(index)}`}
                           onChange={(event) => {
@@ -1568,6 +1535,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                               event.target.value,
                             );
                           }}
+                          rows={4}
                           value={item.value}
                         />
                       </div>
@@ -1587,7 +1555,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                       removeStructuredInfoItem('learningOutcomes', index);
                     }}
                     renderItem={(item, index) => (
-                      <div className={styles['inlineFieldGrid']}>
+                      <div className={styles['summaryPointFieldGroup']}>
                         <TextField
                           label='학습 성과 제목'
                           name={`learning-outcome-label-${String(index)}`}
@@ -1601,7 +1569,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                           }}
                           value={item.label}
                         />
-                        <TextField
+                        <TextAreaField
                           label='학습 성과 설명'
                           name={`learning-outcome-value-${String(index)}`}
                           onChange={(event) => {
@@ -1612,6 +1580,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                               event.target.value,
                             );
                           }}
+                          rows={4}
                           value={item.value}
                         />
                       </div>
@@ -1908,6 +1877,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
           ) : (
             <div className={styles['stackList']}>
               <AdminProgramCurriculumSection
+                allowPastOfflineScheduleDates={mode === 'edit'}
                 embedded
                 enabled={isEditMode}
                 onOpenLectureWorkspace={openLectureWorkspace}

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
@@ -6,6 +8,7 @@ import {
   subscribeMyProgramAvailabilityAlert,
   type ProgramAvailabilityAlertStatusResponse,
 } from '@/api/programAvailabilityAlerts';
+import CartAddedModal from '@/components/cart/CartAddedModal/CartAddedModal';
 import { myCartQueryKey } from '@/query/useMyPageQueries';
 import {
   programAvailabilityAlertStatusQueryKey,
@@ -15,7 +18,7 @@ import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type { AddToCartPayload, CartSummary, ProgramType } from '@/types/mypage';
+import type { AddToCartPayload, CartItem, CartSummary, ProgramType } from '@/types/mypage';
 import type { ProgramCatalogStatus, ProgramDetailPageResponse } from '@/types/programCatalog';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 
@@ -200,6 +203,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const selectSingleCartItem = useCartSelectionStore((state) => state.selectSingleItem);
   const showToast = useToastStore((state) => state.showToast);
+  const [addedCartItem, setAddedCartItem] = useState<CartItem | null>(null);
   const cartScope = resolveCartQueryScope(isAuthenticated);
   const programId =
     typeof data.programId === 'number' && data.programId > 0 ? data.programId : null;
@@ -242,7 +246,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     const payload = buildAddToCartPayload(data, discountedPriceAmount, originalPriceAmount);
 
     void addToCartMutation.mutateAsync(payload).then(
-      async (cart) => {
+      (cart) => {
         queryClient.setQueryData(myCartQueryKey(cartScope), cart);
 
         showToast({
@@ -250,13 +254,27 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
           variant: 'success',
         });
 
-        await navigate(routePaths.cart);
+        setAddedCartItem(findCartItemByPayload(cart, payload));
       },
       (error: unknown) => {
         const message =
           error instanceof Error
             ? error.message
             : '장바구니에 담지 못했습니다. 다시 시도해 주세요.';
+
+        if (message.includes('이미 장바구니에 담긴 강의')) {
+          void queryClient
+            .fetchQuery({
+              queryFn: fetchMyCart,
+              queryKey: myCartQueryKey(cartScope),
+            })
+            .then((cart) => {
+              setAddedCartItem(findCartItemByPayload(cart, payload));
+            })
+            .catch(() => {
+              return undefined;
+            });
+        }
 
         showToast({
           message,
@@ -441,6 +459,15 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
                 : '수강 신청'}
         </button>
       </div>
+
+      {addedCartItem ? (
+        <CartAddedModal
+          item={addedCartItem}
+          onClose={() => {
+            setAddedCartItem(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 };

@@ -5,6 +5,7 @@ import type { CartSummary } from '@/types/mypage';
 const CART_SELECTION_STORAGE_KEY = 'cart_selection_state';
 
 interface PersistedCartSelectionState {
+  hasInitializedSelection: boolean;
   selectedItemIds: number[];
 }
 
@@ -18,6 +19,7 @@ interface CartSelectionState extends PersistedCartSelectionState {
 }
 
 const getDefaultState = (): PersistedCartSelectionState => ({
+  hasInitializedSelection: false,
   selectedItemIds: [],
 });
 
@@ -36,6 +38,7 @@ const parsePersistedState = (): PersistedCartSelectionState => {
     const parsed = JSON.parse(storedValue) as Partial<PersistedCartSelectionState>;
 
     return {
+      hasInitializedSelection: parsed.hasInitializedSelection === true,
       selectedItemIds: Array.isArray(parsed.selectedItemIds)
         ? parsed.selectedItemIds.filter((itemId): itemId is number => typeof itemId === 'number')
         : [],
@@ -63,9 +66,12 @@ const sanitizeSelection = (
     availableItemIds.includes(itemId),
   );
   const normalizedSelectedItemIds =
-    selectedItemIds.length || !availableItemIds.length ? selectedItemIds : availableItemIds;
+    selectedItemIds.length || !availableItemIds.length || currentState.hasInitializedSelection
+      ? selectedItemIds
+      : availableItemIds;
 
   return {
+    hasInitializedSelection: true,
     selectedItemIds: normalizedSelectedItemIds,
   };
 };
@@ -78,6 +84,7 @@ export const useCartSelectionStore = create<CartSelectionState>((set, get) => {
     hydrate: (cart) => {
       const nextState = sanitizeSelection(
         {
+          hasInitializedSelection: get().hasInitializedSelection,
           selectedItemIds: get().selectedItemIds,
         },
         cart,
@@ -93,6 +100,7 @@ export const useCartSelectionStore = create<CartSelectionState>((set, get) => {
     },
     replaceSelection: (selectedItemIds) => {
       const nextState = {
+        hasInitializedSelection: true,
         selectedItemIds,
       };
 
@@ -101,6 +109,7 @@ export const useCartSelectionStore = create<CartSelectionState>((set, get) => {
     },
     selectSingleItem: (itemId) => {
       const nextState = {
+        hasInitializedSelection: true,
         selectedItemIds: [itemId],
       };
 
@@ -112,6 +121,7 @@ export const useCartSelectionStore = create<CartSelectionState>((set, get) => {
       const areAllSelected =
         itemIds.length > 0 && itemIds.every((itemId) => currentSelection.includes(itemId));
       const nextState = {
+        hasInitializedSelection: true,
         selectedItemIds: areAllSelected ? [] : itemIds,
       };
 
@@ -124,6 +134,7 @@ export const useCartSelectionStore = create<CartSelectionState>((set, get) => {
         ? currentSelection.filter((selectedId) => selectedId !== itemId)
         : [...currentSelection, itemId];
       const nextState = {
+        hasInitializedSelection: true,
         selectedItemIds,
       };
 

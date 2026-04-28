@@ -1,4 +1,4 @@
-const MAX_RESOURCE_DOCUMENT_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const MAX_RESOURCE_DOCUMENT_FILE_SIZE_BYTES = 300 * 1024 * 1024;
 
 const SUPPORTED_RESOURCE_DOCUMENT_EXTENSIONS = new Set([
   'pdf',
@@ -32,7 +32,7 @@ const SUPPORTED_RESOURCE_DOCUMENT_MIME_TYPES = new Set([
 ]);
 
 export const RESOURCE_DOCUMENT_POLICY_HINT =
-  '문서 자료는 PDF, HWP/HWPX, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT, CSV 파일만 등록할 수 있으며 최대 50MB까지 지원합니다.';
+  '문서 자료는 PDF, HWP/HWPX, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT, CSV 파일만 등록할 수 있으며 최대 300MB까지 지원합니다.';
 
 const normalizeMimeType = (mimeType: string): string => {
   return mimeType.split(';', 1)[0]?.trim().toLowerCase() ?? '';
@@ -49,7 +49,7 @@ export const validateResourceDocumentPolicy = (params: {
   mimeType: string;
 }): string | null => {
   if (params.fileSize < 1 || params.fileSize > MAX_RESOURCE_DOCUMENT_FILE_SIZE_BYTES) {
-    return '문서 파일은 50MB 이하만 등록할 수 있습니다.';
+    return '문서 파일은 300MB 이하만 등록할 수 있습니다.';
   }
 
   const normalizedMimeType = normalizeMimeType(params.mimeType);

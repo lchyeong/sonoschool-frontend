@@ -47,10 +47,16 @@ const HomeFeaturedCoursesSection = () => {
     <section aria-labelledby='home-featured-courses-heading' className={styles['section']}>
       <div className={styles['inner']}>
         <div className={styles['headingBlock']}>
-          <span className={styles['eyebrow']}>COURSE PREVIEW</span>
           <h2 className={styles['heading']} id='home-featured-courses-heading'>
-            전체 강의 살펴보기
+            <span>진료의 확신을 완성하는</span>
+            <span>초음파 교육, 소노스쿨</span>
           </h2>
+          <p className={styles['description']}>
+            단순 반복을 넘어선 초밀착 핸즈온으로 잘못된 루틴을 바로잡습니다.
+            <br />
+            진료실의 막막함이 자신감으로 바뀌는 실전 교육을 경험하세요.
+          </p>
+          <p className={styles['supportText']}>소노스쿨의 검증된 대표 과정을 소개합니다.</p>
         </div>
 
         {isPending ? (

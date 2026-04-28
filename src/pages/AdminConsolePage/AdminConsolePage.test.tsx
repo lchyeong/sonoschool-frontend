@@ -48,8 +48,6 @@ const createAdminProgramDraftDetailFixture = (): AdminProgramDraftDetail => {
         checklists: [],
         description: null,
         faqs: [],
-        instructorBio: null,
-        instructorName: null,
         learningEndAt: null,
         learningOutcomes: [],
         learningPoints: [],
@@ -431,6 +429,39 @@ describe('AdminConsolePage', () => {
     expect(screen.queryByText('영상강의')).not.toBeInTheDocument();
     expect(screen.queryByText('현장강의')).not.toBeInTheDocument();
     expect(screen.queryByText('실습강의')).not.toBeInTheDocument();
+  });
+
+  it('restores problem lecture time limit from the problem payload in the create workspace', async () => {
+    const draftDetail = createAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.programType = 'PROBLEM_SOLVING';
+    draftDetail.payload.sections[0].lectures[0] = {
+      ...draftDetail.payload.sections[0].lectures[0],
+      key: 'problem-lecture-1',
+      lectureType: 'PROBLEM',
+      title: '문제풀이',
+    };
+    draftDetail.payload.problems = [
+      {
+        lectureKey: 'problem-lecture-1',
+        passScore: 60,
+        questions: [],
+        timeLimitSeconds: 1800,
+        title: '문제풀이',
+      },
+    ];
+
+    renderAdminConsoleRoute('/admin/programs/new/curriculum?draftId=91001', {
+      draftDetail,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '강의 펼치기' }));
+
+    expect(screen.getByLabelText('제한시간(분)')).toHaveValue('30');
   });
 
   it('edits a program on the dedicated edit page and saves it', async () => {
@@ -1129,18 +1160,15 @@ describe('AdminConsolePage', () => {
     expect(await screen.findByLabelText('합격 점수')).toBeInTheDocument();
   });
 
-  it('renders the category management section with category code fields', async () => {
+  it('renders the category management section without category code fields', async () => {
     renderAdminConsoleRoute('/admin/program-menus');
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: '프로그램 카테고리 관리' }),
-    ).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: '내과과정 카테고리 선택' }));
-    expect(screen.getByLabelText('카테고리 코드')).toHaveValue('internal-medicine');
+    expect(screen.queryByLabelText('카테고리 코드')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '새 카테고리' }));
 
-    expect(screen.getAllByLabelText('카테고리 코드')[0]).toHaveValue('');
+    expect(screen.queryByLabelText('카테고리 코드')).not.toBeInTheDocument();
   });
 
   it('shows only global resources in the resource library and uses dedicated create and edit pages', async () => {

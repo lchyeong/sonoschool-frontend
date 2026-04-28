@@ -20,7 +20,6 @@ export interface AdminCategoryRecord {
 
 export interface AdminCategoryUpsertPayload {
   name: string;
-  slug: string;
   sortOrder: number;
 }
 

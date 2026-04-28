@@ -1,72 +1,125 @@
 .section {
   width: 100%;
-  padding: 186px 0;
-  overflow-x: clip;
+  padding: 248px 0 0;
+  background: #ffffff;
 }
 
-.inner {
-  display: flex;
-  gap: 118px;
-  align-items: flex-start;
-  width: min(1436px, calc(100vw - 48px));
-  margin: 0 auto;
+.intro {
+  width: min(820px, calc(100% - 48px));
+  margin: 0 auto 248px;
+  text-align: center;
 }
 
-.copyColumn {
-  display: flex;
-  flex: 0 0 338px;
-  flex-direction: column;
-  gap: 18px;
-  width: 338px;
-}
-
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 159px;
-  height: 36px;
-  padding: 7px 17px 8px;
-  border-radius: 50px;
-  color: var(--color-brand-main);
-  font-family: Pretendard, var(--font-family-base);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.96px;
-  line-height: 1.3;
-  white-space: nowrap;
-  background: var(--color-brand-lighten-50);
-}
-
-.heading {
+.introHeading {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  width: 338px;
   margin: 0;
-  color: var(--color-gray-900);
+  color: #111827;
   font-family: Pretendard, var(--font-family-base);
-  font-size: 60px;
-  font-weight: var(--font-weight-extrabold);
-  letter-spacing: var(--letter-spacing-normal);
-  line-height: 72px;
+  font-size: clamp(44px, 3.55vw, 68px);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 1.36px;
+  line-height: 1.5;
 
-  span {
-    display: block;
+  span:last-child {
+    color: #d1d5db;
   }
 }
 
+.showcasePanel {
+  position: relative;
+  overflow: visible;
+  width: 100%;
+  height: min(2001px, calc((100vw - 48px) * 1.2926));
+  padding: 0;
+  background: #3ac5b0;
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: min(1548px, calc(100% - 48px));
+  height: 100%;
+  margin: 0 auto;
+  container-type: inline-size;
+}
+
+.copyColumn {
+  position: absolute;
+  top: 11.628cqw;
+  left: 0;
+  display: flex;
+  flex: 0 0 370px;
+  flex-direction: column;
+  gap: 0;
+  width: 23.902cqw;
+  padding-top: 0;
+}
+
+.heading {
+  width: 100%;
+  margin: 0;
+  color: #ffffff;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 3.876cqw;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: 1.5;
+}
+
 .headingPrimaryLine {
-  margin-bottom: 9px;
-  color: var(--color-brand-main);
+  margin-bottom: 0;
+  color: #ffffff;
   white-space: nowrap;
 }
 
+.description {
+  width: 100%;
+  margin: 1.421cqw 0 0;
+  color: #ffffff;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 1.68cqw;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.5;
+}
+
+.courseLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.034cqw;
+  width: 13.501cqw;
+  min-height: 4.522cqw;
+  margin-top: 4.134cqw;
+  border: 1px solid #ffffff;
+  border-radius: 6.46cqw;
+  color: #ffffff;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 1.292cqw;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+  text-decoration: none;
+}
+
+.courseLinkArrow {
+  width: 0.646cqw;
+  height: 0.646cqw;
+  border-top: 0.129cqw solid currentColor;
+  border-right: 0.129cqw solid currentColor;
+  transform: rotate(45deg);
+}
+
 .cardList {
-  position: relative;
-  flex: 0 0 1038px;
-  width: 1038px;
-  height: 2058px;
+  position: absolute;
+  top: -3.789cqw;
+  right: 0;
+  left: auto;
+  width: 60.336cqw;
+  max-width: 934px;
+  min-width: 0;
+  aspect-ratio: 934 / 1706;
+  height: auto;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -74,32 +127,40 @@
 
 .cardItem {
   position: absolute;
-  width: 477px;
-  height: 630px;
 
   &:nth-child(1) {
     top: 0;
     left: 0;
+    width: 44.111%;
+    height: 29.015%;
   }
 
   &:nth-child(2) {
-    top: 357px;
-    left: 561px;
+    top: 16.354%;
+    left: 55.889%;
+    width: 44.111%;
+    height: 29.015%;
   }
 
   &:nth-child(3) {
-    top: 714px;
+    top: 35.463%;
     left: 0;
+    width: 44.111%;
+    height: 29.015%;
   }
 
   &:nth-child(4) {
-    top: 1071px;
-    left: 561px;
+    top: 51.817%;
+    left: 55.889%;
+    width: 44.111%;
+    height: 29.015%;
   }
 
   &:nth-child(5) {
-    top: 1428px;
+    top: 70.927%;
     left: 0;
+    width: 44.111%;
+    height: 29.015%;
   }
 }
 
@@ -108,7 +169,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: 40px;
+  border-radius: 2.584cqw;
   background: var(--color-gray-200);
 }
 
@@ -127,20 +188,20 @@
 
 .cardCopy {
   position: absolute;
-  right: 91px;
-  bottom: 28px;
-  left: 28px;
+  right: 5.879cqw;
+  bottom: 1.809cqw;
+  left: 1.809cqw;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.646cqw;
   color: #ffffff;
 }
 
 .cardDivider {
   display: block;
-  width: 28px;
-  height: 3px;
+  width: 1.809cqw;
+  height: 0.194cqw;
   border-radius: 999px;
   background: currentColor;
 }
@@ -148,8 +209,8 @@
 .cardTextBlock {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  width: 358px;
+  gap: 0.517cqw;
+  width: 23.127cqw;
   max-width: 100%;
 }
 
@@ -164,37 +225,101 @@
 }
 
 .cardTitle {
-  font-size: var(--font-size-lg);
+  font-size: 1.163cqw;
   font-weight: var(--font-weight-extrabold);
-  letter-spacing: 1.08px;
+  letter-spacing: 0.07cqw;
   -webkit-line-clamp: 1;
 }
 
 .cardDescription {
-  font-size: var(--font-size-base);
+  font-size: 1.034cqw;
   font-weight: var(--font-weight-normal);
   letter-spacing: var(--letter-spacing-normal);
   -webkit-line-clamp: 2;
 }
 
-@media (width < 1280px) {
+.panelClosing {
+  position: absolute;
+  bottom: 2.649cqw;
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(49.096cqw, calc(100% - 48px));
+  margin: 0;
+  color: #ffffff;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 3.876cqw;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+@media (width < 960px) {
   .section {
-    padding: 120px 0 96px;
+    padding-top: 120px;
+  }
+
+  .intro {
+    margin-bottom: 120px;
+  }
+
+  .showcasePanel {
+    height: auto;
+    padding: 96px 0 140px;
+    overflow: hidden;
   }
 
   .inner {
     display: block;
+    height: auto;
   }
 
   .copyColumn {
+    position: static;
+    width: 370px;
     margin-bottom: 72px;
   }
 
+  .heading {
+    width: 370px;
+    font-size: 60px;
+  }
+
+  .description {
+    width: 370px;
+    margin-top: 22px;
+    font-size: 26px;
+  }
+
+  .courseLink {
+    gap: 16px;
+    width: 209px;
+    min-height: 70px;
+    margin-top: 64px;
+    border-radius: 100px;
+    font-size: 20px;
+  }
+
+  .courseLinkArrow {
+    width: 10px;
+    height: 10px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+  }
+
   .cardList {
+    position: relative;
+    top: auto;
+    left: auto;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 84px 40px;
+    max-width: none;
     width: 100%;
+    aspect-ratio: auto;
     height: auto;
   }
 
@@ -207,15 +332,65 @@
     height: auto;
     aspect-ratio: 477 / 630;
   }
+
+  .card {
+    border-radius: 40px;
+  }
+
+  .cardCopy {
+    right: 91px;
+    bottom: 28px;
+    left: 28px;
+    gap: 10px;
+  }
+
+  .cardDivider {
+    width: 28px;
+    height: 3px;
+  }
+
+  .cardTextBlock {
+    gap: 8px;
+    width: 358px;
+  }
+
+  .cardTitle {
+    font-size: var(--font-size-lg);
+    letter-spacing: 1.08px;
+  }
+
+  .cardDescription {
+    font-size: var(--font-size-base);
+  }
+
+  .panelClosing {
+    bottom: 41px;
+    width: min(760px, calc(100% - 48px));
+    font-size: clamp(42px, 3.2vw, 60px);
+  }
 }
 
 @media (width < 768px) {
   .section {
-    padding: 80px 0 72px;
+    padding-top: 80px;
+  }
+
+  .intro {
+    width: min(100%, calc(100% - 32px));
+    margin-bottom: 80px;
+  }
+
+  .introHeading {
+    font-size: 36px;
+    letter-spacing: 0;
+  }
+
+  .showcasePanel {
+    padding: 72px 0 96px;
   }
 
   .inner {
-    width: min(100%, calc(100vw - 32px));
+    width: min(100%, calc(100% - 32px));
   }
 
   .copyColumn,
@@ -228,18 +403,31 @@
     line-height: 52px;
   }
 
+  .description {
+    width: 100%;
+    font-size: 20px;
+  }
+
   .cardList {
     grid-template-columns: 1fr;
     gap: 28px;
   }
 
   .card {
-    border-radius: 28px;
+    border-radius: 0;
   }
 
   .cardCopy {
     right: 24px;
     bottom: 24px;
     left: 24px;
+  }
+
+  .panelClosing {
+    position: static;
+    transform: none;
+    margin-top: 72px;
+    font-size: 34px;
+    white-space: normal;
   }
 }

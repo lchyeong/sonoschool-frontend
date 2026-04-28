@@ -70,6 +70,7 @@ const buildLectureDeleteConfirmMessage = (impact: AdminLectureDeleteImpact): str
 };
 
 interface AdminProgramCurriculumSectionProps {
+  allowPastOfflineScheduleDates?: boolean;
   embedded?: boolean;
   enabled: boolean;
   onOpenLectureWorkspace?: (lectureId: number, target: 'problem' | 'resource') => void;
@@ -470,6 +471,7 @@ const buildVideoChunks = (
 
 const LectureCard = ({
   allowPracticum,
+  allowPastOfflineScheduleDates,
   canMoveDown,
   canMoveUp,
   lecture,
@@ -487,6 +489,7 @@ const LectureCard = ({
   videoUploadStatus,
 }: {
   allowPracticum: boolean;
+  allowPastOfflineScheduleDates: boolean;
   canMoveDown: boolean;
   canMoveUp: boolean;
   lecture: AdminCurriculumLecture;
@@ -524,7 +527,9 @@ const LectureCard = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const showToast = useToastStore((state) => state.showToast);
   const queryClient = useQueryClient();
-  const offlineScheduleMinDate = toDateInputValue(programLearningStartAt);
+  const offlineScheduleMinDate = allowPastOfflineScheduleDates
+    ? ''
+    : toDateInputValue(programLearningStartAt);
   const offlineScheduleMaxDate = toDateInputValue(programLearningEndAt);
   const offlineSchedulePeriodLabel =
     offlineScheduleMinDate && offlineScheduleMaxDate
@@ -1261,6 +1266,7 @@ const LectureCard = ({
 
 const SectionCard = ({
   allowPracticum,
+  allowPastOfflineScheduleDates,
   canMoveDown,
   canMoveUp,
   onCreateLecture,
@@ -1282,6 +1288,7 @@ const SectionCard = ({
   videoUploadStatusByLectureId,
 }: {
   allowPracticum: boolean;
+  allowPastOfflineScheduleDates: boolean;
   canMoveDown: boolean;
   canMoveUp: boolean;
   onCreateLecture: (sectionId: number, payload: AdminLectureUpsertPayload) => boolean;
@@ -1535,6 +1542,7 @@ const SectionCard = ({
                   {section.lectures.map((lecture, index) => (
                     <LectureCard
                       allowPracticum={allowPracticum}
+                      allowPastOfflineScheduleDates={allowPastOfflineScheduleDates}
                       canMoveDown={index < section.lectures.length - 1}
                       canMoveUp={index > 0}
                       key={lecture.id}
@@ -1667,6 +1675,7 @@ const SectionCard = ({
 };
 
 const AdminProgramCurriculumSection = ({
+  allowPastOfflineScheduleDates = false,
   embedded = false,
   enabled,
   onOpenLectureWorkspace,
@@ -2235,6 +2244,7 @@ const AdminProgramCurriculumSection = ({
               sections.map((section, index) => (
                 <SectionCard
                   allowPracticum={allowPracticum}
+                  allowPastOfflineScheduleDates={allowPastOfflineScheduleDates}
                   canMoveDown={index < sections.length - 1}
                   canMoveUp={index > 0}
                   key={section.id}

@@ -1,7 +1,7 @@
 export type AdminProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID' | 'PROBLEM_SOLVING';
 export type AdminProgramLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 export type AdminProgramCatalogStatus = 'OPEN' | 'SCHEDULED' | 'STARTED' | 'CLOSED' | 'FULL';
-export type AdminProgramAccessPolicy = 'COHORT' | 'FIXED_DURATION' | 'UNLIMITED';
+export type AdminProgramAccessPolicy = 'FIXED_DURATION' | 'UNLIMITED';
 export type AdminProgramTagType = 'FEATURE' | 'FORMAT' | 'LEVEL' | 'TARGET' | 'TOPIC';
 export type AdminProgramOperationStatus = 'NORMAL' | 'CLOSURE_CONFIRMED';
 
@@ -34,7 +34,6 @@ export interface AdminProgramListItem {
   thumbnailPreviewUrl?: string | null;
   programType: AdminProgramType;
   level: AdminProgramLevel | null;
-  instructorName: string | null;
   price: number;
   salePrice: number | null;
   maxStudents: number | null;
@@ -103,8 +102,6 @@ export interface AdminProgramDetail {
   thumbnailPreviewUrl?: string | null;
   programType: AdminProgramType;
   level: AdminProgramLevel | null;
-  instructorName: string | null;
-  instructorBio: string | null;
   price: number;
   salePrice: number | null;
   maxStudents: number | null;
@@ -145,8 +142,6 @@ export interface AdminProgramUpsertPayload {
   thumbnailUrl: string | null;
   programType: AdminProgramType;
   level: AdminProgramLevel | null;
-  instructorName: string | null;
-  instructorBio: string | null;
   price: number;
   salePrice: number | null;
   maxStudents: number | null;

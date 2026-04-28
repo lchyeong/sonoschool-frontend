@@ -1,17 +1,16 @@
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
-import congraturationIconSrc from '@/assets/icons/icon_congraturation.png';
+import checkIconSrc from '@/assets/icons/lucide_check.svg';
+import clockFadingIconSrc from '@/assets/icons/lucide_clock-fading.svg';
 import { LoadingSpinner } from '@/components/feedback/Loading/LoadingSpinner';
 import { usePaymentResultQuery } from '@/query/usePaymentResultQuery';
 import { routePaths } from '@/routes/routeRegistry';
-import sharedStyles from '@/styles/accountPage.module.scss';
 import {
   formatPaymentMethodLabel,
   paymentStatusLabels,
   type PaymentResult,
   type PaymentStatus,
 } from '@/types/payment';
-import { classNames } from '@/utils/classNames';
 
 import styles from './PaymentResultPage.module.scss';
 
@@ -22,8 +21,7 @@ const knownStatuses = new Set<PaymentStatus>([
   'FAILED',
   'CANCELLED',
 ]);
-const pendingStatuses = new Set<PaymentStatus>(['PENDING', 'REGISTERED']);
-const retryRedirectStatuses = new Set<PaymentStatus>(['PENDING', 'REGISTERED', 'CANCELLED']);
+const statusCheckStatuses = new Set<PaymentStatus>(['PENDING', 'REGISTERED', 'CANCELLED']);
 
 const parsePaymentId = (value: string | null): number | null => {
   if (!value) return null;
@@ -44,7 +42,7 @@ const getStatusCopy = (status: PaymentStatus | null, fallbackMessage: string | n
   switch (status) {
     case 'COMPLETED':
       return {
-        title: '결제가 완료되었습니다.',
+        title: '결제가 완료되었습니다',
         description:
           fallbackMessage ??
           '결제가 정상 승인되었습니다. 내 강의실과 결제 내역에서 이어서 확인할 수 있습니다.',
@@ -56,17 +54,18 @@ const getStatusCopy = (status: PaymentStatus | null, fallbackMessage: string | n
       };
     case 'CANCELLED':
       return {
-        title: '결제가 취소되었습니다.',
+        title: '결제 상태를 확인해 주세요',
         description:
-          fallbackMessage ?? '취소 처리된 결제입니다. 필요하면 다시 결제를 진행해 주세요.',
+          fallbackMessage ??
+          '결제가 중단되었거나 승인 결과를 확인하는 중입니다. 다시 시도하거나 장바구니로 돌아가 진행을 이어갈 수 있습니다.',
       };
     case 'PENDING':
     case 'REGISTERED':
       return {
-        title: '결제가 완료되지 않았습니다.',
+        title: '결제 상태를 확인해 주세요',
         description:
           fallbackMessage ??
-          '결제창이 닫혔거나 승인 절차가 끝나지 않았습니다. 장바구니로 돌아가 다시 결제를 진행해 주세요.',
+          '결제가 중단되었거나 승인 결과를 확인하는 중입니다. 다시 시도하거나 장바구니로 돌아가 진행을 이어갈 수 있습니다.',
       };
     default:
       return {
@@ -92,7 +91,15 @@ const formatDateTime = (value: string | null | undefined) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
 
-  return date.toLocaleString('ko-KR');
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const weekday = new Intl.DateTimeFormat('ko-KR', { weekday: 'short' }).format(date);
+
+  return `${String(year)}.${month}.${day} (${weekday}) ${hours}:${minutes}:${seconds}`;
 };
 
 const formatOrderTypeLabel = (value: PaymentResult['orderType'] | null) => {
@@ -129,79 +136,16 @@ const resolveProcessedAt = (
   }
 };
 
-const buildDetailItems = (
-  payment: PaymentResult | null,
-  resolvedStatus: PaymentStatus | null,
-) => {
-  if (resolvedStatus && pendingStatuses.has(resolvedStatus)) {
-    return [];
+const getStatusCheckLabel = (status: PaymentStatus | null) => {
+  if (!status) {
+    return '결제 결과 확인 중';
   }
 
-  if (!payment && !resolvedStatus) {
-    return [];
+  if (statusCheckStatuses.has(status)) {
+    return '결제 취소 또는 승인 대기';
   }
 
-  const detailItems: Array<{ key: string; label: string; value: string; muted?: boolean }> = [];
-
-  if (payment?.orderName) {
-    detailItems.push({
-      key: 'order-name',
-      label: '주문명',
-      value: payment.orderName,
-    });
-  }
-
-  if (payment?.orderType) {
-    detailItems.push({
-      key: 'order-type',
-      label: '주문 유형',
-      value: formatOrderTypeLabel(payment.orderType),
-    });
-  }
-
-  if (payment?.paymentMethod) {
-    detailItems.push({
-      key: 'payment-method',
-      label: '결제 수단',
-      value: formatPaymentMethodLabel(payment.paymentMethod),
-    });
-  }
-
-  if (payment) {
-    detailItems.push({
-      key: 'payment-amount',
-      label: payment.status === 'CANCELLED' ? '취소 금액' : '결제 금액',
-      value: formatCurrency(payment.approvedAmount ?? payment.amount),
-    });
-  }
-
-  if (payment?.status || resolvedStatus) {
-    detailItems.push({
-      key: 'status',
-      label: '상태',
-      value: paymentStatusLabels[payment?.status ?? resolvedStatus ?? 'PENDING'],
-    });
-  }
-
-  const processedAt = resolveProcessedAt(payment, resolvedStatus);
-  if (processedAt) {
-    detailItems.push({
-      key: 'processed-at',
-      label: '처리 시각',
-      value: formatDateTime(processedAt),
-    });
-  }
-
-  if (payment?.cancelReason) {
-    detailItems.push({
-      key: 'cancel-reason',
-      label: '취소 사유',
-      value: payment.cancelReason,
-      muted: true,
-    });
-  }
-
-  return detailItems;
+  return paymentStatusLabels[status];
 };
 
 const PaymentResultPage = () => {
@@ -213,33 +157,48 @@ const PaymentResultPage = () => {
   const paymentQuery = usePaymentResultQuery(paymentId, resultToken);
   const payment = paymentQuery.data ?? null;
   const resolvedStatus = payment?.status ?? fallbackStatus;
-  const isPendingResult = resolvedStatus ? pendingStatuses.has(resolvedStatus) : false;
+  const isCompletedResult = resolvedStatus === 'COMPLETED';
+  const isStatusCheckResult = resolvedStatus !== null && !isCompletedResult;
   const statusCopy = getStatusCopy(resolvedStatus, fallbackMessage);
-  const detailItems = buildDetailItems(payment, resolvedStatus);
-  const shouldRedirectToCheckout =
-    payment === null &&
-    resolvedStatus !== null &&
-    retryRedirectStatuses.has(resolvedStatus);
-
-  if (shouldRedirectToCheckout) {
-    return <Navigate replace to={routePaths.checkout} />;
-  }
+  const processedAt = resolveProcessedAt(payment, resolvedStatus);
+  const statusDescriptionLines = isStatusCheckResult
+    ? statusCopy.description.split(/(?<=입니다\.)\s+/u)
+    : [];
 
   return (
-    <section className={sharedStyles['page']}>
-      <div className={classNames(sharedStyles['shell'], sharedStyles['shellNarrow'])}>
-        <div className={classNames(sharedStyles['surface'], styles['surface'])}>
-          <header className={classNames(sharedStyles['header'], styles['hero'])}>
-            {resolvedStatus === 'COMPLETED' ? (
-              <img
-                alt=''
-                aria-hidden='true'
-                className={styles['heroIcon']}
-                src={congraturationIconSrc}
-              />
+    <section className={styles['page']}>
+      <div className={styles['shell']}>
+        <div className={styles['surface']}>
+          <header
+            className={`${styles['hero']} ${isStatusCheckResult ? styles['statusHero'] : ''}`}
+          >
+            {isCompletedResult ? (
+              <span className={styles['heroIcon']} aria-hidden='true'>
+                <img alt='' src={checkIconSrc} />
+              </span>
             ) : null}
-            <h1 className={sharedStyles['title']}>{statusCopy.title}</h1>
-            <p className={sharedStyles['description']}>{statusCopy.description}</p>
+            {isStatusCheckResult ? (
+              <span className={styles['heroIcon']} aria-hidden='true'>
+                <img alt='' src={clockFadingIconSrc} />
+              </span>
+            ) : null}
+            <h1 className={styles['heroTitle']}>{statusCopy.title}</h1>
+            <p className={styles['heroDescription']}>
+              {isCompletedResult ? '수강 중인 강의는 내 강의에서 바로 확인하실 수 있습니다.' : null}
+              {isStatusCheckResult
+                ? statusDescriptionLines.map((line) => (
+                    <span key={line} className={styles['heroDescriptionLine']}>
+                      {line}
+                    </span>
+                  ))
+                : null}
+              {!isCompletedResult && !isStatusCheckResult ? statusCopy.description : null}
+            </p>
+            {isCompletedResult ? (
+              <Link className={styles['primaryHeroAction']} to={routePaths.mypage}>
+                내 강의로 이동
+              </Link>
+            ) : null}
             {(paymentId !== null || resultToken !== null) && paymentQuery.isPending ? (
               <div aria-live='polite'>
                 <LoadingSpinner />
@@ -252,44 +211,99 @@ const PaymentResultPage = () => {
             ) : null}
           </header>
 
-          {detailItems.length ? (
-            <section className={sharedStyles['section']}>
-              <div className={sharedStyles['sectionHeader']}>
-                <h2 className={sharedStyles['sectionTitle']}>결제 정보</h2>
-                <p className={sharedStyles['sectionDescription']}>
-                  결제 상태와 주문 정보를 다시 확인할 수 있습니다.
-                </p>
+          {isStatusCheckResult ? (
+            <section className={styles['statusPanel']} aria-label='결제 상태'>
+              <div className={styles['statusPanelRow']}>
+                <span>결제 상태</span>
+                <strong>{getStatusCheckLabel(resolvedStatus)}</strong>
               </div>
-              <div className={styles['detailGrid']}>
-                {detailItems.map((item) => (
-                  <div className={styles['detailItem']} key={item.key}>
-                    <span className={styles['detailLabel']}>{item.label}</span>
-                    <strong
-                      className={classNames(
-                        styles['detailValue'],
-                        item.muted && styles['detailValueMuted'],
-                      )}
-                    >
-                      {item.value}
-                    </strong>
-                  </div>
-                ))}
+              <div className={styles['statusPanelRow']}>
+                <span>주문번호</span>
+                <strong>{payment?.orderNumber ?? '-'}</strong>
+              </div>
+              <div className={styles['statusPanelRow']}>
+                <span>시도 일시</span>
+                <strong>{formatDateTime(processedAt ?? payment?.requestedAt)}</strong>
+              </div>
+              {payment?.cancelReason ? (
+                <p className={styles['statusPanelHelper']}>취소 사유: {payment.cancelReason}</p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {isCompletedResult ? (
+            <section className={styles['paymentPanel']} aria-label='결제 정보'>
+              <h2 className={styles['panelTitle']}>결제 정보</h2>
+              <div className={styles['paymentInfoGrid']}>
+                <div className={styles['paymentInfoItem']}>
+                  <span>주문번호</span>
+                  <strong>{payment?.orderNumber ?? '-'}</strong>
+                </div>
+                <div className={styles['paymentInfoItem']}>
+                  <span>결제일시</span>
+                  <strong>{formatDateTime(processedAt)}</strong>
+                </div>
+                <div className={styles['paymentInfoItem']}>
+                  <span>결제수단</span>
+                  <strong>
+                    {payment?.paymentMethod ? formatPaymentMethodLabel(payment.paymentMethod) : '-'}
+                  </strong>
+                </div>
+                <div className={styles['paymentInfoItem']}>
+                  <span>결제금액</span>
+                  <strong className={styles['paymentAmount']}>
+                    {formatCurrency(payment?.approvedAmount ?? payment?.amount)}
+                  </strong>
+                </div>
+                <div className={styles['paymentInfoItem']}>
+                  <span>결제상태</span>
+                  <strong className={styles['statusPill']}>
+                    {paymentStatusLabels['COMPLETED']}
+                  </strong>
+                </div>
               </div>
             </section>
           ) : null}
 
-          <div className={styles['actions']}>
-            {resolvedStatus === 'COMPLETED' ? (
-              <Link to={routePaths.mypage}>내 강의로 이동</Link>
+          {isCompletedResult && payment ? (
+            <section className={styles['coursesPanel']} aria-label='구매한 강의'>
+              <h2 className={styles['panelTitle']}>구매한 강의</h2>
+              <article className={styles['courseRow']}>
+                <div aria-hidden='true' className={styles['courseThumbnail']} />
+                <div className={styles['courseBody']}>
+                  <span className={styles['courseTypeChip']}>
+                    {formatOrderTypeLabel(payment.orderType)}
+                  </span>
+                  <strong className={styles['courseTitle']}>{payment.orderName}</strong>
+                  <p className={styles['courseMeta']}>
+                    <span>수강기간</span>
+                    <span>상시 수강</span>
+                  </p>
+                </div>
+                <strong className={styles['coursePrice']}>
+                  {formatCurrency(payment.approvedAmount ?? payment.amount)}
+                </strong>
+              </article>
+            </section>
+          ) : null}
+
+          <div className={isStatusCheckResult ? styles['statusActions'] : styles['actions']}>
+            {isStatusCheckResult ? (
+              <Link className={styles['statusPrimaryAction']} to={routePaths.checkout}>
+                결제 다시 시도
+              </Link>
             ) : null}
-            {isPendingResult ? <Link to={routePaths.checkout}>결제 다시 시도</Link> : null}
-            {isPendingResult ? <Link to={routePaths.cart}>장바구니로 돌아가기</Link> : null}
-            <Link to={routePaths.home}>홈으로 이동</Link>
-            {resolvedStatus === 'COMPLETED' && payment?.receiptUrl ? (
+            {isStatusCheckResult ? (
+              <Link className={styles['statusSecondaryAction']} to={routePaths.cart}>
+                장바구니로 돌아가기
+              </Link>
+            ) : null}
+            {isCompletedResult && payment?.receiptUrl ? (
               <a href={payment.receiptUrl} rel='noreferrer' target='_blank'>
                 영수증 보기
               </a>
             ) : null}
+            {!isStatusCheckResult ? <Link to={routePaths.home}>홈으로 이동</Link> : null}
           </div>
         </div>
       </div>

@@ -1,19 +1,148 @@
-.imageWrap {
+.popupLayer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-backdrop);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.panel {
+  width: min(560px, calc(100vw - 48px));
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
+  border-radius: 20px;
+  background: #ffffff;
+  pointer-events: auto;
+  box-shadow: 0 24px 70px rgb(17 24 39 / 24%);
+}
+
+.imageWrap {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 740 / 714;
+  background: #ffffff;
 }
 
 .image {
   display: block;
   width: 100%;
-  height: auto;
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
 }
 
 .actionRow {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  min-height: 62px;
+  padding: 0 20px;
+  border-top: 1px solid #d1d5db;
+  background: #ffffff;
+}
+
+.dismissControl,
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.dismissControl {
+  color: #4b5563;
+  cursor: pointer;
+  font-weight: 400;
+  gap: 14px;
+}
+
+.dismissInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.closeButton {
+  color: #374151;
+  font-weight: 500;
+}
+
+.dismissCheckbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
+}
+
+.dismissCheckMark {
+  display: none;
+  width: 10px;
+  height: 6px;
+  border-bottom: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+.dismissInput:checked + .dismissCheckbox {
+  border-color: #34b29f;
+  background: #34b29f;
+}
+
+.dismissInput:checked + .dismissCheckbox .dismissCheckMark {
+  display: block;
+}
+
+.dismissControl:hover,
+.dismissControl:focus-within,
+.closeButton:hover,
+.closeButton:focus-visible {
+  color: #34b29f;
+  outline: none;
+}
+
+.dismissControl:focus-within .dismissCheckbox {
+  box-shadow: 0 0 0 3px rgb(52 178 159 / 18%);
+}
+
+@media (width < 480px) {
+  .popupLayer {
+    padding: 16px;
+  }
+
+  .panel {
+    width: min(100%, 360px);
+  }
+
+  .actionRow {
+    min-height: 56px;
+    padding: 0 14px;
+  }
+
+  .dismissControl,
+  .closeButton {
+    font-size: 14px;
+  }
+
+  .dismissControl {
+    gap: 10px;
+  }
+
+  .dismissCheckbox {
+    width: 20px;
+    height: 20px;
+  }
 }

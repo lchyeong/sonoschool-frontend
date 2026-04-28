@@ -2,7 +2,6 @@ import { useRef } from 'react';
 
 import { Link, useNavigate } from 'react-router-dom';
 
-import { env } from '@/config/env';
 import { routePaths } from '@/routes/routeRegistry';
 
 import styles from './CommonFooter.module.scss';
@@ -50,12 +49,15 @@ const footerInformationLines: readonly (readonly FooterInfoItem[])[] = [
   ],
 ] as const;
 
-const footerLegalTexts = ['개인정보처리방침', '쿠키 설정', '이용약관'] as const;
+const footerLegalTexts = ['이용약관', '쿠키 설정', '개인정보처리방침'] as const;
+const footerCopyrightText =
+  'Copyright 2026 ㈜국제티엔씨. All right reserved. Built by newzest studio.';
+
+const footerCompanyInformationItems = footerInformationLines[0];
+const footerBusinessInformationItems = footerInformationLines.slice(1).flat();
 
 const CommonFooter = () => {
   const navigate = useNavigate();
-  const currentYear = new Date().getFullYear();
-  const currentYearText = String(currentYear);
   const adminTriggerClickTimestampsRef = useRef<number[]>([]);
 
   const handleAdminTriggerClick = () => {
@@ -120,7 +122,7 @@ const CommonFooter = () => {
 
         <div aria-hidden='true' className={styles['divider']} />
 
-        <div className={styles['contentRow']}>
+        <div className={styles['middleRow']}>
           <div className={styles['brandColumn']}>
             <div className={styles['brandArea']}>
               <img
@@ -129,16 +131,6 @@ const CommonFooter = () => {
                 src='/SRDMS_logo_3x.png'
               />
             </div>
-
-            <button
-              className={styles['copyrightButton']}
-              onClick={handleAdminTriggerClick}
-              type='button'
-            >
-              <span className={styles['copyright']}>
-                Copyright © {currentYearText} {env.appName} All rights reserved.
-              </span>
-            </button>
           </div>
 
           <section aria-labelledby='common-footer-heading' className={styles['informationBlock']}>
@@ -146,35 +138,44 @@ const CommonFooter = () => {
               소노스쿨 사업자 정보
             </h2>
 
-            <div className={styles['informationLines']}>
-              {footerInformationLines.map((line, lineIndex) => {
-                return (
-                  <p
-                    className={styles['informationLine']}
-                    key={`footer-line-${String(lineIndex + 1)}`}
-                  >
-                    {line.map((item) => {
-                      return (
-                        <span className={styles['informationItem']} key={item.label}>
-                          <span className={styles['informationLabel']}>{item.label}</span>
-                          <span aria-hidden='true' className={styles['informationColon']}>
-                            :
-                          </span>
-                          {item.href ? (
-                            <a className={styles['informationLink']} href={item.href}>
-                              {item.value}
-                            </a>
-                          ) : (
-                            <span className={styles['informationValue']}>{item.value}</span>
-                          )}
-                        </span>
-                      );
-                    })}
-                  </p>
-                );
-              })}
+            <div className={styles['informationGroupList']}>
+              {[footerCompanyInformationItems, footerBusinessInformationItems].map(
+                (informationItems, groupIndex) => {
+                  return (
+                    <ul
+                      className={styles['informationList']}
+                      key={`footer-information-group-${String(groupIndex + 1)}`}
+                    >
+                      {informationItems.map((item) => {
+                        return (
+                          <li className={styles['informationItem']} key={item.label}>
+                            <span className={styles['informationLabel']}>{item.label} :</span>
+                            {item.href ? (
+                              <a className={styles['informationLink']} href={item.href}>
+                                {item.value}
+                              </a>
+                            ) : (
+                              <span className={styles['informationValue']}>{item.value}</span>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  );
+                },
+              )}
             </div>
           </section>
+        </div>
+
+        <div className={styles['bottomRow']}>
+          <button
+            className={styles['copyrightButton']}
+            onClick={handleAdminTriggerClick}
+            type='button'
+          >
+            {footerCopyrightText}
+          </button>
         </div>
       </div>
     </footer>

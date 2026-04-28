@@ -63,12 +63,12 @@ describe('PaymentResultPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: '결제가 완료되었습니다.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '결제가 완료되었습니다' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '결제 정보' })).toBeInTheDocument();
     expect(screen.getByText('복부 초음파 기초 과정')).toBeInTheDocument();
-    expect(screen.getByText('단일 강의 결제')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '구매한 강의' })).toBeInTheDocument();
     expect(screen.getByText('카드 결제')).toBeInTheDocument();
-    expect(screen.getByText('120,000원')).toBeInTheDocument();
+    expect(screen.getAllByText('120,000원')).toHaveLength(2);
     expect(screen.getByText('결제 완료')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '내 강의로 이동' })).toHaveAttribute('href', '/mypage');
     expect(screen.getByRole('link', { name: '홈으로 이동' })).toHaveAttribute('href', '/');
@@ -88,9 +88,7 @@ describe('PaymentResultPage', () => {
 
     render(
       <MemoryRouter
-        initialEntries={[
-          '/payments/result?status=FAILED&message=결제가 승인되지 않았습니다.',
-        ]}
+        initialEntries={['/payments/result?status=FAILED&message=결제가 승인되지 않았습니다.']}
       >
         <PaymentResultPage />
       </MemoryRouter>,
@@ -100,13 +98,21 @@ describe('PaymentResultPage', () => {
       screen.getByRole('heading', { name: '결제가 완료되지 않았습니다.' }),
     ).toBeInTheDocument();
     expect(screen.getByText('결제가 승인되지 않았습니다.')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '결제 정보' })).toBeInTheDocument();
     expect(screen.getByText('결제 실패')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '홈으로 이동' })).toHaveAttribute('href', '/');
+    expect(screen.getByText('주문번호')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '결제 다시 시도' })).toHaveAttribute(
+      'href',
+      '/payments/checkout',
+    );
+    expect(screen.getByRole('link', { name: '장바구니로 돌아가기' })).toHaveAttribute(
+      'href',
+      '/cart',
+    );
+    expect(screen.queryByRole('link', { name: '홈으로 이동' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '영수증 보기' })).not.toBeInTheDocument();
   });
 
-  it('redirects pending fallback results back to checkout', () => {
+  it('renders status-check screen for pending fallback results', () => {
     mockedUsePaymentResultQuery.mockReturnValue({
       data: undefined,
       error: null,
@@ -116,17 +122,19 @@ describe('PaymentResultPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/payments/result?status=PENDING']}>
-        <Routes>
-          <Route element={<PaymentResultPage />} path='/payments/result' />
-          <Route element={<div>checkout-page</div>} path='/payments/checkout' />
-        </Routes>
+        <PaymentResultPage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('checkout-page')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '결제 상태를 확인해 주세요' })).toBeInTheDocument();
+    expect(screen.getByText('결제 취소 또는 승인 대기')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '결제 다시 시도' })).toHaveAttribute(
+      'href',
+      '/payments/checkout',
+    );
   });
 
-  it('hides payment details when the fetched payment is still pending', () => {
+  it('renders status details when the fetched payment is still pending', () => {
     mockedUsePaymentResultQuery.mockReturnValue({
       data: mockPendingPaymentResult,
       error: null,
@@ -140,11 +148,13 @@ describe('PaymentResultPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: '결제가 완료되지 않았습니다.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '결제 상태를 확인해 주세요' })).toBeInTheDocument();
+    expect(screen.getByText('결제 취소 또는 승인 대기')).toBeInTheDocument();
+    expect(screen.getByText('ORD-301')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '결제 정보' })).not.toBeInTheDocument();
   });
 
-  it('redirects cancelled fallback results back to checkout', () => {
+  it('renders status-check screen for cancelled fallback results', () => {
     mockedUsePaymentResultQuery.mockReturnValue({
       data: undefined,
       error: null,
@@ -154,17 +164,15 @@ describe('PaymentResultPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/payments/result?status=CANCELLED']}>
-        <Routes>
-          <Route element={<PaymentResultPage />} path='/payments/result' />
-          <Route element={<div>checkout-page</div>} path='/payments/checkout' />
-        </Routes>
+        <PaymentResultPage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('checkout-page')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '결제 상태를 확인해 주세요' })).toBeInTheDocument();
+    expect(screen.getByText('결제 취소 또는 승인 대기')).toBeInTheDocument();
   });
 
-  it('renders stored cancelled payments without redirecting to checkout', () => {
+  it('renders stored cancelled payments as a status-check screen', () => {
     mockedUsePaymentResultQuery.mockReturnValue({
       data: {
         ...mockPaymentResult,
@@ -188,8 +196,9 @@ describe('PaymentResultPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: '결제가 취소되었습니다.' })).toBeInTheDocument();
-    expect(screen.getByText('사용자 요청 취소')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '결제 정보' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '결제 상태를 확인해 주세요' })).toBeInTheDocument();
+    expect(screen.getByText(/취소 사유:/)).toHaveTextContent('사용자 요청 취소');
+    expect(screen.getByText('결제 취소 또는 승인 대기')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '결제 정보' })).not.toBeInTheDocument();
   });
 });

@@ -1,220 +1,217 @@
 .section {
   width: 100%;
-  overflow-x: clip;
+  padding-top: 205px;
+  background: #ffffff;
 }
 
-.inner {
+.philosophy {
+  display: grid;
+  grid-template-columns: minmax(0, 665px) minmax(0, 620px);
+  gap: 151px;
+  align-items: start;
+  width: min(1436px, calc(100% - 48px));
+  margin: 0 auto 140px;
+}
+
+.philosophyHeading,
+.philosophyCopy p,
+.philosophyLead {
+  margin: 0;
+  color: #111827;
+  font-family: Pretendard, var(--font-family-base);
+}
+
+.philosophyHeading {
   display: flex;
-  gap: 250px;
-  align-items: flex-start;
-  width: min(1436px, calc(100vw - 48px));
+  flex-direction: column;
+  width: 665px;
+  font-size: 44px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+}
+
+.philosophyCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding-top: 80px;
+  font-size: 26px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.5;
+}
+
+.philosophyLead {
+  font-size: 32px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.5;
+}
+
+.directorPanel {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  min-height: 665px;
+  background: linear-gradient(90deg, rgba(194, 241, 234, 0.2) 0%, rgba(157, 226, 216, 0.2) 100%);
+}
+
+.directorPanel::after {
+  position: absolute;
+  right: calc(50% - 702px);
+  bottom: -88px;
+  width: 594px;
+  height: 387px;
+  border-radius: 999px;
+  content: '';
+  background: rgba(52, 178, 159, 0.16);
+  transform: rotate(-25deg);
+}
+
+.directorInner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 520px) minmax(360px, 470px);
+  gap: clamp(120px, 16vw, 344px);
+  align-items: center;
+  width: min(1216px, calc(100% - 48px));
+  min-height: 665px;
   margin: 0 auto;
 }
 
-.headingBlock {
-  position: sticky;
-  top: 88px;
+.directorCopy {
+  min-width: 0;
+}
+
+.directorNameRow {
   display: flex;
-  flex: 0 0 109px;
-  flex-direction: column;
-  gap: 18px;
-  width: 109px;
+  gap: 12px;
+  align-items: baseline;
 }
 
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 109px;
-  height: 36px;
-  padding: 7px 17px 8px;
-  border-radius: 50px;
-  color: var(--color-brand-main);
-  font-family: Pretendard, var(--font-family-base);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.96px;
-  line-height: 1.3;
-  white-space: nowrap;
-  background: var(--color-brand-lighten-50);
-}
-
-.heading {
-  width: 109px;
+.directorName,
+.directorRole {
   margin: 0;
-  color: var(--color-gray-900);
-  font-family: Pretendard, var(--font-family-base);
-  font-size: 60px;
-  font-weight: var(--font-weight-extrabold);
-  letter-spacing: var(--letter-spacing-normal);
-  line-height: 72px;
-  white-space: nowrap;
-}
-
-.statusPanel {
-  width: 544px;
-}
-
-.statusTitle,
-.statusDescription {
-  margin: 0;
+  color: #111827;
   font-family: Pretendard, var(--font-family-base);
   line-height: 1.3;
 }
 
-.statusTitle {
-  color: var(--color-gray-900);
-  font-size: 26px;
-  font-weight: var(--font-weight-bold);
+.directorName {
+  font-size: 38px;
+  font-weight: var(--font-weight-semibold);
 }
 
-.statusDescription {
-  margin-top: 16px;
-  color: var(--color-gray-600);
-  font-size: var(--font-size-lg);
+.directorRole {
+  font-size: 28px;
   font-weight: var(--font-weight-normal);
 }
 
-.timelineList {
-  display: flex;
-  flex: 0 0 1046px;
-  flex-direction: column;
-  gap: 136px;
-  width: 1046px;
-  padding: 0;
-  margin: 90px 0 0;
-  list-style: none;
-}
-
-.timelineItem {
-  display: flex;
-  gap: 80px;
-  align-items: center;
-  width: 832px;
-  min-height: 104px;
-
-  &:nth-child(even) {
-    margin-left: 214px;
-  }
-}
-
-.timelineYear {
-  flex: 0 0 208px;
-  width: 208px;
-  color: var(--color-brand-lighten-5);
+.careerList,
+.certificationList {
+  padding-left: 22px;
+  margin: 28px 0 0;
+  color: #111827;
   font-family: Pretendard, var(--font-family-base);
-  font-size: 80px;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--letter-spacing-normal);
-  line-height: 1.3;
-  text-align: right;
-  white-space: nowrap;
-  opacity: 0.5;
-}
-
-.timelineItem:last-child {
-  .timelineYear {
-    opacity: 0.8;
-  }
-}
-
-.timelineContent {
-  display: flex;
-  flex: 0 0 544px;
-  flex-direction: column;
-  gap: 16px;
-  width: 544px;
-}
-
-.timelineTitle,
-.timelineDescription {
-  display: -webkit-box;
-  overflow: hidden;
-  margin: 0;
-  font-family: Pretendard, var(--font-family-base);
-  letter-spacing: var(--letter-spacing-normal);
-  line-height: 1.3;
-  -webkit-box-orient: vertical;
-}
-
-.timelineTitle {
-  color: var(--color-gray-900);
-  font-size: 26px;
-  font-weight: var(--font-weight-bold);
-  -webkit-line-clamp: 1;
-}
-
-.timelineDescription {
-  color: var(--color-gray-600);
-  font-size: var(--font-size-lg);
+  font-size: 20px;
   font-weight: var(--font-weight-normal);
-  -webkit-line-clamp: 2;
+  line-height: 1.5;
+  list-style-position: outside;
+  list-style-type: disc;
+
+  span {
+    color: #34b29f;
+  }
+
+  li::marker {
+    color: #34b29f;
+    font-size: 0.72em;
+  }
 }
 
-.srOnly {
-  @include m.visually-hidden;
+.certificationTitle {
+  margin: 30px 0 0 31px;
+  color: #111827;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.5;
 }
 
-@media (width < 1280px) {
-  .inner {
-    display: block;
+.certificationList {
+  margin-top: 0;
+
+  span {
+    margin-left: 10px;
+    color: #4b5563;
   }
 
-  .headingBlock {
-    position: static;
-    margin-bottom: 72px;
+  li::marker {
+    color: #111827;
+  }
+}
+
+.directorImageWrap {
+  position: relative;
+  align-self: end;
+  width: min(100%, 470px);
+  height: 627px;
+}
+
+.directorImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+@media (width < 1024px) {
+  .section {
+    padding-top: 120px;
   }
 
-  .timelineList {
-    gap: 72px;
-    width: 100%;
-    margin-top: 0;
+  .philosophy,
+  .directorInner {
+    grid-template-columns: 1fr;
   }
 
-  .timelineItem,
-  .timelineItem:nth-child(even) {
-    width: min(100%, 832px);
-    margin-left: 0;
+  .directorInner {
+    gap: 56px;
+    padding-top: 80px;
+  }
+
+  .directorImageWrap {
+    justify-self: center;
   }
 }
 
 @media (width < 768px) {
-  .inner {
-    width: min(100%, calc(100vw - 32px));
+  .section {
+    padding-top: 88px;
   }
 
-  .heading {
-    font-size: 42px;
-    line-height: 52px;
+  .philosophy,
+  .directorInner {
+    width: min(100%, calc(100% - 32px));
   }
 
-  .timelineList {
-    gap: 42px;
+  .philosophy {
+    gap: 32px;
+    margin-bottom: 80px;
   }
 
-  .timelineItem,
-  .timelineItem:nth-child(even) {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    min-height: auto;
+  .philosophyHeading {
+    font-size: 30px;
   }
 
-  .timelineYear {
-    width: auto;
-    font-size: 52px;
-    text-align: left;
+  .philosophyCopy,
+  .philosophyLead {
+    font-size: 20px;
   }
 
-  .timelineContent {
-    width: 100%;
-  }
-
-  .timelineTitle {
-    font-size: 22px;
-  }
-
-  .timelineDescription {
-    font-size: var(--font-size-base);
+  .directorImageWrap {
+    height: auto;
+    aspect-ratio: 470 / 627;
   }
 }

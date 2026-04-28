@@ -230,6 +230,45 @@
   align-content: start;
 }
 
+.practicumStageCard {
+  gap: 24px;
+  padding-bottom: 34px;
+  align-content: start;
+}
+
+.practicumStageCard .notesPanel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.practicumStageCard .practicumWorkspace {
+  gap: 0;
+}
+
+.practicumStageCard .practicumCalendarPanel {
+  padding: 28px 38px 42px;
+  border: 0;
+  border-radius: 20px;
+}
+
+.practicumStageCard .practicumCalendarHeader {
+  padding: 0 0 28px;
+}
+
+.practicumStageCard .practicumCalendarWeekdays {
+  border: 0;
+  margin-bottom: 16px;
+}
+
+.practicumStageCard .practicumCalendarGrid {
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 16px;
+}
+
 .quizStageHeader {
   min-height: 83px;
   align-items: start;
@@ -409,8 +448,8 @@
 }
 
 .resourcePlayerShell {
-  width: min(calc(100% + 20px), 1360px);
-  max-width: 1360px;
+  width: 100%;
+  max-width: none;
   background: transparent;
 }
 
@@ -438,11 +477,24 @@
 }
 
 .playerElement {
+  position: relative;
+  z-index: 0;
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;
+  object-fit: contain;
   background: #0a0f17;
+}
+
+.playerPosterImage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #0a0f17;
+  pointer-events: none;
 }
 
 .playerFrame::after {
@@ -565,6 +617,49 @@
 .playerTimeline {
   position: relative;
   height: 14px;
+}
+
+.playerTimelineInput {
+  position: absolute;
+  inset: -8px 0;
+  z-index: 1;
+  width: 100%;
+  height: 30px;
+  padding: 0;
+  margin: 0;
+  appearance: none;
+  cursor: pointer;
+  background: transparent;
+}
+
+.playerTimelineInput::-webkit-slider-runnable-track {
+  height: 30px;
+  background: transparent;
+}
+
+.playerTimelineInput::-webkit-slider-thumb {
+  width: 24px;
+  height: 30px;
+  appearance: none;
+  background: transparent;
+}
+
+.playerTimelineInput::-moz-range-track {
+  height: 30px;
+  background: transparent;
+}
+
+.playerTimelineInput::-moz-range-thumb {
+  width: 24px;
+  height: 30px;
+  border: 0;
+  background: transparent;
+}
+
+.playerTimelineInput:focus-visible {
+  outline: 2px solid rgb(58 197 176 / 70%);
+  outline-offset: 6px;
+  border-radius: 999px;
 }
 
 .playerTimelineTrack,
@@ -1418,6 +1513,7 @@
 .lessonLink {
   grid-template-columns: 20px minmax(0, 1fr);
   gap: 8px;
+  align-items: start;
   min-height: 128px;
   padding: 12px 12px 12px 11px;
   border: 1px solid #d1d5db;
@@ -1464,9 +1560,11 @@
 }
 
 .lessonStatusIcon {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 20px;
   height: 20px;
   margin-top: 3px;
@@ -1489,7 +1587,6 @@
 .lessonStatusIconCompleted {
   border-color: var(--color-primary);
   background-color: var(--color-primary);
-  position: relative;
 }
 
 .lessonStatusIconCompleted::after {
@@ -1519,6 +1616,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  min-height: 26px;
 }
 
 .lessonTitleRow {
@@ -1640,8 +1738,8 @@
 .resourceBoard {
   display: grid;
   align-content: start;
-  width: 1360px;
-  height: 779px;
+  width: 100%;
+  min-height: 100%;
   overflow: hidden;
   border-radius: 20px;
   background: #ffffff;
@@ -1650,25 +1748,29 @@
 
 .resourceBoardViewport {
   width: 100%;
-  height: 779px;
-  overflow: auto hidden;
+  aspect-ratio: 1360 / 779;
+  overflow: hidden;
   border-radius: 20px;
 }
 
 .resourceBoardHeader,
 .resourceBoardRow {
   display: grid;
-  grid-template-columns: 730px 76px 322px 138px;
+  grid-template-columns:
+    minmax(0, 730fr)
+    minmax(64px, 76fr)
+    minmax(132px, 322fr)
+    minmax(118px, 138fr);
   gap: 0;
   align-items: center;
 }
 
 .resourceBoardHeader {
-  min-height: 95px;
-  padding: 0 60px 0 34px;
+  min-height: clamp(76px, 6.9853cqw, 95px);
+  padding: 0 clamp(20px, 4.4118cqw, 60px) 0 clamp(18px, 2.5cqw, 34px);
   border-bottom: 1px solid #d1d5db;
   color: #374151;
-  font-size: 18px;
+  font-size: clamp(15px, 1.3235cqw, 18px);
   font-weight: var(--font-weight-regular);
   line-height: 1.35;
 }
@@ -1695,8 +1797,8 @@
   justify-items: center;
   align-content: center;
   gap: 13px;
-  min-height: 684px;
-  padding-bottom: 70px;
+  min-height: clamp(420px, 50.2941cqw, 684px);
+  padding-bottom: clamp(32px, 5.1471cqw, 70px);
   color: #000000;
   text-align: center;
 }
@@ -1724,8 +1826,8 @@
 }
 
 .resourceBoardRow {
-  min-height: 104px;
-  padding: 0 60px 0 34px;
+  min-height: clamp(82px, 7.6471cqw, 104px);
+  padding: 0 clamp(20px, 4.4118cqw, 60px) 0 clamp(18px, 2.5cqw, 34px);
   border-bottom: 1px solid #d1d5db;
 }
 
@@ -1735,7 +1837,7 @@
 
 .resourceFileCell {
   display: grid;
-  grid-template-columns: 144px minmax(0, 1fr);
+  grid-template-columns: clamp(94px, 10.5882cqw, 144px) minmax(0, 1fr);
   align-items: center;
   min-width: 0;
 }
@@ -1745,14 +1847,14 @@
   align-items: center;
   justify-content: center;
   justify-self: start;
-  min-width: 64px;
-  min-height: 40px;
-  margin-left: 26px;
-  padding: 8px 16px;
+  min-width: clamp(52px, 4.7059cqw, 64px);
+  min-height: clamp(34px, 2.9412cqw, 40px);
+  margin-left: clamp(0px, 1.9118cqw, 26px);
+  padding: 8px clamp(12px, 1.1765cqw, 16px);
   border-radius: 8px;
   background: #f3f4f6;
   color: #374151;
-  font-size: 18px;
+  font-size: clamp(14px, 1.3235cqw, 18px);
   font-weight: var(--font-weight-medium);
   line-height: 1.3;
 }
@@ -1761,7 +1863,7 @@
   min-width: 0;
   overflow: hidden;
   color: #000000;
-  font-size: 22px;
+  font-size: clamp(16px, 1.6176cqw, 22px);
   font-weight: var(--font-weight-semibold);
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -1773,7 +1875,7 @@
 .resourceBoardDate {
   margin: 0;
   color: #000000;
-  font-size: 18px;
+  font-size: clamp(14px, 1.3235cqw, 18px);
   font-weight: var(--font-weight-regular);
   line-height: 1.35;
   white-space: nowrap;
@@ -1797,15 +1899,15 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 133px;
-  height: 52px;
+  width: clamp(108px, 9.7794cqw, 133px);
+  height: clamp(44px, 3.8235cqw, 52px);
   border: 1px solid #34b29f;
   border-radius: 10px;
   background: #ffffff;
   color: #34b29f;
   cursor: pointer;
   font: inherit;
-  font-size: 18px;
+  font-size: clamp(15px, 1.3235cqw, 18px);
   font-weight: var(--font-weight-semibold);
   line-height: 1;
   transition:
@@ -2283,6 +2385,7 @@
   background: #10161e;
 
   span {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
@@ -2296,17 +2399,29 @@
     content: '';
     width: 17px;
     height: 17px;
+    flex-shrink: 0;
     border-radius: 999px;
     background: #34b29f;
   }
 
   span[data-tone='reserved']::before {
     background: #34b29f;
-    box-shadow: inset 0 0 0 4px #34b29f;
+  }
+
+  span[data-tone='reserved']::after {
+    position: absolute;
+    top: 50%;
+    left: 5px;
+    width: 5px;
+    height: 9px;
+    border-right: 2px solid #ffffff;
+    border-bottom: 2px solid #ffffff;
+    content: '';
+    transform: translateY(-58%) rotate(45deg);
   }
 
   span[data-tone='absent']::before {
-    background: #d1d5db;
+    background: #6b7280;
   }
 
   span[data-tone='disabled']::before {
@@ -2550,6 +2665,197 @@
   color: #0e6f4d;
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.practicumReservationModal {
+  width: min(643px, calc(100vw - 32px));
+  max-height: min(90vh, 615px);
+  overflow: hidden;
+  border: 0;
+  border-radius: 28px;
+  box-shadow: none;
+}
+
+.practicumReservationModalTitle {
+  color: #111827;
+  font-size: 24px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: normal;
+}
+
+.practicumReservationModalClose {
+  width: 30px;
+  height: 30px;
+  border-radius: 0;
+  background: transparent;
+  color: #111827;
+  font-size: 34px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1;
+}
+
+.practicumReservationModalClose:hover,
+.practicumReservationModalClose:focus-visible {
+  background: transparent;
+  color: #111827;
+  outline: 2px solid rgb(52 178 159 / 35%);
+  outline-offset: 2px;
+}
+
+.practicumReservationModalBody {
+  padding: 0 34px 34px;
+}
+
+.practicumReservationModalContent {
+  display: grid;
+  gap: 28px;
+}
+
+.practicumReservationModalQuestion {
+  margin: 0;
+  color: #111827;
+  font-size: 24px;
+  font-weight: var(--font-weight-semibold);
+  line-height: normal;
+}
+
+.practicumReservationDateCard {
+  display: grid;
+  grid-template-columns: 24px auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  min-height: 68px;
+  padding: 0 23px;
+  border-radius: 10px;
+  background: #ecf9f7;
+  color: #111827;
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
+  line-height: normal;
+}
+
+.practicumReservationDateCard strong {
+  min-width: 0;
+  font: inherit;
+}
+
+.practicumReservationCalendarIcon {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  color: #34b29f;
+}
+
+.practicumReservationCalendarIcon::before {
+  position: absolute;
+  inset: 4px 3px 3px;
+  border: 2px solid currentcolor;
+  border-radius: 2px;
+  content: '';
+}
+
+.practicumReservationCalendarIcon::after {
+  position: absolute;
+  top: 8px;
+  right: 3px;
+  left: 3px;
+  height: 2px;
+  background: currentcolor;
+  box-shadow:
+    4px -5px 0 -1px currentcolor,
+    14px -5px 0 -1px currentcolor;
+  content: '';
+}
+
+.practicumReservationTimeGroup {
+  display: grid;
+  gap: 22px;
+}
+
+.practicumReservationTimeLabel {
+  margin: 0;
+  color: #374151;
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
+  line-height: normal;
+}
+
+.practicumReservationTimeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  max-height: 190px;
+  overflow: hidden auto;
+  padding-right: 4px;
+}
+
+.practicumReservationTimeButton {
+  min-height: 68px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  font: inherit;
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
+  line-height: normal;
+  text-align: center;
+}
+
+.practicumReservationTimeButton[data-selected='true'] {
+  border-color: #34b29f;
+  background: #ecf9f7;
+  color: #34b29f;
+}
+
+.practicumReservationTimeButton:disabled {
+  cursor: not-allowed;
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.practicumReservationTimeButton:not(:disabled):hover,
+.practicumReservationTimeButton:not(:disabled):focus-visible {
+  border-color: #34b29f;
+  outline: 0;
+}
+
+.practicumReservationModalActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 17px;
+  margin-top: 24px;
+}
+
+.practicumReservationCancelButton,
+.practicumReservationConfirmButton {
+  min-height: 70px;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 24px;
+  font-weight: var(--font-weight-semibold);
+  line-height: normal;
+}
+
+.practicumReservationCancelButton {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+}
+
+.practicumReservationConfirmButton {
+  border: 1px solid #34b29f;
+  background: #34b29f;
+  color: #ffffff;
+}
+
+.practicumReservationConfirmButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .quizWorkspace {
@@ -3217,6 +3523,51 @@
   .practicumCalendarEmptyCell,
   .practicumCalendarDay {
     min-height: 104px;
+  }
+
+  .resourceBoardViewport {
+    aspect-ratio: auto;
+  }
+
+  .resourceBoard {
+    min-height: auto;
+  }
+
+  .resourceBoardHeader {
+    display: none;
+  }
+
+  .resourceBoardRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    min-height: auto;
+    padding: 18px;
+  }
+
+  .resourceFileCell {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .resourceFileType {
+    margin-left: 0;
+  }
+
+  .resourceBoardTitle {
+    white-space: normal;
+  }
+
+  .resourceBoardSize,
+  .resourceBoardDate {
+    text-align: left;
+  }
+
+  .resourceBoardActions {
+    justify-content: stretch;
+  }
+
+  .resourceDownloadButton {
+    width: 100%;
   }
 
   .settingsPanel {

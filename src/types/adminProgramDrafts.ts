@@ -19,8 +19,6 @@ export interface AdminProgramDraftBasicInfo {
   checklists: string[];
   description: string | null;
   faqs: AdminProgramFaqItem[];
-  instructorBio: string | null;
-  instructorName: string | null;
   learningEndAt: string | null;
   learningPoints: string[];
   learningOutcomes: AdminProgramSummaryInfoItem[];
@@ -98,6 +96,7 @@ export interface AdminProgramDraftProblem {
   lectureKey: string;
   passScore: number | null;
   questions: AdminProgramDraftProblemQuestion[];
+  timeLimitSeconds?: number | null;
   title: string | null;
 }
 

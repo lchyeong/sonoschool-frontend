@@ -1,107 +1,389 @@
+.page {
+  min-height: calc(100vh - 92px);
+  padding: 112px 20px 140px;
+  background: #ffffff;
+}
+
+.shell {
+  width: min(100%, 1316px);
+  margin: 0 auto;
+}
+
 .surface {
   display: grid;
-  gap: var(--space-7);
-  padding: 0;
-  background: transparent;
-  border: 0;
 }
 
 .hero {
   display: grid;
-  gap: var(--space-4);
   justify-items: center;
   text-align: center;
 }
 
+.statusHero {
+  padding-top: 0;
+}
+
 .heroIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: #ecf9f7;
+}
+
+.heroIcon img {
   width: 48px;
   height: 48px;
-  object-fit: contain;
 }
 
-.detailGrid {
+.heroTitle {
+  margin: 35px 0 0;
+  color: #111827;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.heroDescription {
+  margin: 22px 0 0;
+  color: #374151;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.heroDescriptionLine {
+  display: block;
+}
+
+.primaryHeroAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 297px;
+  min-height: 76px;
+  margin-top: 29px;
+  border-radius: 12px;
+  color: #ffffff;
+  background: #34b29f;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.statusPanel {
   display: grid;
-  gap: var(--space-4);
+  gap: 24px;
+  width: min(100%, 536px);
+  min-height: 227px;
+  margin: 58px auto 0;
+  padding: 29px 32px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #ffffff;
 }
 
-.detailItem {
+.statusPanelRow {
   display: grid;
-  gap: 6px;
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid rgb(15 23 42 / 8%);
+  grid-template-columns: 154px minmax(0, 1fr);
+  align-items: center;
+  color: #374151;
+  font-size: 18px;
+  line-height: 1.3;
 }
 
-.detailItem:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
+.statusPanelRow span {
+  font-weight: 500;
 }
 
-.detailLabel {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.statusPanelRow strong {
+  color: #111827;
+  font-weight: 400;
 }
 
-.detailValue {
-  color: var(--color-text-primary);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-relaxed);
+.statusPanelHelper {
+  margin: -4px 0 0 154px;
+  color: #6b7280;
+  font-size: 15px;
+  line-height: 1.4;
 }
 
-.detailValueMuted {
-  color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
+.paymentPanel,
+.coursesPanel {
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.paymentPanel {
+  min-height: 253px;
+  margin-top: 68px;
+  padding: 28px 33px;
+}
+
+.coursesPanel {
+  min-height: 420px;
+  margin-top: 26px;
+  padding: 26px 33px 34px;
+}
+
+.panelTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.paymentInfoGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px 72px;
+  margin-top: 29px;
+}
+
+.paymentInfoItem {
+  display: grid;
+  grid-template-columns: 204px minmax(0, 1fr);
+  align-items: center;
+  min-height: 26px;
+  color: #374151;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.paymentInfoItem span {
+  font-weight: 500;
+}
+
+.paymentInfoItem strong {
+  font-weight: 400;
+}
+
+.paymentAmount {
+  color: #34b29f;
+  font-size: 26px;
+  font-weight: 700 !important;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 37px;
+  padding: 0 20px;
+  border-radius: 100px;
+  color: #34b29f;
+  background: #ecf9f7;
+  font-size: 16px;
+  font-weight: 500 !important;
+}
+
+.coursesPanel .panelTitle {
+  margin-bottom: 34px;
+}
+
+.courseRow {
+  display: grid;
+  grid-template-columns: 172px minmax(0, 1fr) 156px;
+  gap: 16px;
+  align-items: start;
+  min-height: 150px;
+}
+
+.courseRow + .courseRow {
+  padding-top: 26px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.courseThumbnail {
+  width: 172px;
+  height: 124px;
+  border-radius: 12px;
+  background: #e5e7eb;
+}
+
+.courseBody {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.courseTypeChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 40px;
+  color: #34b29f;
+  background: #ecf9f7;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.courseTitle {
+  display: block;
+  width: min(100%, 520px);
+  color: #111827;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.courseMeta {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin: 14px 0 0;
+  color: #374151;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.courseMeta span + span {
+  color: #6b7280;
+}
+
+.coursePrice {
+  padding-top: 49px;
+  color: #111827;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: right;
 }
 
 .actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: 16px;
+  justify-content: center;
+  margin-top: 38px;
 }
 
-.actions :global(a) {
+.actions a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  padding: 0 18px;
-  border-radius: var(--radius-full);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+  width: 297px;
+  min-height: 76px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  color: #6b7280;
+  background: #ffffff;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
   text-decoration: none;
-  background: rgb(15 23 42 / 4%);
 }
 
-.actions :global(a:hover) {
-  background: rgb(15 23 42 / 8%);
+.statusActions {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 536px);
+  margin: 50px auto 0;
 }
 
-.actions :global(a[href^='http']) {
+.statusActions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 76px;
+  border-radius: 12px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.statusPrimaryAction {
+  border: 1px solid #34b29f;
   color: #ffffff;
-  background: var(--color-sub-brand-main);
+  background: #34b29f;
 }
 
-.actions :global(a[href^='http']:hover) {
-  background: color-mix(in srgb, var(--color-sub-brand-main) 88%, black);
+.statusSecondaryAction {
+  border: 1px solid #34b29f;
+  color: #34b29f;
+  background: #ffffff;
 }
 
 .helperText {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-relaxed);
+  margin: 18px 0 0;
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
-@media (width < 768px) {
+@media (width < 860px) {
+  .page {
+    padding: 72px 16px 96px;
+  }
+
+  .heroTitle {
+    font-size: 32px;
+  }
+
+  .heroDescription {
+    font-size: 17px;
+    white-space: normal;
+  }
+
+  .paymentPanel,
+  .coursesPanel {
+    padding: 24px 20px;
+  }
+
+  .paymentInfoGrid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .paymentInfoItem {
+    grid-template-columns: 112px minmax(0, 1fr);
+    font-size: 16px;
+  }
+
+  .statusPanel {
+    padding: 24px 20px;
+  }
+
+  .statusPanelRow {
+    grid-template-columns: 104px minmax(0, 1fr);
+    font-size: 16px;
+  }
+
+  .statusPanelHelper {
+    margin-left: 104px;
+  }
+
+  .courseRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .courseThumbnail {
+    width: min(100%, 220px);
+    height: 158px;
+  }
+
+  .coursePrice {
+    padding-top: 0;
+    text-align: left;
+  }
+
   .actions {
     display: grid;
   }
 
-  .actions :global(a) {
+  .actions a,
+  .primaryHeroAction {
     width: 100%;
   }
 }

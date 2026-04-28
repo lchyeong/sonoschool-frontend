@@ -18,6 +18,7 @@ const homeHeroLectureSlideSchema = z.object({
   description: z.string().min(1),
   thumbnailSrc: z.string().min(1),
   thumbnailAlt: z.string().min(1),
+  backgroundSrc: z.string().min(1).optional(),
 });
 
 const homeHeroSlidesResponseSchema = z.object({

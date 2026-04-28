@@ -31,9 +31,13 @@ const ScrollToTopOnPathChange = () => {
 
 const RootLayout = () => {
   const matches = useMatches() as Array<{ handle?: AppRouteHandle }>;
-  const fullBleedRouteKeys = new Set<AppRouteKey>(['learningLesson']);
+  const fullBleedRouteKeys = new Set<AppRouteKey>(['home', 'learningLesson']);
+  const headerlessRouteKeys = new Set<AppRouteKey>(['learningLesson']);
   const isFullBleed = matches.some((match) => {
     return Boolean(match.handle && fullBleedRouteKeys.has(match.handle.routeKey));
+  });
+  const isHeaderless = matches.some((match) => {
+    return Boolean(match.handle && headerlessRouteKeys.has(match.handle.routeKey));
   });
   const shouldRenderNoticePopup = matches.some((match) => {
     return Boolean(match.handle && match.handle.routeKey === 'home');
@@ -43,7 +47,7 @@ const RootLayout = () => {
     <div className={styles['layout']}>
       <ScrollToTopOnPathChange />
 
-      {!isFullBleed ? (
+      {!isHeaderless ? (
         <CommonHeader
           LinkComponent={Link}
           logo={{ imageSrc: '/SRDMS_logo_2x.png', label: env.appName, to: routePaths.home }}
@@ -54,7 +58,7 @@ const RootLayout = () => {
         <Outlet />
       </main>
 
-      {!isFullBleed ? <CommonFooter /> : null}
+      {!isHeaderless ? <CommonFooter /> : null}
       {shouldRenderNoticePopup ? <GlobalNoticePopup /> : null}
     </div>
   );

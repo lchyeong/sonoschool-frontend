@@ -1,38 +1,48 @@
 .viewport {
   position: fixed;
   right: var(--space-4);
-  bottom: var(--space-4);
+  top: 20px;
   z-index: var(--z-index-toast);
   display: grid;
   gap: var(--space-3);
-  width: min(420px, calc(100vw - var(--space-8)));
+  width: min(460px, calc(100vw - var(--space-8)));
 }
 
 .toast {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-3);
-  align-items: start;
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 110px;
+  padding: 20px 28px;
+  border-radius: 10px;
   border: 1px solid var(--color-border);
   background: var(--color-bg-primary);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .message {
   color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.65;
+  white-space: pre-line;
 }
 
 .closeButton {
-  border-radius: var(--radius-md);
-  padding: var(--space-2);
-  color: var(--color-text-tertiary);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: var(--font-weight-medium);
+  background: transparent;
 }
 
 .closeButton:hover {
   color: var(--color-text-primary);
-  background: var(--color-bg-secondary);
+  text-decoration: underline;
+  background: transparent;
 }
 
 .variantInfo {
@@ -44,5 +54,19 @@
 }
 
 .variantError {
-  border-color: var(--color-error-500);
+  border-color: #ff333a;
+}
+
+.errorIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ff333a;
+  border-radius: 50%;
+  color: #ff333a;
+  font-size: 17px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
 }

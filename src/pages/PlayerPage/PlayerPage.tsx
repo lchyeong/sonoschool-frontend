@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import type {
+  ChangeEvent as ReactChangeEvent,
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
@@ -35,6 +36,7 @@ import iconFullscreen from '@/assets/icons/lucide_fullscreen.svg';
 import iconPlay from '@/assets/icons/lucide_play.svg';
 import iconVolume from '@/assets/icons/lucide_volume-2.svg';
 import iconCurrentLessonIndicator from '@/assets/icons/player-current-indicator.svg';
+import Modal from '@/components/overlay/Modal/Modal';
 import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import Button from '@/components/ui/Button/Button';
 import { getPlayerMockQueryKeySegment } from '@/mocks/player/runtime';
@@ -121,14 +123,14 @@ const PLAYER_CONTROLS_AUTO_HIDE_MS = 2400;
 const LESSON_TYPE_LABELS: Record<ProgramCurriculumLessonDeliveryType, string> = {
   offline: '오프라인 강의',
   online: '동영상 강의',
-  practicum: '실습 예약 강의',
+  practicum: '실습예약',
   problem: '문제 풀이 강의',
   resource: '첨부파일 강의',
 };
 const PLAYER_LESSON_TYPE_LABELS: Record<ProgramCurriculumLessonDeliveryType, string> = {
   offline: '오프라인',
   online: '영상',
-  practicum: '실습',
+  practicum: '실습예약',
   problem: '문제풀이',
   resource: '첨부파일',
 };
@@ -189,20 +191,48 @@ const buildQualityOptions = (
 
 const createProtectedHlsLoader = (hlsKeyUrl: string): HlsLoaderConstructor => {
   const DefaultLoader = Hls.DefaultConfig.loader;
+  const isEncryptedHlsKeyRequest = (url: string) => {
+    try {
+      return new URL(url, window.location.origin).pathname.endsWith('/enc.key');
+    } catch {
+      return url.endsWith('/enc.key') || url === 'enc.key';
+    }
+  };
 
   return class ProtectedHlsLoader extends DefaultLoader {
     override load: HlsLoaderInstance['load'] = (context, config, callbacks) => {
-      const nextContext =
-        'type' in context && context.type === 'key'
-          ? {
-              ...context,
-              url: hlsKeyUrl,
-            }
-          : context;
+      const shouldUseProtectedKeyUrl =
+        ('type' in context && context.type === 'key') || isEncryptedHlsKeyRequest(context.url);
+      const nextContext = shouldUseProtectedKeyUrl
+        ? {
+            ...context,
+            url: hlsKeyUrl,
+          }
+        : context;
 
       super.load(nextContext, config, callbacks);
     };
   };
+};
+
+const normalizeProtectedHlsKeyUrl = (hlsKeyUrl: string): string => {
+  if (!hlsKeyUrl || typeof window === 'undefined') {
+    return hlsKeyUrl;
+  }
+
+  try {
+    const isRootRelativeUrl = hlsKeyUrl.startsWith('/');
+    const parsed = new URL(hlsKeyUrl, window.location.origin);
+    if (window.location.protocol === 'https:' && parsed.protocol === 'http:') {
+      parsed.protocol = 'https:';
+    }
+    if (isRootRelativeUrl) {
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+    return parsed.toString();
+  } catch {
+    return hlsKeyUrl;
+  }
 };
 
 const buildPlaybackRequestPrefix = (streamUrl: string): string | null => {
@@ -569,11 +599,11 @@ const getLessonMetaItems = (lesson: ProgramCurriculumLesson) => {
   return lesson.description?.trim() ? [lesson.description.trim()] : [];
 };
 
-const formatPracticumSummaryDateTime = (value: string) => {
+const formatPracticumReservationDateTime = (value: string) => {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return '예약';
+    return '예약 날짜 확인';
   }
 
   return date.toLocaleString('ko-KR', {
@@ -581,7 +611,24 @@ const formatPracticumSummaryDateTime = (value: string) => {
     hour: '2-digit',
     minute: '2-digit',
     month: 'numeric',
+    year: 'numeric',
   });
+};
+
+const formatPracticumModalDate = (value: string) => {
+  const date = new Date(`${value}T00:00:00+09:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return formatDate(value);
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Asia/Seoul',
+    weekday: 'short',
+    year: 'numeric',
+  }).format(date);
 };
 
 const sortPracticumSlots = (slots: PracticumSlot[]) => {
@@ -598,6 +645,11 @@ type PracticumSidebarStateTone = 'completed' | 'cta' | 'noshow' | 'scheduled';
 interface PracticumSidebarState {
   label: string;
   tone: PracticumSidebarStateTone;
+}
+
+interface PendingPracticumSlot {
+  mode: 'move' | 'reserve';
+  slot: PracticumSlot;
 }
 
 const getPracticumReservationKind = (reservation: PracticumReservation) => {
@@ -671,7 +723,7 @@ const resolvePracticumLessonBadgeLabel = (
     return '실습 완료';
   }
 
-  return `${formatPracticumSummaryDateTime(latestReservation.startAt)} 예약`;
+  return `예약 날짜 ${formatPracticumReservationDateTime(latestReservation.startAt)}`;
 };
 
 const getPracticumDefaultMonthValue = (lecture: EnrollmentPracticumLecture | null) => {
@@ -788,6 +840,7 @@ const PlayerPage = () => {
   const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
   const [currentPlaybackSeconds, setCurrentPlaybackSeconds] = useState(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [arePlayerControlsVisible, setArePlayerControlsVisible] = useState(true);
   const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
@@ -809,6 +862,9 @@ const PlayerPage = () => {
     null,
   );
   const [quizReviewMode, setQuizReviewMode] = useState(false);
+  const [pendingPracticumSlot, setPendingPracticumSlot] = useState<PendingPracticumSlot | null>(
+    null,
+  );
   const [practicumMonthValue, setPracticumMonthValue] = useState(() => toMonthValue(new Date()));
   const [practicumSelectedDateValue, setPracticumSelectedDateValue] = useState(() =>
     toDateInputValue(new Date()),
@@ -897,7 +953,10 @@ const PlayerPage = () => {
     ? (lessonProgressByLessonId[selectedLesson.id] ?? null)
     : null;
   const selectedLessonHasStream =
-    isLessonItem && !selectedItemLocked && selectedSource?.mimeType === 'application/x-mpegURL';
+    isLessonItem &&
+    !selectedItemLocked &&
+    selectedLesson?.deliveryType === 'online' &&
+    selectedSource?.mimeType === 'application/x-mpegURL';
   const shouldResumeCurrentLesson =
     isLessonItem &&
     !selectedItemLocked &&
@@ -914,6 +973,7 @@ const PlayerPage = () => {
     enrollmentState?.active &&
     isLessonItem &&
     !selectedItemLocked &&
+    selectedLesson?.deliveryType === 'online' &&
     selectedSource !== null &&
     selectedSource.mimeType === 'application/x-mpegURL'
       ? selectedSource.lectureId
@@ -1086,6 +1146,7 @@ const PlayerPage = () => {
       });
     },
     onSuccess: async () => {
+      setPendingPracticumSlot(null);
       await queryClient.invalidateQueries({
         queryKey: myEnrollmentPracticumQueryKey(resolvedEnrollmentId),
       });
@@ -1105,6 +1166,7 @@ const PlayerPage = () => {
       });
     },
     onSuccess: async () => {
+      setPendingPracticumSlot(null);
       await queryClient.invalidateQueries({
         queryKey: myEnrollmentPracticumQueryKey(resolvedEnrollmentId),
       });
@@ -1173,6 +1235,7 @@ const PlayerPage = () => {
     playerDurationSeconds > 0
       ? Math.min(100, Math.max(0, (currentPlaybackSeconds / playerDurationSeconds) * 100))
       : 0;
+  const shouldShowPlayerPoster = Boolean(selectedSource?.posterUrl) && !hasStartedPlayback;
   const qnaContext = snapshot?.qnaContext ?? null;
   const qnaProgramId = enrollmentState?.programId ?? qnaContext?.programId ?? null;
   const practicumLectures = useMemo(() => {
@@ -1231,6 +1294,18 @@ const PlayerPage = () => {
     ? practicumSelectedDateValue
     : `${practicumMonthValue}-01`;
   const practicumSelectedDateSlots = practicumSlotsByDate.get(practicumSelectedDate) ?? [];
+  const selectedPendingPracticumSlotId = pendingPracticumSlot?.slot.id ?? null;
+  const currentPracticumReservationKind = practicumCurrentReservation
+    ? getPracticumReservationKind(practicumCurrentReservation)
+    : null;
+  const activeScheduledReservation =
+    practicumCurrentReservation && currentPracticumReservationKind === 'scheduled'
+      ? practicumCurrentReservation
+      : null;
+  const isPracticumMutationPending =
+    reservePracticumMutation.isPending ||
+    cancelPracticumMutation.isPending ||
+    movePracticumMutation.isPending;
   const updatePracticumMonth = useCallback((nextMonthValue: string) => {
     setPracticumMonthValue(nextMonthValue);
     setPracticumSelectedDateValue((current) =>
@@ -1823,7 +1898,7 @@ const PlayerPage = () => {
   useEffect(() => {
     const videoElement = videoRef.current;
     const playbackSessionToken = protectedStream?.playbackSessionToken ?? '';
-    const selectedHlsKeyUrl = protectedStream?.hlsKeyUrl ?? '';
+    const selectedHlsKeyUrl = normalizeProtectedHlsKeyUrl(protectedStream?.hlsKeyUrl ?? '');
     const selectedStreamUrl = protectedStream?.hlsUrl ?? '';
     const playbackRequestPrefix = buildPlaybackRequestPrefix(selectedStreamUrl);
 
@@ -1901,6 +1976,7 @@ const PlayerPage = () => {
     };
 
     const handlePlay = () => {
+      setHasStartedPlayback(true);
       setIsVideoPlaying(true);
       scheduleProgressTimer();
     };
@@ -1990,6 +2066,10 @@ const PlayerPage = () => {
   ]);
 
   useEffect(() => {
+    setHasStartedPlayback(false);
+  }, [selectedLesson?.id]);
+
+  useEffect(() => {
     if (!selectedLessonHasStream) {
       clearPlayerControlsHideTimer();
       setArePlayerControlsVisible(true);
@@ -2062,6 +2142,61 @@ const PlayerPage = () => {
 
     videoElement.muted = !videoElement.muted;
     setIsVideoMuted(videoElement.muted || videoElement.volume === 0);
+    revealPlayerControls();
+  };
+
+  const openPracticumReservationModal = (slot: PracticumSlot) => {
+    if (!selectedPracticumLecture?.eligible || !isPracticumSlotReservable(slot)) {
+      return;
+    }
+
+    setPendingPracticumSlot({
+      mode: activeScheduledReservation ? 'move' : 'reserve',
+      slot,
+    });
+  };
+
+  const confirmPracticumReservation = () => {
+    if (!pendingPracticumSlot || !selectedPracticumLecture) {
+      return;
+    }
+
+    if (pendingPracticumSlot.mode === 'move' && activeScheduledReservation) {
+      movePracticumMutation.mutate({
+        reservationId: activeScheduledReservation.id,
+        slotId: pendingPracticumSlot.slot.id,
+      });
+      return;
+    }
+
+    reservePracticumMutation.mutate({
+      lectureId: selectedPracticumLecture.lectureId,
+      slotId: pendingPracticumSlot.slot.id,
+    });
+  };
+
+  const seekToPlaybackSeconds = (nextPlaybackSeconds: number) => {
+    const videoElement = videoRef.current;
+    const clampedPlaybackSeconds = Math.min(
+      Math.max(nextPlaybackSeconds, 0),
+      playerDurationSeconds || nextPlaybackSeconds,
+    );
+
+    setCurrentPlaybackSeconds(clampedPlaybackSeconds);
+
+    if (!videoElement || !selectedLessonHasStream) {
+      return;
+    }
+
+    try {
+      videoElement.currentTime = clampedPlaybackSeconds;
+    } catch {
+      // 일부 브라우저는 메타데이터 준비 전 seek를 거부할 수 있습니다.
+    }
+  };
+
+  const handleTimelineChange = (event: ReactChangeEvent<HTMLInputElement>) => {
+    seekToPlaybackSeconds(Number(event.currentTarget.value));
     revealPlayerControls();
   };
 
@@ -2237,40 +2372,24 @@ const PlayerPage = () => {
     return <img alt={alt} className={className} src={resolvedMediaUrl} />;
   };
 
+  const renderPracticumLegend = () => (
+    <div className={styles['practicumCalendarLegend']} aria-label='실습 예약 상태'>
+      <span data-tone='available'>예약가능</span>
+      <span data-tone='reserved'>예약됨</span>
+      <span data-tone='absent'>불참</span>
+      <span data-tone='disabled'>예약불가</span>
+    </div>
+  );
+
   const renderPracticumPanel = () => {
     if (!isPracticumLesson) {
       return null;
     }
 
     const practicumSidebarState = resolvePracticumSidebarState(selectedPracticumLecture);
-    const currentReservationKind = practicumCurrentReservation
-      ? getPracticumReservationKind(practicumCurrentReservation)
-      : null;
-    const activeScheduledReservation =
-      practicumCurrentReservation && currentReservationKind === 'scheduled'
-        ? practicumCurrentReservation
-        : null;
-    const isPracticumMutationPending =
-      reservePracticumMutation.isPending ||
-      cancelPracticumMutation.isPending ||
-      movePracticumMutation.isPending;
-
     return (
       <section className={styles['notesPanel']}>
-        <div className={styles['notesHeader']}>
-          <div className={styles['stageCopy']}>
-            <p className={styles['stageEyebrow']}>PRACTICUM</p>
-            <h2 className={styles['workspaceTitle']}>
-              {selectedPracticumLecture?.lectureTitle ?? selectedLesson?.title ?? '실습 예약'}
-            </h2>
-            <p className={styles['quizDescription']}>
-              운영 일정과 오프라인 강의를 반영한 시간만 달력에 노출합니다.
-            </p>
-          </div>
-          <span className={styles['summaryChip']}>
-            {practicumSidebarState?.label ?? '예약 확인'}
-          </span>
-        </div>
+        <span className={styles['srOnly']}>{practicumSidebarState?.label ?? '예약 확인'}</span>
 
         {practicumOverviewQuery.isLoading ? (
           <p className={styles['notesHint']}>실습 예약 정보를 불러오는 중입니다.</p>
@@ -2379,13 +2498,6 @@ const PlayerPage = () => {
                     </div>
                   ) : null}
                 </div>
-
-                <div className={styles['practicumCalendarLegend']} aria-label='실습 예약 상태'>
-                  <span data-tone='available'>예약가능</span>
-                  <span data-tone='reserved'>예약됨</span>
-                  <span data-tone='absent'>불참</span>
-                  <span data-tone='disabled'>예약불가</span>
-                </div>
               </div>
 
               <div className={styles['practicumCalendarWeekdays']}>
@@ -2439,6 +2551,13 @@ const PlayerPage = () => {
                       key={date}
                       onClick={() => {
                         setPracticumSelectedDateValue(date);
+                        const firstReservableSlot = daySlots.find((slot) =>
+                          isPracticumSlotReservable(slot),
+                        );
+
+                        if (firstReservableSlot) {
+                          openPracticumReservationModal(firstReservableSlot);
+                        }
                       }}
                       type='button'
                     >
@@ -2483,108 +2602,6 @@ const PlayerPage = () => {
                 })}
               </div>
             </section>
-
-            <section className={styles['practicumDetailPanel']}>
-              <div className={styles['practicumDetailHeader']}>
-                <div>
-                  <strong className={styles['practicumPanelTitle']}>
-                    선택 날짜 · {formatDate(practicumSelectedDate)}
-                  </strong>
-                  <p className={styles['practicumPanelDescription']}>
-                    이미 예약한 경우 다른 시간 버튼으로 바로 일정 변경이 가능합니다.
-                  </p>
-                </div>
-              </div>
-
-              {!selectedPracticumLecture.enabled || !selectedPracticumLecture.eligible ? (
-                <div className={styles['practicumNotice']}>
-                  <strong className={styles['practicumNoticeTitle']}>
-                    지금은 예약할 수 없습니다.
-                  </strong>
-                  <p className={styles['notesHint']}>
-                    {selectedPracticumLecture.blockedReason || '예약 가능한 상태가 아닙니다.'}
-                  </p>
-                </div>
-              ) : null}
-
-              {practicumSelectedDateSlots.length ? (
-                <div className={styles['practicumSlotList']}>
-                  {practicumSelectedDateSlots.map((slot) => {
-                    const isCurrentReservedSlot = activeScheduledReservation?.slotId === slot.id;
-
-                    return (
-                      <article className={styles['practicumSlotRow']} key={slot.id}>
-                        <div className={styles['practicumSlotMain']}>
-                          <div>
-                            <strong className={styles['practicumSlotTime']}>
-                              {formatTimeRange(slot.startAt, slot.endAt)}
-                            </strong>
-                            <p className={styles['practicumSlotMeta']}>
-                              {slot.location || '장소 안내 예정'} · {slot.reservedCount}/
-                              {slot.maxCapacity}명
-                            </p>
-                          </div>
-                          {isCurrentReservedSlot ? null : (
-                            <span className={styles['practicumSlotCapacity']}>
-                              잔여 {slot.remainingCapacity}석
-                            </span>
-                          )}
-                        </div>
-                        <Button
-                          disabled={
-                            isPracticumMutationPending ||
-                            !selectedPracticumLecture.eligible ||
-                            (!isCurrentReservedSlot && !isPracticumSlotReservable(slot))
-                          }
-                          onClick={() => {
-                            if (isCurrentReservedSlot && activeScheduledReservation) {
-                              cancelPracticumMutation.mutate(activeScheduledReservation.id);
-                              return;
-                            }
-
-                            if (activeScheduledReservation) {
-                              movePracticumMutation.mutate({
-                                reservationId: activeScheduledReservation.id,
-                                slotId: slot.id,
-                              });
-                              return;
-                            }
-
-                            reservePracticumMutation.mutate({
-                              lectureId: selectedPracticumLecture.lectureId,
-                              slotId: slot.id,
-                            });
-                          }}
-                          size='sm'
-                          type='button'
-                          variant={
-                            isCurrentReservedSlot || activeScheduledReservation
-                              ? 'secondary'
-                              : 'primary'
-                          }
-                        >
-                          {isCurrentReservedSlot
-                            ? cancelPracticumMutation.isPending
-                              ? '취소 중...'
-                              : '예약 취소'
-                            : activeScheduledReservation
-                              ? movePracticumMutation.isPending
-                                ? '변경 중...'
-                                : '이 일정으로 변경'
-                              : reservePracticumMutation.isPending
-                                ? '예약 중...'
-                                : '이 일정 예약'}
-                        </Button>
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className={styles['notesHint']}>
-                  선택한 날짜에는 예약 가능한 실습 일정이 없습니다.
-                </p>
-              )}
-            </section>
           </div>
         ) : null}
 
@@ -2600,6 +2617,95 @@ const PlayerPage = () => {
           </div>
         ) : null}
       </section>
+    );
+  };
+
+  const renderPracticumReservationModal = () => {
+    if (!pendingPracticumSlot || !selectedPracticumLecture) {
+      return null;
+    }
+
+    const selectedDateLabel = formatPracticumModalDate(practicumSelectedDate);
+    const modalSlots = practicumSelectedDateSlots.length
+      ? practicumSelectedDateSlots
+      : [pendingPracticumSlot.slot];
+
+    return (
+      <Modal
+        bodyClassName={styles['practicumReservationModalBody']}
+        closeButtonClassName={styles['practicumReservationModalClose']}
+        closeButtonContent={<span aria-hidden='true'>×</span>}
+        onClose={() => {
+          setPendingPracticumSlot(null);
+        }}
+        panelClassName={styles['practicumReservationModal']}
+        title='실습 예약'
+        titleClassName={styles['practicumReservationModalTitle']}
+      >
+        <div className={styles['practicumReservationModalContent']}>
+          <p className={styles['practicumReservationModalQuestion']}>
+            선택한 일정으로 예약하시겠습니까?
+          </p>
+          <div className={styles['practicumReservationDateCard']}>
+            <span aria-hidden='true' className={styles['practicumReservationCalendarIcon']} />
+            <span>선택 날짜</span>
+            <strong>{selectedDateLabel}</strong>
+          </div>
+          <div className={styles['practicumReservationTimeGroup']}>
+            <p className={styles['practicumReservationTimeLabel']}>예약 가능 시간</p>
+            <div className={styles['practicumReservationTimeGrid']}>
+              {modalSlots.map((slot) => {
+                const isSelected = slot.id === selectedPendingPracticumSlotId;
+                const isDisabled = !isPracticumSlotReservable(slot);
+
+                return (
+                  <button
+                    className={styles['practicumReservationTimeButton']}
+                    data-selected={isSelected}
+                    disabled={isDisabled}
+                    key={slot.id}
+                    onClick={() => {
+                      if (!isDisabled) {
+                        setPendingPracticumSlot((current) =>
+                          current ? { ...current, slot } : current,
+                        );
+                      }
+                    }}
+                    type='button'
+                  >
+                    {formatTimeRange(slot.startAt, slot.endAt)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className={styles['practicumReservationModalActions']}>
+            <button
+              className={styles['practicumReservationCancelButton']}
+              onClick={() => {
+                setPendingPracticumSlot(null);
+              }}
+              type='button'
+            >
+              취소
+            </button>
+            <button
+              className={styles['practicumReservationConfirmButton']}
+              disabled={isPracticumMutationPending}
+              onClick={confirmPracticumReservation}
+              type='button'
+            >
+              {isPracticumMutationPending
+                ? pendingPracticumSlot.mode === 'move'
+                  ? '변경 중...'
+                  : '예약 중...'
+                : pendingPracticumSlot.mode === 'move'
+                  ? '변경하기'
+                  : '예약하기'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     );
   };
 
@@ -3060,6 +3166,7 @@ const PlayerPage = () => {
                       className={classNames(
                         styles['stageCard'],
                         isResourceLesson && styles['resourceStageCard'],
+                        isPracticumLesson && styles['practicumStageCard'],
                       )}
                     >
                       <div className={styles['stageHeader']}>
@@ -3089,6 +3196,8 @@ const PlayerPage = () => {
                                   style={playerArrowDownToLineIconStyle}
                                 />
                               </button>
+                            ) : isPracticumLesson ? (
+                              renderPracticumLegend()
                             ) : (
                               <span className={styles['metaChip']}>
                                 {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
@@ -3098,283 +3207,320 @@ const PlayerPage = () => {
                         ) : null}
                       </div>
 
-                      <div
-                        className={classNames(
-                          styles['playerShell'],
-                          isResourceLesson && styles['resourcePlayerShell'],
-                        )}
-                      >
+                      {isPracticumLesson ? (
+                        renderPracticumPanel()
+                      ) : (
                         <div
-                          aria-label='영상 플레이어'
                           className={classNames(
-                            styles['playerFrame'],
-                            (isOfflineLesson || isResourceLesson) && styles['playerFrameSchedule'],
-                            selectedLessonHasStream &&
-                              !arePlayerControlsVisible &&
-                              styles['playerFrameControlsHidden'],
+                            styles['playerShell'],
+                            isResourceLesson && styles['resourcePlayerShell'],
                           )}
-                          onFocus={selectedLessonHasStream ? revealPlayerControls : undefined}
-                          onClick={selectedLessonHasStream ? handlePlayerFrameClick : undefined}
-                          onKeyDown={selectedLessonHasStream ? handlePlayerFrameKeyDown : undefined}
-                          onPointerDown={selectedLessonHasStream ? revealPlayerControls : undefined}
-                          onPointerMove={selectedLessonHasStream ? revealPlayerControls : undefined}
-                          role={selectedLessonHasStream ? 'region' : undefined}
-                          tabIndex={selectedLessonHasStream ? 0 : undefined}
                         >
-                          {isOfflineLesson ? (
-                            renderOfflineSchedulePanel()
-                          ) : isResourceLesson ? (
-                            renderResourcePanel()
-                          ) : selectedLessonHasStream ? (
-                            <video
-                              className={styles['playerElement']}
-                              controlsList='nodownload noremoteplayback'
-                              disablePictureInPicture
-                              disableRemotePlayback
-                              playsInline
-                              poster={selectedSource.posterUrl ?? undefined}
-                              preload='auto'
-                              ref={videoRef}
-                            />
-                          ) : (
-                            <div className={styles['playerPlaceholder']}>
-                              <div className={styles['playerOverlayCopy']}>
-                                <p className={styles['overlayTitle']}>
-                                  이 강의는 영상 없이 제공되는 강의입니다.
-                                </p>
-                                <p className={styles['overlayDescription']}>
-                                  실습, 첨부자료, 강의 설명 중심으로 진행되며 영상이 연결되면
-                                  여기에서 바로 재생할 수 있습니다.
-                                </p>
-                                {selectedLesson?.description ? (
-                                  <p className={styles['playerPlaceholderDescription']}>
-                                    {selectedLesson.description}
-                                  </p>
+                          <div
+                            aria-label='영상 플레이어'
+                            className={classNames(
+                              styles['playerFrame'],
+                              (isOfflineLesson || isResourceLesson) &&
+                                styles['playerFrameSchedule'],
+                              selectedLessonHasStream &&
+                                !arePlayerControlsVisible &&
+                                styles['playerFrameControlsHidden'],
+                            )}
+                            onFocus={selectedLessonHasStream ? revealPlayerControls : undefined}
+                            onClick={selectedLessonHasStream ? handlePlayerFrameClick : undefined}
+                            onKeyDown={
+                              selectedLessonHasStream ? handlePlayerFrameKeyDown : undefined
+                            }
+                            onPointerDown={
+                              selectedLessonHasStream ? revealPlayerControls : undefined
+                            }
+                            onPointerMove={
+                              selectedLessonHasStream ? revealPlayerControls : undefined
+                            }
+                            role={selectedLessonHasStream ? 'region' : undefined}
+                            tabIndex={selectedLessonHasStream ? 0 : undefined}
+                          >
+                            {isOfflineLesson ? (
+                              renderOfflineSchedulePanel()
+                            ) : isResourceLesson ? (
+                              renderResourcePanel()
+                            ) : selectedLessonHasStream ? (
+                              <>
+                                {shouldShowPlayerPoster ? (
+                                  <img
+                                    alt=''
+                                    className={styles['playerPosterImage']}
+                                    src={selectedSource.posterUrl ?? undefined}
+                                  />
                                 ) : null}
-                              </div>
-                            </div>
-                          )}
-
-                          {selectedLessonHasStream && streamLoading ? (
-                            <div className={styles['playerOverlay']} data-state='loading'>
-                              <span aria-hidden='true' className={styles['playerLoadingSpinner']} />
-                              <div className={styles['playerOverlayCopy']}>
-                                <p className={styles['overlayTitle']}>스트리밍 준비 중</p>
-                                <p className={styles['overlayDescription']}>
-                                  잠시만 기다려 주세요. 영상 재생을 준비하고 있습니다.
-                                </p>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {isUnsupportedPlayback ? (
-                            <div className={styles['playerOverlay']} data-state='notice'>
-                              <div className={styles['playerOverlayCopy']}>
-                                <p className={styles['overlayTitle']}>
-                                  현재 브라우저에서는 재생이 지원되지 않습니다.
-                                </p>
-                                <p className={styles['overlayDescription']}>
-                                  최신 버전의 Chrome 또는 Edge 사용을 권장합니다.
-                                </p>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {!isOfflineLesson && !isResourceLesson && !selectedSource ? (
-                            <div className={styles['playerOverlay']} data-state='notice'>
-                              <p className={styles['overlayTitle']}>
-                                재생할 강의를 찾을 수 없습니다.
-                              </p>
-                            </div>
-                          ) : null}
-
-                          {playerError ? (
-                            <div className={styles['playerOverlay']} data-state='error'>
-                              <div className={styles['playerOverlayCopy']}>
-                                <p className={styles['overlayTitle']}>
-                                  영상 재생에 문제가 발생했습니다.
-                                </p>
-                                <p className={styles['overlayDescription']}>
-                                  잠시 후 다시 시도해 주세요.
-                                </p>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {selectedLessonHasStream ? (
-                            <div className={styles['playerFrameControls']} ref={settingsPanelRef}>
-                              <div className={styles['playerTimeline']}>
-                                <span className={styles['playerTimelineTrack']} />
-                                <span
-                                  className={styles['playerTimelineBuffer']}
-                                  style={{ width: '31%' }}
+                                <video
+                                  className={styles['playerElement']}
+                                  controlsList='nodownload noremoteplayback'
+                                  disablePictureInPicture
+                                  disableRemotePlayback
+                                  playsInline
+                                  poster={selectedSource.posterUrl ?? undefined}
+                                  preload='auto'
+                                  ref={videoRef}
                                 />
-                                <span
-                                  className={styles['playerTimelineFill']}
-                                  style={{ width: `${String(playerProgressRatio)}%` }}
-                                />
+                              </>
+                            ) : (
+                              <div className={styles['playerPlaceholder']}>
+                                <div className={styles['playerOverlayCopy']}>
+                                  <p className={styles['overlayTitle']}>
+                                    이 강의는 영상 없이 제공되는 강의입니다.
+                                  </p>
+                                  <p className={styles['overlayDescription']}>
+                                    실습, 첨부자료, 강의 설명 중심으로 진행되며 영상이 연결되면
+                                    여기에서 바로 재생할 수 있습니다.
+                                  </p>
+                                  {selectedLesson?.description ? (
+                                    <p className={styles['playerPlaceholderDescription']}>
+                                      {selectedLesson.description}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            )}
+
+                            {selectedLessonHasStream && streamLoading ? (
+                              <div className={styles['playerOverlay']} data-state='loading'>
                                 <span
                                   aria-hidden='true'
-                                  className={styles['playerTimelineThumb']}
-                                  style={{ left: `${String(playerProgressRatio)}%` }}
+                                  className={styles['playerLoadingSpinner']}
                                 />
+                                <div className={styles['playerOverlayCopy']}>
+                                  <p className={styles['overlayTitle']}>스트리밍 준비 중</p>
+                                  <p className={styles['overlayDescription']}>
+                                    잠시만 기다려 주세요. 영상 재생을 준비하고 있습니다.
+                                  </p>
+                                </div>
                               </div>
-                              <div className={styles['playerControlRow']}>
-                                <div className={styles['playerPrimaryControls']}>
-                                  <button
-                                    aria-label={isVideoPlaying ? '멈춤' : '재생'}
-                                    className={styles['playerIconButton']}
-                                    onClick={togglePlayback}
-                                    title={isVideoPlaying ? '멈춤' : '재생'}
-                                    type='button'
-                                  >
-                                    <span
-                                      aria-hidden='true'
-                                      className={classNames(
-                                        styles['playerControlIcon'],
-                                        isVideoPlaying && styles['playerPauseIcon'],
-                                      )}
-                                      style={isVideoPlaying ? undefined : playerPlayIconStyle}
-                                    />
-                                  </button>
-                                  <button
-                                    aria-label={isVideoMuted ? '음소거 해제' : '음소거'}
-                                    className={styles['playerIconButton']}
-                                    onClick={toggleMute}
-                                    title={isVideoMuted ? '음소거 해제' : '음소거'}
-                                    type='button'
-                                  >
-                                    <span
-                                      aria-hidden='true'
-                                      className={styles['playerControlIcon']}
-                                      style={playerVolumeIconStyle}
-                                    />
-                                    {isVideoMuted ? (
+                            ) : null}
+
+                            {isUnsupportedPlayback ? (
+                              <div className={styles['playerOverlay']} data-state='notice'>
+                                <div className={styles['playerOverlayCopy']}>
+                                  <p className={styles['overlayTitle']}>
+                                    현재 브라우저에서는 재생이 지원되지 않습니다.
+                                  </p>
+                                  <p className={styles['overlayDescription']}>
+                                    최신 버전의 Chrome 또는 Edge 사용을 권장합니다.
+                                  </p>
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {!isOfflineLesson && !isResourceLesson && !selectedSource ? (
+                              <div className={styles['playerOverlay']} data-state='notice'>
+                                <p className={styles['overlayTitle']}>
+                                  재생할 강의를 찾을 수 없습니다.
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {playerError ? (
+                              <div className={styles['playerOverlay']} data-state='error'>
+                                <div className={styles['playerOverlayCopy']}>
+                                  <p className={styles['overlayTitle']}>
+                                    영상 재생에 문제가 발생했습니다.
+                                  </p>
+                                  <p className={styles['overlayDescription']}>
+                                    잠시 후 다시 시도해 주세요.
+                                  </p>
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {selectedLessonHasStream ? (
+                              <div
+                                className={styles['playerFrameControls']}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                }}
+                                ref={settingsPanelRef}
+                              >
+                                <div className={styles['playerTimeline']}>
+                                  <span className={styles['playerTimelineTrack']} />
+                                  <span
+                                    className={styles['playerTimelineBuffer']}
+                                    style={{ width: '31%' }}
+                                  />
+                                  <span
+                                    className={styles['playerTimelineFill']}
+                                    style={{ width: `${String(playerProgressRatio)}%` }}
+                                  />
+                                  <span
+                                    aria-hidden='true'
+                                    className={styles['playerTimelineThumb']}
+                                    style={{ left: `${String(playerProgressRatio)}%` }}
+                                  />
+                                  <input
+                                    aria-label='재생 위치'
+                                    className={styles['playerTimelineInput']}
+                                    max={playerDurationSeconds || 0}
+                                    min={0}
+                                    onChange={handleTimelineChange}
+                                    step={1}
+                                    type='range'
+                                    value={Math.min(currentPlaybackSeconds, playerDurationSeconds)}
+                                  />
+                                </div>
+                                <div className={styles['playerControlRow']}>
+                                  <div className={styles['playerPrimaryControls']}>
+                                    <button
+                                      aria-label={isVideoPlaying ? '멈춤' : '재생'}
+                                      className={styles['playerIconButton']}
+                                      onClick={togglePlayback}
+                                      title={isVideoPlaying ? '멈춤' : '재생'}
+                                      type='button'
+                                    >
                                       <span
                                         aria-hidden='true'
-                                        className={styles['playerMuteSlash']}
+                                        className={classNames(
+                                          styles['playerControlIcon'],
+                                          isVideoPlaying && styles['playerPauseIcon'],
+                                        )}
+                                        style={isVideoPlaying ? undefined : playerPlayIconStyle}
                                       />
-                                    ) : null}
-                                  </button>
-                                  <span className={styles['playerTimeText']}>
-                                    {formatSeconds(Math.floor(currentPlaybackSeconds))} /{' '}
-                                    {formatSeconds(playerDurationSeconds || 45 * 60)}
-                                  </span>
-                                </div>
-                                <div className={styles['playerSecondaryControls']}>
-                                  <div className={styles['settingsAnchor']}>
+                                    </button>
                                     <button
-                                      aria-expanded={activeSettingsPanel === 'speed'}
-                                      aria-haspopup='dialog'
-                                      aria-label='재생 설정'
-                                      className={styles['playerTextButton']}
-                                      onClick={() => {
-                                        setActiveSettingsPanel((current) =>
-                                          current === 'speed' ? null : 'speed',
-                                        );
-                                      }}
+                                      aria-label={isVideoMuted ? '음소거 해제' : '음소거'}
+                                      className={styles['playerIconButton']}
+                                      onClick={toggleMute}
+                                      title={isVideoMuted ? '음소거 해제' : '음소거'}
                                       type='button'
                                     >
-                                      {playbackRate}x
+                                      <span
+                                        aria-hidden='true'
+                                        className={styles['playerControlIcon']}
+                                        style={playerVolumeIconStyle}
+                                      />
+                                      {isVideoMuted ? (
+                                        <span
+                                          aria-hidden='true'
+                                          className={styles['playerMuteSlash']}
+                                        />
+                                      ) : null}
                                     </button>
-                                    {activeSettingsPanel === 'speed' ? (
-                                      <div
-                                        aria-label='재생 속도 설정 패널'
-                                        className={classNames(
-                                          styles['settingsPanel'],
-                                          styles['settingsPanelSpeed'],
-                                        )}
-                                        role='dialog'
-                                      >
-                                        <div className={styles['settingsOptionList']}>
-                                          {PLAYBACK_SPEED_OPTIONS.map((speedOption) => (
-                                            <button
-                                              className={classNames(
-                                                styles['settingsOption'],
-                                                playbackRate === speedOption &&
-                                                  styles['settingsOptionActive'],
-                                              )}
-                                              key={speedOption}
-                                              onClick={() => {
-                                                applyPlaybackRate(speedOption);
-                                                setActiveSettingsPanel(null);
-                                              }}
-                                              type='button'
-                                            >
-                                              {speedOption}x
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    ) : null}
+                                    <span className={styles['playerTimeText']}>
+                                      {formatSeconds(Math.floor(currentPlaybackSeconds))} /{' '}
+                                      {formatSeconds(playerDurationSeconds || 45 * 60)}
+                                    </span>
                                   </div>
-                                  <div className={styles['settingsAnchor']}>
+                                  <div className={styles['playerSecondaryControls']}>
+                                    <div className={styles['settingsAnchor']}>
+                                      <button
+                                        aria-expanded={activeSettingsPanel === 'speed'}
+                                        aria-haspopup='dialog'
+                                        aria-label='재생 설정'
+                                        className={styles['playerTextButton']}
+                                        onClick={() => {
+                                          setActiveSettingsPanel((current) =>
+                                            current === 'speed' ? null : 'speed',
+                                          );
+                                        }}
+                                        type='button'
+                                      >
+                                        {playbackRate}x
+                                      </button>
+                                      {activeSettingsPanel === 'speed' ? (
+                                        <div
+                                          aria-label='재생 속도 설정 패널'
+                                          className={classNames(
+                                            styles['settingsPanel'],
+                                            styles['settingsPanelSpeed'],
+                                          )}
+                                          role='dialog'
+                                        >
+                                          <div className={styles['settingsOptionList']}>
+                                            {PLAYBACK_SPEED_OPTIONS.map((speedOption) => (
+                                              <button
+                                                className={classNames(
+                                                  styles['settingsOption'],
+                                                  playbackRate === speedOption &&
+                                                    styles['settingsOptionActive'],
+                                                )}
+                                                key={speedOption}
+                                                onClick={() => {
+                                                  applyPlaybackRate(speedOption);
+                                                  setActiveSettingsPanel(null);
+                                                }}
+                                                type='button'
+                                              >
+                                                {speedOption}x
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                    <div className={styles['settingsAnchor']}>
+                                      <button
+                                        aria-expanded={activeSettingsPanel === 'quality'}
+                                        aria-haspopup='dialog'
+                                        aria-label='화질 설정'
+                                        className={styles['playerTextButton']}
+                                        onClick={() => {
+                                          setActiveSettingsPanel((current) =>
+                                            current === 'quality' ? null : 'quality',
+                                          );
+                                        }}
+                                        type='button'
+                                      >
+                                        화질 {selectedQualityLabel}
+                                      </button>
+                                      {activeSettingsPanel === 'quality' ? (
+                                        <div
+                                          aria-label='화질 설정 패널'
+                                          className={classNames(
+                                            styles['settingsPanel'],
+                                            styles['settingsPanelQuality'],
+                                          )}
+                                          role='dialog'
+                                        >
+                                          <div className={styles['settingsOptionList']}>
+                                            {qualityOptions.map((quality) => (
+                                              <button
+                                                className={classNames(
+                                                  styles['settingsOption'],
+                                                  selectedQualityLevel === quality.levelIndex &&
+                                                    styles['settingsOptionActive'],
+                                                )}
+                                                key={`${quality.label}-${String(quality.levelIndex)}`}
+                                                onClick={() => {
+                                                  applyQualityLevel(quality.levelIndex);
+                                                  setActiveSettingsPanel(null);
+                                                }}
+                                                type='button'
+                                              >
+                                                {quality.label}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                    </div>
                                     <button
-                                      aria-expanded={activeSettingsPanel === 'quality'}
-                                      aria-haspopup='dialog'
-                                      aria-label='화질 설정'
-                                      className={styles['playerTextButton']}
-                                      onClick={() => {
-                                        setActiveSettingsPanel((current) =>
-                                          current === 'quality' ? null : 'quality',
-                                        );
-                                      }}
+                                      aria-label='전체화면'
+                                      className={styles['playerIconButton']}
+                                      onClick={requestPlayerFullscreen}
                                       type='button'
                                     >
-                                      화질 {selectedQualityLabel}
+                                      <span
+                                        aria-hidden='true'
+                                        className={styles['playerControlIcon']}
+                                        style={playerFullscreenIconStyle}
+                                      />
                                     </button>
-                                    {activeSettingsPanel === 'quality' ? (
-                                      <div
-                                        aria-label='화질 설정 패널'
-                                        className={classNames(
-                                          styles['settingsPanel'],
-                                          styles['settingsPanelQuality'],
-                                        )}
-                                        role='dialog'
-                                      >
-                                        <div className={styles['settingsOptionList']}>
-                                          {qualityOptions.map((quality) => (
-                                            <button
-                                              className={classNames(
-                                                styles['settingsOption'],
-                                                selectedQualityLevel === quality.levelIndex &&
-                                                  styles['settingsOptionActive'],
-                                              )}
-                                              key={`${quality.label}-${String(quality.levelIndex)}`}
-                                              onClick={() => {
-                                                applyQualityLevel(quality.levelIndex);
-                                                setActiveSettingsPanel(null);
-                                              }}
-                                              type='button'
-                                            >
-                                              {quality.label}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    ) : null}
                                   </div>
-                                  <button
-                                    aria-label='전체화면'
-                                    className={styles['playerIconButton']}
-                                    onClick={requestPlayerFullscreen}
-                                    type='button'
-                                  >
-                                    <span
-                                      aria-hidden='true'
-                                      className={styles['playerControlIcon']}
-                                      style={playerFullscreenIconStyle}
-                                    />
-                                  </button>
                                 </div>
                               </div>
-                            </div>
-                          ) : null}
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </section>
-
-                    {renderPracticumPanel()}
                   </>
                 ) : null}
 
@@ -4257,6 +4403,7 @@ const PlayerPage = () => {
           )
         ) : null}
       </div>
+      {renderPracticumReservationModal()}
     </div>
   );
 };

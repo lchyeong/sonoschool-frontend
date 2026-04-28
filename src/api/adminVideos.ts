@@ -16,6 +16,8 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const VIDEO_UPLOAD_API_TIMEOUT_MS = 30 * 60 * 1000;
+
 interface PageResponse<TItem> {
   content: TItem[];
 }
@@ -95,6 +97,9 @@ export const createAdminVideoUploadSession = async (
     const response = await axiosInstance.post<ApiEnvelope<AdminVideoUploadSessionResponse>>(
       '/api/v1/admin/videos/upload-sessions',
       payload,
+      {
+        timeout: VIDEO_UPLOAD_API_TIMEOUT_MS,
+      },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -107,7 +112,9 @@ export const completeAdminVideoUpload = async (
   payload: AdminVideoUploadCompleteRequest,
 ): Promise<void> => {
   try {
-    await axiosInstance.post(`/api/v1/admin/videos/${String(videoId)}/uploads/complete`, payload);
+    await axiosInstance.post(`/api/v1/admin/videos/${String(videoId)}/uploads/complete`, payload, {
+      timeout: VIDEO_UPLOAD_API_TIMEOUT_MS,
+    });
   } catch (error: unknown) {
     throw toApiError(error, '영상 업로드 완료를 확정하지 못했습니다.');
   }
@@ -119,6 +126,10 @@ export const startAdminVideoEncoding = async (
   try {
     const response = await axiosInstance.post<ApiEnvelope<AdminVideoEncodingStartResponse>>(
       `/api/v1/admin/videos/${String(videoId)}/encoding/start`,
+      undefined,
+      {
+        timeout: VIDEO_UPLOAD_API_TIMEOUT_MS,
+      },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -130,6 +141,9 @@ export const fetchAdminVideoStatus = async (videoId: number): Promise<AdminVideo
   try {
     const response = await axiosInstance.get<ApiEnvelope<AdminVideoStatusResponse>>(
       `/api/v1/admin/videos/${String(videoId)}/status`,
+      {
+        timeout: VIDEO_UPLOAD_API_TIMEOUT_MS,
+      },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
