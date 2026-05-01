@@ -131,7 +131,7 @@ const AdminNoticesSection = () => {
     { count: summary.totalCount, label: '전체', value: 'all' },
     { count: summary.publishedCount, label: '게시 중', value: 'published' },
     { count: summary.privateCount, label: '비공개', value: 'private' },
-    { count: summary.pinnedCount, label: '고정', value: 'pinned' },
+    { count: summary.pinnedCount, label: '필독', value: 'pinned' },
   ] satisfies Array<{ count: number; label: string; value: NoticeFilter }>;
 
   if (noticesQuery.isPending) {
@@ -208,7 +208,7 @@ const AdminNoticesSection = () => {
                               {notice.published ? '게시 중' : '비공개'}
                             </span>
                             {notice.pinned ? (
-                              <span className={styles['badgeAccent']}>고정</span>
+                              <span className={styles['badgeAccent']}>필독</span>
                             ) : null}
                           </span>
                           <span className={styles['cellSecondary']}>

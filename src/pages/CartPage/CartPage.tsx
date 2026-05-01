@@ -4,8 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { removeMyCartItem } from '@/api/mypage';
-import checkIconSrc from '@/assets/icons/lucide_check.svg';
-import trashIconSrc from '@/assets/icons/lucide_trash-2.svg';
+import checkIconSrc from '@/assets/icons/lucide_check_white_20.svg';
 import removeIconSrc from '@/assets/icons/lucide_x.svg';
 import { myCartQueryKey, useMyCartQuery } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
@@ -179,7 +178,7 @@ const CartPage = () => {
                     type='button'
                   >
                     <span>선택 삭제</span>
-                    <img alt='' aria-hidden='true' src={trashIconSrc} />
+                    <span aria-hidden='true' className={styles['removeSelectedIcon']} />
                   </button>
                 </div>
 
@@ -226,7 +225,7 @@ const CartPage = () => {
                         </Link>
                         <div className={styles['itemBody']}>
                           <span className={styles['itemTypeChip']}>
-                            {getProgramTypeLabel(item.programType)}
+                            {getProgramTypeLabel(item.programType)} 과정
                           </span>
                           <Link className={styles['itemTitleLink']} to={item.detailPath}>
                             <strong className={styles['itemTitle']}>{item.title}</strong>
@@ -276,7 +275,9 @@ const CartPage = () => {
                     <div className={styles['summaryRow']}>
                       <span>강의 할인</span>
                       <span className={styles['summaryDiscount']}>
-                        -{formatCurrency(pricing.itemDiscountAmount)}
+                        {pricing.itemDiscountAmount > 0
+                          ? `-${formatCurrency(pricing.itemDiscountAmount)}`
+                          : formatCurrency(0)}
                       </span>
                     </div>
                   </div>

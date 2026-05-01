@@ -20,6 +20,9 @@ import type {
 import type { ProgramCurriculumLesson, ProgramCurriculumTrack } from '@/types/programCatalog';
 import { isOnlineProgramType } from '@/utils/programType';
 
+type MockEnrollmentSummary = Omit<EnrollmentSummary, 'learningStatus' | 'reviewAction'>;
+type MockEnrollmentDetail = Omit<EnrollmentDetail, 'learningStatus' | 'reviewAction'>;
+
 interface PendingPhoneVerification {
   code: string;
   expiresAt: string;
@@ -28,6 +31,29 @@ interface PendingPhoneVerification {
 
 const cloneData = <T>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T;
+};
+
+const resolveLearningStatus = (
+  enrollment: Pick<EnrollmentSummary, 'active' | 'enrolledAt' | 'status'>,
+): EnrollmentSummary['learningStatus'] => {
+  if (enrollment.status === 'CANCELLED') return 'CANCELLED';
+  if (enrollment.status === 'EXPIRED') return 'ENDED';
+  if (enrollment.active) return 'IN_PROGRESS';
+
+  const enrolledAtTime = new Date(enrollment.enrolledAt).getTime();
+  if (!Number.isNaN(enrolledAtTime) && enrolledAtTime > Date.now()) return 'PENDING';
+
+  return 'ENDED';
+};
+
+const resolveReviewAction = (
+  enrollment: Pick<EnrollmentSummary, 'active' | 'enrolledAt' | 'status'>,
+  review: EnrollmentDetail['review'] | null,
+): EnrollmentSummary['reviewAction'] => {
+  if (review) return 'EDIT';
+
+  const learningStatus = resolveLearningStatus(enrollment);
+  return learningStatus === 'IN_PROGRESS' || learningStatus === 'ENDED' ? 'CREATE' : 'NONE';
 };
 
 const enrollmentThumbnailByProgramId: Record<number, string> = {
@@ -99,7 +125,7 @@ const formatMockOfflineDate = (value: Date) => {
 };
 
 const createLearningLesson = (
-  detail: EnrollmentDetail,
+  detail: MockEnrollmentDetail,
   lessonNumber: number,
   lessonId: string,
   deliveryType: ProgramCurriculumLesson['deliveryType'],
@@ -185,7 +211,7 @@ const createLearningLesson = (
   };
 };
 
-const createLearningResourceAttachments = (detail: EnrollmentDetail, lessonNumber: number) => {
+const createLearningResourceAttachments = (detail: MockEnrollmentDetail, lessonNumber: number) => {
   return [
     {
       description: '표준 스캔 순서에 대한 핵심 자료입니다.',
@@ -242,7 +268,7 @@ const createLearningResourceAttachments = (detail: EnrollmentDetail, lessonNumbe
   ];
 };
 
-const getLastLearningAtFromDetail = (detail: EnrollmentDetail): string | null => {
+const getLastLearningAtFromDetail = (detail: MockEnrollmentDetail): string | null => {
   return detail.progress.reduce<string | null>((latest, progressItem) => {
     if (!progressItem.lastWatchedAt) {
       return latest;
@@ -258,11 +284,15 @@ const getLastLearningAtFromDetail = (detail: EnrollmentDetail): string | null =>
   }, null);
 };
 
-const enrichEnrollmentSummary = (enrollment: EnrollmentSummary): EnrollmentSummary => {
+const enrichEnrollmentSummary = (enrollment: MockEnrollmentSummary): EnrollmentSummary => {
   const detail = mockEnrollmentDetails.get(enrollment.id);
 
   if (!detail) {
-    return enrollment;
+    return {
+      ...enrollment,
+      learningStatus: resolveLearningStatus(enrollment),
+      reviewAction: resolveReviewAction(enrollment, null),
+    };
   }
 
   return {
@@ -273,8 +303,10 @@ const enrichEnrollmentSummary = (enrollment: EnrollmentSummary): EnrollmentSumma
     completedLectures: detail.completedLectures,
     completionRate: detail.completionRate,
     lastLearningAt: getLastLearningAtFromDetail(detail),
+    learningStatus: resolveLearningStatus(detail),
     programThumbnailUrl:
       enrollmentThumbnailByProgramId[enrollment.programId] ?? enrollment.programThumbnailUrl,
+    reviewAction: resolveReviewAction(detail, null),
     totalLectures: detail.totalLectures,
   };
 };
@@ -294,7 +326,7 @@ const createInitialProfile = (): UserProfile => {
   };
 };
 
-const mockEnrollments: EnrollmentSummary[] = [
+const mockEnrollments: MockEnrollmentSummary[] = [
   {
     active: true,
     certificateEligible: false,
@@ -405,7 +437,7 @@ const mockEnrollments: EnrollmentSummary[] = [
   },
 ];
 
-const mockEnrollmentDetails = new Map<number, EnrollmentDetail>([
+const mockEnrollmentDetails = new Map<number, MockEnrollmentDetail>([
   [
     101,
     {
@@ -809,13 +841,13 @@ const createGeneratedEnrollmentDetail = (
   id: number,
   programId: number,
   programTitle: string,
-  status: EnrollmentDetail['status'],
+  status: MockEnrollmentDetail['status'],
   enrolledAt: string,
   expireAt: string,
   totalLectures: number,
   completedLectures: number,
   lastWatchedAt: string | null,
-): EnrollmentDetail => {
+): MockEnrollmentDetail => {
   const normalizedCompletedLectures = Math.min(completedLectures, totalLectures);
   const completionRate =
     totalLectures > 0 ? Math.round((normalizedCompletedLectures / totalLectures) * 100) : 0;
@@ -848,7 +880,7 @@ const createGeneratedEnrollmentDetail = (
 };
 
 const extendMockMyPageData = (): void => {
-  const extraEnrollments: EnrollmentSummary[] = [
+  const extraEnrollments: MockEnrollmentSummary[] = [
     {
       active: true,
       certificateEligible: false,
@@ -1444,7 +1476,7 @@ const recalculateCartDerivedState = (): void => {
   mockApplicationSummary.hasOnlineCheckout = mockApplicationSummary.onlineItems.length > 0;
 };
 
-const createLearningPlayerSnapshot = (detail: EnrollmentDetail): LearningPlayerSnapshot => {
+const createLearningPlayerSnapshot = (detail: MockEnrollmentDetail): LearningPlayerSnapshot => {
   const lessonsPerSection = 3;
   const programType = resolveLearningProgramType(detail.programId);
   const lessonIds = Array.from({ length: detail.totalLectures }, (_, index) => {
@@ -1695,7 +1727,13 @@ export const getMockMyEnrollments = (): EnrollmentSummary[] => {
 export const getMockMyEnrollmentDetail = (enrollmentId: number): EnrollmentDetail | null => {
   const detail = mockEnrollmentDetails.get(enrollmentId);
 
-  return detail ? cloneData(detail) : null;
+  return detail
+    ? cloneData({
+        ...detail,
+        learningStatus: resolveLearningStatus(detail),
+        reviewAction: resolveReviewAction(detail, null),
+      })
+    : null;
 };
 
 export const getMockLearningPlayerSnapshot = (

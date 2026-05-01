@@ -31,16 +31,12 @@ const cloneData = <T>(value: T): T => {
 
 interface MockReviewState {
   review: EnrollmentReview | null;
-  reviewWritable: boolean;
-  reviewWritten: boolean;
 }
 
 const buildInitialReviewState = (): Record<number, MockReviewState> => {
   return {
     101: {
       review: null,
-      reviewWritable: true,
-      reviewWritten: false,
     },
     102: {
       review: {
@@ -50,8 +46,6 @@ const buildInitialReviewState = (): Record<number, MockReviewState> => {
         rating: 5,
         updatedAt: '2026-03-18T10:00:00Z',
       },
-      reviewWritable: false,
-      reviewWritten: true,
     },
     103: {
       review: {
@@ -61,13 +55,9 @@ const buildInitialReviewState = (): Record<number, MockReviewState> => {
         rating: 4,
         updatedAt: '2026-02-25T09:30:00Z',
       },
-      reviewWritable: false,
-      reviewWritten: true,
     },
     105: {
       review: null,
-      reviewWritable: true,
-      reviewWritten: false,
     },
   };
 };
@@ -190,35 +180,30 @@ const ensureMockScenarioState = (): MyPageMockScenario => {
 
 const applyReviewSummaryState = (enrollment: EnrollmentSummary): EnrollmentSummary => {
   const reviewState = mockReviewStateByEnrollmentId[enrollment.id];
-
-  if (!reviewState) {
-    return enrollment;
-  }
+  const review = reviewState?.review ?? null;
 
   return {
     ...enrollment,
-    reviewWritable: reviewState.reviewWritable,
-    reviewWritten: reviewState.reviewWritten,
+    reviewAction: review
+      ? 'EDIT'
+      : enrollment.learningStatus === 'IN_PROGRESS' || enrollment.learningStatus === 'ENDED'
+        ? 'CREATE'
+        : 'NONE',
   };
 };
 
 const applyReviewDetailState = (detail: EnrollmentDetail): EnrollmentDetail => {
   const reviewState = mockReviewStateByEnrollmentId[detail.id];
-
-  if (!reviewState) {
-    return {
-      ...detail,
-      review: null,
-      reviewWritable: false,
-      reviewWritten: false,
-    };
-  }
+  const review = reviewState?.review ?? null;
 
   return {
     ...detail,
-    review: cloneData(reviewState.review),
-    reviewWritable: reviewState.reviewWritable,
-    reviewWritten: reviewState.reviewWritten,
+    review: cloneData(review),
+    reviewAction: review
+      ? 'EDIT'
+      : detail.learningStatus === 'IN_PROGRESS' || detail.learningStatus === 'ENDED'
+        ? 'CREATE'
+        : 'NONE',
   };
 };
 
@@ -372,8 +357,6 @@ export const createMockedMyEnrollmentReview = (
 
   const currentState = mockReviewStateByEnrollmentId[enrollmentId] ?? {
     review: null,
-    reviewWritable: true,
-    reviewWritten: false,
   };
   const now = new Date().toISOString();
 
@@ -385,8 +368,6 @@ export const createMockedMyEnrollmentReview = (
       rating: payload.rating,
       updatedAt: now,
     },
-    reviewWritable: false,
-    reviewWritten: true,
   };
 };
 
@@ -412,8 +393,6 @@ export const updateMockedMyEnrollmentReview = (
       rating: payload.rating,
       updatedAt: new Date().toISOString(),
     },
-    reviewWritable: false,
-    reviewWritten: true,
   };
 };
 

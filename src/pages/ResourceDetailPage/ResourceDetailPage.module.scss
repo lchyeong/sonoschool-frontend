@@ -1,143 +1,605 @@
-.container {
-  display: grid;
-  gap: clamp(1.5rem, 3vw, 2.5rem);
-  width: min(100%, 920px);
+.page {
+  width: 100%;
+  padding: 58px 20px 160px;
+  background: #ffffff;
+}
+
+.detail {
+  width: min(100%, 1436px);
   margin: 0 auto;
-  padding: clamp(2rem, 5vw, 4rem) clamp(1.25rem, 4vw, 2rem) clamp(4rem, 8vw, 6rem);
 }
 
-.hero {
+.pageTitle {
+  margin: 0 0 36px;
+  color: #111827;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.resourceHeader {
   display: grid;
-  gap: var(--space-4);
-  border: 1px solid rgba(52, 178, 159, 0.18);
-  padding: clamp(1.6rem, 3vw, 2.4rem);
-  border-radius: 28px;
-  background:
-    linear-gradient(135deg, rgba(52, 178, 159, 0.08), rgba(30, 51, 134, 0.02)),
-    #ffffff;
+  justify-items: start;
 }
 
-.backLink {
-  width: fit-content;
-  color: var(--color-brand-darken-10);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
+.resourceTitle {
+  width: min(100%, 761px);
+  margin: 0 0 16px;
+  color: #111827;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
-.title {
+.resourceDate {
+  display: block;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.contentPanel,
+.attachmentPanel,
+.adjacentPanel {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.contentPanel {
+  min-height: 132px;
+  margin-top: 38px;
+  padding: 46px;
+  overflow: hidden;
+}
+
+.resourceDescription {
+  width: min(100%, 1193px);
   margin: 0;
-  color: var(--color-text-primary);
-  font-size: clamp(2rem, 4vw, 3rem);
-  font-weight: var(--font-weight-extrabold);
-  line-height: 1.08;
-  letter-spacing: -0.04em;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 2;
 }
 
-.description {
-  max-width: 780px;
+.attachmentPanel {
+  min-height: 572px;
+  margin-top: 26px;
+  padding: 46px;
+}
+
+.attachmentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.attachmentTitle {
   margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-relaxed);
+  color: #111827;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.allDownloadButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 168px;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  background: #ffffff;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.allDownloadButton:hover:not(:disabled) {
+  color: #34b29f;
+}
+
+.allDownloadButton:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.allDownloadIcon {
+  width: 24px;
+  height: 24px;
+  margin-left: 10px;
 }
 
 .attachmentList {
   display: grid;
-  gap: 0.85rem;
-  padding: 0;
   margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
   list-style: none;
 }
 
-.attachmentCard {
+.attachmentItem,
+.attachmentEmpty {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) max-content clamp(48px, 19.36vw, 278px) 48px;
+  gap: 18px 0;
   align-items: center;
-  width: 100%;
-  padding: 1rem 1.1rem;
-  border: 1px solid rgba(52, 178, 159, 0.14);
-  border-radius: 18px;
-  text-align: left;
+  min-height: 72px;
+  padding: 12px 18px;
+  color: inherit;
+  text-decoration: none;
+  background: #ffffff;
+}
+
+.attachmentItem + .attachmentItem {
+  border-top: 1px solid #d1d5db;
+}
+
+.attachmentMeta {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.fileIcon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.fileName {
+  min-width: 0;
+  overflow: hidden;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileSize {
+  grid-column: 2;
+  color: #6b7280;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: normal;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.downloadButton {
+  grid-column: 4;
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  color: #34b29f;
   background: #ffffff;
   cursor: pointer;
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    transform 0.18s ease;
+  transition: background-color 0.16s ease;
 }
 
-.attachmentCard:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  background: rgba(52, 178, 159, 0.04);
-  transform: translateY(-1px);
+.downloadButton:hover:not(:disabled) {
+  background: #ecf9f7;
 }
 
-.attachmentCard:disabled {
-  cursor: default;
+.downloadButton:disabled {
+  cursor: not-allowed;
   opacity: 0.6;
 }
 
-.fileTypeIcon {
+.downloadIcon {
+  width: 24px;
+  height: 24px;
+}
+
+.attachmentEmpty {
+  grid-template-columns: minmax(0, 1fr);
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+}
+
+.attachmentEmpty .fileName {
+  color: #6b7280;
+}
+
+.adjacentPanel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  min-height: 160px;
+  margin-top: 26px;
+  padding: 46px 38px 46px 46px;
+}
+
+.adjacentLink {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 38px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.adjacentLink[data-direction='next'] {
+  grid-template-columns: minmax(0, 1fr) 54px;
+  justify-items: end;
+  text-align: right;
+}
+
+.adjacentLink[data-direction='next'] .adjacentIcon {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.adjacentLink[data-direction='next'] .adjacentText {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.adjacentLink[aria-disabled='true'] {
+  cursor: default;
+}
+
+.adjacentLink[aria-disabled='true'] .adjacentTitle {
+  color: #9ca3af;
+}
+
+.adjacentIcon {
+  display: inline-flex;
+  width: 54px;
+  height: 54px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  color: #111827;
+}
+
+.adjacentIcon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.adjacentText {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.adjacentLabel {
+  color: #111827;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.adjacentTitle {
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listAction {
+  display: flex;
+  justify-content: center;
+  margin-top: 38px;
+}
+
+.listButton,
+.backLink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border: 1px solid rgba(52, 178, 159, 0.14);
-  border-radius: 14px;
-  color: var(--color-brand-darken-10);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  background: var(--color-brand-lighten-50);
+  color: #111827;
+  font-weight: 600;
+  text-decoration: none;
 }
 
-.attachmentBody {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.attachmentName {
-  margin: 0;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-base);
+.listButton {
+  min-width: 250px;
+  min-height: 75px;
+  padding: 10px 32px;
+  border: 1px solid #6b7280;
+  border-radius: 999px;
+  font-size: 26px;
+  line-height: 1.3;
 }
 
 .stateSection {
   display: grid;
-  gap: 0.85rem;
-  width: min(100%, 760px);
-  margin: 0 auto;
-  padding: clamp(2rem, 6vw, 4rem) clamp(1.25rem, 4vw, 2rem);
-  text-align: center;
-}
-
-.stateTitle,
-.stateDescription {
-  margin: 0;
+  gap: 16px;
+  width: min(100% - 40px, 920px);
+  margin: 64px auto;
+  padding: 32px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #ffffff;
 }
 
 .stateTitle {
-  color: #222936;
-  font-size: clamp(1.45rem, 2.4vw, 1.9rem);
-  font-weight: 800;
+  margin: 0;
+  color: #111827;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .stateDescription {
-  color: #6f7688;
-  line-height: 1.7;
+  margin: 0;
+  color: #6b7280;
+  font-size: 18px;
+  line-height: 1.6;
 }
 
-@media (width < 900px) {
-  .attachmentCard {
-    grid-template-columns: 1fr;
-    justify-items: start;
+.backLink {
+  width: fit-content;
+  font-size: 18px;
+}
+
+.downloadModalPanel {
+  width: min(100%, 657px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  border: 0;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 28px 72px rgba(15, 23, 42, 0.24);
+}
+
+.downloadModalHeader {
+  justify-content: center;
+  padding: 84px 36px 0;
+}
+
+.downloadModalTitle {
+  color: #111827;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: normal;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.downloadModalCloseButton {
+  display: none;
+}
+
+.downloadModalBody {
+  padding: 36px 36px 36px;
+}
+
+.downloadModalContent {
+  display: grid;
+}
+
+.downloadFileCard {
+  min-height: 144px;
+  padding: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+}
+
+.downloadFileName {
+  overflow: hidden;
+  margin: 0;
+  color: #111827;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.downloadFileName strong {
+  color: #34b29f;
+  font-weight: 500;
+}
+
+.downloadFileMeta {
+  display: flex;
+  align-items: center;
+  margin: 16px 0 0;
+  color: #6b7280;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.downloadFileDot {
+  width: 4px;
+  height: 4px;
+  margin: 0 20px;
+  border-radius: 50%;
+  background: #6b7280;
+}
+
+.downloadNotice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+.downloadNoticeIcon {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  color: #374151;
+}
+
+.downloadNoticeIcon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.downloadNoticeText {
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.downloadNoticeText p {
+  margin: 0;
+  color: #374151;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: normal;
+}
+
+.downloadModalActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 17px;
+  margin-top: 80px;
+}
+
+.downloadCancelButton,
+.downloadConfirmButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 62px;
+  padding: 0 24px;
+  border-radius: 10px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.downloadCancelButton {
+  border: 2px solid #d1d5db;
+  color: #111827;
+  background: #ffffff;
+}
+
+.downloadConfirmButton {
+  border: 0;
+  color: #ffffff;
+  background: #34b29f;
+}
+
+.downloadCancelButton:disabled,
+.downloadConfirmButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+@media (width <= 900px) {
+  .page {
+    padding: 40px 20px 96px;
   }
 
-  .fileTypeIcon {
-    width: 48px;
-    height: 48px;
+  .pageTitle {
+    margin-bottom: 28px;
+    font-size: 34px;
+  }
+
+  .resourceTitle {
+    font-size: 24px;
+  }
+
+  .contentPanel,
+  .attachmentPanel {
+    padding: 28px 24px;
+  }
+
+  .resourceDescription {
+    font-size: 18px;
+  }
+
+  .attachmentHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .attachmentItem {
+    grid-template-columns: minmax(0, 1fr) 48px;
+    gap: 18px;
+  }
+
+  .fileSize {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: left;
+  }
+
+  .downloadButton {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .adjacentPanel {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 28px 24px;
+  }
+
+  .adjacentLink,
+  .adjacentLink[data-direction='next'] {
+    grid-template-columns: 54px minmax(0, 1fr);
+    justify-items: start;
+    text-align: left;
+  }
+
+  .adjacentLink[data-direction='next'] .adjacentIcon,
+  .adjacentLink[data-direction='next'] .adjacentText {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .listButton {
+    min-width: 180px;
+    min-height: 60px;
+    font-size: 22px;
+  }
+
+  .downloadModalHeader {
+    padding: 64px 24px 0;
+  }
+
+  .downloadModalTitle {
+    font-size: 26px;
+    white-space: normal;
+  }
+
+  .downloadModalBody {
+    padding: 28px 24px 28px;
+  }
+
+  .downloadFileCard {
+    padding: 28px 24px;
+  }
+
+  .downloadModalActions {
+    grid-template-columns: 1fr;
+    margin-top: 48px;
   }
 }

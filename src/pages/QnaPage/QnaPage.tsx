@@ -1,40 +1,66 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type CSSProperties } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { createGlobalQuestion, deleteGlobalQuestion, updateGlobalQuestion } from '@/api/qna';
-import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
-import Button from '@/components/ui/Button/Button';
-import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import squarePenIconSrc from '@/assets/icons/mypage-menu-square-pen.svg';
 import { QNA_CONTENT_MAX_LENGTH, QNA_TITLE_MAX_LENGTH } from '@/constants/qna';
 import { globalQuestionsQueryKey, useGlobalQuestionsQuery } from '@/query/useQnaQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
-import {
-  buildQnaPreview,
-  maskQnaAuthorName,
-  resolveQnaAuthorName,
-  validateQnaQuestionDraft,
-} from '@/utils/qna';
+import { maskQnaAuthorName, resolveQnaAuthorName, validateQnaQuestionDraft } from '@/utils/qna';
 
 import styles from './QnaPage.module.scss';
 
 type BoardStatusFilter = 'all' | 'answered' | 'waiting';
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 8;
 
-const boardNotice = {
-  authorName: '관리자',
-  createdAt: '2026-03-25T00:00:00Z',
-  title: 'Q&A 운영 안내',
+const statusFilterOptions: Array<{ label: string; value: BoardStatusFilter }> = [
+  { label: '전체 상태', value: 'all' },
+  { label: '답변 완료', value: 'answered' },
+  { label: '답변 대기', value: 'waiting' },
+];
+
+const buildMaskIconStyle = (iconSrc: string) => {
+  return {
+    '--qna-icon': `url("${iconSrc}")`,
+  } as CSSProperties & Record<'--qna-icon', string>;
 };
 
 const formatDate = (value: string): string => {
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'short',
-  }).format(new Date(value));
+  const date = new Date(value);
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}. ${month}. ${day}`;
+};
+
+const formatDateTime = (value: string): string => {
+  const date = new Date(value);
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const meridiem = hours < 12 ? '오전' : '오후';
+  const hour12 = hours % 12 || 12;
+
+  return `${year}.${month}.${day} ${meridiem} ${String(hour12)}:${minutes}`;
+};
+
+const getPaginationRange = (activePage: number, totalPages: number) => {
+  const visibleCount = Math.min(5, totalPages);
+  const half = Math.floor(visibleCount / 2);
+  const start = Math.min(
+    Math.max(1, activePage - half),
+    Math.max(1, totalPages - visibleCount + 1),
+  );
+
+  return Array.from({ length: visibleCount }, (_, index) => start + index);
 };
 
 const QnaPage = () => {
@@ -51,19 +77,25 @@ const QnaPage = () => {
   const [statusFilter, setStatusFilter] = useState<BoardStatusFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
-  const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
-  const [editingContent, setEditingContent] = useState('');
   const [isWriteFormOpen, setIsWriteFormOpen] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
 
   const questions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
-  const totalQuestions = questions.length;
+  const writeIconStyle = useMemo(() => buildMaskIconStyle(squarePenIconSrc), []);
+  const editingQuestion = useMemo(() => {
+    if (editingQuestionId === null) {
+      return null;
+    }
+
+    return questions.find((question) => question.id === editingQuestionId) ?? null;
+  }, [editingQuestionId, questions]);
 
   const filteredQuestions = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
     return questions.filter((question) => {
       const matchesStatus =
+        question.notice ||
         statusFilter === 'all' ||
         (statusFilter === 'answered' ? question.answered : !question.answered);
 
@@ -75,7 +107,12 @@ const QnaPage = () => {
         return true;
       }
 
-      return [question.title, question.content, question.authorName].some((field) => {
+      return [
+        question.title,
+        question.content,
+        question.authorName,
+        ...question.replies.map((reply) => reply.content),
+      ].some((field) => {
         return field.toLowerCase().includes(normalizedSearchTerm);
       });
     });
@@ -83,10 +120,20 @@ const QnaPage = () => {
 
   const totalPages = Math.max(1, Math.ceil(filteredQuestions.length / PAGE_SIZE));
   const activePage = Math.min(currentPage, totalPages);
-  const paginatedQuestions = filteredQuestions.slice(
+  const sortedQuestions = useMemo(() => {
+    return [...filteredQuestions].sort((left, right) => {
+      if (left.notice !== right.notice) {
+        return left.notice ? -1 : 1;
+      }
+
+      return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+    });
+  }, [filteredQuestions]);
+  const paginatedQuestions = sortedQuestions.slice(
     (activePage - 1) * PAGE_SIZE,
     activePage * PAGE_SIZE,
   );
+  const paginationRange = getPaginationRange(activePage, totalPages);
 
   const createQuestionMutation = useMutation({
     mutationFn: createGlobalQuestion,
@@ -125,10 +172,12 @@ const QnaPage = () => {
         variant: 'error',
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (updatedQuestion) => {
+      setTitle('');
+      setContent('');
       setEditingQuestionId(null);
-      setEditingTitle('');
-      setEditingContent('');
+      setIsWriteFormOpen(false);
+      setExpandedQuestionId(updatedQuestion.id);
       await queryClient.invalidateQueries({ queryKey: globalQuestionsQueryKey() });
       showToast({
         message: '질문을 수정했습니다.',
@@ -146,10 +195,8 @@ const QnaPage = () => {
       });
     },
     onSuccess: async (_, questionId) => {
-      setEditingQuestionId((current) => (current === questionId ? null : current));
-      setEditingTitle('');
-      setEditingContent('');
       setExpandedQuestionId((current) => (current === questionId ? null : current));
+      setEditingQuestionId((current) => (current === questionId ? null : current));
       await queryClient.invalidateQueries({ queryKey: globalQuestionsQueryKey() });
       showToast({
         message: '질문을 삭제했습니다.',
@@ -177,44 +224,53 @@ const QnaPage = () => {
       return;
     }
 
+    if (editingQuestionId !== null) {
+      void updateQuestionMutation.mutateAsync({
+        content: trimmedContent,
+        questionId: editingQuestionId,
+        title: trimmedTitle,
+      });
+      return;
+    }
+
     void createQuestionMutation.mutateAsync({
       content: trimmedContent,
       title: trimmedTitle,
     });
   };
 
-  const handleStartEdit = (question: (typeof questions)[number]) => {
-    setEditingQuestionId(question.id);
-    setEditingTitle(question.title);
-    setEditingContent(question.content);
-    setExpandedQuestionId(question.id);
-    setIsWriteFormOpen(false);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingQuestionId(null);
-    setEditingTitle('');
-    setEditingContent('');
-  };
-
-  const handleSubmitEdit = (questionId: number) => {
-    const trimmedTitle = editingTitle.trim();
-    const trimmedContent = editingContent.trim();
-    const validationError = validateQnaQuestionDraft(trimmedTitle, trimmedContent);
-
-    if (validationError) {
-      showToast({
-        message: validationError,
-        variant: 'error',
-      });
+  const handleToggleWriteForm = () => {
+    if (!isAuthenticated) {
+      void navigate(routePaths.login);
       return;
     }
 
-    void updateQuestionMutation.mutateAsync({
-      content: trimmedContent,
-      questionId,
-      title: trimmedTitle,
-    });
+    setIsWriteFormOpen((current) => !current);
+  };
+
+  const handleResetWriteForm = () => {
+    if (editingQuestion) {
+      setTitle(editingQuestion.title);
+      setContent(editingQuestion.content);
+      return;
+    }
+
+    setTitle('');
+    setContent('');
+  };
+
+  const handleCloseWriteForm = () => {
+    setTitle('');
+    setContent('');
+    setEditingQuestionId(null);
+    setIsWriteFormOpen(false);
+  };
+
+  const handleStartEdit = (question: (typeof questions)[number]) => {
+    setTitle(question.title);
+    setContent(question.content);
+    setEditingQuestionId(question.id);
+    setIsWriteFormOpen(true);
   };
 
   const handleDeleteQuestion = (questionId: number) => {
@@ -225,57 +281,166 @@ const QnaPage = () => {
     void deleteQuestionMutation.mutateAsync(questionId);
   };
 
-  const handleToggleWriteForm = () => {
-    if (!isAuthenticated) {
-      void navigate(routePaths.login);
-      return;
-    }
+  if (isWriteFormOpen) {
+    const isEditing = editingQuestionId !== null;
+    const isSubmitting = createQuestionMutation.isPending || updateQuestionMutation.isPending;
 
-    handleCancelEdit();
-    setIsWriteFormOpen((current) => !current);
-  };
+    return (
+      <div className={styles['page']}>
+        <div className={styles['writePageHeader']}>
+          <h1 className={styles['boardTitle']}>{isEditing ? 'Q&A 수정' : 'Q&A 작성'}</h1>
+          <p className={styles['writePageDescription']}>
+            운영과 관련해 궁금한 사항을 남겨주시면 빠르게 답변드리겠습니다.
+          </p>
+        </div>
+
+        <section className={styles['writerPanel']}>
+          <div className={styles['privacyNotice']}>
+            <span aria-hidden='true' className={styles['privacyNoticeIcon']}>
+              i
+            </span>
+            <p className={styles['privacyNoticeText']}>
+              문의 내용 작성 시, 민감한 개인정보가 포함되지 않도록 주의해 주세요.
+            </p>
+          </div>
+
+          <div className={styles['writerForm']}>
+            <label className={styles['writerLabel']} htmlFor='global-question-title'>
+              질문 제목
+            </label>
+            <input
+              className={styles['writerInput']}
+              id='global-question-title'
+              maxLength={QNA_TITLE_MAX_LENGTH}
+              onChange={(event) => {
+                setTitle(event.currentTarget.value);
+              }}
+              placeholder='질문 내용을 요약해주세요.'
+              value={title}
+            />
+
+            <label className={styles['writerLabel']} htmlFor='global-question-content'>
+              질문 내용
+            </label>
+            <textarea
+              className={styles['writerTextarea']}
+              id='global-question-content'
+              maxLength={QNA_CONTENT_MAX_LENGTH}
+              onChange={(event) => {
+                setContent(event.currentTarget.value);
+              }}
+              placeholder='궁금한 내용, 발생 상황, 확인한 정보 등을 구체적으로 작성해주세요.'
+              value={content}
+            />
+
+            <p className={styles['writerCounter']}>
+              {content.length} / {QNA_CONTENT_MAX_LENGTH}
+            </p>
+
+            <div className={styles['writerDivider']} />
+
+            <div className={styles['writerActions']}>
+              <button
+                className={styles['secondaryAction']}
+                onClick={handleResetWriteForm}
+                type='button'
+              >
+                취소
+              </button>
+              <button className={styles['listAction']} onClick={handleCloseWriteForm} type='button'>
+                목록으로
+              </button>
+              <button
+                className={styles['submitWriteButton']}
+                disabled={isSubmitting}
+                onClick={handleSubmitQuestion}
+                type='button'
+              >
+                {isSubmitting ? '저장 중...' : isEditing ? '수정하기' : '등록하기'}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className={styles['page']}>
       <div className={styles['boardHeader']}>
         <div className={styles['boardTitleBlock']}>
           <h1 className={styles['boardTitle']}>운영 Q&A</h1>
+          <p className={styles['boardDescription']}>
+            운영과 관련된 질문을 확인하고 궁금증을 해결하세요.
+          </p>
         </div>
-        <p className={styles['boardSummary']}>
-          총 {String(totalQuestions)}건 중 검색 결과 {String(filteredQuestions.length)}건
-        </p>
       </div>
 
       <section className={styles['boardShell']}>
         <div className={styles['toolbar']}>
-          <UnifiedSearchBar
-            className={styles['searchBar']}
-            inputAriaLabel='운영 Q&A 검색'
-            leading={
-              <select
-                aria-label='질문 상태 필터'
-                className={styles['filterSelect']}
-                onChange={(event) => {
-                  setStatusFilter(event.target.value as BoardStatusFilter);
-                  setCurrentPage(1);
-                }}
-                value={statusFilter}
-              >
-                <option value='all'>전체</option>
-                <option value='answered'>답변완료</option>
-                <option value='waiting'>답변대기</option>
-              </select>
-            }
-            onChange={(nextValue) => {
-              setSearchInput(nextValue);
-            }}
-            onSubmit={() => {
+          <div className={styles['filterGroup']} role='tablist' aria-label='운영 Q&A 답변 상태'>
+            {statusFilterOptions.map((option) => {
+              const isActive = statusFilter === option.value;
+
+              return (
+                <button
+                  aria-selected={isActive}
+                  className={styles['filterButton']}
+                  data-active={isActive}
+                  key={option.value}
+                  onClick={() => {
+                    setStatusFilter(option.value);
+                    setCurrentPage(1);
+                  }}
+                  role='tab'
+                  type='button'
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <form
+            className={styles['searchForm']}
+            onSubmit={(event) => {
+              event.preventDefault();
               setSearchTerm(searchInput);
               setCurrentPage(1);
             }}
-            placeholder='제목, 내용, 작성자를 검색해 주세요.'
-            value={searchInput}
-          />
+          >
+            <label className={styles['srOnly']} htmlFor='global-qna-search'>
+              운영 Q&A 검색
+            </label>
+            <input
+              autoComplete='off'
+              className={styles['searchInput']}
+              id='global-qna-search'
+              onChange={(event) => {
+                setSearchInput(event.currentTarget.value);
+              }}
+              placeholder='제목 또는 내용을 검색해 주세요.'
+              type='search'
+              value={searchInput}
+            />
+            <button aria-label='검색' className={styles['searchButton']} type='submit'>
+              <svg
+                aria-hidden='true'
+                className={styles['searchIcon']}
+                fill='none'
+                viewBox='0 0 24 24'
+                xmlns='http://www.w3.org/2000/svg'
+              >
+                <circle cx='11' cy='11' r='6' stroke='currentColor' strokeWidth='2' />
+                <path d='m16 16 4 4' stroke='currentColor' strokeLinecap='round' strokeWidth='2' />
+              </svg>
+            </button>
+          </form>
+
+          <button className={styles['writeButton']} onClick={handleToggleWriteForm} type='button'>
+            <span aria-hidden='true' className={styles['writeIcon']} style={writeIconStyle} />
+            질문 작성
+          </button>
         </div>
 
         {questionsQuery.isPending ? (
@@ -293,149 +458,96 @@ const QnaPage = () => {
             <div className={styles['tableWrap']}>
               <table className={styles['boardTable']}>
                 <colgroup>
-                  <col className={styles['numberCol']} />
                   <col className={styles['statusCol']} />
                   <col />
                   <col className={styles['authorCol']} />
                   <col className={styles['dateCol']} />
                 </colgroup>
-                <thead>
-                  <tr>
-                    <th scope='col'>번호</th>
-                    <th scope='col'>상태</th>
-                    <th scope='col'>제목</th>
-                    <th scope='col'>작성자</th>
-                    <th scope='col'>작성일</th>
-                  </tr>
-                </thead>
                 <tbody>
-                  <tr className={styles['noticeRow']}>
-                    <td className={styles['noticeLabel']}>공지</td>
-                    <td />
-                    <td>{boardNotice.title}</td>
-                    <td>{boardNotice.authorName}</td>
-                    <td>{formatDate(boardNotice.createdAt)}</td>
-                  </tr>
-
                   {paginatedQuestions.length ? (
-                    paginatedQuestions.map((question, index) => {
-                      const rowNumber =
-                        filteredQuestions.length - ((activePage - 1) * PAGE_SIZE + index);
+                    paginatedQuestions.map((question) => {
                       const isExpanded = expandedQuestionId === question.id;
-                      const isEditing = editingQuestionId === question.id;
+                      const primaryReply =
+                        question.replies.length > 0
+                          ? (question.replies.find((reply) => reply.adminReply) ??
+                            question.replies[0])
+                          : null;
+                      const authorName = maskQnaAuthorName(
+                        resolveQnaAuthorName(
+                          question.authorName,
+                          question.mine,
+                          currentDisplayName,
+                        ),
+                      );
 
                       return (
                         <Fragment key={question.id}>
-                          <tr className={styles['questionRow']} key={question.id}>
-                            <td>{String(rowNumber)}</td>
-                            <td>
+                          <tr
+                            aria-expanded={isExpanded}
+                            className={styles['questionRow']}
+                            data-expanded={isExpanded}
+                            onClick={() => {
+                              setExpandedQuestionId((current) =>
+                                current === question.id ? null : question.id,
+                              );
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter' && event.key !== ' ') {
+                                return;
+                              }
+
+                              event.preventDefault();
+                              setExpandedQuestionId((current) =>
+                                current === question.id ? null : question.id,
+                              );
+                            }}
+                            tabIndex={0}
+                          >
+                            <td className={styles['statusCell']}>
                               <span
                                 className={styles['statusBadge']}
-                                data-tone={question.answered ? 'answered' : 'waiting'}
+                                data-tone={
+                                  question.notice
+                                    ? 'notice'
+                                    : question.answered
+                                      ? 'answered'
+                                      : 'waiting'
+                                }
                               >
-                                {question.answered ? '답변완료' : '답변대기'}
+                                {question.notice
+                                  ? '공지'
+                                  : question.answered
+                                    ? '답변 완료'
+                                    : '답변 대기'}
                               </span>
                             </td>
                             <td className={styles['titleCell']}>
-                              <button
-                                className={styles['titleButton']}
-                                onClick={() => {
-                                  setExpandedQuestionId((current) =>
-                                    current === question.id ? null : question.id,
-                                  );
-                                }}
-                                type='button'
-                              >
-                                <span className={styles['titleText']} title={question.title}>
-                                  {question.title}
-                                </span>
-                                <span className={styles['previewText']}>
-                                  {buildQnaPreview(question.content)}
-                                </span>
-                              </button>
+                              <span className={styles['titleButton']}>{question.title}</span>
                             </td>
-                            <td>
-                              {maskQnaAuthorName(
-                                resolveQnaAuthorName(
-                                  question.authorName,
-                                  question.mine,
-                                  currentDisplayName,
-                                ),
-                              )}
+                            <td className={styles['authorCell']}>
+                              {question.notice ? '운영팀' : authorName}
                             </td>
-                            <td>{formatDate(question.createdAt)}</td>
+                            <td className={styles['dateCell']}>
+                              <time dateTime={question.createdAt}>
+                                {formatDate(question.createdAt)}
+                              </time>
+                              <span
+                                aria-hidden='true'
+                                className={styles['dropdownIcon']}
+                                data-expanded={isExpanded}
+                              />
+                            </td>
                           </tr>
 
                           {isExpanded ? (
-                            <tr
-                              className={styles['detailRow']}
-                              key={`detail-${String(question.id)}`}
-                            >
-                              <td colSpan={5}>
-                                <div className={styles['detailInner']}>
-                                  <div className={styles['detailQuestion']}>
-                                    <p className={styles['detailLabel']}>
-                                      {isEditing ? '질문 수정' : '질문 내용'}
-                                    </p>
-                                    {isEditing ? (
-                                      <div className={styles['editorFields']}>
-                                        <input
-                                          className={styles['editorInput']}
-                                          maxLength={QNA_TITLE_MAX_LENGTH}
-                                          onChange={(event) => {
-                                            setEditingTitle(event.target.value);
-                                          }}
-                                          placeholder='제목'
-                                          value={editingTitle}
-                                        />
-                                        <textarea
-                                          className={styles['editorTextarea']}
-                                          maxLength={QNA_CONTENT_MAX_LENGTH}
-                                          onChange={(event) => {
-                                            setEditingContent(event.target.value);
-                                          }}
-                                          placeholder='내용을 입력해 주세요.'
-                                          value={editingContent}
-                                        />
-                                        <div className={styles['detailActionRow']}>
-                                          <Button
-                                            disabled={
-                                              updateQuestionMutation.isPending ||
-                                              deleteQuestionMutation.isPending
-                                            }
-                                            onClick={handleCancelEdit}
-                                            size='sm'
-                                            type='button'
-                                            variant='secondary'
-                                          >
-                                            취소
-                                          </Button>
-                                          <Button
-                                            disabled={
-                                              updateQuestionMutation.isPending ||
-                                              editingTitle.trim().length === 0 ||
-                                              editingContent.trim().length === 0
-                                            }
-                                            onClick={() => {
-                                              handleSubmitEdit(question.id);
-                                            }}
-                                            size='sm'
-                                            type='button'
-                                          >
-                                            {updateQuestionMutation.isPending
-                                              ? '저장 중...'
-                                              : '수정 저장'}
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <p className={styles['detailText']}>{question.content}</p>
-                                    )}
-                                  </div>
-
-                                  {isAuthenticated && question.mine && !isEditing ? (
-                                    <div className={styles['detailActionRow']}>
-                                      <Button
+                            <tr className={styles['detailRow']}>
+                              <td colSpan={4}>
+                                {question.mine && !question.notice ? (
+                                  <div className={styles['ownQuestionToolbar']}>
+                                    <span className={styles['ownQuestionLabel']}>내 질문</span>
+                                    <div className={styles['ownQuestionActions']}>
+                                      <button
+                                        className={styles['ownQuestionActionButton']}
                                         disabled={
                                           updateQuestionMutation.isPending ||
                                           deleteQuestionMutation.isPending
@@ -443,13 +555,12 @@ const QnaPage = () => {
                                         onClick={() => {
                                           handleStartEdit(question);
                                         }}
-                                        size='sm'
                                         type='button'
-                                        variant='secondary'
                                       >
-                                        수정
-                                      </Button>
-                                      <Button
+                                        수정하기
+                                      </button>
+                                      <button
+                                        className={styles['ownQuestionActionButton']}
                                         disabled={
                                           updateQuestionMutation.isPending ||
                                           deleteQuestionMutation.isPending
@@ -457,43 +568,60 @@ const QnaPage = () => {
                                         onClick={() => {
                                           handleDeleteQuestion(question.id);
                                         }}
-                                        size='sm'
                                         type='button'
-                                        variant='danger'
                                       >
-                                        삭제
-                                      </Button>
+                                        질문 삭제
+                                      </button>
                                     </div>
-                                  ) : null}
-
-                                  <div className={styles['detailAnswer']}>
-                                    <p className={styles['detailLabel']}>문의에 대한 답변</p>
-                                    {question.replies.length ? (
-                                      question.replies.map((reply) => {
-                                        return (
-                                          <div className={styles['replyBlock']} key={reply.id}>
-                                            <div className={styles['replyMeta']}>
-                                              <strong>
-                                                {maskQnaAuthorName(
-                                                  resolveQnaAuthorName(
-                                                    reply.authorName,
-                                                    reply.mine,
-                                                    currentDisplayName,
-                                                  ),
-                                                )}
-                                              </strong>
-                                              <span>{formatDate(reply.createdAt)}</span>
-                                            </div>
-                                            <p className={styles['detailText']}>{reply.content}</p>
-                                          </div>
-                                        );
-                                      })
-                                    ) : (
-                                      <p className={styles['detailText']}>
-                                        아직 등록된 답변이 없습니다.
-                                      </p>
-                                    )}
                                   </div>
+                                ) : null}
+                                <div className={styles['detailPanel']}>
+                                  <section className={styles['questionBlock']}>
+                                    <span className={styles['questionIcon']}>Q</span>
+                                    <strong className={styles['questionLabel']}>
+                                      {question.notice ? '공지' : '질문'}
+                                    </strong>
+                                    <p className={styles['questionContent']}>{question.content}</p>
+                                    <time
+                                      className={styles['detailDate']}
+                                      dateTime={question.createdAt}
+                                    >
+                                      {formatDateTime(question.createdAt)}
+                                    </time>
+                                  </section>
+
+                                  {!question.notice ? (
+                                    <>
+                                      <div className={styles['detailDivider']} />
+
+                                      {primaryReply ? (
+                                        <section className={styles['replyPanel']}>
+                                          <span className={styles['answerIcon']}>A</span>
+                                          <strong className={styles['replyAuthor']}>답변</strong>
+                                          <div className={styles['replyBody']}>
+                                            {primaryReply.adminReply ? (
+                                              <span className={styles['replyBadge']}>
+                                                관리자 답변
+                                              </span>
+                                            ) : null}
+                                            <p className={styles['replyContent']}>
+                                              {primaryReply.content}
+                                            </p>
+                                          </div>
+                                          <time
+                                            className={styles['detailDate']}
+                                            dateTime={primaryReply.createdAt}
+                                          >
+                                            {formatDateTime(primaryReply.createdAt)}
+                                          </time>
+                                        </section>
+                                      ) : (
+                                        <p className={styles['waitingText']}>
+                                          아직 등록된 답변이 없습니다.
+                                        </p>
+                                      )}
+                                    </>
+                                  ) : null}
                                 </div>
                               </td>
                             </tr>
@@ -503,7 +631,7 @@ const QnaPage = () => {
                     })
                   ) : (
                     <tr>
-                      <td className={styles['emptyRow']} colSpan={5}>
+                      <td className={styles['emptyRow']} colSpan={4}>
                         검색 조건에 맞는 질문이 없습니다.
                       </td>
                     </tr>
@@ -515,6 +643,19 @@ const QnaPage = () => {
             <div className={styles['boardFooter']}>
               <div className={styles['pagination']}>
                 <button
+                  aria-label='첫 페이지'
+                  className={styles['pageNavButton']}
+                  disabled={activePage === 1}
+                  onClick={() => {
+                    setCurrentPage(1);
+                  }}
+                  type='button'
+                >
+                  «
+                </button>
+
+                <button
+                  aria-label='이전 페이지'
                   className={styles['pageNavButton']}
                   disabled={activePage === 1}
                   onClick={() => {
@@ -522,10 +663,10 @@ const QnaPage = () => {
                   }}
                   type='button'
                 >
-                  {'<'}
+                  ‹
                 </button>
 
-                {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => {
+                {paginationRange.map((pageNumber) => {
                   return (
                     <button
                       className={styles['pageButton']}
@@ -542,6 +683,7 @@ const QnaPage = () => {
                 })}
 
                 <button
+                  aria-label='다음 페이지'
                   className={styles['pageNavButton']}
                   disabled={activePage === totalPages}
                   onClick={() => {
@@ -549,79 +691,22 @@ const QnaPage = () => {
                   }}
                   type='button'
                 >
-                  {'>'}
+                  ›
+                </button>
+
+                <button
+                  aria-label='마지막 페이지'
+                  className={styles['pageNavButton']}
+                  disabled={activePage === totalPages}
+                  onClick={() => {
+                    setCurrentPage(totalPages);
+                  }}
+                  type='button'
+                >
+                  »
                 </button>
               </div>
-
-              <button
-                className={styles['writeButton']}
-                onClick={handleToggleWriteForm}
-                type='button'
-              >
-                글쓰기
-              </button>
             </div>
-
-            {isWriteFormOpen ? (
-              <section className={styles['writerPanel']}>
-                <div className={styles['writerHeader']}>
-                  <h2 className={styles['writerTitle']}>질문 작성</h2>
-                  <p className={styles['writerDescription']}>
-                    운영 관련 질문을 남기면 확인 후 게시판에 답변이 표시됩니다. 제목은{' '}
-                    {String(QNA_TITLE_MAX_LENGTH)}자, 내용은 {String(QNA_CONTENT_MAX_LENGTH)}자까지
-                    입력할 수 있습니다.
-                  </p>
-                </div>
-
-                <div className={styles['writerForm']}>
-                  <TextField
-                    label='질문 제목'
-                    maxLength={QNA_TITLE_MAX_LENGTH}
-                    name='global-question-title'
-                    onChange={(event) => {
-                      setTitle(event.target.value);
-                    }}
-                    placeholder='예: 결제 영수증은 어디에서 확인하나요?'
-                    value={title}
-                  />
-                  <TextAreaField
-                    label='질문 내용'
-                    maxLength={QNA_CONTENT_MAX_LENGTH}
-                    name='global-question-content'
-                    onChange={(event) => {
-                      setContent(event.target.value);
-                    }}
-                    placeholder='운영 관련 문의를 구체적으로 작성해 주세요.'
-                    rows={6}
-                    value={content}
-                  />
-                  <div className={styles['writerActions']}>
-                    <p className={styles['writerHint']}>
-                      {isAuthenticated
-                        ? '로그인 상태에서 바로 질문을 등록할 수 있습니다.'
-                        : '로그인 후 질문을 남길 수 있습니다.'}
-                    </p>
-                    <div className={styles['writerActionButtons']}>
-                      <button
-                        className={styles['secondaryAction']}
-                        onClick={() => {
-                          setIsWriteFormOpen(false);
-                        }}
-                        type='button'
-                      >
-                        취소
-                      </button>
-                      <Button
-                        disabled={createQuestionMutation.isPending}
-                        onClick={handleSubmitQuestion}
-                      >
-                        {createQuestionMutation.isPending ? '등록 중...' : '질문 등록'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            ) : null}
           </>
         ) : null}
       </section>

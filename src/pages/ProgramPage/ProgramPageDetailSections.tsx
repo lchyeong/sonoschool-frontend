@@ -2,6 +2,7 @@ import { startTransition, useEffect, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
+import sampleBannerSrc from '@/assets/images/sample_banner.png';
 import Modal from '@/components/overlay/Modal/Modal';
 import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
@@ -95,6 +96,7 @@ interface ProgramPageDetailSidebarProps {
   handleRequestAvailabilityAlert: () => void;
   isAlertPending: boolean;
   isAlertSubscribed: boolean;
+  isCartAdded?: boolean;
   isAuthenticated: boolean;
   isEnrollingNow: boolean;
   isAddingToCart: boolean;
@@ -131,6 +133,12 @@ const parseScheduleTimeToMinutes = (value: string | null | undefined) => {
   }
 
   return hours * 60 + minutes;
+};
+
+const getDisplayBreadcrumbItems = (data: ProgramDetailPageResponse) => {
+  return data.breadcrumbItems[0]?.label === '교육과정'
+    ? data.breadcrumbItems.slice(1)
+    : data.breadcrumbItems;
 };
 
 const formatDurationLabel = (minutes: number, prefix: string | null = null) => {
@@ -488,18 +496,20 @@ const CurriculumWeekRow = ({
 };
 
 export const ProgramPageDetailHero = ({ data, heroInfoPills }: ProgramPageDetailHeroProps) => {
+  const breadcrumbItems = getDisplayBreadcrumbItems(data);
+
   return (
     <section className={styles['heroSection']}>
       <div className={styles['heroBackground']}>
-        <img alt='' className={styles['heroBackgroundImage']} src={data.heroImageSrc} />
+        <img alt='' className={styles['heroBackgroundImage']} src={sampleBannerSrc} />
         <div aria-hidden='true' className={styles['heroBackgroundOverlay']} />
       </div>
 
       <div className={styles['heroContent']}>
         <nav aria-label='교육과정 경로' className={styles['heroBreadcrumbNav']}>
           <ol className={styles['heroBreadcrumbList']}>
-            {data.breadcrumbItems.map((breadcrumbItem, index) => {
-              const isCurrent = index === data.breadcrumbItems.length - 1;
+            {breadcrumbItems.map((breadcrumbItem, index) => {
+              const isCurrent = index === breadcrumbItems.length - 1;
 
               return (
                 <li
@@ -521,13 +531,13 @@ export const ProgramPageDetailHero = ({ data, heroInfoPills }: ProgramPageDetail
 
         <h1 className={styles['heroTitle']}>{data.title}</h1>
 
+        <p className={styles['heroDescription']}>{data.description}</p>
+
         <div className={styles['heroRatingRow']}>
           <RatingStars inverse rating={data.overallRating} />
           <span className={styles['heroRatingScore']}>{data.overallRating.toFixed(1)}</span>
           <span className={styles['heroRatingCount']}>({data.reviewCount.toLocaleString()})</span>
         </div>
-
-        <p className={styles['heroDescription']}>{data.description}</p>
 
         <div className={styles['heroInfoPillRow']}>
           {heroInfoPills.map((item) => {
@@ -537,9 +547,7 @@ export const ProgramPageDetailHero = ({ data, heroInfoPills }: ProgramPageDetail
                 className={styles['heroInfoPill']}
                 key={item.label}
               >
-                <span className={styles['heroInfoPillText']}>
-                  #{item.label} {item.value}
-                </span>
+                <span className={styles['heroInfoPillText']}>{item.value}</span>
               </div>
             );
           })}
@@ -601,11 +609,19 @@ export const ProgramPageDetailMainContent = ({
         </nav>
 
         {isQnaTabOpen ? (
-          <section className={classNames(styles['contentSection'], styles['qnaTabSection'])}>
+          <section
+            className={classNames(styles['contentSection'], styles['qnaTabSection'])}
+            id='course-qna'
+            ref={sectionRefHandlers['course-qna']}
+          >
             <ProgramQnaPanel
+              boardLayout='table'
               enabled
+              exclusiveWriteMode
+              hideBoardTitle
               programId={data.programId ?? null}
               programThreadCount={data.qnaSummary?.totalThreadCount ?? null}
+              showBoardSummary={false}
               title='Q&A'
               variant='board'
             />
@@ -975,6 +991,7 @@ export const ProgramPageDetailSidebar = ({
   handleRequestAvailabilityAlert,
   isAlertPending,
   isAlertSubscribed,
+  isCartAdded = false,
   isAuthenticated,
   isEnrollingNow,
   isAddingToCart,
@@ -1044,12 +1061,15 @@ export const ProgramPageDetailSidebar = ({
           ) : (
             <>
               <button
-                className={styles['cartActionLink']}
+                className={classNames(
+                  styles['cartActionLink'],
+                  isCartAdded && styles['cartActionLinkAdded'],
+                )}
                 disabled={isAddingToCart}
                 onClick={handleAddToCart}
                 type='button'
               >
-                {isAddingToCart ? '담는 중...' : '장바구니'}
+                {isCartAdded ? '장바구니 보기' : isAddingToCart ? '담는 중...' : '장바구니'}
               </button>
               <button
                 className={styles['applyActionLink']}

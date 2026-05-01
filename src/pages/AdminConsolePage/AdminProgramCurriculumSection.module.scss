@@ -349,6 +349,7 @@
   padding: 0.25rem 0.65rem;
   font-size: var(--font-size-xs);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .statusBadge[data-tone='published'] {

@@ -26,27 +26,9 @@ const createToastId = (): string => {
   return `toast_${String(Date.now())}_${Math.random().toString(16).slice(2)}`;
 };
 
-export const useToastStore = create<ToastState>((set, get) => ({
+export const useToastStore = create<ToastState>((set) => ({
   toasts: [],
-  showToast: (input) => {
-    const id = createToastId();
-    const toast: ToastItem = {
-      id,
-      message: input.message,
-      variant: input.variant ?? 'info',
-    };
-
-    set((state) => ({ toasts: [...state.toasts, toast] }));
-
-    const durationMs = input.durationMs === undefined ? 4000 : input.durationMs;
-    if (durationMs !== null) {
-      window.setTimeout(() => {
-        get().dismissToast(id);
-      }, durationMs);
-    }
-
-    return id;
-  },
+  showToast: () => createToastId(),
   dismissToast: (id) => {
     set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) }));
   },

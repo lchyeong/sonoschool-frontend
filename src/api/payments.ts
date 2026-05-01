@@ -153,3 +153,20 @@ export const approveKcpPcPayment = async (payload: KcpPcApprovePayload): Promise
     });
   }
 };
+
+export const cancelPayment = async (
+  paymentId: number,
+  payload: { reason: string },
+): Promise<PaymentResult> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<PaymentResult>>(
+      `/api/v1/payments/${String(paymentId)}/cancel`,
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '결제 취소 처리에 실패했습니다.', {
+      preferFallbackUserMessage: true,
+    });
+  }
+};

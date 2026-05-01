@@ -230,7 +230,7 @@ export const replaceAdminLectureOfflineSchedules = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '현장 강의 일정을 저장하지 못했습니다.');
+    throw toApiError(error, '오프라인 강의 일정을 저장하지 못했습니다.');
   }
 };
 
@@ -243,6 +243,6 @@ export const deleteAdminLectureOfflineSchedules = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '현장 강의 일정을 삭제하지 못했습니다.');
+    throw toApiError(error, '오프라인 강의 일정을 삭제하지 못했습니다.');
   }
 };

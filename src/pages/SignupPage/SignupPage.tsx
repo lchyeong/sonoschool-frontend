@@ -13,7 +13,7 @@ import {
   verifySmsCode,
 } from '@/api/auth';
 import { ApiError } from '@/api/errors';
-import checkIconSrc from '@/assets/icons/lucide_check.svg';
+import checkIconSrc from '@/assets/icons/lucide_check_white_20.svg';
 import circleCheckIconSrc from '@/assets/icons/lucide_circle-check.svg';
 import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
 import eyeIconSrc from '@/assets/icons/lucide_eye.svg';

@@ -190,7 +190,7 @@ const HomeFeatureShowcaseSection = () => {
       const revealDistance = Math.max(viewportHeight * 1.8, rect.height * 0.82);
       const progress = clamp((revealStart - rect.top) / revealDistance);
       const cardScrollProgress = easeInOutProgress(clamp((progress - 0.05) / 0.93));
-      const cardScrollY = 54 - cardScrollProgress * 140;
+      const cardScrollY = 54 - cardScrollProgress * 154;
       const nextStep = getShowcaseStep(progress);
       const currentStep = Number(showcasePanelElement.dataset['showcaseStep'] ?? 0);
 

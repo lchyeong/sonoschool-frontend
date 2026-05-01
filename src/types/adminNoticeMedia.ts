@@ -1,5 +1,5 @@
 export type AdminNoticeMediaDomain = 'NOTICE';
-export type AdminNoticeMediaType = 'IMAGE';
+export type AdminNoticeMediaType = 'FILE' | 'IMAGE';
 
 export interface AdminNoticeMediaUploadTargetRequest {
   contentType: string;

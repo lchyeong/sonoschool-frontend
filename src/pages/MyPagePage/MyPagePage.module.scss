@@ -4,7 +4,7 @@
 }
 .shell {
   box-sizing: border-box;
-  width: min(1436px, calc(100% - 48px));
+  width: min(1436px, 100%);
   margin: 0 auto;
 }
 .surface {
@@ -210,7 +210,7 @@
 .profileStaticRow {
   display: grid;
   gap: 0;
-  grid-template-columns: 211px minmax(0, 669px) minmax(0, 1fr);
+  grid-template-columns: 211px minmax(0, 669px) max-content;
   align-items: center;
 }
 .profileStaticRow {
@@ -268,6 +268,7 @@
   font-weight: var(--font-weight-semibold);
   line-height: 1.3;
   letter-spacing: var(--letter-spacing-normal);
+  white-space: nowrap;
 }
 .profileStaticValue {
   color: #111827;
@@ -496,7 +497,7 @@
 .profilePasswordModalPanel {
   position: relative;
   width: min(100%, 456px);
-  max-height: min(90vh, 413px);
+  max-height: min(calc(100vh - 32px), 470px);
   overflow: hidden;
   border: 0;
   border-radius: 28px;
@@ -612,7 +613,10 @@
   margin: 6px 0 0;
   color: #dd383e;
   font-size: 14px;
-  line-height: 1.3;
+  line-height: 18px;
+}
+.profilePasswordErrorHidden {
+  visibility: hidden;
 }
 .profilePasswordRecoveryLink {
   justify-self: start;
@@ -726,6 +730,7 @@
 }
 .questionFilterRow {
   display: flex;
+  gap: 16px;
   align-items: center;
   min-height: 64px;
   border-bottom: 2px solid #d1d5db;
@@ -758,16 +763,46 @@
   content: '';
   background: #34b29f;
 }
-.questionToolbar {
+.questionControlRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-  margin-top: 25px;
+  grid-template-columns: minmax(max-content, auto) minmax(0, 654px);
+  gap: 35px;
+  align-items: center;
+  margin-top: 34px;
+}
+.questionStatusFilterRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.questionStatusFilterButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 127px;
+  height: 50px;
+  padding: 0 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 100px;
+  color: #4b5563;
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  letter-spacing: var(--letter-spacing-normal);
+  white-space: nowrap;
+  background: #ffffff;
+}
+.questionStatusFilterButton:hover,
+.questionStatusFilterButton:focus-visible,
+.questionStatusFilterButtonActive {
+  border-color: #34b29f;
+  color: #34b29f;
+  background: #ecf9f7;
+}
+.questionToolbar {
+  margin-top: 73px;
 }
 .questionTotalCount {
-  grid-row: 2;
-  justify-self: start;
   margin: 0;
   color: #4b5563;
   font-size: 16px;
@@ -779,9 +814,10 @@
   font-weight: var(--font-weight-bold);
 }
 .questionSearchBar {
-  grid-row: 1;
-  justify-self: center;
-  width: min(100%, 729px);
+  justify-self: end;
+  width: 100%;
+  max-width: 654px;
+  min-width: 0;
   min-height: 66px;
   padding: 12px;
   padding-left: 24px;
@@ -808,16 +844,16 @@
 }
 .questionList {
   display: grid;
-  margin-top: 42px;
+  margin-top: 48px;
 }
 .questionCard {
   display: grid;
   gap: 0;
-  padding: 0 0 25px;
+  padding: 0 0 26px;
   border-bottom: 1px solid #d1d5db;
 }
 .questionCard + .questionCard {
-  padding-top: 25px;
+  padding-top: 26px;
 }
 .questionCardMain {
   display: grid;
@@ -901,7 +937,7 @@
   justify-self: start;
   width: 143px;
   height: 44px;
-  margin-top: 24px;
+  margin-top: 0;
   border: 1px solid #34b29f;
   border-radius: 12px;
   color: #34b29f;
@@ -919,23 +955,59 @@
   width: 24px;
   height: 24px;
 }
+.questionCardActions {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 26px;
+}
+.questionManageActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.questionManageButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 111px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  color: #4b5563;
+  font-size: 18px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+  letter-spacing: var(--letter-spacing-normal);
+  white-space: nowrap;
+  background: #ffffff;
+}
+.questionManageButton:hover,
+.questionManageButton:focus-visible {
+  border-color: #9ca3af;
+  color: #111827;
+}
 .questionReplies {
   display: grid;
   gap: 22px;
   margin-top: 26px;
-  padding-top: 25px;
+  padding-top: 26px;
   border-top: 1px solid #d1d5db;
 }
 .questionReply {
   display: grid;
-  gap: 16px;
+  gap: 17px;
   grid-template-columns: 24px minmax(0, 1fr);
 }
 .questionReplyIcon {
   width: 24px;
   height: 24px;
   color: #34b29f;
-  transform: rotate(180deg);
+  margin-top: 1px;
+  mask-size: 18px 13px;
+  -webkit-mask-size: 18px 13px;
 }
 .questionReplyBody {
   display: grid;
@@ -1240,7 +1312,8 @@
   gap: 34px;
   width: 100%;
   max-width: 1094px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 342px));
+  justify-content: start;
 }
 .courseCard,
 .courseCardLink {
@@ -1290,9 +1363,8 @@
   letter-spacing: 0.12em;
 }
 .courseCardBody {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 52px 64px 58px 1fr;
   padding: 14px 18px 20px;
 }
 .courseCardHeader {
@@ -1300,18 +1372,24 @@
   gap: var(--space-3);
   align-items: flex-start;
   justify-content: space-between;
+  min-height: 52px;
 }
 .courseCardTitle {
+  display: -webkit-box;
+  overflow: hidden;
   color: #111827;
   font-size: 20px;
   font-weight: var(--font-weight-medium);
   line-height: 1.3;
   letter-spacing: var(--letter-spacing-normal);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .courseProgressSection {
   display: grid;
   gap: 6px;
-  margin-top: 36px;
+  align-content: start;
+  margin-top: 0;
 }
 .courseProgressMeta {
   display: flex;
@@ -1341,7 +1419,7 @@
   height: 10px;
   overflow: hidden;
   border-radius: 20px;
-  background: #d1d5db;
+  background: #e5e7eb;
 }
 .courseProgressFill {
   display: block;
@@ -1352,7 +1430,8 @@
 .courseMetaList {
   display: grid;
   gap: 8px;
-  margin-top: 16px;
+  align-content: start;
+  margin-top: 0;
 }
 .courseMetaRow {
   display: flex;
@@ -1394,7 +1473,8 @@
   gap: var(--space-3);
   align-items: center;
   justify-content: space-between;
-  margin-top: auto;
+  align-self: end;
+  margin-top: 0;
   padding-top: 16px;
 }
 .courseCardFooterExpired {
@@ -1761,6 +1841,14 @@
     background: #ffffff;
   }
 }
+.courseSecondaryActionPlaceholder {
+  display: inline-flex;
+  width: 133px;
+  min-width: 133px;
+  height: 43px;
+  visibility: hidden;
+  pointer-events: none;
+}
 .courseSecondaryActionWide {
   width: 100%;
   min-width: 0;
@@ -2047,6 +2135,14 @@
   align-items: flex-start;
   justify-content: space-between;
 }
+.paymentCardActions {
+  position: relative;
+  z-index: 3;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
 .paymentCardTitleGroup {
   display: grid;
   gap: 7px;
@@ -2094,6 +2190,85 @@
 .paymentStatusChipCancelled {
   color: #dd383e;
   background: #ffffff;
+}
+.paymentReceiptLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  min-width: 92px;
+  height: 38px;
+  border: 1px solid #34b29f;
+  border-radius: 100px;
+  color: #0f766e;
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  letter-spacing: var(--letter-spacing-normal);
+  text-decoration: none;
+  background: #f0fdfa;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
+}
+.paymentReceiptLink:hover,
+.paymentReceiptLink:focus-visible {
+  border-color: #0f766e;
+  color: #ffffff;
+  background: #0f766e;
+}
+.paymentReceiptLink:focus-visible {
+  outline: 3px solid rgba(52, 178, 159, 0.26);
+  outline-offset: 3px;
+}
+.paymentReceiptLinkDisabled,
+.paymentReceiptLinkDisabled:hover,
+.paymentReceiptLinkDisabled:focus-visible {
+  border-color: #d1d5db;
+  color: #6b7280;
+  background: #f9fafb;
+  cursor: not-allowed;
+}
+.paymentCancelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  min-width: 92px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #fca5a5;
+  border-radius: 100px;
+  color: #b91c1c;
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  letter-spacing: var(--letter-spacing-normal);
+  background: #fff5f5;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
+}
+.paymentCancelButton:hover,
+.paymentCancelButton:focus-visible {
+  border-color: #b91c1c;
+  color: #ffffff;
+  background: #b91c1c;
+}
+.paymentCancelButton:focus-visible {
+  outline: 3px solid rgba(185, 28, 28, 0.22);
+  outline-offset: 3px;
+}
+.paymentCancelButton:disabled,
+.paymentCancelButton:disabled:hover,
+.paymentCancelButton:disabled:focus-visible {
+  border-color: #d1d5db;
+  color: #6b7280;
+  background: #f9fafb;
+  cursor: wait;
 }
 .paymentMetaGrid {
   display: grid;
@@ -2333,12 +2508,20 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .courseGrid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 342px));
   }
   .paymentMetaGrid {
     gap: 24px;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     max-width: none;
+  }
+  .questionControlRow {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .questionSearchBar {
+    justify-self: stretch;
+    width: 100%;
   }
   .profileFormRow,
   .profileStaticRow {
@@ -2354,6 +2537,35 @@
   }
 }
 @media (width < 768px) {
+  .profilePasswordModalPanel {
+    width: min(100%, 456px);
+    max-height: min(calc(100vh - 24px), 470px);
+    border-radius: clamp(18px, 6vw, 28px);
+  }
+  .profilePasswordModalHeader {
+    padding: 28px 56px 0 24px;
+  }
+  .profilePasswordModalCloseButton {
+    top: 28px;
+    right: 24px;
+  }
+  .profilePasswordModalBody {
+    padding: 20px 24px 28px;
+  }
+  .profilePasswordLabel {
+    margin-top: 34px;
+  }
+  .profilePasswordActions {
+    gap: 12px;
+    margin-top: 40px;
+  }
+  .profilePasswordCancelButton,
+  .profilePasswordConfirmButton {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 0 16px;
+  }
   .profileTitle {
     font-size: 30px;
   }
@@ -2462,7 +2674,7 @@
   .paymentCardTitle {
     white-space: normal;
   }
-  .paymentStatusChip {
+  .paymentCardActions {
     justify-self: start;
   }
   .paymentMetaGrid {
@@ -2507,6 +2719,29 @@
   .paymentDetailCloseCta {
     width: 100%;
   }
+  .questionFilterRow {
+    overflow-x: auto;
+  }
+  .questionFilterButton {
+    flex: 0 0 120px;
+  }
+  .questionStatusFilterRow {
+    overflow-x: auto;
+  }
+  .questionStatusFilterButton {
+    flex: 0 0 127px;
+  }
+  .questionCardHeader,
+  .questionCardActions {
+    display: grid;
+    gap: 16px;
+  }
+  .questionStatusChip {
+    justify-self: start;
+  }
+  .questionManageActions {
+    justify-content: flex-start;
+  }
   .menuList {
     grid-template-columns: 1fr;
   }
@@ -2539,5 +2774,26 @@
   .certificateDownloadButton {
     width: 100%;
     min-width: 0;
+  }
+}
+@media (width < 420px) {
+  .profilePasswordModalHeader {
+    padding: 24px 48px 0 20px;
+  }
+  .profilePasswordModalCloseButton {
+    top: 24px;
+    right: 20px;
+  }
+  .profilePasswordModalBody {
+    padding: 18px 20px 24px;
+  }
+  .profilePasswordDescription,
+  .profilePasswordLabel,
+  .profilePasswordCancelButton,
+  .profilePasswordConfirmButton {
+    font-size: 16px;
+  }
+  .profilePasswordActions {
+    gap: 10px;
   }
 }

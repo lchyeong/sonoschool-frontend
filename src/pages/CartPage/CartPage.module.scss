@@ -98,7 +98,6 @@
 .checkboxVisual img {
   width: 20px;
   height: 20px;
-  filter: brightness(0) invert(1);
 }
 
 .selectAllRow input:focus-visible + .checkboxVisual,
@@ -123,14 +122,31 @@
   font-size: 20px;
   font-weight: 500;
   line-height: 1.3;
+  cursor: pointer;
+  transition: color 120ms ease;
 }
 
-.removeSelectedButton img {
+.removeSelectedIcon {
+  display: inline-block;
+  flex: 0 0 auto;
   width: 24px;
   height: 24px;
+  background: #6b7280;
+  mask: url('../../assets/icons/lucide_trash-2.svg') center / contain no-repeat;
+  transition: background-color 120ms ease;
+  -webkit-mask: url('../../assets/icons/lucide_trash-2.svg') center / contain no-repeat;
+}
+
+.removeSelectedButton:not(:disabled):hover {
+  color: #34b29f;
+}
+
+.removeSelectedButton:not(:disabled):hover .removeSelectedIcon {
+  background: #34b29f;
 }
 
 .removeSelectedButton:disabled {
+  cursor: not-allowed;
   opacity: 0.45;
 }
 
@@ -360,11 +376,21 @@
   font-size: 22px;
   font-weight: 600;
   line-height: 1.3;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.primaryActionButton:not(:disabled):hover {
+  color: #6b7280;
+  background: #e5e7eb;
 }
 
 .primaryActionButton:disabled {
   color: #6b7280;
   background: #e5e7eb;
+  cursor: not-allowed;
 }
 
 .summaryNotice,
@@ -401,7 +427,7 @@
   font-weight: 700;
 }
 
-@media (width < 1180px) {
+@media (width < 1280px) {
   .layout {
     grid-template-columns: 1fr;
   }

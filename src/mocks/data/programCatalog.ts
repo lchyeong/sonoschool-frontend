@@ -1092,7 +1092,7 @@ const doctorCourseInternalMedicineSeed = createCollectionSeed({
       wrapInLeafHub: false,
     }),
     createLectureSeed({
-      description: '신장과 요로계 스캔 포인트를 실제 내과 workflow에 연결해 훈련합니다.',
+      description: '신장과 요로계 스캔 포인트를 실제 내과 진료 흐름에 연결해 훈련합니다.',
       difficultyLabel: '중급',
       durationLabel: '1일 집중',
       formatLabel: '오프라인 심화',
@@ -1859,7 +1859,8 @@ function buildInitialManagedPrograms(): MockManagedProgramCatalogRecord[] {
   return [
     createInitialManagedProgramRecord({
       accessPolicy: 'cohort',
-      description: '복부 도플러와 증례 피드백을 중심으로 복부 심화 루틴을 정리하는 관리강의입니다.',
+      description:
+        '복부 도플러와 증례 피드백을 중심으로 복부 심화 루틴을 정리하는 관리형 강의입니다.',
       difficultyLabel: '중급',
       format: 'offline',
       imageIndex: 1,
@@ -1876,7 +1877,8 @@ function buildInitialManagedPrograms(): MockManagedProgramCatalogRecord[] {
     }),
     createInitialManagedProgramRecord({
       accessPolicy: 'cohort',
-      description: '갑상선 결절 평가와 판독 문장을 실제 케이스 기반으로 연습하는 관리강의입니다.',
+      description:
+        '갑상선 결절 평가와 판독 문장을 실제 케이스 기반으로 연습하는 관리형 강의입니다.',
       difficultyLabel: '중급',
       format: 'offline',
       imageIndex: 2,
@@ -1929,7 +1931,7 @@ function buildInitialManagedPrograms(): MockManagedProgramCatalogRecord[] {
     }),
     createInitialManagedProgramRecord({
       accessPolicy: 'limited-window',
-      description: 'Adult Echo 시험 대비용 모의고사와 해설 세션을 묶은 온라인 관리강의입니다.',
+      description: 'Adult Echo 시험 대비용 모의고사와 해설 세션을 묶은 온라인 관리형 강의입니다.',
       difficultyLabel: '중급',
       format: 'online',
       imageIndex: 5,
@@ -3334,10 +3336,13 @@ const toProgramLectureCard = (lecture: ProgramCatalogLectureNode): ProgramLectur
   return {
     categoryLabel,
     difficultyLabel: lecture.difficultyLabel,
+    discountRateLabel: lecture.discountRateLabel,
+    discountedPriceLabel: lecture.discountedPriceLabel,
     durationLabel: lecture.durationLabel,
     formatLabel: lecture.formatLabel,
     hashtagLabels: lecture.hashtagLabels,
     id: lecture.id,
+    originalPriceLabel: lecture.originalPriceLabel,
     priceLabel: lecture.priceLabel,
     remainingSeatsCount: lecture.remainingSeatsCount,
     remainingSeatsLabel: lecture.remainingSeatsLabel,

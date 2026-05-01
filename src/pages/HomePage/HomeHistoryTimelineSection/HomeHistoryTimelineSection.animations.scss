@@ -58,66 +58,228 @@
 }
 
 .directorPanelAnimationRoot {
-  &::before,
-  &::after,
-  .directorCopy,
+  .directorInner::before,
+  .directorInner::after,
+  .directorNameRow,
+  .careerList li,
+  .certificationTitle,
+  .certificationList li,
   .directorImageWrap {
     opacity: 0;
-    filter: blur(10px);
-    transition-duration: 900ms;
+    filter: blur(4px);
+    transition-duration: 1250ms;
     transition-property: opacity, filter, transform;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     will-change: opacity, filter, transform;
   }
 
-  &::before {
-    transform: translateY(28px);
-    transition-delay: 620ms;
+  .directorInner::before {
+    transform: translateY(18px);
   }
 
-  &::after {
-    transform: translateY(42px) rotate(-25deg);
-    transition-delay: 120ms;
+  .directorInner::after {
+    transform: translateY(34px) rotate(-25.62deg);
   }
 
-  .directorCopy {
-    transform: translateY(38px);
-    transition-delay: 420ms;
+  .directorNameRow {
+    transform: translateY(24px);
+  }
+
+  .careerList li,
+  .certificationTitle,
+  .certificationList li {
+    transform: translateY(26px);
   }
 
   .directorImageWrap {
-    transform: translateY(58px);
-    transition-delay: 80ms;
+    transform: translateY(36px);
   }
 }
 
-.directorPanelActive {
-  &::before,
-  &::after,
-  .directorCopy,
+.directorPanelAnimationRoot[data-director-step='1'],
+.directorPanelAnimationRoot[data-director-step='2'],
+.directorPanelAnimationRoot[data-director-step='3'],
+.directorPanelAnimationRoot[data-director-step='4'],
+.directorPanelAnimationRoot[data-director-step='5'],
+.directorPanelAnimationRoot[data-director-step='6'],
+.directorPanelAnimationRoot[data-director-step='7'],
+.directorPanelAnimationRoot[data-director-step='8'],
+.directorPanelAnimationRoot[data-director-step='9'],
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .directorInner::before {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='2'],
+.directorPanelAnimationRoot[data-director-step='3'],
+.directorPanelAnimationRoot[data-director-step='4'],
+.directorPanelAnimationRoot[data-director-step='5'],
+.directorPanelAnimationRoot[data-director-step='6'],
+.directorPanelAnimationRoot[data-director-step='7'],
+.directorPanelAnimationRoot[data-director-step='8'],
+.directorPanelAnimationRoot[data-director-step='9'],
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .directorNameRow {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='3'],
+.directorPanelAnimationRoot[data-director-step='4'],
+.directorPanelAnimationRoot[data-director-step='5'],
+.directorPanelAnimationRoot[data-director-step='6'],
+.directorPanelAnimationRoot[data-director-step='7'],
+.directorPanelAnimationRoot[data-director-step='8'],
+.directorPanelAnimationRoot[data-director-step='9'],
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .careerList li:nth-child(1) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='4'],
+.directorPanelAnimationRoot[data-director-step='5'],
+.directorPanelAnimationRoot[data-director-step='6'],
+.directorPanelAnimationRoot[data-director-step='7'],
+.directorPanelAnimationRoot[data-director-step='8'],
+.directorPanelAnimationRoot[data-director-step='9'],
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .careerList li:nth-child(2) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='5'],
+.directorPanelAnimationRoot[data-director-step='6'],
+.directorPanelAnimationRoot[data-director-step='7'],
+.directorPanelAnimationRoot[data-director-step='8'],
+.directorPanelAnimationRoot[data-director-step='9'],
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .careerList li:nth-child(3) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='6'],
+.directorPanelAnimationRoot[data-director-step='7'],
+.directorPanelAnimationRoot[data-director-step='8'],
+.directorPanelAnimationRoot[data-director-step='9'],
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .careerList li:nth-child(4) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='7'],
+.directorPanelAnimationRoot[data-director-step='8'],
+.directorPanelAnimationRoot[data-director-step='9'],
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .careerList li:nth-child(5) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='8'],
+.directorPanelAnimationRoot[data-director-step='9'],
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .certificationTitle {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='9'],
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .certificationList li:nth-child(1) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='10'],
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .certificationList li:nth-child(2) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='11'],
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .certificationList li:nth-child(3) {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='12'],
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .directorInner::after,
   .directorImageWrap {
     opacity: 1;
     filter: blur(0);
-  }
-
-  &::before {
     transform: translateY(0);
-    transition-delay: 80ms;
   }
 
-  .directorCopy {
-    transform: translateY(0);
-    transition-delay: 260ms;
+  .directorInner::after {
+    transform: translateY(0) rotate(-25.62deg);
   }
+}
 
-  &::after {
-    transform: translateY(0) rotate(-25deg);
-    transition-delay: 500ms;
-  }
-
-  .directorImageWrap {
-    transform: translateY(0);
-    transition-delay: 560ms;
+.directorPanelAnimationRoot[data-following-tone='light'] {
+  .directorInner::before {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition-duration: 760ms;
   }
 }
 
@@ -153,9 +315,12 @@
   }
 
   .directorPanelAnimationRoot {
-    &::before,
-    &::after,
-    .directorCopy,
+    .directorInner::before,
+    .directorInner::after,
+    .directorNameRow,
+    .careerList li,
+    .certificationTitle,
+    .certificationList li,
     .directorImageWrap {
       opacity: 1;
       filter: blur(0);
@@ -163,8 +328,8 @@
       transition: none;
     }
 
-    &::after {
-      transform: rotate(-25deg);
+    .directorInner::after {
+      transform: rotate(-25.62deg);
     }
   }
 }

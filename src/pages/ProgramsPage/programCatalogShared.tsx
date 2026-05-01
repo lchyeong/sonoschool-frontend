@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 
-import cartIconSrc from '@/assets/icons/lucide_shopping-cart.svg';
 import searchScopeChevronIconSrc from '@/assets/icons/search-scope-chevron.svg';
 import { routePaths } from '@/routes/routeRegistry';
 import type {
@@ -129,6 +128,11 @@ const resolveAvailability = (item: ProgramLectureCard): { label: string; value: 
         label: '모집 상태',
         value: '모집 종료',
       };
+    case 'ENDED':
+      return {
+        label: '모집 상태',
+        value: '과정 종료',
+      };
   }
 };
 
@@ -151,21 +155,35 @@ const resolveArchiveStatusLabel = (item: ProgramLectureCard) => {
     case 'SCHEDULED':
       return '모집예정';
     case 'STARTED':
-      return '운영중';
+      return '과정진행중';
     case 'CLOSED':
       return '신청마감';
+    case 'ENDED':
+      return '과정종료';
   }
 };
 
+const hasArchiveDiscount = (item: ProgramLectureCard) => {
+  if (!item.discountRateLabel || !item.originalPriceLabel || !item.discountedPriceLabel) {
+    return false;
+  }
+
+  return (
+    item.discountRateLabel !== '0%' &&
+    item.discountRateLabel !== '할인없음' &&
+    item.discountRateLabel !== '할인 없음'
+  );
+};
+
+const formatArchiveDiscountRate = (discountRateLabel: string) => {
+  return discountRateLabel.includes('할인') ? discountRateLabel : `${discountRateLabel} 할인`;
+};
+
 const ProgramCardAction = ({
-  isAlertPending = false,
-  isAlertSubscribed = false,
-  isAuthenticated = false,
   isCartPending = false,
   isCartAdded = false,
   item,
   onAddToCart,
-  onSubscribeAlert,
 }: {
   isAlertPending?: boolean;
   isAlertSubscribed?: boolean;
@@ -177,69 +195,33 @@ const ProgramCardAction = ({
   onSubscribeAlert?: ((item: ProgramLectureCard) => void) | undefined;
 }) => {
   const catalogStatus = resolveLectureCatalogStatus(item);
-
-  if (catalogStatus === 'FULL') {
-    if (!isAuthenticated) {
-      return (
-        <Link
-          className={classNames(styles['cardActionLink'], styles['cardActionSecondary'])}
-          to={routePaths.login}
-        >
-          로그인 후 알림 받기
-        </Link>
-      );
-    }
-
-    return (
-      <button
-        className={classNames(
-          styles['cardActionButton'],
-          isAlertSubscribed ? styles['cardActionDisabled'] : styles['cardActionPrimary'],
-        )}
-        disabled={isAlertPending || isAlertSubscribed}
-        onClick={() => {
-          onSubscribeAlert?.(item);
-        }}
-        type='button'
-      >
-        {isAlertSubscribed ? '알림 신청 완료' : isAlertPending ? '신청 중...' : '알림 받기'}
-      </button>
-    );
-  }
-
-  if (catalogStatus === 'SCHEDULED') {
-    return (
-      <button
-        className={classNames(styles['cardActionButton'], styles['cardActionSecondary'])}
-        disabled
-        type='button'
-      >
-        모집 예정
-      </button>
-    );
-  }
-
-  if (catalogStatus === 'STARTED' || catalogStatus === 'CLOSED') {
-    return (
-      <button
-        className={classNames(styles['cardActionButton'], styles['cardActionDisabled'])}
-        disabled
-        type='button'
-      >
-        신청 마감
-      </button>
-    );
-  }
-
-  if (!onAddToCart || typeof item.programId !== 'number' || item.programId <= 0) {
-    return null;
-  }
+  const canAddToCart =
+    catalogStatus === 'OPEN' &&
+    Boolean(onAddToCart) &&
+    typeof item.programId === 'number' &&
+    item.programId > 0;
+  const isDisabled = !canAddToCart || isCartPending;
 
   const cartActionLabel = isCartAdded
-    ? '장바구니에 담긴 강의 확인'
+    ? '장바구니 보기'
     : isCartPending
       ? '장바구니에 담는 중'
-      : '장바구니 담기';
+      : canAddToCart
+        ? '장바구니 담기'
+        : `${resolveArchiveStatusLabel(item)} 과정`;
+
+  if (isCartAdded) {
+    return (
+      <Link
+        aria-label={cartActionLabel}
+        className={classNames(styles['cardIconButton'], styles['cardIconButtonAdded'])}
+        to={routePaths.cart}
+      >
+        <span className={styles['srOnly']}>{cartActionLabel}</span>
+        <span aria-hidden='true' className={styles['cardActionIcon']} />
+      </Link>
+    );
+  }
 
   return (
     <button
@@ -248,14 +230,18 @@ const ProgramCardAction = ({
         styles['cardIconButton'],
         isCartPending && styles['cardIconButtonPending'],
       )}
-      disabled={isCartPending}
+      disabled={isDisabled}
       onClick={() => {
-        onAddToCart(item);
+        if (!canAddToCart) {
+          return;
+        }
+
+        onAddToCart?.(item);
       }}
       type='button'
     >
       <span className={styles['srOnly']}>{cartActionLabel}</span>
-      <img alt='' aria-hidden='true' className={styles['cardActionIcon']} src={cartIconSrc} />
+      <span aria-hidden='true' className={styles['cardActionIcon']} />
     </button>
   );
 };
@@ -380,6 +366,8 @@ export const ProgramLectureCardItem = ({
 
   return (
     <article className={styles['lectureCard']}>
+      <Link aria-label={item.title} className={styles['cardLinkOverlay']} to={item.to} />
+
       <div className={styles['lectureImageFrame']}>
         <img alt={item.thumbnailAlt} className={styles['lectureImage']} src={item.thumbnailSrc} />
       </div>
@@ -401,11 +389,7 @@ export const ProgramLectureCardItem = ({
           </div>
         </div>
 
-        <h3 className={styles['lectureTitle']}>
-          <Link className={styles['cardLink']} to={item.to}>
-            {item.title}
-          </Link>
-        </h3>
+        <h3 className={styles['lectureTitle']}>{item.title}</h3>
         <p className={styles['lectureDescription']}>{item.summary}</p>
 
         <div className={styles['lecturePriceRow']}>
@@ -450,17 +434,19 @@ export const ProgramArchiveLectureCardItem = ({
 }: ProgramArchiveLectureCardItemProps) => {
   const archiveStatusLabel = resolveArchiveStatusLabel(item);
   const metaTags = buildArchiveMetaTags(item);
+  const hasDiscount = hasArchiveDiscount(item);
+  const salePriceLabel = item.discountedPriceLabel ?? item.priceLabel;
 
   return (
     <article className={styles['archiveLectureCard']}>
+      <Link aria-label={item.title} className={styles['cardLinkOverlay']} to={item.to} />
+
       <div className={styles['archiveLectureImageFrame']}>
-        <Link className={styles['archiveLectureImageLink']} to={item.to}>
-          <img
-            alt={item.thumbnailAlt}
-            className={styles['archiveLectureImage']}
-            src={item.thumbnailSrc}
-          />
-        </Link>
+        <img
+          alt={item.thumbnailAlt}
+          className={styles['archiveLectureImage']}
+          src={item.thumbnailSrc}
+        />
       </div>
 
       <div className={styles['archiveLectureBody']}>
@@ -486,14 +472,22 @@ export const ProgramArchiveLectureCardItem = ({
           />
         </div>
 
-        <h3 className={styles['archiveLectureTitle']}>
-          <Link className={styles['cardLink']} to={item.to}>
-            {item.title}
-          </Link>
-        </h3>
+        <h3 className={styles['archiveLectureTitle']}>{item.title}</h3>
 
         <div className={styles['archiveLectureBottomMeta']}>
-          <p className={styles['archiveLecturePrice']}>{item.priceLabel}</p>
+          <div className={styles['archiveLecturePricing']}>
+            {hasDiscount ? (
+              <p className={styles['archiveLectureDiscountRow']}>
+                <span className={styles['archiveLectureDiscountRate']}>
+                  {formatArchiveDiscountRate(item.discountRateLabel ?? '')}
+                </span>
+                <span className={styles['archiveLectureOriginalPrice']}>
+                  {item.originalPriceLabel}
+                </span>
+              </p>
+            ) : null}
+            <p className={styles['archiveLecturePrice']}>{salePriceLabel}</p>
+          </div>
 
           <div className={styles['archiveLectureScheduleGroup']}>
             <p className={styles['archiveLectureScheduleRow']}>

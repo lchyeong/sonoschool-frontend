@@ -161,7 +161,8 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     categoryName: '내과과정',
     title: '복부 실전 하이브리드 마스터',
     slug: 'abdomen-hybrid-master',
-    description: '영상 강의와 예약형 실습, 문제강의, 첨부자료를 함께 구성한 하이브리드 과정입니다.',
+    description:
+      '영상 강의와 예약형 실습, 문제풀이 강의, 첨부자료를 함께 구성한 하이브리드 과정입니다.',
     thumbnailUrl: null,
     programType: 'HYBRID',
     level: 'INTERMEDIATE',
@@ -207,7 +208,7 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     categoryName: '내과과정',
     title: 'AB 문제풀이 집중 트랙',
     slug: 'ab-problem-solving-track',
-    description: '문제강의와 첨부자료만으로 구성된 문제풀이 전용 프로그램입니다.',
+    description: '문제풀이 강의와 첨부자료만으로 구성된 문제풀이 전용 프로그램입니다.',
     thumbnailUrl: null,
     programType: 'PROBLEM_SOLVING',
     level: 'INTERMEDIATE',
@@ -233,9 +234,12 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     ],
     recommendedFor: ['시험 직전 문제풀이 중심 복습이 필요한 수강생'],
     checklists: ['해설 자료 다운로드 가능 여부 확인'],
-    summaryItems: [{ label: '문제풀이 전용', value: '문제강의와 첨부자료만으로 구성합니다.' }],
+    summaryItems: [{ label: '문제풀이 전용', value: '문제풀이 강의와 첨부자료만으로 구성합니다.' }],
     faqs: [
-      { question: '영상강의가 포함되나요?', answer: '이 과정은 문제강의와 첨부자료만 제공합니다.' },
+      {
+        question: '영상 강의가 포함되나요?',
+        answer: '이 과정은 문제풀이 강의와 첨부자료만 제공합니다.',
+      },
     ],
     tags: [],
     documents: [],

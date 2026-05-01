@@ -76,12 +76,6 @@ const ProgramPage = () => {
         />
 
         <section className={styles['archiveHeaderSection']}>
-          <div aria-hidden='true' className={styles['archiveHeaderDecor']}>
-            <span className={styles['archiveHeaderDecorLeft']} />
-            <span className={styles['archiveHeaderDecorTop']} />
-            <span className={styles['archiveHeaderDecorRight']} />
-          </div>
-
           <div className={styles['archiveHeaderCopy']}>
             <span className={styles['eyebrow']}>SONO SCHOOL</span>
             <h1 className={styles['title']}>{data.title}</h1>

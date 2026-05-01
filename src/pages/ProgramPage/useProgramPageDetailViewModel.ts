@@ -152,7 +152,30 @@ export const useProgramPageDetailViewModel = (
   }, [isQnaTabOpen]);
 
   useLayoutEffect(() => {
-    if (isQnaTabOpen || pendingScrollSectionId === null) {
+    if (!isQnaTabOpen || pendingScrollSectionId !== 'course-qna') {
+      return;
+    }
+
+    const targetElement = sectionRefs.current['course-qna'];
+
+    if (!targetElement) {
+      return;
+    }
+
+    const targetTop = targetElement.getBoundingClientRect().top + window.scrollY;
+
+    scrollToSectionTop(targetTop - detailTabScrollOffsetPx);
+    startTransition(() => {
+      setPendingScrollSectionId(null);
+    });
+  }, [isQnaTabOpen, pendingScrollSectionId]);
+
+  useLayoutEffect(() => {
+    if (
+      isQnaTabOpen ||
+      pendingScrollSectionId === null ||
+      pendingScrollSectionId === 'course-qna'
+    ) {
       return;
     }
 
@@ -253,20 +276,10 @@ export const useProgramPageDetailViewModel = (
 
   const handleTabClick = (sectionId: DetailSectionId) => {
     if (sectionId === 'course-qna') {
-      const fallbackElement =
-        sectionRefs.current['course-introduction'] ?? sectionRefs.current['course-curriculum'];
-
       setIsQnaTabOpen(true);
+      setPendingScrollSectionId(sectionId);
       setActiveTabId(sectionId);
       setActiveSectionId(sectionId);
-
-      if (!fallbackElement) {
-        return;
-      }
-
-      const targetTop = fallbackElement.getBoundingClientRect().top + window.scrollY;
-
-      scrollToSectionTop(targetTop - detailTabScrollOffsetPx);
       return;
     }
 

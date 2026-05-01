@@ -31,7 +31,17 @@ const ScrollToTopOnPathChange = () => {
 
 const RootLayout = () => {
   const matches = useMatches() as Array<{ handle?: AppRouteHandle }>;
-  const fullBleedRouteKeys = new Set<AppRouteKey>(['home', 'learningLesson']);
+  const fullBleedRouteKeys = new Set<AppRouteKey>([
+    'home',
+    'learningLesson',
+    'mypage',
+    'notices',
+    'noticeDetail',
+    'programs',
+    'program',
+    'programSection',
+    'programCatalogDeep',
+  ]);
   const headerlessRouteKeys = new Set<AppRouteKey>(['learningLesson']);
   const isFullBleed = matches.some((match) => {
     return Boolean(match.handle && fullBleedRouteKeys.has(match.handle.routeKey));

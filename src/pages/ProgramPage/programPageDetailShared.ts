@@ -49,10 +49,9 @@ export const buildHeroInfoPills = (
 ): Array<{ label: string; value: string }> => {
   return [
     { label: '난이도', value: data.difficultyLabel },
-    { label: '수업구분', value: data.formatLabel },
+    { label: '과정 종류', value: data.formatLabel },
     { label: '모집기간', value: data.registrationPeriodLabel },
     ...(data.operationPeriodLabel ? [{ label: '운영기간', value: data.operationPeriodLabel }] : []),
-    { label: '과정구성', value: `${String(data.curriculumTrack.sections.length)}개 섹션` },
   ];
 };
 

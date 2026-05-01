@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 import { addMyCartItem, fetchMyCart } from '@/api/mypage';
 import {
@@ -12,6 +13,7 @@ import {
   programAvailabilityAlertStatusQueryKey,
   useProgramAvailabilityAlertStatusQuery,
 } from '@/query/useProgramAvailabilityAlertStatusQuery';
+import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AddToCartPayload, CartItem, CartSummary, ProgramType } from '@/types/mypage';
@@ -73,6 +75,7 @@ const findCartItemByProgramId = (cart: CartSummary, programId: number): CartItem
 };
 
 export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]) => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const showToast = useToastStore((state) => state.showToast);
@@ -118,6 +121,11 @@ export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]
             : '장바구니에 담을 과정 정보를 준비하지 못했습니다.',
         variant: 'error',
       });
+      return;
+    }
+
+    if (cartProgramIds.has(payload.programId)) {
+      void navigate(routePaths.cart);
       return;
     }
 

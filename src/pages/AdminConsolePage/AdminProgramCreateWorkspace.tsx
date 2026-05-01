@@ -182,11 +182,11 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
 });
 
 const LECTURE_TYPE_LABELS: Record<AdminLectureType, string> = {
-  OFFLINE: '현장강의',
-  PRACTICUM: '실습강의',
-  PROBLEM: '문제강의',
+  OFFLINE: '오프라인 강의',
+  PRACTICUM: '실습 강의',
+  PROBLEM: '문제풀이 강의',
   RESOURCE: '첨부자료',
-  VIDEO: '영상강의',
+  VIDEO: '영상 강의',
 };
 
 const ALLOWED_LECTURE_TYPES_BY_PROGRAM_TYPE: Record<AdminProgramType, AdminLectureType[]> = {
@@ -207,8 +207,7 @@ const getDefaultLectureType = (programType: AdminProgramType | null): AdminLectu
 const isProblemLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'PROBLEM';
 const isOfflineLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'OFFLINE';
 const isResourceLecture = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'RESOURCE';
-const supportsLectureVideo = (lecture: AdminProgramDraftLecture) =>
-  lecture.lectureType === 'VIDEO' || lecture.lectureType === 'OFFLINE';
+const supportsLectureVideo = (lecture: AdminProgramDraftLecture) => lecture.lectureType === 'VIDEO';
 
 const normalizeLectureByType = (lecture: AdminProgramDraftLecture): AdminProgramDraftLecture => {
   if (supportsLectureVideo(lecture)) {
@@ -217,7 +216,8 @@ const normalizeLectureByType = (lecture: AdminProgramDraftLecture): AdminProgram
 
   return {
     ...lecture,
-    durationSeconds: isProblemLecture(lecture) ? null : lecture.durationSeconds,
+    durationSeconds:
+      isProblemLecture(lecture) || isOfflineLecture(lecture) ? null : lecture.durationSeconds,
     videoId: null,
     videoUploadErrorMessage: null,
     videoUploadFileName: null,
@@ -569,7 +569,7 @@ const reindexDraftResources = (
 };
 
 const LECTURE_TYPE_SHORT_LABELS: Record<AdminLectureType, string> = {
-  OFFLINE: '현장',
+  OFFLINE: '오프라인',
   PRACTICUM: '실습',
   PROBLEM: '문제',
   RESOURCE: '첨부자료',
@@ -579,14 +579,14 @@ const LECTURE_TYPE_SHORT_LABELS: Record<AdminLectureType, string> = {
 const getCurriculumGuideText = (programType: AdminProgramType | null): string => {
   switch (programType) {
     case 'OFFLINE':
-      return '각 섹션 안에서 영상강의, 현장강의, 문제강의, 첨부자료를 구성합니다.';
+      return '각 섹션 안에서 영상 강의, 오프라인 강의, 문제풀이 강의, 첨부자료를 구성합니다.';
     case 'HYBRID':
-      return '각 섹션 안에서 영상강의, 실습강의, 문제강의, 첨부자료를 구성합니다.';
+      return '각 섹션 안에서 영상 강의, 실습 강의, 문제풀이 강의, 첨부자료를 구성합니다.';
     case 'PROBLEM_SOLVING':
-      return '각 섹션 안에서 문제강의와 첨부자료만 구성합니다.';
+      return '각 섹션 안에서 문제풀이 강의와 첨부자료만 구성합니다.';
     case 'ONLINE':
     default:
-      return '각 섹션 안에서 영상강의, 문제강의, 첨부자료를 구성합니다.';
+      return '각 섹션 안에서 영상 강의, 문제풀이 강의, 첨부자료를 구성합니다.';
   }
 };
 
@@ -839,6 +839,7 @@ const DatePickerField = ({ label, min, name, value, onChange }: DatePickerFieldP
     <button className={styles['datePickerButton']} onClick={openPicker} type='button'>
       <TextField
         className={styles['dateInput']}
+        errorClassName={styles['dateInputError']}
         label={label}
         min={min}
         name={name}
@@ -2421,7 +2422,7 @@ const AdminProgramCreateWorkspace = ({
                       />
 
                       <TextAreaField
-                        label='설명'
+                        label='해설'
                         name={`problem-question-explanation-${lectureKey}-${String(questionIndex)}`}
                         onChange={(event) => {
                           updateProblemQuestion(lectureKey, questionIndex, (current) => ({
@@ -4769,16 +4770,7 @@ const AdminProgramCreateWorkspace = ({
 
                                           {supportsVideo ? (
                                             <div className={styles['lectureWorkspaceSection']}>
-                                              <h5 className={styles['panelTitle']}>
-                                                {supportsOffline ? '선행 영상' : '영상'}
-                                              </h5>
-                                              {supportsOffline ? (
-                                                <p className={styles['helperText']}>
-                                                  현장강의 시간은 일정 시작/종료 시각으로
-                                                  관리합니다. 선행 영상 길이는 출석 전 영상 확인
-                                                  여부 검증에만 사용됩니다.
-                                                </p>
-                                              ) : null}
+                                              <h5 className={styles['panelTitle']}>영상</h5>
                                               <div className={styles['curriculumStatGrid']}>
                                                 <div className={styles['curriculumStatCard']}>
                                                   <span className={styles['curriculumStatLabel']}>
@@ -4800,9 +4792,7 @@ const AdminProgramCreateWorkspace = ({
                                                 </div>
                                                 <div className={styles['curriculumStatCard']}>
                                                   <span className={styles['curriculumStatLabel']}>
-                                                    {supportsOffline
-                                                      ? '선행 영상 파일'
-                                                      : '영상 파일'}
+                                                    영상 파일
                                                   </span>
                                                   <strong className={styles['curriculumStatValue']}>
                                                     {uploadedVideoName ??
@@ -4819,9 +4809,7 @@ const AdminProgramCreateWorkspace = ({
                                                 </div>
                                                 <div className={styles['curriculumStatCard']}>
                                                   <span className={styles['curriculumStatLabel']}>
-                                                    {supportsOffline
-                                                      ? '선행 영상 길이'
-                                                      : '영상 길이'}
+                                                    영상 길이
                                                   </span>
                                                   <strong className={styles['curriculumStatValue']}>
                                                     {formatDraftDurationLabel(
@@ -4935,7 +4923,9 @@ const AdminProgramCreateWorkspace = ({
 
                                           {supportsOffline ? (
                                             <div className={styles['lectureWorkspaceSection']}>
-                                              <h5 className={styles['panelTitle']}>현장강의</h5>
+                                              <h5 className={styles['panelTitle']}>
+                                                오프라인 강의
+                                              </h5>
                                               <p className={styles['helperText']}>
                                                 프로그램 기간 안에서 날짜를 고르고, 시간은 1시간
                                                 단위로만 선택합니다. 장소와 비고는 선택 입력입니다.
@@ -4948,7 +4938,7 @@ const AdminProgramCreateWorkspace = ({
                                               ) : null}
                                               {lecture.offlineSchedules.length === 0 ? (
                                                 <p className={styles['helperText']}>
-                                                  등록된 현장 일정이 없습니다.
+                                                  등록된 오프라인 일정이 없습니다.
                                                 </p>
                                               ) : null}
                                               <div className={styles['offlineScheduleDraftList']}>
@@ -4978,8 +4968,15 @@ const AdminProgramCreateWorkspace = ({
                                                           일정 제거
                                                         </Button>
                                                       </div>
-                                                      <div className={styles['inlineFieldGrid']}>
+                                                      <div
+                                                        className={
+                                                          styles['offlineScheduleTimeGrid']
+                                                        }
+                                                      >
                                                         <TextField
+                                                          errorClassName={
+                                                            styles['offlineScheduleFieldError']
+                                                          }
                                                           label='날짜'
                                                           max={offlineScheduleMaxDate}
                                                           min={offlineScheduleMinDate}
@@ -4999,6 +4996,9 @@ const AdminProgramCreateWorkspace = ({
                                                           value={schedule.date ?? ''}
                                                         />
                                                         <AdminDropdownField
+                                                          className={
+                                                            styles['offlineScheduleTimeSelect']
+                                                          }
                                                           compact
                                                           label='시작 시간'
                                                           onChange={(value) => {
@@ -5015,9 +5015,10 @@ const AdminProgramCreateWorkspace = ({
                                                           options={OFFLINE_START_TIME_OPTIONS}
                                                           value={schedule.startTime ?? ''}
                                                         />
-                                                      </div>
-                                                      <div className={styles['inlineFieldGrid']}>
                                                         <AdminDropdownField
+                                                          className={
+                                                            styles['offlineScheduleTimeSelect']
+                                                          }
                                                           compact
                                                           label='종료 시간'
                                                           onChange={(value) => {
@@ -5036,25 +5037,30 @@ const AdminProgramCreateWorkspace = ({
                                                           )}
                                                           value={schedule.endTime ?? ''}
                                                         />
-                                                        <TextField
-                                                          label='장소'
-                                                          name={`lecture-offline-location-${lecture.key}-${String(scheduleIndex)}`}
-                                                          onChange={(event) => {
-                                                            updateLectureOfflineSchedule(
-                                                              section.key,
-                                                              lecture.key,
-                                                              scheduleIndex,
-                                                              (current) => ({
-                                                                ...current,
-                                                                location:
-                                                                  event.target.value || null,
-                                                              }),
-                                                            );
-                                                          }}
-                                                          value={schedule.location ?? ''}
-                                                        />
                                                       </div>
+                                                      <TextField
+                                                        errorClassName={
+                                                          styles['offlineScheduleFieldError']
+                                                        }
+                                                        label='장소'
+                                                        name={`lecture-offline-location-${lecture.key}-${String(scheduleIndex)}`}
+                                                        onChange={(event) => {
+                                                          updateLectureOfflineSchedule(
+                                                            section.key,
+                                                            lecture.key,
+                                                            scheduleIndex,
+                                                            (current) => ({
+                                                              ...current,
+                                                              location: event.target.value || null,
+                                                            }),
+                                                          );
+                                                        }}
+                                                        value={schedule.location ?? ''}
+                                                      />
                                                       <TextAreaField
+                                                        errorClassName={
+                                                          styles['offlineScheduleFieldError']
+                                                        }
                                                         label='비고'
                                                         name={`lecture-offline-notes-${lecture.key}-${String(scheduleIndex)}`}
                                                         onChange={(event) => {

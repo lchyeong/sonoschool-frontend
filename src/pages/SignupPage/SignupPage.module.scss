@@ -170,16 +170,37 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 24px;
   height: 24px;
   border: 2px solid #ff333a;
   border-radius: 50%;
-  color: #ff333a;
-  font-size: 20px;
-  font-weight: var(--font-weight-medium);
-  line-height: 1;
+  overflow: hidden;
+  color: transparent;
+  font-size: 0;
   transform: translateY(-50%);
   pointer-events: none;
+
+  &::before,
+  &::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 11px;
+    height: 2px;
+    border-radius: 999px;
+    background: #ff333a;
+    content: '';
+    transform-origin: center;
+  }
+
+  &::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  &::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+  }
 }
 
 .iconButton {

@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ProgramDetailPageResponse } from '@/types/programCatalog';
 
-import { ProgramPageDetailSidebar } from './ProgramPageDetailSections';
+import { ProgramPageDetailHero, ProgramPageDetailSidebar } from './ProgramPageDetailSections';
 
 const createDetailData = (
   overrides: Partial<ProgramDetailPageResponse> = {},
@@ -130,5 +131,41 @@ describe('ProgramPageDetailSidebar', () => {
     expect(screen.getByText('17%')).toBeInTheDocument();
     expect(screen.getAllByText('₩100,000').length).toBeGreaterThan(1);
     expect(screen.getByText('₩120,000')).toBeInTheDocument();
+  });
+});
+
+describe('ProgramPageDetailHero', () => {
+  it('상세 히어로 breadcrumb에서 페이지 루트인 교육과정 라벨을 제외한다', () => {
+    render(
+      <MemoryRouter>
+        <ProgramPageDetailHero
+          data={createDetailData({
+            breadcrumbItems: [
+              { label: '교육과정', to: '/programs' },
+              { label: '의사과정', to: '/programs/doctor-course' },
+              { label: '응급/POCUS과정', to: '/programs/doctor-course/pocus' },
+              {
+                label: '응급 POCUS FAST 집중 과정',
+                to: '/programs/doctor-course/pocus/fast/doctor-course-emergency-pocus-fast',
+              },
+            ],
+          })}
+          heroInfoPills={[]}
+        />
+      </MemoryRouter>,
+    );
+
+    const breadcrumb = screen.getByRole('navigation', { name: '교육과정 경로' });
+
+    expect(within(breadcrumb).queryByText('교육과정')).toBeNull();
+    expect(within(breadcrumb).getByRole('link', { name: '의사과정' })).toHaveAttribute(
+      'href',
+      '/programs/doctor-course',
+    );
+    expect(within(breadcrumb).getByRole('link', { name: '응급/POCUS과정' })).toHaveAttribute(
+      'href',
+      '/programs/doctor-course/pocus',
+    );
+    expect(within(breadcrumb).getByText('응급 POCUS FAST 집중 과정')).toBeInTheDocument();
   });
 });

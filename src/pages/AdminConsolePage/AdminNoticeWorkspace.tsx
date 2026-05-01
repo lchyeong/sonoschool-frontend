@@ -1,9 +1,11 @@
+import type { ChangeEvent } from 'react';
 import { useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import {
+  createAdminNoticeAttachmentUploadTarget,
   createAdminNoticeMediaUploadTarget,
   uploadAdminNoticeMediaFile,
 } from '@/api/adminNoticeMedia';
@@ -13,6 +15,7 @@ import {
   unpublishAdminNoticeLive,
   updateAdminNoticeLive,
 } from '@/api/notices';
+import checkIconSrc from '@/assets/icons/lucide_check.svg';
 import AdminRichTextEditor from '@/components/editor/AdminRichTextEditor/AdminRichTextEditor';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
@@ -26,13 +29,20 @@ import { useToastStore } from '@/stores/useToastStore';
 import type {
   AdminNoticeCreatePayload,
   AdminNoticeUpdatePayload,
+  NoticeAttachmentPayload,
   NoticeItem,
 } from '@/types/notice';
 import { hasRichTextContent } from '@/utils/htmlContent';
 
 import styles from './AdminConsolePage.module.scss';
+import { formatFileSizeLabel } from './adminConsolePageShared';
+import {
+  RESOURCE_DOCUMENT_POLICY_HINT,
+  validateResourceDocumentPolicy,
+} from './resourceDocumentPolicy';
 
 interface NoticeFormState {
+  attachments: NoticeAttachmentPayload[];
   content: string;
   pinned: boolean;
   published: boolean;
@@ -50,20 +60,32 @@ interface AdminNoticeWorkspaceFormProps extends AdminNoticeWorkspaceProps {
 }
 
 const EMPTY_FORM: NoticeFormState = {
+  attachments: [],
   content: '',
   pinned: false,
   published: true,
   title: '',
 };
 
+const NOTICE_ATTACHMENT_ACCEPT = '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
+
 const createFormState = (
-  notice: Pick<NoticeItem, 'content' | 'pinned' | 'published' | 'title'> | null | undefined,
+  notice:
+    | Pick<NoticeItem, 'attachments' | 'content' | 'pinned' | 'published' | 'title'>
+    | null
+    | undefined,
 ): NoticeFormState => {
   if (!notice) {
     return EMPTY_FORM;
   }
 
   return {
+    attachments: (notice.attachments ?? []).map((attachment) => ({
+      fileName: attachment.fileName,
+      fileSize: attachment.fileSize,
+      fileUrl: attachment.fileUrl,
+      mimeType: attachment.mimeType,
+    })),
     content: notice.content,
     pinned: notice.pinned,
     published: notice.published,
@@ -81,6 +103,7 @@ const AdminNoticeWorkspaceForm = ({
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const [formState, setFormState] = useState<NoticeFormState>(initialFormState);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
   const refreshNotices = async () => {
     await Promise.all([
@@ -181,6 +204,7 @@ const AdminNoticeWorkspaceForm = ({
 
     if (mode === 'create') {
       createMutation.mutate({
+        attachments: formState.attachments,
         content,
         pinned: formState.pinned,
         programId: null,
@@ -194,6 +218,7 @@ const AdminNoticeWorkspaceForm = ({
     updateMutation.mutate({
       noticeId: resolvedNoticeId as number,
       payload: {
+        attachments: formState.attachments,
         content,
         pinned: formState.pinned,
         programId: null,
@@ -220,6 +245,78 @@ const AdminNoticeWorkspaceForm = ({
     };
   };
 
+  const handleAttachmentSelection = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+
+    if (files.length === 0) {
+      return;
+    }
+
+    const invalidFile = files
+      .map((file) => ({
+        file,
+        message: validateResourceDocumentPolicy({
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+        }),
+      }))
+      .find((result) => result.message !== null);
+
+    if (invalidFile) {
+      showToast({
+        message: invalidFile.message ?? '첨부할 수 없는 파일입니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setIsUploadingAttachment(true);
+
+    try {
+      const uploadedAttachments = await Promise.all(
+        files.map(async (file) => {
+          const uploadTarget = await createAdminNoticeAttachmentUploadTarget({
+            contentType: file.type || 'application/octet-stream',
+            domain: 'NOTICE',
+            fileSize: file.size,
+            filename: file.name,
+          });
+
+          await uploadAdminNoticeMediaFile(uploadTarget.uploadUrl, file);
+
+          return {
+            fileName: file.name,
+            fileSize: file.size,
+            fileUrl: uploadTarget.storageUrl,
+            mimeType: file.type || null,
+          };
+        }),
+      );
+
+      setFormState((current) => ({
+        ...current,
+        attachments: [...current.attachments, ...uploadedAttachments],
+      }));
+      showToast({ message: '첨부파일을 업로드했습니다.', variant: 'success' });
+    } catch (error: unknown) {
+      showToast({
+        message: error instanceof Error ? error.message : '첨부파일 업로드에 실패했습니다.',
+        variant: 'error',
+      });
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  };
+
+  const removeAttachment = (targetIndex: number) => {
+    setFormState((current) => ({
+      ...current,
+      attachments: current.attachments.filter((_, index) => index !== targetIndex),
+    }));
+  };
+
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
@@ -244,7 +341,7 @@ const AdminNoticeWorkspaceForm = ({
               <span className={editingNotice.published ? styles['badgeSuccess'] : styles['badge']}>
                 {editingNotice.published ? '게시 중' : '비공개'}
               </span>
-              {editingNotice.pinned ? <span className={styles['badgeAccent']}>고정</span> : null}
+              {editingNotice.pinned ? <span className={styles['badgeAccent']}>필독</span> : null}
             </div>
           ) : null}
         </div>
@@ -269,6 +366,60 @@ const AdminNoticeWorkspaceForm = ({
             placeholder='본문'
             value={formState.content}
           />
+
+          <section
+            className={styles['noticeAttachmentPanel']}
+            aria-labelledby='notice-attachments-label'
+          >
+            <div className={styles['noticeAttachmentHeader']}>
+              <div>
+                <h3 className={styles['noticeAttachmentTitle']} id='notice-attachments-label'>
+                  첨부파일
+                </h3>
+                <p className={styles['noticeAttachmentHint']}>{RESOURCE_DOCUMENT_POLICY_HINT}</p>
+              </div>
+              <label className={styles['noticeAttachmentButton']}>
+                <input
+                  accept={NOTICE_ATTACHMENT_ACCEPT}
+                  disabled={isUploadingAttachment}
+                  multiple
+                  onChange={(event) => {
+                    void handleAttachmentSelection(event);
+                  }}
+                  type='file'
+                />
+                {isUploadingAttachment ? '업로드 중...' : '파일 선택'}
+              </label>
+            </div>
+
+            {formState.attachments.length > 0 ? (
+              <ul className={styles['noticeAttachmentList']}>
+                {formState.attachments.map((attachment, index) => (
+                  <li
+                    className={styles['noticeAttachmentItem']}
+                    key={`${attachment.fileUrl}-${String(index)}`}
+                  >
+                    <span className={styles['noticeAttachmentName']}>{attachment.fileName}</span>
+                    <span className={styles['noticeAttachmentSize']}>
+                      {formatFileSizeLabel(attachment.fileSize)}
+                    </span>
+                    <Button
+                      onClick={() => {
+                        removeAttachment(index);
+                      }}
+                      size='sm'
+                      type='button'
+                      variant='secondary'
+                    >
+                      삭제
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles['noticeAttachmentEmpty']}>등록된 첨부파일이 없습니다.</p>
+            )}
+          </section>
 
           <div className={styles['noticeEditorActionBar']}>
             <div className={styles['actionRow']}>
@@ -318,18 +469,40 @@ const AdminNoticeWorkspaceForm = ({
               ) : null}
             </div>
 
-            {mode === 'create' ? (
-              <label className={styles['checkboxRow']}>
+            <div className={styles['noticeEditorOptions']}>
+              <label className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}>
                 <input
-                  checked={formState.published}
+                  checked={formState.pinned}
                   onChange={(event) => {
-                    setFormState((current) => ({ ...current, published: event.target.checked }));
+                    setFormState((current) => ({ ...current, pinned: event.target.checked }));
                   }}
                   type='checkbox'
                 />
-                즉시 게시
+                <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
+                  {formState.pinned ? <img alt='' src={checkIconSrc} /> : null}
+                </span>
+                필독 공지
               </label>
-            ) : null}
+
+              {mode === 'create' ? (
+                <label className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}>
+                  <input
+                    checked={formState.published}
+                    onChange={(event) => {
+                      setFormState((current) => ({
+                        ...current,
+                        published: event.target.checked,
+                      }));
+                    }}
+                    type='checkbox'
+                  />
+                  <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
+                    {formState.published ? <img alt='' src={checkIconSrc} /> : null}
+                  </span>
+                  즉시 게시
+                </label>
+              ) : null}
+            </div>
           </div>
         </div>
       </section>

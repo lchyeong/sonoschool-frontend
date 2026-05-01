@@ -40,6 +40,9 @@ export interface ProgramLectureCard {
   durationLabel: string;
   difficultyLabel: string;
   priceLabel: string;
+  originalPriceLabel?: string | undefined;
+  discountRateLabel?: string | undefined;
+  discountedPriceLabel?: string | undefined;
   remainingSeatsCount?: number | undefined;
   remainingSeatsLabel?: string | undefined;
   catalogStatus?: ProgramCatalogStatus | undefined;
@@ -125,7 +128,7 @@ export interface ProgramInfoItem {
   value: string;
 }
 
-export type ProgramCatalogStatus = 'OPEN' | 'SCHEDULED' | 'STARTED' | 'CLOSED' | 'FULL';
+export type ProgramCatalogStatus = 'OPEN' | 'SCHEDULED' | 'STARTED' | 'CLOSED' | 'ENDED' | 'FULL';
 
 export interface ProgramFaqItem {
   id: string;

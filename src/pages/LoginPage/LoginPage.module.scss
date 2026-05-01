@@ -69,9 +69,11 @@
   border-color: #34b29f;
 }
 
-.input:focus {
-  border-width: 2px;
-  border-color: #34b29f;
+.input:focus,
+.input:focus-visible {
+  outline: none;
+  border-width: 1px;
+  border-color: #d1d5db;
   box-shadow: none;
 }
 
@@ -120,9 +122,22 @@
   background: #34b29f !important;
 }
 
-.submitButton:hover,
-.submitButton:focus-visible {
+.submitButton:hover {
   background: #2fa08f !important;
+}
+
+.submitButton:focus,
+.submitButton:focus-visible {
+  outline: none !important;
+  background: #34b29f !important;
+  box-shadow: none !important;
+}
+
+.actionLink:focus,
+.actionLink:focus-visible {
+  outline: none;
+  color: #4b5563;
+  text-decoration: none;
 }
 
 @media (width < 768px) {

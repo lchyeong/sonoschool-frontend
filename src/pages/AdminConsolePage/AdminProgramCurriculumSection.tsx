@@ -380,10 +380,10 @@ const formatLectureDelivery = (lecture: AdminCurriculumLecture): string => {
   const hasOfflineSchedule = lecture.offlineSchedules.length > 0;
 
   if (hasVideo && hasOfflineSchedule) {
-    return '온라인 + 현장 강의';
+    return '온라인 + 오프라인 강의';
   }
   if (hasOfflineSchedule) {
-    return '현장 강의';
+    return '오프라인 강의';
   }
   if (hasVideo) {
     return '온라인 영상';
@@ -404,11 +404,11 @@ const getLecturePanelLabel = (
     case 'resource':
       return '첨부자료 연결';
     case 'problem':
-      return lecture.problemOnly ? '문제풀이 문제 구성' : '문제 연결';
+      return lecture.problemOnly ? '문제 구성' : '문제 연결';
     case 'practicum':
       return '실습 예약 구성';
     case 'offline':
-      return '현장강의 일정 설정';
+      return '오프라인 강의 일정 설정';
     default:
       return '작업영역 선택 전';
   }
@@ -823,7 +823,7 @@ const LectureCard = ({
                   }}
                   type='button'
                 >
-                  {activePanel === 'offline' ? '현장강의 추가 취소' : '현장강의 추가'}
+                  {activePanel === 'offline' ? '오프라인 강의 추가 취소' : '오프라인 강의 추가'}
                 </button>
               ) : null}
             </div>
@@ -854,7 +854,7 @@ const LectureCard = ({
                     value={formState.problemOnly ? 'PROBLEM_ONLY' : 'STANDARD'}
                   >
                     <option value='STANDARD'>일반 강의</option>
-                    <option value='PROBLEM_ONLY'>문제풀이형 강의</option>
+                    <option value='PROBLEM_ONLY'>문제 풀이형 강의</option>
                   </select>
                 </label>
 
@@ -959,7 +959,7 @@ const LectureCard = ({
           {supportsDeliveryPanels && activePanel === 'offline' ? (
             <div className={styles['managementPanel']}>
               <div className={styles['panelHeader']}>
-                <h5 className={styles['subsectionTitle']}>현장 강의 일정</h5>
+                <h5 className={styles['subsectionTitle']}>오프라인 강의 일정</h5>
               </div>
               <p className={styles['helperText']}>
                 강의별로 실제 진행 일자와 시간을 직접 등록합니다. 저장된 일정만 공유 일정표에 자동
@@ -1591,7 +1591,7 @@ const SectionCard = ({
                     value={newLectureForm.problemOnly ? 'PROBLEM_ONLY' : 'STANDARD'}
                   >
                     <option value='STANDARD'>일반 강의</option>
-                    <option value='PROBLEM_ONLY'>문제풀이형 강의</option>
+                    <option value='PROBLEM_ONLY'>문제 풀이형 강의</option>
                   </select>
                 </label>
                 <TextField
@@ -1903,14 +1903,15 @@ const AdminProgramCurriculumSection = ({
     }) => replaceAdminLectureOfflineSchedules(lectureId, payload),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '현장 강의 일정을 저장하지 못했습니다.',
+        message:
+          error instanceof Error ? error.message : '오프라인 강의 일정을 저장하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await invalidateCurriculum();
       showToast({
-        message: '현장 강의 일정을 저장했습니다.',
+        message: '오프라인 강의 일정을 저장했습니다.',
         variant: 'success',
       });
     },
@@ -1920,14 +1921,15 @@ const AdminProgramCurriculumSection = ({
     mutationFn: (lectureId: number) => deleteAdminLectureOfflineSchedules(lectureId),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '현장 강의 일정을 삭제하지 못했습니다.',
+        message:
+          error instanceof Error ? error.message : '오프라인 강의 일정을 삭제하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await invalidateCurriculum();
       showToast({
-        message: '현장 강의 일정을 삭제했습니다.',
+        message: '오프라인 강의 일정을 삭제했습니다.',
         variant: 'success',
       });
     },

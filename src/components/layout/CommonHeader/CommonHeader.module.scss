@@ -213,6 +213,35 @@
   }
 }
 
+@media (width < 1200px) {
+  .inner {
+    max-width: none;
+    min-height: 72px;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: 0 var(--space-5);
+  }
+
+  .logoArea {
+    width: auto;
+    height: auto;
+  }
+
+  .logoImage {
+    width: auto;
+    height: 46px;
+  }
+
+  .desktopNav,
+  .desktopUtilityArea {
+    display: none;
+  }
+
+  .mobileUtilityArea {
+    display: inline-flex;
+  }
+}
+
 .icon {
   &Button,
   &Link {

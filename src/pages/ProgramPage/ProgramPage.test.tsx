@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import CartPage from '@/pages/CartPage/CartPage';
 import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
 import ProgramPage from '@/pages/ProgramPage/ProgramPage';
+import { clearStudentSession, setStudentSession } from '@/stores/useAuthStore';
 import { resetCartSelectionState } from '@/stores/useCartSelectionStore';
 
 const createTestQueryClient = () => {
@@ -49,6 +50,45 @@ const renderProgramAndCartRoutes = (initialEntry: string) => {
   );
 };
 
+const LoginProbe = () => {
+  const location = useLocation();
+  const state = location.state as { from?: { pathname?: string } } | null;
+  const from = state?.from;
+
+  return (
+    <div>
+      <h1>로그인 페이지</h1>
+      <p>이전 경로: {from?.pathname ?? '없음'}</p>
+    </div>
+  );
+};
+
+const renderProgramAndLoginRoutes = (initialEntry: string) => {
+  const queryClient = createTestQueryClient();
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path='/programs/*' element={<ProgramPage />} />
+          <Route path='/login' element={<LoginProbe />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+};
+
+const setAuthenticatedStudent = () => {
+  setStudentSession({
+    accessToken: 'test-token',
+    displayName: '테스트 수강생',
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    loginId: 'student01',
+    role: 'USER',
+    tokenType: 'Bearer',
+  });
+};
+
 const getLectureCountText = (count: number) => {
   return screen.getByText((_, element) => {
     return element?.tagName === 'P' && element.textContent === `총 ${String(count)}개 과정`;
@@ -57,6 +97,7 @@ const getLectureCountText = (count: number) => {
 
 afterEach(() => {
   cleanup();
+  clearStudentSession();
   resetCartSelectionState();
   window.localStorage.clear();
 });
@@ -213,6 +254,7 @@ describe('ProgramPage', () => {
   });
 
   it('switches to a dedicated qna tab instead of keeping qna in the one-page scroll', async () => {
+    setAuthenticatedStudent();
     renderProgramPage(
       '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
     );
@@ -229,12 +271,57 @@ describe('ProgramPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Q&A' }));
 
-    expect(await screen.findByRole('heading', { name: '강의 Q&A' })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('제목, 내용, 작성자를 검색해 주세요.')).toBeInTheDocument();
-    expect(await screen.findByRole('columnheader', { name: '번호' })).toBeInTheDocument();
+    expect(
+      await screen.findByText('강의 Q&A는 해당 과정의 강의 내용과 관련된 질문을 위한 공간입니다.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '전체 상태' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '답변 완료' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '답변 대기' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Q&A 검색' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '질문 작성' })).toBeInTheDocument();
+    expect(await screen.findByText('등록된 질문이 없습니다.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('질문 제목')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('질문 내용')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '질문 작성' }));
+    expect(await screen.findByRole('heading', { name: 'Q&A 작성' })).toBeInTheDocument();
+    expect(screen.getByLabelText('질문 제목')).toBeInTheDocument();
+    expect(screen.getByLabelText('질문 내용')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '목록으로' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '등록하기' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '강의 Q&A' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/총 \d+건 중 검색 결과 \d+건/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: '번호' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: '상태' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: '작성자' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: '작성일' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '작성 닫기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '장바구니' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '수강 신청 하기' })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: '먼저 경험한 수강생들 후기' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('redirects unauthenticated users to login before opening the course qna writer', async () => {
+    renderProgramAndLoginRoutes(
+      '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Q&A' }));
+    expect(await screen.findByRole('button', { name: '질문 작성' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '질문 작성' }));
+
+    expect(await screen.findByRole('heading', { name: '로그인 페이지' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '이전 경로: /programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('moves from the qna tab to the faq section in one interaction flow', async () => {
@@ -255,7 +342,7 @@ describe('ProgramPage', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Q&A' }));
-    expect(await screen.findByRole('heading', { name: '강의 Q&A' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '질문 작성' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '자주하는 질문' }));
 

@@ -22,6 +22,7 @@ export interface QuestionItem {
   title: string;
   content: string;
   mine: boolean;
+  notice: boolean;
   answered: boolean;
   replyCount: number;
   createdAt: string;
@@ -30,6 +31,11 @@ export interface QuestionItem {
 }
 
 export interface QuestionCreatePayload {
+  title: string;
+  content: string;
+}
+
+export interface AdminQuestionNoticeCreatePayload {
   title: string;
   content: string;
 }

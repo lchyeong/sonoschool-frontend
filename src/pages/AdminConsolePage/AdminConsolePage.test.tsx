@@ -349,11 +349,11 @@ describe('AdminConsolePage', () => {
     expect(screen.queryByLabelText('길이(초)')).not.toBeInTheDocument();
   });
 
-  it('treats offline lecture duration as schedule-driven and exposes prelearning video metadata separately', async () => {
+  it('treats offline lecture duration as schedule-driven and hides legacy prelearning video metadata', async () => {
     const draftDetail = createAdminProgramDraftDetailFixture();
     draftDetail.payload.sections[0].lectures = [
       {
-        description: '현장 실습 전 시청할 안내 영상이 있습니다.',
+        description: '오프라인 강의 전 안내 영상이 과거 데이터에 남아 있습니다.',
         durationSeconds: 1800,
         key: 'lecture-offline-1',
         lectureType: 'OFFLINE',
@@ -380,14 +380,10 @@ describe('AdminConsolePage', () => {
     fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
     fireEvent.click(screen.getByRole('button', { name: '강의 펼치기' }));
 
-    expect(screen.getByText('선행 영상')).toBeInTheDocument();
-    expect(screen.getByText('선행 영상 파일')).toBeInTheDocument();
-    expect(screen.getByText('선행 영상 길이')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        '현장강의 시간은 일정 시작/종료 시각으로 관리합니다. 선행 영상 길이는 출석 전 영상 확인 여부 검증에만 사용됩니다.',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText('오프라인 강의')).toBeInTheDocument();
+    expect(screen.queryByText('선행 영상')).not.toBeInTheDocument();
+    expect(screen.queryByText('선행 영상 파일')).not.toBeInTheDocument();
+    expect(screen.queryByText('선행 영상 길이')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('길이(초)')).not.toBeInTheDocument();
   });
 
@@ -401,11 +397,11 @@ describe('AdminConsolePage', () => {
     fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
     fireEvent.click(screen.getByRole('button', { name: '새 강의 추가' }));
 
-    expect(screen.getByText('영상강의')).toBeInTheDocument();
-    expect(screen.getByText('문제강의')).toBeInTheDocument();
+    expect(screen.getByText('영상 강의')).toBeInTheDocument();
+    expect(screen.getByText('문제풀이 강의')).toBeInTheDocument();
     expect(screen.getByText('첨부자료')).toBeInTheDocument();
-    expect(screen.queryByText('현장강의')).not.toBeInTheDocument();
-    expect(screen.queryByText('실습강의')).not.toBeInTheDocument();
+    expect(screen.queryByText('오프라인 강의')).not.toBeInTheDocument();
+    expect(screen.queryByText('실습 강의')).not.toBeInTheDocument();
   });
 
   it('limits lecture types in the create workspace for problem solving programs', async () => {
@@ -424,11 +420,11 @@ describe('AdminConsolePage', () => {
     fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
     fireEvent.click(screen.getByRole('button', { name: '새 강의 추가' }));
 
-    expect(screen.getByText('문제강의')).toBeInTheDocument();
+    expect(screen.getByText('문제풀이 강의')).toBeInTheDocument();
     expect(screen.getByText('첨부자료')).toBeInTheDocument();
-    expect(screen.queryByText('영상강의')).not.toBeInTheDocument();
-    expect(screen.queryByText('현장강의')).not.toBeInTheDocument();
-    expect(screen.queryByText('실습강의')).not.toBeInTheDocument();
+    expect(screen.queryByText('영상 강의')).not.toBeInTheDocument();
+    expect(screen.queryByText('오프라인 강의')).not.toBeInTheDocument();
+    expect(screen.queryByText('실습 강의')).not.toBeInTheDocument();
   });
 
   it('restores problem lecture time limit from the problem payload in the create workspace', async () => {

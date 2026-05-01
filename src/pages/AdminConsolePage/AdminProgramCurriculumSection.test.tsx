@@ -46,11 +46,11 @@ describe('AdminProgramCurriculumSection', () => {
         return HttpResponse.json({
           data: [
             {
-              description: '현장 강의 섹션',
+              description: '오프라인 강의 섹션',
               id: 501,
               lectures: [
                 {
-                  description: '현장 실습 안내',
+                  description: '오프라인 강의 안내',
                   durationSeconds: null,
                   id: 9101,
                   lectureType: 'OFFLINE',
@@ -79,7 +79,7 @@ describe('AdminProgramCurriculumSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
     fireEvent.click(screen.getByRole('button', { name: '강의 펼치기' }));
-    fireEvent.click(screen.getByRole('button', { name: '현장강의 추가' }));
+    fireEvent.click(screen.getByRole('button', { name: '오프라인 강의 추가' }));
 
     expect(
       screen.getByText(

@@ -1,3 +1,5 @@
+import type { ProgramType } from '@/types/mypage';
+
 export type PaymentStatus = 'PENDING' | 'REGISTERED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 export type CheckoutPaymentMethod = 'CARD' | 'FREE';
 export type PaymentMethodValue =
@@ -113,6 +115,14 @@ export const formatPaymentMethodLabel = (value: PaymentMethodValue): string => {
   return value;
 };
 
+export interface PaymentPurchasedItem {
+  id: number;
+  title: string;
+  programType?: ProgramType | null;
+  thumbnailUrl?: string | null;
+  payablePrice?: number | null;
+}
+
 export interface PaymentResult {
   id: number;
   orderType: PaymentOrderType;
@@ -129,4 +139,5 @@ export interface PaymentResult {
   failedAt: string | null;
   cancelledAt: string | null;
   cancelReason: string | null;
+  purchasedItems?: PaymentPurchasedItem[] | undefined;
 }

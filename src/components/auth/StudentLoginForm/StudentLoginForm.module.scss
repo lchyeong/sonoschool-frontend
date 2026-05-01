@@ -63,6 +63,14 @@
   -webkit-mask: var(--login-eye-icon) center / contain no-repeat;
 }
 
+.formPage .passwordVisibilityButton:focus,
+.formPage .passwordVisibilityButton:focus-visible,
+.formPage .rememberInput:focus + .rememberBox,
+.formPage .rememberInput:focus-visible + .rememberBox {
+  outline: none;
+  box-shadow: none;
+}
+
 .passwordInput {
   padding-right: 74px !important;
 }

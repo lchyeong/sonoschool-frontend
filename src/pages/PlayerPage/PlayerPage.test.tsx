@@ -774,7 +774,7 @@ describe('PlayerPage', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: '복부초음파 기초 2강' }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText('현재 강의 정보')).toHaveTextContent('동영상 강의');
+    expect(screen.queryByLabelText('현재 강의 정보')).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(createdHlsConfigs.at(-1)?.['loader']).toBeTypeOf('function');
@@ -913,7 +913,7 @@ describe('PlayerPage', () => {
     expect(container.querySelector('video')).toHaveAttribute('poster', posterUrl);
   });
 
-  it('renders the player q&a with the same board layout as the program detail page', async () => {
+  it('renders the player q&a with the compact board layout', async () => {
     setStudentSession({
       accessToken: 'student-token',
       displayName: '김학생',
@@ -937,25 +937,31 @@ describe('PlayerPage', () => {
     expect(
       screen.queryByText('비수강생과 수강생 모두 참여할 수 있으며, 작성자 구분이 함께 표시됩니다.'),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText('프로그램 전체 Q&A 1개')).not.toBeInTheDocument();
+    expect(screen.queryByText(/프로그램 전체 Q&A/)).not.toBeInTheDocument();
     expect(screen.queryByText(/총 \d+건 중 검색 결과/)).not.toBeInTheDocument();
-    expect(screen.queryByText('1 / 3 완료')).not.toBeInTheDocument();
-    expect(screen.queryByText('33%')).not.toBeInTheDocument();
+    expect(screen.getByText('1 / 3 완료')).toBeInTheDocument();
+    expect(screen.getByText('33%')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(await screen.findByText('실습 문의')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '글쓰기' }));
+    fireEvent.click(screen.getByRole('button', { name: '글 작성하기' }));
 
-    expect(screen.getByRole('heading', { name: '질문 작성' })).toBeInTheDocument();
+    expect(screen.queryByText('1 / 3 완료')).not.toBeInTheDocument();
+    expect(screen.queryByText('33%')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Q&A 목록으로 돌아가기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Q&A 작성 닫기' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '제목' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '내용' })).toBeInTheDocument();
+    expect(screen.getByLabelText('내용 글자 수 0 / 2000')).toBeInTheDocument();
     expect(
       screen.queryByPlaceholderText('제목, 내용, 작성자를 검색해 주세요.'),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText('실습 문의')).not.toBeInTheDocument();
-    expect(screen.queryByText('자료 문의')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: '작성 닫기' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: '취소' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '질문 등록' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '작성 닫기' })).not.toBeInTheDocument();
   });
 
-  it('shows player q&a as instructor answer read-only details', async () => {
+  it('shows player q&a as compact detail with instructor answers only', async () => {
     fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
     fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
 
@@ -967,19 +973,22 @@ describe('PlayerPage', () => {
     const answeredTitle = await screen.findByText('실습 문의');
 
     expect(screen.getAllByText(questionContent)).toHaveLength(1);
+    expect(screen.getByText('1 / 3 완료')).toBeInTheDocument();
+    expect(screen.getByText('33%')).toBeInTheDocument();
     fireEvent.click(answeredTitle.closest('button') as HTMLButtonElement);
-    fireEvent.click(screen.getAllByRole('button', { name: '답변완료' })[0]);
 
-    expect(screen.getAllByText(questionContent)).toHaveLength(1);
+    expect(screen.queryByText('1 / 3 완료')).not.toBeInTheDocument();
+    expect(screen.queryByText('33%')).not.toBeInTheDocument();
+    expect(screen.getAllByText(questionContent)).toHaveLength(2);
     expect(screen.getByText('네, 운영 관련 문의도 이곳에서 가능합니다.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /답글 남기기/ })).not.toBeInTheDocument();
     expect(screen.queryByText('저는 자료실에서 확인했습니다.')).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Q&A 목록으로 돌아가기' }));
     fireEvent.click(screen.getByText('자료 문의').closest('button') as HTMLButtonElement);
 
-    expect(screen.getAllByText('미답변').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getAllByRole('button', { name: '미답변' })[0]);
-    expect(screen.getByText('아직 미답변입니다.')).toBeInTheDocument();
+    expect(screen.queryByText('저는 자료실에서 확인했습니다.')).not.toBeInTheDocument();
+    expect(screen.getByText('아직 등록된 답변이 없습니다.')).toBeInTheDocument();
     expect(createProgramQnaReplyMock).not.toHaveBeenCalled();
   });
 

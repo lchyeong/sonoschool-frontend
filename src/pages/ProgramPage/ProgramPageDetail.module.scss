@@ -1,15 +1,17 @@
 .page {
   display: grid;
-  gap: 16px;
-  margin-top: calc(var(--space-8) * -1);
+  gap: 0;
 }
 
 .heroSection {
   position: relative;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+  width: calc(100vw - 62px);
+  margin-top: 0;
+  margin-right: calc(50% - 50vw + 31px);
+  margin-left: calc(50% - 50vw + 31px);
   overflow: hidden;
+  aspect-ratio: 1850 / 473;
+  border-radius: clamp(28px, 2.16vw, 40px);
   background: #111827;
 }
 
@@ -20,30 +22,30 @@
 
 .heroBackgroundImage {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 16.07%;
+  right: 11.3%;
+  left: auto;
+  width: 25.3%;
+  height: 67.23%;
   object-fit: cover;
-  object-position: center right;
+  object-position: center;
+  border-radius: clamp(14px, 1.08vw, 20px);
 }
 
 .heroBackgroundOverlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, #111827 0%, rgba(17, 24, 39, 0.9) 58%, transparent 100%);
+  background: transparent;
 }
 
 .heroContent {
   box-sizing: border-box;
   position: relative;
   z-index: 1;
-  display: grid;
-  gap: 16px;
   width: 100%;
-  padding-top: 64px;
-  padding-bottom: 80px;
-  padding-inline: max(24px, calc((100vw - 1440px) / 2 + 24px));
+  padding: clamp(36px, calc((100vw - 62px) * 0.0319), 59px)
+    clamp(40px, calc((100vw - 62px) * 0.1086), 201px)
+    clamp(40px, calc((100vw - 62px) * 0.033), 61px);
 }
 
 .heroBreadcrumbNav {
@@ -53,7 +55,8 @@
 .heroBreadcrumbList {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 14px;
+  align-items: center;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -62,9 +65,11 @@
 .heroBreadcrumbItem {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: rgba(156, 163, 175, 0.72);
-  font-size: 14px;
+  gap: clamp(10px, calc((100vw - 62px) * 0.0076), 14px);
+  color: #9ca3af;
+  font-size: clamp(14px, calc((100vw - 62px) * 0.0097), 18px);
+  font-weight: 400;
+  line-height: normal;
 
   &::after {
     content: '>';
@@ -85,7 +90,7 @@
 }
 
 .heroBreadcrumbCurrent {
-  color: rgba(229, 231, 235, 0.92);
+  color: #ffffff;
 }
 
 .heroHashTagRow,
@@ -122,22 +127,26 @@
 }
 
 .heroTitle {
-  max-width: 700px;
+  max-width: min(657px, 35.52vw);
+  margin-top: clamp(10px, calc((100vw - 62px) * 0.0086), 16px);
   color: #ffffff;
-  font-size: clamp(28px, 3vw, 32px);
-  font-weight: 600;
-  line-height: 1.4;
+  font-size: clamp(30px, calc((100vw - 62px) * 0.0238), 44px);
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .heroRatingScore {
   color: #ffffff;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: clamp(16px, calc((100vw - 62px) * 0.0108), 20px);
+  font-weight: 500;
+  line-height: normal;
 }
 
 .heroRatingCount {
   color: #ffffff;
-  font-size: 16px;
+  font-size: clamp(16px, calc((100vw - 62px) * 0.0108), 20px);
+  font-weight: 400;
+  line-height: normal;
 }
 
 .heroDescription,
@@ -156,33 +165,41 @@
 }
 
 .heroDescription {
-  max-width: 700px;
-  color: #9ca3af;
-  font-size: 16px;
+  max-width: min(606px, 32.76vw);
+  margin-top: clamp(8px, calc((100vw - 62px) * 0.0065), 12px);
+  color: #ffffff;
+  font-size: clamp(14px, calc((100vw - 62px) * 0.0097), 18px);
+  line-height: normal;
+}
+
+.heroRatingRow {
+  gap: clamp(7px, calc((100vw - 62px) * 0.0054), 10px);
+  margin-top: clamp(42px, calc((100vw - 62px) * 0.0486), 90px);
 }
 
 .heroInfoPillRow {
-  gap: 14px;
+  gap: clamp(10px, calc((100vw - 62px) * 0.0086), 16px);
+  margin-top: clamp(20px, calc((100vw - 62px) * 0.0141), 26px);
 }
 
 .heroInfoPill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 54px;
-  padding: 10px 20px;
-  border: 1px solid rgba(190, 229, 225, 0.88);
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(242, 251, 250, 0.96) 0%, rgba(233, 247, 245, 0.92) 100%);
-  box-shadow: 0 18px 30px -24px rgba(15, 23, 42, 0.42);
+  padding: clamp(4px, calc((100vw - 62px) * 0.0032), 6px)
+    clamp(10px, calc((100vw - 62px) * 0.0076), 14px);
+  border: 0;
+  border-radius: 40px;
+  background: #e5e7eb;
+  box-shadow: none;
 }
 
 .heroInfoPillText {
-  color: #4d9b93;
-  font-size: clamp(14px, 1.15vw, 18px);
+  color: #374151;
+  font-size: clamp(12px, calc((100vw - 62px) * 0.0086), 16px);
   font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.03em;
+  line-height: normal;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
@@ -194,6 +211,7 @@
 .detailShell {
   width: 100%;
   min-width: 0;
+  margin-top: 22px;
 }
 
 .contentLayout {
@@ -203,6 +221,10 @@
   gap: 32px;
   align-items: flex-start;
   grid-template-columns: minmax(0, 1fr) minmax(0, 480px);
+}
+
+.contentLayoutFull {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .contentMain {
@@ -223,9 +245,9 @@
   top: var(--common-header-sticky-top, 0px);
   z-index: 20;
   display: flex;
-  gap: 40px;
+  gap: 0;
   align-items: center;
-  padding: 0;
+  padding: 16px 19px;
   border-bottom: 1px solid #e5e7eb;
   background: #ffffff;
   transition: top 220ms ease;
@@ -233,11 +255,12 @@
 
 .tabButton {
   position: relative;
-  padding: 12px 0;
+  padding: 0 21px 17px;
   border: 0;
-  color: #9ca3af;
-  font-size: 18px;
-  font-weight: 400;
+  color: #4b5563;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.3;
   background: transparent;
   cursor: pointer;
   transition: color 160ms ease;
@@ -245,7 +268,7 @@
   &::after {
     position: absolute;
     right: 0;
-    bottom: 0;
+    bottom: -17px;
     left: 0;
     height: 2px;
     content: '';
@@ -258,11 +281,10 @@
 }
 
 .tabButtonActive {
-  color: #2ea995;
-  font-weight: 700;
+  color: #34b29f;
 
   &::after {
-    background: #2ea995;
+    background: #34b29f;
   }
 }
 
@@ -384,7 +406,7 @@
 }
 
 .qnaTabSection {
-  padding-top: 28px;
+  padding-top: 37px;
   border-top: 0;
 }
 
@@ -1402,6 +1424,12 @@
   background: #374151;
 }
 
+.cartActionLinkAdded {
+  color: #34b29f;
+  border: 1px solid #34b29f;
+  background: #ecf9f7;
+}
+
 .applyActionLink,
 .mobileApplyActionLink {
   background: #33bda7;
@@ -1414,7 +1442,7 @@
 }
 
 .ratingStar {
-  font-size: 20px;
+  font-size: clamp(16px, calc((100vw - 62px) * 0.0108), 20px);
   line-height: 1;
 }
 
@@ -1427,7 +1455,7 @@
 }
 
 .ratingStarInverseEmpty {
-  color: rgba(255, 255, 255, 0.2);
+  color: #d1d5db;
 }
 
 .reviewMetaRow {
@@ -1467,8 +1495,72 @@
 }
 
 @media (width < 1200px) {
+  .heroSection {
+    min-height: 360px;
+    aspect-ratio: auto;
+  }
+
+  .heroContent {
+    padding: 44px 56px;
+  }
+
+  .heroBackgroundImage {
+    top: 76px;
+    right: 56px;
+    width: min(31vw, 340px);
+    height: auto;
+    aspect-ratio: 468 / 318;
+  }
+
+  .heroBreadcrumbNav,
+  .heroTitle,
+  .heroDescription {
+    max-width: calc(100% - min(31vw, 340px) - 72px);
+  }
+
+  .heroRatingRow {
+    margin-top: 56px;
+  }
+
+  .tabBar {
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .tabButton {
+    flex: 0 0 auto;
+    padding-right: 16px;
+    padding-left: 16px;
+    font-size: 18px;
+    white-space: nowrap;
+  }
+
   .sidebar {
     width: 400px;
+  }
+}
+
+@media (width < 980px) {
+  .heroBackgroundImage {
+    right: 32px;
+    width: 300px;
+    opacity: 0.16;
+  }
+
+  .heroBreadcrumbNav,
+  .heroTitle,
+  .heroDescription {
+    max-width: 100%;
+  }
+}
+
+@media (width < 860px) {
+  .heroBackgroundImage {
+    display: none;
   }
 }
 
@@ -1501,25 +1593,60 @@
 }
 
 @media (width < 768px) {
+  .heroSection {
+    width: calc(100vw - 32px);
+    min-height: auto;
+    margin-top: 32px;
+    margin-right: calc(50% - 50vw + 16px);
+    margin-left: calc(50% - 50vw + 16px);
+    border-radius: 28px;
+  }
+
   .heroContent {
-    padding: 48px 20px 56px;
+    padding: 36px 24px 40px;
   }
 
   .heroBackgroundImage {
-    width: 100%;
-    opacity: 0.28;
+    top: auto;
+    right: 16px;
+    bottom: 16px;
+    width: 180px;
+    height: 122px;
+    border-radius: 16px;
+    opacity: 0.18;
   }
 
   .heroBackgroundOverlay {
-    background: linear-gradient(180deg, rgba(17, 24, 39, 0.86) 0%, rgba(17, 24, 39, 0.96) 100%);
+    background: transparent;
+  }
+
+  .heroBreadcrumbItem {
+    font-size: 14px;
+  }
+
+  .heroTitle {
+    max-width: 100%;
+    font-size: 30px;
+  }
+
+  .heroDescription {
+    max-width: 100%;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .heroRatingRow {
+    margin-top: 42px;
   }
 
   .heroInfoPillRow {
-    display: grid;
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
   }
 
   .heroInfoPill {
-    justify-content: space-between;
+    justify-content: center;
   }
 
   .tabBar {

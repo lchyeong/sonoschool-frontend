@@ -20,6 +20,7 @@ const initialQuestions: QuestionItem[] = [
     content:
       '회원가입은 완료했는데 본인인증 문자가 바로 도착하지 않았습니다. 재요청 전 확인해야 할 항목이 있을까요?',
     mine: false,
+    notice: false,
     answered: true,
     replyCount: 1,
     createdAt: '2026-03-08T01:00:00Z',
@@ -48,6 +49,7 @@ const initialQuestions: QuestionItem[] = [
     title: '결제 영수증은 어디에서 확인하나요?',
     content: '결제 완료 뒤 회사 제출용 영수증이나 결제 내역은 어디에서 확인할 수 있나요?',
     mine: false,
+    notice: false,
     answered: true,
     replyCount: 1,
     createdAt: '2026-03-10T02:30:00Z',
@@ -76,6 +78,7 @@ const initialQuestions: QuestionItem[] = [
     title: '오프라인 핸즈온 과정 환불 기준이 궁금합니다.',
     content: '개강 직전 취소와 개강 후 취소 기준이 다른지 확인하고 싶습니다.',
     mine: true,
+    notice: false,
     answered: false,
     replyCount: 0,
     createdAt: '2026-03-13T05:10:00Z',
@@ -93,6 +96,7 @@ const initialQuestions: QuestionItem[] = [
     content:
       '입문 섹션을 본 뒤 바로 문제풀이로 가도 되는지, 아니면 복습 자료를 먼저 보는 게 좋은지 궁금합니다.',
     mine: false,
+    notice: false,
     answered: true,
     replyCount: 1,
     createdAt: '2026-03-15T09:30:00Z',
@@ -118,7 +122,13 @@ let questions = initialQuestions.map((question) => ({
 }));
 
 const sortQuestions = (items: QuestionItem[]): QuestionItem[] => {
-  return [...items].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  return [...items].sort((left, right) => {
+    if (left.notice !== right.notice) {
+      return left.notice ? -1 : 1;
+    }
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
 };
 
 export const getMockGlobalQuestions = (): QuestionItem[] => {
@@ -182,6 +192,30 @@ export const createMockGlobalQuestion = (payload: QuestionCreatePayload): Questi
     title: payload.title,
     content: payload.content,
     mine: true,
+    notice: false,
+    answered: false,
+    replyCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    replies: [],
+  };
+
+  questions = sortQuestions([nextQuestion, ...questions]);
+  return nextQuestion;
+};
+
+export const createMockAdminQuestionNotice = (payload: QuestionCreatePayload): QuestionItem => {
+  const nextQuestion: QuestionItem = {
+    id: Math.max(...questions.map((question) => question.id), 0) + 1,
+    scope: 'GLOBAL',
+    programId: null,
+    programTitle: null,
+    authorName: '소노스쿨 운영팀',
+    authorType: 'ADMIN',
+    title: payload.title,
+    content: payload.content,
+    mine: true,
+    notice: true,
     answered: false,
     replyCount: 0,
     createdAt: new Date().toISOString(),

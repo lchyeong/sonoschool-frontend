@@ -2,12 +2,16 @@ import { Fragment, useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { createAdminQuestionReply, deleteAdminQuestionReply } from '@/api/qna';
+import {
+  createAdminQuestionNotice,
+  createAdminQuestionReply,
+  deleteAdminQuestionReply,
+} from '@/api/qna';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import Pagination from '@/components/ui/Pagination/Pagination';
 import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
-import { TextAreaField } from '@/components/ui/TextField/TextField';
+import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { adminQuestionsQueryKey, useAdminQuestionsQuery } from '@/query/useQnaQueries';
 import { useToastStore } from '@/stores/useToastStore';
 import type { QuestionReplyItem, QuestionScope } from '@/types/qna';
@@ -60,6 +64,9 @@ const AdminQnaSection = () => {
   });
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState('');
+  const [isNoticeFormOpen, setIsNoticeFormOpen] = useState(false);
+  const [noticeTitle, setNoticeTitle] = useState('');
+  const [noticeContent, setNoticeContent] = useState('');
 
   const questions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
   const totalPages = Math.max(1, Math.ceil(questions.length / QNA_PAGE_SIZE));
@@ -163,6 +170,31 @@ const AdminQnaSection = () => {
     },
   });
 
+  const createNoticeMutation = useMutation({
+    mutationFn: createAdminQuestionNotice,
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '운영 Q&A 공지 등록에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      setNoticeTitle('');
+      setNoticeContent('');
+      setIsNoticeFormOpen(false);
+      setScopeFilter('GLOBAL');
+      setAnsweredFilter('ALL');
+      setPage(1);
+      await queryClient.invalidateQueries({
+        queryKey: adminQuestionsQueryKey(),
+      });
+      showToast({
+        message: '운영 Q&A 공지를 등록했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
   const handleSubmitReply = (questionId: number) => {
     const trimmed = replyContent.trim();
 
@@ -188,6 +220,24 @@ const AdminQnaSection = () => {
     setSelectedQuestionId((current) => (current === questionId ? null : questionId));
     setReplyContent('');
     setEditingReplyId(null);
+  };
+
+  const handleSubmitNotice = () => {
+    const trimmedTitle = noticeTitle.trim();
+    const trimmedContent = noticeContent.trim();
+
+    if (!trimmedTitle || !trimmedContent) {
+      showToast({
+        message: '공지 제목과 내용을 입력해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    void createNoticeMutation.mutateAsync({
+      content: trimmedContent,
+      title: trimmedTitle,
+    });
   };
 
   const handleStartEditReply = (reply: QuestionReplyItem) => {
@@ -248,7 +298,65 @@ const AdminQnaSection = () => {
           placeholder='제목, 내용, 작성자, 프로그램명 검색'
           value={keyword}
         />
+        <Button
+          onClick={() => {
+            setIsNoticeFormOpen((current) => !current);
+          }}
+          type='button'
+        >
+          {isNoticeFormOpen ? '공지 작성 닫기' : '공지 작성'}
+        </Button>
       </div>
+
+      {isNoticeFormOpen ? (
+        <section className={styles['qnaNoticeComposer']}>
+          <div className={styles['sectionHeader']}>
+            <h2 className={styles['sectionTitle']}>운영 Q&A 공지 작성</h2>
+            <p className={styles['sectionDescription']}>
+              운영 Q&A 목록 상단에 노출할 공지글을 작성합니다.
+            </p>
+          </div>
+          <div className={styles['form']}>
+            <TextField
+              label='공지 제목'
+              name='adminQnaNoticeTitle'
+              onChange={(event) => {
+                setNoticeTitle(event.target.value);
+              }}
+              placeholder='공지 제목을 입력해 주세요.'
+              value={noticeTitle}
+            />
+            <TextAreaField
+              label='공지 내용'
+              name='adminQnaNoticeContent'
+              onChange={(event) => {
+                setNoticeContent(event.target.value);
+              }}
+              placeholder='공지 내용을 입력해 주세요.'
+              rows={5}
+              value={noticeContent}
+            />
+            <div className={styles['actionRow']}>
+              <Button
+                onClick={() => {
+                  setIsNoticeFormOpen(false);
+                }}
+                type='button'
+                variant='secondary'
+              >
+                취소
+              </Button>
+              <Button
+                disabled={createNoticeMutation.isPending}
+                onClick={handleSubmitNotice}
+                type='button'
+              >
+                {createNoticeMutation.isPending ? '등록 중...' : '공지 등록'}
+              </Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {questionsQuery.isLoading ? <p>Q&A를 불러오는 중입니다.</p> : null}
       {questionsQuery.isError ? <p>Q&A 목록을 불러오지 못했습니다.</p> : null}
@@ -285,9 +393,19 @@ const AdminQnaSection = () => {
                             <td>
                               <span
                                 className={styles['qnaStatusBadge']}
-                                data-tone={question.answered ? 'answered' : 'waiting'}
+                                data-tone={
+                                  question.notice
+                                    ? 'notice'
+                                    : question.answered
+                                      ? 'answered'
+                                      : 'waiting'
+                                }
                               >
-                                {question.answered ? '답변 완료' : '답변 대기'}
+                                {question.notice
+                                  ? '공지'
+                                  : question.answered
+                                    ? '답변 완료'
+                                    : '답변 대기'}
                               </span>
                             </td>
                             <td className={styles['qnaTableTitleCell']}>
@@ -300,16 +418,22 @@ const AdminQnaSection = () => {
                               >
                                 <span className={styles['qnaTableTitle']}>{question.title}</span>
                                 <span className={styles['qnaTableMeta']}>
-                                  {buildQuestionLocationLabel(
-                                    question.scope,
-                                    question.programTitle,
-                                  )}
-                                  {' · 답변 '}
-                                  {hasPrimaryReply ? '1개' : '0개'}
+                                  {question.notice
+                                    ? '운영 Q&A 공지'
+                                    : buildQuestionLocationLabel(
+                                        question.scope,
+                                        question.programTitle,
+                                      )}
+                                  {!question.notice ? (
+                                    <>
+                                      {' · 답변 '}
+                                      {hasPrimaryReply ? '1개' : '0개'}
+                                    </>
+                                  ) : null}
                                 </span>
                               </button>
                             </td>
-                            <td>{question.authorName}</td>
+                            <td>{question.notice ? '운영팀' : question.authorName}</td>
                             <td>{formatDateTime(question.createdAt)}</td>
                           </tr>
 
@@ -331,100 +455,104 @@ const AdminQnaSection = () => {
                                     </p>
                                   </section>
 
-                                  <section className={styles['qnaInlineReplies']}>
-                                    <div className={styles['qnaSectionHeader']}>
-                                      <h3 className={styles['qnaReplySectionTitle']}>답변</h3>
-                                      {editingReplyId !== null ? (
-                                        <button
-                                          className={styles['qnaTextButton']}
-                                          onClick={() => {
-                                            setEditingReplyId(null);
-                                            setReplyContent('');
-                                          }}
-                                          type='button'
-                                        >
-                                          수정 취소
-                                        </button>
-                                      ) : null}
-                                    </div>
-
-                                    {primaryReply !== null ? (
-                                      <div className={styles['qnaReplyList']}>
-                                        <article
-                                          className={styles['qnaReplyCard']}
-                                          key={primaryReply.id}
-                                        >
-                                          <div className={styles['qnaReplyCardHeader']}>
-                                            <div className={styles['qnaReplyMetaStack']}>
-                                              <strong>{primaryReply.authorName}</strong>
-                                              <span>{formatDateTime(primaryReply.createdAt)}</span>
-                                            </div>
-                                            <div className={styles['qnaReplyActions']}>
-                                              <button
-                                                className={styles['tableActionButton']}
-                                                disabled={replyMutation.isPending}
-                                                onClick={() => {
-                                                  handleStartEditReply(primaryReply);
-                                                }}
-                                                type='button'
-                                              >
-                                                답변 수정
-                                              </button>
-                                              <button
-                                                className={styles['tableActionButtonDanger']}
-                                                disabled={deleteReplyMutation.isPending}
-                                                onClick={() => {
-                                                  deleteReplyMutation.mutate(primaryReply.id);
-                                                }}
-                                                type='button'
-                                              >
-                                                삭제
-                                              </button>
-                                            </div>
-                                          </div>
-                                          <p className={styles['qnaReplyCardContent']}>
-                                            {primaryReply.content}
-                                          </p>
-                                        </article>
+                                  {!question.notice ? (
+                                    <section className={styles['qnaInlineReplies']}>
+                                      <div className={styles['qnaSectionHeader']}>
+                                        <h3 className={styles['qnaReplySectionTitle']}>답변</h3>
+                                        {editingReplyId !== null ? (
+                                          <button
+                                            className={styles['qnaTextButton']}
+                                            onClick={() => {
+                                              setEditingReplyId(null);
+                                              setReplyContent('');
+                                            }}
+                                            type='button'
+                                          >
+                                            수정 취소
+                                          </button>
+                                        ) : null}
                                       </div>
-                                    ) : (
-                                      <p className={styles['qnaEmptyState']}>
-                                        아직 등록된 답변이 없습니다.
-                                      </p>
-                                    )}
 
-                                    <div className={styles['qnaReplyComposerInline']}>
-                                      <TextAreaField
-                                        label={
-                                          editingReplyId === null && !hasPrimaryReply
-                                            ? '답변 달기'
-                                            : '답변 수정'
-                                        }
-                                        name={`admin-qna-reply-${String(question.id)}`}
-                                        onChange={(event) => {
-                                          setReplyContent(event.target.value);
-                                        }}
-                                        placeholder='답변을 입력해 주세요.'
-                                        rows={3}
-                                        value={replyContent}
-                                      />
-                                      <div className={styles['qnaActionRow']}>
-                                        <Button
-                                          disabled={replyMutation.isPending}
-                                          onClick={() => {
-                                            handleSubmitReply(question.id);
+                                      {primaryReply !== null ? (
+                                        <div className={styles['qnaReplyList']}>
+                                          <article
+                                            className={styles['qnaReplyCard']}
+                                            key={primaryReply.id}
+                                          >
+                                            <div className={styles['qnaReplyCardHeader']}>
+                                              <div className={styles['qnaReplyMetaStack']}>
+                                                <strong>{primaryReply.authorName}</strong>
+                                                <span>
+                                                  {formatDateTime(primaryReply.createdAt)}
+                                                </span>
+                                              </div>
+                                              <div className={styles['qnaReplyActions']}>
+                                                <button
+                                                  className={styles['tableActionButton']}
+                                                  disabled={replyMutation.isPending}
+                                                  onClick={() => {
+                                                    handleStartEditReply(primaryReply);
+                                                  }}
+                                                  type='button'
+                                                >
+                                                  답변 수정
+                                                </button>
+                                                <button
+                                                  className={styles['tableActionButtonDanger']}
+                                                  disabled={deleteReplyMutation.isPending}
+                                                  onClick={() => {
+                                                    deleteReplyMutation.mutate(primaryReply.id);
+                                                  }}
+                                                  type='button'
+                                                >
+                                                  삭제
+                                                </button>
+                                              </div>
+                                            </div>
+                                            <p className={styles['qnaReplyCardContent']}>
+                                              {primaryReply.content}
+                                            </p>
+                                          </article>
+                                        </div>
+                                      ) : (
+                                        <p className={styles['qnaEmptyState']}>
+                                          아직 등록된 답변이 없습니다.
+                                        </p>
+                                      )}
+
+                                      <div className={styles['qnaReplyComposerInline']}>
+                                        <TextAreaField
+                                          label={
+                                            editingReplyId === null && !hasPrimaryReply
+                                              ? '답변 달기'
+                                              : '답변 수정'
+                                          }
+                                          name={`admin-qna-reply-${String(question.id)}`}
+                                          onChange={(event) => {
+                                            setReplyContent(event.target.value);
                                           }}
-                                          type='button'
-                                        >
-                                          {replyMutation.isPending
-                                            ? '저장 중...'
-                                            : editingReplyId === null && !hasPrimaryReply
-                                              ? '답변 등록'
-                                              : '답변 수정'}
-                                        </Button>
+                                          placeholder='답변을 입력해 주세요.'
+                                          rows={3}
+                                          value={replyContent}
+                                        />
+                                        <div className={styles['qnaActionRow']}>
+                                          <Button
+                                            disabled={replyMutation.isPending}
+                                            onClick={() => {
+                                              handleSubmitReply(question.id);
+                                            }}
+                                            type='button'
+                                          >
+                                            {replyMutation.isPending
+                                              ? '저장 중...'
+                                              : editingReplyId === null && !hasPrimaryReply
+                                                ? '답변 등록'
+                                                : '답변 수정'}
+                                          </Button>
+                                        </div>
                                       </div>
-                                    </div>
-                                  </section>
+                                    </section>
+                                  ) : null}
                                 </div>
                               </td>
                             </tr>

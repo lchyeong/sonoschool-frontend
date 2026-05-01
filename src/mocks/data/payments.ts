@@ -56,7 +56,10 @@ const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
     amount: pricing.totalPayablePrice,
     approvedAmount:
       seed.status === 'COMPLETED' ? pricing.totalPayablePrice : seed.status === 'FAILED' ? 0 : null,
-    cancelReason: seed.status === 'CANCELLED' ? '사용자 요청 취소' : null,
+    cancelReason:
+      seed.status === 'CANCELLED'
+        ? (cancelledPaymentReasons.get(seed.id) ?? '사용자 요청 취소')
+        : null,
     cancelledAt: seed.status === 'CANCELLED' ? '2026-03-18T10:20:00Z' : null,
     failedAt: seed.status === 'FAILED' ? '2026-03-18T10:12:00Z' : null,
     id: seed.id,
@@ -70,6 +73,13 @@ const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
     registeredAt: seed.registeredAt,
     requestedAt: '2026-03-18T10:00:00Z',
     status: seed.status,
+    purchasedItems: pricing.selectedItems.map((item) => ({
+      id: item.id,
+      payablePrice: item.payablePrice,
+      programType: item.programType,
+      thumbnailUrl: item.thumbnailUrl,
+      title: item.title,
+    })),
   };
 };
 
@@ -105,6 +115,8 @@ const paymentScenarioSeeds: PaymentScenarioSeed[] = [
     status: 'CANCELLED',
   },
 ];
+
+const cancelledPaymentReasons = new Map<number, string>();
 
 const getPaymentScenarios = (): PaymentResult[] => {
   return paymentScenarioSeeds.map(createPaymentScenario);
@@ -152,6 +164,19 @@ export const getMockPaymentResult = (paymentId: number): PaymentResult | null =>
 export const getMockPaymentResultByToken = (token: string): PaymentResult | null => {
   const payment = getScenarioByToken(token);
   return payment ? cloneData(payment) : null;
+};
+
+export const cancelMockPayment = (paymentId: number, reason: string): PaymentResult | null => {
+  const seed = paymentScenarioSeeds.find((item) => item.id === paymentId);
+
+  if (!seed || seed.status !== 'COMPLETED') {
+    return null;
+  }
+
+  seed.status = 'CANCELLED';
+  cancelledPaymentReasons.set(paymentId, reason);
+
+  return cloneData(createPaymentScenario(seed));
 };
 
 export const createMockCheckoutRedirectPayload = (

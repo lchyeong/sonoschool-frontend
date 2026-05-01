@@ -39,6 +39,7 @@ import {
   updateMockNotice,
 } from '@/mocks/data/notices';
 import {
+  cancelMockPayment,
   getMockPaymentHistory,
   getMockPaymentResult,
   getMockPaymentResultByToken,
@@ -66,6 +67,7 @@ import {
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import {
   createMockAdminReply,
+  createMockAdminQuestionNotice,
   createMockGlobalQuestion,
   deleteMockAdminReply,
   deleteMockGlobalQuestion,
@@ -611,6 +613,13 @@ export const handlers = [
   http.get('*/api/v1/cart/application-summary', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyApplicationSummary()));
   }),
+  http.get('*/api/v1/my/program-availability-alerts/status', () => {
+    return HttpResponse.json(
+      createApiEnvelope({
+        subscribedProgramIds: [],
+      }),
+    );
+  }),
   http.post('*/api/v1/cart/items', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
@@ -723,6 +732,28 @@ export const handlers = [
 
     if (!payment) {
       return HttpResponse.json({ message: 'Payment not found' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(payment));
+  }),
+  http.post('*/api/v1/payments/:paymentId/cancel', async ({ params, request }) => {
+    const paymentId = Number(params['paymentId']);
+    const body = await request.json().catch(() => null);
+
+    if (!Number.isInteger(paymentId) || paymentId <= 0 || !isRecord(body)) {
+      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
+    }
+
+    const reason = body['reason'];
+
+    if (typeof reason !== 'string' || !reason.trim()) {
+      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
+    }
+
+    const payment = cancelMockPayment(paymentId, reason.trim());
+
+    if (!payment) {
+      return HttpResponse.json({ message: 'Payment cannot be cancelled' }, { status: 400 });
     }
 
     return HttpResponse.json(createApiEnvelope(payment));
@@ -1432,6 +1463,17 @@ export const handlers = [
         }),
       ),
     );
+  }),
+  http.post('*/api/v1/admin/qna/notices', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as QuestionCreatePayload | null;
+
+    if (!body || typeof body.title !== 'string' || typeof body.content !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(createMockAdminQuestionNotice(body)), {
+      status: 201,
+    });
   }),
   http.post('*/api/v1/admin/qna/:questionId/replies', async ({ params, request }) => {
     const questionId = Number(params['questionId']);

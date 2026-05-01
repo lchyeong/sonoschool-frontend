@@ -19,6 +19,66 @@ const careers = [
   'RDMS / PS PART 전임강사',
 ] as const;
 
+const clamp = (value: number, min = 0, max = 1) => {
+  return Math.min(Math.max(value, min), max);
+};
+
+const getDirectorStep = (progress: number) => {
+  if (progress >= 0.96) {
+    return 13;
+  }
+
+  if (progress >= 0.9) {
+    return 12;
+  }
+
+  if (progress >= 0.83) {
+    return 11;
+  }
+
+  if (progress >= 0.76) {
+    return 10;
+  }
+
+  if (progress >= 0.69) {
+    return 9;
+  }
+
+  if (progress >= 0.62) {
+    return 8;
+  }
+
+  if (progress >= 0.55) {
+    return 7;
+  }
+
+  if (progress >= 0.48) {
+    return 6;
+  }
+
+  if (progress >= 0.41) {
+    return 5;
+  }
+
+  if (progress >= 0.34) {
+    return 4;
+  }
+
+  if (progress >= 0.27) {
+    return 3;
+  }
+
+  if (progress >= 0.12) {
+    return 2;
+  }
+
+  if (progress >= 0.06) {
+    return 1;
+  }
+
+  return 0;
+};
+
 const HomeHistoryTimelineSection = () => {
   const philosophyRef = useRef<HTMLDivElement>(null);
   const directorPanelRef = useRef<HTMLDivElement>(null);
@@ -42,28 +102,54 @@ const HomeHistoryTimelineSection = () => {
       },
     );
 
-    const directorPanelObserver = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) {
-          return;
-        }
-
-        directorPanelElement.classList.add(styles['directorPanelActive']);
-        directorPanelObserver.unobserve(directorPanelElement);
-      },
-      {
-        root: null,
-        rootMargin: '0px 0px -20% 0px',
-        threshold: 0.24,
-      },
-    );
-
     philosophyObserver.observe(philosophyElement);
-    directorPanelObserver.observe(directorPanelElement);
+
+    let animationFrameId = 0;
+
+    const updateDirectorStep = () => {
+      animationFrameId = 0;
+
+      const rect = directorPanelElement.getBoundingClientRect();
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const revealStart = viewportHeight * 0.82;
+      const revealDistance = Math.max(viewportHeight * 2.2, rect.height * 0.94);
+      const progress = clamp((revealStart - rect.top) / revealDistance);
+      const nextStep = getDirectorStep(progress);
+      const currentStep = Number(directorPanelElement.dataset['directorStep'] ?? 0);
+      const nextTone = progress >= 0.96 ? 'light' : 'contrast';
+
+      if (directorPanelElement.dataset['followingTone'] !== nextTone) {
+        directorPanelElement.dataset['followingTone'] = nextTone;
+      }
+
+      if (currentStep === nextStep) {
+        return;
+      }
+
+      directorPanelElement.dataset['directorStep'] = String(nextStep);
+    };
+
+    const requestDirectorStepUpdate = () => {
+      if (animationFrameId) {
+        return;
+      }
+
+      animationFrameId = window.requestAnimationFrame(updateDirectorStep);
+    };
+
+    updateDirectorStep();
+
+    window.addEventListener('scroll', requestDirectorStepUpdate, { passive: true });
+    window.addEventListener('resize', requestDirectorStepUpdate);
 
     return () => {
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+
       philosophyObserver.disconnect();
-      directorPanelObserver.disconnect();
+      window.removeEventListener('scroll', requestDirectorStepUpdate);
+      window.removeEventListener('resize', requestDirectorStepUpdate);
     };
   }, []);
 
@@ -92,41 +178,47 @@ const HomeHistoryTimelineSection = () => {
 
       <div
         className={classNames(styles['directorPanel'], styles['directorPanelAnimationRoot'])}
+        data-director-step='0'
+        data-following-tone='contrast'
         ref={directorPanelRef}
       >
-        <div className={styles['directorInner']}>
-          <div className={styles['directorCopy']}>
-            <div className={styles['directorNameRow']}>
-              <h3 className={styles['directorName']}>장은희</h3>
-              <p className={styles['directorRole']}>소장</p>
+        <div className={styles['directorSticky']}>
+          <div className={styles['directorInner']}>
+            <div className={styles['directorCopy']}>
+              <div className={styles['directorNameRow']}>
+                <h3 className={styles['directorName']}>장은희</h3>
+                <p className={styles['directorRole']}>소장</p>
+              </div>
+
+              <ul className={styles['careerList']}>
+                {careers.map((career) => (
+                  <li key={career}>
+                    <span>{career.slice(0, 2) === '현)' ? career.slice(0, 2) : ''}</span>
+                    {career.slice(0, 2) === '현)' ? career.slice(2) : career}
+                  </li>
+                ))}
+              </ul>
+
+              <div className={styles['certificationBlock']}>
+                <p className={styles['certificationTitle']}>보유 국제 자격</p>
+                <ul className={styles['certificationList']}>
+                  {certifications.map((certification) => (
+                    <li key={certification.id}>
+                      {certification.name}
+                      <span>{certification.detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
-            <ul className={styles['careerList']}>
-              {careers.map((career) => (
-                <li key={career}>
-                  <span>{career.slice(0, 2) === '현)' ? career.slice(0, 2) : ''}</span>
-                  {career.slice(0, 2) === '현)' ? career.slice(2) : career}
-                </li>
-              ))}
-            </ul>
-
-            <p className={styles['certificationTitle']}>보유 국제 자격</p>
-            <ul className={styles['certificationList']}>
-              {certifications.map((certification) => (
-                <li key={certification.id}>
-                  {certification.name}
-                  <span>{certification.detail}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className={styles['directorImageWrap']}>
-            <img
-              alt='소노스쿨 장은희 소장'
-              className={styles['directorImage']}
-              src={homeDirectorImageSrc}
-            />
+            <div className={styles['directorImageWrap']}>
+              <img
+                alt='소노스쿨 장은희 소장'
+                className={styles['directorImage']}
+                src={homeDirectorImageSrc}
+              />
+            </div>
           </div>
         </div>
       </div>

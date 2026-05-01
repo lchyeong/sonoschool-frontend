@@ -22,6 +22,20 @@ export const createAdminNoticeMediaUploadTarget = async (
   }
 };
 
+export const createAdminNoticeAttachmentUploadTarget = async (
+  payload: AdminNoticeMediaUploadTargetRequest,
+): Promise<AdminNoticeMediaUploadTarget> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<AdminNoticeMediaUploadTarget>>(
+      '/api/v1/admin/notice-media/attachment-upload-targets',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '공지 첨부파일 업로드 준비에 실패했습니다.');
+  }
+};
+
 export const uploadAdminNoticeMediaFile = async (uploadUrl: string, file: File): Promise<void> => {
   const response = await fetch(uploadUrl, {
     body: file,

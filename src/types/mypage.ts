@@ -1,6 +1,8 @@
 import type { ProgramCurriculumTrack } from '@/types/programCatalog';
 
 export type EnrollmentStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+export type EnrollmentLearningStatus = 'PENDING' | 'IN_PROGRESS' | 'ENDED' | 'CANCELLED';
+export type EnrollmentReviewAction = 'NONE' | 'CREATE' | 'EDIT';
 export type RefundStatus = 'REFUND_REQUESTED' | 'REFUNDED' | 'CANCELLED';
 export type ProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID' | 'PROBLEM_SOLVING';
 
@@ -42,6 +44,7 @@ export interface EnrollmentSummary {
   programThumbnailUrl: string | null;
   status: EnrollmentStatus;
   active: boolean;
+  learningStatus: EnrollmentLearningStatus;
   enrolledAt: string;
   expireAt: string | null;
   totalLectures: number;
@@ -51,8 +54,7 @@ export interface EnrollmentSummary {
   completedAt: string | null;
   certificateEligible: boolean;
   hasPracticum: boolean;
-  reviewWritable?: boolean;
-  reviewWritten?: boolean;
+  reviewAction: EnrollmentReviewAction;
   lastLearningAt: string | null;
 }
 
@@ -113,6 +115,7 @@ export interface EnrollmentDetail {
   programTitle: string;
   status: EnrollmentStatus;
   active: boolean;
+  learningStatus: EnrollmentLearningStatus;
   enrolledAt: string;
   expireAt: string | null;
   totalLectures: number;
@@ -121,8 +124,7 @@ export interface EnrollmentDetail {
   completed: boolean;
   completedAt: string | null;
   certificateEligible: boolean;
-  reviewWritable?: boolean;
-  reviewWritten?: boolean;
+  reviewAction: EnrollmentReviewAction;
   review?: EnrollmentReview | null;
   progress: LectureProgress[];
 }

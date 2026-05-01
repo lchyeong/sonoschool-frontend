@@ -2,7 +2,7 @@
   display: grid;
   width: min(1436px, 100%);
   margin: 0 auto;
-  padding-top: 24px;
+  padding-top: 36px;
 }
 
 .archiveBreadcrumb {
@@ -12,52 +12,9 @@
 .archiveHeaderSection {
   position: relative;
   overflow: hidden;
-  min-height: 280px;
-  background: #ffffff;
-}
-
-.archiveHeaderDecor {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.archiveHeaderDecorLeft,
-.archiveHeaderDecorTop,
-.archiveHeaderDecorRight {
-  position: absolute;
-  display: block;
-}
-
-.archiveHeaderDecorLeft {
-  top: 0;
-  left: 0;
-  width: 184px;
-  height: 88px;
-  background: linear-gradient(180deg, rgba(236, 249, 247, 0.96) 0%, rgba(236, 249, 247, 0.88) 100%);
-  border-radius: 24px 24px 80px 0;
-}
-
-.archiveHeaderDecorTop {
-  top: 0;
-  left: 328px;
-  width: 236px;
-  height: 88px;
-  background: linear-gradient(180deg, rgba(228, 234, 251, 0.72) 0%, rgba(228, 234, 251, 0.2) 100%);
-  border-radius: 0 0 140px 140px;
-}
-
-.archiveHeaderDecorRight {
-  top: 30px;
-  right: 0;
-  width: 236px;
-  height: 136px;
-  background: radial-gradient(
-    circle at 100% 100%,
-    rgba(228, 234, 251, 0.76) 0%,
-    rgba(228, 234, 251, 0.3) 72%,
-    transparent 73%
-  );
+  min-height: 200px;
+  border-radius: 40px;
+  background: #ecf9f7;
 }
 
 .archiveHeaderCopy {
@@ -67,7 +24,7 @@
   align-content: start;
   justify-items: start;
   gap: 0;
-  padding: 45px 100px 52px;
+  padding: 45px 100px;
 }
 
 .eyebrow {
@@ -192,6 +149,7 @@
 .archiveLectureGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 452px));
+  justify-content: start;
   gap: 40px;
 }
 
@@ -276,31 +234,17 @@
 
 @media (width < 1500px) {
   .container {
-    width: min(1436px, calc(100% - 48px));
+    width: min(1436px, calc(100% - 62px));
   }
 
   .archiveLectureGrid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
-    justify-content: start;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 452px));
   }
 }
 
 @media (width < 960px) {
   .archiveHeaderSection {
     min-height: auto;
-  }
-
-  .archiveHeaderDecorTop {
-    left: auto;
-    right: 180px;
-    width: 180px;
-    height: 68px;
-  }
-
-  .archiveHeaderDecorRight {
-    top: 52px;
-    width: 180px;
-    height: 104px;
   }
 
   .archiveHeaderCopy {
@@ -312,7 +256,7 @@
   }
 
   .archiveLectureGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, min(100%, 452px));
   }
 }
 

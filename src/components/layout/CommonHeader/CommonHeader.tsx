@@ -489,19 +489,14 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
                 </div>
               ) : (
                 <LinkComponent
-                  className={classNames(styles['iconLink'], styles['accountLoginLink'])}
+                  className={classNames(styles['textActionLink'], styles['desktopLoginLink'])}
                   onClick={() => {
                     closeDesktopMenu();
                     closeAccountMenu();
                   }}
                   to={routePaths.login}
                 >
-                  <span className={styles['srOnly']}>로그인</span>
-                  <span
-                    aria-hidden='true'
-                    className={styles['accountMenuIcon']}
-                    style={buildAccountIconStyle(myPageIconSrc)}
-                  />
+                  로그인
                 </LinkComponent>
               )}
             </div>

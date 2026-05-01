@@ -3,6 +3,7 @@ import { toApiError } from '@/api/errors';
 import { http } from '@/api/http';
 import type { ApiEnvelope } from '@/types/auth';
 import type {
+  AdminQuestionNoticeCreatePayload,
   QuestionCreatePayload,
   QuestionItem,
   QuestionScope,
@@ -19,6 +20,20 @@ export const fetchGlobalQuestions = async (): Promise<QuestionItem[]> => {
     return await http.get<QuestionItem[]>('/api/v1/qna');
   } catch (error: unknown) {
     throw toApiError(error, '운영 Q&A를 불러오지 못했습니다.');
+  }
+};
+
+export const createAdminQuestionNotice = async (
+  payload: AdminQuestionNoticeCreatePayload,
+): Promise<QuestionItem> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<QuestionItem>>(
+      '/api/v1/admin/qna/notices',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '운영 Q&A 공지 등록에 실패했습니다.');
   }
 };
 

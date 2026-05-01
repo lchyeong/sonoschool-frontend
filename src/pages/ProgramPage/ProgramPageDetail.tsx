@@ -9,7 +9,7 @@ import {
   type ProgramAvailabilityAlertStatusResponse,
 } from '@/api/programAvailabilityAlerts';
 import CartAddedModal from '@/components/cart/CartAddedModal/CartAddedModal';
-import { myCartQueryKey } from '@/query/useMyPageQueries';
+import { myCartQueryKey, useMyCartQuery } from '@/query/useMyPageQueries';
 import {
   programAvailabilityAlertStatusQueryKey,
   useProgramAvailabilityAlertStatusQuery,
@@ -127,6 +127,8 @@ const buildDefaultApplicationStatusLabel = (
       return '운영 중';
     case 'CLOSED':
       return '모집 종료';
+    case 'ENDED':
+      return '과정 종료';
     case 'FULL':
       return '정원 마감';
   }
@@ -145,6 +147,8 @@ const buildDefaultApplicationStatusDescription = (
       return '이미 시작한 운영 중 과정으로 신청이 마감되었습니다.';
     case 'CLOSED':
       return '모집 기간이 종료되어 현재는 신청할 수 없습니다.';
+    case 'ENDED':
+      return '과정이 종료되어 현재는 신청할 수 없습니다.';
     case 'FULL':
       return '정원이 모두 마감되었습니다. 결원이 생기면 문자 알림을 받을 수 있습니다.';
   }
@@ -157,6 +161,8 @@ const buildAvailabilityActionLabel = (catalogStatus: ProgramCatalogStatus) => {
     case 'STARTED':
     case 'CLOSED':
       return '신청 마감';
+    case 'ENDED':
+      return '과정 종료';
     case 'FULL':
       return '알림 받기';
     case 'OPEN':
@@ -205,6 +211,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const showToast = useToastStore((state) => state.showToast);
   const [addedCartItem, setAddedCartItem] = useState<CartItem | null>(null);
   const cartScope = resolveCartQueryScope(isAuthenticated);
+  const cartQuery = useMyCartQuery();
   const programId =
     typeof data.programId === 'number' && data.programId > 0 ? data.programId : null;
   const availability = resolveProgramAvailability(data);
@@ -229,6 +236,10 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     totalPriceLabel,
     visiblePreviewReviewIds,
   } = viewModel;
+  const cartPayload = buildAddToCartPayload(data, discountedPriceAmount, originalPriceAmount);
+  const isCartAdded = (cartQuery.data?.items ?? []).some((item) => {
+    return item.programId === cartPayload.programId;
+  });
 
   const addToCartMutation = useMutation({
     mutationFn: addMyCartItem,
@@ -243,7 +254,12 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     programId !== null && (alertStatusQuery.data?.subscribedProgramIds ?? []).includes(programId);
 
   const handleAddToCart = () => {
-    const payload = buildAddToCartPayload(data, discountedPriceAmount, originalPriceAmount);
+    const payload = cartPayload;
+
+    if (isCartAdded) {
+      void navigate(routePaths.cart);
+      return;
+    }
 
     void addToCartMutation.mutateAsync(payload).then(
       (cart) => {
@@ -386,7 +402,13 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
       <ProgramPageDetailHero data={data} heroInfoPills={heroInfoPills} />
 
       <div className={styles['detailShell']}>
-        <div className={styles['contentLayout']}>
+        <div
+          className={
+            isQnaTabOpen
+              ? `${styles['contentLayout']} ${styles['contentLayoutFull']}`
+              : styles['contentLayout']
+          }
+        >
           <ProgramPageDetailMainContent
             activeSectionId={activeSectionId}
             data={data}
@@ -404,24 +426,27 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
             toggleCurriculumRow={toggleCurriculumRow}
             visiblePreviewReviewIds={visiblePreviewReviewIds}
           />
-          <ProgramPageDetailSidebar
-            data={data}
-            discountedPriceAmount={discountedPriceAmount}
-            originalPriceAmount={originalPriceAmount}
-            totalPriceLabel={totalPriceLabel}
-            handleRequestAvailabilityAlert={handleRequestAvailabilityAlert}
-            handleAddToCart={handleAddToCart}
-            handleEnrollNow={handleEnrollNowClick}
-            isAlertPending={subscribeAlertMutation.isPending}
-            isAlertSubscribed={isAlertSubscribed}
-            isAuthenticated={isAuthenticated}
-            isEnrollingNow={addToCartMutation.isPending}
-            isAddingToCart={addToCartMutation.isPending}
-            availabilityActionKind={availability.actionKind}
-            availabilityActionLabel={availability.actionLabel}
-            availabilityStatusDescription={availability.statusDescription}
-            availabilityStatusLabel={availability.statusLabel}
-          />
+          {!isQnaTabOpen ? (
+            <ProgramPageDetailSidebar
+              availabilityActionKind={availability.actionKind}
+              availabilityActionLabel={availability.actionLabel}
+              availabilityStatusDescription={availability.statusDescription}
+              availabilityStatusLabel={availability.statusLabel}
+              data={data}
+              discountedPriceAmount={discountedPriceAmount}
+              handleAddToCart={handleAddToCart}
+              handleEnrollNow={handleEnrollNowClick}
+              handleRequestAvailabilityAlert={handleRequestAvailabilityAlert}
+              isAddingToCart={addToCartMutation.isPending}
+              isAlertPending={subscribeAlertMutation.isPending}
+              isAlertSubscribed={isAlertSubscribed}
+              isCartAdded={isCartAdded}
+              isAuthenticated={isAuthenticated}
+              isEnrollingNow={addToCartMutation.isPending}
+              originalPriceAmount={originalPriceAmount}
+              totalPriceLabel={totalPriceLabel}
+            />
+          ) : null}
         </div>
       </div>
 
