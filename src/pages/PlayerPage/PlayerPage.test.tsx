@@ -18,6 +18,7 @@ import type {
 } from '@/types/programQna';
 import type {
   StudentProblem,
+  StudentProblemAttemptReport,
   StudentProblemAttemptResult,
   StudentProblemSession,
 } from '@/types/studentProblems';
@@ -35,6 +36,7 @@ const {
   fetchProgramQnaMock,
   moveMyLecturePracticumMock,
   reserveMyLecturePracticumMock,
+  fetchStudentProblemAttemptReportMock,
   fetchStudentProblemMock,
   saveStudentProblemSessionMock,
   saveLectureProgressMock,
@@ -86,6 +88,8 @@ const {
     vi.fn<
       (enrollmentId: number, slotId: number, lectureId?: number) => Promise<PracticumReservation>
     >(),
+  fetchStudentProblemAttemptReportMock:
+    vi.fn<(attemptId: number) => Promise<StudentProblemAttemptReport>>(),
   fetchStudentProblemMock: vi.fn<(lectureId: number) => Promise<StudentProblem | null>>(),
   saveStudentProblemSessionMock:
     vi.fn<
@@ -183,6 +187,8 @@ vi.mock('@/api/mypage', () => ({
 }));
 
 vi.mock('@/api/studentProblems', () => ({
+  fetchStudentProblemAttemptReport: (attemptId: number) =>
+    fetchStudentProblemAttemptReportMock(attemptId),
   fetchStudentProblem: (lectureId: number) => fetchStudentProblemMock(lectureId),
   saveStudentProblemSession: (problemId: number, payload: Record<string, unknown>) =>
     saveStudentProblemSessionMock(problemId, payload),
@@ -497,7 +503,7 @@ const testQuiz: StudentProblem = {
   id: 301,
   lectureId: 2,
   latestAttempt: null,
-  passScore: 80,
+  passCorrectCount: 1,
   timeLimitSeconds: 1800,
   questions: [
     {
@@ -742,7 +748,7 @@ beforeEach(() => {
   });
   submitStudentProblemMock.mockResolvedValue({
     id: 9001,
-    passScore: 80,
+    passCorrectCount: 1,
     passed: true,
     results: [],
     score: 100,
@@ -1197,7 +1203,7 @@ describe('PlayerPage', () => {
     fetchStudentProblemMock.mockResolvedValue(testQuiz);
     submitStudentProblemMock.mockResolvedValue({
       id: 9002,
-      passScore: 80,
+      passCorrectCount: 1,
       passed: true,
       results: [
         {
@@ -1315,7 +1321,7 @@ describe('PlayerPage', () => {
     fetchStudentProblemMock.mockResolvedValue(expiredQuiz);
     submitStudentProblemMock.mockResolvedValue({
       id: 9003,
-      passScore: 80,
+      passCorrectCount: 1,
       passed: true,
       results: [
         {
@@ -1350,7 +1356,7 @@ describe('PlayerPage', () => {
     const problemLectureSnapshot = createProblemLectureSnapshot();
     const latestAttempt: StudentProblemAttemptResult = {
       id: 9004,
-      passScore: 80,
+      passCorrectCount: 1,
       passed: true,
       results: [
         {

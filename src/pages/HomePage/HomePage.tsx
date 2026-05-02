@@ -7,9 +7,12 @@ import HomeNoticeSection from './HomeNoticeSection/HomeNoticeSection';
 import styles from './HomePage.module.scss';
 import HomePageHeroSection from './HomePageHeroSection';
 import { DEFAULT_HOME_HERO_AUTO_PLAY_DURATION_MS } from './homePageShared';
+import { useHomeLenisScroll } from './useHomeLenisScroll';
 import { useHomePageHeroCarousel } from './useHomePageHeroCarousel';
 
 const HomePage = () => {
+  useHomeLenisScroll();
+
   const { data, error, isError, isPending } = useHomeHeroSlidesQuery();
   const slides = data?.items ?? [];
   const autoPlayDurationMs = data?.autoPlayDurationMs ?? DEFAULT_HOME_HERO_AUTO_PLAY_DURATION_MS;

@@ -97,6 +97,7 @@ export interface ProgramCurriculumLesson {
   id: string;
   lectureId?: number | undefined;
   offlineSchedules?: ProgramCurriculumScheduleItem[] | undefined;
+  latestProblemAttemptId?: number | null | undefined;
   problemAttempted?: boolean | undefined;
   problemTimeLimitSeconds?: number | null | undefined;
   questionCount?: number | undefined;

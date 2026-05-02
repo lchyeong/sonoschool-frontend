@@ -779,6 +779,108 @@ export const handlers = [
   ...createAdminGetHandlers('/categories/tree', () => {
     return HttpResponse.json(createApiEnvelope(getMockAdminProgramCategories()));
   }),
+  ...createAdminGetHandlers('/problem-areas', () => {
+    return HttpResponse.json(
+      createApiEnvelope([
+        {
+          id: 1,
+          name: '단순 계산',
+          description: '기본 계산 문항',
+          sortOrder: 0,
+          active: true,
+          createdAt: '2026-05-01T00:00:00Z',
+          updatedAt: '2026-05-01T00:00:00Z',
+        },
+        {
+          id: 2,
+          name: '도플러',
+          description: '도플러 판독 문항',
+          sortOrder: 1,
+          active: true,
+          createdAt: '2026-05-01T00:00:00Z',
+          updatedAt: '2026-05-01T00:00:00Z',
+        },
+      ]),
+    );
+  }),
+  ...createAdminPostHandlers('/problem-areas', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        id: 99,
+        name: isRecord(body) && typeof body['name'] === 'string' ? body['name'] : '새 영역',
+        description:
+          isRecord(body) && typeof body['description'] === 'string' ? body['description'] : null,
+        sortOrder: isRecord(body) && typeof body['sortOrder'] === 'number' ? body['sortOrder'] : 0,
+        active: true,
+        createdAt: '2026-05-01T00:00:00Z',
+        updatedAt: '2026-05-01T00:00:00Z',
+      }),
+    );
+  }),
+  ...createAdminPutHandlers('/problem-areas/:areaId', async ({ params, request }) => {
+    const areaId = Number(params['areaId']);
+    const body = await request.json().catch(() => null);
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        id: areaId,
+        name: isRecord(body) && typeof body['name'] === 'string' ? body['name'] : '수정 영역',
+        description:
+          isRecord(body) && typeof body['description'] === 'string' ? body['description'] : null,
+        sortOrder: isRecord(body) && typeof body['sortOrder'] === 'number' ? body['sortOrder'] : 0,
+        active: isRecord(body) && typeof body['active'] === 'boolean' ? body['active'] : true,
+        createdAt: '2026-05-01T00:00:00Z',
+        updatedAt: '2026-05-01T00:00:00Z',
+      }),
+    );
+  }),
+  ...createAdminDeleteHandlers('/problem-areas/:areaId', () => {
+    return HttpResponse.json(createApiEnvelope(null));
+  }),
+  ...createAdminGetHandlers('/problem-attempts/:attemptId/report', ({ params }) => {
+    const attemptId = Number(params['attemptId']);
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        attemptId,
+        problemId: 4001,
+        lectureId: 9103,
+        applicantName: '김민지',
+        examName: '혈액가스 문제',
+        submittedAt: '2026-03-04T09:00:00Z',
+        totalQuestionCount: 1,
+        correctCount: 1,
+        wrongCount: 0,
+        correctRate: 100,
+        passed: true,
+        passCorrectCount: 1,
+        score: 100,
+        areaStats: [
+          {
+            problemAreaId: 1,
+            problemAreaName: '단순 계산',
+            totalCount: 1,
+            correctCount: 1,
+            wrongCount: 0,
+          },
+        ],
+        questionResults: [
+          {
+            questionId: 5001,
+            problemAreaId: 1,
+            problemAreaName: '단순 계산',
+            questionText: '이 결과에 해당하는 상태는?',
+            correct: true,
+            submittedOptionIds: [1],
+            correctOptionIds: [1],
+            explanation: 'HCO3 상승과 pH 상승 조합입니다.',
+          },
+        ],
+      }),
+    );
+  }),
   ...createAdminPostHandlers('/payments/:paymentId/cancel', async ({ params, request }) => {
     const paymentId = Number(params['paymentId']);
     const body = await request.json().catch(() => null);
@@ -1676,7 +1778,7 @@ export const handlers = [
                     {
                       attemptId: 8101,
                       correctAnswerCount: 1,
-                      passScore: 80,
+                      passCorrectCount: 1,
                       passed: true,
                       questionCount: 1,
                       questionResults: [
@@ -1706,7 +1808,7 @@ export const handlers = [
                     {
                       attemptId: 8100,
                       correctAnswerCount: 0,
-                      passScore: 80,
+                      passCorrectCount: 1,
                       passed: false,
                       questionCount: 1,
                       questionResults: [
@@ -1738,7 +1840,7 @@ export const handlers = [
                   lastSubmittedAt: '2026-03-04T09:00:00Z',
                   latestCorrectAnswerCount: 1,
                   latestScore: 100,
-                  passScore: 80,
+                  passCorrectCount: 1,
                   questionCount: 1,
                   problemId: 4001,
                   title: '혈액가스 문제',

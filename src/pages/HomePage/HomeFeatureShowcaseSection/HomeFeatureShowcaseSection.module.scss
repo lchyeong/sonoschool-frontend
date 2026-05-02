@@ -1,9 +1,11 @@
 @use './HomeFeatureShowcaseSection.animations';
 
 .section {
+  position: relative;
+  z-index: 0;
   width: 100%;
-  padding: 280px 0 0;
-  background: #ffffff;
+  padding: 0;
+  background: transparent;
 }
 
 .introScene {
@@ -71,6 +73,7 @@
 
 .showcasePanel {
   --showcase-card-scroll-y: 54vh;
+  --showcase-copy-tone-progress: 0;
 
   position: relative;
   isolation: isolate;
@@ -108,7 +111,7 @@
 .heading {
   width: 100%;
   margin: 0;
-  color: #ffffff;
+  color: rgb(255 255 255 / calc(0.48 + var(--showcase-copy-tone-progress) * 0.52));
   font-family: Pretendard, var(--font-family-base);
   font-size: 3.876cqw;
   font-weight: var(--font-weight-bold);
@@ -118,14 +121,14 @@
 
 .headingPrimaryLine {
   margin-bottom: 0;
-  color: #ffffff;
+  color: currentColor;
   white-space: nowrap;
 }
 
 .description {
   width: 100%;
   margin: 1.421cqw 0 0;
-  color: #ffffff;
+  color: rgb(255 255 255 / calc(0.48 + var(--showcase-copy-tone-progress) * 0.52));
   font-family: Pretendard, var(--font-family-base);
   font-size: 1.68cqw;
   font-weight: var(--font-weight-medium);
@@ -142,7 +145,7 @@
   margin-top: 4.134cqw;
   border: 1px solid #ffffff;
   border-radius: 6.46cqw;
-  color: #ffffff;
+  color: rgb(255 255 255 / calc(0.58 + var(--showcase-copy-tone-progress) * 0.42));
   font-family: Pretendard, var(--font-family-base);
   font-size: 1.292cqw;
   font-weight: var(--font-weight-semibold);
@@ -291,7 +294,7 @@
 
 @media (width < 960px) {
   .section {
-    padding-top: 120px;
+    padding-top: 0;
   }
 
   .introScene {
@@ -401,7 +404,7 @@
 
 @media (width < 768px) {
   .section {
-    padding-top: 80px;
+    padding-top: 0;
   }
 
   .intro {

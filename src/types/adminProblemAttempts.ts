@@ -4,7 +4,7 @@ export interface AdminProblemAttempt {
   loginId: string;
   displayName: string;
   score: number;
-  passScore: number;
+  passCorrectCount: number;
   passed: boolean;
   submittedAt: string;
 }

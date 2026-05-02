@@ -23,6 +23,7 @@
 html {
   // 기본 폰트 크기 설정
   font-size: 16px; // 1rem = 16px
+  background-color: var(--home-page-background, var(--color-bg-primary));
 
   // 폰트 렌더링 개선
   -webkit-font-smoothing: antialiased;
@@ -35,6 +36,7 @@ html {
 
   // 스크롤바가 생겼다 사라질 때 레이아웃 폭이 흔들리지 않게 공간을 예약합니다.
   scrollbar-gutter: stable;
+  scrollbar-color: var(--color-border) transparent;
 
   // 스크롤 부드럽게
   scroll-behavior: smooth;
@@ -67,7 +69,7 @@ body {
 
   // 기본 색상
   color: var(--color-text-primary);
-  background-color: var(--color-bg-primary);
+  background-color: var(--home-page-background, var(--color-bg-primary));
 
   // 폰트 렌더링
   text-rendering: optimizeLegibility;
@@ -302,7 +304,12 @@ b {
 
 // 스크롤바 트랙 (배경)
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-secondary);
+  background: transparent;
+}
+
+::-webkit-scrollbar-track-piece,
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 // 스크롤바 thumb (드래그하는 부분)

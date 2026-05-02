@@ -32,6 +32,7 @@ const normalizePayload = (payload: AdminProblemUpsertPayload): AdminProblemUpser
     ...payload,
     questions: payload.questions.map((question) => ({
       ...question,
+      problemAreaId: question.problemAreaId,
       explanation: normalizeDescription(question.explanation),
       mediaAssetId: question.mediaAssetId ?? null,
       mediaType:

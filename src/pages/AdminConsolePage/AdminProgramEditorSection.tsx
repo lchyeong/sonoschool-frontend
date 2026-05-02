@@ -518,11 +518,13 @@ const validateFormState = (
     return '수강 시작일은 오늘 이후 날짜만 선택할 수 있습니다.';
   }
   if (
-    formState.accessPolicy === 'FIXED_DURATION' &&
+    (formState.accessPolicy === 'FIXED_DURATION' || formState.accessPolicy === 'COHORT') &&
     calculateAccessDaysFromLearningRange(formState.learningStartAt, formState.learningEndAt) ===
       null
   ) {
-    return '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
+    return formState.accessPolicy === 'COHORT'
+      ? '기수형 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.'
+      : '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
   }
 
   const faqErrors = formState.faqs.some((item) => {
@@ -597,6 +599,7 @@ const levelOptions = [
 
 const accessPolicyOptions = [
   { value: 'UNLIMITED', label: '무제한' },
+  { value: 'COHORT', label: '기수형' },
   { value: 'FIXED_DURATION', label: '고정 기간' },
 ] as const;
 
@@ -608,6 +611,7 @@ const programTypeLabel: Record<AdminProgramType, string> = {
 };
 
 const accessPolicyLabel: Record<AdminProgramAccessPolicy, string> = {
+  COHORT: '기수형',
   FIXED_DURATION: '고정 기간',
   UNLIMITED: '무제한',
 };
@@ -1314,6 +1318,8 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                         setFormState((current) => ({
                           ...current,
                           accessPolicy: policy,
+                          learningEndAt: policy === 'UNLIMITED' ? '' : current.learningEndAt,
+                          learningStartAt: policy === 'UNLIMITED' ? '' : current.learningStartAt,
                         }));
                       }}
                       options={accessPolicyOptions}
@@ -1499,6 +1505,11 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                   {formState.accessPolicy === 'FIXED_DURATION' ? (
                     <p className={styles['policyHint']}>
                       고정 기간 수강 가능일수는 수강 시작일과 종료일 기준으로 자동 계산합니다.
+                    </p>
+                  ) : null}
+                  {formState.accessPolicy === 'COHORT' ? (
+                    <p className={styles['policyHint']}>
+                      기수형 수강은 수강 시작일과 종료일을 프로그램에 그대로 저장합니다.
                     </p>
                   ) : null}
                   <AdminFieldArray

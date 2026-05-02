@@ -4,11 +4,10 @@
     position: relative;
     overflow: hidden;
     opacity: 0;
-    filter: blur(8px);
     transition-duration: 980ms;
-    transition-property: opacity, filter;
+    transition-property: opacity;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: opacity, filter;
+    will-change: opacity;
   }
 
   .philosophyHeadingBlock::after,
@@ -36,7 +35,6 @@
   .philosophyHeadingBlock,
   .philosophyCopy {
     opacity: 1;
-    filter: blur(0);
   }
 
   .philosophyHeadingBlock::after,
@@ -66,11 +64,10 @@
   .certificationList li,
   .directorImageWrap {
     opacity: 0;
-    filter: blur(4px);
     transition-duration: 1250ms;
-    transition-property: opacity, filter, transform;
+    transition-property: opacity, transform;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: opacity, filter, transform;
+    will-change: opacity, transform;
   }
 
   .directorInner::before {
@@ -111,7 +108,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .directorInner::before {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -130,7 +126,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .directorNameRow {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -148,7 +143,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .careerList li:nth-child(1) {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -165,7 +159,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .careerList li:nth-child(2) {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -181,7 +174,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .careerList li:nth-child(3) {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -196,7 +188,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .careerList li:nth-child(4) {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -210,7 +201,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .careerList li:nth-child(5) {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -223,7 +213,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .certificationTitle {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -235,7 +224,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .certificationList li:nth-child(1) {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -246,7 +234,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .certificationList li:nth-child(2) {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -256,7 +243,6 @@
 .directorPanelAnimationRoot[data-director-step='13'] {
   .certificationList li:nth-child(3) {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -266,7 +252,6 @@
   .directorInner::after,
   .directorImageWrap {
     opacity: 1;
-    filter: blur(0);
     transform: translateY(0);
   }
 
@@ -304,7 +289,6 @@
     .philosophyHeadingBlock,
     .philosophyCopy {
       opacity: 1;
-      filter: blur(0);
       transition: none;
     }
 
@@ -323,7 +307,6 @@
     .certificationList li,
     .directorImageWrap {
       opacity: 1;
-      filter: blur(0);
       transform: none;
       transition: none;
     }

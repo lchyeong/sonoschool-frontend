@@ -7,7 +7,7 @@ export type AdminProgramCatalogStatus =
   | 'CLOSED'
   | 'ENDED'
   | 'FULL';
-export type AdminProgramAccessPolicy = 'FIXED_DURATION' | 'UNLIMITED';
+export type AdminProgramAccessPolicy = 'COHORT' | 'FIXED_DURATION' | 'UNLIMITED';
 export type AdminProgramTagType = 'FEATURE' | 'FORMAT' | 'LEVEL' | 'TARGET' | 'TOPIC';
 export type AdminProgramOperationStatus = 'NORMAL' | 'CLOSURE_CONFIRMED';
 

@@ -3,6 +3,7 @@
   min-width: 0;
   display: grid;
   gap: 0;
+  background-color: var(--home-page-background, #ffffff);
 }
 
 .container > * {
@@ -22,10 +23,16 @@
 }
 
 .sliderSection {
-  width: min(1850px, calc(100% - 80px));
-  margin-top: 31px;
+  --home-hero-top-gap: 31px;
+  --home-hero-bottom-gap: 50px;
+  --home-hero-aspect-ratio: 1850 / 906;
+
+  position: relative;
+  z-index: 1;
+  width: min(1850px, calc(100% - 80px), var(--home-hero-fit-width, 1850px));
+  margin-top: var(--home-hero-top-gap);
   margin-left: 50%;
-  padding-bottom: 50px;
+  padding-bottom: var(--home-hero-bottom-gap);
   opacity: var(--home-hero-scroll-opacity, 1);
   transform: translateX(-50%) translate3d(0, var(--home-hero-scroll-y, 0px), 0)
     scale(var(--home-hero-scroll-scale, 1));
@@ -38,8 +45,9 @@
 .errorSlide {
   position: relative;
   width: 100%;
-  height: min(906px, calc((100vw - 70px) * 0.4897));
-  min-height: 560px;
+  aspect-ratio: var(--home-hero-aspect-ratio);
+  container-type: inline-size;
+  height: auto;
   overflow: hidden;
   border-radius: 40px;
 }
@@ -78,9 +86,9 @@
 
   &ControlBar {
     position: absolute;
-    right: var(--space-6);
-    bottom: var(--space-5);
-    left: var(--space-6);
+    right: 4.324%;
+    bottom: 8.83%;
+    left: 4.324%;
     z-index: 1;
   }
 }
@@ -96,7 +104,6 @@
     background-position: center;
     background-size: cover;
     opacity: 0.6;
-    filter: blur(10px);
     transform: scale(1.04);
   }
 
@@ -104,7 +111,6 @@
     position: absolute;
     inset: 0;
     background: linear-gradient(0deg, #111827 0%, rgba(17, 24, 39, 0) 100%);
-    backdrop-filter: blur(10px);
   }
 
   &Layout {
@@ -118,35 +124,31 @@
 
   &CopyColumn {
     position: absolute;
-    top: 50%;
+    top: 33.775%;
     left: 4.324%;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    width: 40.595%;
+    width: 45%;
     min-width: 0;
     padding-top: 0;
   }
 
   &CopyBlock {
     display: grid;
-    gap: clamp(12px, 1.297vw, 24px);
+    gap: clamp(12px, 1.297cqw, 24px);
     min-width: 0;
   }
 
   &Title {
-    display: -webkit-box;
-    overflow: hidden;
     min-height: auto;
     margin: 0;
     color: #ffffff;
     font-family: Pretendard, var(--font-family-base);
-    font-size: clamp(30px, 3.784vw, 70px);
+    font-size: clamp(30px, 3.784cqw, 70px);
     font-weight: var(--font-weight-extrabold);
     line-height: 1.3;
     letter-spacing: -1.4px;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
   }
 
   &Description {
@@ -157,12 +159,20 @@
     margin: 0;
     color: #ffffff;
     font-family: Pretendard, var(--font-family-base);
-    font-size: clamp(13px, 1.081vw, 20px);
+    font-size: clamp(13px, 1.081cqw, 20px);
     font-weight: var(--font-weight-medium);
     letter-spacing: -0.4px;
     line-height: 1.5;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+  }
+
+  &ControlBar {
+    position: absolute;
+    right: 4.324%;
+    bottom: 8.83%;
+    left: 4.324%;
+    z-index: 2;
   }
 }
 
@@ -187,7 +197,6 @@
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
     background: rgba(255, 255, 255, 0.12);
-    backdrop-filter: blur(10px);
   }
 }
 
@@ -227,13 +236,13 @@
     display: flex;
     align-items: center;
     gap: 0;
-    width: 78.695%;
-    margin-top: clamp(34px, 3.838vw, 71px);
+    width: 100%;
+    margin-top: 0;
   }
 
   &Buttons {
     display: flex;
-    gap: clamp(20px, 2.162vw, 40px);
+    gap: clamp(20px, 2.162cqw, 40px);
     flex-shrink: 0;
   }
 
@@ -241,8 +250,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: clamp(28px, 2.378vw, 44px);
-    height: clamp(28px, 2.378vw, 44px);
+    width: clamp(28px, 2.378cqw, 44px);
+    height: clamp(28px, 2.378cqw, 44px);
     padding: 4px;
     border: 0;
     border-radius: 22px;
@@ -255,8 +264,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: clamp(18px, 1.946vw, 36px);
-    height: clamp(18px, 1.946vw, 36px);
+    width: clamp(18px, 1.946cqw, 36px);
+    height: clamp(18px, 1.946cqw, 36px);
 
     &Prev {
       transform: none;
@@ -280,7 +289,7 @@
     flex: 1 1 auto;
     width: auto;
     height: 4px;
-    margin-left: clamp(24px, 2.595vw, 48px);
+    margin-left: clamp(24px, 2.595cqw, 48px);
     overflow: hidden;
     border-radius: 20px;
     background: #374151;
@@ -352,20 +361,8 @@
 
 @media (width < 1024px) {
   .lecture {
-    &Layout {
-      grid-template-columns: minmax(0, 1fr) 240px;
-      gap: var(--space-4);
-      padding: var(--space-5) var(--space-6);
-    }
-
     &Description {
       -webkit-line-clamp: 2;
-    }
-  }
-
-  .thumbnail {
-    &Frame {
-      width: 240px;
     }
   }
 }
@@ -377,48 +374,85 @@
     border-radius: var(--radius-3xl);
   }
 
-  .lecture {
-    &Layout {
-      grid-template-columns: minmax(0, 1fr) 148px;
-      gap: var(--space-4);
-      padding: var(--space-4);
-    }
-
-    &Title {
-      font-size: clamp(1.3rem, 5vw, 1.75rem);
-    }
-
-    &Description {
-      font-size: var(--font-size-sm);
-    }
-  }
-
   .thumbnail {
     &Frame {
-      width: 148px;
       border-radius: var(--radius-2xl);
-    }
-  }
-
-  .control {
-    &Bar {
-      width: 100%;
-    }
-  }
-
-  .banner {
-    &ControlBar {
-      right: var(--space-4);
-      bottom: var(--space-4);
-      left: var(--space-4);
     }
   }
 }
 
-@media (width < 560px) {
+@media (width < 640px) {
+  .sliderSection {
+    --home-hero-top-gap: 16px;
+    --home-hero-bottom-gap: 32px;
+    --home-hero-aspect-ratio: 4 / 3;
+
+    width: min(100% - 32px, var(--home-hero-fit-width, 100%));
+  }
+
+  .slideFrame,
+  .loadingSlide,
+  .errorSlide {
+    border-radius: 24px;
+  }
+
   .lecture {
-    &Layout {
-      grid-template-columns: minmax(0, 1fr) 124px;
+    &Overlay {
+      background:
+        linear-gradient(90deg, rgba(17, 24, 39, 0.96) 0%, rgba(17, 24, 39, 0.84) 100%),
+        linear-gradient(0deg, #111827 0%, rgba(17, 24, 39, 0.24) 100%);
+    }
+
+    &CopyColumn {
+      top: 18%;
+      left: 6.8%;
+      width: 86.4%;
+    }
+
+    &CopyBlock {
+      gap: 10px;
+    }
+
+    &Title {
+      font-size: clamp(22px, 6.2cqw, 30px);
+      line-height: 1.24;
+      letter-spacing: -0.4px;
+    }
+
+    &Description {
+      font-size: clamp(12px, 3.6cqw, 15px);
+      letter-spacing: 0;
+      line-height: 1.45;
+      -webkit-line-clamp: 3;
+    }
+
+    &ControlBar {
+      right: 6.8%;
+      bottom: 10.5%;
+      left: 6.8%;
+    }
+  }
+
+  .thumbnail {
+    &Column {
+      display: none;
+    }
+  }
+
+  .banner {
+    &Overlay {
+      background: linear-gradient(
+        0deg,
+        rgba(10, 15, 21, 0.62) 0%,
+        rgba(10, 15, 21, 0.18) 58%,
+        transparent 100%
+      );
+    }
+
+    &ControlBar {
+      right: 6.8%;
+      bottom: 10.5%;
+      left: 6.8%;
     }
   }
 
@@ -427,29 +461,6 @@
       min-height: 26px;
       padding: 0 var(--space-2-5);
       font-size: var(--font-size-xs);
-    }
-  }
-
-  .control {
-    &Bar {
-      gap: var(--space-2);
-    }
-
-    &Button {
-      width: 36px;
-      height: 36px;
-    }
-  }
-
-  .progress {
-    &Track {
-      height: 5px;
-    }
-  }
-
-  .thumbnail {
-    &Frame {
-      width: 124px;
     }
   }
 }

@@ -21,6 +21,7 @@ import {
 } from '@/api/mypage';
 import { downloadProgramResourceFile } from '@/api/resources';
 import {
+  fetchStudentProblemAttemptReport,
   fetchStudentProblem,
   saveStudentProblemSession,
   startStudentProblemSession,
@@ -54,7 +55,11 @@ import type {
   ProtectedLectureStream,
 } from '@/types/mypage';
 import type { PracticumReservation, PracticumSlot } from '@/types/practicum';
-import type { StudentProblem, StudentProblemAttemptResult } from '@/types/studentProblems';
+import type {
+  StudentProblem,
+  StudentProblemAttemptReport,
+  StudentProblemAttemptResult,
+} from '@/types/studentProblems';
 import { classNames } from '@/utils/classNames';
 import { getOrCreatePlaybackDeviceId } from '@/utils/playbackDeviceId';
 import {
@@ -145,6 +150,116 @@ const playerFolderOpenIconStyle = buildPlayerIconStyle(iconFolderOpen);
 const playerCurrentLessonIndicatorStyle = buildPlayerIconStyle(iconCurrentLessonIndicator);
 const playerArrowDownToLineIconStyle = buildPlayerIconStyle(iconArrowDownToLine);
 
+const escapeReportText = (value: string | number | null | undefined): string => {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+};
+
+const formatReportDate = (value: string): string => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('ko-KR');
+};
+
+const openProblemReportPrintWindow = (report: StudentProblemAttemptReport): void => {
+  const areaRows = report.areaStats
+    .map(
+      (area) => `
+        <tr>
+          <td>${escapeReportText(area.problemAreaName)}</td>
+          <td>${String(area.wrongCount)} / ${String(area.totalCount)}</td>
+        </tr>
+      `,
+    )
+    .join('');
+  const questionRows = report.questionResults
+    .map(
+      (result, index) => `
+        <tr>
+          <td>${String(index + 1)}문제</td>
+          <td>${result.correct ? 'O' : 'X'}</td>
+          <td>${escapeReportText(result.problemAreaName ?? '-')}</td>
+        </tr>
+      `,
+    )
+    .join('');
+
+  const reportHtml = `
+    <!doctype html>
+    <html lang="ko">
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeReportText(report.examName)} 결과 리포트</title>
+        <style>
+          body { margin: 0; padding: 40px; color: #111827; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+          h1 { margin: 0 0 28px; font-size: 28px; }
+          h2 { margin: 28px 0 12px; font-size: 20px; }
+          ul { margin: 0; padding-left: 22px; line-height: 1.9; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { padding: 10px 8px; border-bottom: 1px solid #d1d5db; text-align: left; }
+          th { color: #4b5563; font-size: 13px; }
+          .result { font-size: 22px; font-weight: 800; }
+          @media print { body { padding: 24px; } }
+        </style>
+      </head>
+      <body>
+        <h1>문제 결과 리포트</h1>
+        <h2>■ 기본 정보</h2>
+        <ul>
+          <li>응시자: ${escapeReportText(report.applicantName)}</li>
+          <li>시험명: ${escapeReportText(report.examName)}</li>
+          <li>응시일: ${escapeReportText(formatReportDate(report.submittedAt))}</li>
+          <li>총 문항 수: ${String(report.totalQuestionCount)}문항</li>
+        </ul>
+
+        <h2>■ 결과 요약</h2>
+        <ul>
+          <li>정답 수: ${String(report.correctCount)}문항</li>
+          <li>오답 수: ${String(report.wrongCount)}문항</li>
+          <li>정답률: ${String(report.correctRate)}%</li>
+        </ul>
+
+        <h2>■ 최종 판정</h2>
+        <ul>
+          <li class="result">결과: ${report.passed ? 'PASS' : 'FAIL'}</li>
+          <li>기준 점수: ${String(report.passCorrectCount)}개 이상 정답 = 합격</li>
+          <li>현재 점수: ${String(report.score)}점</li>
+        </ul>
+
+        <h2>■ 오답 분석</h2>
+        <table>
+          <thead><tr><th>영역</th><th>틀린 개수 / 총문제수</th></tr></thead>
+          <tbody>${areaRows}</tbody>
+        </table>
+
+        <h2>■ 전체 결과</h2>
+        <table>
+          <thead><tr><th>문항</th><th>결과</th><th>문제 영역</th></tr></thead>
+          <tbody>${questionRows}</tbody>
+        </table>
+        <script>
+          window.addEventListener('load', () => {
+            window.focus();
+            window.print();
+          });
+        </script>
+      </body>
+    </html>
+  `;
+  const reportUrl = URL.createObjectURL(new Blob([reportHtml], { type: 'text/html' }));
+  const popup = window.open(reportUrl, '_blank', 'width=840,height=1120');
+  if (!popup) {
+    URL.revokeObjectURL(reportUrl);
+    return;
+  }
+  window.setTimeout(() => {
+    URL.revokeObjectURL(reportUrl);
+  }, 60_000);
+};
+
 const PlayerPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -212,6 +327,7 @@ const PlayerPage = () => {
   const [quizAttemptResult, setQuizAttemptResult] = useState<StudentProblemAttemptResult | null>(
     null,
   );
+  const [problemReport, setProblemReport] = useState<StudentProblemAttemptReport | null>(null);
   const [quizReviewMode, setQuizReviewMode] = useState(false);
   const [pendingPracticumSlot, setPendingPracticumSlot] = useState<PendingPracticumSlot | null>(
     null,
@@ -485,6 +601,18 @@ const PlayerPage = () => {
         message: result.passed ? '문제를 통과했습니다.' : '문제 제출을 완료했습니다.',
         variant: 'success',
       });
+    },
+  });
+  const printProblemReportMutation = useMutation({
+    mutationFn: fetchStudentProblemAttemptReport,
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '결과 리포트를 불러오지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: (report) => {
+      setProblemReport(report);
     },
   });
   const reservePracticumMutation = useMutation({
@@ -2056,6 +2184,174 @@ const PlayerPage = () => {
     );
   };
 
+  const renderProblemReportModal = () => {
+    if (!problemReport) {
+      return null;
+    }
+
+    return (
+      <Modal
+        bodyClassName={styles['problemReportModalBody']}
+        closeButtonClassName={styles['problemReportModalClose']}
+        closeButtonContent={<span aria-hidden='true'>×</span>}
+        onClose={() => {
+          setProblemReport(null);
+        }}
+        panelClassName={styles['problemReportModal']}
+        size='lg'
+        title='문제 결과 리포트'
+        titleClassName={styles['problemReportModalTitle']}
+      >
+        <div className={styles['problemReportContent']}>
+          <section className={styles['problemReportSection']}>
+            <h3 className={styles['problemReportSectionTitle']}>기본 정보</h3>
+            <dl className={styles['problemReportDefinitionList']}>
+              <div>
+                <dt>응시자</dt>
+                <dd>{problemReport.applicantName}</dd>
+              </div>
+              <div>
+                <dt>시험명</dt>
+                <dd>{problemReport.examName}</dd>
+              </div>
+              <div>
+                <dt>응시일</dt>
+                <dd>{formatReportDate(problemReport.submittedAt)}</dd>
+              </div>
+              <div>
+                <dt>총 문항 수</dt>
+                <dd>{problemReport.totalQuestionCount}문항</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className={styles['problemReportSection']}>
+            <h3 className={styles['problemReportSectionTitle']}>결과 요약</h3>
+            <dl className={styles['problemReportMetricGrid']}>
+              <div>
+                <dt>정답 수</dt>
+                <dd>{problemReport.correctCount}문항</dd>
+              </div>
+              <div>
+                <dt>오답 수</dt>
+                <dd>{problemReport.wrongCount}문항</dd>
+              </div>
+              <div>
+                <dt>정답률</dt>
+                <dd>{problemReport.correctRate}%</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className={styles['problemReportSection']}>
+            <h3 className={styles['problemReportSectionTitle']}>최종 판정</h3>
+            <dl className={styles['problemReportDefinitionList']}>
+              <div>
+                <dt>결과</dt>
+                <dd
+                  className={styles['problemReportFinalResult']}
+                  data-passed={problemReport.passed}
+                >
+                  {problemReport.passed ? 'PASS' : 'FAIL'}
+                </dd>
+              </div>
+              <div>
+                <dt>기준 점수</dt>
+                <dd>{problemReport.passCorrectCount}개 이상 정답 = 합격</dd>
+              </div>
+              <div>
+                <dt>현재 점수</dt>
+                <dd>{problemReport.score}점</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className={styles['problemReportSection']}>
+            <h3 className={styles['problemReportSectionTitle']}>오답 분석</h3>
+            <div className={styles['problemReportTableWrap']}>
+              <table className={styles['problemReportTable']}>
+                <thead>
+                  <tr>
+                    <th scope='col'>영역</th>
+                    <th scope='col'>틀린 개수 / 총문제수</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {problemReport.areaStats.length ? (
+                    problemReport.areaStats.map((area) => (
+                      <tr key={area.problemAreaId}>
+                        <td>{area.problemAreaName}</td>
+                        <td>
+                          {area.wrongCount} / {area.totalCount}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={2}>영역별 결과가 없습니다.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className={styles['problemReportSection']}>
+            <h3 className={styles['problemReportSectionTitle']}>전체 결과</h3>
+            <div className={styles['problemReportTableWrap']}>
+              <table className={styles['problemReportTable']}>
+                <thead>
+                  <tr>
+                    <th scope='col'>문항</th>
+                    <th scope='col'>결과</th>
+                    <th scope='col'>문제 영역</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {problemReport.questionResults.map((result, index) => (
+                    <tr key={result.questionId}>
+                      <td>{index + 1}문제</td>
+                      <td>
+                        <strong
+                          className={styles['problemReportQuestionResult']}
+                          data-correct={result.correct}
+                        >
+                          {result.correct ? 'O' : 'X'}
+                        </strong>
+                      </td>
+                      <td>{result.problemAreaName ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div className={styles['problemReportModalActions']}>
+            <Button
+              onClick={() => {
+                openProblemReportPrintWindow(problemReport);
+              }}
+              type='button'
+              variant='primary'
+            >
+              인쇄
+            </Button>
+            <Button
+              onClick={() => {
+                setProblemReport(null);
+              }}
+              type='button'
+              variant='secondary'
+            >
+              닫기
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  };
+
   const renderOfflineSchedulePanel = () => {
     if (!selectedLesson || selectedLesson.deliveryType !== 'offline') {
       return null;
@@ -2957,7 +3253,10 @@ const PlayerPage = () => {
                                 </div>
                                 <div className={styles['quizStartMetaItem']}>
                                   <span>통과 기준</span>
-                                  <strong>{String(quizQuery.data?.passScore ?? 0)}점</strong>
+                                  <strong>
+                                    {String(quizQuery.data?.passCorrectCount ?? 0)}
+                                    문항 이상
+                                  </strong>
                                 </div>
                               </div>
                             </section>
@@ -3181,6 +3480,19 @@ const PlayerPage = () => {
                                 </span>
                               </div>
                               <div className={styles['quizResultActions']}>
+                                <Button
+                                  disabled={printProblemReportMutation.isPending}
+                                  onClick={() => {
+                                    printProblemReportMutation.mutate(quizAttemptResult.id);
+                                  }}
+                                  size='sm'
+                                  type='button'
+                                  variant='primary'
+                                >
+                                  {printProblemReportMutation.isPending
+                                    ? '불러오는 중...'
+                                    : '결과 출력'}
+                                </Button>
                                 <Button
                                   onClick={() => {
                                     setQuizReviewMode(true);
@@ -3476,6 +3788,27 @@ const PlayerPage = () => {
                                                 <p className={styles['quizNavigatorEmptyText']}>
                                                   문제 풀이를 시작하면 문항 목록이 표시됩니다.
                                                 </p>
+                                              ) : null}
+                                              {lesson.latestProblemAttemptId ? (
+                                                <Button
+                                                  className={styles['quizLessonReportButton']}
+                                                  disabled={printProblemReportMutation.isPending}
+                                                  onClick={() => {
+                                                    if (!lesson.latestProblemAttemptId) {
+                                                      return;
+                                                    }
+                                                    printProblemReportMutation.mutate(
+                                                      lesson.latestProblemAttemptId,
+                                                    );
+                                                  }}
+                                                  size='sm'
+                                                  type='button'
+                                                  variant='primary'
+                                                >
+                                                  {printProblemReportMutation.isPending
+                                                    ? '불러오는 중...'
+                                                    : '결과 출력'}
+                                                </Button>
                                               ) : null}
                                             </div>
                                           ) : null}
@@ -3833,6 +4166,7 @@ const PlayerPage = () => {
         ) : null}
       </div>
       {renderPracticumReservationModal()}
+      {renderProblemReportModal()}
     </div>
   );
 };

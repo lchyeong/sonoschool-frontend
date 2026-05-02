@@ -439,7 +439,7 @@ describe('AdminConsolePage', () => {
     draftDetail.payload.problems = [
       {
         lectureKey: 'problem-lecture-1',
-        passScore: 60,
+        passCorrectCount: 1,
         questions: [],
         timeLimitSeconds: 1800,
         title: '문제풀이',
@@ -578,8 +578,14 @@ describe('AdminConsolePage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: '회원 상세' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { level: 2, name: '김민지' })).toBeInTheDocument();
     expect((await screen.findAllByText('복부초음파 기초')).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: /복부초음파 기초/ }));
+
     expect((await screen.findAllByText('혈액가스 문제 풀이')).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText('대사성 알칼리증')).length).toBeGreaterThan(0);
+
+    fireEvent.click(await screen.findByText('혈액가스 문제 풀이'));
+
+    expect((await screen.findAllByText('이 결과에 해당하는 상태는?')).length).toBeGreaterThan(0);
   });
 
   it('renders the dedicated practicum management section', async () => {
@@ -1102,7 +1108,7 @@ describe('AdminConsolePage', () => {
           data: {
             id: 8801,
             lectureId: 9101,
-            passScore: 60,
+            passCorrectCount: 1,
             timeLimitSeconds: 1800,
             questions: [
               {
@@ -1110,6 +1116,8 @@ describe('AdminConsolePage', () => {
                 id: 9901,
                 mediaType: null,
                 mediaUrl: null,
+                problemAreaId: 1,
+                problemAreaName: '단순 계산',
                 options: [
                   {
                     correct: true,
@@ -1153,7 +1161,7 @@ describe('AdminConsolePage', () => {
     expect(screen.queryByLabelText('강의 검색')).not.toBeInTheDocument();
     expect(await screen.findAllByText('오리엔테이션')).toHaveLength(3);
     expect(screen.queryByLabelText('문제 설명')).not.toBeInTheDocument();
-    expect(await screen.findByLabelText('합격 점수')).toBeInTheDocument();
+    expect(await screen.findByLabelText('합격 기준 문항 수')).toBeInTheDocument();
   });
 
   it('renders the category management section without category code fields', async () => {

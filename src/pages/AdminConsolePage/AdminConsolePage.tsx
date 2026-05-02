@@ -1,10 +1,11 @@
 import styles from './AdminConsolePage.module.scss';
-import { type AdminConsoleSection } from './adminConsolePageShared';
+import { sectionContent, type AdminConsoleSection } from './adminConsolePageShared';
 import { AdminDeferredSection, AdminPaymentsSection } from './AdminConsoleSectionViews';
 import AdminEnrollmentsSection from './AdminEnrollmentsSection';
 import AdminNoticesSection from './AdminNoticesSection';
 import AdminPopupsSection from './AdminPopupsSection';
 import AdminPracticumSection from './AdminPracticumSection';
+import AdminProblemAreasSection from './AdminProblemAreasSection';
 import AdminProgramListSection from './AdminProgramListSection';
 import AdminProgramMenuSection from './AdminProgramMenuSection';
 import AdminQnaSection from './AdminQnaSection';
@@ -15,8 +16,16 @@ interface AdminConsolePageProps {
 }
 
 const AdminConsolePage = ({ section }: AdminConsolePageProps) => {
+  const sectionMeta = sectionContent[section];
+  const renderPageHeader = section !== 'programs';
+
   return (
     <div className={styles['page']}>
+      {renderPageHeader ? (
+        <header className={styles['pageHeader']}>
+          <h1 className={styles['pageTitle']}>{sectionMeta.title}</h1>
+        </header>
+      ) : null}
       {section === 'notices' ? <AdminNoticesSection /> : null}
       {section === 'popups' ? <AdminPopupsSection /> : null}
       {section === 'qna' ? <AdminQnaSection /> : null}
@@ -25,6 +34,7 @@ const AdminConsolePage = ({ section }: AdminConsolePageProps) => {
       {section === 'practicum' ? <AdminPracticumSection /> : null}
       {section === 'reviews' ? <AdminDeferredSection section={section} /> : null}
       {section === 'programMenus' ? <AdminProgramMenuSection /> : null}
+      {section === 'problemAreas' ? <AdminProblemAreasSection /> : null}
       {section === 'programs' ? <AdminProgramListSection /> : null}
       {section === 'payments' ? <AdminPaymentsSection /> : null}
     </div>

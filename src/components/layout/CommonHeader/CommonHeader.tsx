@@ -169,9 +169,11 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
     const rootElement = document.documentElement;
     const nextStickyTop = shouldHideHeader ? '0px' : `${String(headerOffsetHeightPx)}px`;
 
+    rootElement.style.setProperty('--common-header-height', `${String(headerOffsetHeightPx)}px`);
     rootElement.style.setProperty('--common-header-sticky-top', nextStickyTop);
 
     return () => {
+      rootElement.style.removeProperty('--common-header-height');
       rootElement.style.removeProperty('--common-header-sticky-top');
     };
   }, [headerOffsetHeightPx, shouldHideHeader]);

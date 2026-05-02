@@ -70,6 +70,22 @@
   gap: var(--space-5);
 }
 
+.draftFocusHint {
+  position: fixed;
+  z-index: 1200;
+  max-width: 320px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-brand-main) 65%, #ffffff);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+  pointer-events: none;
+}
+
 .editorShell {
   display: grid;
   gap: var(--space-4);
@@ -1002,7 +1018,7 @@
 .userEnrollmentBody {
   display: grid;
   gap: var(--space-4);
-  padding: 0 var(--space-4) var(--space-4);
+  padding: var(--space-4);
   border-top: 1px solid #d1d5db;
 }
 
@@ -2398,6 +2414,17 @@
   gap: var(--space-3);
 }
 
+.adminProblemReportModal {
+  width: min(860px, calc(100vw - 32px));
+  max-height: min(92vh, 880px);
+  overflow: hidden;
+}
+
+.adminProblemReportModalBody {
+  max-height: calc(92vh - 92px);
+  overflow: hidden auto;
+}
+
 .paymentDetailSection {
   display: grid;
   gap: var(--space-2);
@@ -2850,8 +2877,23 @@
 }
 
 .problemQuestionCard {
-  padding-top: var(--space-5);
-  border-top: 2px solid color-mix(in srgb, var(--admin-border-strong) 70%, #ffffff);
+  position: relative;
+  padding-top: var(--space-6);
+  border-top: 0;
+}
+
+.problemQuestionCard::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: var(--color-brand-main);
+  content: '';
+}
+
+.problemQuestionCard + .problemQuestionCard {
+  margin-top: var(--space-4);
 }
 
 .problemQuestionToolbarActions {
@@ -2861,13 +2903,24 @@
   justify-content: flex-end;
 }
 
-.problemQuestionMediaBlock,
-.problemQuestionOptionsBlock {
+.problemQuestionSectionBlock {
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--admin-border);
   background: color-mix(in srgb, var(--color-brand-main) 3%, #ffffff);
+}
+
+.problemQuestionFieldWithoutLabel > span:first-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip-path: inset(50%);
 }
 
 .problemQuestionSectionHeader {
@@ -3194,6 +3247,10 @@
 
 .table tbody tr:hover td {
   background: color-mix(in srgb, var(--color-brand-main) 5%, #ffffff);
+}
+
+.table tbody tr.selectedTableRow td {
+  background: color-mix(in srgb, var(--color-brand-main) 8%, #ffffff);
 }
 
 .noticeTitleRow {

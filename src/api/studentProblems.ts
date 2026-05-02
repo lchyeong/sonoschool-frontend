@@ -5,6 +5,7 @@ import { toApiError } from '@/api/errors';
 import type { ApiEnvelope } from '@/types/auth';
 import type {
   StudentProblem,
+  StudentProblemAttemptReport,
   StudentProblemAttemptResult,
   StudentProblemSession,
   StudentProblemSessionSavePayload,
@@ -70,5 +71,18 @@ export const saveStudentProblemSession = async (
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '문제 풀이 상태를 저장하지 못했습니다.');
+  }
+};
+
+export const fetchStudentProblemAttemptReport = async (
+  attemptId: number,
+): Promise<StudentProblemAttemptReport> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<StudentProblemAttemptReport>>(
+      `/api/v1/problem-attempts/${String(attemptId)}/report`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '문제 결과 리포트를 불러오지 못했습니다.');
   }
 };

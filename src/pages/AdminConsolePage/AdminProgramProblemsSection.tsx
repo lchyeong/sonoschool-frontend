@@ -13,6 +13,7 @@ import Button from '@/components/ui/Button/Button';
 import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { useAdminCurriculumQuery } from '@/query/useAdminCurriculumQuery';
+import { useAdminProblemAreasQuery } from '@/query/useAdminProblemAreasQuery';
 import {
   adminProblemAttemptsQueryKey,
   adminProblemLectureSummariesQueryKey,
@@ -54,12 +55,13 @@ interface ProblemQuestionFormState {
   mediaType: AdminProblemMediaType | null;
   mediaUrl: string;
   options: ProblemOptionFormState[];
+  problemAreaId: string;
   questionText: string;
   questionType: AdminProblemQuestionType;
 }
 
 interface ProblemFormState {
-  passScore: string;
+  passCorrectCount: string;
   questions: ProblemQuestionFormState[];
   timeLimitMinutes: string;
   title: string;
@@ -108,12 +110,13 @@ const createEmptyQuestion = (): ProblemQuestionFormState => ({
   mediaType: null,
   mediaUrl: '',
   options: [createEmptyOption(true), createEmptyOption(false)],
+  problemAreaId: '',
   questionText: '',
   questionType: 'SINGLE',
 });
 
 const EMPTY_FORM: ProblemFormState = {
-  passScore: '60',
+  passCorrectCount: '1',
   questions: [createEmptyQuestion()],
   timeLimitMinutes: '30',
   title: '',
@@ -217,7 +220,7 @@ const createFormState = (problem: AdminProblem | null): ProblemFormState => {
   }
 
   return {
-    passScore: String(problem.passScore),
+    passCorrectCount: String(problem.passCorrectCount),
     questions: [...problem.questions]
       .sort((left, right) => left.sortOrder - right.sortOrder)
       .map((question) => ({
@@ -233,6 +236,7 @@ const createFormState = (problem: AdminProblem | null): ProblemFormState => {
             correct: option.correct,
             optionText: option.optionText,
           })),
+        problemAreaId: String(question.problemAreaId),
         questionText: question.questionText,
         questionType: question.questionType,
       })),
@@ -247,7 +251,7 @@ const toPayload = (
   formState: ProblemFormState,
   fallbackTitle: string,
 ): AdminProblemUpsertPayload => ({
-  passScore: Number(formState.passScore),
+  passCorrectCount: Number(formState.passCorrectCount),
   timeLimitSeconds: formState.timeLimitMinutes.trim()
     ? Math.max(1, Math.floor(Number(formState.timeLimitMinutes) * 60))
     : null,
@@ -256,6 +260,7 @@ const toPayload = (
     mediaAssetId: question.mediaAssetId,
     mediaType: hasQuestionMedia(question) ? question.mediaType : null,
     mediaUrl: question.mediaAssetId !== null ? null : question.mediaUrl.trim() || null,
+    problemAreaId: Number(question.problemAreaId),
     options: question.options.map((option, optionIndex) => ({
       correct: option.correct,
       mediaType: null,
@@ -271,12 +276,12 @@ const toPayload = (
 });
 
 const validateForm = (formState: ProblemFormState): string | null => {
-  if (!formState.passScore.trim() || Number.isNaN(Number(formState.passScore))) {
-    return '합격 점수를 숫자로 입력해 주세요.';
+  if (!formState.passCorrectCount.trim() || Number.isNaN(Number(formState.passCorrectCount))) {
+    return '합격 기준 문항 수를 숫자로 입력해 주세요.';
   }
 
-  if (Number(formState.passScore) < 0) {
-    return '합격 점수는 0 이상이어야 합니다.';
+  if (Number(formState.passCorrectCount) < 0) {
+    return '합격 기준 문항 수는 0 이상이어야 합니다.';
   }
 
   if (
@@ -293,6 +298,10 @@ const validateForm = (formState: ProblemFormState): string | null => {
   for (const [questionIndex, question] of formState.questions.entries()) {
     if (!question.questionText.trim()) {
       return `${String(questionIndex + 1)}번 문항 내용을 입력해 주세요.`;
+    }
+
+    if (!question.problemAreaId.trim()) {
+      return `${String(questionIndex + 1)}번 문항의 문제 영역을 선택해 주세요.`;
     }
 
     if (question.options.length < 2) {
@@ -404,7 +413,7 @@ const ProblemAttemptsPanel = ({ problemId }: { problemId: number | null }) => {
                       <td>{attempt.displayName}</td>
                       <td>{attempt.loginId}</td>
                       <td>{String(attempt.score)}점</td>
-                      <td>{String(attempt.passScore)}점</td>
+                      <td>{String(attempt.passCorrectCount)}문항</td>
                       <td>{attempt.passed ? '통과' : '미통과'}</td>
                       <td>{formatDateTime(attempt.submittedAt)}</td>
                     </tr>
@@ -434,6 +443,7 @@ const ProblemEditor = ({
 }) => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
+  const problemAreasQuery = useAdminProblemAreasQuery(true);
   const [formState, setFormState] = useState<ProblemFormState>(() => createFormState(problem));
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
@@ -453,6 +463,14 @@ const ProblemEditor = ({
   }, [formState.questions.length, selectedQuestionIndex]);
 
   const selectedQuestion = formState.questions.at(selectedQuestionIndex) ?? null;
+  const problemAreaOptions = useMemo(
+    () =>
+      (problemAreasQuery.data ?? []).map((area) => ({
+        label: area.name,
+        value: String(area.id),
+      })),
+    [problemAreasQuery.data],
+  );
 
   const refreshProblem = async () => {
     await Promise.all([
@@ -645,15 +663,15 @@ const ProblemEditor = ({
           <div className={styles['compactFieldRow']}>
             <div className={styles['compactTextField']}>
               <TextField
-                label='합격 점수'
-                name='problem-pass-score'
+                label='합격 기준 문항 수'
+                name='problem-pass-correct-count'
                 onChange={(event) => {
                   setFormState((current) => ({
                     ...current,
-                    passScore: event.target.value,
+                    passCorrectCount: event.target.value,
                   }));
                 }}
-                value={formState.passScore}
+                value={formState.passCorrectCount}
               />
             </div>
             <div className={styles['compactTextField']}>
@@ -841,6 +859,22 @@ const ProblemEditor = ({
                     }}
                     options={questionTypeOptions}
                     value={selectedQuestion.questionType}
+                  />
+                  <AdminDropdownField
+                    compact
+                    label='문제 영역'
+                    onChange={(nextValue) => {
+                      setFormState((current) => ({
+                        ...current,
+                        questions: current.questions.map((item, index) =>
+                          index === selectedQuestionIndex
+                            ? { ...item, problemAreaId: nextValue }
+                            : item,
+                        ),
+                      }));
+                    }}
+                    options={[{ label: '영역 선택', value: '' }, ...problemAreaOptions]}
+                    value={selectedQuestion.problemAreaId}
                   />
                 </div>
 

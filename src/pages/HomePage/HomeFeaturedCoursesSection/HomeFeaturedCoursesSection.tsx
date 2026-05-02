@@ -8,6 +8,8 @@ import { useProgramLectureCatalogQuery } from '@/query/useProgramLectureCatalogQ
 import styles from './HomeFeaturedCoursesSection.module.scss';
 
 const HOME_FEATURED_COURSE_CARD_LIMIT = 12;
+const COURSES_HEADING_REVEAL_RATIO = 0.86;
+const COURSES_HEADING_RESET_RATIO = 0.94;
 
 const loadingCards = Array.from({ length: HOME_FEATURED_COURSE_CARD_LIMIT }, (_, index) => {
   return {
@@ -52,33 +54,25 @@ const HomeFeaturedCoursesSection = () => {
     }
 
     let animationFrameId = 0;
+    let lastHeadingOpacity = '';
+    let isHeadingVisible = false;
 
     const updateSectionIntro = () => {
       animationFrameId = 0;
 
       const rect = sectionElement.getBoundingClientRect();
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-      const enterProgress = Math.min(
-        Math.max((viewportHeight * 0.95 - rect.top) / (viewportHeight * 0.4), 0),
-        1,
-      );
-      const headingSwitchPoint = viewportHeight * 0.46;
-      const isLightTheme = rect.top <= headingSwitchPoint;
-      const nextIntroTone = isLightTheme ? 'light' : 'contrast';
-      const showcasePanelElement = document.querySelector<HTMLElement>(
-        '[data-home-showcase-panel]',
-      );
+      const shouldShowHeading = isHeadingVisible
+        ? rect.top <= viewportHeight * COURSES_HEADING_RESET_RATIO
+        : rect.top <= viewportHeight * COURSES_HEADING_REVEAL_RATIO;
+      const nextHeadingOpacity = shouldShowHeading ? '1' : '0';
 
-      sectionElement.style.setProperty(
-        '--featured-courses-heading-y',
-        `${((1 - enterProgress) * 82).toFixed(2)}px`,
-      );
-      sectionElement.style.setProperty(
-        '--featured-courses-heading-opacity',
-        enterProgress.toFixed(4),
-      );
-      sectionElement.dataset['introTone'] = nextIntroTone;
-      showcasePanelElement?.setAttribute('data-following-tone', nextIntroTone);
+      isHeadingVisible = shouldShowHeading;
+
+      if (lastHeadingOpacity !== nextHeadingOpacity) {
+        sectionElement.style.setProperty('--featured-courses-heading-opacity', nextHeadingOpacity);
+        lastHeadingOpacity = nextHeadingOpacity;
+      }
     };
 
     const requestSectionIntroUpdate = () => {
@@ -108,6 +102,7 @@ const HomeFeaturedCoursesSection = () => {
     <section
       aria-labelledby='home-featured-courses-heading'
       className={styles['section']}
+      data-home-featured-courses-section='true'
       data-intro-tone='contrast'
       ref={sectionRef}
     >

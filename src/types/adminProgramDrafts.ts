@@ -87,6 +87,7 @@ export interface AdminProgramDraftProblemQuestion {
   mediaUploadStatus: AdminDraftUploadStatus | null;
   mediaUrl: string | null;
   options: AdminProgramDraftProblemOption[];
+  problemAreaId: number | null;
   questionText: string;
   questionType: AdminProblemQuestionType;
   sortOrder: number;
@@ -94,7 +95,7 @@ export interface AdminProgramDraftProblemQuestion {
 
 export interface AdminProgramDraftProblem {
   lectureKey: string;
-  passScore: number | null;
+  passCorrectCount?: number | null;
   questions: AdminProgramDraftProblemQuestion[];
   timeLimitSeconds?: number | null;
   title: string | null;

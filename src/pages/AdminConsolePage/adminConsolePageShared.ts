@@ -5,6 +5,7 @@ export type AdminConsoleSection =
   | 'notices'
   | 'popups'
   | 'programMenus'
+  | 'problemAreas'
   | 'programs'
   | 'practicum'
   | 'payments'
@@ -81,6 +82,11 @@ export const sectionContent = {
     description: '',
     eyebrow: '',
     title: '프로그램 카테고리 관리',
+  },
+  problemAreas: {
+    description: '',
+    eyebrow: '',
+    title: '문제 영역 관리',
   },
   programs: {
     description: '',

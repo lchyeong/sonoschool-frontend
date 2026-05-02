@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Blocker } from 'react-router';
@@ -42,6 +43,7 @@ import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { useAdminCategoriesTreeQuery } from '@/query/useAdminCategoriesQuery';
+import { useAdminProblemAreasQuery } from '@/query/useAdminProblemAreasQuery';
 import {
   adminProgramDraftDetailQueryKey,
   adminProgramDraftsQueryKey,
@@ -136,20 +138,15 @@ interface UploadProgressModalState {
   title: string;
 }
 
-interface DateTimeSplitFieldProps {
-  dateLabel: string;
-  minDate?: string;
-  timeLabel: string;
-  value: string;
-  onChange: (value: string) => void;
-}
-
-interface DatePickerFieldProps {
+interface DateRangePickerFieldProps {
   label: string;
-  min?: string | undefined;
-  name: string;
-  value: string;
-  onChange: (value: string) => void;
+  minDate?: string;
+  resetLabel: string;
+  startDate: string;
+  endDate: string;
+  valueText: string;
+  onChange: (startDate: string, endDate: string) => void;
+  onReset: () => void;
 }
 
 const EMPTY_DRAFT_OFFLINE_SCHEDULE: AdminProgramDraftLectureOfflineSchedule = {
@@ -169,17 +166,6 @@ const OFFLINE_START_TIME_OPTIONS = HOURLY_TIME_VALUES.slice(0, -1).map((value) =
   label: value,
   value,
 }));
-
-const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
-  const hours = String(Math.floor(index / 2)).padStart(2, '0');
-  const minutes = index % 2 === 0 ? '00' : '30';
-  const value = `${hours}:${minutes}`;
-
-  return {
-    label: value,
-    value,
-  };
-});
 
 const LECTURE_TYPE_LABELS: Record<AdminLectureType, string> = {
   OFFLINE: '오프라인 강의',
@@ -336,6 +322,7 @@ const createEmptyQuestion = (): AdminProgramDraftProblemQuestion => ({
   mediaUploadStatus: null,
   mediaUrl: null,
   options: createFiveChoiceOptions(),
+  problemAreaId: null,
   questionText: '',
   questionType: 'SINGLE',
   sortOrder: 0,
@@ -343,7 +330,7 @@ const createEmptyQuestion = (): AdminProgramDraftProblemQuestion => ({
 
 const createEmptyProblem = (lectureKey: string): AdminProgramDraftProblem => ({
   lectureKey,
-  passScore: 60,
+  passCorrectCount: 1,
   questions: [createEmptyQuestion()],
   timeLimitSeconds: null,
   title: '',
@@ -532,10 +519,12 @@ const normalizeDraftPayloadShape = (
 
     return {
       ...problem,
+      passCorrectCount: problem.passCorrectCount ?? 1,
       timeLimitSeconds: problem.timeLimitSeconds ?? matchedLecture?.durationSeconds ?? null,
       title: problem.title?.trim() || lectureTitle || '문제',
       questions: problem.questions.map((question) => ({
         ...question,
+        problemAreaId: question.problemAreaId ?? null,
         mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
         mediaUploadFileName: question.mediaUploadFileName ?? null,
         mediaUploadStatus: normalizeQuestionMediaUploadStatus(question),
@@ -691,7 +680,7 @@ const normalizeQuestionMediaUploadStatus = (
 const programTypeOptions = [
   { value: 'ONLINE', label: '온라인' },
   { value: 'OFFLINE', label: '오프라인' },
-  { value: 'HYBRID', label: '하이브리드' },
+  { value: 'HYBRID', label: '실습예약 프로그램' },
   { value: 'PROBLEM_SOLVING', label: '문제풀이' },
 ] as const;
 
@@ -704,61 +693,13 @@ const levelOptions = [
 
 const accessPolicyOptions = [
   { value: 'UNLIMITED', label: '무제한' },
+  { value: 'COHORT', label: '기수형' },
   { value: 'FIXED_DURATION', label: '고정 기간' },
 ] as const;
 
 const PROGRAM_CREATE_WORKSPACE_PATH_PREFIX = routePaths.adminProgramCreate;
 const PROGRAM_EDIT_WORKSPACE_PATH_PATTERN =
   /^\/admin\/programs\/[^/]+\/(edit|curriculum|problems|resources)$/;
-
-const toDateTimeLocal = (value: string | null): string => {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-
-  return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
-};
-
-const extractDatePart = (value: string): string => {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  const [datePart] = trimmed.split('T');
-  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : '';
-};
-
-const extractTimePart = (value: string): string => {
-  const trimmed = value.trim();
-  if (!trimmed || !trimmed.includes('T')) {
-    return '';
-  }
-
-  const [, timePart = ''] = trimmed.split('T');
-  return /^\d{2}:\d{2}$/.test(timePart) ? timePart : '';
-};
-
-const combineDateTimeParts = (dateValue: string, timeValue: string): string => {
-  const normalizedDate = dateValue.trim();
-  const normalizedTime = timeValue.trim();
-
-  if (!normalizedDate) {
-    return '';
-  }
-  if (!normalizedTime) {
-    return `${normalizedDate}T`;
-  }
-
-  return `${normalizedDate}T${normalizedTime}`;
-};
 
 const toDateInputValue = (value: string | null): string => {
   if (!value) {
@@ -789,16 +730,6 @@ const buildOfflineEndTimeOptions = (startTime: string | null) => {
   }));
 };
 
-const toIsoStringOrNull = (value: string): string | null => {
-  const trimmed = value.trim();
-
-  if (!trimmed || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
-    return null;
-  }
-
-  return new Date(trimmed).toISOString();
-};
-
 const toStartOfDayIsoStringOrNull = (value: string): string | null => {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -820,82 +751,14 @@ const toEndOfDayIsoStringOrNull = (value: string): string | null => {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
-const DatePickerField = ({ label, min, name, value, onChange }: DatePickerFieldProps) => {
-  const inputRef = useRef<HTMLInputElement | null>(null);
+const toEndOfDayMinuteIsoStringOrNull = (value: string): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
 
-  const openPicker = () => {
-    const input = inputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
-    if (!input) {
-      return;
-    }
-
-    input.focus();
-    if (typeof input.showPicker === 'function') {
-      input.showPicker();
-    }
-  };
-
-  return (
-    <button className={styles['datePickerButton']} onClick={openPicker} type='button'>
-      <TextField
-        className={styles['dateInput']}
-        errorClassName={styles['dateInputError']}
-        label={label}
-        min={min}
-        name={name}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-        onClick={(event) => {
-          event.stopPropagation();
-          openPicker();
-        }}
-        ref={inputRef}
-        type='date'
-        value={value}
-      />
-    </button>
-  );
-};
-
-const DateTimeSplitField = ({
-  dateLabel,
-  minDate,
-  timeLabel,
-  value,
-  onChange,
-}: DateTimeSplitFieldProps) => {
-  const dateValue = extractDatePart(value);
-  const timeValue = extractTimePart(value);
-
-  return (
-    <div className={styles['dateTimeFieldRow']}>
-      <div className={styles['dateTimeDateField']}>
-        <DatePickerField
-          label={dateLabel}
-          min={minDate}
-          name={`${dateLabel}-date`}
-          onChange={(nextDateValue) => {
-            onChange(combineDateTimeParts(nextDateValue, timeValue));
-          }}
-          value={dateValue}
-        />
-      </div>
-
-      <div className={styles['dateTimeTimeField']}>
-        <AdminDropdownField
-          compact
-          disabled={!dateValue}
-          label={timeLabel}
-          onChange={(nextValue) => {
-            onChange(combineDateTimeParts(dateValue, nextValue));
-          }}
-          options={[{ label: '시간 선택', value: '' }, ...TIME_OPTIONS]}
-          value={timeValue}
-        />
-      </div>
-    </div>
-  );
+  const date = new Date(`${trimmed}T23:59:00`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
 const addMonths = (value: Date, amount: number): Date => {
@@ -905,6 +768,22 @@ const addMonths = (value: Date, amount: number): Date => {
 const formatProgramRecruitmentRangeText = (startDate: string, endDate: string): string => {
   if (!startDate && !endDate) {
     return '상시 모집';
+  }
+
+  if (startDate && endDate) {
+    return `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
+  }
+
+  if (startDate) {
+    return `${formatDate(startDate)}부터`;
+  }
+
+  return `${formatDate(endDate)}까지`;
+};
+
+const formatProgramLearningRangeText = (startDate: string, endDate: string): string => {
+  if (!startDate && !endDate) {
+    return '수강 기간 선택';
   }
 
   if (startDate && endDate) {
@@ -928,6 +807,205 @@ const isDateInRange = (date: string, startDate: string, endDate: string): boolea
   }
 
   return date >= startDate && date <= endDate;
+};
+
+const DateRangePickerField = ({
+  label,
+  minDate,
+  resetLabel,
+  startDate,
+  endDate,
+  valueText,
+  onChange,
+  onReset,
+}: DateRangePickerFieldProps) => {
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+  const rightCalendarMonth = useMemo(() => addMonths(calendarMonth, 1), [calendarMonth]);
+  const leftCalendarCells = useMemo(
+    () => buildCalendarCells(toMonthValue(calendarMonth)),
+    [calendarMonth],
+  );
+  const rightCalendarCells = useMemo(
+    () => buildCalendarCells(toMonthValue(rightCalendarMonth)),
+    [rightCalendarMonth],
+  );
+  const previewEndDate =
+    endDate || (startDate && hoveredDate && hoveredDate >= startDate ? hoveredDate : '');
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+        setHoveredDate(null);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [isOpen]);
+
+  const handleDateSelect = (dateValue: string) => {
+    if (!dateValue) {
+      return;
+    }
+
+    if (!startDate || endDate || dateValue < startDate) {
+      onChange(dateValue, '');
+      return;
+    }
+
+    onChange(startDate, dateValue);
+    setIsOpen(false);
+    setHoveredDate(null);
+  };
+
+  return (
+    <div className={styles['popupDateRangeField']}>
+      <p className={styles['fieldLabel']}>{label}</p>
+      <div className={styles['popupDateRangePicker']} ref={pickerRef}>
+        <button
+          className={classNames(
+            styles['popupDateRangeTrigger'],
+            isOpen && styles['popupDateRangeTriggerActive'],
+          )}
+          onClick={() => {
+            setIsOpen((current) => !current);
+          }}
+          type='button'
+        >
+          <span aria-hidden='true' className={styles['popupDateRangeIcon']} />
+          <span>{valueText}</span>
+        </button>
+
+        {isOpen ? (
+          <div
+            className={styles['popupDateRangePopover']}
+            onMouseLeave={() => {
+              setHoveredDate(null);
+            }}
+          >
+            <div className={styles['popupDateRangeCalendarGrid']}>
+              {[
+                {
+                  cells: leftCalendarCells,
+                  key: 'left',
+                  month: calendarMonth,
+                },
+                {
+                  cells: rightCalendarCells,
+                  key: 'right',
+                  month: rightCalendarMonth,
+                },
+              ].map((calendar) => (
+                <div className={styles['paymentDatePickerCalendarPanel']} key={calendar.key}>
+                  <div className={styles['paymentDatePickerCalendarHead']}>
+                    {calendar.key === 'left' ? (
+                      <button
+                        className={styles['paymentDatePickerNav']}
+                        onClick={() => {
+                          setCalendarMonth((previous) => addMonths(previous, -1));
+                        }}
+                        type='button'
+                      >
+                        이전
+                      </button>
+                    ) : (
+                      <span className={styles['paymentDatePickerNavSpacer']} />
+                    )}
+                    <strong className={styles['paymentDatePickerMonthLabel']}>
+                      {formatMonthLabel(toMonthValue(calendar.month))}
+                    </strong>
+                    {calendar.key === 'right' ? (
+                      <button
+                        className={styles['paymentDatePickerNav']}
+                        onClick={() => {
+                          setCalendarMonth((previous) => addMonths(previous, 1));
+                        }}
+                        type='button'
+                      >
+                        다음
+                      </button>
+                    ) : (
+                      <span className={styles['paymentDatePickerNavSpacer']} />
+                    )}
+                  </div>
+                  <div className={styles['paymentDatePickerWeekdays']}>
+                    {calendarWeekdays.map((weekday) => (
+                      <span key={weekday}>{weekday}</span>
+                    ))}
+                  </div>
+                  <div className={styles['paymentDatePickerDays']}>
+                    {calendar.cells.map((cell, cellIndex) => {
+                      const dateValue = cell.date ?? '';
+                      const isSelectable =
+                        cell.isCurrentMonth &&
+                        Boolean(dateValue) &&
+                        (!minDate || dateValue >= minDate);
+                      const selectedStart = Boolean(dateValue) && dateValue === startDate;
+                      const selectedEnd = Boolean(dateValue) && dateValue === endDate;
+                      const inRange =
+                        cell.isCurrentMonth &&
+                        Boolean(dateValue) &&
+                        isDateInRange(dateValue, startDate, previewEndDate);
+
+                      return (
+                        <button
+                          className={classNames(
+                            styles['paymentDatePickerDay'],
+                            !cell.isCurrentMonth && styles['paymentDatePickerDayOutside'],
+                            inRange && styles['paymentDatePickerDayInRange'],
+                            selectedStart && styles['paymentDatePickerDaySelectedStart'],
+                            selectedEnd && styles['paymentDatePickerDaySelectedEnd'],
+                          )}
+                          disabled={!isSelectable}
+                          key={`${calendar.key}-${String(cellIndex)}-${dateValue}`}
+                          onClick={() => {
+                            handleDateSelect(dateValue);
+                          }}
+                          onMouseEnter={() => {
+                            if (isSelectable) {
+                              setHoveredDate(dateValue);
+                            }
+                          }}
+                          type='button'
+                        >
+                          {dateValue ? Number(dateValue.split('-')[2]) : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className={styles['popupDateRangeActions']}>
+              <Button
+                onClick={() => {
+                  onReset();
+                  setIsOpen(false);
+                  setHoveredDate(null);
+                }}
+                size='sm'
+                type='button'
+                variant='secondary'
+              >
+                {resetLabel}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 };
 
 const parseNonNegativeIntegerInput = (value: string, label: string) => {
@@ -1153,6 +1231,15 @@ const AdminProgramCreateWorkspace = ({
       : null;
   const detailQuery = useAdminProgramDraftDetailQuery(draftId, draftId !== null);
   const categoriesQuery = useAdminCategoriesTreeQuery(true);
+  const problemAreasQuery = useAdminProblemAreasQuery(true);
+  const problemAreaOptions = useMemo(
+    () =>
+      (problemAreasQuery.data ?? []).map((area) => ({
+        label: area.name,
+        value: String(area.id),
+      })),
+    [problemAreasQuery.data],
+  );
   const [payload, setPayload] = useState<AdminProgramDraftPayload | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
@@ -1183,13 +1270,15 @@ const AdminProgramCreateWorkspace = ({
   const [expandedSectionKeys, setExpandedSectionKeys] = useState<string[]>([]);
   const [expandedLectureKeys, setExpandedLectureKeys] = useState<string[]>([]);
   const [collapsedProblemQuestionKeys, setCollapsedProblemQuestionKeys] = useState<string[]>([]);
+  const [draftFocusHint, setDraftFocusHint] = useState<{
+    message: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [openLectureTypeMenuSectionKey, setOpenLectureTypeMenuSectionKey] = useState<string | null>(
     null,
   );
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
-  const [recruitmentCalendarMonth, setRecruitmentCalendarMonth] = useState(() => new Date());
-  const [isRecruitmentDatePickerOpen, setIsRecruitmentDatePickerOpen] = useState(false);
-  const [hoveredRecruitmentDate, setHoveredRecruitmentDate] = useState<string | null>(null);
   const [uploadProgressModal, setUploadProgressModal] = useState<UploadProgressModalState | null>(
     null,
   );
@@ -1200,10 +1289,19 @@ const AdminProgramCreateWorkspace = ({
   const currentPayloadRef = useRef<AdminProgramDraftPayload | null>(null);
   const bypassNavigationBlockRef = useRef(false);
   const lectureTypeMenuRef = useRef<HTMLDivElement | null>(null);
-  const recruitmentDatePickerRef = useRef<HTMLDivElement | null>(null);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const numericInputsInitializedForDraftRef = useRef<number | null>(null);
   const resumingVideoIdsRef = useRef<Set<number>>(new Set());
+  const draftFocusHintTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (draftFocusHintTimerRef.current !== null) {
+        window.clearTimeout(draftFocusHintTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const createDraftMutation = useMutation({
     mutationFn: () => {
@@ -1349,18 +1447,6 @@ const AdminProgramCreateWorkspace = ({
     () => getAllowedLectureTypes(payload?.basicInfo.programType ?? null),
     [payload?.basicInfo.programType],
   );
-  const recruitmentRightCalendarMonth = useMemo(
-    () => addMonths(recruitmentCalendarMonth, 1),
-    [recruitmentCalendarMonth],
-  );
-  const recruitmentLeftCalendarCells = useMemo(
-    () => buildCalendarCells(toMonthValue(recruitmentCalendarMonth)),
-    [recruitmentCalendarMonth],
-  );
-  const recruitmentRightCalendarCells = useMemo(
-    () => buildCalendarCells(toMonthValue(recruitmentRightCalendarMonth)),
-    [recruitmentRightCalendarMonth],
-  );
   const recruitmentStartDate = toDateInputValue(payload?.basicInfo.saleStartAt ?? null);
   const recruitmentEndDate = toDateInputValue(
     payload?.basicInfo.saleEndAt
@@ -1371,13 +1457,12 @@ const AdminProgramCreateWorkspace = ({
     recruitmentStartDate,
     recruitmentEndDate,
   );
-  const previewRecruitmentEndDate =
-    recruitmentEndDate ||
-    (recruitmentStartDate &&
-    hoveredRecruitmentDate &&
-    hoveredRecruitmentDate >= recruitmentStartDate
-      ? hoveredRecruitmentDate
-      : '');
+  const learningStartDate = toDateInputValue(payload?.basicInfo.learningStartAt ?? null);
+  const learningEndDate = toDateInputValue(payload?.basicInfo.learningEndAt ?? null);
+  const visibleLearningRangeText = formatProgramLearningRangeText(
+    learningStartDate,
+    learningEndDate,
+  );
   const offlineScheduleMinDate = toDateInputValue(payload?.basicInfo.learningStartAt ?? null);
   const offlineScheduleMaxDate = toDateInputValue(payload?.basicInfo.learningEndAt ?? null);
   const hasOfflineSchedulePeriod =
@@ -1437,25 +1522,6 @@ const AdminProgramCreateWorkspace = ({
       window.removeEventListener('keydown', handleEscape);
     };
   }, [openLectureTypeMenuSectionKey]);
-
-  useEffect(() => {
-    if (!isRecruitmentDatePickerOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!recruitmentDatePickerRef.current?.contains(event.target as Node)) {
-        setIsRecruitmentDatePickerOpen(false);
-        setHoveredRecruitmentDate(null);
-      }
-    };
-
-    window.addEventListener('mousedown', handlePointerDown);
-
-    return () => {
-      window.removeEventListener('mousedown', handlePointerDown);
-    };
-  }, [isRecruitmentDatePickerOpen]);
 
   useEffect(() => {
     const detail = detailQuery.data ?? createDraftMutation.data;
@@ -1689,12 +1755,14 @@ const AdminProgramCreateWorkspace = ({
       nextErrors['learningRange'] = '수강 시작일은 오늘 이후 날짜만 선택할 수 있습니다.';
     }
     if (
-      basicInfo?.accessPolicy === 'FIXED_DURATION' &&
+      (basicInfo?.accessPolicy === 'FIXED_DURATION' || basicInfo?.accessPolicy === 'COHORT') &&
       calculateAccessDaysFromLearningRange(basicInfo.learningStartAt, basicInfo.learningEndAt) ===
         null
     ) {
       nextErrors['learningRange'] =
-        '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
+        basicInfo.accessPolicy === 'COHORT'
+          ? '기수형 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.'
+          : '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
     }
     if (
       discountPercentInput.trim() &&
@@ -1766,47 +1834,30 @@ const AdminProgramCreateWorkspace = ({
     }
   };
 
-  const handleRecruitmentDateSelect = (dateValue: string) => {
+  const handleRecruitmentRangeChange = (startDate: string, endDate: string) => {
     updatePayload((current) => {
-      const currentStartDate = toDateInputValue(current.basicInfo.saleStartAt);
-      const currentEndDate = toDateInputValue(
-        current.basicInfo.saleEndAt
-          ? new Date(Date.parse(current.basicInfo.saleEndAt) - 1).toISOString()
-          : null,
-      );
-
-      if (!currentStartDate || currentEndDate) {
-        return {
-          ...current,
-          basicInfo: {
-            ...current.basicInfo,
-            saleEndAt: null,
-            saleStartAt: toStartOfDayIsoStringOrNull(dateValue),
-          },
-        };
-      }
-
-      if (dateValue < currentStartDate) {
-        return {
-          ...current,
-          basicInfo: {
-            ...current.basicInfo,
-            saleEndAt: null,
-            saleStartAt: toStartOfDayIsoStringOrNull(dateValue),
-          },
-        };
-      }
-
-      setIsRecruitmentDatePickerOpen(false);
-
       return {
         ...current,
         basicInfo: {
           ...current.basicInfo,
-          saleEndAt: toEndOfDayIsoStringOrNull(dateValue),
+          saleEndAt: endDate ? toEndOfDayIsoStringOrNull(endDate) : null,
+          saleStartAt: toStartOfDayIsoStringOrNull(startDate),
         },
       };
     });
+  };
+
+  const handleLearningRangeChange = (startDate: string, endDate: string) => {
+    updatePayload((current) => ({
+      ...current,
+      basicInfo: normalizeDraftBasicInfo({
+        ...current.basicInfo,
+        accessDays: null,
+        accessPolicy: 'COHORT',
+        learningEndAt: endDate ? toEndOfDayMinuteIsoStringOrNull(endDate) : null,
+        learningStartAt: toStartOfDayIsoStringOrNull(startDate),
+      }),
+    }));
   };
 
   const resetRecruitmentRange = () => {
@@ -1817,6 +1868,17 @@ const AdminProgramCreateWorkspace = ({
         saleEndAt: null,
         saleStartAt: null,
       },
+    }));
+  };
+
+  const resetLearningRange = () => {
+    updatePayload((current) => ({
+      ...current,
+      basicInfo: normalizeDraftBasicInfo({
+        ...current.basicInfo,
+        learningEndAt: null,
+        learningStartAt: null,
+      }),
     }));
   };
 
@@ -2409,32 +2471,38 @@ const AdminProgramCreateWorkspace = ({
 
                   {!questionCollapsed ? (
                     <div className={styles['problemQuestionBody']}>
-                      <TextAreaField
-                        label='문제'
-                        name={`problem-question-text-${lectureKey}-${String(questionIndex)}`}
-                        onChange={(event) => {
-                          updateProblemQuestion(lectureKey, questionIndex, (current) => ({
-                            ...current,
-                            questionText: event.target.value,
-                          }));
-                        }}
-                        value={question.questionText}
-                      />
+                      <div className={styles['problemQuestionSectionBlock']}>
+                        <div className={styles['problemQuestionSectionHeader']}>
+                          <strong>문제 영역</strong>
+                          <span>문제가 속한 영역을 선택합니다.</span>
+                        </div>
+                        <div
+                          data-draft-focus-key={`${lectureKey}:${String(questionIndex)}:problemArea`}
+                        >
+                          <AdminDropdownField
+                            className={styles['problemQuestionFieldWithoutLabel']}
+                            compact
+                            label='문제 영역'
+                            onChange={(nextValue) => {
+                              updateProblemQuestion(lectureKey, questionIndex, (current) => ({
+                                ...current,
+                                problemAreaId: nextValue ? Number(nextValue) : null,
+                              }));
+                            }}
+                            options={[{ label: '영역 선택', value: '' }, ...problemAreaOptions]}
+                            value={
+                              question.problemAreaId === null ? '' : String(question.problemAreaId)
+                            }
+                          />
+                        </div>
+                      </div>
 
-                      <TextAreaField
-                        label='해설'
-                        name={`problem-question-explanation-${lectureKey}-${String(questionIndex)}`}
-                        onChange={(event) => {
-                          updateProblemQuestion(lectureKey, questionIndex, (current) => ({
-                            ...current,
-                            explanation: event.target.value,
-                          }));
-                        }}
-                        rows={3}
-                        value={question.explanation ?? ''}
-                      />
-
-                      <div className={styles['problemQuestionMediaBlock']}>
+                      <div
+                        className={classNames(
+                          styles['problemQuestionSectionBlock'],
+                          styles['problemQuestionMediaBlock'],
+                        )}
+                      >
                         <div className={styles['problemQuestionSectionHeader']}>
                           <strong>이미지 / 영상</strong>
                           <span>문제 이해에 필요한 자료가 있을 때만 연결합니다.</span>
@@ -2565,7 +2633,32 @@ const AdminProgramCreateWorkspace = ({
                         ) : null}
                       </div>
 
-                      <div className={styles['problemQuestionOptionsBlock']}>
+                      <div className={styles['problemQuestionSectionBlock']}>
+                        <div className={styles['problemQuestionSectionHeader']}>
+                          <strong>문제</strong>
+                          <span>수강생에게 노출될 문제 본문을 입력합니다.</span>
+                        </div>
+                        <TextAreaField
+                          data-draft-focus-key={`${lectureKey}:${String(questionIndex)}:questionText`}
+                          labelClassName={styles['srOnly']}
+                          label='문제'
+                          name={`problem-question-text-${lectureKey}-${String(questionIndex)}`}
+                          onChange={(event) => {
+                            updateProblemQuestion(lectureKey, questionIndex, (current) => ({
+                              ...current,
+                              questionText: event.target.value,
+                            }));
+                          }}
+                          value={question.questionText}
+                        />
+                      </div>
+
+                      <div
+                        className={classNames(
+                          styles['problemQuestionSectionBlock'],
+                          styles['problemQuestionOptionsBlock'],
+                        )}
+                      >
                         <div className={styles['problemQuestionSectionHeader']}>
                           <strong>보기</strong>
                           <span>
@@ -2635,6 +2728,26 @@ const AdminProgramCreateWorkspace = ({
                             </div>
                           ))}
                         </div>
+                      </div>
+
+                      <div className={styles['problemQuestionSectionBlock']}>
+                        <div className={styles['problemQuestionSectionHeader']}>
+                          <strong>해설</strong>
+                          <span>정답 확인 후 보여줄 풀이 내용을 입력합니다.</span>
+                        </div>
+                        <TextAreaField
+                          labelClassName={styles['srOnly']}
+                          label='해설'
+                          name={`problem-question-explanation-${lectureKey}-${String(questionIndex)}`}
+                          onChange={(event) => {
+                            updateProblemQuestion(lectureKey, questionIndex, (current) => ({
+                              ...current,
+                              explanation: event.target.value,
+                            }));
+                          }}
+                          rows={3}
+                          value={question.explanation ?? ''}
+                        />
                       </div>
                     </div>
                   ) : null}
@@ -3531,18 +3644,18 @@ const AdminProgramCreateWorkspace = ({
   }
 
   const createDraftSearch = draftId === null ? '' : `?draftId=${String(draftId)}`;
-  const blockingUploadMessages = payload.sections.flatMap((section) =>
+  const blockingFinalizeIssues = payload.sections.flatMap((section) =>
     section.lectures.flatMap((lecture) => {
-      const messages: string[] = [];
+      const issues: Array<{ focusKey?: string; message: string }> = [];
       const lectureLabel = lecture.title?.trim() || '미제목 강의';
       if (pendingVideoSelections[lecture.key]) {
-        messages.push(`${lectureLabel}: 선택한 영상 파일 업로드 시작이 필요합니다.`);
+        issues.push({ message: `${lectureLabel}: 선택한 영상 파일 업로드 시작이 필요합니다.` });
       }
       if (lecture.videoUploadStatus === 'UPLOADING' || lecture.videoUploadStatus === 'PROCESSING') {
-        messages.push(`${lectureLabel}: 영상 업로드 또는 인코딩이 아직 진행 중입니다.`);
+        issues.push({ message: `${lectureLabel}: 영상 업로드 또는 인코딩이 아직 진행 중입니다.` });
       }
       if (lecture.videoUploadStatus === 'FAILED') {
-        messages.push(`${lectureLabel}: 영상 업로드가 실패했습니다.`);
+        issues.push({ message: `${lectureLabel}: 영상 업로드가 실패했습니다.` });
       }
 
       const lectureResources = payload.resources.filter(
@@ -3551,21 +3664,27 @@ const AdminProgramCreateWorkspace = ({
       for (const resource of lectureResources) {
         const resourceLabel = resource.title?.trim() || '미제목 자료';
         if (pendingResourceSelections[resource.key]) {
-          messages.push(
-            `${lectureLabel} / ${resourceLabel}: 선택한 자료 파일 업로드 시작이 필요합니다.`,
-          );
+          issues.push({
+            message: `${lectureLabel} / ${resourceLabel}: 선택한 자료 파일 업로드 시작이 필요합니다.`,
+          });
           continue;
         }
         if (resource.uploadStatus === 'UPLOADING' || resource.uploadStatus === 'PROCESSING') {
-          messages.push(`${lectureLabel} / ${resourceLabel}: 자료 업로드가 아직 진행 중입니다.`);
+          issues.push({
+            message: `${lectureLabel} / ${resourceLabel}: 자료 업로드가 아직 진행 중입니다.`,
+          });
           continue;
         }
         if (resource.uploadStatus === 'FAILED') {
-          messages.push(`${lectureLabel} / ${resourceLabel}: 자료 업로드가 실패했습니다.`);
+          issues.push({
+            message: `${lectureLabel} / ${resourceLabel}: 자료 업로드가 실패했습니다.`,
+          });
           continue;
         }
         if (!resource.fileUrl || !resource.fileName || !resource.fileSize) {
-          messages.push(`${lectureLabel} / ${resourceLabel}: 자료 파일을 업로드해야 합니다.`);
+          issues.push({
+            message: `${lectureLabel} / ${resourceLabel}: 자료 파일을 업로드해야 합니다.`,
+          });
         }
       }
 
@@ -3573,20 +3692,34 @@ const AdminProgramCreateWorkspace = ({
       lectureProblem?.questions.forEach((question, questionIndex) => {
         const questionUploadKey = `${lecture.key}:${String(questionIndex)}`;
         const questionLabel = question.questionText.trim() || `문제 ${String(questionIndex + 1)}`;
+        if (question.problemAreaId === null) {
+          issues.push({
+            focusKey: `${lecture.key}:${String(questionIndex)}:problemArea`,
+            message: `${lectureLabel} / ${questionLabel}: 문제 영역을 선택해 주세요.`,
+          });
+        }
+        if (!question.questionText.trim()) {
+          issues.push({
+            focusKey: `${lecture.key}:${String(questionIndex)}:questionText`,
+            message: `${lectureLabel} / ${questionLabel}: 문제 내용을 입력해 주세요.`,
+          });
+        }
         if (pendingQuestionMediaSelections[questionUploadKey]) {
-          messages.push(
-            `${lectureLabel} / ${questionLabel}: 선택한 문제 미디어 업로드 시작이 필요합니다.`,
-          );
+          issues.push({
+            message: `${lectureLabel} / ${questionLabel}: 선택한 문제 미디어 업로드 시작이 필요합니다.`,
+          });
           return;
         }
         if (isUploadInProgress(question.mediaUploadStatus)) {
-          messages.push(
-            `${lectureLabel} / ${questionLabel}: 문제 미디어 업로드가 아직 진행 중입니다.`,
-          );
+          issues.push({
+            message: `${lectureLabel} / ${questionLabel}: 문제 미디어 업로드가 아직 진행 중입니다.`,
+          });
           return;
         }
         if (question.mediaUploadStatus === 'FAILED') {
-          messages.push(`${lectureLabel} / ${questionLabel}: 문제 미디어 업로드가 실패했습니다.`);
+          issues.push({
+            message: `${lectureLabel} / ${questionLabel}: 문제 미디어 업로드가 실패했습니다.`,
+          });
           return;
         }
         if (
@@ -3594,15 +3727,87 @@ const AdminProgramCreateWorkspace = ({
           question.mediaAssetId === null &&
           !question.mediaUrl
         ) {
-          messages.push(
-            `${lectureLabel} / ${questionLabel}: 문제 미디어 연결 정보가 누락되었습니다.`,
-          );
+          issues.push({
+            message: `${lectureLabel} / ${questionLabel}: 문제 미디어 연결 정보가 누락되었습니다.`,
+          });
         }
       });
 
-      return messages;
+      return issues;
     }),
   );
+  const focusableFinalizeIssue = blockingFinalizeIssues.find((issue) => issue.focusKey);
+  const blockingUploadMessages = blockingFinalizeIssues
+    .filter((issue) => !issue.focusKey)
+    .map((issue) => issue.message);
+  const showDraftFocusHint = (message: string, event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (draftFocusHintTimerRef.current !== null) {
+      window.clearTimeout(draftFocusHintTimerRef.current);
+    }
+
+    const hintWidth = 320;
+    const hintHeight = 96;
+    setDraftFocusHint({
+      message,
+      x: Math.min(event.clientX + 16, Math.max(16, window.innerWidth - hintWidth)),
+      y: Math.min(event.clientY + 16, Math.max(16, window.innerHeight - hintHeight)),
+    });
+    draftFocusHintTimerRef.current = window.setTimeout(() => {
+      setDraftFocusHint(null);
+      draftFocusHintTimerRef.current = null;
+    }, 2600);
+  };
+  const focusDraftFieldTarget = (focusKey: string): boolean => {
+    const target = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-draft-focus-key]'),
+    ).find((element) => element.dataset['draftFocusKey'] === focusKey);
+    if (!target) {
+      return false;
+    }
+
+    const focusTarget = target.matches('button, input, textarea, select, [tabindex]')
+      ? target
+      : target.querySelector<HTMLElement>('button, input, textarea, select, [tabindex]');
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    window.setTimeout(() => {
+      focusTarget?.focus();
+    }, 160);
+    return true;
+  };
+  const focusDraftField = (focusKey: string): boolean => {
+    const [lectureKey, questionIndexPart] = focusKey.split(':');
+    if (lectureKey && questionIndexPart) {
+      const questionKey = `${lectureKey}:${questionIndexPart}`;
+      const parentSection = payload.sections.find((section) =>
+        section.lectures.some((lecture) => lecture.key === lectureKey),
+      );
+      if (parentSection && !expandedSectionKeys.includes(parentSection.key)) {
+        setExpandedSectionKeys((current) =>
+          current.includes(parentSection.key) ? current : [...current, parentSection.key],
+        );
+      }
+      if (!expandedLectureKeys.includes(lectureKey)) {
+        setExpandedLectureKeys((current) =>
+          current.includes(lectureKey) ? current : [...current, lectureKey],
+        );
+      }
+      if (collapsedProblemQuestionKeys.includes(questionKey)) {
+        setCollapsedProblemQuestionKeys((current) => current.filter((key) => key !== questionKey));
+      }
+      if (
+        (parentSection && !expandedSectionKeys.includes(parentSection.key)) ||
+        !expandedLectureKeys.includes(lectureKey) ||
+        collapsedProblemQuestionKeys.includes(questionKey)
+      ) {
+        window.setTimeout(() => {
+          focusDraftFieldTarget(focusKey);
+        }, 220);
+        return true;
+      }
+    }
+
+    return focusDraftFieldTarget(focusKey);
+  };
   const activeView: Exclude<AdminProgramCreateView, 'problems' | 'resources'> =
     view === 'problems' || view === 'resources' ? 'curriculum' : view;
   const baseDetailsPath =
@@ -3632,6 +3837,16 @@ const AdminProgramCreateWorkspace = ({
 
   return (
     <section className={styles['workspace']}>
+      {draftFocusHint ? (
+        <div
+          aria-live='polite'
+          className={styles['draftFocusHint']}
+          role='status'
+          style={{ left: draftFocusHint.x, top: draftFocusHint.y }}
+        >
+          {draftFocusHint.message}
+        </div>
+      ) : null}
       <section className={styles['editorShell']}>
         <div className={styles['editorToolbar']}>
           <Button
@@ -3661,9 +3876,18 @@ const AdminProgramCreateWorkspace = ({
               disabled={
                 finalizeMutation.isPending ||
                 discardMutation.isPending ||
-                blockingUploadMessages.length > 0
+                (blockingUploadMessages.length > 0 && !focusableFinalizeIssue)
               }
-              onClick={() => {
+              onClick={(event) => {
+                if (focusableFinalizeIssue?.focusKey) {
+                  focusDraftField(focusableFinalizeIssue.focusKey);
+                  showDraftFocusHint(focusableFinalizeIssue.message, event);
+                  showToast({
+                    message: focusableFinalizeIssue.message,
+                    variant: 'error',
+                  });
+                  return;
+                }
                 if (draftId !== null) {
                   finalizeMutation.mutate(draftId);
                 }
@@ -3711,7 +3935,7 @@ const AdminProgramCreateWorkspace = ({
             <span className={styles['badge']}>마지막 저장 {formatDateTime(lastSavedAt)}</span>
             {blockingUploadMessages.length ? (
               <span className={styles['badge']}>
-                {mode === 'edit' ? '업로드 완료 후 수정 가능' : '업로드 완료 후 등록 가능'}
+                {mode === 'edit' ? '확인 항목 처리 후 수정 가능' : '확인 항목 처리 후 등록 가능'}
               </span>
             ) : null}
           </div>
@@ -3720,9 +3944,7 @@ const AdminProgramCreateWorkspace = ({
         {blockingUploadMessages.length ? (
           <div className={styles['uploadBlockingSummary']}>
             <strong className={styles['panelTitle']}>
-              {mode === 'edit'
-                ? '수정 완료 전에 확인할 업로드 항목'
-                : '등록 전에 확인할 업로드 항목'}
+              {mode === 'edit' ? '수정 완료 전에 확인할 항목' : '등록 전에 확인할 항목'}
             </strong>
             <div className={styles['stackListCompact']}>
               {blockingUploadMessages.map((message) => (
@@ -3909,6 +4131,10 @@ const AdminProgramCreateWorkspace = ({
                                   )
                                 : null,
                             accessPolicy: nextValue as AdminProgramAccessPolicy,
+                            learningEndAt:
+                              nextValue === 'UNLIMITED' ? null : current.basicInfo.learningEndAt,
+                            learningStartAt:
+                              nextValue === 'UNLIMITED' ? null : current.basicInfo.learningStartAt,
                           },
                         }));
                       }}
@@ -4061,146 +4287,15 @@ const AdminProgramCreateWorkspace = ({
                     />
                   </div>
 
-                  <div className={styles['popupDateRangeField']}>
-                    <p className={styles['fieldLabel']}>모집 기간</p>
-                    <div className={styles['popupDateRangePicker']} ref={recruitmentDatePickerRef}>
-                      <button
-                        className={classNames(
-                          styles['popupDateRangeTrigger'],
-                          isRecruitmentDatePickerOpen && styles['popupDateRangeTriggerActive'],
-                        )}
-                        onClick={() => {
-                          setIsRecruitmentDatePickerOpen((current) => !current);
-                        }}
-                        type='button'
-                      >
-                        <span aria-hidden='true' className={styles['popupDateRangeIcon']} />
-                        <span>{visibleRecruitmentRangeText}</span>
-                      </button>
-
-                      {isRecruitmentDatePickerOpen ? (
-                        <div
-                          className={styles['popupDateRangePopover']}
-                          onMouseLeave={() => {
-                            setHoveredRecruitmentDate(null);
-                          }}
-                        >
-                          <div className={styles['popupDateRangeCalendarGrid']}>
-                            {[
-                              {
-                                cells: recruitmentLeftCalendarCells,
-                                key: 'left',
-                                month: recruitmentCalendarMonth,
-                              },
-                              {
-                                cells: recruitmentRightCalendarCells,
-                                key: 'right',
-                                month: recruitmentRightCalendarMonth,
-                              },
-                            ].map((calendar) => (
-                              <div
-                                className={styles['paymentDatePickerCalendarPanel']}
-                                key={calendar.key}
-                              >
-                                <div className={styles['paymentDatePickerCalendarHead']}>
-                                  {calendar.key === 'left' ? (
-                                    <button
-                                      className={styles['paymentDatePickerNav']}
-                                      onClick={() => {
-                                        setRecruitmentCalendarMonth((previous) =>
-                                          addMonths(previous, -1),
-                                        );
-                                      }}
-                                      type='button'
-                                    >
-                                      이전
-                                    </button>
-                                  ) : (
-                                    <span className={styles['paymentDatePickerNavSpacer']} />
-                                  )}
-                                  <strong className={styles['paymentDatePickerMonthLabel']}>
-                                    {formatMonthLabel(toMonthValue(calendar.month))}
-                                  </strong>
-                                  {calendar.key === 'right' ? (
-                                    <button
-                                      className={styles['paymentDatePickerNav']}
-                                      onClick={() => {
-                                        setRecruitmentCalendarMonth((previous) =>
-                                          addMonths(previous, 1),
-                                        );
-                                      }}
-                                      type='button'
-                                    >
-                                      다음
-                                    </button>
-                                  ) : (
-                                    <span className={styles['paymentDatePickerNavSpacer']} />
-                                  )}
-                                </div>
-                                <div className={styles['paymentDatePickerWeekdays']}>
-                                  {calendarWeekdays.map((weekday) => (
-                                    <span key={weekday}>{weekday}</span>
-                                  ))}
-                                </div>
-                                <div className={styles['paymentDatePickerDays']}>
-                                  {calendar.cells.map((cell, cellIndex) => {
-                                    const dateValue = cell.date ?? '';
-                                    const selectedStart = dateValue === recruitmentStartDate;
-                                    const selectedEnd = dateValue === recruitmentEndDate;
-                                    const inRange =
-                                      cell.isCurrentMonth &&
-                                      isDateInRange(
-                                        dateValue,
-                                        recruitmentStartDate,
-                                        previewRecruitmentEndDate,
-                                      );
-
-                                    return (
-                                      <button
-                                        className={classNames(
-                                          styles['paymentDatePickerDay'],
-                                          !cell.isCurrentMonth &&
-                                            styles['paymentDatePickerDayOutside'],
-                                          inRange && styles['paymentDatePickerDayInRange'],
-                                          selectedStart &&
-                                            styles['paymentDatePickerDaySelectedStart'],
-                                          selectedEnd && styles['paymentDatePickerDaySelectedEnd'],
-                                        )}
-                                        disabled={!cell.isCurrentMonth}
-                                        key={`${calendar.key}-${String(cellIndex)}-${dateValue}`}
-                                        onClick={() => {
-                                          handleRecruitmentDateSelect(dateValue);
-                                        }}
-                                        onMouseEnter={() => {
-                                          setHoveredRecruitmentDate(dateValue);
-                                        }}
-                                        type='button'
-                                      >
-                                        {dateValue ? Number(dateValue.split('-')[2]) : ''}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          <div className={styles['popupDateRangeActions']}>
-                            <Button
-                              onClick={() => {
-                                resetRecruitmentRange();
-                                setIsRecruitmentDatePickerOpen(false);
-                              }}
-                              size='sm'
-                              type='button'
-                              variant='secondary'
-                            >
-                              상시 모집
-                            </Button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
+                  <DateRangePickerField
+                    endDate={recruitmentEndDate}
+                    label='모집 기간'
+                    onChange={handleRecruitmentRangeChange}
+                    onReset={resetRecruitmentRange}
+                    resetLabel='상시 모집'
+                    startDate={recruitmentStartDate}
+                    valueText={visibleRecruitmentRangeText}
+                  />
 
                   <p className={styles['policyHint']}>
                     {payload.basicInfo.programType === 'OFFLINE'
@@ -4208,26 +4303,16 @@ const AdminProgramCreateWorkspace = ({
                       : '모집 종료일을 비워 두면 상시 모집으로 운영할 수 있습니다.'}
                   </p>
 
-                  <div className={styles['dateTimeGroup']}>
-                    <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
-                    <DateTimeSplitField
-                      dateLabel='수강 시작일'
-                      minDate={getTodayDateInputValue()}
-                      onChange={(nextValue) => {
-                        updateBasicInfo('learningStartAt', toIsoStringOrNull(nextValue));
-                      }}
-                      timeLabel='시작 시간'
-                      value={toDateTimeLocal(payload.basicInfo.learningStartAt)}
-                    />
-                    <DateTimeSplitField
-                      dateLabel='수강 종료일'
-                      onChange={(nextValue) => {
-                        updateBasicInfo('learningEndAt', toIsoStringOrNull(nextValue));
-                      }}
-                      timeLabel='종료 시간'
-                      value={toDateTimeLocal(payload.basicInfo.learningEndAt)}
-                    />
-                  </div>
+                  <DateRangePickerField
+                    endDate={learningEndDate}
+                    label='수강 기간'
+                    minDate={getTodayDateInputValue()}
+                    onChange={handleLearningRangeChange}
+                    onReset={resetLearningRange}
+                    resetLabel='기간 초기화'
+                    startDate={learningStartDate}
+                    valueText={visibleLearningRangeText}
+                  />
 
                   <AdminFieldArray
                     addLabel='핵심 포인트 추가'
@@ -4745,21 +4830,22 @@ const AdminProgramCreateWorkspace = ({
                                                 {supportsProblem ? (
                                                   <div className={styles['compactTextField']}>
                                                     <TextField
-                                                      label='기준 점수'
-                                                      name={`problem-pass-score-${lecture.key}`}
+                                                      label='합격 기준 문항 수'
+                                                      name={`problem-pass-correct-count-${lecture.key}`}
                                                       onChange={(event) => {
                                                         upsertProblem(lecture.key, (current) => ({
                                                           ...current,
-                                                          passScore: event.target.value.trim()
-                                                            ? Number(event.target.value)
-                                                            : null,
+                                                          passCorrectCount:
+                                                            event.target.value.trim()
+                                                              ? Number(event.target.value)
+                                                              : null,
                                                         }));
                                                       }}
                                                       value={
-                                                        lectureQuiz?.passScore === null ||
-                                                        lectureQuiz?.passScore === undefined
+                                                        lectureQuiz?.passCorrectCount === null ||
+                                                        lectureQuiz?.passCorrectCount === undefined
                                                           ? ''
-                                                          : String(lectureQuiz.passScore)
+                                                          : String(lectureQuiz.passCorrectCount)
                                                       }
                                                     />
                                                   </div>

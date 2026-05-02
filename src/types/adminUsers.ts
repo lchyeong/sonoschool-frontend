@@ -24,21 +24,34 @@ export interface AdminUserDetailQuestionResultItem {
   correct: boolean;
   correctOptions: AdminUserDetailOptionItem[];
   explanation: string | null;
+  problemAreaId?: number | null;
+  problemAreaName?: string | null;
   questionId: number;
   questionText: string;
   questionType: string;
   submittedOptions: AdminUserDetailOptionItem[];
 }
 
+export interface AdminUserDetailProblemAreaResultItem {
+  problemAreaId: number;
+  problemAreaName: string;
+  totalCount: number;
+  correctCount: number;
+  wrongCount: number;
+}
+
 export interface AdminUserDetailProblemAttemptItem {
   attemptId: number;
+  areaResults?: AdminUserDetailProblemAreaResultItem[];
   correctAnswerCount: number;
-  passScore: number;
+  correctRate?: number;
+  passCorrectCount: number;
   passed: boolean;
   questionCount: number;
   questionResults: AdminUserDetailQuestionResultItem[];
   score: number;
   submittedAt: string | null;
+  wrongAnswerCount?: number;
 }
 
 export interface AdminUserDetailProblemItem {
@@ -49,7 +62,7 @@ export interface AdminUserDetailProblemItem {
   lastSubmittedAt: string | null;
   latestCorrectAnswerCount: number | null;
   latestScore: number | null;
-  passScore: number;
+  passCorrectCount: number;
   questionCount: number;
   problemId: number;
   title: string;
