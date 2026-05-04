@@ -1,7 +1,7 @@
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
 import {
@@ -18,11 +18,13 @@ import circleCheckIconSrc from '@/assets/icons/lucide_circle-check.svg';
 import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
 import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
 import Button from '@/components/ui/Button/Button';
+import { myCartQueryKey } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { RegistrationTerm } from '@/types/auth';
 import { classNames } from '@/utils/classNames';
+import { mergeGuestCartIntoServer } from '@/utils/mergeGuestCartIntoServer';
 
 import styles from './SignupPage.module.scss';
 
@@ -149,6 +151,7 @@ const hasSignupFormErrors = (errors: SignupFormErrors): boolean => {
 
 const SignupPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((state) => state.setSession);
   const showToast = useToastStore((state) => state.showToast);
   const firstInvalidInputRef = useRef<HTMLInputElement | null>(null);
@@ -404,8 +407,23 @@ const SignupPage = () => {
         durationMs: null,
       });
     },
-    onSuccess: (session) => {
+    onSuccess: async (session) => {
       setSession(session);
+
+      const mergeResult = await mergeGuestCartIntoServer();
+
+      if (mergeResult.serverCart) {
+        queryClient.setQueryData(myCartQueryKey('authenticated'), mergeResult.serverCart);
+      }
+
+      if (mergeResult.failedCount > 0) {
+        showToast({
+          message:
+            '일부 비로그인 장바구니 항목은 옮기지 못했습니다. 장바구니에서 다시 확인해 주세요.',
+          variant: 'info',
+        });
+      }
+
       showToast({
         message: `${session.displayName}님, 회원가입이 완료되었습니다.`,
         variant: 'success',
@@ -543,7 +561,7 @@ const SignupPage = () => {
         loginIdErrors.push('이미 사용 중인 아이디입니다.');
       }
     } else {
-      loginIdErrors.push('(회원가입 버튼 눌렀을 때) 아이디 중복확인을 완료해주세요.');
+      loginIdErrors.push('아이디 중복확인을 완료해주세요.');
     }
 
     if (trimmedEmail) {
@@ -555,7 +573,7 @@ const SignupPage = () => {
           emailErrors.push('사용할 수 없는 이메일 주소입니다.');
         }
       } else {
-        emailErrors.push('(회원가입 버튼 눌렀을 때) 이메일 중복확인을 완료해주세요.');
+        emailErrors.push('이메일 중복확인을 완료해주세요.');
       }
     }
 
@@ -593,7 +611,7 @@ const SignupPage = () => {
     }
 
     if (smsState.verifiedPhoneNumber !== normalizedPhoneNumber) {
-      phoneNumberErrors.push('(회원가입 눌렀을 때) 휴대폰 인증을 완료해주세요.');
+      phoneNumberErrors.push('휴대폰 인증을 완료해주세요.');
     }
 
     if (isSmsCodeVisible && isSmsExpired) {

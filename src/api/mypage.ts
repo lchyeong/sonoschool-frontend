@@ -193,6 +193,56 @@ const isS3StorageUrl = (value: string | null | undefined): value is string => {
   return typeof value === 'string' && value.startsWith('s3://');
 };
 
+const getS3PresignedUrlExpiresAt = (value: string | null | undefined): number | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    const signedAt = url.searchParams.get('X-Amz-Date');
+    const expiresInSeconds = Number.parseInt(url.searchParams.get('X-Amz-Expires') ?? '', 10);
+
+    if (!signedAt || !Number.isFinite(expiresInSeconds)) {
+      return null;
+    }
+
+    const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(signedAt);
+
+    if (!match) {
+      return null;
+    }
+
+    const [, year, month, day, hour, minute, second] = match;
+    const signedAtTime = Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    );
+
+    return signedAtTime + expiresInSeconds * 1000;
+  } catch {
+    return null;
+  }
+};
+
+const isExpiredS3PresignedUrl = (value: string | null | undefined): value is string => {
+  const expiresAt = getS3PresignedUrlExpiresAt(value);
+
+  if (expiresAt === null) {
+    return false;
+  }
+
+  return expiresAt <= Date.now();
+};
+
+const shouldResolveCartThumbnailUrl = (value: string | null | undefined): value is string => {
+  return isS3StorageUrl(value) || isExpiredS3PresignedUrl(value);
+};
+
 const getProgramIdFromSearchItemId = (id: string): number | null => {
   const match = /^lecture-(\d+)$/.exec(id);
 
@@ -209,13 +259,19 @@ const resolveCartSummaryThumbnailUrls = async (
   cart: CartSummary,
   thumbnailOverrides: ReadonlyMap<number, string | null> = new Map(),
 ): Promise<CartSummary> => {
-  const hasUnresolvedS3Thumbnail = cart.items.some(
-    (item) => !thumbnailOverrides.has(item.programId) && isS3StorageUrl(item.thumbnailUrl),
-  );
+  const hasResolvableThumbnail = cart.items.some((item) => {
+    const overrideThumbnailUrl = thumbnailOverrides.get(item.programId);
+
+    if (overrideThumbnailUrl !== undefined) {
+      return shouldResolveCartThumbnailUrl(overrideThumbnailUrl);
+    }
+
+    return shouldResolveCartThumbnailUrl(item.thumbnailUrl);
+  });
 
   let catalogThumbnailByProgramId = new Map<number, string>();
 
-  if (hasUnresolvedS3Thumbnail) {
+  if (hasResolvableThumbnail) {
     try {
       const searchIndex = await fetchProgramSearchIndex();
       const thumbnailEntries: Array<readonly [number, string]> = [];
@@ -223,7 +279,7 @@ const resolveCartSummaryThumbnailUrls = async (
       searchIndex.items.forEach((item) => {
         const programId = getProgramIdFromSearchItemId(item.id);
 
-        if (!programId || isS3StorageUrl(item.thumbnailSrc)) {
+        if (!programId || shouldResolveCartThumbnailUrl(item.thumbnailSrc)) {
           return;
         }
 
@@ -241,20 +297,32 @@ const resolveCartSummaryThumbnailUrls = async (
     items: cart.items.map((item) => {
       const overrideThumbnailUrl = thumbnailOverrides.get(item.programId);
 
-      if (overrideThumbnailUrl !== undefined) {
+      if (
+        overrideThumbnailUrl !== undefined &&
+        !shouldResolveCartThumbnailUrl(overrideThumbnailUrl)
+      ) {
         return {
           ...item,
           thumbnailUrl: overrideThumbnailUrl,
         };
       }
 
-      if (!isS3StorageUrl(item.thumbnailUrl)) {
+      const catalogThumbnailUrl = catalogThumbnailByProgramId.get(item.programId);
+
+      if (catalogThumbnailUrl) {
+        return {
+          ...item,
+          thumbnailUrl: catalogThumbnailUrl,
+        };
+      }
+
+      if (!shouldResolveCartThumbnailUrl(item.thumbnailUrl)) {
         return item;
       }
 
       return {
         ...item,
-        thumbnailUrl: catalogThumbnailByProgramId.get(item.programId) ?? null,
+        thumbnailUrl: null,
       };
     }),
   };

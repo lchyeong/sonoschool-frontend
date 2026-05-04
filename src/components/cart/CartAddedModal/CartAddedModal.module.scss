@@ -133,14 +133,14 @@
   width: 120px;
   height: 120px;
   border-radius: 12px;
-  background: #e5e7eb;
+  background: #f3f4f6;
 }
 
 .thumbnail {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .itemCopy {
@@ -173,6 +173,22 @@
   font-size: 30px;
   font-weight: 800;
   line-height: 1.3;
+}
+
+.priceGroup {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.originalPrice {
+  color: #9ca3af;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration-thickness: 2px;
 }
 
 .actionRow {

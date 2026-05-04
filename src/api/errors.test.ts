@@ -47,6 +47,29 @@ describe('API errors', () => {
     expect(apiError.userMessage).toBe('Invalid username or password.');
   });
 
+  it('maps video worker dispatch failures into an admin-friendly message', () => {
+    const apiError = toApiError(
+      {
+        isAxiosError: true,
+        message: 'Request failed with status code 502',
+        response: {
+          data: {
+            code: 'VIDEO_502_WORKER_DISPATCH',
+            message: 'Failed to submit the encoding job to the HLS worker.',
+          },
+          status: 502,
+        },
+      },
+      '영상 처리를 시작하지 못했습니다.',
+    );
+
+    expect(apiError.code).toBe('VIDEO_502_WORKER_DISPATCH');
+    expect(apiError.status).toBe(502);
+    expect(apiError.userMessage).toBe(
+      '영상 인코딩 서버에 연결하지 못했습니다. 인코딩 워커 실행 상태를 확인한 뒤 다시 시도해 주세요.',
+    );
+  });
+
   it('keeps invalid response diagnostics out of the user-facing message', () => {
     const parsed = z.object({ items: z.array(z.string()).min(1) }).safeParse({ items: [] });
 

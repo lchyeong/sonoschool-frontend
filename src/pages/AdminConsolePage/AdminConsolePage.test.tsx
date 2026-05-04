@@ -349,6 +349,69 @@ describe('AdminConsolePage', () => {
     expect(screen.queryByLabelText('길이(초)')).not.toBeInTheDocument();
   });
 
+  it('focuses and warns on the first missing program registration field', async () => {
+    renderAdminConsoleRoute('/admin/programs/new?draftId=91001');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '등록 완료' }));
+
+    expect(
+      (await screen.findAllByText('기본정보: 카테고리를 선택해 주세요.')).length,
+    ).toBeGreaterThan(0);
+
+    await waitFor(() => {
+      expect(document.activeElement).toHaveAccessibleName(/카테고리 선택/);
+    });
+
+    expect(screen.getByRole('status')).toHaveTextContent('기본정보: 카테고리를 선택해 주세요.');
+  });
+
+  it('warns for missing recruitment and learning ranges on fixed-duration registration', async () => {
+    const draftDetail = createAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.accessPolicy = 'FIXED_DURATION';
+    draftDetail.payload.basicInfo.categoryId = 1101;
+    draftDetail.payload.basicInfo.price = 100000;
+    draftDetail.payload.basicInfo.title = '고정 기간 테스트 과정';
+    draftDetail.payload.basicInfo.saleEndAt = null;
+    draftDetail.payload.basicInfo.saleStartAt = null;
+    draftDetail.payload.basicInfo.learningEndAt = null;
+    draftDetail.payload.basicInfo.learningStartAt = null;
+
+    renderAdminConsoleRoute('/admin/programs/new?draftId=91001', {
+      draftDetail,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '등록 완료' }));
+
+    expect(
+      (await screen.findAllByText('고정 기간 수강은 모집 시작일과 종료일을 입력해 주세요.')).length,
+    ).toBeGreaterThan(0);
+
+    await waitFor(() => {
+      expect(document.activeElement).toHaveAccessibleName('상시 모집');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '상시 모집' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '4' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: '5' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: '등록 완료' }));
+
+    expect(
+      (
+        await screen.findAllByText(
+          '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.',
+        )
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+
   it('treats offline lecture duration as schedule-driven and hides legacy prelearning video metadata', async () => {
     const draftDetail = createAdminProgramDraftDetailFixture();
     draftDetail.payload.sections[0].lectures = [
@@ -532,12 +595,31 @@ describe('AdminConsolePage', () => {
     renderAdminConsoleRoute('/admin/popups');
 
     expect(await screen.findByRole('heading', { level: 1, name: '팝업 관리' })).toBeInTheDocument();
+    expect((await screen.findAllByText('노출중')).length).toBeGreaterThan(0);
+    fireEvent.click(await screen.findByRole('button', { name: '새 팝업 등록' }));
+
     expect(await screen.findByLabelText('팝업 이미지 파일')).toBeInTheDocument();
     expect(screen.queryByLabelText('노출 우선순위')).not.toBeInTheDocument();
     expect(screen.queryByText('노출 우선순위')).not.toBeInTheDocument();
-    expect(screen.getAllByText('노출 선택됨').length).toBeGreaterThan(0);
     expect(screen.queryByLabelText('팝업 제목')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('팝업 본문')).not.toBeInTheDocument();
+  });
+
+  it('closes the popup visibility date picker when clicking outside it', async () => {
+    renderAdminConsoleRoute('/admin/popups');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '팝업 관리' })).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: '새 팝업 등록' }));
+    fireEvent.click(screen.getByRole('button', { name: '상시 노출' }));
+
+    expect(screen.getByRole('button', { name: '이전' })).toBeInTheDocument();
+
+    fireEvent.mouseDown(document.body);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: '이전' })).not.toBeInTheDocument();
+    });
   });
 
   it('renders the qna management section with pending threads first', async () => {

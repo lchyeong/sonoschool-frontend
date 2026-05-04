@@ -4,6 +4,7 @@ import type {
   AdminProgramListItem,
   AdminProgramUpsertPayload,
 } from '@/types/adminProgramsLive';
+import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 
 type AdminProgramStateItem = AdminProgramDetail;
 
@@ -76,6 +77,7 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     currentStudents: 12,
     full: false,
     published: true,
+    featured: true,
     catalogStatus: 'OPEN',
     saleStartAt: '2026-03-01T00:00:00.000Z',
     saleEndAt: '2026-12-31T14:59:59.000Z',
@@ -125,6 +127,7 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     currentStudents: 20,
     full: true,
     published: false,
+    featured: false,
     catalogStatus: 'FULL',
     saleStartAt: '2026-04-01T00:00:00.000Z',
     saleEndAt: '2026-05-31T14:59:59.000Z',
@@ -172,6 +175,7 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     currentStudents: 9,
     full: false,
     published: true,
+    featured: true,
     catalogStatus: 'OPEN',
     saleStartAt: '2026-03-01T00:00:00.000Z',
     saleEndAt: '2026-07-31T14:59:59.000Z',
@@ -218,6 +222,7 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     currentStudents: 4,
     full: false,
     published: true,
+    featured: false,
     catalogStatus: 'CLOSED',
     saleStartAt: '2026-02-01T00:00:00.000Z',
     saleEndAt: '2026-03-20T14:59:59.000Z',
@@ -324,6 +329,7 @@ const toListItem = (program: AdminProgramStateItem): AdminProgramListItem => ({
   currentStudents: program.currentStudents,
   full: program.full,
   published: program.published,
+  featured: program.featured,
   catalogStatus: deriveCatalogStatus({
     learningStartAt: program.learningStartAt,
     currentStudents: program.currentStudents,
@@ -369,6 +375,7 @@ const toStateItem = (
   payload: AdminProgramUpsertPayload,
   currentStudents = 0,
   published = false,
+  featured = false,
 ): AdminProgramStateItem => {
   const maxStudents = payload.maxStudents;
   return {
@@ -388,6 +395,7 @@ const toStateItem = (
     currentStudents,
     full: maxStudents !== null ? currentStudents >= maxStudents : false,
     published,
+    featured,
     catalogStatus: deriveCatalogStatus({
       learningStartAt: payload.learningStartAt,
       currentStudents,
@@ -474,7 +482,48 @@ export const unpublishMockAdminProgramLive = (programId: number): AdminProgramDe
     return null;
   }
   program.published = false;
+  program.featured = false;
   return toDetail(program);
+};
+
+export const featureMockAdminProgramOnHome = (programId: number): AdminProgramDetail | null => {
+  const program = state.find((item) => item.id === programId);
+  if (!program) {
+    return null;
+  }
+  program.featured = true;
+  return toDetail(program);
+};
+
+export const unfeatureMockAdminProgramOnHome = (programId: number): AdminProgramDetail | null => {
+  const program = state.find((item) => item.id === programId);
+  if (!program) {
+    return null;
+  }
+  program.featured = false;
+  return toDetail(program);
+};
+
+export const getMockHomeHeroSlides = (): HomeHeroSlidesResponse => {
+  const items = state
+    .filter((program) => program.published && program.featured)
+    .slice(0, 5)
+    .map((program) => ({
+      description: program.description ?? `${program.categoryName} 최신 강의입니다.`,
+      id: `program-${String(program.id)}`,
+      thumbnailAlt: `${program.title} 썸네일`,
+      thumbnailSrc:
+        program.thumbnailPreviewUrl ??
+        resolveMockThumbnailPreviewUrl(program.thumbnailUrl) ??
+        '/SRDMS_OG.png',
+      title: program.title,
+      type: 'lecture' as const,
+    }));
+
+  return {
+    autoPlayDurationMs: 8000,
+    items,
+  };
 };
 
 export const deleteMockAdminProgramLive = (programId: number): boolean => {

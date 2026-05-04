@@ -6,7 +6,9 @@ import { useNavigate } from 'react-router-dom';
 import { discardAdminProgramDraft } from '@/api/adminProgramDrafts';
 import {
   deleteAdminProgramLive,
+  featureAdminProgramOnHome,
   publishAdminProgramLive,
+  unfeatureAdminProgramOnHome,
   unpublishAdminProgramLive,
 } from '@/api/adminProgramsLive';
 import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
@@ -21,6 +23,7 @@ import {
   adminProgramsLiveQueryKey,
   useAdminProgramsLiveQuery,
 } from '@/query/useAdminProgramsLiveQuery';
+import { homeHeroSlidesQueryKey } from '@/query/useHomeHeroSlidesQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AdminProgramDraftSummary } from '@/types/adminProgramDrafts';
@@ -146,9 +149,14 @@ const AdminProgramListSection = () => {
   const [currentPage, setCurrentPage] = useState(0);
 
   const refreshPrograms = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: adminProgramsLiveQueryKey(),
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: adminProgramsLiveQueryKey(),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: homeHeroSlidesQueryKey(),
+      }),
+    ]);
   };
 
   const refreshDrafts = async () => {
@@ -186,6 +194,26 @@ const AdminProgramListSection = () => {
       await refreshPrograms();
       showToast({
         message: '프로그램을 숨김 처리했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const homeFeatureMutation = useMutation({
+    mutationFn: ({ featured, programId }: { featured: boolean; programId: number }) =>
+      featured ? featureAdminProgramOnHome(programId) : unfeatureAdminProgramOnHome(programId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '메인 슬라이드 노출 변경에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, variables) => {
+      await refreshPrograms();
+      showToast({
+        message: variables.featured
+          ? '메인 슬라이드에 노출합니다.'
+          : '메인 슬라이드 노출을 해제했습니다.',
         variant: 'success',
       });
     },
@@ -407,6 +435,7 @@ const AdminProgramListSection = () => {
                     <th scope='col'>가격</th>
                     <th scope='col'>수강생</th>
                     <th scope='col'>판매 상태</th>
+                    <th scope='col'>메인 슬라이드</th>
                     <th scope='col'>공개 상태</th>
                     <th scope='col'>관리</th>
                   </tr>
@@ -480,6 +509,22 @@ const AdminProgramListSection = () => {
                               </span>
                             </span>
                           </div>
+                        </td>
+                        <td>
+                          <label className={styles['programFeatureCheckbox']}>
+                            <input
+                              checked={item.featured}
+                              disabled={!item.published || homeFeatureMutation.isPending}
+                              onChange={(event) => {
+                                homeFeatureMutation.mutate({
+                                  featured: event.currentTarget.checked,
+                                  programId: item.id,
+                                });
+                              }}
+                              type='checkbox'
+                            />
+                            <span>{item.featured ? '노출' : '미노출'}</span>
+                          </label>
                         </td>
                         <td>
                           <span

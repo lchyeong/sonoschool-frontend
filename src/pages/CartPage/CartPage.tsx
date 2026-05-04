@@ -247,7 +247,9 @@ const CartPage = () => {
                           <img alt='' aria-hidden='true' src={removeIconSrc} />
                         </button>
                         <div className={styles['itemPriceBlock']}>
-                          <p className={styles['itemPrice']}>{formatCurrency(item.payablePrice)}</p>
+                          <p className={styles['itemPrice']}>
+                            {formatCurrency(item.originalPrice)}
+                          </p>
                           {discountAmount > 0 ? (
                             <p className={styles['itemDiscount']}>
                               - {formatCurrency(discountAmount)} ({discountRate}%)

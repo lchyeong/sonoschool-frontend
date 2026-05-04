@@ -9,14 +9,16 @@ import {
 import {
   createMockAdminProgramLive,
   deleteMockAdminProgramLive,
+  featureMockAdminProgramOnHome,
   getMockAdminProgramCategories,
   getMockAdminProgramDetailLive,
   getMockAdminProgramsLive,
+  getMockHomeHeroSlides,
   unpublishMockAdminProgramLive,
   publishMockAdminProgramLive,
+  unfeatureMockAdminProgramOnHome,
   updateMockAdminProgramLive,
 } from '@/mocks/data/adminProgramsLive';
-import { getMockHomeHeroSlides } from '@/mocks/data/homeHeroSlides';
 import { getMockHomeHistoryTimeline } from '@/mocks/data/homeHistoryTimeline';
 import {
   addMockMyCartItem,
@@ -1047,6 +1049,36 @@ export const handlers = [
     }
 
     return HttpResponse.json({ ok: true });
+  }),
+  ...createAdminPostHandlers('/programs/:programId/feature', ({ params }) => {
+    const programId = Number(params['programId']);
+
+    if (!Number.isInteger(programId) || programId <= 0) {
+      return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
+    }
+
+    const updatedProgram = featureMockAdminProgramOnHome(programId);
+
+    if (!updatedProgram) {
+      return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(updatedProgram));
+  }),
+  ...createAdminPostHandlers('/programs/:programId/unfeature', ({ params }) => {
+    const programId = Number(params['programId']);
+
+    if (!Number.isInteger(programId) || programId <= 0) {
+      return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
+    }
+
+    const updatedProgram = unfeatureMockAdminProgramOnHome(programId);
+
+    if (!updatedProgram) {
+      return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(updatedProgram));
   }),
   ...createAdminDeleteHandlers('/programs/:programId', ({ params }) => {
     const programId = Number(params['programId']);

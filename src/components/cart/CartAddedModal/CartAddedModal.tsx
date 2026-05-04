@@ -17,6 +17,8 @@ const formatPrice = (value: number) => {
 };
 
 const CartAddedModal = ({ item, onClose }: CartAddedModalProps) => {
+  const hasDiscount = item.originalPrice > item.payablePrice;
+
   return (
     <Modal
       bodyClassName={styles['body']}
@@ -51,7 +53,12 @@ const CartAddedModal = ({ item, onClose }: CartAddedModalProps) => {
           <div className={styles['itemCopy']}>
             <p className={styles['eyebrow']}>장바구니 추가 완료</p>
             <h3 className={styles['title']}>{item.title}</h3>
-            <p className={styles['price']}>{formatPrice(item.payablePrice)}</p>
+            <div className={styles['priceGroup']}>
+              {hasDiscount ? (
+                <s className={styles['originalPrice']}>{formatPrice(item.originalPrice)}</s>
+              ) : null}
+              <p className={styles['price']}>{formatPrice(item.payablePrice)}</p>
+            </div>
           </div>
         </article>
 

@@ -175,14 +175,6 @@ const toDateTimeLocal = (value: string | null): string => {
   return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
 };
 
-const getTodayDateInputValue = (): string => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${String(year)}-${month}-${day}`;
-};
-
 const formatDateTime = (value: string | null): string => {
   if (!value) {
     return '-';
@@ -203,11 +195,6 @@ const extractDatePart = (value: string): string => {
 
   const [datePart] = trimmed.split('T');
   return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : '';
-};
-
-const isBeforeToday = (value: string): boolean => {
-  const datePart = extractDatePart(value);
-  return Boolean(datePart) && datePart < getTodayDateInputValue();
 };
 
 const extractTimePart = (value: string): string => {
@@ -483,10 +470,7 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
   };
 };
 
-const validateFormState = (
-  formState: AdminProgramFormState,
-  options: { allowPastLearningStartDate?: boolean } = {},
-): string | null => {
+const validateFormState = (formState: AdminProgramFormState): string | null => {
   if (!formState.categoryId.trim()) {
     return '카테고리를 선택해 주세요.';
   }
@@ -514,17 +498,12 @@ const validateFormState = (
   ) {
     return '수강 시작일과 종료일의 날짜와 시간을 모두 선택해 주세요.';
   }
-  if (!options.allowPastLearningStartDate && isBeforeToday(formState.learningStartAt)) {
-    return '수강 시작일은 오늘 이후 날짜만 선택할 수 있습니다.';
-  }
   if (
-    (formState.accessPolicy === 'FIXED_DURATION' || formState.accessPolicy === 'COHORT') &&
+    formState.accessPolicy === 'FIXED_DURATION' &&
     calculateAccessDaysFromLearningRange(formState.learningStartAt, formState.learningEndAt) ===
       null
   ) {
-    return formState.accessPolicy === 'COHORT'
-      ? '기수형 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.'
-      : '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
+    return '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
   }
 
   const faqErrors = formState.faqs.some((item) => {
@@ -599,7 +578,6 @@ const levelOptions = [
 
 const accessPolicyOptions = [
   { value: 'UNLIMITED', label: '무제한' },
-  { value: 'COHORT', label: '기수형' },
   { value: 'FIXED_DURATION', label: '고정 기간' },
 ] as const;
 
@@ -611,7 +589,6 @@ const programTypeLabel: Record<AdminProgramType, string> = {
 };
 
 const accessPolicyLabel: Record<AdminProgramAccessPolicy, string> = {
-  COHORT: '기수형',
   FIXED_DURATION: '고정 기간',
   UNLIMITED: '무제한',
 };
@@ -1057,9 +1034,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
   };
 
   const handleSubmit = () => {
-    const validationMessage = validateFormState(formState, {
-      allowPastLearningStartDate: mode === 'edit',
-    });
+    const validationMessage = validateFormState(formState);
 
     if (validationMessage) {
       showToast({
@@ -1473,9 +1448,12 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                       <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
                       <DateTimeSplitField
                         dateLabel='수강 시작일'
-                        minDate={mode === 'edit' ? undefined : getTodayDateInputValue()}
                         onChange={(nextValue) => {
-                          updateField('learningStartAt', nextValue);
+                          setFormState((current) => ({
+                            ...current,
+                            accessPolicy: 'FIXED_DURATION',
+                            learningStartAt: nextValue,
+                          }));
                         }}
                         timeLabel='시작 시간'
                         value={formState.learningStartAt}
@@ -1483,7 +1461,11 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                       <DateTimeSplitField
                         dateLabel='수강 종료일'
                         onChange={(nextValue) => {
-                          updateField('learningEndAt', nextValue);
+                          setFormState((current) => ({
+                            ...current,
+                            accessPolicy: 'FIXED_DURATION',
+                            learningEndAt: nextValue,
+                          }));
                         }}
                         timeLabel='종료 시간'
                         value={formState.learningEndAt}
@@ -1505,11 +1487,6 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                   {formState.accessPolicy === 'FIXED_DURATION' ? (
                     <p className={styles['policyHint']}>
                       고정 기간 수강 가능일수는 수강 시작일과 종료일 기준으로 자동 계산합니다.
-                    </p>
-                  ) : null}
-                  {formState.accessPolicy === 'COHORT' ? (
-                    <p className={styles['policyHint']}>
-                      기수형 수강은 수강 시작일과 종료일을 프로그램에 그대로 저장합니다.
                     </p>
                   ) : null}
                   <AdminFieldArray

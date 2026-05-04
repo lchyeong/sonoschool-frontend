@@ -24,7 +24,6 @@ const homeHeroLectureSlideSchema = z.object({
 const homeHeroSlidesResponseSchema = z.object({
   items: z
     .array(z.discriminatedUnion('type', [homeHeroBannerSlideSchema, homeHeroLectureSlideSchema]))
-    .min(1)
     .max(5),
   autoPlayDurationMs: z.number().int().positive().max(60000),
 });

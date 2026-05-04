@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { createPortal } from 'react-dom';
 
-import popupSonoBasicCourseSampleImageSrc from '@/assets/sample/popup_sono_basic_course_sample.png';
 import { useGlobalPopupsQuery } from '@/query/usePopupQueries';
 
 import styles from './GlobalNoticePopup.module.scss';
@@ -61,19 +60,20 @@ const GlobalNoticePopup = () => {
       return;
     }
 
+    const popupImageUrl = activePopup.imageUrl;
     let cancelled = false;
     const image = new Image();
     image.onload = () => {
       if (!cancelled) {
-        setPreloadedImageUrl(popupSonoBasicCourseSampleImageSrc);
+        setPreloadedImageUrl(popupImageUrl);
       }
     };
     image.onerror = () => {
       if (!cancelled) {
-        setPreloadedImageUrl(popupSonoBasicCourseSampleImageSrc);
+        setPreloadedImageUrl(popupImageUrl);
       }
     };
-    image.src = popupSonoBasicCourseSampleImageSrc;
+    image.src = popupImageUrl;
 
     return () => {
       cancelled = true;
@@ -81,7 +81,7 @@ const GlobalNoticePopup = () => {
   }, [activePopup]);
 
   useEffect(() => {
-    if (!activePopup || preloadedImageUrl !== popupSonoBasicCourseSampleImageSrc) {
+    if (!activePopup || preloadedImageUrl !== activePopup.imageUrl) {
       return;
     }
 
@@ -107,7 +107,7 @@ const GlobalNoticePopup = () => {
     popupsQuery.isPending ||
     popupsQuery.isError ||
     !activePopup ||
-    preloadedImageUrl !== popupSonoBasicCourseSampleImageSrc
+    preloadedImageUrl !== activePopup.imageUrl
   ) {
     return null;
   }
@@ -141,7 +141,7 @@ const GlobalNoticePopup = () => {
             decoding='async'
             fetchPriority='high'
             loading='eager'
-            src={popupSonoBasicCourseSampleImageSrc}
+            src={activePopup.imageUrl}
           />
         </div>
         <div className={styles['actionRow']}>

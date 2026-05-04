@@ -6,8 +6,6 @@ import { useMutation } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { loginStudent, verifyStudentLoginSms } from '@/api/auth';
-import { clearGuestCart, getGuestCart, retainGuestCartPrograms } from '@/api/guestCart';
-import { mergeMyCartItems } from '@/api/mypage';
 import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
 import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
 import Button from '@/components/ui/Button/Button';
@@ -15,11 +13,11 @@ import { TextField } from '@/components/ui/TextField/TextField';
 import { myCartQueryKey } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { StudentLoginChallenge } from '@/types/auth';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 import { classNames } from '@/utils/classNames';
+import { mergeGuestCartIntoServer } from '@/utils/mergeGuestCartIntoServer';
 
 import styles from './StudentLoginForm.module.scss';
 
@@ -95,7 +93,6 @@ const StudentLoginForm = ({
   const queryClient = useQueryClient();
   const setSession = useAuthStore((state) => state.setSession);
   const showToast = useToastStore((state) => state.showToast);
-  const replaceSelection = useCartSelectionStore((state) => state.replaceSelection);
 
   const [formValues, setFormValues] = useState<LoginFormValues>(() => ({
     ...INITIAL_FORM_VALUES,
@@ -108,45 +105,6 @@ const StudentLoginForm = ({
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const isPageVariant = variant === 'page';
-
-  const mergeGuestCartIntoServer = async () => {
-    const guestCart = getGuestCart();
-
-    if (!guestCart.items.length) {
-      return { failedCount: 0, serverCart: null as ReturnType<typeof getGuestCart> | null };
-    }
-
-    const currentSelection = useCartSelectionStore.getState().selectedItemIds;
-    const selectedProgramIds = new Set(
-      guestCart.items
-        .filter((item) => currentSelection.includes(item.id))
-        .map((item) => item.programId),
-    );
-    const mergeResult = await mergeMyCartItems(guestCart.items.map((item) => item.programId));
-    const serverCart = mergeResult.cart;
-    const mergedProgramIds = new Set(serverCart.items.map((item) => item.programId));
-    const failedProgramIds = new Set(
-      guestCart.items
-        .map((item) => item.programId)
-        .filter((programId) => !mergedProgramIds.has(programId)),
-    );
-    const selectedItemIds = serverCart.items
-      .filter((item) => selectedProgramIds.has(item.programId))
-      .map((item) => item.id);
-
-    replaceSelection(selectedItemIds);
-
-    if (failedProgramIds.size > 0) {
-      retainGuestCartPrograms([...failedProgramIds]);
-    } else {
-      clearGuestCart();
-    }
-
-    return {
-      failedCount: failedProgramIds.size,
-      serverCart,
-    };
-  };
 
   const resolvePostLoginPath = () => {
     const redirectState = location.state as LoginRedirectState | null;

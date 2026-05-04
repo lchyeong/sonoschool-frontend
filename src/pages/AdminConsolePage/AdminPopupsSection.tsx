@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -346,6 +346,7 @@ const AdminPopupsSection = () => {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [hoveredCalendarDate, setHoveredCalendarDate] = useState<string | null>(null);
+  const datePickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const previewObjectUrl = formState.imagePreviewObjectUrl;
@@ -356,6 +357,31 @@ const AdminPopupsSection = () => {
       }
     };
   }, [formState.imagePreviewObjectUrl]);
+
+  useEffect(() => {
+    if (!isDatePickerOpen) {
+      return;
+    }
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (datePickerRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsDatePickerOpen(false);
+      setHoveredCalendarDate(null);
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isDatePickerOpen]);
 
   const popups = useMemo(() => popupsQuery.data ?? [], [popupsQuery.data]);
   const rightCalendarMonth = useMemo(() => addMonths(calendarMonth, 1), [calendarMonth]);
@@ -729,6 +755,7 @@ const AdminPopupsSection = () => {
                 <p className={styles['fieldLabel']}>팝업 이미지</p>
                 <label className={styles['popupFilePicker']} data-disabled={isUploadingImage}>
                   <input
+                    aria-label='팝업 이미지 파일'
                     accept='image/*'
                     className={styles['srOnly']}
                     disabled={isUploadingImage}
@@ -779,7 +806,7 @@ const AdminPopupsSection = () => {
 
             <div className={styles['popupDateRangeField']}>
               <p className={styles['fieldLabel']}>노출기간</p>
-              <div className={styles['popupDateRangePicker']}>
+              <div className={styles['popupDateRangePicker']} ref={datePickerRef}>
                 <button
                   className={classNames(
                     styles['popupDateRangeTrigger'],

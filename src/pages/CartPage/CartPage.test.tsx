@@ -131,6 +131,8 @@ describe('CartPage', () => {
 
     expect(lectureLink).toHaveAttribute('href', '/programs/doctor-course/pocus/fast/2026-mar-apr');
     expect(thumbnail).toHaveAttribute('src');
+    expect(screen.getByText('150,000원')).toBeInTheDocument();
+    expect(screen.getByText('- 25,000원 (17%)')).toBeInTheDocument();
   });
 
   it('removes a cart item when the delete action is clicked', async () => {

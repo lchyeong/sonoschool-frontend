@@ -7,7 +7,7 @@ export type AdminProgramCatalogStatus =
   | 'CLOSED'
   | 'ENDED'
   | 'FULL';
-export type AdminProgramAccessPolicy = 'COHORT' | 'FIXED_DURATION' | 'UNLIMITED';
+export type AdminProgramAccessPolicy = 'FIXED_DURATION' | 'UNLIMITED';
 export type AdminProgramTagType = 'FEATURE' | 'FORMAT' | 'LEVEL' | 'TARGET' | 'TOPIC';
 export type AdminProgramOperationStatus = 'NORMAL' | 'CLOSURE_CONFIRMED';
 
@@ -47,6 +47,7 @@ export interface AdminProgramListItem {
   activeEnrollmentCount?: number | null;
   full: boolean;
   published: boolean;
+  featured: boolean;
   operationStatus?: AdminProgramOperationStatus | null;
   closedAt?: string | null;
   closureCandidate?: boolean;
@@ -115,6 +116,7 @@ export interface AdminProgramDetail {
   activeEnrollmentCount?: number | null;
   full: boolean;
   published: boolean;
+  featured: boolean;
   operationStatus?: AdminProgramOperationStatus | null;
   closedAt?: string | null;
   closeReason?: string | null;

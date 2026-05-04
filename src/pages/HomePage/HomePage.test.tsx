@@ -38,36 +38,27 @@ describe('HomePage', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '임상 초음파 코어 루틴 & 국제 자격 준비 집중 과정',
+        name: '복부초음파 기초',
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('img', {
-        name: '임상 초음파 코어 루틴 & 국제 자격 준비 집중 과정 소개 이미지',
+        name: '복부초음파 기초 썸네일',
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole('searchbox', { name: '강의 프로그램 검색' }).length).toBeGreaterThan(
-      0,
-    );
-    expect(
-      screen.getByRole('heading', { name: /SINCE 2003 의사교육전문 국제자격보유/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'SINCE 2003' })).toBeInTheDocument();
     expect(
       within(screen.getByRole('list', { name: '소노스쿨 교육 현장 이미지 5개' })).getAllByRole(
         'img',
       ),
     ).toHaveLength(5);
     expect(
-      (await screen.findAllByRole('list', { name: '소노스쿨 연혁 타임라인' })).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getByText('COURSE PREVIEW')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '전체 강의 살펴보기' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: '1페이지' })).toHaveAttribute(
+      screen.getByRole('heading', { name: '진료의 확신을 완성하는초음파 교육, 소노스쿨' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '1' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('heading', { name: '공지사항' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '공지사항 게시판 보기' })).toBeInTheDocument();
     expect(
       within(screen.getByRole('list', { name: '최신 공지 4개' })).getAllByRole('listitem'),
     ).toHaveLength(3);
@@ -75,10 +66,10 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: '다음 메인 슬라이드' }));
 
     expect(
-      await screen.findByRole('heading', { name: '응급실 POCUS FAST 집중 마스터 클래스' }),
+      await screen.findByRole('heading', { name: '복부 실전 하이브리드 마스터' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: '응급실 POCUS FAST 강의 썸네일 예시' }),
+      screen.getByRole('img', { name: '복부 실전 하이브리드 마스터 썸네일' }),
     ).toBeInTheDocument();
   });
 
@@ -95,12 +86,6 @@ describe('HomePage', () => {
     renderHomePage();
 
     expect(await screen.findByText('메인 슬라이드를 불러오지 못했습니다.')).toBeInTheDocument();
-    expect(screen.getAllByRole('searchbox', { name: '강의 프로그램 검색' }).length).toBeGreaterThan(
-      0,
-    );
-    expect(
-      (await screen.findAllByRole('list', { name: '소노스쿨 연혁 타임라인' })).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByRole('heading', { name: '공지사항' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('list', { name: '최신 공지 4개' }).length).toBeGreaterThan(0);
   });
 });

@@ -43,15 +43,16 @@ const buildAddToCartPayload = (lecture: ProgramLectureCard): AddToCartPayload =>
     throw new Error('장바구니에 담을 과정 정보를 찾지 못했습니다.');
   }
 
-  const priceAmount = parsePriceAmount(lecture.priceLabel);
+  const originalPriceAmount = parsePriceAmount(lecture.originalPriceLabel ?? lecture.priceLabel);
+  const payablePriceAmount = parsePriceAmount(lecture.discountedPriceLabel ?? lecture.priceLabel);
 
   return {
     instructorName: '장은희',
-    originalPrice: priceAmount,
-    payablePrice: priceAmount,
+    originalPrice: originalPriceAmount,
+    payablePrice: payablePriceAmount,
     programId: lecture.programId,
     programType: inferProgramTypeFromLabel(lecture.formatLabel),
-    salePrice: null,
+    salePrice: payablePriceAmount < originalPriceAmount ? payablePriceAmount : null,
     sourcePath: lecture.to,
     thumbnailUrl: lecture.thumbnailSrc,
     title: lecture.title,

@@ -94,6 +94,12 @@ type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
 type AdminProgramCreateView = 'details' | 'curriculum' | 'problems' | 'resources';
 type NumericBasicInfoField = 'maxStudents' | 'price';
 
+interface DraftValidationIssue {
+  errorKey?: string;
+  focusKey?: string;
+  message: string;
+}
+
 interface AdminProgramCreateWorkspaceProps {
   mode?: 'create' | 'edit';
   view?: AdminProgramCreateView;
@@ -427,21 +433,15 @@ const calculateAccessDaysFromLearningRange = (
   return Math.max(1, Math.ceil((endTime - startTime) / MS_PER_DAY));
 };
 
-const getTodayDateInputValue = (): string => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${String(year)}-${month}-${day}`;
-};
-
-const isBeforeToday = (value: string | null): boolean => {
-  if (!value) {
+const isValidDateRange = (startAt: string | null, endAt: string | null): boolean => {
+  if (!startAt || !endAt) {
     return false;
   }
 
-  const datePart = value.split('T')[0] ?? '';
-  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) && datePart < getTodayDateInputValue();
+  const startTime = new Date(startAt).getTime();
+  const endTime = new Date(endAt).getTime();
+
+  return Number.isFinite(startTime) && Number.isFinite(endTime) && endTime >= startTime;
 };
 
 const normalizeDraftBasicInfo = (
@@ -693,7 +693,6 @@ const levelOptions = [
 
 const accessPolicyOptions = [
   { value: 'UNLIMITED', label: '무제한' },
-  { value: 'COHORT', label: '기수형' },
   { value: 'FIXED_DURATION', label: '고정 기간' },
 ] as const;
 
@@ -1037,6 +1036,69 @@ const parseDiscountPercentInput = (value: string) => {
   }
 
   return { errorMessage: undefined, value: percent };
+};
+
+const buildBasicInfoInputValidationIssues = (
+  basicInfo: AdminProgramDraftPayload['basicInfo'],
+  numericInputValues: Record<NumericBasicInfoField, string>,
+  discountPercentInput: string,
+): DraftValidationIssue[] => {
+  const issues: DraftValidationIssue[] = [];
+
+  const priceValidation = parseNonNegativeIntegerInput(numericInputValues.price, '정가');
+  if (numericInputValues.price.trim() && priceValidation.errorMessage) {
+    issues.push({
+      errorKey: 'price',
+      focusKey: 'basic-price',
+      message: priceValidation.errorMessage,
+    });
+  }
+
+  const maxStudentsValidation = parseNonNegativeIntegerInput(
+    numericInputValues.maxStudents,
+    '정원',
+  );
+  if (numericInputValues.maxStudents.trim() && maxStudentsValidation.errorMessage) {
+    issues.push({
+      errorKey: 'maxStudents',
+      focusKey: 'basic-max-students',
+      message: maxStudentsValidation.errorMessage,
+    });
+  }
+
+  const discountValidation = parseDiscountPercentInput(discountPercentInput);
+  if (discountPercentInput.trim() && discountValidation.errorMessage) {
+    issues.push({
+      errorKey: 'discountPercent',
+      focusKey: 'basic-discount-percent',
+      message: discountValidation.errorMessage,
+    });
+  }
+
+  if (
+    basicInfo.accessPolicy === 'FIXED_DURATION' &&
+    !isValidDateRange(basicInfo.saleStartAt, basicInfo.saleEndAt)
+  ) {
+    issues.push({
+      errorKey: 'recruitmentRange',
+      focusKey: 'basic-recruitment-range',
+      message: '고정 기간 수강은 모집 시작일과 종료일을 입력해 주세요.',
+    });
+  }
+
+  if (
+    basicInfo.accessPolicy === 'FIXED_DURATION' &&
+    calculateAccessDaysFromLearningRange(basicInfo.learningStartAt, basicInfo.learningEndAt) ===
+      null
+  ) {
+    issues.push({
+      errorKey: 'learningRange',
+      focusKey: 'basic-learning-range',
+      message: '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.',
+    });
+  }
+
+  return issues;
 };
 
 const formatDateTime = (value: string | null | undefined): string => {
@@ -1740,36 +1802,18 @@ const AdminProgramCreateWorkspace = ({
 
   const validateBasicInfoInputs = (): boolean => {
     const nextErrors: Record<string, string | undefined> = {};
-
-    if (numericInputValues.price.trim() && !/^\d+$/.test(numericInputValues.price.trim())) {
-      nextErrors['price'] = '정가는 숫자만 입력해 주세요.';
-    }
-    if (
-      numericInputValues.maxStudents.trim() &&
-      !/^\d+$/.test(numericInputValues.maxStudents.trim())
-    ) {
-      nextErrors['maxStudents'] = '정원은 숫자만 입력해 주세요.';
-    }
     const basicInfo = currentPayloadRef.current?.basicInfo ?? null;
-    if (isBeforeToday(basicInfo?.learningStartAt ?? null)) {
-      nextErrors['learningRange'] = '수강 시작일은 오늘 이후 날짜만 선택할 수 있습니다.';
-    }
-    if (
-      (basicInfo?.accessPolicy === 'FIXED_DURATION' || basicInfo?.accessPolicy === 'COHORT') &&
-      calculateAccessDaysFromLearningRange(basicInfo.learningStartAt, basicInfo.learningEndAt) ===
-        null
-    ) {
-      nextErrors['learningRange'] =
-        basicInfo.accessPolicy === 'COHORT'
-          ? '기수형 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.'
-          : '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
-    }
-    if (
-      discountPercentInput.trim() &&
-      (!/^\d+(?:\.\d+)?$/.test(discountPercentInput.trim()) ||
-        Number(discountPercentInput.trim()) > 100)
-    ) {
-      nextErrors['discountPercent'] = '할인율은 0부터 100까지 숫자로 입력해 주세요.';
+
+    if (basicInfo) {
+      for (const issue of buildBasicInfoInputValidationIssues(
+        basicInfo,
+        numericInputValues,
+        discountPercentInput,
+      )) {
+        if (issue.errorKey) {
+          nextErrors[issue.errorKey] = issue.message;
+        }
+      }
     }
 
     setBasicInfoErrors(nextErrors);
@@ -1835,6 +1879,7 @@ const AdminProgramCreateWorkspace = ({
   };
 
   const handleRecruitmentRangeChange = (startDate: string, endDate: string) => {
+    setBasicInfoErrors((current) => ({ ...current, recruitmentRange: undefined }));
     updatePayload((current) => {
       return {
         ...current,
@@ -1848,12 +1893,16 @@ const AdminProgramCreateWorkspace = ({
   };
 
   const handleLearningRangeChange = (startDate: string, endDate: string) => {
+    setBasicInfoErrors((current) => ({ ...current, learningRange: undefined }));
     updatePayload((current) => ({
       ...current,
       basicInfo: normalizeDraftBasicInfo({
         ...current.basicInfo,
-        accessDays: null,
-        accessPolicy: 'COHORT',
+        accessDays: calculateAccessDaysFromLearningRange(
+          toStartOfDayIsoStringOrNull(startDate),
+          endDate ? toEndOfDayMinuteIsoStringOrNull(endDate) : null,
+        ),
+        accessPolicy: 'FIXED_DURATION',
         learningEndAt: endDate ? toEndOfDayMinuteIsoStringOrNull(endDate) : null,
         learningStartAt: toStartOfDayIsoStringOrNull(startDate),
       }),
@@ -1861,6 +1910,7 @@ const AdminProgramCreateWorkspace = ({
   };
 
   const resetRecruitmentRange = () => {
+    setBasicInfoErrors((current) => ({ ...current, recruitmentRange: undefined }));
     updatePayload((current) => ({
       ...current,
       basicInfo: {
@@ -1872,6 +1922,7 @@ const AdminProgramCreateWorkspace = ({
   };
 
   const resetLearningRange = () => {
+    setBasicInfoErrors((current) => ({ ...current, learningRange: undefined }));
     updatePayload((current) => ({
       ...current,
       basicInfo: normalizeDraftBasicInfo({
@@ -2502,6 +2553,7 @@ const AdminProgramCreateWorkspace = ({
                           styles['problemQuestionSectionBlock'],
                           styles['problemQuestionMediaBlock'],
                         )}
+                        data-draft-focus-key={`${lectureKey}:${String(questionIndex)}:media`}
                       >
                         <div className={styles['problemQuestionSectionHeader']}>
                           <strong>이미지 / 영상</strong>
@@ -2672,6 +2724,7 @@ const AdminProgramCreateWorkspace = ({
                               key={`problem-option-${String(optionIndex)}`}
                             >
                               <TextField
+                                data-draft-focus-key={`${lectureKey}:${String(questionIndex)}:option-${String(optionIndex)}`}
                                 label={`보기 ${String(optionIndex + 1)}`}
                                 name={`problem-option-${lectureKey}-${String(questionIndex)}-${String(optionIndex)}`}
                                 onChange={(event) => {
@@ -2822,6 +2875,7 @@ const AdminProgramCreateWorkspace = ({
               return (
                 <article
                   className={styles['panel']}
+                  data-draft-focus-key={`resource-${resource.key}`}
                   key={`draft-resource-${lectureKey}-${String(resourceIndex)}`}
                 >
                   <div className={styles['panelToolbar']}>
@@ -2846,6 +2900,7 @@ const AdminProgramCreateWorkspace = ({
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
+                      data-draft-focus-key={`resource-${resource.key}`}
                       label='노출 제목'
                       name={`draft-resource-title-${lectureKey}-${String(resourceIndex)}`}
                       onChange={(event) => {
@@ -2886,8 +2941,8 @@ const AdminProgramCreateWorkspace = ({
                     {pendingSelection ? (
                       <>
                         <Button
-                          onClick={() => {
-                            void handleLectureResourceUpload(resourceIndex);
+                          onClick={(event) => {
+                            void handleLectureResourceUpload(resourceIndex, event);
                           }}
                           type='button'
                           variant='secondary'
@@ -2941,14 +2996,34 @@ const AdminProgramCreateWorkspace = ({
     );
   };
 
-  const flushPendingDraftSave = async (): Promise<boolean> => {
+  const flushPendingDraftSave = async (options?: {
+    event?: ReactMouseEvent<HTMLButtonElement>;
+    force?: boolean;
+    hintMessage?: string;
+  }): Promise<boolean> => {
     if (draftId === null || currentPayloadRef.current === null) {
       return true;
     }
 
+    const basicInputIssues = currentPayloadRef.current
+      ? buildBasicInfoInputValidationIssues(
+          currentPayloadRef.current.basicInfo,
+          numericInputValues,
+          discountPercentInput,
+        )
+      : [];
+
     if (!validateBasicInfoInputs()) {
+      const firstIssue = basicInputIssues.find((issue) => issue.focusKey);
+      const message = firstIssue?.message ?? options?.hintMessage ?? '숫자 입력값을 확인해 주세요.';
+      if (firstIssue?.focusKey) {
+        focusDraftField(firstIssue.focusKey);
+      }
+      if (options?.event) {
+        showDraftFocusHint(message, options.event);
+      }
       showToast({
-        message: '숫자 입력값을 확인해 주세요.',
+        message,
         variant: 'error',
       });
       return false;
@@ -2976,7 +3051,7 @@ const AdminProgramCreateWorkspace = ({
     }
 
     const serializedPayload = JSON.stringify(nextPayload);
-    if (serializedPayload === lastSavedPayloadRef.current) {
+    if (!options?.force && serializedPayload === lastSavedPayloadRef.current) {
       setSaveState('saved');
       return true;
     }
@@ -2991,8 +3066,12 @@ const AdminProgramCreateWorkspace = ({
     }
   };
 
-  const handleManualSave = async () => {
-    await flushPendingDraftSave();
+  const handleManualSave = async (event: ReactMouseEvent<HTMLButtonElement>) => {
+    await flushPendingDraftSave({
+      event,
+      force: true,
+      hintMessage: '임시저장 전에 숫자 입력값을 확인해 주세요.',
+    });
   };
 
   const handleDraftNavigation = (nextPath: string) => {
@@ -3160,7 +3239,11 @@ const AdminProgramCreateWorkspace = ({
     }));
   };
 
-  const handleLectureVideoUpload = async (sectionKey: string, lectureKey: string) => {
+  const handleLectureVideoUpload = async (
+    sectionKey: string,
+    lectureKey: string,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
     const pendingSelection = pendingVideoSelections[lectureKey];
     if (!pendingSelection) {
       showToast({
@@ -3171,19 +3254,12 @@ const AdminProgramCreateWorkspace = ({
     }
 
     const file = pendingSelection.file;
-    const lecture = payload?.sections
-      .find((section) => section.key === sectionKey)
-      ?.lectures.find((currentLecture) => currentLecture.key === lectureKey);
-
-    if (!lecture?.title?.trim()) {
-      showToast({
-        message: '영상 업로드 전에 강의명을 먼저 입력해 주세요.',
-        variant: 'error',
-      });
-      return;
-    }
-
-    if (!(await flushPendingDraftSave())) {
+    if (
+      !(await flushPendingDraftSave({
+        event,
+        hintMessage: '영상 업로드 전에 입력값을 확인해 주세요.',
+      }))
+    ) {
       return;
     }
 
@@ -3474,7 +3550,10 @@ const AdminProgramCreateWorkspace = ({
     }));
   };
 
-  const handleLectureResourceUpload = async (resourceIndex: number) => {
+  const handleLectureResourceUpload = async (
+    resourceIndex: number,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
     const resource = payload?.resources[resourceIndex];
     if (!resource) {
       return;
@@ -3496,7 +3575,12 @@ const AdminProgramCreateWorkspace = ({
     });
 
     try {
-      if (!(await flushPendingDraftSave())) {
+      if (
+        !(await flushPendingDraftSave({
+          event,
+          hintMessage: '자료 업로드 전에 입력값을 확인해 주세요.',
+        }))
+      ) {
         return;
       }
       if (draftId === null) {
@@ -3644,18 +3728,72 @@ const AdminProgramCreateWorkspace = ({
   }
 
   const createDraftSearch = draftId === null ? '' : `?draftId=${String(draftId)}`;
+  const basicInfoIssues: DraftValidationIssue[] = [];
+  if (payload.basicInfo.categoryId === null) {
+    basicInfoIssues.push({
+      errorKey: 'category',
+      focusKey: 'basic-category',
+      message: '기본정보: 카테고리를 선택해 주세요.',
+    });
+  }
+  if (!payload.basicInfo.title?.trim()) {
+    basicInfoIssues.push({
+      errorKey: 'title',
+      focusKey: 'basic-title',
+      message: '기본정보: 프로그램명을 입력해 주세요.',
+    });
+  }
+  if (payload.basicInfo.price === null || payload.basicInfo.price === undefined) {
+    basicInfoIssues.push({
+      errorKey: 'price',
+      focusKey: 'basic-price',
+      message: '기본정보: 정가를 입력해 주세요.',
+    });
+  }
+  const basicInfoInputIssues = buildBasicInfoInputValidationIssues(
+    payload.basicInfo,
+    numericInputValues,
+    discountPercentInput,
+  );
+  const curriculumSectionIssues = payload.sections.flatMap((section) => {
+    const sectionLabel = section.title?.trim() || '미제목 섹션';
+    return section.title?.trim()
+      ? []
+      : [
+          {
+            focusKey: `curriculum-sectionTitle-${section.key}`,
+            message: `${sectionLabel}: 섹션명을 입력해 주세요.`,
+          },
+        ];
+  });
   const blockingFinalizeIssues = payload.sections.flatMap((section) =>
     section.lectures.flatMap((lecture) => {
       const issues: Array<{ focusKey?: string; message: string }> = [];
+      const sectionLabel = section.title?.trim() || '미제목 섹션';
       const lectureLabel = lecture.title?.trim() || '미제목 강의';
+      if (!lecture.title?.trim()) {
+        issues.push({
+          focusKey: `curriculum-lectureTitle-${lecture.key}`,
+          message: `${sectionLabel} / ${lectureLabel}: 강의명을 입력해 주세요.`,
+        });
+      }
       if (pendingVideoSelections[lecture.key]) {
-        issues.push({ message: `${lectureLabel}: 선택한 영상 파일 업로드 시작이 필요합니다.` });
+        issues.push({
+          focusKey: `curriculum-lecture-${lecture.key}`,
+          message: `${lectureLabel}: 선택한 영상 파일 업로드 시작이 필요합니다.`,
+        });
       }
       if (lecture.videoUploadStatus === 'UPLOADING' || lecture.videoUploadStatus === 'PROCESSING') {
-        issues.push({ message: `${lectureLabel}: 영상 업로드 또는 인코딩이 아직 진행 중입니다.` });
+        issues.push({
+          focusKey: `curriculum-lecture-${lecture.key}`,
+          message: `${lectureLabel}: 영상 업로드 또는 인코딩이 아직 진행 중입니다.`,
+        });
       }
       if (lecture.videoUploadStatus === 'FAILED') {
-        issues.push({ message: `${lectureLabel}: 영상 업로드가 실패했습니다.` });
+        issues.push({
+          focusKey: `curriculum-lecture-${lecture.key}`,
+          message: `${lectureLabel}: 영상 업로드가 실패했습니다.`,
+        });
       }
 
       const lectureResources = payload.resources.filter(
@@ -3663,61 +3801,88 @@ const AdminProgramCreateWorkspace = ({
       );
       for (const resource of lectureResources) {
         const resourceLabel = resource.title?.trim() || '미제목 자료';
+        if (!resource.title?.trim()) {
+          issues.push({
+            focusKey: `curriculum-resource-${resource.key}`,
+            message: `${lectureLabel} / ${resourceLabel}: 자료 제목을 입력해 주세요.`,
+          });
+        }
         if (pendingResourceSelections[resource.key]) {
           issues.push({
+            focusKey: `curriculum-resource-${resource.key}`,
             message: `${lectureLabel} / ${resourceLabel}: 선택한 자료 파일 업로드 시작이 필요합니다.`,
           });
           continue;
         }
         if (resource.uploadStatus === 'UPLOADING' || resource.uploadStatus === 'PROCESSING') {
           issues.push({
+            focusKey: `curriculum-resource-${resource.key}`,
             message: `${lectureLabel} / ${resourceLabel}: 자료 업로드가 아직 진행 중입니다.`,
           });
           continue;
         }
         if (resource.uploadStatus === 'FAILED') {
           issues.push({
+            focusKey: `curriculum-resource-${resource.key}`,
             message: `${lectureLabel} / ${resourceLabel}: 자료 업로드가 실패했습니다.`,
           });
           continue;
         }
         if (!resource.fileUrl || !resource.fileName || !resource.fileSize) {
           issues.push({
+            focusKey: `curriculum-resource-${resource.key}`,
             message: `${lectureLabel} / ${resourceLabel}: 자료 파일을 업로드해야 합니다.`,
           });
         }
       }
 
       const lectureProblem = payload.problems.find((problem) => problem.lectureKey === lecture.key);
+      if (lectureProblem && lectureProblem.passCorrectCount === null) {
+        issues.push({
+          focusKey: `curriculum-${lecture.key}:0:passCorrectCount`,
+          message: `${lectureLabel}: 합격 기준 문항 수를 입력해 주세요.`,
+        });
+      }
       lectureProblem?.questions.forEach((question, questionIndex) => {
         const questionUploadKey = `${lecture.key}:${String(questionIndex)}`;
         const questionLabel = question.questionText.trim() || `문제 ${String(questionIndex + 1)}`;
         if (question.problemAreaId === null) {
           issues.push({
-            focusKey: `${lecture.key}:${String(questionIndex)}:problemArea`,
+            focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:problemArea`,
             message: `${lectureLabel} / ${questionLabel}: 문제 영역을 선택해 주세요.`,
           });
         }
         if (!question.questionText.trim()) {
           issues.push({
-            focusKey: `${lecture.key}:${String(questionIndex)}:questionText`,
+            focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:questionText`,
             message: `${lectureLabel} / ${questionLabel}: 문제 내용을 입력해 주세요.`,
           });
         }
+        question.options.forEach((option, optionIndex) => {
+          if (!option.optionText.trim()) {
+            issues.push({
+              focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:option-${String(optionIndex)}`,
+              message: `${lectureLabel} / ${questionLabel}: 보기 ${String(optionIndex + 1)} 내용을 입력해 주세요.`,
+            });
+          }
+        });
         if (pendingQuestionMediaSelections[questionUploadKey]) {
           issues.push({
+            focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:media`,
             message: `${lectureLabel} / ${questionLabel}: 선택한 문제 미디어 업로드 시작이 필요합니다.`,
           });
           return;
         }
         if (isUploadInProgress(question.mediaUploadStatus)) {
           issues.push({
+            focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:media`,
             message: `${lectureLabel} / ${questionLabel}: 문제 미디어 업로드가 아직 진행 중입니다.`,
           });
           return;
         }
         if (question.mediaUploadStatus === 'FAILED') {
           issues.push({
+            focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:media`,
             message: `${lectureLabel} / ${questionLabel}: 문제 미디어 업로드가 실패했습니다.`,
           });
           return;
@@ -3728,6 +3893,7 @@ const AdminProgramCreateWorkspace = ({
           !question.mediaUrl
         ) {
           issues.push({
+            focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:media`,
             message: `${lectureLabel} / ${questionLabel}: 문제 미디어 연결 정보가 누락되었습니다.`,
           });
         }
@@ -3736,10 +3902,34 @@ const AdminProgramCreateWorkspace = ({
       return issues;
     }),
   );
-  const focusableFinalizeIssue = blockingFinalizeIssues.find((issue) => issue.focusKey);
-  const blockingUploadMessages = blockingFinalizeIssues
+  const allFinalizeIssues = [
+    ...basicInfoInputIssues,
+    ...basicInfoIssues,
+    ...curriculumSectionIssues,
+    ...blockingFinalizeIssues,
+  ];
+  const focusableFinalizeIssue = allFinalizeIssues.find((issue) => issue.focusKey);
+  const blockingUploadMessages = allFinalizeIssues
     .filter((issue) => !issue.focusKey)
     .map((issue) => issue.message);
+  const applyBasicInfoValidationErrors = (issues: DraftValidationIssue[]) => {
+    const nextErrors: Record<string, string | undefined> = {};
+    for (const issue of issues) {
+      if (issue.errorKey) {
+        nextErrors[issue.errorKey] = issue.message;
+      }
+    }
+    setBasicInfoErrors((current) => ({
+      ...current,
+      category: nextErrors['category'],
+      discountPercent: nextErrors['discountPercent'],
+      learningRange: nextErrors['learningRange'],
+      maxStudents: nextErrors['maxStudents'],
+      price: nextErrors['price'],
+      recruitmentRange: nextErrors['recruitmentRange'],
+      title: nextErrors['title'],
+    }));
+  };
   const showDraftFocusHint = (message: string, event: ReactMouseEvent<HTMLButtonElement>) => {
     if (draftFocusHintTimerRef.current !== null) {
       window.clearTimeout(draftFocusHintTimerRef.current);
@@ -3768,13 +3958,116 @@ const AdminProgramCreateWorkspace = ({
     const focusTarget = target.matches('button, input, textarea, select, [tabindex]')
       ? target
       : target.querySelector<HTMLElement>('button, input, textarea, select, [tabindex]');
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     window.setTimeout(() => {
       focusTarget?.focus();
     }, 160);
     return true;
   };
   const focusDraftField = (focusKey: string): boolean => {
+    if (focusKey.startsWith('basic-') && activeView !== 'details') {
+      handleDraftNavigation(`${baseDetailsPath}${createDraftSearch}`);
+      window.setTimeout(() => {
+        focusDraftFieldTarget(focusKey);
+      }, 220);
+      return true;
+    }
+
+    if (focusKey.startsWith('curriculum-') && activeView !== 'curriculum') {
+      const curriculumFocusKey = focusKey.slice('curriculum-'.length);
+      handleDraftNavigation(`${baseCurriculumPath}${createDraftSearch}`);
+      window.setTimeout(() => {
+        focusDraftField(curriculumFocusKey);
+      }, 220);
+      return true;
+    }
+    if (focusKey.startsWith('curriculum-')) {
+      return focusDraftField(focusKey.slice('curriculum-'.length));
+    }
+
+    if (focusKey.startsWith('sectionTitle-')) {
+      const sectionKey = focusKey.slice('sectionTitle-'.length);
+      if (!expandedSectionKeys.includes(sectionKey)) {
+        setExpandedSectionKeys((current) =>
+          current.includes(sectionKey) ? current : [...current, sectionKey],
+        );
+        window.setTimeout(() => {
+          focusDraftFieldTarget(focusKey);
+        }, 220);
+        return true;
+      }
+    }
+
+    if (focusKey.startsWith('lectureTitle-')) {
+      const lectureKey = focusKey.slice('lectureTitle-'.length);
+      const parentSection = payload.sections.find((section) =>
+        section.lectures.some((lecture) => lecture.key === lectureKey),
+      );
+      const needsSectionExpand = parentSection && !expandedSectionKeys.includes(parentSection.key);
+      const needsLectureExpand = !expandedLectureKeys.includes(lectureKey);
+
+      if (needsSectionExpand || needsLectureExpand) {
+        if (parentSection) {
+          setExpandedSectionKeys((current) =>
+            current.includes(parentSection.key) ? current : [...current, parentSection.key],
+          );
+        }
+        setExpandedLectureKeys((current) =>
+          current.includes(lectureKey) ? current : [...current, lectureKey],
+        );
+        window.setTimeout(() => {
+          focusDraftFieldTarget(focusKey);
+        }, 220);
+        return true;
+      }
+    }
+
+    if (focusKey.startsWith('lecture-')) {
+      const lectureKey = focusKey.slice('lecture-'.length);
+      const parentSection = payload.sections.find((section) =>
+        section.lectures.some((lecture) => lecture.key === lectureKey),
+      );
+      if (parentSection && !expandedSectionKeys.includes(parentSection.key)) {
+        setExpandedSectionKeys((current) =>
+          current.includes(parentSection.key) ? current : [...current, parentSection.key],
+        );
+        window.setTimeout(() => {
+          focusDraftFieldTarget(focusKey);
+        }, 220);
+        return true;
+      }
+    }
+
+    if (focusKey.startsWith('resource-')) {
+      const resourceKey = focusKey.slice('resource-'.length);
+      const resource = payload.resources.find((item) => item.key === resourceKey);
+      const parentSection = resource
+        ? payload.sections.find((section) =>
+            section.lectures.some((lecture) => lecture.key === resource.lectureKey),
+          )
+        : null;
+      const needsSectionExpand = parentSection && !expandedSectionKeys.includes(parentSection.key);
+      const needsLectureExpand =
+        resource?.lectureKey && !expandedLectureKeys.includes(resource.lectureKey);
+
+      if (needsSectionExpand || needsLectureExpand) {
+        if (parentSection) {
+          setExpandedSectionKeys((current) =>
+            current.includes(parentSection.key) ? current : [...current, parentSection.key],
+          );
+        }
+        if (resource?.lectureKey) {
+          setExpandedLectureKeys((current) =>
+            current.includes(resource.lectureKey) ? current : [...current, resource.lectureKey],
+          );
+        }
+        window.setTimeout(() => {
+          focusDraftFieldTarget(focusKey);
+        }, 220);
+        return true;
+      }
+    }
+
     const [lectureKey, questionIndexPart] = focusKey.split(':');
     if (lectureKey && questionIndexPart) {
       const questionKey = `${lectureKey}:${questionIndexPart}`;
@@ -3863,8 +4156,8 @@ const AdminProgramCreateWorkspace = ({
             {mode === 'create' ? (
               <Button
                 disabled={saveMutation.isPending || finalizeMutation.isPending}
-                onClick={() => {
-                  void handleManualSave();
+                onClick={(event) => {
+                  void handleManualSave(event);
                 }}
                 type='button'
                 variant='secondary'
@@ -3873,17 +4166,23 @@ const AdminProgramCreateWorkspace = ({
               </Button>
             ) : null}
             <Button
-              disabled={
-                finalizeMutation.isPending ||
-                discardMutation.isPending ||
-                (blockingUploadMessages.length > 0 && !focusableFinalizeIssue)
-              }
+              disabled={finalizeMutation.isPending || discardMutation.isPending}
               onClick={(event) => {
+                applyBasicInfoValidationErrors([...basicInfoInputIssues, ...basicInfoIssues]);
                 if (focusableFinalizeIssue?.focusKey) {
                   focusDraftField(focusableFinalizeIssue.focusKey);
                   showDraftFocusHint(focusableFinalizeIssue.message, event);
                   showToast({
                     message: focusableFinalizeIssue.message,
+                    variant: 'error',
+                  });
+                  return;
+                }
+                if (blockingUploadMessages.length > 0) {
+                  const message = blockingUploadMessages[0] ?? '업로드 항목을 확인해 주세요.';
+                  showDraftFocusHint(message, event);
+                  showToast({
+                    message,
                     variant: 'error',
                   });
                   return;
@@ -4054,26 +4353,37 @@ const AdminProgramCreateWorkspace = ({
                 </div>
 
                 <div className={styles['form']}>
-                  <AdminCategoryPicker
-                    helperText='가장 하위 카테고리를 선택해 주세요.'
-                    label='카테고리'
-                    onChange={(nextValue) => {
-                      updateBasicInfo('categoryId', Number(nextValue));
-                    }}
-                    tree={categoriesQuery.data ?? []}
-                    value={
-                      payload.basicInfo.categoryId === null
-                        ? ''
-                        : String(payload.basicInfo.categoryId)
-                    }
-                  />
+                  <div data-draft-focus-key='basic-category'>
+                    <AdminCategoryPicker
+                      helperText='가장 하위 카테고리를 선택해 주세요.'
+                      label='카테고리'
+                      onChange={(nextValue) => {
+                        setBasicInfoErrors((current) => ({ ...current, category: undefined }));
+                        updateBasicInfo('categoryId', Number(nextValue));
+                      }}
+                      tree={categoriesQuery.data ?? []}
+                      value={
+                        payload.basicInfo.categoryId === null
+                          ? ''
+                          : String(payload.basicInfo.categoryId)
+                      }
+                    />
+                    {basicInfoErrors['category'] ? (
+                      <p className={styles['fieldErrorText']} role='alert'>
+                        {basicInfoErrors['category']}
+                      </p>
+                    ) : null}
+                  </div>
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
+                      data-draft-focus-key='basic-title'
+                      errorMessage={basicInfoErrors['title']}
                       label='프로그램명'
                       name='draft-title'
                       onChange={(event) => {
                         const nextTitle = event.target.value;
+                        setBasicInfoErrors((current) => ({ ...current, title: undefined }));
                         updatePayload((current) => ({
                           ...current,
                           basicInfo: {
@@ -4248,6 +4558,7 @@ const AdminProgramCreateWorkspace = ({
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
+                      data-draft-focus-key='basic-price'
                       errorMessage={basicInfoErrors['price']}
                       inputMode='numeric'
                       label='정가'
@@ -4258,6 +4569,7 @@ const AdminProgramCreateWorkspace = ({
                       value={numericInputValues.price}
                     />
                     <TextField
+                      data-draft-focus-key='basic-discount-percent'
                       errorMessage={basicInfoErrors['discountPercent']}
                       inputMode='decimal'
                       label='할인율(%)'
@@ -4276,6 +4588,7 @@ const AdminProgramCreateWorkspace = ({
                     )}
                   >
                     <TextField
+                      data-draft-focus-key='basic-max-students'
                       errorMessage={basicInfoErrors['maxStudents']}
                       inputMode='numeric'
                       label='정원'
@@ -4287,15 +4600,22 @@ const AdminProgramCreateWorkspace = ({
                     />
                   </div>
 
-                  <DateRangePickerField
-                    endDate={recruitmentEndDate}
-                    label='모집 기간'
-                    onChange={handleRecruitmentRangeChange}
-                    onReset={resetRecruitmentRange}
-                    resetLabel='상시 모집'
-                    startDate={recruitmentStartDate}
-                    valueText={visibleRecruitmentRangeText}
-                  />
+                  <div data-draft-focus-key='basic-recruitment-range'>
+                    <DateRangePickerField
+                      endDate={recruitmentEndDate}
+                      label='모집 기간'
+                      onChange={handleRecruitmentRangeChange}
+                      onReset={resetRecruitmentRange}
+                      resetLabel='상시 모집'
+                      startDate={recruitmentStartDate}
+                      valueText={visibleRecruitmentRangeText}
+                    />
+                    {basicInfoErrors['recruitmentRange'] ? (
+                      <p className={styles['fieldErrorText']} role='alert'>
+                        {basicInfoErrors['recruitmentRange']}
+                      </p>
+                    ) : null}
+                  </div>
 
                   <p className={styles['policyHint']}>
                     {payload.basicInfo.programType === 'OFFLINE'
@@ -4303,16 +4623,22 @@ const AdminProgramCreateWorkspace = ({
                       : '모집 종료일을 비워 두면 상시 모집으로 운영할 수 있습니다.'}
                   </p>
 
-                  <DateRangePickerField
-                    endDate={learningEndDate}
-                    label='수강 기간'
-                    minDate={getTodayDateInputValue()}
-                    onChange={handleLearningRangeChange}
-                    onReset={resetLearningRange}
-                    resetLabel='기간 초기화'
-                    startDate={learningStartDate}
-                    valueText={visibleLearningRangeText}
-                  />
+                  <div data-draft-focus-key='basic-learning-range'>
+                    <DateRangePickerField
+                      endDate={learningEndDate}
+                      label='수강 기간'
+                      onChange={handleLearningRangeChange}
+                      onReset={resetLearningRange}
+                      resetLabel='기간 초기화'
+                      startDate={learningStartDate}
+                      valueText={visibleLearningRangeText}
+                    />
+                    {basicInfoErrors['learningRange'] ? (
+                      <p className={styles['fieldErrorText']} role='alert'>
+                        {basicInfoErrors['learningRange']}
+                      </p>
+                    ) : null}
+                  </div>
 
                   <AdminFieldArray
                     addLabel='핵심 포인트 추가'
@@ -4577,6 +4903,7 @@ const AdminProgramCreateWorkspace = ({
                           <div className={styles['curriculumBody']}>
                             <div className={styles['curriculumWorkspace']}>
                               <TextField
+                                data-draft-focus-key={`sectionTitle-${section.key}`}
                                 label='섹션명'
                                 name={`section-title-${section.key}`}
                                 onChange={(event) => {
@@ -4697,6 +5024,7 @@ const AdminProgramCreateWorkspace = ({
                                 return (
                                   <article
                                     className={styles['curriculumLectureCard']}
+                                    data-draft-focus-key={`lecture-${lecture.key}`}
                                     key={lecture.key}
                                   >
                                     <div className={styles['curriculumHeader']}>
@@ -4777,6 +5105,7 @@ const AdminProgramCreateWorkspace = ({
                                         <div className={styles['curriculumWorkspace']}>
                                           <div className={styles['lectureWorkspaceSection']}>
                                             <TextField
+                                              data-draft-focus-key={`lectureTitle-${lecture.key}`}
                                               label='강의명'
                                               name={`lecture-title-${lecture.key}`}
                                               onChange={(event) => {
@@ -4830,6 +5159,7 @@ const AdminProgramCreateWorkspace = ({
                                                 {supportsProblem ? (
                                                   <div className={styles['compactTextField']}>
                                                     <TextField
+                                                      data-draft-focus-key={`${lecture.key}:0:passCorrectCount`}
                                                       label='합격 기준 문항 수'
                                                       name={`problem-pass-correct-count-${lecture.key}`}
                                                       onChange={(event) => {
@@ -4936,10 +5266,11 @@ const AdminProgramCreateWorkspace = ({
                                                 </Button>
                                                 {pendingVideoSelection ? (
                                                   <Button
-                                                    onClick={() => {
+                                                    onClick={(event) => {
                                                       void handleLectureVideoUpload(
                                                         section.key,
                                                         lecture.key,
+                                                        event,
                                                       );
                                                     }}
                                                     type='button'

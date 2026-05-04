@@ -175,6 +175,30 @@ export const unpublishAdminProgramLive = async (programId: number): Promise<void
   }
 };
 
+export const featureAdminProgramOnHome = async (programId: number): Promise<AdminProgramDetail> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<AdminProgramDetail>>(
+      `/api/v1/admin/programs/${String(programId)}/feature`,
+    );
+    return normalizeAdminProgramDetail(unwrapApiEnvelope(response.data));
+  } catch (error: unknown) {
+    throw toApiError(error, '메인 슬라이드 노출 처리에 실패했습니다.');
+  }
+};
+
+export const unfeatureAdminProgramOnHome = async (
+  programId: number,
+): Promise<AdminProgramDetail> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<AdminProgramDetail>>(
+      `/api/v1/admin/programs/${String(programId)}/unfeature`,
+    );
+    return normalizeAdminProgramDetail(unwrapApiEnvelope(response.data));
+  } catch (error: unknown) {
+    throw toApiError(error, '메인 슬라이드 노출 해제에 실패했습니다.');
+  }
+};
+
 export const deleteAdminProgramLive = async (programId: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/api/v1/admin/programs/${String(programId)}`);
