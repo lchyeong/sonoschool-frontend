@@ -62,3 +62,18 @@ export const fetchAdminUserDetail = async (userId: number): Promise<AdminUserDet
     throw toApiError(error, '회원 상세 정보를 불러오지 못했습니다.');
   }
 };
+
+export const resetAdminUserCertificateProfile = async (
+  userId: number,
+  reason: string,
+): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/api/v1/admin/users/${String(userId)}/certificate-profile`, {
+      data: {
+        reason,
+      },
+    });
+  } catch (error: unknown) {
+    throw toApiError(error, '수료증 이름을 초기화하지 못했습니다.');
+  }
+};

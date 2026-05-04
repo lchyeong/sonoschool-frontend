@@ -538,6 +538,43 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(response));
   }),
+  http.get('*/api/v1/users/me/certificate-profile', () => {
+    return HttpResponse.json(
+      createApiEnvelope({
+        englishName: null,
+        koreanName: null,
+        lockedAt: null,
+        registered: false,
+      }),
+    );
+  }),
+  http.post('*/api/v1/users/me/certificate-profile', async ({ request }) => {
+    const body = await request.json();
+    if (
+      !isRecord(body) ||
+      typeof body['koreanName'] !== 'string' ||
+      typeof body['englishName'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        englishName: body['englishName'],
+        koreanName: body['koreanName'],
+        lockedAt: new Date().toISOString(),
+        registered: true,
+      }),
+    );
+  }),
+  http.get('*/api/v1/my/enrollments/:enrollmentId/certificate', () => {
+    return new HttpResponse('SONO SCHOOL 수료증', {
+      headers: {
+        'Content-Disposition': "attachment; filename*=UTF-8''certificate.txt",
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+    });
+  }),
   http.get('*/api/v1/my/enrollments', () => {
     return HttpResponse.json(
       createApiEnvelope([
@@ -1653,6 +1690,12 @@ export const handlers = [
       {
         active: true,
         activeEnrollmentCount: 2,
+        certificateProfile: {
+          englishName: 'Minji Kim',
+          koreanName: '김민지',
+          lockedAt: '2026-03-10T09:00:00Z',
+          registered: true,
+        },
         displayName: '김민지',
         email: 'minji@example.com',
         id: 101,
@@ -1947,6 +1990,9 @@ export const handlers = [
     const detail = userDetails[userId as keyof typeof userDetails];
 
     return HttpResponse.json(createApiEnvelope(detail));
+  }),
+  http.delete('*/api/v1/admin/users/:userId/certificate-profile', () => {
+    return HttpResponse.json(createApiEnvelope(null));
   }),
   http.get('*/api/v1/admin/enrollments', ({ request }) => {
     const keyword = (new URL(request.url).searchParams.get('keyword') ?? '').trim().toLowerCase();

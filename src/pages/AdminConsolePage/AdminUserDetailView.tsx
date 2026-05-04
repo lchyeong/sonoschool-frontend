@@ -31,10 +31,12 @@ interface AdminUserDetailViewProps {
   expandedProblemIds: Set<number>;
   expandedQuestionIds: Set<number>;
   onOpenReport: (attemptId: number) => void;
+  onResetCertificateProfile: () => void;
   onToggleEnrollment: (enrollmentId: number) => void;
   onToggleProblem: (lectureId: number) => void;
   onToggleQuestion: (questionId: number) => void;
   reportLoading: boolean;
+  resetCertificateProfileLoading: boolean;
   user: AdminUserDetail;
 }
 
@@ -44,10 +46,12 @@ const AdminUserDetailView = ({
   expandedProblemIds,
   expandedQuestionIds,
   onOpenReport,
+  onResetCertificateProfile,
   onToggleEnrollment,
   onToggleProblem,
   onToggleQuestion,
   reportLoading,
+  resetCertificateProfileLoading,
   user,
 }: AdminUserDetailViewProps) => {
   return (
@@ -103,6 +107,39 @@ const AdminUserDetailView = ({
                   {user.marketingConsent.termVersion
                     ? ` · 버전 ${user.marketingConsent.termVersion}`
                     : ''}
+                </td>
+              </tr>
+              <tr>
+                <th scope='row'>수료증 이름</th>
+                <td colSpan={3}>
+                  <div className={styles['certificateProfileAdminCell']}>
+                    <div className={styles['cellStack']}>
+                      {user.certificateProfile.registered ? (
+                        <>
+                          <span>
+                            {user.certificateProfile.koreanName} /{' '}
+                            {user.certificateProfile.englishName}
+                          </span>
+                          <span className={styles['cellSecondary']}>
+                            등록일 {formatDateTime(user.certificateProfile.lockedAt)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className={styles['cellSecondary']}>미등록</span>
+                      )}
+                    </div>
+                    <Button
+                      disabled={
+                        !user.certificateProfile.registered || resetCertificateProfileLoading
+                      }
+                      onClick={onResetCertificateProfile}
+                      size='sm'
+                      type='button'
+                      variant='secondary'
+                    >
+                      {resetCertificateProfileLoading ? '초기화 중...' : '초기화'}
+                    </Button>
+                  </div>
                 </td>
               </tr>
             </tbody>

@@ -1297,6 +1297,14 @@
   color: #ffffff;
   background: #34b29f;
 }
+.certificateDownloadButton:disabled,
+.certificateDownloadButton:disabled:hover,
+.certificateDownloadButton:disabled:focus-visible {
+  border-color: #d1d5db;
+  color: #6b7280;
+  background: #f3f4f6;
+  cursor: wait;
+}
 .certificateDownloadButtonIcon {
   width: 24px;
   height: 24px;
@@ -1604,6 +1612,62 @@
 }
 .reviewModalBody {
   padding: 18px 34px 34px;
+}
+.certificateProfileModalPanel {
+  position: relative;
+  width: min(100%, 520px);
+  max-height: min(90vh, 560px);
+  overflow: hidden;
+  border: 0;
+  border-radius: 28px;
+  box-shadow: 0 24px 48px rgba(17, 24, 39, 0.18);
+}
+.certificateProfileModalBody {
+  padding: 22px 34px 34px;
+}
+.certificateProfileForm {
+  display: grid;
+  gap: 0;
+}
+.certificateProfileDescription {
+  margin: 0;
+  color: #4b5563;
+  font-size: 16px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.55;
+  letter-spacing: var(--letter-spacing-normal);
+}
+.certificateProfileFieldGrid {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+.certificateProfileLabel {
+  color: #111827;
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+  letter-spacing: var(--letter-spacing-normal);
+}
+.certificateProfileInput {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  color: #111827;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.3;
+  background: #ffffff;
+}
+.certificateProfileInput::placeholder {
+  color: #9ca3af;
+}
+.certificateProfileInput:focus {
+  outline: none;
+  border-color: #34b29f;
+  box-shadow: 0 0 0 3px rgba(52, 178, 159, 0.16);
 }
 .reviewForm,
 .reviewBlockedState {

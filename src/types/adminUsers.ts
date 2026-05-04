@@ -133,6 +133,13 @@ export interface AdminUserDetailMarketingConsentItem {
   termVersion: string | null;
 }
 
+export interface AdminUserDetailCertificateProfileItem {
+  englishName: string | null;
+  koreanName: string | null;
+  lockedAt: string | null;
+  registered: boolean;
+}
+
 export interface AdminUserDetailQuestionItem {
   answered: boolean;
   content: string;
@@ -149,6 +156,7 @@ export interface AdminUserDetailQuestionItem {
 export interface AdminUserDetail {
   active: boolean;
   activeEnrollmentCount: number;
+  certificateProfile: AdminUserDetailCertificateProfileItem;
   displayName: string;
   email: string;
   enrollments: AdminUserDetailEnrollmentItem[];

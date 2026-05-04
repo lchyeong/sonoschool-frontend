@@ -7,7 +7,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { logoutStudent } from '@/api/auth';
 import { ApiError } from '@/api/errors';
 import {
+  createMyCertificateProfile,
   createMyEnrollmentReview,
+  downloadMyCertificate,
+  fetchMyCertificateProfile,
   sendMyPhoneVerification,
   updateMyEnrollmentReview,
   updateMyProfile,
@@ -273,10 +276,6 @@ type PaymentStatusFilterValue = 'ALL' | PaymentStatus;
 type QuestionScopeFilterValue = MyQuestionScope | 'ALL';
 type PhoneVerificationStep = 'send' | 'verify';
 
-const getCertificateFileName = (programTitle: string) => {
-  return `${programTitle.replace(/[\\/:*?"<>|]/g, '_')}_수료증.txt`;
-};
-
 const paginateItems = <T,>(items: T[], page: number, pageSize: number): T[] => {
   const safePage = Math.max(1, page);
   const startIndex = (safePage - 1) * pageSize;
@@ -429,9 +428,19 @@ interface ReviewFormValues {
   rating: string;
 }
 
+interface CertificateProfileFormValues {
+  englishName: string;
+  koreanName: string;
+}
+
 const DEFAULT_REVIEW_FORM_VALUES: ReviewFormValues = {
   content: '',
   rating: '',
+};
+
+const DEFAULT_CERTIFICATE_PROFILE_FORM_VALUES: CertificateProfileFormValues = {
+  englishName: '',
+  koreanName: '',
 };
 
 const QUESTION_SCOPE_LABELS: Record<QuestionScopeFilterValue, string> = {
@@ -471,6 +480,15 @@ const MyPagePage = () => {
   const [profilePasswordError, setProfilePasswordError] = useState<string | null>(null);
   const [isProfilePasswordVisible, setIsProfilePasswordVisible] = useState(false);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
+  const [certificateEnrollmentId, setCertificateEnrollmentId] = useState<number | null>(null);
+  const [certificateProfileFormValues, setCertificateProfileFormValues] =
+    useState<CertificateProfileFormValues>(DEFAULT_CERTIFICATE_PROFILE_FORM_VALUES);
+  const [certificateProfileFormError, setCertificateProfileFormError] = useState<string | null>(
+    null,
+  );
+  const [downloadingCertificateEnrollmentId, setDownloadingCertificateEnrollmentId] = useState<
+    number | null
+  >(null);
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
   const [reviewFormDraft, setReviewFormDraft] = useState<ReviewFormDraftState>({
     enrollmentId: null,
@@ -664,6 +682,12 @@ const MyPagePage = () => {
     setReviewFormError(null);
   };
 
+  const closeCertificateProfileModal = () => {
+    setCertificateEnrollmentId(null);
+    setCertificateProfileFormValues(DEFAULT_CERTIFICATE_PROFILE_FORM_VALUES);
+    setCertificateProfileFormError(null);
+  };
+
   const closeProfilePasswordModal = () => {
     setProfilePassword('');
     setProfilePasswordError(null);
@@ -671,22 +695,13 @@ const MyPagePage = () => {
     handleViewChange(DEFAULT_VIEW);
   };
 
-  const handleCertificateDownload = (programTitle: string, completedAt?: string | null) => {
-    const certificateContent = [
-      'SONO SCHOOL 수료증',
-      '',
-      `수강생: ${profileQuery.data?.displayName || accountName}`,
-      `강의명: ${programTitle}`,
-      `발급일: ${formatDate(new Date().toISOString())}`,
-      `수료일: ${formatDate(completedAt)}`,
-    ].join('\n');
-
+  const saveCertificateDownload = (blob: Blob, filename: string) => {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       showToast({
         message: '수료증 다운로드를 지원하지 않는 환경입니다.',
         variant: 'error',
       });
-      return;
+      return false;
     }
 
     if (typeof URL.createObjectURL !== 'function') {
@@ -694,24 +709,65 @@ const MyPagePage = () => {
         message: '현재 브라우저에서 수료증 다운로드를 지원하지 않습니다.',
         variant: 'error',
       });
-      return;
+      return false;
     }
 
-    const blob = new Blob([certificateContent], { type: 'text/plain;charset=utf-8' });
     const objectUrl = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
 
     anchor.href = objectUrl;
-    anchor.download = getCertificateFileName(programTitle);
+    anchor.download = filename;
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(objectUrl);
+    return true;
+  };
 
-    showToast({
-      message: '수료증 다운로드를 시작했습니다.',
-      variant: 'success',
-    });
+  const runCertificateDownload = async (enrollmentId: number) => {
+    setDownloadingCertificateEnrollmentId(enrollmentId);
+    try {
+      const download = await downloadMyCertificate(enrollmentId);
+      const saved = saveCertificateDownload(download.blob, download.filename);
+      if (saved) {
+        showToast({
+          message: '수료증 다운로드를 시작했습니다.',
+          variant: 'success',
+        });
+      }
+    } catch (error: unknown) {
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : '수료증을 다운로드하지 못했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    } finally {
+      setDownloadingCertificateEnrollmentId(null);
+    }
+  };
+
+  const handleCertificateDownload = async (enrollmentId: number) => {
+    setCertificateProfileFormError(null);
+    try {
+      const certificateProfile = await fetchMyCertificateProfile();
+      if (!certificateProfile.registered) {
+        setCertificateEnrollmentId(enrollmentId);
+        setCertificateProfileFormValues(DEFAULT_CERTIFICATE_PROFILE_FORM_VALUES);
+        return;
+      }
+
+      await runCertificateDownload(enrollmentId);
+    } catch (error: unknown) {
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : '수료증 이름 정보를 확인하지 못했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    }
   };
 
   const handleProfileFieldChange =
@@ -981,6 +1037,28 @@ const MyPagePage = () => {
     },
   });
 
+  const createCertificateProfileMutation = useMutation({
+    mutationFn: createMyCertificateProfile,
+    onError: (error: unknown) => {
+      setCertificateProfileFormError(
+        error instanceof Error
+          ? error.message
+          : '수료증 이름을 등록하지 못했습니다. 다시 시도해 주세요.',
+      );
+    },
+    onSuccess: async () => {
+      const targetEnrollmentId = certificateEnrollmentId;
+      closeCertificateProfileModal();
+      showToast({
+        message: '수료증 이름을 등록했습니다.',
+        variant: 'success',
+      });
+      if (targetEnrollmentId !== null) {
+        await runCertificateDownload(targetEnrollmentId);
+      }
+    },
+  });
+
   const cancelPaymentMutation = useMutation({
     mutationFn: ({ paymentId }: { paymentId: number }) =>
       cancelPayment(paymentId, { reason: DEFAULT_PAYMENT_CANCEL_REASON }),
@@ -1035,6 +1113,24 @@ const MyPagePage = () => {
         rating,
       },
       programId: detail.programId,
+    });
+  };
+
+  const handleCertificateProfileSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const koreanName = certificateProfileFormValues.koreanName.trim();
+    const englishName = certificateProfileFormValues.englishName.trim();
+
+    if (koreanName.length === 0 || englishName.length === 0) {
+      setCertificateProfileFormError('한글 이름과 영문 이름을 모두 입력해 주세요.');
+      return;
+    }
+
+    setCertificateProfileFormError(null);
+    createCertificateProfileMutation.mutate({
+      englishName,
+      koreanName,
     });
   };
 
@@ -1193,14 +1289,16 @@ const MyPagePage = () => {
                         <button
                           className={styles['certificateDownloadButton']}
                           onClick={() => {
-                            handleCertificateDownload(
-                              enrollment.programTitle,
-                              enrollment.completedAt ?? enrollment.lastLearningAt,
-                            );
+                            void handleCertificateDownload(enrollment.id);
                           }}
+                          disabled={downloadingCertificateEnrollmentId === enrollment.id}
                           type='button'
                         >
-                          <span>수료증 다운로드</span>
+                          <span>
+                            {downloadingCertificateEnrollmentId === enrollment.id
+                              ? '다운로드 중...'
+                              : '수료증 다운로드'}
+                          </span>
                           <span
                             aria-hidden='true'
                             className={styles['certificateDownloadButtonIcon']}
@@ -2278,6 +2376,103 @@ const MyPagePage = () => {
     );
   };
 
+  const renderCertificateProfileModal = () => {
+    if (certificateEnrollmentId === null) {
+      return null;
+    }
+
+    return (
+      <Modal
+        bodyClassName={styles['certificateProfileModalBody']}
+        closeButtonClassName={styles['reviewModalCloseButton']}
+        closeButtonContent={
+          <span
+            aria-hidden='true'
+            className={styles['reviewModalCloseIcon']}
+            style={reviewCloseIconStyle}
+          />
+        }
+        closeButtonLabel='수료증 이름 등록 모달 닫기'
+        headerClassName={styles['reviewModalHeader']}
+        onClose={closeCertificateProfileModal}
+        panelClassName={styles['certificateProfileModalPanel']}
+        title='수료증 이름 등록'
+        titleClassName={styles['reviewModalTitle']}
+      >
+        <form
+          className={styles['certificateProfileForm']}
+          onSubmit={handleCertificateProfileSubmit}
+        >
+          <p className={styles['certificateProfileDescription']}>
+            입력한 이름은 모든 수료증에 동일하게 사용되며, 변경하려면 관리자 초기화가 필요합니다.
+          </p>
+
+          <div className={styles['certificateProfileFieldGrid']}>
+            <label className={styles['certificateProfileLabel']} htmlFor='certificate_korean_name'>
+              한글 이름
+            </label>
+            <input
+              className={styles['certificateProfileInput']}
+              id='certificate_korean_name'
+              maxLength={100}
+              onChange={(event) => {
+                setCertificateProfileFormValues((currentValues) => ({
+                  ...currentValues,
+                  koreanName: event.target.value,
+                }));
+                setCertificateProfileFormError(null);
+              }}
+              placeholder='예: 홍길동'
+              value={certificateProfileFormValues.koreanName}
+            />
+
+            <label className={styles['certificateProfileLabel']} htmlFor='certificate_english_name'>
+              영문 이름
+            </label>
+            <input
+              className={styles['certificateProfileInput']}
+              id='certificate_english_name'
+              maxLength={100}
+              onChange={(event) => {
+                setCertificateProfileFormValues((currentValues) => ({
+                  ...currentValues,
+                  englishName: event.target.value,
+                }));
+                setCertificateProfileFormError(null);
+              }}
+              placeholder='예: Gildong Hong'
+              value={certificateProfileFormValues.englishName}
+            />
+          </div>
+
+          {certificateProfileFormError ? (
+            <p className={styles['errorText']}>{certificateProfileFormError}</p>
+          ) : null}
+
+          <div className={styles['reviewActionRow']}>
+            <button
+              className={styles['reviewCancelButton']}
+              onClick={closeCertificateProfileModal}
+              type='button'
+            >
+              취소
+            </button>
+            <button
+              className={classNames(
+                styles['reviewSubmitButton'],
+                createCertificateProfileMutation.isPending && styles['reviewSubmitButtonDisabled'],
+              )}
+              disabled={createCertificateProfileMutation.isPending}
+              type='submit'
+            >
+              {createCertificateProfileMutation.isPending ? '등록 중...' : '등록 후 다운로드'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    );
+  };
+
   const renderReviewModal = () => {
     if (selectedEnrollmentId === null) {
       return null;
@@ -2638,6 +2833,7 @@ const MyPagePage = () => {
         </div>
       </div>
       {renderReviewModal()}
+      {renderCertificateProfileModal()}
       {renderPaymentDetailModal()}
       {renderProfilePasswordModal()}
     </section>

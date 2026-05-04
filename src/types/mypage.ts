@@ -37,6 +37,23 @@ export interface UserPasswordVerifyPayload {
   password: string;
 }
 
+export interface CertificateProfile {
+  registered: boolean;
+  koreanName: string | null;
+  englishName: string | null;
+  lockedAt: string | null;
+}
+
+export interface CertificateProfileCreatePayload {
+  koreanName: string;
+  englishName: string;
+}
+
+export interface CertificateDownload {
+  blob: Blob;
+  filename: string;
+}
+
 export interface EnrollmentSummary {
   id: number;
   programId: number;

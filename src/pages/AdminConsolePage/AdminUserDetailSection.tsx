@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
 import { fetchAdminProblemAttemptReport } from '@/api/adminProblemAttempts';
-import { fetchAdminUserDetail } from '@/api/adminUsers';
+import { fetchAdminUserDetail, resetAdminUserCertificateProfile } from '@/api/adminUsers';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
 import type { StudentProblemAttemptReport } from '@/types/studentProblems';
@@ -46,6 +46,24 @@ const AdminUserDetailSection = () => {
     },
     onSuccess: (report) => {
       setProblemReport(report);
+    },
+  });
+
+  const certificateResetMutation = useMutation({
+    mutationFn: ({ reason, targetUserId }: { reason: string; targetUserId: number }) =>
+      resetAdminUserCertificateProfile(targetUserId, reason),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '수료증 이름을 초기화하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await detailQuery.refetch();
+      showToast({
+        message: '수료증 이름을 초기화했습니다.',
+        variant: 'success',
+      });
     },
   });
 
@@ -134,10 +152,21 @@ const AdminUserDetailSection = () => {
           onOpenReport={(attemptId) => {
             reportMutation.mutate(attemptId);
           }}
+          onResetCertificateProfile={() => {
+            const reason = window.prompt('수료증 이름 초기화 사유를 입력해 주세요.');
+            if (!reason?.trim()) {
+              return;
+            }
+            certificateResetMutation.mutate({
+              reason: reason.trim(),
+              targetUserId: userId,
+            });
+          }}
           onToggleEnrollment={handleToggleEnrollment}
           onToggleProblem={handleToggleProblem}
           onToggleQuestion={handleToggleQuestion}
           reportLoading={reportMutation.isPending}
+          resetCertificateProfileLoading={certificateResetMutation.isPending}
           user={detailQuery.data}
         />
       ) : null}

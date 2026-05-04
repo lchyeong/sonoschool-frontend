@@ -33,6 +33,9 @@ import type {
   AddToCartPayload,
   ApplicationSummary,
   CartSummary,
+  CertificateDownload,
+  CertificateProfile,
+  CertificateProfileCreatePayload,
   EnrollmentDetail,
   EnrollmentReviewPayload,
   EnrollmentSummary,
@@ -69,6 +72,8 @@ interface BackendUserProfile {
   role: string;
 }
 
+const CERTIFICATE_PROFILE_STORAGE_KEY = 'sonoschool.mock.certificateProfile';
+
 interface MyQuestionsQueryOptions {
   answered?: boolean | undefined;
   keyword?: string | undefined;
@@ -87,6 +92,81 @@ const toUserProfile = (profile: BackendUserProfile): UserProfile => {
     phoneNumber: profile.phoneNumber,
     phoneVerifiedAt: profile.phoneVerifiedAt ?? null,
     role: profile.role,
+  };
+};
+
+const getMockedCertificateProfile = (): CertificateProfile => {
+  if (typeof window === 'undefined') {
+    return {
+      englishName: null,
+      koreanName: null,
+      lockedAt: null,
+      registered: false,
+    };
+  }
+
+  const storedValue = window.localStorage.getItem(CERTIFICATE_PROFILE_STORAGE_KEY);
+  if (!storedValue) {
+    return {
+      englishName: null,
+      koreanName: null,
+      lockedAt: null,
+      registered: false,
+    };
+  }
+
+  try {
+    return JSON.parse(storedValue) as CertificateProfile;
+  } catch {
+    window.localStorage.removeItem(CERTIFICATE_PROFILE_STORAGE_KEY);
+    return {
+      englishName: null,
+      koreanName: null,
+      lockedAt: null,
+      registered: false,
+    };
+  }
+};
+
+const saveMockedCertificateProfile = (
+  payload: CertificateProfileCreatePayload,
+): CertificateProfile => {
+  const profile: CertificateProfile = {
+    englishName: payload.englishName,
+    koreanName: payload.koreanName,
+    lockedAt: new Date().toISOString(),
+    registered: true,
+  };
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(CERTIFICATE_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  }
+
+  return profile;
+};
+
+const buildMockCertificateDownload = (
+  enrollmentId: number,
+  profile: CertificateProfile,
+): CertificateDownload => {
+  const enrollment = getMockedMyEnrollments().find((item) => item.id === enrollmentId);
+  if (!enrollment || !enrollment.certificateEligible) {
+    throw new Error('수료증 발급 대상 강의가 아닙니다.');
+  }
+
+  const content = [
+    'SONO SCHOOL 수료증',
+    '',
+    `수강생: ${profile.koreanName ?? ''}`,
+    `영문명: ${profile.englishName ?? ''}`,
+    `강의명: ${enrollment.programTitle}`,
+    `발급일: ${new Date().toISOString().slice(0, 10)}`,
+    `수료일: ${enrollment.completedAt?.slice(0, 10) ?? ''}`,
+  ].join('\n');
+
+  return {
+    blob: new Blob([content], { type: 'text/plain;charset=utf-8' }),
+    filename: `${enrollment.programTitle.replace(/[\\/:*?"<>|\s]+/g, '-')}-certificate.txt`,
   };
 };
 
@@ -273,6 +353,91 @@ export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<Us
   } catch (error: unknown) {
     throw toApiError(error, '휴대폰 번호를 변경하지 못했습니다.');
   }
+};
+
+export const fetchMyCertificateProfile = async (): Promise<CertificateProfile> => {
+  if (isMyPageMockModeEnabled()) {
+    return getMockedCertificateProfile();
+  }
+
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<CertificateProfile>>(
+      '/api/v1/users/me/certificate-profile',
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '수료증 이름 정보를 불러오지 못했습니다.');
+  }
+};
+
+export const createMyCertificateProfile = async (
+  payload: CertificateProfileCreatePayload,
+): Promise<CertificateProfile> => {
+  if (isMyPageMockModeEnabled()) {
+    const currentProfile = getMockedCertificateProfile();
+    if (currentProfile.registered) {
+      throw new Error('이미 등록된 수료증 이름은 관리자에게 초기화를 요청해야 합니다.');
+    }
+    return saveMockedCertificateProfile(payload);
+  }
+
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<CertificateProfile>>(
+      '/api/v1/users/me/certificate-profile',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '수료증 이름을 등록하지 못했습니다.');
+  }
+};
+
+export const downloadMyCertificate = async (enrollmentId: number): Promise<CertificateDownload> => {
+  if (isMyPageMockModeEnabled()) {
+    const profile = getMockedCertificateProfile();
+    if (!profile.registered) {
+      throw new Error('수료증에 사용할 이름을 먼저 등록해 주세요.');
+    }
+    return buildMockCertificateDownload(enrollmentId, profile);
+  }
+
+  try {
+    const response = await axiosInstance.get<Blob>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/certificate`,
+      {
+        responseType: 'blob',
+      },
+    );
+    const disposition: unknown = response.headers['content-disposition'];
+    const filename = resolveDownloadFilename(
+      disposition,
+      `certificate-${String(enrollmentId)}.txt`,
+    );
+    return {
+      blob: response.data,
+      filename,
+    };
+  } catch (error: unknown) {
+    throw toApiError(error, '수료증을 다운로드하지 못했습니다.');
+  }
+};
+
+const resolveDownloadFilename = (disposition: unknown, fallback: string): string => {
+  if (typeof disposition !== 'string') {
+    return fallback;
+  }
+
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const asciiMatch = /filename="?([^";]+)"?/i.exec(disposition);
+  return asciiMatch?.[1] ?? fallback;
 };
 
 export const fetchMyEnrollments = async (): Promise<EnrollmentSummary[]> => {
