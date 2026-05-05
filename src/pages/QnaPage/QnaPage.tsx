@@ -10,6 +10,7 @@ import { globalQuestionsQueryKey, useGlobalQuestionsQuery } from '@/query/useQna
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
+import { sanitizeRichTextHtml } from '@/utils/htmlContent';
 import { maskQnaAuthorName, resolveQnaAuthorName, validateQnaQuestionDraft } from '@/utils/qna';
 
 import styles from './QnaPage.module.scss';
@@ -124,6 +125,14 @@ const QnaPage = () => {
     return [...filteredQuestions].sort((left, right) => {
       if (left.notice !== right.notice) {
         return left.notice ? -1 : 1;
+      }
+
+      if (left.notice && right.notice) {
+        const orderDiff = (left.noticeSortOrder ?? 0) - (right.noticeSortOrder ?? 0);
+
+        if (orderDiff !== 0) {
+          return orderDiff;
+        }
       }
 
       return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
@@ -367,14 +376,12 @@ const QnaPage = () => {
 
   return (
     <div className={styles['page']}>
-      <div className={styles['boardHeader']}>
-        <div className={styles['boardTitleBlock']}>
-          <h1 className={styles['boardTitle']}>운영 Q&A</h1>
-          <p className={styles['boardDescription']}>
-            운영과 관련된 질문을 확인하고 궁금증을 해결하세요.
-          </p>
-        </div>
-      </div>
+      <header className={styles['boardHeader']}>
+        <h1 className={styles['boardTitle']}>운영 Q&A</h1>
+        <p className={styles['boardSummary']}>
+          총 <strong>{String(questions.length)}</strong>건의 질문
+        </p>
+      </header>
 
       <section className={styles['boardShell']}>
         <div className={styles['toolbar']}>
@@ -581,7 +588,18 @@ const QnaPage = () => {
                                     <strong className={styles['questionLabel']}>
                                       {question.notice ? '공지' : '질문'}
                                     </strong>
-                                    <p className={styles['questionContent']}>{question.content}</p>
+                                    {question.notice ? (
+                                      <div
+                                        className={`${styles['questionContent']} ${styles['questionRichContent']}`}
+                                        dangerouslySetInnerHTML={{
+                                          __html: sanitizeRichTextHtml(question.content),
+                                        }}
+                                      />
+                                    ) : (
+                                      <p className={styles['questionContent']}>
+                                        {question.content}
+                                      </p>
+                                    )}
                                     <time
                                       className={styles['detailDate']}
                                       dateTime={question.createdAt}
@@ -640,73 +658,75 @@ const QnaPage = () => {
               </table>
             </div>
 
-            <div className={styles['boardFooter']}>
-              <div className={styles['pagination']}>
-                <button
-                  aria-label='첫 페이지'
-                  className={styles['pageNavButton']}
-                  disabled={activePage === 1}
-                  onClick={() => {
-                    setCurrentPage(1);
-                  }}
-                  type='button'
+            <nav aria-label='운영 Q&A 페이지 이동' className={styles['pagination']}>
+              <button
+                aria-label='이전 페이지'
+                className={styles['pageNavButton']}
+                disabled={activePage === 1}
+                onClick={() => {
+                  setCurrentPage((page) => Math.max(1, page - 1));
+                }}
+                type='button'
+              >
+                <svg
+                  aria-hidden='true'
+                  className={styles['pageNavIcon']}
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  xmlns='http://www.w3.org/2000/svg'
                 >
-                  «
-                </button>
+                  <path
+                    d='M15 18L9 12L15 6'
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='3'
+                  />
+                </svg>
+              </button>
 
-                <button
-                  aria-label='이전 페이지'
-                  className={styles['pageNavButton']}
-                  disabled={activePage === 1}
-                  onClick={() => {
-                    setCurrentPage((page) => Math.max(1, page - 1));
-                  }}
-                  type='button'
+              {paginationRange.map((pageNumber) => {
+                return (
+                  <button
+                    className={styles['pageButton']}
+                    data-active={pageNumber === activePage}
+                    key={pageNumber}
+                    onClick={() => {
+                      setCurrentPage(pageNumber);
+                    }}
+                    type='button'
+                  >
+                    {String(pageNumber)}
+                  </button>
+                );
+              })}
+
+              <button
+                aria-label='다음 페이지'
+                className={styles['pageNavButton']}
+                disabled={activePage === totalPages}
+                onClick={() => {
+                  setCurrentPage((page) => Math.min(totalPages, page + 1));
+                }}
+                type='button'
+              >
+                <svg
+                  aria-hidden='true'
+                  className={styles['pageNavIcon']}
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  xmlns='http://www.w3.org/2000/svg'
                 >
-                  ‹
-                </button>
-
-                {paginationRange.map((pageNumber) => {
-                  return (
-                    <button
-                      className={styles['pageButton']}
-                      data-active={pageNumber === activePage}
-                      key={pageNumber}
-                      onClick={() => {
-                        setCurrentPage(pageNumber);
-                      }}
-                      type='button'
-                    >
-                      {String(pageNumber)}
-                    </button>
-                  );
-                })}
-
-                <button
-                  aria-label='다음 페이지'
-                  className={styles['pageNavButton']}
-                  disabled={activePage === totalPages}
-                  onClick={() => {
-                    setCurrentPage((page) => Math.min(totalPages, page + 1));
-                  }}
-                  type='button'
-                >
-                  ›
-                </button>
-
-                <button
-                  aria-label='마지막 페이지'
-                  className={styles['pageNavButton']}
-                  disabled={activePage === totalPages}
-                  onClick={() => {
-                    setCurrentPage(totalPages);
-                  }}
-                  type='button'
-                >
-                  »
-                </button>
-              </div>
-            </div>
+                  <path
+                    d='M9 18L15 12L9 6'
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='3'
+                  />
+                </svg>
+              </button>
+            </nav>
           </>
         ) : null}
       </section>

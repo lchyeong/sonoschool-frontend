@@ -7,6 +7,7 @@ import {
   deleteAdminProblemArea,
   updateAdminProblemArea,
 } from '@/api/adminProblemAreas';
+import checkIconSrc from '@/assets/icons/lucide_check.svg';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import {
@@ -331,7 +332,7 @@ const AdminProblemAreasSection = () => {
                 rows={3}
                 value={editFormState.description}
               />
-              <label className={styles['checkboxRow']}>
+              <label className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}>
                 <input
                   checked={editFormState.active}
                   onChange={(event) => {
@@ -342,7 +343,10 @@ const AdminProblemAreasSection = () => {
                   }}
                   type='checkbox'
                 />
-                사용 중
+                <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
+                  {editFormState.active ? <img alt='' src={checkIconSrc} /> : null}
+                </span>
+                <span>사용 중</span>
               </label>
               <div className={styles['actionRow']}>
                 <Button

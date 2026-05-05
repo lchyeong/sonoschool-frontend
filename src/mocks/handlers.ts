@@ -75,6 +75,7 @@ import {
   deleteMockGlobalQuestion,
   getMockAdminQuestions,
   getMockGlobalQuestions,
+  reorderMockAdminQuestionNotices,
   updateMockGlobalQuestion,
 } from '@/mocks/data/qna';
 import { getMockGlobalResourceById, getMockGlobalResources } from '@/mocks/data/resources';
@@ -1645,6 +1646,25 @@ export const handlers = [
     return HttpResponse.json(createApiEnvelope(createMockAdminQuestionNotice(body)), {
       status: 201,
     });
+  }),
+  http.put('*/api/v1/admin/qna/notices/reorder', async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as {
+      items?: Array<{ id?: number; sortOrder?: number }>;
+    } | null;
+    const items = body?.items;
+
+    if (
+      !Array.isArray(items) ||
+      items.some((item) => typeof item.id !== 'number' || typeof item.sortOrder !== 'number')
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    if (!reorderMockAdminQuestionNotices(items as Array<{ id: number; sortOrder: number }>)) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
   }),
   http.post('*/api/v1/admin/qna/:questionId/replies', async ({ params, request }) => {
     const questionId = Number(params['questionId']);

@@ -28,6 +28,11 @@
   padding: 0;
 }
 
+.pageTopActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .pageEyebrow {
   margin: 0;
   color: var(--color-brand-darken-10);
@@ -176,9 +181,9 @@
 }
 
 .adminSearchBarWide :global(button) {
-  width: 44px;
-  height: 34px;
-  border-radius: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
 }
 
 .resourceToolbar {
@@ -579,6 +584,43 @@
   display: grid;
   gap: 4px;
   min-width: 0;
+}
+
+.draftTitleRow {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.draftTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 24px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.draftTypeBadge[data-type='create'] {
+  border-color: rgb(37 99 235 / 22%);
+  background: rgb(37 99 235 / 8%);
+  color: #1d4ed8;
+}
+
+.draftTypeBadge[data-type='edit'] {
+  border-color: rgb(217 119 6 / 26%);
+  background: rgb(217 119 6 / 10%);
+  color: #b45309;
 }
 
 .draftTitle {
@@ -1486,6 +1528,11 @@
   outline-offset: 3px;
 }
 
+.checkboxRow.noticeCheckboxRow input:disabled + .noticeCheckboxBox {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
 .formShell {
   width: 100%;
   max-width: 960px;
@@ -2036,6 +2083,12 @@
 .field {
   display: grid;
   gap: var(--space-2);
+}
+
+.fieldGroup {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 220px;
 }
 
 .fieldLabel {
@@ -3312,12 +3365,13 @@
 
 .programTable th:nth-child(7),
 .programTable td:nth-child(7) {
-  width: 8%;
+  width: 10%;
+  white-space: nowrap;
 }
 
 .programTable th:nth-child(8),
 .programTable td:nth-child(8) {
-  width: 20%;
+  width: 18%;
 }
 
 .table th:nth-child(1),
@@ -3585,6 +3639,10 @@
   white-space: normal;
 }
 
+.programFeatureHeader {
+  white-space: nowrap;
+}
+
 .programFeatureCheckbox {
   display: inline-flex;
   align-items: center;
@@ -3596,32 +3654,9 @@
   white-space: nowrap;
 }
 
-.programFeatureCheckbox input {
-  width: 18px;
-  height: 18px;
-  border: 1px solid #7a9ab1;
-  border-radius: 4px;
-  background: #ffffff;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-}
-
-.programFeatureCheckbox input:checked {
-  border-color: #2f6f67;
-  background: #2f6f67;
-  box-shadow: inset 0 0 0 3px #ffffff;
-}
-
-.programFeatureCheckbox input:disabled {
-  border-color: #cbd5e1;
-  background: #f1f5f9;
+.programFeatureCheckbox:has(input:disabled) {
   cursor: not-allowed;
-}
-
-.programFeatureCheckbox input:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-brand-main) 55%, transparent);
-  outline-offset: 2px;
+  opacity: 0.68;
 }
 
 .adminPracticumTopActions {
@@ -4917,6 +4952,17 @@
   align-items: start;
 }
 
+.qnaSearchActionRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qnaSearchActionRow .adminSearchBarWide {
+  flex: 1 1 560px;
+}
+
 .qnaNoticeComposer {
   display: grid;
   gap: var(--space-4);
@@ -5088,6 +5134,17 @@
   width: 180px;
 }
 
+.qnaOrderCol {
+  width: 168px;
+}
+
+.qnaNoticeOrderActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  white-space: nowrap;
+}
+
 .qnaTableTitleCell {
   text-align: left !important;
 }
@@ -5253,6 +5310,18 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
   white-space: pre-line;
+}
+
+.qnaRichContent {
+  white-space: normal;
+}
+
+.qnaRichContent :where(p, ul, ol, blockquote) {
+  margin: 0 0 var(--space-2);
+}
+
+.qnaRichContent :where(p, ul, ol, blockquote):last-child {
+  margin-bottom: 0;
 }
 
 .searchResultList {
@@ -5458,6 +5527,11 @@
 
   .qnaFilterPanel {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .qnaSearchActionRow {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .quizQuestionWorkspace {

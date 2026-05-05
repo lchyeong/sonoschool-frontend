@@ -95,7 +95,8 @@ export interface AdminProgramDraftProblemQuestion {
 
 export interface AdminProgramDraftProblem {
   lectureKey: string;
-  passCorrectCount?: number | null;
+  passScore?: number | null;
+  retakeAllowed?: boolean | null;
   questions: AdminProgramDraftProblemQuestion[];
   timeLimitSeconds?: number | null;
   title: string | null;

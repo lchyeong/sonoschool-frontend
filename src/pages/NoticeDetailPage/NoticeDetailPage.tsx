@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Link, useParams } from 'react-router-dom';
 
 import downloadIconSrc from '@/assets/icons/lucide_arrow-down-to-line.svg';
 import fileIconSrc from '@/assets/icons/lucide_file-plus.svg';
+import Modal from '@/components/overlay/Modal/Modal';
 import { useGlobalNoticesQuery, useNoticeDetailQuery } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import type { NoticeAttachmentItem, NoticeItem } from '@/types/notice';
@@ -17,6 +18,20 @@ const formatFileSizeLabel = (size: number): string => {
   }
 
   return `${String(Math.max(1, Math.round(size / 1024)))} KB`;
+};
+
+const getFileExtensionLabel = (fileName: string, mimeType: string | null): string => {
+  const extension = fileName.split('.').pop()?.trim();
+
+  if (extension && extension !== fileName) {
+    return extension.toUpperCase();
+  }
+
+  if (!mimeType) {
+    return 'FILE';
+  }
+
+  return mimeType.split('/').pop()?.toUpperCase() ?? 'FILE';
 };
 
 const formatDate = (value: string | null): string => {
@@ -53,6 +68,7 @@ const NoticeDetailPage = () => {
   const noticeQuery = useNoticeDetailQuery(resolvedNoticeId);
   const noticesQuery = useGlobalNoticesQuery();
   const notice = noticeQuery.data;
+  const [downloadTarget, setDownloadTarget] = useState<NoticeAttachmentItem | null>(null);
   const sanitizedContent = useMemo(() => {
     return notice ? sanitizeRichTextHtml(notice.content) : '';
   }, [notice]);
@@ -79,6 +95,26 @@ const NoticeDetailPage = () => {
       previous: noticesQuery.data[currentIndex + 1] ?? null,
     };
   }, [notice, noticesQuery.data]);
+
+  const closeDownloadConfirm = () => {
+    setDownloadTarget(null);
+  };
+
+  const confirmDownload = () => {
+    if (!downloadTarget?.url) {
+      closeDownloadConfirm();
+      return;
+    }
+
+    const anchor = document.createElement('a');
+    anchor.href = downloadTarget.url;
+    anchor.download = downloadTarget.fileName;
+    anchor.rel = 'noopener noreferrer';
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    closeDownloadConfirm();
+  };
 
   if (resolvedNoticeId === null) {
     return (
@@ -170,9 +206,15 @@ const NoticeDetailPage = () => {
                 return (
                   <li className={styles['attachmentItem']} key={key}>
                     {attachment.url ? (
-                      <a className={styles['attachmentLink']} href={attachment.url} download>
+                      <button
+                        className={styles['attachmentLink']}
+                        onClick={() => {
+                          setDownloadTarget(attachment);
+                        }}
+                        type='button'
+                      >
                         {content}
-                      </a>
+                      </button>
                     ) : (
                       <div className={styles['attachmentLink']}>{content}</div>
                     )}
@@ -201,6 +243,14 @@ const NoticeDetailPage = () => {
           </Link>
         </div>
       </article>
+
+      {downloadTarget ? (
+        <NoticeDownloadConfirmModal
+          attachment={downloadTarget}
+          onClose={closeDownloadConfirm}
+          onConfirm={confirmDownload}
+        />
+      ) : null}
     </main>
   );
 };
@@ -209,6 +259,87 @@ interface AdjacentNoticeLinkProps {
   direction: 'next' | 'previous';
   notice: NoticeItem | null;
 }
+
+interface NoticeDownloadConfirmModalProps {
+  attachment: NoticeAttachmentItem;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+const NoticeDownloadConfirmModal = ({
+  attachment,
+  onClose,
+  onConfirm,
+}: NoticeDownloadConfirmModalProps) => {
+  return (
+    <Modal
+      bodyClassName={styles['downloadModalBody']}
+      closeButtonClassName={styles['downloadModalCloseButton']}
+      closeButtonContent={<span aria-hidden='true'>×</span>}
+      closeButtonLabel='자료 다운로드 모달 닫기'
+      headerClassName={styles['downloadModalHeader']}
+      onClose={onClose}
+      overlayClassName={styles['downloadModalOverlay']}
+      panelClassName={styles['downloadModalPanel']}
+      title='자료를 다운로드하시겠어요?'
+      titleClassName={styles['downloadModalTitle']}
+    >
+      <div className={styles['downloadModalContent']}>
+        <article className={styles['downloadFileCard']}>
+          <h3 className={styles['downloadFileName']}>
+            <span>{attachment.fileName}</span>
+          </h3>
+          <p className={styles['downloadFileMeta']}>
+            <span>{getFileExtensionLabel(attachment.fileName, attachment.mimeType)}</span>
+            <span aria-hidden='true' className={styles['downloadFileDot']} />
+            <span>{formatFileSizeLabel(attachment.fileSize)}</span>
+          </p>
+        </article>
+
+        <div className={styles['downloadNotice']}>
+          <span aria-hidden='true' className={styles['downloadNoticeIcon']}>
+            <svg fill='none' viewBox='0 0 24 24'>
+              <path
+                d='M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z'
+                stroke='currentColor'
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth='2'
+              />
+              <path
+                d='M12 16V12'
+                stroke='currentColor'
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth='2'
+              />
+              <path
+                d='M12 8H12.01'
+                stroke='currentColor'
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth='2'
+              />
+            </svg>
+          </span>
+          <div className={styles['downloadNoticeText']}>
+            <p>본 자료는 교육 목적으로 제공되며,</p>
+            <p>무단 배포 및 복제를 금지합니다.</p>
+          </div>
+        </div>
+
+        <div className={styles['downloadModalActions']}>
+          <button className={styles['downloadCancelButton']} onClick={onClose} type='button'>
+            취소
+          </button>
+          <button className={styles['downloadConfirmButton']} onClick={onConfirm} type='button'>
+            다운로드
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
 
 const AdjacentNoticeLink = ({ direction, notice }: AdjacentNoticeLinkProps) => {
   const label = direction === 'previous' ? '이전글' : '다음 글';

@@ -1,4 +1,9 @@
+import { useEffect } from 'react';
+
+import { useLocation } from 'react-router-dom';
+
 import { useHomeHeroSlidesQuery } from '@/query/useHomeHeroSlidesQuery';
+import { routePaths } from '@/routes/routeRegistry';
 
 import HomeFeaturedCoursesSection from './HomeFeaturedCoursesSection/HomeFeaturedCoursesSection';
 import HomeFeatureShowcaseSection from './HomeFeatureShowcaseSection/HomeFeatureShowcaseSection';
@@ -12,6 +17,7 @@ import { useHomePageHeroCarousel } from './useHomePageHeroCarousel';
 
 const HomePage = () => {
   useHomeLenisScroll();
+  const location = useLocation();
 
   const { data, error, isError, isPending } = useHomeHeroSlidesQuery();
   const slides = data?.items ?? [];
@@ -23,6 +29,28 @@ const HomePage = () => {
     });
 
   const activeSlide = slides[displayedSlideIndex];
+
+  useEffect(() => {
+    if (`${location.pathname}${location.hash}` !== routePaths.homeFeaturedCourses) {
+      return;
+    }
+
+    let animationFrameId = 0;
+    let nestedAnimationFrameId = 0;
+
+    animationFrameId = window.requestAnimationFrame(() => {
+      nestedAnimationFrameId = window.requestAnimationFrame(() => {
+        document
+          .getElementById('home-featured-courses')
+          ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+      window.cancelAnimationFrame(nestedAnimationFrameId);
+    };
+  }, [location.hash, location.pathname]);
 
   return (
     <div className={styles['container']}>

@@ -68,10 +68,8 @@ describe('admin resources API', () => {
     const payload = {
       description: '설명',
       fileName: 'guide.pdf',
-      fileSize: 1024,
-      fileUrl: 'https://example.com/guide.pdf',
       lectureId: 9101,
-      mimeType: 'application/pdf',
+      mediaAssetId: 99,
       programId: 12,
       scope: 'PROGRAM' as const,
       sortOrder: 3,

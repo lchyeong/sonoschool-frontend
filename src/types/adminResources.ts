@@ -22,10 +22,8 @@ export interface AdminResourceItem {
 export interface AdminResourceUpsertPayload {
   description: string | null;
   fileName: string;
-  fileSize: number;
-  fileUrl: string;
   lectureId: number | null;
-  mimeType: string | null;
+  mediaAssetId: number | null;
   programId: number | null;
   scope: AdminResourceScope;
   sortOrder: number;

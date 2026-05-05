@@ -31,6 +31,7 @@ interface ModalProps {
   headerLeading?: ReactNode;
   headerLeadingStacked?: boolean | undefined;
   hideTitle?: boolean | undefined;
+  overlayClassName?: string | undefined;
   panelClassName?: string | undefined;
   headerClassName?: string | undefined;
   bodyClassName?: string | undefined;
@@ -61,6 +62,7 @@ const Modal = ({
   closeButtonLabel,
   initialFocusRef,
   onClose,
+  overlayClassName,
   restoreFocusElement,
   size = 'md',
   title,
@@ -77,7 +79,9 @@ const Modal = ({
       restoreFocusElement ??
       (document.activeElement instanceof HTMLElement ? document.activeElement : null);
 
-    const previousOverflow = document.body.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
 
     const dialogElement = dialogRef.current;
@@ -91,7 +95,8 @@ const Modal = ({
     }
 
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousDocumentOverflow;
+      document.body.style.overflow = previousBodyOverflow;
 
       const nextFocusTarget = restoreFocusElementRef.current;
       if (nextFocusTarget?.isConnected) {
@@ -141,7 +146,7 @@ const Modal = ({
 
   return createPortal(
     <div
-      className={styles['overlay']}
+      className={classNames(styles['overlay'], overlayClassName)}
       onClick={(event) => {
         if (event.target !== event.currentTarget) return;
 

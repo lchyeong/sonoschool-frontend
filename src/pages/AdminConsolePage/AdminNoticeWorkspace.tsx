@@ -120,13 +120,13 @@ const AdminNoticeWorkspaceForm = ({
         variant: 'error',
       });
     },
-    onSuccess: async (notice) => {
+    onSuccess: async () => {
       await refreshNotices();
       showToast({
         message: '공지사항을 등록했습니다.',
         variant: 'success',
       });
-      void navigate(routePaths.adminNoticeEdit(String(notice.id)));
+      void navigate(routePaths.adminNotices);
     },
   });
 
@@ -321,30 +321,33 @@ const AdminNoticeWorkspaceForm = ({
 
   return (
     <div className={styles['page']}>
-      <section className={styles['editorShell']}>
-        <div className={styles['editorToolbar']}>
-          <div className={styles['editorToolbarActions']}>
-            <Button
-              onClick={() => {
-                void navigate(routePaths.adminNotices);
-              }}
-              size='sm'
-              type='button'
-              variant='secondary'
-            >
-              목록으로
-            </Button>
-          </div>
+      <header className={styles['pageHeader']}>
+        <h1 className={styles['pageTitle']}>{mode === 'create' ? '공지 작성' : '공지 수정'}</h1>
+        <div className={styles['pageTopActions']}>
+          <Button
+            onClick={() => {
+              void navigate(routePaths.adminNotices);
+            }}
+            size='sm'
+            type='button'
+            variant='secondary'
+          >
+            목록으로
+          </Button>
+        </div>
+      </header>
 
-          {mode === 'edit' && editingNotice ? (
+      <section className={styles['editorShell']}>
+        {mode === 'edit' && editingNotice ? (
+          <div className={styles['editorToolbar']}>
             <div className={styles['editorMetaRow']}>
               <span className={editingNotice.published ? styles['badgeSuccess'] : styles['badge']}>
                 {editingNotice.published ? '게시 중' : '비공개'}
               </span>
               {editingNotice.pinned ? <span className={styles['badgeAccent']}>필독</span> : null}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <div className={`${styles['form']} ${styles['noticeEditorForm']}`}>
           <TextField

@@ -31,6 +31,7 @@ export interface StudentProblem {
   title: string;
   passCorrectCount: number;
   timeLimitSeconds: number | null;
+  retakeAllowed: boolean;
   questions: StudentProblemQuestion[];
   session: StudentProblemSession | null;
   latestAttempt: StudentProblemAttemptResult | null;

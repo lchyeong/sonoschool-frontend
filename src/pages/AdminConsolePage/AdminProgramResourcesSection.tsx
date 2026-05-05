@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
+import { createAdminResourceUploadTarget, uploadAdminResourceFile } from '@/api/adminResourceMedia';
 import {
   createAdminResource,
   deleteAdminResource,
@@ -33,9 +34,10 @@ interface AdminProgramResourcesSectionProps {
 interface ResourceFormState {
   description: string;
   fileName: string;
-  fileSize: string;
-  fileUrl: string;
+  fileSize: number;
+  mediaAssetId: number | null;
   mimeType: string;
+  originalFileName: string;
   sortOrder: string;
   title: string;
   visibility: AdminResourceVisibility;
@@ -50,9 +52,10 @@ interface LectureOption {
 const createEmptyForm = (sortOrder: number): ResourceFormState => ({
   description: '',
   fileName: '',
-  fileSize: '0',
-  fileUrl: '',
+  fileSize: 0,
+  mediaAssetId: null,
   mimeType: '',
+  originalFileName: '',
   sortOrder: String(sortOrder),
   title: '',
   visibility: 'ENROLLED_ONLY',
@@ -61,9 +64,10 @@ const createEmptyForm = (sortOrder: number): ResourceFormState => ({
 const createFormState = (document: AdminProgramDocument): ResourceFormState => ({
   description: document.description ?? '',
   fileName: document.fileName,
-  fileSize: String(document.fileSize),
-  fileUrl: document.fileUrl,
+  fileSize: document.fileSize,
+  mediaAssetId: null,
   mimeType: document.mimeType ?? '',
+  originalFileName: document.fileName,
   sortOrder: String(document.sortOrder),
   title: document.title,
   visibility: document.visibility,
@@ -87,22 +91,23 @@ const formatDateTime = (value: string): string => {
   }).format(new Date(value));
 };
 
+const formatFileSizeInMb = (bytes: number): string => {
+  if (bytes <= 0) {
+    return '-';
+  }
+
+  return `${Math.max(0.01, bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
+
 const validateForm = (formState: ResourceFormState): string | null => {
   if (!formState.title.trim()) {
-    return '자료 제목을 입력해 주세요.';
+    return '자료 게시글 제목을 입력해 주세요.';
   }
   if (!formState.fileName.trim()) {
-    return '파일명을 입력해 주세요.';
+    return '다운로드 파일명을 입력해 주세요.';
   }
-  if (!formState.fileUrl.trim()) {
-    return '파일 주소를 입력해 주세요.';
-  }
-  if (
-    !formState.fileSize.trim() ||
-    Number.isNaN(Number(formState.fileSize)) ||
-    Number(formState.fileSize) < 0
-  ) {
-    return '파일 크기를 숫자로 입력해 주세요.';
+  if (formState.fileSize < 1) {
+    return '자료 파일을 업로드해 주세요.';
   }
   if (!formState.sortOrder.trim() || Number.isNaN(Number(formState.sortOrder))) {
     return '정렬 순서를 숫자로 입력해 주세요.';
@@ -110,7 +115,7 @@ const validateForm = (formState: ResourceFormState): string | null => {
 
   return validateResourceDocumentPolicy({
     fileName: formState.fileName,
-    fileSize: Number(formState.fileSize),
+    fileSize: formState.fileSize,
     mimeType: formState.mimeType,
   });
 };
@@ -130,6 +135,7 @@ const AdminProgramResourcesSection = ({
   const curriculumQuery = useAdminCurriculumQuery(programId, enabled && programId !== null);
   const [editForms, setEditForms] = useState<Record<number, ResourceFormState>>({});
   const [createForms, setCreateForms] = useState<Record<number, ResourceFormState>>({});
+  const [uploadingFormKey, setUploadingFormKey] = useState<string | null>(null);
   const requestedLectureParam = searchParams.get('lectureId');
   const requestedLectureId = requestedLectureParam === null ? null : Number(requestedLectureParam);
 
@@ -209,16 +215,54 @@ const AdminProgramResourcesSection = ({
   ): AdminResourceUpsertPayload => ({
     description: formState.description.trim() || null,
     fileName: formState.fileName.trim(),
-    fileSize: Number(formState.fileSize),
-    fileUrl: formState.fileUrl.trim(),
     lectureId,
-    mimeType: formState.mimeType.trim() || null,
+    mediaAssetId: formState.mediaAssetId,
     programId,
     scope: 'PROGRAM',
     sortOrder: Number(formState.sortOrder),
     title: formState.title.trim(),
     visibility: formState.visibility,
   });
+
+  const uploadResourceFile = async (
+    file: File | null,
+    applyUploadedFile: (file: File, assetId: number) => void,
+    formKey: string,
+  ) => {
+    if (!file) {
+      return;
+    }
+
+    const validationMessage = validateResourceDocumentPolicy({
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    });
+
+    if (validationMessage) {
+      showToast({ message: validationMessage, variant: 'error' });
+      return;
+    }
+
+    setUploadingFormKey(formKey);
+    try {
+      const uploadTarget = await createAdminResourceUploadTarget({
+        contentType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        filename: file.name,
+      });
+      await uploadAdminResourceFile(uploadTarget.uploadUrl, file);
+      applyUploadedFile(file, uploadTarget.assetId);
+      showToast({ message: '자료 파일을 업로드했습니다.', variant: 'success' });
+    } catch (error: unknown) {
+      showToast({
+        message: error instanceof Error ? error.message : '자료 파일 업로드에 실패했습니다.',
+        variant: 'error',
+      });
+    } finally {
+      setUploadingFormKey(null);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: (payload: AdminResourceUpsertPayload) => createAdminResource(payload),
@@ -401,7 +445,7 @@ const AdminProgramResourcesSection = ({
 
                           <div className={styles['inlineFieldGrid']}>
                             <TextField
-                              label='자료 제목'
+                              label='자료 게시글 제목'
                               name={`resource-title-${String(document.id)}`}
                               onChange={(event) => {
                                 updateEditForm(document.id, (current) => ({
@@ -436,9 +480,66 @@ const AdminProgramResourcesSection = ({
                             value={formState.description}
                           />
 
+                          <section
+                            className={styles['noticeAttachmentPanel']}
+                            aria-labelledby={`resource-file-label-${String(document.id)}`}
+                          >
+                            <div className={styles['noticeAttachmentHeader']}>
+                              <div>
+                                <h6
+                                  className={styles['noticeAttachmentTitle']}
+                                  id={`resource-file-label-${String(document.id)}`}
+                                >
+                                  자료 파일
+                                </h6>
+                                <p className={styles['noticeAttachmentHint']}>
+                                  파일을 선택하면 원본 파일명과 파일 크기가 자동으로 저장됩니다.
+                                </p>
+                              </div>
+                              <label className={styles['noticeAttachmentButton']}>
+                                <input
+                                  disabled={uploadingFormKey === `edit-${String(document.id)}`}
+                                  onChange={(event) => {
+                                    void uploadResourceFile(
+                                      event.target.files?.[0] ?? null,
+                                      (file, assetId) => {
+                                        updateEditForm(document.id, (current) => ({
+                                          ...current,
+                                          fileName: current.fileName.trim()
+                                            ? current.fileName
+                                            : file.name,
+                                          fileSize: file.size,
+                                          mediaAssetId: assetId,
+                                          mimeType: file.type || 'application/octet-stream',
+                                          originalFileName: file.name,
+                                        }));
+                                      },
+                                      `edit-${String(document.id)}`,
+                                    );
+                                    event.currentTarget.value = '';
+                                  }}
+                                  type='file'
+                                />
+                                {uploadingFormKey === `edit-${String(document.id)}`
+                                  ? '업로드 중...'
+                                  : '파일 변경'}
+                              </label>
+                            </div>
+                            <ul className={styles['noticeAttachmentList']}>
+                              <li className={styles['noticeAttachmentItem']}>
+                                <span className={styles['noticeAttachmentName']}>
+                                  {formState.originalFileName}
+                                </span>
+                                <span className={styles['noticeAttachmentSize']}>
+                                  {formatFileSizeInMb(formState.fileSize)}
+                                </span>
+                              </li>
+                            </ul>
+                          </section>
+
                           <div className={styles['inlineFieldGrid']}>
                             <TextField
-                              label='파일명'
+                              label='다운로드 파일명'
                               name={`resource-file-name-${String(document.id)}`}
                               onChange={(event) => {
                                 updateEditForm(document.id, (current) => ({
@@ -447,42 +548,6 @@ const AdminProgramResourcesSection = ({
                                 }));
                               }}
                               value={formState.fileName}
-                            />
-                            <TextField
-                              label='파일 크기(bytes)'
-                              name={`resource-file-size-${String(document.id)}`}
-                              onChange={(event) => {
-                                updateEditForm(document.id, (current) => ({
-                                  ...current,
-                                  fileSize: event.target.value,
-                                }));
-                              }}
-                              value={formState.fileSize}
-                            />
-                          </div>
-
-                          <div className={styles['inlineFieldGrid']}>
-                            <TextField
-                              label='파일 주소'
-                              name={`resource-file-url-${String(document.id)}`}
-                              onChange={(event) => {
-                                updateEditForm(document.id, (current) => ({
-                                  ...current,
-                                  fileUrl: event.target.value,
-                                }));
-                              }}
-                              value={formState.fileUrl}
-                            />
-                            <TextField
-                              label='MIME 타입'
-                              name={`resource-mime-type-${String(document.id)}`}
-                              onChange={(event) => {
-                                updateEditForm(document.id, (current) => ({
-                                  ...current,
-                                  mimeType: event.target.value,
-                                }));
-                              }}
-                              value={formState.mimeType}
                             />
                           </div>
 
@@ -522,7 +587,7 @@ const AdminProgramResourcesSection = ({
 
                     <div className={styles['inlineFieldGrid']}>
                       <TextField
-                        label='자료 제목'
+                        label='자료 게시글 제목'
                         name={`resource-create-title-${String(lecture.id)}`}
                         onChange={(event) => {
                           updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
@@ -557,9 +622,82 @@ const AdminProgramResourcesSection = ({
                       value={createForm.description}
                     />
 
+                    <section
+                      className={styles['noticeAttachmentPanel']}
+                      aria-labelledby={`resource-create-file-label-${String(lecture.id)}`}
+                    >
+                      <div className={styles['noticeAttachmentHeader']}>
+                        <div>
+                          <h6
+                            className={styles['noticeAttachmentTitle']}
+                            id={`resource-create-file-label-${String(lecture.id)}`}
+                          >
+                            자료 파일
+                          </h6>
+                          <p className={styles['noticeAttachmentHint']}>
+                            파일을 선택하면 원본 파일명과 파일 크기가 자동으로 저장됩니다.
+                          </p>
+                        </div>
+                        <label className={styles['noticeAttachmentButton']}>
+                          <input
+                            disabled={uploadingFormKey === `create-${String(lecture.id)}`}
+                            onChange={(event) => {
+                              void uploadResourceFile(
+                                event.target.files?.[0] ?? null,
+                                (file, assetId) => {
+                                  updateCreateForm(
+                                    lecture.id,
+                                    lectureDocuments.length,
+                                    (current) => ({
+                                      ...current,
+                                      fileName: current.fileName.trim()
+                                        ? current.fileName
+                                        : file.name,
+                                      fileSize: file.size,
+                                      mediaAssetId: assetId,
+                                      mimeType: file.type || 'application/octet-stream',
+                                      originalFileName: file.name,
+                                      title: current.title.trim()
+                                        ? current.title
+                                        : file.name.replace(/\.[^.]+$/, ''),
+                                    }),
+                                  );
+                                },
+                                `create-${String(lecture.id)}`,
+                              );
+                              event.currentTarget.value = '';
+                            }}
+                            type='file'
+                          />
+                          {uploadingFormKey === `create-${String(lecture.id)}`
+                            ? '업로드 중...'
+                            : createForm.originalFileName
+                              ? '파일 변경'
+                              : '파일 선택'}
+                        </label>
+                      </div>
+
+                      {createForm.originalFileName ? (
+                        <ul className={styles['noticeAttachmentList']}>
+                          <li className={styles['noticeAttachmentItem']}>
+                            <span className={styles['noticeAttachmentName']}>
+                              {createForm.originalFileName}
+                            </span>
+                            <span className={styles['noticeAttachmentSize']}>
+                              {formatFileSizeInMb(createForm.fileSize)}
+                            </span>
+                          </li>
+                        </ul>
+                      ) : (
+                        <p className={styles['noticeAttachmentEmpty']}>
+                          등록된 첨부파일이 없습니다.
+                        </p>
+                      )}
+                    </section>
+
                     <div className={styles['inlineFieldGrid']}>
                       <TextField
-                        label='파일명'
+                        label='다운로드 파일명'
                         name={`resource-create-file-name-${String(lecture.id)}`}
                         onChange={(event) => {
                           updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
@@ -568,42 +706,6 @@ const AdminProgramResourcesSection = ({
                           }));
                         }}
                         value={createForm.fileName}
-                      />
-                      <TextField
-                        label='파일 크기(bytes)'
-                        name={`resource-create-file-size-${String(lecture.id)}`}
-                        onChange={(event) => {
-                          updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
-                            ...current,
-                            fileSize: event.target.value,
-                          }));
-                        }}
-                        value={createForm.fileSize}
-                      />
-                    </div>
-
-                    <div className={styles['inlineFieldGrid']}>
-                      <TextField
-                        label='파일 주소'
-                        name={`resource-create-file-url-${String(lecture.id)}`}
-                        onChange={(event) => {
-                          updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
-                            ...current,
-                            fileUrl: event.target.value,
-                          }));
-                        }}
-                        value={createForm.fileUrl}
-                      />
-                      <TextField
-                        label='MIME 타입'
-                        name={`resource-create-mime-type-${String(lecture.id)}`}
-                        onChange={(event) => {
-                          updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
-                            ...current,
-                            mimeType: event.target.value,
-                          }));
-                        }}
-                        value={createForm.mimeType}
                       />
                     </div>
 
@@ -634,6 +736,13 @@ const AdminProgramResourcesSection = ({
                           const validationMessage = validateForm(createForm);
                           if (validationMessage) {
                             showToast({ message: validationMessage, variant: 'error' });
+                            return;
+                          }
+                          if (!createForm.mediaAssetId) {
+                            showToast({
+                              message: '자료 파일을 먼저 업로드해 주세요.',
+                              variant: 'error',
+                            });
                             return;
                           }
                           createMutation.mutate(toPayload(lecture.id, createForm));

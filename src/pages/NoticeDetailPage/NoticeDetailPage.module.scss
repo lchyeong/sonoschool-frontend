@@ -168,8 +168,21 @@
   padding: 12px 18px;
   border: 1px solid #d1d5db;
   border-radius: 12px;
+  background: #ffffff;
   color: inherit;
+  font: inherit;
   text-decoration: none;
+}
+
+.attachmentLink {
+  width: 100%;
+  cursor: pointer;
+}
+
+.attachmentLink:hover,
+.attachmentLink:focus-visible {
+  border-color: #34b29f;
+  outline: 0;
 }
 
 .attachmentMeta {
@@ -367,6 +380,164 @@
   font-size: 18px;
 }
 
+.downloadModalOverlay {
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.downloadModalPanel {
+  position: relative;
+  width: min(100%, 520px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  border: 0;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 28px 72px rgba(15, 23, 42, 0.24);
+}
+
+.downloadModalHeader {
+  justify-content: center;
+  padding: 44px 32px 0;
+}
+
+.downloadModalTitle {
+  color: #111827;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: normal;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.downloadModalCloseButton {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  color: #000000;
+  background: transparent;
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.downloadModalBody {
+  padding: 28px 32px 32px;
+}
+
+.downloadModalContent {
+  display: grid;
+}
+
+.downloadFileCard {
+  min-height: 104px;
+  padding: 24px 28px;
+  border: 1px solid #d1d5db;
+  border-radius: 18px;
+}
+
+.downloadFileName {
+  overflow: hidden;
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.downloadFileMeta {
+  display: flex;
+  align-items: center;
+  margin: 12px 0 0;
+  color: #6b7280;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.downloadFileDot {
+  width: 4px;
+  height: 4px;
+  margin: 0 20px;
+  border-radius: 50%;
+  background: #6b7280;
+}
+
+.downloadNotice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.downloadNoticeIcon {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  color: #374151;
+}
+
+.downloadNoticeIcon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.downloadNoticeText {
+  display: grid;
+  gap: 8px;
+  text-align: center;
+}
+
+.downloadNoticeText p {
+  margin: 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: normal;
+}
+
+.downloadModalActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 44px;
+}
+
+.downloadCancelButton,
+.downloadConfirmButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 0 24px;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.downloadCancelButton {
+  border: 2px solid #d1d5db;
+  color: #111827;
+  background: #ffffff;
+}
+
+.downloadConfirmButton {
+  border: 0;
+  color: #ffffff;
+  background: #34b29f;
+}
+
 @media (width <= 900px) {
   .page {
     padding: 40px 20px 96px;
@@ -426,5 +597,45 @@
     min-width: 180px;
     min-height: 60px;
     font-size: 22px;
+  }
+
+  .downloadModalHeader {
+    padding: 44px 24px 0;
+  }
+
+  .downloadModalTitle {
+    font-size: clamp(22px, 6vw, 26px);
+  }
+
+  .downloadModalBody {
+    padding: 24px 24px 28px;
+  }
+
+  .downloadFileCard {
+    min-height: 96px;
+    padding: 22px 24px;
+  }
+
+  .downloadModalActions {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 36px;
+  }
+}
+
+@media (height <= 720px) {
+  .downloadModalHeader {
+    padding-top: 36px;
+  }
+
+  .downloadModalBody {
+    padding-bottom: 24px;
+  }
+
+  .downloadNotice {
+    margin-top: 20px;
+  }
+
+  .downloadModalActions {
+    margin-top: 28px;
   }
 }

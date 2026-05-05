@@ -35,8 +35,12 @@ import iconChevronDown from '@/assets/icons/lucide_chevron-down.svg';
 import iconFolderOpen from '@/assets/icons/lucide_folder-open.svg';
 import iconFullscreen from '@/assets/icons/lucide_fullscreen.svg';
 import iconPlay from '@/assets/icons/lucide_play.svg';
+import iconPrinter from '@/assets/icons/lucide_printer.svg';
+import iconRefreshCcw from '@/assets/icons/lucide_refresh-ccw.svg';
 import iconVolume from '@/assets/icons/lucide_volume-2.svg';
 import iconCurrentLessonIndicator from '@/assets/icons/player-current-indicator.svg';
+import iconResultPassCheck from '@/assets/icons/player-result-pass-check.svg';
+import iconResultRetryNeeded from '@/assets/icons/player-result-retry-needed.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import Button from '@/components/ui/Button/Button';
@@ -149,6 +153,30 @@ const playerFullscreenIconStyle = buildPlayerIconStyle(iconFullscreen);
 const playerFolderOpenIconStyle = buildPlayerIconStyle(iconFolderOpen);
 const playerCurrentLessonIndicatorStyle = buildPlayerIconStyle(iconCurrentLessonIndicator);
 const playerArrowDownToLineIconStyle = buildPlayerIconStyle(iconArrowDownToLine);
+const playerPrinterIconStyle = buildPlayerIconStyle(iconPrinter);
+const playerRefreshCcwIconStyle = buildPlayerIconStyle(iconRefreshCcw);
+const playerResultPassCheckIconStyle = buildPlayerIconStyle(iconResultPassCheck);
+const playerResultRetryNeededIconStyle = buildPlayerIconStyle(iconResultRetryNeeded);
+
+const PLAYBACK_WATERMARK_POSITIONS = [
+  'bottom-right',
+  'top-left',
+  'center',
+  'bottom-left',
+  'top-right',
+] as const;
+const PLAYBACK_WATERMARK_POSITION_INTERVAL_MS = 37_000;
+const PLAYBACK_WATERMARK_CLOCK_INTERVAL_MS = 30_000;
+const PLAYBACK_WATERMARK_EMPHASIS_INTERVAL_MS = 120_000;
+const PLAYBACK_WATERMARK_EMPHASIS_DURATION_MS = 2_600;
+const playbackWatermarkDateFormatter = new Intl.DateTimeFormat('ko-KR', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
 
 const escapeReportText = (value: string | number | null | undefined): string => {
   return String(value ?? '')
@@ -164,7 +192,20 @@ const formatReportDate = (value: string): string => {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('ko-KR');
 };
 
+const formatQuizPercent = (value: number): string => {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+};
+
+const calculateTargetScore = (passCorrectCount: number, totalQuestionCount: number): number => {
+  if (totalQuestionCount <= 0) {
+    return 0;
+  }
+
+  return Math.ceil((passCorrectCount / totalQuestionCount) * 100);
+};
+
 const openProblemReportPrintWindow = (report: StudentProblemAttemptReport): void => {
+  const targetScore = calculateTargetScore(report.passCorrectCount, report.totalQuestionCount);
   const areaRows = report.areaStats
     .map(
       (area) => `
@@ -194,52 +235,200 @@ const openProblemReportPrintWindow = (report: StudentProblemAttemptReport): void
         <meta charset="utf-8" />
         <title>${escapeReportText(report.examName)} 결과 리포트</title>
         <style>
-          body { margin: 0; padding: 40px; color: #111827; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-          h1 { margin: 0 0 28px; font-size: 28px; }
-          h2 { margin: 28px 0 12px; font-size: 20px; }
-          ul { margin: 0; padding-left: 22px; line-height: 1.9; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th, td { padding: 10px 8px; border-bottom: 1px solid #d1d5db; text-align: left; }
-          th { color: #4b5563; font-size: 13px; }
-          .result { font-size: 22px; font-weight: 800; }
-          @media print { body { padding: 24px; } }
+          @page { margin: 18mm 16mm; }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            color: #111827;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 16px;
+            font-weight: 650;
+          }
+          h1 {
+            margin: 0 0 30px;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 0;
+          }
+          h2 {
+            margin: 0 0 14px;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 0;
+          }
+          .section {
+            margin: 0 0 30px;
+            break-inside: avoid;
+          }
+          .tableBox,
+          .summary,
+          .verdict {
+            overflow: hidden;
+            border: 1px solid #d1d5db;
+            border-radius: 14px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          th,
+          td {
+            min-height: 48px;
+            padding: 13px 15px;
+            border-right: 1px solid #d1d5db;
+            border-bottom: 1px solid #d1d5db;
+            color: #111827;
+            font-size: 16px;
+            font-weight: 650;
+            line-height: 1.35;
+            text-align: left;
+          }
+          th {
+            width: 14.5%;
+            background: #f3f4f6;
+          }
+          td {
+            width: 35.5%;
+            background: #ffffff;
+          }
+          tr:last-child th,
+          tr:last-child td {
+            border-bottom: 0;
+          }
+          th:last-child,
+          td:last-child {
+            border-right: 0;
+          }
+          .summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            min-height: 88px;
+            align-items: center;
+            text-align: center;
+          }
+          .summary div {
+            display: grid;
+            gap: 17px;
+            padding: 17px 16px;
+            border-right: 1px solid #d1d5db;
+          }
+          .summary div:last-child {
+            border-right: 0;
+          }
+          .summary strong {
+            font-size: 21px;
+            font-weight: 800;
+          }
+          .verdict {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            min-height: 82px;
+            align-items: center;
+            background: #f9fafb;
+          }
+          .verdictResult {
+            display: flex;
+            justify-content: center;
+            gap: 28px;
+            padding: 22px 16px;
+            border-right: 1px solid #d1d5db;
+            font-size: 20px;
+            font-weight: 800;
+          }
+          .verdictScores {
+            display: grid;
+            gap: 14px;
+            padding: 18px 32px;
+          }
+          .verdictScores div {
+            display: grid;
+            grid-template-columns: 92px minmax(0, 1fr);
+            gap: 16px;
+          }
+          .result {
+            color: ${report.passed ? '#34b29f' : '#dd383e'};
+            font-size: 22px;
+            font-weight: 800;
+          }
+          .analysis th,
+          .analysis td,
+          .overall th,
+          .overall td {
+            width: auto;
+          }
+          .analysis th,
+          .overall th {
+            color: #4b5563;
+          }
+          .overall th,
+          .overall td {
+            width: 33.333%;
+          }
         </style>
       </head>
       <body>
         <h1>문제 결과 리포트</h1>
-        <h2>■ 기본 정보</h2>
-        <ul>
-          <li>응시자: ${escapeReportText(report.applicantName)}</li>
-          <li>시험명: ${escapeReportText(report.examName)}</li>
-          <li>응시일: ${escapeReportText(formatReportDate(report.submittedAt))}</li>
-          <li>총 문항 수: ${String(report.totalQuestionCount)}문항</li>
-        </ul>
+        <section class="section">
+          <h2>기본 정보</h2>
+          <div class="tableBox">
+            <table>
+              <tbody>
+                <tr>
+                  <th>응시자</th>
+                  <td>${escapeReportText(report.applicantName)}</td>
+                  <th>시험명</th>
+                  <td>${escapeReportText(report.examName)}</td>
+                </tr>
+                <tr>
+                  <th>응시일</th>
+                  <td>${escapeReportText(formatReportDate(report.submittedAt))}</td>
+                  <th>총 문항 수</th>
+                  <td>${String(report.totalQuestionCount)}문항</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-        <h2>■ 결과 요약</h2>
-        <ul>
-          <li>정답 수: ${String(report.correctCount)}문항</li>
-          <li>오답 수: ${String(report.wrongCount)}문항</li>
-          <li>정답률: ${String(report.correctRate)}%</li>
-        </ul>
+        <section class="section">
+          <h2>결과 요약</h2>
+          <div class="summary">
+            <div>정답 수<strong>${String(report.correctCount)}문항</strong></div>
+            <div>오답 수<strong>${String(report.wrongCount)}문항</strong></div>
+            <div>정답률<strong>${String(report.correctRate)}%</strong></div>
+          </div>
+        </section>
 
-        <h2>■ 최종 판정</h2>
-        <ul>
-          <li class="result">결과: ${report.passed ? 'PASS' : 'FAIL'}</li>
-          <li>기준 점수: ${String(report.passCorrectCount)}개 이상 정답 = 합격</li>
-          <li>현재 점수: ${String(report.score)}점</li>
-        </ul>
+        <section class="section">
+          <h2>최종 판정</h2>
+          <div class="verdict">
+            <div class="verdictResult"><span>결과</span><span class="result">${report.passed ? 'PASS' : 'FAIL'}</span></div>
+            <div class="verdictScores">
+              <div>기준 점수&nbsp;&nbsp; ${String(targetScore)}점 이상 취득 시 합격</div>
+              <div>현재 점수&nbsp;&nbsp; ${String(report.score)}점</div>
+            </div>
+          </div>
+        </section>
 
-        <h2>■ 오답 분석</h2>
-        <table>
-          <thead><tr><th>영역</th><th>틀린 개수 / 총문제수</th></tr></thead>
-          <tbody>${areaRows}</tbody>
-        </table>
+        <section class="section">
+          <h2>오답 분석</h2>
+          <div class="tableBox">
+            <table class="analysis">
+              <thead><tr><th>영역</th><th>틀린 개수 / 총 문제 수</th></tr></thead>
+              <tbody>${areaRows}</tbody>
+            </table>
+          </div>
+        </section>
 
-        <h2>■ 전체 결과</h2>
-        <table>
-          <thead><tr><th>문항</th><th>결과</th><th>문제 영역</th></tr></thead>
-          <tbody>${questionRows}</tbody>
-        </table>
+        <section class="section">
+          <h2>전체 결과</h2>
+          <div class="tableBox">
+            <table class="overall">
+              <thead><tr><th>문항</th><th>결과</th><th>문제 영역</th></tr></thead>
+              <tbody>${questionRows}</tbody>
+            </table>
+          </div>
+        </section>
         <script>
           window.addEventListener('load', () => {
             window.focus();
@@ -309,6 +498,9 @@ const PlayerPage = () => {
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [arePlayerControlsVisible, setArePlayerControlsVisible] = useState(true);
+  const [playbackWatermarkPositionIndex, setPlaybackWatermarkPositionIndex] = useState(0);
+  const [playbackWatermarkClock, setPlaybackWatermarkClock] = useState(() => new Date());
+  const [isPlaybackWatermarkEmphasized, setIsPlaybackWatermarkEmphasized] = useState(false);
   const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
   const [lessonProgressByLessonId, setLessonProgressByLessonId] = useState<
     Partial<Record<string, LearningPlayerLessonProgress>>
@@ -324,6 +516,7 @@ const PlayerPage = () => {
   const [quizClockAnchor, setQuizClockAnchor] = useState<QuizClockAnchor | null>(null);
   const [quizClockNowMs, setQuizClockNowMs] = useState(() => Date.now());
   const [quizElapsedSeconds, setQuizElapsedSeconds] = useState(0);
+  const [isQuizSessionStartLocked, setIsQuizSessionStartLocked] = useState(false);
   const [quizAttemptResult, setQuizAttemptResult] = useState<StudentProblemAttemptResult | null>(
     null,
   );
@@ -355,6 +548,7 @@ const PlayerPage = () => {
   const quizSessionDirtyRef = useRef(false);
   const quizSessionSaveInFlightRef = useRef(false);
   const quizAutoSubmitTriggeredRef = useRef(false);
+  const quizSessionStartLockedRef = useRef(false);
   const defaultPlayerItemId = getDefaultPlayerItemId(snapshot, playerItems);
   const resolvedItemId = playerItems.some((item) => item.id === params.lessonId)
     ? params.lessonId
@@ -364,14 +558,14 @@ const PlayerPage = () => {
     : null;
   const selectedLesson = selectedItem?.lesson ?? null;
 
-  const clearPlayerControlsHideTimer = () => {
+  const clearPlayerControlsHideTimer = useCallback(() => {
     if (playerControlsHideTimerRef.current !== null) {
       window.clearTimeout(playerControlsHideTimerRef.current);
       playerControlsHideTimerRef.current = null;
     }
-  };
+  }, []);
 
-  const schedulePlayerControlsHide = () => {
+  const schedulePlayerControlsHide = useCallback(() => {
     clearPlayerControlsHideTimer();
 
     if (!isVideoPlaying || activeSettingsPanel !== null) {
@@ -382,12 +576,27 @@ const PlayerPage = () => {
       setArePlayerControlsVisible(false);
       playerControlsHideTimerRef.current = null;
     }, PLAYER_CONTROLS_AUTO_HIDE_MS);
-  };
+  }, [activeSettingsPanel, clearPlayerControlsHideTimer, isVideoPlaying]);
 
-  const revealPlayerControls = () => {
+  const revealPlayerControls = useCallback(() => {
     setArePlayerControlsVisible(true);
     schedulePlayerControlsHide();
-  };
+  }, [schedulePlayerControlsHide]);
+
+  const hidePlayerControlsForPlayback = useCallback(() => {
+    clearPlayerControlsHideTimer();
+
+    if (!isVideoPlaying || activeSettingsPanel !== null) {
+      setArePlayerControlsVisible(true);
+      return;
+    }
+
+    setArePlayerControlsVisible(false);
+  }, [activeSettingsPanel, clearPlayerControlsHideTimer, isVideoPlaying]);
+  const releaseQuizSessionStartLock = useCallback(() => {
+    quizSessionStartLockedRef.current = false;
+    setIsQuizSessionStartLocked(false);
+  }, []);
   const completedLessonIds = useMemo(() => {
     const lessonIds = new Set(snapshot?.completedLessonIds ?? []);
     Object.entries(lessonProgressByLessonId)
@@ -452,6 +661,20 @@ const PlayerPage = () => {
     retry: false,
   });
   const protectedStream = lectureStreamQuery.data ?? null;
+  const playbackWatermarkText = protectedStream?.playbackWatermarkText.trim() ?? '';
+  const playbackWatermarkSessionCode = protectedStream?.playbackWatermarkSessionCode.trim() ?? '';
+  const playbackWatermarkTimestamp = playbackWatermarkDateFormatter.format(playbackWatermarkClock);
+  const playbackWatermarkCompactText =
+    playbackWatermarkText && playbackWatermarkSessionCode
+      ? `${playbackWatermarkText} · ${playbackWatermarkSessionCode}`
+      : playbackWatermarkText;
+  const playbackWatermarkDetailText = playbackWatermarkCompactText
+    ? `${playbackWatermarkCompactText} · ${playbackWatermarkTimestamp}`
+    : '';
+  const playbackWatermarkPosition =
+    PLAYBACK_WATERMARK_POSITIONS[
+      playbackWatermarkPositionIndex % PLAYBACK_WATERMARK_POSITIONS.length
+    ];
   const quizQuery = useQuery<StudentProblem | null>({
     queryKey: ['student-problem', selectedLectureId],
     queryFn: () => fetchStudentProblem(selectedLectureId as number),
@@ -521,6 +744,7 @@ const PlayerPage = () => {
   const startQuizSessionMutation = useMutation({
     mutationFn: (quizId: number) => startStudentProblemSession(quizId),
     onError: (error: unknown) => {
+      releaseQuizSessionStartLock();
       showToast({
         message: error instanceof Error ? error.message : '문제 풀이를 시작하지 못했습니다.',
         variant: 'error',
@@ -538,6 +762,7 @@ const PlayerPage = () => {
           message: '이미 제출한 문제입니다.',
           variant: 'info',
         });
+        releaseQuizSessionStartLock();
         return;
       }
 
@@ -572,6 +797,7 @@ const PlayerPage = () => {
       if (selectedLesson?.id) {
         setQuizAttemptedLessonIds((current) => new Set([...current, selectedLesson.id]));
       }
+      releaseQuizSessionStartLock();
       quizSessionDirtyRef.current = false;
       void queryClient.invalidateQueries({
         queryKey: myLearningPlayerQueryKey(resolvedEnrollmentId),
@@ -867,7 +1093,7 @@ const PlayerPage = () => {
     setIsOfflineMonthPickerOpen(false);
   }, [firstOfflineDate, isOfflineLesson, selectedLesson?.id]);
 
-  const quizQuestions = quizQuery.data?.questions ?? [];
+  const quizQuestions = useMemo(() => quizQuery.data?.questions ?? [], [quizQuery.data?.questions]);
   const quizTimeLimitSeconds =
     quizQuery.data?.timeLimitSeconds ?? selectedLesson?.problemTimeLimitSeconds ?? null;
   const quizEffectiveElapsedSeconds = resolveQuizElapsedSeconds(
@@ -898,9 +1124,11 @@ const PlayerPage = () => {
     !quizAttemptResult;
   const shouldShowSubmittedWithoutResult =
     quizQuery.data?.session?.status === 'SUBMITTED' && !quizAttemptResult;
+  const canRetakeQuiz = quizQuery.data?.retakeAllowed ?? false;
   const shouldShowQuizQuestion =
     Boolean(currentQuizQuestion) &&
     (isQuizSessionActive || Boolean(quizAttemptResult && quizReviewMode));
+  const shouldShowQuizResultPage = Boolean(quizAttemptResult && !quizReviewMode);
   const shouldShowQuizQuestionNavigator =
     isQuizQuestionListExpanded && Boolean(isQuizSessionActive || quizAttemptResult);
   const shouldShowQuizNavigatorEmptyText =
@@ -909,6 +1137,35 @@ const PlayerPage = () => {
     ? (quizAttemptResult?.results.find((result) => result.questionId === currentQuizQuestion.id) ??
       null)
     : null;
+  const quizQuestionById = useMemo(() => {
+    return new Map(quizQuestions.map((question) => [question.id, question]));
+  }, [quizQuestions]);
+  const quizResultReviewIndex = clampQuestionIndex(
+    quizCurrentQuestionIndex,
+    quizAttemptResult?.results.length ?? quizQuestions.length,
+  );
+  const currentQuizReviewResult = quizAttemptResult?.results[quizResultReviewIndex] ?? null;
+  const currentQuizReviewQuestion = currentQuizReviewResult
+    ? (quizQuestionById.get(currentQuizReviewResult.questionId) ?? null)
+    : null;
+  const quizResultTotalCount = quizAttemptResult?.results.length ?? quizQuestions.length;
+  const quizResultCorrectCount =
+    quizAttemptResult?.correctCount ??
+    quizAttemptResult?.results.filter((result) => result.correct).length ??
+    0;
+  const quizResultWrongCount =
+    quizAttemptResult?.wrongCount ??
+    (quizAttemptResult
+      ? Math.max(0, quizAttemptResult.results.length - quizResultCorrectCount)
+      : 0);
+  const quizResultCorrectRate =
+    quizAttemptResult?.correctRate ??
+    (quizResultTotalCount > 0
+      ? Math.round((quizResultCorrectCount / quizResultTotalCount) * 100)
+      : 0);
+  const quizResultTargetScore = quizAttemptResult
+    ? calculateTargetScore(quizAttemptResult.passCorrectCount, quizResultTotalCount)
+    : 0;
 
   const persistProgress = useEffectEvent(
     async (
@@ -1070,9 +1327,10 @@ const PlayerPage = () => {
     setQuizElapsedSeconds(0);
     quizSessionDirtyRef.current = false;
     quizAutoSubmitTriggeredRef.current = false;
+    releaseQuizSessionStartLock();
     setQuizAttemptResult(null);
     setQuizReviewMode(false);
-  }, [selectedItem?.id]);
+  }, [releaseQuizSessionStartLock, selectedItem?.id]);
 
   useEffect(() => {
     if (!quizQuery.data || !isQuizMode) {
@@ -1103,7 +1361,8 @@ const PlayerPage = () => {
     setQuizReviewMode(false);
     quizSessionDirtyRef.current = false;
     quizAutoSubmitTriggeredRef.current = false;
-  }, [applyQuizSession, isQuizMode, quizQuery.data]);
+    releaseQuizSessionStartLock();
+  }, [applyQuizSession, isQuizMode, quizQuery.data, releaseQuizSessionStartLock]);
 
   useEffect(() => {
     if (!isQuizMode || !quizQuery.data || !isQuizSessionActive) {
@@ -1377,6 +1636,42 @@ const PlayerPage = () => {
   ]);
 
   useEffect(() => {
+    setPlaybackWatermarkPositionIndex(0);
+    setPlaybackWatermarkClock(new Date());
+    setIsPlaybackWatermarkEmphasized(false);
+
+    if (!protectedStream?.playbackWatermarkText) {
+      return;
+    }
+
+    const positionTimer = window.setInterval(() => {
+      setPlaybackWatermarkPositionIndex((current) => current + 1);
+    }, PLAYBACK_WATERMARK_POSITION_INTERVAL_MS);
+    const clockTimer = window.setInterval(() => {
+      setPlaybackWatermarkClock(new Date());
+    }, PLAYBACK_WATERMARK_CLOCK_INTERVAL_MS);
+    let emphasisTimeoutId: number | null = null;
+    const emphasisTimer = window.setInterval(() => {
+      setIsPlaybackWatermarkEmphasized(true);
+      if (emphasisTimeoutId !== null) {
+        window.clearTimeout(emphasisTimeoutId);
+      }
+      emphasisTimeoutId = window.setTimeout(() => {
+        setIsPlaybackWatermarkEmphasized(false);
+      }, PLAYBACK_WATERMARK_EMPHASIS_DURATION_MS);
+    }, PLAYBACK_WATERMARK_EMPHASIS_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(positionTimer);
+      window.clearInterval(clockTimer);
+      window.clearInterval(emphasisTimer);
+      if (emphasisTimeoutId !== null) {
+        window.clearTimeout(emphasisTimeoutId);
+      }
+    };
+  }, [protectedStream?.playbackSessionToken, protectedStream?.playbackWatermarkText]);
+
+  useEffect(() => {
     const videoElement = videoRef.current;
     const playbackSessionToken = protectedStream?.playbackSessionToken ?? '';
     const selectedHlsKeyUrl = normalizeProtectedHlsKeyUrl(protectedStream?.hlsKeyUrl ?? '');
@@ -1567,7 +1862,13 @@ const PlayerPage = () => {
     schedulePlayerControlsHide();
 
     return clearPlayerControlsHideTimer;
-  }, [activeSettingsPanel, isVideoPlaying, selectedLessonHasStream]);
+  }, [
+    activeSettingsPanel,
+    clearPlayerControlsHideTimer,
+    isVideoPlaying,
+    schedulePlayerControlsHide,
+    selectedLessonHasStream,
+  ]);
 
   const isLoading = playerSnapshotQuery.isLoading;
   const hasError = playerSnapshotQuery.isError;
@@ -1714,6 +2015,10 @@ const PlayerPage = () => {
     togglePlayback();
   };
 
+  const handlePlayerFrameMouseLeave = () => {
+    hidePlayerControlsForPlayback();
+  };
+
   const requestPlayerFullscreen = () => {
     const videoElement = videoRef.current;
 
@@ -1783,10 +2088,12 @@ const PlayerPage = () => {
 
   const handleQuizStart = () => {
     const problem = quizQuery.data;
-    if (!problem || startQuizSessionMutation.isPending) {
+    if (!problem || startQuizSessionMutation.isPending || quizSessionStartLockedRef.current) {
       return;
     }
 
+    quizSessionStartLockedRef.current = true;
+    setIsQuizSessionStartLocked(true);
     startQuizSessionMutation.mutate(problem.id);
   };
 
@@ -1845,6 +2152,40 @@ const PlayerPage = () => {
     }
 
     return <img alt={alt} className={className} src={resolvedMediaUrl} />;
+  };
+
+  const formatQuizOptionLabels = (
+    question: StudentProblem['questions'][number] | null,
+    optionIds: number[],
+  ) => {
+    if (!question || optionIds.length === 0) {
+      return '-';
+    }
+
+    const optionLabelById = new Map(
+      question.options.map((option, optionIndex) => [
+        option.id,
+        `${String(optionIndex + 1)}. ${option.optionText}`,
+      ]),
+    );
+
+    return optionIds
+      .map((optionId) => optionLabelById.get(optionId) ?? String(optionId))
+      .join(', ');
+  };
+
+  const formatQuizQuestionTypeLabel = (
+    questionType: StudentProblem['questions'][number]['questionType'] | undefined,
+  ) => {
+    if (questionType === 'MULTIPLE') {
+      return '복수 선택';
+    }
+
+    if (questionType === 'TRUE_FALSE') {
+      return '진위형';
+    }
+
+    return '단일 선택';
   };
 
   const renderPracticumLegend = () => (
@@ -2189,6 +2530,11 @@ const PlayerPage = () => {
       return null;
     }
 
+    const reportTargetScore = calculateTargetScore(
+      problemReport.passCorrectCount,
+      problemReport.totalQuestionCount,
+    );
+
     return (
       <Modal
         bodyClassName={styles['problemReportModalBody']}
@@ -2205,20 +2551,20 @@ const PlayerPage = () => {
         <div className={styles['problemReportContent']}>
           <section className={styles['problemReportSection']}>
             <h3 className={styles['problemReportSectionTitle']}>기본 정보</h3>
-            <dl className={styles['problemReportDefinitionList']}>
-              <div>
+            <dl className={styles['problemReportInfoGrid']}>
+              <div className={styles['problemReportInfoCell']}>
                 <dt>응시자</dt>
                 <dd>{problemReport.applicantName}</dd>
               </div>
-              <div>
+              <div className={styles['problemReportInfoCell']}>
                 <dt>시험명</dt>
                 <dd>{problemReport.examName}</dd>
               </div>
-              <div>
+              <div className={styles['problemReportInfoCell']}>
                 <dt>응시일</dt>
                 <dd>{formatReportDate(problemReport.submittedAt)}</dd>
               </div>
-              <div>
+              <div className={styles['problemReportInfoCell']}>
                 <dt>총 문항 수</dt>
                 <dd>{problemReport.totalQuestionCount}문항</dd>
               </div>
@@ -2245,25 +2591,27 @@ const PlayerPage = () => {
 
           <section className={styles['problemReportSection']}>
             <h3 className={styles['problemReportSectionTitle']}>최종 판정</h3>
-            <dl className={styles['problemReportDefinitionList']}>
-              <div>
-                <dt>결과</dt>
-                <dd
+            <div className={styles['problemReportVerdictBox']}>
+              <div className={styles['problemReportVerdictResult']}>
+                <span>결과</span>
+                <strong
                   className={styles['problemReportFinalResult']}
                   data-passed={problemReport.passed}
                 >
                   {problemReport.passed ? 'PASS' : 'FAIL'}
-                </dd>
+                </strong>
               </div>
-              <div>
-                <dt>기준 점수</dt>
-                <dd>{problemReport.passCorrectCount}개 이상 정답 = 합격</dd>
-              </div>
-              <div>
-                <dt>현재 점수</dt>
-                <dd>{problemReport.score}점</dd>
-              </div>
-            </dl>
+              <dl className={styles['problemReportVerdictScoreList']}>
+                <div>
+                  <dt>기준 점수</dt>
+                  <dd>{String(reportTargetScore)}점 이상 취득 시 합격</dd>
+                </div>
+                <div>
+                  <dt>현재 점수</dt>
+                  <dd>{problemReport.score}점</dd>
+                </div>
+              </dl>
+            </div>
           </section>
 
           <section className={styles['problemReportSection']}>
@@ -2329,15 +2677,22 @@ const PlayerPage = () => {
 
           <div className={styles['problemReportModalActions']}>
             <Button
+              className={styles['problemReportPrintButton']}
               onClick={() => {
                 openProblemReportPrintWindow(problemReport);
               }}
               type='button'
               variant='primary'
             >
-              인쇄
+              <span>인쇄하기</span>
+              <span
+                aria-hidden='true'
+                className={styles['problemReportPrintIcon']}
+                style={playerPrinterIconStyle}
+              />
             </Button>
             <Button
+              className={styles['problemReportCloseButton']}
               onClick={() => {
                 setProblemReport(null);
               }}
@@ -2731,18 +3086,22 @@ const PlayerPage = () => {
       <nav aria-label='문제 문항 목록' className={styles['quizNavigatorList']}>
         {quizQuestions.map((question, index) => {
           const isCurrentQuestion = question.id === currentQuizQuestion?.id;
-          const selectedOptionIds = quizAnswers[question.id] ?? [];
+          const result = quizAttemptResult?.results.find((item) => item.questionId === question.id);
+          const selectedOptionIds = result?.submittedOptionIds ?? quizAnswers[question.id] ?? [];
           const isFlagged = quizFlaggedQuestionIds.has(question.id);
           const selectedAnswerLabel = formatSelectedQuizAnswerLabel(question, selectedOptionIds);
+          const resultStatusLabel = result ? (result.correct ? '정답' : '오답') : null;
           const sidebarStatusLabel = getQuizSidebarStatusLabel(
             selectedOptionIds,
             isFlagged,
             isCurrentQuestion,
           );
           const shouldShowSidebarStatus = isCurrentQuestion || isFlagged;
-          const displayedStatusLabel = shouldShowSidebarStatus
-            ? sidebarStatusLabel
-            : (selectedAnswerLabel ?? sidebarStatusLabel);
+          const displayedStatusLabel =
+            resultStatusLabel ??
+            (shouldShowSidebarStatus
+              ? sidebarStatusLabel
+              : (selectedAnswerLabel ?? sidebarStatusLabel));
 
           return (
             <button
@@ -2771,9 +3130,15 @@ const PlayerPage = () => {
                 <span
                   className={classNames(
                     styles['quizNavigatorStateBadge'],
-                    selectedAnswerLabel && styles['quizNavigatorStateBadgeAnswered'],
-                    !selectedAnswerLabel && isFlagged && styles['quizNavigatorStateBadgeFlagged'],
-                    !selectedAnswerLabel &&
+                    (result?.correct || selectedAnswerLabel) &&
+                      styles['quizNavigatorStateBadgeAnswered'],
+                    result && !result.correct && styles['quizNavigatorStateBadgeWrong'],
+                    !result &&
+                      !selectedAnswerLabel &&
+                      isFlagged &&
+                      styles['quizNavigatorStateBadgeFlagged'],
+                    !result &&
+                      !selectedAnswerLabel &&
                       isCurrentQuestion &&
                       styles['quizNavigatorStateBadgeCurrent'],
                   )}
@@ -2785,6 +3150,205 @@ const PlayerPage = () => {
           );
         })}
       </nav>
+    );
+  };
+
+  const renderQuizResultPanel = () => {
+    if (!quizAttemptResult) {
+      return null;
+    }
+
+    const reviewQuestion = currentQuizReviewQuestion;
+    const reviewResult = currentQuizReviewResult;
+    const correctAnswerLabel = formatQuizOptionLabels(
+      reviewQuestion,
+      reviewResult?.correctOptionIds ?? [],
+    );
+    const submittedAnswerLabel = formatQuizOptionLabels(
+      reviewQuestion,
+      reviewResult?.submittedOptionIds ?? [],
+    );
+    const explanation = reviewResult?.explanation ?? reviewQuestion?.explanation ?? null;
+
+    return (
+      <div className={styles['quizResultPage']}>
+        <h2 className={styles['quizResultPageTitle']}>채점 결과</h2>
+
+        <section className={styles['quizScorePanel']} aria-label='채점 결과 요약'>
+          <div
+            className={styles['quizScoreBlock']}
+            data-passed={quizAttemptResult.passed ? 'true' : 'false'}
+          >
+            <span className={styles['quizScoreLabel']}>총점</span>
+            <div className={styles['quizScoreValueRow']}>
+              <strong className={styles['quizScoreValue']}>{quizAttemptResult.score}</strong>
+              <span className={styles['quizScoreTotal']}>/ 100</span>
+            </div>
+            <span className={styles['quizScoreCaption']}>최종 점수</span>
+          </div>
+
+          <div
+            className={styles['quizPassBlock']}
+            data-passed={quizAttemptResult.passed ? 'true' : 'false'}
+          >
+            <span className={styles['quizPassIcon']} aria-hidden='true'>
+              <span
+                className={styles['quizPassIconGlyph']}
+                style={
+                  quizAttemptResult.passed
+                    ? playerResultPassCheckIconStyle
+                    : playerResultRetryNeededIconStyle
+                }
+              />
+            </span>
+            <strong className={styles['quizPassTitle']}>
+              {quizAttemptResult.passed ? '통과' : '재도전 필요'}
+            </strong>
+            <span className={styles['quizPassCaption']}>
+              {quizAttemptResult.passed
+                ? '수고하셨습니다!'
+                : `목표 점수는 ${String(quizResultTargetScore)}점입니다.`}
+            </span>
+          </div>
+
+          <dl className={styles['quizResultStats']}>
+            <div className={styles['quizResultStat']}>
+              <dt>
+                <span className={styles['quizResultStatIcon']} data-tone='correct'>
+                  ✓
+                </span>
+                정답
+              </dt>
+              <dd>
+                <strong>{quizResultCorrectCount}</strong>
+                <span>문항</span>
+              </dd>
+            </div>
+            <div className={styles['quizResultStat']}>
+              <dt>
+                <span className={styles['quizResultStatIcon']} data-tone='wrong'>
+                  ×
+                </span>
+                오답
+              </dt>
+              <dd>
+                <strong>{quizResultWrongCount}</strong>
+                <span>문항</span>
+              </dd>
+            </div>
+            <div className={styles['quizResultStat']}>
+              <dt>
+                <span className={styles['quizResultStatIcon']} data-tone='rate'>
+                  !
+                </span>
+                정답률
+              </dt>
+              <dd>
+                <strong>{formatQuizPercent(quizResultCorrectRate)}</strong>
+                <span>%</span>
+              </dd>
+            </div>
+          </dl>
+
+          <div className={styles['quizResultButtonStack']}>
+            <button
+              className={styles['quizResultPrintButton']}
+              disabled={printProblemReportMutation.isPending}
+              onClick={() => {
+                printProblemReportMutation.mutate(quizAttemptResult.id);
+              }}
+              type='button'
+            >
+              {printProblemReportMutation.isPending ? '불러오는 중...' : '결과 출력'}
+            </button>
+            {canRetakeQuiz ? (
+              <button
+                className={styles['quizResultRetryButton']}
+                disabled={startQuizSessionMutation.isPending || isQuizSessionStartLocked}
+                onClick={handleQuizStart}
+                type='button'
+              >
+                재도전
+                <span
+                  aria-hidden='true'
+                  className={styles['quizResultRetryIcon']}
+                  style={playerRefreshCcwIconStyle}
+                />
+              </button>
+            ) : null}
+          </div>
+        </section>
+
+        <section className={styles['quizReviewPanel']} aria-label='문항 리뷰'>
+          <div className={styles['quizReviewHeader']}>
+            <div>
+              <h3 className={styles['quizReviewTitle']}>문항 리뷰</h3>
+              <p className={styles['quizReviewQuestionTitle']}>
+                <span>{String(quizResultReviewIndex + 1).padStart(2, '0')}</span>
+                {reviewResult?.questionText ?? reviewQuestion?.questionText ?? '문항 정보 없음'}
+              </p>
+            </div>
+
+            <div className={styles['quizReviewPager']} aria-label='문항 리뷰 이동'>
+              <button
+                aria-label='이전 문항'
+                disabled={quizResultReviewIndex === 0}
+                onClick={() => {
+                  moveToQuizQuestion(quizResultReviewIndex - 1);
+                }}
+                type='button'
+              />
+              <span>
+                <strong>{quizResultReviewIndex + 1}</strong>
+                <span>/</span>
+                <span>{quizResultTotalCount}</span>
+              </span>
+              <button
+                aria-label='다음 문항'
+                disabled={quizResultReviewIndex + 1 >= quizResultTotalCount}
+                onClick={() => {
+                  moveToQuizQuestion(quizResultReviewIndex + 1);
+                }}
+                type='button'
+              />
+            </div>
+          </div>
+
+          <div className={styles['quizReviewTable']}>
+            <div className={styles['quizReviewRow']}>
+              <div className={styles['quizReviewCellLabel']}>정답</div>
+              <div className={styles['quizReviewCellValue']} data-tone='correct'>
+                {correctAnswerLabel}
+              </div>
+              <div className={styles['quizReviewCellLabel']}>선택 답안</div>
+              <div className={styles['quizReviewCellValue']}>{submittedAnswerLabel}</div>
+            </div>
+            <div className={styles['quizReviewRow']}>
+              <div className={styles['quizReviewCellLabel']}>문제 유형</div>
+              <div className={styles['quizReviewCellValue']} data-span='3'>
+                {reviewResult?.problemAreaName ??
+                  reviewQuestion?.problemAreaName ??
+                  formatQuizQuestionTypeLabel(reviewQuestion?.questionType)}
+              </div>
+            </div>
+            <div className={styles['quizReviewExplanationRow']}>
+              <div className={styles['quizReviewCellLabel']}>해설</div>
+              <div className={styles['quizReviewExplanationBody']}>
+                <p>{explanation || '등록된 해설이 없습니다.'}</p>
+                {reviewQuestion
+                  ? renderQuizMedia(
+                      reviewQuestion.mediaType,
+                      reviewQuestion.mediaPreviewUrl,
+                      reviewQuestion.mediaUrl,
+                      `${String(quizResultReviewIndex + 1)}번 문항 해설 미디어`,
+                      styles['quizReviewMedia'],
+                    )
+                  : null}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     );
   };
 
@@ -2893,6 +3457,12 @@ const PlayerPage = () => {
                             onKeyDown={
                               selectedLessonHasStream ? handlePlayerFrameKeyDown : undefined
                             }
+                            onMouseEnter={
+                              selectedLessonHasStream ? revealPlayerControls : undefined
+                            }
+                            onMouseLeave={
+                              selectedLessonHasStream ? handlePlayerFrameMouseLeave : undefined
+                            }
                             onPointerDown={
                               selectedLessonHasStream ? revealPlayerControls : undefined
                             }
@@ -2925,6 +3495,24 @@ const PlayerPage = () => {
                                   preload='auto'
                                   ref={videoRef}
                                 />
+                                {playbackWatermarkCompactText ? (
+                                  <>
+                                    <div
+                                      aria-hidden='true'
+                                      className={styles['playbackWatermark']}
+                                      data-position={playbackWatermarkPosition}
+                                    >
+                                      {playbackWatermarkCompactText}
+                                    </div>
+                                    <div
+                                      aria-hidden='true'
+                                      className={styles['playbackWatermarkEmphasis']}
+                                      data-visible={isPlaybackWatermarkEmphasized}
+                                    >
+                                      {playbackWatermarkDetailText}
+                                    </div>
+                                  </>
+                                ) : null}
                               </>
                             ) : (
                               <div className={styles['playerPlaceholder']}>
@@ -3187,26 +3775,39 @@ const PlayerPage = () => {
                 ) : null}
 
                 {isQuizMode ? (
-                  <section className={classNames(styles['stageCard'], styles['quizStageCard'])}>
-                    <div className={classNames(styles['stageHeader'], styles['quizStageHeader'])}>
-                      <div className={styles['stageCopy']}>
-                        <h1 className={styles['lessonTitle']}>{selectedLesson?.title}</h1>
-                      </div>
-                      <div className={styles['quizTimerCard']} aria-label='현재 강의 정보'>
-                        {selectedLesson ? (
-                          <span className={styles['srOnly']}>
-                            {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
+                  <section
+                    className={classNames(
+                      styles['stageCard'],
+                      styles['quizStageCard'],
+                      shouldShowQuizResultPage && styles['quizResultStageCard'],
+                    )}
+                  >
+                    {!shouldShowQuizResultPage ? (
+                      <div className={classNames(styles['stageHeader'], styles['quizStageHeader'])}>
+                        <div className={styles['stageCopy']}>
+                          <h1 className={styles['lessonTitle']}>{selectedLesson?.title}</h1>
+                        </div>
+                        <div className={styles['quizTimerCard']} aria-label='현재 강의 정보'>
+                          {selectedLesson ? (
+                            <span className={styles['srOnly']}>
+                              {LESSON_TYPE_LABELS[selectedLesson.deliveryType]}
+                            </span>
+                          ) : null}
+                          <span className={styles['quizTimerLabel']}>
+                            <span aria-hidden='true' className={styles['quizTimerIcon']} />
+                            남은 시간
                           </span>
-                        ) : null}
-                        <span className={styles['quizTimerLabel']}>
-                          <span aria-hidden='true' className={styles['quizTimerIcon']} />
-                          남은 시간
-                        </span>
-                        <span className={styles['quizTimerValue']}>{quizRemainingTimeLabel}</span>
+                          <span className={styles['quizTimerValue']}>{quizRemainingTimeLabel}</span>
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
 
-                    <section className={styles['quizWorkspace']}>
+                    <section
+                      className={classNames(
+                        styles['quizWorkspace'],
+                        shouldShowQuizResultPage && styles['quizResultWorkspace'],
+                      )}
+                    >
                       {quizQuery.isLoading ? (
                         <p className={styles['quizMutedText']}>문제 정보를 불러오는 중입니다.</p>
                       ) : quizQuery.isError ? (
@@ -3234,12 +3835,16 @@ const PlayerPage = () => {
                                   </p>
                                 </div>
                                 <Button
-                                  disabled={startQuizSessionMutation.isPending}
+                                  disabled={
+                                    startQuizSessionMutation.isPending || isQuizSessionStartLocked
+                                  }
                                   onClick={handleQuizStart}
                                   size='sm'
                                   type='button'
                                 >
-                                  {startQuizSessionMutation.isPending ? '시작 중...' : '시작하기'}
+                                  {startQuizSessionMutation.isPending || isQuizSessionStartLocked
+                                    ? '시작 중...'
+                                    : '시작하기'}
                                 </Button>
                               </div>
                               <div className={styles['quizStartMetaGrid']}>
@@ -3466,67 +4071,7 @@ const PlayerPage = () => {
                             </p>
                           ) : null}
 
-                          {quizAttemptResult && !quizReviewMode ? (
-                            <div className={styles['quizResultCard']}>
-                              <div className={styles['quizResultHeader']}>
-                                <strong className={styles['quizResultTitle']}>채점 결과</strong>
-                                <span
-                                  className={classNames(
-                                    styles['quizResultBadge'],
-                                    quizAttemptResult.passed && styles['quizResultBadgePassed'],
-                                  )}
-                                >
-                                  {quizAttemptResult.score}점
-                                </span>
-                              </div>
-                              <div className={styles['quizResultActions']}>
-                                <Button
-                                  disabled={printProblemReportMutation.isPending}
-                                  onClick={() => {
-                                    printProblemReportMutation.mutate(quizAttemptResult.id);
-                                  }}
-                                  size='sm'
-                                  type='button'
-                                  variant='primary'
-                                >
-                                  {printProblemReportMutation.isPending
-                                    ? '불러오는 중...'
-                                    : '결과 출력'}
-                                </Button>
-                                <Button
-                                  onClick={() => {
-                                    setQuizReviewMode(true);
-                                  }}
-                                  size='sm'
-                                  type='button'
-                                  variant='secondary'
-                                >
-                                  문항 다시 보기
-                                </Button>
-                              </div>
-
-                              <table className={styles['quizResultTable']}>
-                                <thead>
-                                  <tr>
-                                    <th scope='col'>문항</th>
-                                    <th scope='col'>결과</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {quizAttemptResult.results.map((result, resultIndex) => (
-                                    <tr key={result.questionId}>
-                                      <td>{resultIndex + 1}번</td>
-                                      <td>
-                                        <span className={styles['quizResultMark']}>
-                                          {result.correct ? 'O' : 'X'}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : null}
+                          {shouldShowQuizResultPage ? renderQuizResultPanel() : null}
                         </>
                       )}
                     </section>

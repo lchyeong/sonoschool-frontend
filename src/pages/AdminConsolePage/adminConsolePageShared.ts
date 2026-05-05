@@ -106,7 +106,7 @@ export const sectionContent = {
   qna: {
     description: '',
     eyebrow: '',
-    title: '문의 답변 관리',
+    title: 'Q&A 관리',
   },
   enrollments: {
     description: '',

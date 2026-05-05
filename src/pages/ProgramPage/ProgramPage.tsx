@@ -5,14 +5,10 @@ import { useProgramPageQuery } from '@/query/useProgramPageQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { classNames } from '@/utils/classNames';
 
-import {
-  ProgramArchiveLectureCardItem,
-  ProgramBreadcrumbs,
-} from '../ProgramsPage/programCatalogShared';
-import { useProgramCatalogActions } from '../ProgramsPage/useProgramCatalogActions';
-
+import { ProgramArchiveLectureCardItem, ProgramBreadcrumbs } from './programCatalogShared';
 import styles from './ProgramPage.module.scss';
 import ProgramPageDetail from './ProgramPageDetail';
+import { useProgramCatalogActions } from './useProgramCatalogActions';
 
 const ProgramPage = () => {
   // `/programs/*` 아래에서는 URL 전체가 현재 보고 싶은 교육과정 페이지의 식별자 역할을 합니다.
@@ -23,6 +19,7 @@ const ProgramPage = () => {
     addedCartItem,
     cartProgramIds,
     closeAddedCartModal,
+    enrolledProgramIds,
     handleAddToCart,
     handleSubscribeAlert,
     isAddToCartPending,
@@ -50,7 +47,7 @@ const ProgramPage = () => {
           헤더 메뉴 구조와 프로그램 API 응답을 다시 확인해 주세요.
         </p>
         <div className={styles['stateActionRow']}>
-          <Link className={styles['primaryActionLink']} to={routePaths.programs}>
+          <Link className={styles['primaryActionLink']} to={routePaths.homeFeaturedCourses}>
             전체 교육과정 보기
           </Link>
           <Link className={styles['secondaryActionLink']} to={routePaths.contact}>
@@ -129,6 +126,10 @@ const ProgramPage = () => {
                       typeof lecture.programId === 'number' && cartProgramIds.has(lecture.programId)
                     }
                     isCartPending={isAddToCartPending(lecture.programId)}
+                    isEnrollmentOwned={
+                      typeof lecture.programId === 'number' &&
+                      enrolledProgramIds.has(lecture.programId)
+                    }
                     item={lecture}
                     key={lecture.id}
                     onAddToCart={handleAddToCart}
@@ -143,7 +144,7 @@ const ProgramPage = () => {
               <p className={styles['archiveEmptyDescription']}>
                 상위 교육과정으로 이동해 다른 카테고리의 모집 과정을 확인해 주세요.
               </p>
-              <Link className={styles['secondaryActionLink']} to={routePaths.programs}>
+              <Link className={styles['secondaryActionLink']} to={routePaths.homeFeaturedCourses}>
                 전체 교육과정 보기
               </Link>
             </div>

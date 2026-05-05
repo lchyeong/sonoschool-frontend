@@ -8,6 +8,7 @@ import {
   uploadAdminProblemMediaFile,
 } from '@/api/adminProblemMedia';
 import { createAdminProblem, deleteAdminProblem, updateAdminProblem } from '@/api/adminProblems';
+import checkIconSrc from '@/assets/icons/lucide_check.svg';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
 import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
@@ -61,8 +62,9 @@ interface ProblemQuestionFormState {
 }
 
 interface ProblemFormState {
-  passCorrectCount: string;
+  passScore: string;
   questions: ProblemQuestionFormState[];
+  retakeAllowed: boolean;
   timeLimitMinutes: string;
   title: string;
 }
@@ -116,8 +118,9 @@ const createEmptyQuestion = (): ProblemQuestionFormState => ({
 });
 
 const EMPTY_FORM: ProblemFormState = {
-  passCorrectCount: '1',
+  passScore: '80',
   questions: [createEmptyQuestion()],
+  retakeAllowed: false,
   timeLimitMinutes: '30',
   title: '',
 };
@@ -160,6 +163,14 @@ const formatAverageScore = (value: number | null) => {
   }
 
   return `${String(Math.round(value))}점`;
+};
+
+const calculatePassCorrectCount = (passScore: number, questionCount: number) => {
+  if (passScore <= 0 || questionCount <= 0) {
+    return 0;
+  }
+
+  return Math.ceil((questionCount * Math.min(passScore, 100)) / 100);
 };
 
 const renderQuestionMediaPreview = (
@@ -220,7 +231,7 @@ const createFormState = (problem: AdminProblem | null): ProblemFormState => {
   }
 
   return {
-    passCorrectCount: String(problem.passCorrectCount),
+    passScore: String(problem.passScore),
     questions: [...problem.questions]
       .sort((left, right) => left.sortOrder - right.sortOrder)
       .map((question) => ({
@@ -243,6 +254,7 @@ const createFormState = (problem: AdminProblem | null): ProblemFormState => {
     timeLimitMinutes: problem.timeLimitSeconds
       ? String(Math.ceil(problem.timeLimitSeconds / 60))
       : '',
+    retakeAllowed: problem.retakeAllowed,
     title: problem.title,
   };
 };
@@ -251,7 +263,8 @@ const toPayload = (
   formState: ProblemFormState,
   fallbackTitle: string,
 ): AdminProblemUpsertPayload => ({
-  passCorrectCount: Number(formState.passCorrectCount),
+  passScore: Number(formState.passScore),
+  retakeAllowed: formState.retakeAllowed,
   timeLimitSeconds: formState.timeLimitMinutes.trim()
     ? Math.max(1, Math.floor(Number(formState.timeLimitMinutes) * 60))
     : null,
@@ -276,12 +289,12 @@ const toPayload = (
 });
 
 const validateForm = (formState: ProblemFormState): string | null => {
-  if (!formState.passCorrectCount.trim() || Number.isNaN(Number(formState.passCorrectCount))) {
-    return '합격 기준 문항 수를 숫자로 입력해 주세요.';
+  if (!formState.passScore.trim() || Number.isNaN(Number(formState.passScore))) {
+    return '합격 점수를 숫자로 입력해 주세요.';
   }
 
-  if (Number(formState.passCorrectCount) < 0) {
-    return '합격 기준 문항 수는 0 이상이어야 합니다.';
+  if (Number(formState.passScore) < 0 || Number(formState.passScore) > 100) {
+    return '합격 점수는 0점 이상 100점 이하로 입력해 주세요.';
   }
 
   if (
@@ -463,6 +476,10 @@ const ProblemEditor = ({
   }, [formState.questions.length, selectedQuestionIndex]);
 
   const selectedQuestion = formState.questions.at(selectedQuestionIndex) ?? null;
+  const passScoreNumber = Number(formState.passScore);
+  const passCorrectCountPreview = Number.isFinite(passScoreNumber)
+    ? calculatePassCorrectCount(passScoreNumber, formState.questions.length)
+    : 0;
   const problemAreaOptions = useMemo(
     () =>
       (problemAreasQuery.data ?? []).map((area) => ({
@@ -663,16 +680,23 @@ const ProblemEditor = ({
           <div className={styles['compactFieldRow']}>
             <div className={styles['compactTextField']}>
               <TextField
-                label='합격 기준 문항 수'
-                name='problem-pass-correct-count'
+                label='합격 점수'
+                max={100}
+                min={0}
+                name='problem-pass-score'
                 onChange={(event) => {
                   setFormState((current) => ({
                     ...current,
-                    passCorrectCount: event.target.value,
+                    passScore: event.target.value,
                   }));
                 }}
-                value={formState.passCorrectCount}
+                type='number'
+                value={formState.passScore}
               />
+              <p className={styles['metaText']}>
+                현재 {String(formState.questions.length)}문항 기준 {String(passCorrectCountPreview)}
+                문항 이상 정답이면 합격입니다.
+              </p>
             </div>
             <div className={styles['compactTextField']}>
               <TextField
@@ -688,6 +712,22 @@ const ProblemEditor = ({
               />
             </div>
           </div>
+          <label className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}>
+            <input
+              checked={formState.retakeAllowed}
+              onChange={(event) => {
+                setFormState((current) => ({
+                  ...current,
+                  retakeAllowed: event.target.checked,
+                }));
+              }}
+              type='checkbox'
+            />
+            <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
+              {formState.retakeAllowed ? <img alt='' src={checkIconSrc} /> : null}
+            </span>
+            <span>재도전 허용</span>
+          </label>
         </div>
       </div>
 
@@ -1137,7 +1177,9 @@ const ProblemEditor = ({
                           value={option.optionText}
                         />
 
-                        <label className={styles['checkboxRow']}>
+                        <label
+                          className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}
+                        >
                           <input
                             checked={option.correct}
                             onChange={(event) => {
@@ -1172,7 +1214,10 @@ const ProblemEditor = ({
                             }}
                             type='checkbox'
                           />
-                          정답 보기
+                          <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
+                            {option.correct ? <img alt='' src={checkIconSrc} /> : null}
+                          </span>
+                          <span>정답 보기</span>
                         </label>
                       </article>
                     ))}

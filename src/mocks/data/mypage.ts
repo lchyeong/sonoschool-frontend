@@ -1632,6 +1632,8 @@ export const getMockLectureStream = (
     expiresAt: Math.floor(Date.now() / 1000) + 300,
     hlsKeyUrl: `/api/v1/lectures/${String(lectureId)}/hls-key`,
     hlsUrl: `${demoStreamUrl}?lectureId=${String(lectureId)}`,
+    playbackWatermarkSessionCode: 'MOCK',
+    playbackWatermarkText: '테스트회원 · ****1234',
     playbackSessionToken,
   };
 };

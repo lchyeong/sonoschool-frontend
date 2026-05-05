@@ -29,6 +29,9 @@ describe('appRouteRegistry', () => {
     expect(routePaths.adminNoticeEdit('7')).toBe('/admin/notices/7/edit');
     expect(routePaths.adminPopups).toBe(appRouteRegistry.routes.adminPopups.absolutePath);
     expect(routePaths.adminQna).toBe(appRouteRegistry.routes.adminQna.absolutePath);
+    expect(routePaths.adminQnaNoticeCreate).toBe(
+      appRouteRegistry.routes.adminQnaNoticeCreate.absolutePath,
+    );
     expect(routePaths.adminResources).toBe(appRouteRegistry.routes.adminResources.absolutePath);
     expect(routePaths.adminResourceCreate).toBe(
       appRouteRegistry.routes.adminResourceCreate.absolutePath,
@@ -96,6 +99,7 @@ describe('appRouteRegistry', () => {
     expect(appRouteAccessByKey.adminNoticeEdit).toBe('admin');
     expect(appRouteAccessByKey.adminPopups).toBe('admin');
     expect(appRouteAccessByKey.adminQna).toBe('admin');
+    expect(appRouteAccessByKey.adminQnaNoticeCreate).toBe('admin');
     expect(appRouteAccessByKey.adminResources).toBe('admin');
     expect(appRouteAccessByKey.adminResourceCreate).toBe('admin');
     expect(appRouteAccessByKey.adminResourceEdit).toBe('admin');
@@ -171,6 +175,10 @@ describe('appRouteRegistry', () => {
     });
     expect(getRouteHandle('admin/qna')).toEqual({
       routeKey: 'adminQna',
+      access: 'admin',
+    });
+    expect(getRouteHandle('admin/qna/notices/new')).toEqual({
+      routeKey: 'adminQnaNoticeCreate',
       access: 'admin',
     });
     expect(getRouteHandle('admin/resources')).toEqual({

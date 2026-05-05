@@ -1,20 +1,23 @@
 import { Fragment, useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 import {
-  createAdminQuestionNotice,
   createAdminQuestionReply,
   deleteAdminQuestionReply,
+  reorderAdminQuestionNotices,
 } from '@/api/qna';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import Pagination from '@/components/ui/Pagination/Pagination';
 import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
-import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
+import { TextAreaField } from '@/components/ui/TextField/TextField';
 import { adminQuestionsQueryKey, useAdminQuestionsQuery } from '@/query/useQnaQueries';
+import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
-import type { QuestionReplyItem, QuestionScope } from '@/types/qna';
+import type { QuestionItem, QuestionReplyItem, QuestionScope } from '@/types/qna';
+import { sanitizeRichTextHtml } from '@/utils/htmlContent';
 
 import styles from './AdminConsolePage.module.scss';
 
@@ -40,6 +43,22 @@ const SCOPE_FILTER_OPTIONS: Array<{ label: string; value: ScopeFilterValue }> = 
 
 const QNA_PAGE_SIZE = 6;
 
+const getNoticeSortOrder = (question: QuestionItem): number => {
+  return question.noticeSortOrder ?? 0;
+};
+
+const sortNoticeQuestions = (questions: readonly QuestionItem[]): QuestionItem[] => {
+  return [...questions].sort((left, right) => {
+    const orderDiff = getNoticeSortOrder(left) - getNoticeSortOrder(right);
+
+    if (orderDiff !== 0) {
+      return orderDiff;
+    }
+
+    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  });
+};
+
 const formatDateTime = (value: string): string => {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
@@ -49,6 +68,7 @@ const formatDateTime = (value: string): string => {
 };
 
 const AdminQnaSection = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const [scopeFilter, setScopeFilter] = useState<ScopeFilterValue>('ALL');
@@ -64,9 +84,6 @@ const AdminQnaSection = () => {
   });
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState('');
-  const [isNoticeFormOpen, setIsNoticeFormOpen] = useState(false);
-  const [noticeTitle, setNoticeTitle] = useState('');
-  const [noticeContent, setNoticeContent] = useState('');
 
   const questions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
   const totalPages = Math.max(1, Math.ceil(questions.length / QNA_PAGE_SIZE));
@@ -75,6 +92,9 @@ const AdminQnaSection = () => {
     return questions.slice((currentPage - 1) * QNA_PAGE_SIZE, currentPage * QNA_PAGE_SIZE);
   }, [currentPage, questions]);
   const allQuestions = useMemo(() => allQuestionsQuery.data ?? [], [allQuestionsQuery.data]);
+  const noticeQuestions = useMemo(() => {
+    return sortNoticeQuestions(allQuestions.filter((question) => question.notice));
+  }, [allQuestions]);
   const pendingCount = useMemo(() => {
     return allQuestions.filter((question) => !question.answered).length;
   }, [allQuestions]);
@@ -170,26 +190,39 @@ const AdminQnaSection = () => {
     },
   });
 
-  const createNoticeMutation = useMutation({
-    mutationFn: createAdminQuestionNotice,
+  const reorderNoticeMutation = useMutation({
+    mutationFn: ({ direction, questionId }: { direction: 'down' | 'up'; questionId: number }) => {
+      const currentIndex = noticeQuestions.findIndex((question) => question.id === questionId);
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= noticeQuestions.length) {
+        return Promise.resolve();
+      }
+
+      const nextQuestions = [...noticeQuestions];
+      const [movedQuestion] = nextQuestions.splice(currentIndex, 1);
+
+      nextQuestions.splice(targetIndex, 0, movedQuestion);
+
+      return reorderAdminQuestionNotices(
+        nextQuestions.map((question, index) => ({
+          id: question.id,
+          sortOrder: index,
+        })),
+      );
+    },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '운영 Q&A 공지 등록에 실패했습니다.',
+        message: error instanceof Error ? error.message : '공지 순서를 변경하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
-      setNoticeTitle('');
-      setNoticeContent('');
-      setIsNoticeFormOpen(false);
-      setScopeFilter('GLOBAL');
-      setAnsweredFilter('ALL');
-      setPage(1);
       await queryClient.invalidateQueries({
         queryKey: adminQuestionsQueryKey(),
       });
       showToast({
-        message: '운영 Q&A 공지를 등록했습니다.',
+        message: '공지 순서를 변경했습니다.',
         variant: 'success',
       });
     },
@@ -220,24 +253,6 @@ const AdminQnaSection = () => {
     setSelectedQuestionId((current) => (current === questionId ? null : questionId));
     setReplyContent('');
     setEditingReplyId(null);
-  };
-
-  const handleSubmitNotice = () => {
-    const trimmedTitle = noticeTitle.trim();
-    const trimmedContent = noticeContent.trim();
-
-    if (!trimmedTitle || !trimmedContent) {
-      showToast({
-        message: '공지 제목과 내용을 입력해 주세요.',
-        variant: 'error',
-      });
-      return;
-    }
-
-    void createNoticeMutation.mutateAsync({
-      content: trimmedContent,
-      title: trimmedTitle,
-    });
   };
 
   const handleStartEditReply = (reply: QuestionReplyItem) => {
@@ -284,79 +299,31 @@ const AdminQnaSection = () => {
             value={answeredFilter}
           />
         </div>
-        <UnifiedSearchBar
-          className={styles['adminSearchBarWide']}
-          inputAriaLabel='Q&A 검색'
-          onChange={(nextValue) => {
-            setKeyword(nextValue);
-            setSelectedQuestionId(null);
-            setEditingReplyId(null);
-            setReplyContent('');
-            setPage(1);
-          }}
-          onSubmit={() => undefined}
-          placeholder='제목, 내용, 작성자, 프로그램명 검색'
-          value={keyword}
-        />
-        <Button
-          onClick={() => {
-            setIsNoticeFormOpen((current) => !current);
-          }}
-          type='button'
-        >
-          {isNoticeFormOpen ? '공지 작성 닫기' : '공지 작성'}
-        </Button>
+        <div className={styles['qnaSearchActionRow']}>
+          <UnifiedSearchBar
+            className={styles['adminSearchBarWide']}
+            inputAriaLabel='Q&A 검색'
+            onChange={(nextValue) => {
+              setKeyword(nextValue);
+              setSelectedQuestionId(null);
+              setEditingReplyId(null);
+              setReplyContent('');
+              setPage(1);
+            }}
+            onSubmit={() => undefined}
+            placeholder='제목, 내용, 작성자, 프로그램명 검색'
+            value={keyword}
+          />
+          <Button
+            onClick={() => {
+              void navigate(routePaths.adminQnaNoticeCreate);
+            }}
+            type='button'
+          >
+            공지 작성
+          </Button>
+        </div>
       </div>
-
-      {isNoticeFormOpen ? (
-        <section className={styles['qnaNoticeComposer']}>
-          <div className={styles['sectionHeader']}>
-            <h2 className={styles['sectionTitle']}>운영 Q&A 공지 작성</h2>
-            <p className={styles['sectionDescription']}>
-              운영 Q&A 목록 상단에 노출할 공지글을 작성합니다.
-            </p>
-          </div>
-          <div className={styles['form']}>
-            <TextField
-              label='공지 제목'
-              name='adminQnaNoticeTitle'
-              onChange={(event) => {
-                setNoticeTitle(event.target.value);
-              }}
-              placeholder='공지 제목을 입력해 주세요.'
-              value={noticeTitle}
-            />
-            <TextAreaField
-              label='공지 내용'
-              name='adminQnaNoticeContent'
-              onChange={(event) => {
-                setNoticeContent(event.target.value);
-              }}
-              placeholder='공지 내용을 입력해 주세요.'
-              rows={5}
-              value={noticeContent}
-            />
-            <div className={styles['actionRow']}>
-              <Button
-                onClick={() => {
-                  setIsNoticeFormOpen(false);
-                }}
-                type='button'
-                variant='secondary'
-              >
-                취소
-              </Button>
-              <Button
-                disabled={createNoticeMutation.isPending}
-                onClick={handleSubmitNotice}
-                type='button'
-              >
-                {createNoticeMutation.isPending ? '등록 중...' : '공지 등록'}
-              </Button>
-            </div>
-          </div>
-        </section>
-      ) : null}
 
       {questionsQuery.isLoading ? <p>Q&A를 불러오는 중입니다.</p> : null}
       {questionsQuery.isError ? <p>Q&A 목록을 불러오지 못했습니다.</p> : null}
@@ -371,6 +338,7 @@ const AdminQnaSection = () => {
                   <col />
                   <col className={styles['qnaAuthorCol']} />
                   <col className={styles['qnaDateCol']} />
+                  <col className={styles['qnaOrderCol']} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -378,6 +346,7 @@ const AdminQnaSection = () => {
                     <th scope='col'>질문</th>
                     <th scope='col'>작성자</th>
                     <th scope='col'>등록일</th>
+                    <th scope='col'>공지 순서</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -386,6 +355,9 @@ const AdminQnaSection = () => {
                       const isActive = question.id === selectedQuestionId;
                       const primaryReply = question.replies.at(0) ?? null;
                       const hasPrimaryReply = primaryReply !== null;
+                      const noticeIndex = question.notice
+                        ? noticeQuestions.findIndex((notice) => notice.id === question.id)
+                        : -1;
 
                       return (
                         <Fragment key={question.id}>
@@ -435,11 +407,51 @@ const AdminQnaSection = () => {
                             </td>
                             <td>{question.notice ? '운영팀' : question.authorName}</td>
                             <td>{formatDateTime(question.createdAt)}</td>
+                            <td>
+                              {question.notice ? (
+                                <div className={styles['qnaNoticeOrderActions']}>
+                                  <Button
+                                    disabled={reorderNoticeMutation.isPending || noticeIndex <= 0}
+                                    onClick={() => {
+                                      reorderNoticeMutation.mutate({
+                                        direction: 'up',
+                                        questionId: question.id,
+                                      });
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    위로
+                                  </Button>
+                                  <Button
+                                    disabled={
+                                      reorderNoticeMutation.isPending ||
+                                      noticeIndex < 0 ||
+                                      noticeIndex >= noticeQuestions.length - 1
+                                    }
+                                    onClick={() => {
+                                      reorderNoticeMutation.mutate({
+                                        direction: 'down',
+                                        questionId: question.id,
+                                      });
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    아래로
+                                  </Button>
+                                </div>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
                           </tr>
 
                           {isActive ? (
                             <tr className={styles['qnaInlineDetailRow']}>
-                              <td colSpan={4}>
+                              <td colSpan={5}>
                                 <div className={styles['qnaInlineDetail']}>
                                   <section className={styles['qnaInlineQuestion']}>
                                     <div className={styles['qnaSectionHeader']}>
@@ -450,9 +462,18 @@ const AdminQnaSection = () => {
                                         {question.authorName} · {formatDateTime(question.createdAt)}
                                       </p>
                                     </div>
-                                    <p className={styles['qnaQuestionContent']}>
-                                      {question.content}
-                                    </p>
+                                    {question.notice ? (
+                                      <div
+                                        className={`${styles['qnaQuestionContent']} ${styles['qnaRichContent']}`}
+                                        dangerouslySetInnerHTML={{
+                                          __html: sanitizeRichTextHtml(question.content),
+                                        }}
+                                      />
+                                    ) : (
+                                      <p className={styles['qnaQuestionContent']}>
+                                        {question.content}
+                                      </p>
+                                    )}
                                   </section>
 
                                   {!question.notice ? (
@@ -562,7 +583,7 @@ const AdminQnaSection = () => {
                     })
                   ) : (
                     <tr>
-                      <td className={styles['qnaEmptyTableCell']} colSpan={4}>
+                      <td className={styles['qnaEmptyTableCell']} colSpan={5}>
                         조건에 맞는 질문이 없습니다.
                       </td>
                     </tr>

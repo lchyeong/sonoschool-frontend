@@ -112,7 +112,7 @@ const HomeFeaturedReviewsSection = ({
             </div>
           </div>
 
-          <Link className={styles['viewAllLink']} to={routePaths.programs}>
+          <Link className={styles['viewAllLink']} to={routePaths.homeFeaturedCourses}>
             전체 과정 보기
           </Link>
         </div>

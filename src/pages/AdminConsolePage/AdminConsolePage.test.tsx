@@ -10,6 +10,7 @@ import { adminConsoleRouteTree } from '@/routes/router';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AdminProgramDraftDetail } from '@/types/adminProgramDrafts';
+import type { QuestionItem } from '@/types/qna';
 
 const ACTIVE_SESSION_EXPIRES_AT = '2099-01-01T00:00:00Z';
 
@@ -502,7 +503,8 @@ describe('AdminConsolePage', () => {
     draftDetail.payload.problems = [
       {
         lectureKey: 'problem-lecture-1',
-        passCorrectCount: 1,
+        passScore: 100,
+        retakeAllowed: false,
         questions: [],
         timeLimitSeconds: 1800,
         title: '문제풀이',
@@ -571,13 +573,11 @@ describe('AdminConsolePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: '공지사항 관리' }),
     ).toBeInTheDocument();
-    expect(await screen.findByText('전역 공지 목록')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '새 공지 등록' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '새 공지 등록' }));
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: '새 공지 등록' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: '공지 작성' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
 
@@ -625,9 +625,82 @@ describe('AdminConsolePage', () => {
   it('renders the qna management section with pending threads first', async () => {
     renderAdminConsoleRoute('/admin/qna');
 
-    expect(await screen.findByText('답변 대기 1건')).toBeInTheDocument();
-    expect(screen.getAllByText('오프라인 핸즈온 과정 환불 기준이 궁금합니다.').length).toBe(2);
+    expect(await screen.findByLabelText('답변 대기 1건')).toBeInTheDocument();
+    expect(screen.getByText('오프라인 핸즈온 과정 환불 기준이 궁금합니다.')).toBeInTheDocument();
     expect(screen.getAllByText('답변 대기').length).toBeGreaterThan(0);
+  });
+
+  it('reorders qna notice rows from the management list', async () => {
+    const qnaNotices: QuestionItem[] = [
+      {
+        answered: false,
+        authorName: '소노스쿨 운영팀',
+        authorType: 'ADMIN',
+        content: '<p>첫 공지 내용</p>',
+        createdAt: '2026-03-20T00:00:00Z',
+        id: 9001,
+        mine: true,
+        notice: true,
+        noticeSortOrder: 0,
+        programId: null,
+        programTitle: null,
+        replies: [],
+        replyCount: 0,
+        scope: 'GLOBAL',
+        title: '첫 공지',
+        updatedAt: '2026-03-20T00:00:00Z',
+      },
+      {
+        answered: false,
+        authorName: '소노스쿨 운영팀',
+        authorType: 'ADMIN',
+        content: '<p>두 번째 공지 내용</p>',
+        createdAt: '2026-03-21T00:00:00Z',
+        id: 9002,
+        mine: true,
+        notice: true,
+        noticeSortOrder: 1,
+        programId: null,
+        programTitle: null,
+        replies: [],
+        replyCount: 0,
+        scope: 'GLOBAL',
+        title: '두 번째 공지',
+        updatedAt: '2026-03-21T00:00:00Z',
+      },
+    ];
+    let reorderPayload: unknown = null;
+
+    server.use(
+      http.get('*/api/v1/admin/qna', () => {
+        return HttpResponse.json({ data: qnaNotices });
+      }),
+      http.put('*/api/v1/admin/qna/notices/reorder', async ({ request }) => {
+        reorderPayload = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/qna');
+
+    const firstNoticeRow = (await screen.findByText('첫 공지')).closest('tr');
+
+    if (!(firstNoticeRow instanceof HTMLTableRowElement)) {
+      throw new Error('Expected first notice table row.');
+    }
+
+    fireEvent.click(within(firstNoticeRow).getByRole('button', { name: '아래로' }));
+
+    await waitFor(() => {
+      expect(reorderPayload).toEqual({
+        items: [
+          { id: 9002, sortOrder: 0 },
+          { id: 9001, sortOrder: 1 },
+        ],
+      });
+    });
+
+    server.resetHandlers();
   });
 
   it('deletes an admin qna reply from the selected thread', async () => {
@@ -1190,7 +1263,9 @@ describe('AdminConsolePage', () => {
           data: {
             id: 8801,
             lectureId: 9101,
+            passScore: 100,
             passCorrectCount: 1,
+            retakeAllowed: false,
             timeLimitSeconds: 1800,
             questions: [
               {
@@ -1271,12 +1346,8 @@ describe('AdminConsolePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: '자료실 관리' }),
     ).toBeInTheDocument();
-    expect(await screen.findByText('전체 공개 자료 목록')).toBeInTheDocument();
-    expect(screen.getByText('자료 1')).toBeInTheDocument();
+    expect(await screen.findByText('자료 1')).toBeInTheDocument();
     expect(screen.queryByText('자료 2')).not.toBeInTheDocument();
-    expect(
-      screen.getByText('프로그램 자료는 프로그램 등록/수정 화면에서만 관리합니다.'),
-    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole('searchbox', { name: '자료 검색' }), {
       target: { value: 'resource-9' },
@@ -1292,6 +1363,9 @@ describe('AdminConsolePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: '새 자료 등록' }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/프로그램 자료는 프로그램 등록\/수정 화면에서만 관리합니다\./),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
 
@@ -1302,7 +1376,8 @@ describe('AdminConsolePage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: '수정' })[0]);
 
     expect(await screen.findByRole('heading', { level: 1, name: '자료 수정' })).toBeInTheDocument();
-    expect(screen.getByLabelText('파일명')).toHaveValue('resource-1.pdf');
-    expect(screen.getByLabelText('파일 주소')).toHaveValue('https://example.com/resource-1.pdf');
+    expect(screen.getByLabelText('다운로드 파일명')).toHaveValue('resource-1.pdf');
+    expect(screen.queryByLabelText('파일 주소')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('MIME 타입')).not.toBeInTheDocument();
   });
 });

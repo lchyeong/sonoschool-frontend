@@ -12,6 +12,7 @@ import {
   unpublishAdminProgramLive,
 } from '@/api/adminProgramsLive';
 import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
+import checkIconSrc from '@/assets/icons/lucide_check.svg';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
@@ -81,6 +82,22 @@ const formatDate = (value: string | null): string => {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
   }).format(new Date(value));
+};
+
+const formatSalePeriod = (startAt: string | null, endAt: string | null): string | null => {
+  if (startAt && endAt) {
+    return `${formatDate(startAt)} ~ ${formatDate(endAt)}`;
+  }
+
+  if (startAt) {
+    return `${formatDate(startAt)}부터`;
+  }
+
+  if (endAt) {
+    return `${formatDate(endAt)}까지`;
+  }
+
+  return null;
 };
 
 const buildProgramVisibilityLabel = (item: AdminProgramListItem): string => {
@@ -284,10 +301,7 @@ const AdminProgramListSection = () => {
     const endPage = Math.min(totalPages, startPage + 5);
     return Array.from({ length: endPage - startPage }, (_, index) => startPage + index);
   }, [currentPageIndex, totalPages]);
-  const createDrafts = useMemo(
-    () => (draftsQuery.data ?? []).filter((draft) => draft.finalProgramId === null),
-    [draftsQuery.data],
-  );
+  const activeDrafts = draftsQuery.data ?? [];
 
   return (
     <section className={styles['workspace']}>
@@ -296,21 +310,32 @@ const AdminProgramListSection = () => {
       </header>
 
       <div className={styles['listFrame']}>
-        {!draftsQuery.isPending && !draftsQuery.isError && createDrafts.length > 0 ? (
+        {!draftsQuery.isPending && !draftsQuery.isError && activeDrafts.length > 0 ? (
           <section className={styles['listPanel']}>
             <div className={styles['listPanelHeader']}>
               <p className={styles['listPanelMeta']}>진행 중 초안</p>
             </div>
 
             <div className={styles['draftList']}>
-              {createDrafts.map((draft: AdminProgramDraftSummary) => (
+              {activeDrafts.map((draft: AdminProgramDraftSummary) => (
                 <article className={styles['draftRow']} key={draft.id}>
                   <div className={styles['draftTitleCell']}>
-                    <strong className={styles['draftTitle']}>
-                      {draft.titlePreview?.trim() || `제목 없는 초안 #${String(draft.id)}`}
-                    </strong>
+                    <div className={styles['draftTitleRow']}>
+                      <span
+                        className={styles['draftTypeBadge']}
+                        data-type={draft.finalProgramId === null ? 'create' : 'edit'}
+                      >
+                        {draft.finalProgramId === null ? '신규' : '수정'}
+                      </span>
+                      <strong className={styles['draftTitle']}>
+                        {draft.titlePreview?.trim() || `제목 없는 초안 #${String(draft.id)}`}
+                      </strong>
+                    </div>
                     <span className={styles['draftMeta']}>
-                      신규 등록 초안 · 마지막 저장 {formatDate(draft.updatedAt)}
+                      {draft.finalProgramId === null
+                        ? '신규 등록 초안'
+                        : `프로그램 #${String(draft.finalProgramId)} 수정 초안`}{' '}
+                      · 마지막 저장 {formatDate(draft.updatedAt)}
                     </span>
                   </div>
                   <div className={styles['draftActionGroup']}>
@@ -435,7 +460,9 @@ const AdminProgramListSection = () => {
                     <th scope='col'>가격</th>
                     <th scope='col'>수강생</th>
                     <th scope='col'>판매 상태</th>
-                    <th scope='col'>메인 슬라이드</th>
+                    <th className={styles['programFeatureHeader']} scope='col'>
+                      메인 슬라이드
+                    </th>
                     <th scope='col'>공개 상태</th>
                     <th scope='col'>관리</th>
                   </tr>
@@ -444,6 +471,7 @@ const AdminProgramListSection = () => {
                   {paginatedItems.map((item) => {
                     const deleteBlockedReason = item.deleteBlockedReason ?? undefined;
                     const deletable = isProgramDeletable(item);
+                    const salePeriodLabel = formatSalePeriod(item.saleStartAt, item.saleEndAt);
                     const warning = buildProgramWarningLabel(item);
 
                     return (
@@ -497,22 +525,21 @@ const AdminProgramListSection = () => {
                                 {catalogStatusLabel[item.catalogStatus]}
                               </span>
                             </div>
-                            <span
-                              className={`${styles['cellSecondary']} ${styles['programStatusPeriod']}`}
-                            >
-                              <span className={styles['cellNumeric']}>
-                                {formatDate(item.saleStartAt)}
+                            {salePeriodLabel ? (
+                              <span
+                                className={`${styles['cellSecondary']} ${styles['programStatusPeriod']}`}
+                              >
+                                {salePeriodLabel}
                               </span>
-                              <span aria-hidden='true'>~</span>
-                              <span className={styles['cellNumeric']}>
-                                {formatDate(item.saleEndAt)}
-                              </span>
-                            </span>
+                            ) : null}
                           </div>
                         </td>
                         <td>
-                          <label className={styles['programFeatureCheckbox']}>
+                          <label
+                            className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']} ${styles['programFeatureCheckbox']}`}
+                          >
                             <input
+                              aria-label={`메인 슬라이드 노출 ${item.featured ? '선택됨' : '미선택'}`}
                               checked={item.featured}
                               disabled={!item.published || homeFeatureMutation.isPending}
                               onChange={(event) => {
@@ -523,7 +550,10 @@ const AdminProgramListSection = () => {
                               }}
                               type='checkbox'
                             />
-                            <span>{item.featured ? '노출' : '미노출'}</span>
+                            <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
+                              {item.featured ? <img alt='' src={checkIconSrc} /> : null}
+                            </span>
+                            <span>노출</span>
                           </label>
                         </td>
                         <td>

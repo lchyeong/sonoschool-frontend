@@ -71,6 +71,7 @@ import type {
   AdminProgramLevel,
   AdminProgramType,
 } from '@/types/adminProgramsLive';
+import type { AdminVideoProcessingStage } from '@/types/adminVideo';
 import { classNames } from '@/utils/classNames';
 import {
   buildCalendarCells,
@@ -86,8 +87,10 @@ import {
   validateProgramThumbnailFile,
 } from './adminConsolePageShared';
 
-const TARGET_PART_SIZE_BYTES = 8 * 1024 * 1024;
-const VIDEO_ENCODING_POLL_INTERVAL_MS = 5000;
+const TARGET_PART_SIZE_BYTES = 32 * 1024 * 1024;
+const VIDEO_PART_UPLOAD_CONCURRENCY = 4;
+const VIDEO_ENCODING_POLL_INTERVAL_MS = 15000;
+const VIDEO_ENCODING_MAX_POLL_ATTEMPTS = 360;
 const RESOURCE_FILE_ACCEPT = '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
 
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
@@ -336,11 +339,20 @@ const createEmptyQuestion = (): AdminProgramDraftProblemQuestion => ({
 
 const createEmptyProblem = (lectureKey: string): AdminProgramDraftProblem => ({
   lectureKey,
-  passCorrectCount: 1,
+  passScore: 80,
   questions: [createEmptyQuestion()],
+  retakeAllowed: false,
   timeLimitSeconds: null,
   title: '',
 });
+
+const calculatePassCorrectCount = (passScore: number, questionCount: number) => {
+  if (passScore <= 0 || questionCount <= 0) {
+    return 0;
+  }
+
+  return Math.ceil((questionCount * Math.min(passScore, 100)) / 100);
+};
 
 const createEmptyLecture = (
   sortOrder: number,
@@ -519,7 +531,8 @@ const normalizeDraftPayloadShape = (
 
     return {
       ...problem,
-      passCorrectCount: problem.passCorrectCount ?? 1,
+      passScore: problem.passScore ?? 80,
+      retakeAllowed: problem.retakeAllowed ?? false,
       timeLimitSeconds: problem.timeLimitSeconds ?? matchedLecture?.durationSeconds ?? null,
       title: problem.title?.trim() || lectureTitle || '문제',
       questions: problem.questions.map((question) => ({
@@ -654,7 +667,7 @@ const formatUploadStatusLabel = (
     return '업로드 중';
   }
   if (status === 'PROCESSING') {
-    return '처리중';
+    return '인코딩 중';
   }
   if (status === 'READY') {
     return readyFallback;
@@ -667,6 +680,15 @@ const formatUploadStatusLabel = (
 
 const isUploadInProgress = (status: AdminDraftUploadStatus | null): boolean =>
   status === 'UPLOADING' || status === 'PROCESSING';
+
+const formatVideoProcessingStageLabel = (
+  processingStage: AdminVideoProcessingStage | null | undefined,
+): string => {
+  if (processingStage === 'STREAMING_UPLOAD') {
+    return '스트리밍 파일 업로드 중';
+  }
+  return '인코딩 중';
+};
 
 const normalizeQuestionMediaUploadStatus = (
   question: Pick<AdminProgramDraftProblemQuestion, 'mediaAssetId' | 'mediaUploadStatus'>,
@@ -1214,6 +1236,43 @@ const buildVideoChunks = (
   });
 };
 
+const uploadVideoChunks = async (
+  chunks: ReturnType<typeof buildVideoChunks>,
+  contentType: string,
+  onProgress: (progressPercent: number) => void,
+) => {
+  const completedParts = new Array<{ eTag: string; partNumber: number }>(chunks.length);
+  let nextIndex = 0;
+  let completedUploadPartCount = 0;
+  const workerCount = Math.min(VIDEO_PART_UPLOAD_CONCURRENCY, chunks.length);
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      for (;;) {
+        const index = nextIndex;
+        nextIndex += 1;
+        if (index >= chunks.length) {
+          return;
+        }
+
+        const chunk = chunks[index];
+        if (!chunk) {
+          return;
+        }
+        const eTag = await uploadPart(chunk.uploadUrl, chunk.blob, contentType);
+        completedParts[index] = {
+          eTag,
+          partNumber: chunk.partNumber,
+        };
+        completedUploadPartCount += 1;
+        onProgress(Math.round((completedUploadPartCount / chunks.length) * 100));
+      }
+    }),
+  );
+
+  return completedParts;
+};
+
 const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgramDraftPayload => {
   const nextPayload = normalizeDraftPayloadShape(detail.payload ?? createEmptyPayload());
   return {
@@ -1314,6 +1373,9 @@ const AdminProgramCreateWorkspace = ({
   >({});
   const [lectureVideoProgressByKey, setLectureVideoProgressByKey] = useState<
     Record<string, number>
+  >({});
+  const [lectureVideoProcessingStageByKey, setLectureVideoProcessingStageByKey] = useState<
+    Record<string, AdminVideoProcessingStage>
   >({});
   const [lectureVideoSizeLabels, setLectureVideoSizeLabels] = useState<Record<string, string>>({});
   const [pendingResourceSelections, setPendingResourceSelections] = useState<
@@ -3127,20 +3189,51 @@ const AdminProgramCreateWorkspace = ({
   };
 
   const pollVideoReady = async (videoId: number, lectureKey: string): Promise<number | null> => {
-    for (;;) {
+    for (let attempt = 0; attempt < VIDEO_ENCODING_MAX_POLL_ATTEMPTS; attempt += 1) {
       const status = await fetchAdminVideoStatus(videoId);
+      if (status.status === 'PROCESSING') {
+        setLectureVideoProgressByKey((current) => ({
+          ...current,
+          [lectureKey]: status.progressPercent ?? 0,
+        }));
+        setLectureVideoProcessingStageByKey((current) => ({
+          ...current,
+          [lectureKey]: status.processingStage ?? 'ENCODING',
+        }));
+      }
       if (status.status === 'READY') {
         setLectureVideoProgressByKey((current) => ({
           ...current,
           [lectureKey]: 100,
         }));
+        setLectureVideoProcessingStageByKey((current) => {
+          const next = { ...current };
+          delete next[lectureKey];
+          return next;
+        });
         return status.durationSeconds;
       }
       if (status.status === 'FAILED') {
         throw new Error(status.errorMessage || '영상 인코딩에 실패했습니다.');
       }
+      if (status.status === 'UPLOADED') {
+        await startAdminVideoEncoding(videoId);
+        setLectureVideoProgressByKey((current) => ({
+          ...current,
+          [lectureKey]: status.progressPercent ?? 0,
+        }));
+        setLectureVideoProcessingStageByKey((current) => ({
+          ...current,
+          [lectureKey]: 'ENCODING',
+        }));
+      }
+      if (status.status === 'UPLOADING') {
+        throw new Error('영상 인코딩이 정상적으로 시작되지 않았습니다. 다시 업로드해 주세요.');
+      }
       await new Promise((resolve) => window.setTimeout(resolve, VIDEO_ENCODING_POLL_INTERVAL_MS));
     }
+
+    throw new Error('영상 인코딩 확인 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
   };
 
   useEffect(() => {
@@ -3186,6 +3279,11 @@ const AdminProgramCreateWorkspace = ({
               videoId: lecture.videoId,
             });
             setLectureVideoProgressByKey((current) => {
+              const next = { ...current };
+              delete next[lecture.key];
+              return next;
+            });
+            setLectureVideoProcessingStageByKey((current) => {
               const next = { ...current };
               delete next[lecture.key];
               return next;
@@ -3305,6 +3403,11 @@ const AdminProgramCreateWorkspace = ({
         ...current,
         [lectureKey]: 0,
       }));
+      setLectureVideoProcessingStageByKey((current) => {
+        const next = { ...current };
+        delete next[lectureKey];
+        return next;
+      });
       setPendingVideoSelections((current) => {
         const next = { ...current };
         delete next[lectureKey];
@@ -3319,29 +3422,24 @@ const AdminProgramCreateWorkspace = ({
       });
 
       const chunks = buildVideoChunks(file, session.parts);
-      let completedUploadPartCount = 0;
-      const completedParts = await Promise.all(
-        chunks.map(async (chunk) => {
-          const eTag = await uploadPart(
-            chunk.uploadUrl,
-            chunk.blob,
-            file.type || 'application/octet-stream',
-          );
-          completedUploadPartCount += 1;
+      const completedParts = await uploadVideoChunks(
+        chunks,
+        file.type || 'application/octet-stream',
+        (progressPercent) => {
           setLectureVideoProgressByKey((current) => ({
             ...current,
-            [lectureKey]: Math.round((completedUploadPartCount / chunks.length) * 100),
+            [lectureKey]: progressPercent,
           }));
-          return {
-            eTag,
-            partNumber: chunk.partNumber,
-          };
-        }),
+        },
       );
 
       setLectureVideoProgressByKey((current) => ({
         ...current,
         [lectureKey]: 0,
+      }));
+      setLectureVideoProcessingStageByKey((current) => ({
+        ...current,
+        [lectureKey]: 'ENCODING',
       }));
       updatePayload((current) => ({
         ...current,
@@ -3388,6 +3486,11 @@ const AdminProgramCreateWorkspace = ({
         videoId: session.videoId,
       });
       setLectureVideoProgressByKey((current) => {
+        const next = { ...current };
+        delete next[lectureKey];
+        return next;
+      });
+      setLectureVideoProcessingStageByKey((current) => {
         const next = { ...current };
         delete next[lectureKey];
         return next;
@@ -3783,13 +3886,16 @@ const AdminProgramCreateWorkspace = ({
           message: `${lectureLabel}: 선택한 영상 파일 업로드 시작이 필요합니다.`,
         });
       }
-      if (lecture.videoUploadStatus === 'UPLOADING' || lecture.videoUploadStatus === 'PROCESSING') {
+      if (
+        lecture.videoId === null &&
+        (lecture.videoUploadStatus === 'UPLOADING' || lecture.videoUploadStatus === 'PROCESSING')
+      ) {
         issues.push({
           focusKey: `curriculum-lecture-${lecture.key}`,
           message: `${lectureLabel}: 영상 업로드 또는 인코딩이 아직 진행 중입니다.`,
         });
       }
-      if (lecture.videoUploadStatus === 'FAILED') {
+      if (lecture.videoId === null && lecture.videoUploadStatus === 'FAILED') {
         issues.push({
           focusKey: `curriculum-lecture-${lecture.key}`,
           message: `${lectureLabel}: 영상 업로드가 실패했습니다.`,
@@ -3837,10 +3943,10 @@ const AdminProgramCreateWorkspace = ({
       }
 
       const lectureProblem = payload.problems.find((problem) => problem.lectureKey === lecture.key);
-      if (lectureProblem && lectureProblem.passCorrectCount === null) {
+      if (lectureProblem && lectureProblem.passScore === null) {
         issues.push({
-          focusKey: `curriculum-${lecture.key}:0:passCorrectCount`,
-          message: `${lectureLabel}: 합격 기준 문항 수를 입력해 주세요.`,
+          focusKey: `curriculum-${lecture.key}:0:passScore`,
+          message: `${lectureLabel}: 합격 점수를 입력해 주세요.`,
         });
       }
       lectureProblem?.questions.forEach((question, questionIndex) => {
@@ -4153,18 +4259,16 @@ const AdminProgramCreateWorkspace = ({
           </Button>
 
           <div className={styles['editorToolbarActions']}>
-            {mode === 'create' ? (
-              <Button
-                disabled={saveMutation.isPending || finalizeMutation.isPending}
-                onClick={(event) => {
-                  void handleManualSave(event);
-                }}
-                type='button'
-                variant='secondary'
-              >
-                {saveMutation.isPending ? '저장 중...' : '임시저장'}
-              </Button>
-            ) : null}
+            <Button
+              disabled={saveMutation.isPending || finalizeMutation.isPending}
+              onClick={(event) => {
+                void handleManualSave(event);
+              }}
+              type='button'
+              variant='secondary'
+            >
+              {saveMutation.isPending ? '저장 중...' : '임시저장'}
+            </Button>
             <Button
               disabled={finalizeMutation.isPending || discardMutation.isPending}
               onClick={(event) => {
@@ -4986,21 +5090,30 @@ const AdminProgramCreateWorkspace = ({
                                   payload?.problems.find(
                                     (item) => item.lectureKey === lecture.key,
                                   ) ?? null;
+                                const lectureQuizPassScore = lectureQuiz?.passScore ?? 80;
+                                const lectureQuizPassCorrectCount = calculatePassCorrectCount(
+                                  lectureQuizPassScore,
+                                  lectureQuiz?.questions.length ?? 0,
+                                );
                                 const pendingVideoSelection =
                                   pendingVideoSelections[lecture.key] ?? null;
                                 const lectureVideoStatus = pendingVideoSelection
                                   ? `업로드 대기 · ${pendingVideoSelection.sizeLabel}`
                                   : isUploadInProgress(lecture.videoUploadStatus)
                                     ? formatProgressLabel(
-                                        formatUploadStatusLabel(
-                                          lecture.videoUploadStatus,
-                                          lecture.videoId
-                                            ? `연결 완료 · videoId ${String(lecture.videoId)}`
-                                            : '영상 미연결',
-                                          lecture.videoUploadErrorMessage,
-                                        ),
+                                        lecture.videoUploadStatus === 'PROCESSING'
+                                          ? formatVideoProcessingStageLabel(
+                                              lectureVideoProcessingStageByKey[lecture.key],
+                                            )
+                                          : formatUploadStatusLabel(
+                                              lecture.videoUploadStatus,
+                                              lecture.videoId
+                                                ? `연결 완료 · videoId ${String(lecture.videoId)}`
+                                                : '영상 미연결',
+                                              lecture.videoUploadErrorMessage,
+                                            ),
                                         lectureVideoProgressByKey[lecture.key],
-                                        lecture.videoUploadStatus === 'UPLOADING',
+                                        true,
                                       )
                                     : formatUploadStatusLabel(
                                         lecture.videoUploadStatus,
@@ -5138,49 +5251,82 @@ const AdminProgramCreateWorkspace = ({
                                             />
 
                                             {supportsProblem ? (
-                                              <div className={styles['compactFieldRow']}>
-                                                <div className={styles['compactTextField']}>
-                                                  <TextField
-                                                    label='제한시간(분)'
-                                                    name={`problem-time-limit-${lecture.key}`}
-                                                    onChange={(event) => {
-                                                      upsertProblem(lecture.key, (current) => ({
-                                                        ...current,
-                                                        timeLimitSeconds: parseDurationMinutesInput(
-                                                          event.target.value,
-                                                        ),
-                                                      }));
-                                                    }}
-                                                    value={formatDurationMinutesInput(
-                                                      lectureQuiz?.timeLimitSeconds ?? null,
-                                                    )}
-                                                  />
-                                                </div>
-                                                {supportsProblem ? (
+                                              <>
+                                                <div className={styles['compactFieldRow']}>
                                                   <div className={styles['compactTextField']}>
                                                     <TextField
-                                                      data-draft-focus-key={`${lecture.key}:0:passCorrectCount`}
-                                                      label='합격 기준 문항 수'
-                                                      name={`problem-pass-correct-count-${lecture.key}`}
+                                                      label='제한시간(분)'
+                                                      name={`problem-time-limit-${lecture.key}`}
                                                       onChange={(event) => {
                                                         upsertProblem(lecture.key, (current) => ({
                                                           ...current,
-                                                          passCorrectCount:
-                                                            event.target.value.trim()
-                                                              ? Number(event.target.value)
-                                                              : null,
+                                                          timeLimitSeconds:
+                                                            parseDurationMinutesInput(
+                                                              event.target.value,
+                                                            ),
                                                         }));
                                                       }}
-                                                      value={
-                                                        lectureQuiz?.passCorrectCount === null ||
-                                                        lectureQuiz?.passCorrectCount === undefined
-                                                          ? ''
-                                                          : String(lectureQuiz.passCorrectCount)
-                                                      }
+                                                      value={formatDurationMinutesInput(
+                                                        lectureQuiz?.timeLimitSeconds ?? null,
+                                                      )}
                                                     />
                                                   </div>
-                                                ) : null}
-                                              </div>
+                                                  <div className={styles['compactTextField']}>
+                                                    <TextField
+                                                      data-draft-focus-key={`${lecture.key}:0:passScore`}
+                                                      label='합격 점수'
+                                                      max={100}
+                                                      min={0}
+                                                      name={`problem-pass-score-${lecture.key}`}
+                                                      onChange={(event) => {
+                                                        upsertProblem(lecture.key, (current) => ({
+                                                          ...current,
+                                                          passScore: event.target.value.trim()
+                                                            ? Number(event.target.value)
+                                                            : null,
+                                                        }));
+                                                      }}
+                                                      type='number'
+                                                      value={
+                                                        lectureQuiz?.passScore === null ||
+                                                        lectureQuiz?.passScore === undefined
+                                                          ? ''
+                                                          : String(lectureQuiz.passScore)
+                                                      }
+                                                    />
+                                                    <p className={styles['metaText']}>
+                                                      현재{' '}
+                                                      {String(lectureQuiz?.questions.length ?? 0)}
+                                                      문항 기준{' '}
+                                                      {String(lectureQuizPassCorrectCount)}문항 이상
+                                                      정답이면 합격입니다.
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                                <label
+                                                  className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}
+                                                >
+                                                  <input
+                                                    checked={Boolean(lectureQuiz?.retakeAllowed)}
+                                                    onChange={(event) => {
+                                                      upsertProblem(lecture.key, (current) => ({
+                                                        ...current,
+                                                        retakeAllowed: event.target.checked,
+                                                      }));
+                                                    }}
+                                                    type='checkbox'
+                                                  />
+                                                  <span
+                                                    className={styles['noticeCheckboxBox']}
+                                                    aria-hidden='true'
+                                                  >
+                                                    {lectureQuiz?.retakeAllowed ? (
+                                                      <img alt='' src={checkIconSrc} />
+                                                    ) : null}
+                                                  </span>
+                                                  <span>재도전 허용</span>
+                                                </label>
+                                              </>
                                             ) : null}
                                           </div>
 

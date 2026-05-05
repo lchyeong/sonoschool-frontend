@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -453,6 +453,8 @@ const testStreamResponse: ProtectedLectureStream = {
   expiresAt: 1_770_000_000,
   hlsKeyUrl: '/api/v1/lectures/2/hls-key',
   hlsUrl: 'https://example.com/api/v1/lectures/2/playback/test-device-id/master.m3u8',
+  playbackWatermarkSessionCode: 'TEST',
+  playbackWatermarkText: '테스트회원 · ****1234',
   playbackSessionToken: 'test-session',
 };
 
@@ -504,6 +506,7 @@ const testQuiz: StudentProblem = {
   lectureId: 2,
   latestAttempt: null,
   passCorrectCount: 1,
+  retakeAllowed: true,
   timeLimitSeconds: 1800,
   questions: [
     {
@@ -757,6 +760,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.clearAllMocks();
   clearStudentSession();
@@ -893,6 +897,55 @@ describe('PlayerPage', () => {
 
     expect(videoElement?.currentTime).toBe(120);
     expect(timelineSlider).toHaveValue('120');
+  });
+
+  it('auto-hides player controls while playing and restores them on hover or pause', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(testSnapshot);
+    fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
+
+    renderPlayerPage();
+
+    await waitFor(() => {
+      expect(fetchLectureStreamMock).toHaveBeenCalledWith(2, 'test-device-id');
+    });
+    await waitFor(() => {
+      expect(createdHlsConfigs.length).toBeGreaterThan(0);
+    });
+
+    vi.useFakeTimers();
+
+    const playerFrame = screen.getByRole('region', { name: '영상 플레이어' });
+    const videoElement = document.querySelector('video');
+
+    if (!videoElement) {
+      throw new Error('Expected video element to be rendered.');
+    }
+
+    act(() => {
+      fireEvent.play(videoElement);
+    });
+
+    expect(screen.getByRole('button', { name: '멈춤' })).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2400);
+    });
+
+    expect(playerFrame.className).toContain('playerFrameControlsHidden');
+
+    fireEvent.mouseEnter(playerFrame);
+
+    expect(playerFrame.className).not.toContain('playerFrameControlsHidden');
+
+    fireEvent.mouseLeave(playerFrame);
+
+    expect(playerFrame.className).toContain('playerFrameControlsHidden');
+
+    fireEvent.pause(videoElement);
+
+    expect(playerFrame.className).not.toContain('playerFrameControlsHidden');
+
+    vi.useRealTimers();
   });
 
   it('renders the lesson poster as an initial thumbnail layer', async () => {

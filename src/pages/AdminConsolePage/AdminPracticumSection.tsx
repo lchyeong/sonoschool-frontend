@@ -436,7 +436,7 @@ const getPersonalScheduleProgressLabel = (
 
 const buildCalendarEntryLabel = (entry: PracticumCalendarEntry): string => {
   if (entry.kind === 'ADMIN_SCHEDULE') {
-    return entry.label;
+    return `${formatTimeRange(entry.startAt, entry.endAt)} ${entry.label}`;
   }
   if (entry.kind === 'OFFLINE') {
     return `${formatTimeRange(entry.startAt, entry.endAt)} 오프라인`;
@@ -1363,27 +1363,23 @@ const AdminPracticumSection = () => {
                         </button>
                       </div>
                       <div className={styles['practicumCalendarPreviewList']}>
-                        {previewEntries.length ? (
-                          previewEntries.map((entry) => (
-                            <button
-                              className={styles['practicumCalendarPreviewButton']}
-                              key={entry.key}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setSelectedDate(cellDate);
-                                setSelectedDateOverviewDate(cellDate);
-                                setSelectedCalendarEntry(entry);
-                              }}
-                              type='button'
-                            >
-                              <span className={styles['practicumCalendarPreviewItem']}>
-                                {buildCalendarEntryLabel(entry)}
-                              </span>
-                            </button>
-                          ))
-                        ) : (
-                          <span className={styles['practicumCalendarEmptyText']}>일정 없음</span>
-                        )}
+                        {previewEntries.map((entry) => (
+                          <button
+                            className={styles['practicumCalendarPreviewButton']}
+                            key={entry.key}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedDate(cellDate);
+                              setSelectedDateOverviewDate(cellDate);
+                              setSelectedCalendarEntry(entry);
+                            }}
+                            type='button'
+                          >
+                            <span className={styles['practicumCalendarPreviewItem']}>
+                              {buildCalendarEntryLabel(entry)}
+                            </span>
+                          </button>
+                        ))}
                       </div>
                     </div>
                   );
@@ -1416,9 +1412,7 @@ const AdminPracticumSection = () => {
                       개인일정 추가
                     </Button>
                   </div>
-                  <h3
-                    className={styles['panelTitle']}
-                  >{`${formatDate(resolvedSelectedDate)} ~`}</h3>
+                  <h3 className={styles['panelTitle']}>{formatDate(resolvedSelectedDate)}</h3>
                 </div>
                 <div className={styles['practicumDetailActionSecondary']}>
                   <Button

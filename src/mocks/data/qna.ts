@@ -127,6 +127,10 @@ const sortQuestions = (items: QuestionItem[]): QuestionItem[] => {
       return left.notice ? -1 : 1;
     }
 
+    if (left.notice && right.notice) {
+      return (left.noticeSortOrder ?? 0) - (right.noticeSortOrder ?? 0);
+    }
+
     return right.createdAt.localeCompare(left.createdAt);
   });
 };
@@ -173,6 +177,14 @@ export const getMockAdminQuestions = (filters?: {
       ].some((value) => value.toLowerCase().includes(normalizedKeyword));
     }),
   ).sort((left, right) => {
+    if (left.notice !== right.notice) {
+      return left.notice ? -1 : 1;
+    }
+
+    if (left.notice && right.notice) {
+      return (left.noticeSortOrder ?? 0) - (right.noticeSortOrder ?? 0);
+    }
+
     if (left.answered !== right.answered) {
       return left.answered ? 1 : -1;
     }
@@ -193,6 +205,7 @@ export const createMockGlobalQuestion = (payload: QuestionCreatePayload): Questi
     content: payload.content,
     mine: true,
     notice: false,
+    noticeSortOrder: 0,
     answered: false,
     replyCount: 0,
     createdAt: new Date().toISOString(),
@@ -216,6 +229,13 @@ export const createMockAdminQuestionNotice = (payload: QuestionCreatePayload): Q
     content: payload.content,
     mine: true,
     notice: true,
+    noticeSortOrder:
+      Math.max(
+        ...questions
+          .filter((question) => question.notice)
+          .map((question) => question.noticeSortOrder ?? 0),
+        -1,
+      ) + 1,
     answered: false,
     replyCount: 0,
     createdAt: new Date().toISOString(),
@@ -225,6 +245,27 @@ export const createMockAdminQuestionNotice = (payload: QuestionCreatePayload): Q
 
   questions = sortQuestions([nextQuestion, ...questions]);
   return nextQuestion;
+};
+
+export const reorderMockAdminQuestionNotices = (
+  items: Array<{ id: number; sortOrder: number }>,
+): boolean => {
+  const noticeMap = new Map(
+    questions.filter((question) => question.notice).map((question) => [question.id, question]),
+  );
+
+  if (items.some((item) => !noticeMap.has(item.id))) {
+    return false;
+  }
+
+  questions = sortQuestions(
+    questions.map((question) => {
+      const item = items.find((candidate) => candidate.id === question.id);
+      return item ? { ...question, noticeSortOrder: Math.max(0, item.sortOrder) } : question;
+    }),
+  );
+
+  return true;
 };
 
 export const updateMockGlobalQuestion = (

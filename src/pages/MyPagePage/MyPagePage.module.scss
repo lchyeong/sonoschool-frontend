@@ -372,18 +372,27 @@
 }
 .profileConsentBlock {
   display: grid;
-  gap: 30px;
+  gap: 34px;
   margin-top: 36px;
   padding-top: 35px;
   border-top: 1px solid #e5e7eb;
 }
+.profileConsentList {
+  display: grid;
+  gap: 31px;
+  width: min(100%, 695px);
+}
 .profileConsentRow {
   display: inline-grid;
   grid-template-columns: 40px minmax(0, auto);
-  gap: 26px;
+  gap: 12px;
   align-items: center;
   justify-content: start;
+  min-width: 0;
   cursor: pointer;
+}
+.profileConsentAllRow {
+  gap: 14px;
 }
 .profileConsentInput {
   position: absolute;
@@ -400,20 +409,23 @@
   width: 40px;
   height: 40px;
   border: 2px solid #d1d5db;
-  border-radius: 10px;
+  border-radius: 6px;
   background: #ffffff;
 }
 .profileConsentInput:checked + .profileConsentBox {
   border-color: #34b29f;
   background: #34b29f;
 }
+.profileConsentInput:disabled + .profileConsentBox {
+  cursor: default;
+}
 .profileConsentInput:focus-visible + .profileConsentBox {
   outline: 3px solid rgba(52, 178, 159, 0.2);
   outline-offset: 3px;
 }
 .profileConsentCheck {
-  width: 16px;
-  height: 9px;
+  width: 17px;
+  height: 10px;
   border-bottom: 2px solid #ffffff;
   border-left: 2px solid #ffffff;
   opacity: 0;
@@ -422,33 +434,159 @@
 .profileConsentInput:checked + .profileConsentBox .profileConsentCheck {
   opacity: 1;
 }
-.profileConsentText {
+.profileConsentAllText {
   color: #111827;
-  font-size: 18px;
-  font-weight: var(--font-weight-regular);
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
   line-height: 1.3;
   letter-spacing: var(--letter-spacing-normal);
 }
-.profileConsentLink {
+.profileConsentDetailRows {
+  display: grid;
+  gap: 21px;
+}
+.profileConsentDetailRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 24px;
+  align-items: center;
+}
+.profileConsentText {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  color: #374151;
+  font-size: 18px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+  letter-spacing: var(--letter-spacing-normal);
+}
+.profileConsentRequired,
+.profileConsentOptional {
+  font-size: 18px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+.profileConsentRequired {
+  color: #34b29f;
+}
+.profileConsentOptional {
+  color: #9ca3af;
+}
+.profileConsentViewButton {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  justify-self: start;
-  margin-left: 66px;
+  justify-content: center;
+  justify-self: end;
   padding: 0;
   border: 0;
   color: #6b7280;
   font-size: 18px;
-  font-weight: var(--font-weight-regular);
+  font-weight: var(--font-weight-medium);
   line-height: 1.3;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   background: transparent;
 }
-.profileConsentArrow {
-  width: 7px;
-  height: 7px;
-  border-top: 1.5px solid currentcolor;
-  border-right: 1.5px solid currentcolor;
-  transform: rotate(45deg);
+.profileConsentViewButton:hover,
+.profileConsentViewButton:focus-visible {
+  color: #374151;
+}
+.profileConsentModalPanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 760px);
+  max-height: min(calc(100vh - 40px), 780px);
+  overflow: hidden;
+  border-radius: 24px;
+}
+.profileConsentModalHeader {
+  flex: 0 0 auto;
+  padding: 34px 72px 20px 34px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.profileConsentModalTitle {
+  color: #111827;
+  font-size: 28px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.25;
+  letter-spacing: var(--letter-spacing-normal);
+}
+.profileConsentModalCloseButton {
+  position: absolute;
+  top: 32px;
+  right: 34px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 0;
+  color: #111827;
+  background: transparent;
+}
+.profileConsentModalCloseButton:hover,
+.profileConsentModalCloseButton:focus-visible {
+  color: #111827;
+  background: transparent;
+}
+.profileConsentModalCloseIcon {
+  width: 24px;
+  height: 24px;
+  background: currentcolor;
+  mask: var(--mypage-menu-icon) center / contain no-repeat;
+  -webkit-mask: var(--mypage-menu-icon) center / contain no-repeat;
+}
+.profileConsentModalBody {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+.profileConsentModalScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.profileConsentModalContent {
+  display: grid;
+  padding: 28px 34px 34px;
+  color: #374151;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.profileConsentModalSectionTitle,
+.profileConsentModalParagraph,
+.profileConsentModalIndentedText {
+  margin: 0;
+  letter-spacing: var(--letter-spacing-normal);
+}
+.profileConsentModalSectionTitle {
+  margin-top: 24px;
+  color: #111827;
+  font-size: 18px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.45;
+}
+.profileConsentModalSectionTitle:first-child {
+  margin-top: 0;
+}
+.profileConsentModalParagraph,
+.profileConsentModalIndentedText {
+  margin-top: 8px;
+  color: #374151;
+  font-size: 15px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.72;
+}
+.profileConsentModalIndentedText {
+  padding-left: 14px;
+  color: #4b5563;
+}
+.profileConsentModalSpacer {
+  height: 8px;
 }
 .profileActionRow {
   display: flex;
@@ -1615,15 +1753,52 @@
 }
 .certificateProfileModalPanel {
   position: relative;
-  width: min(100%, 520px);
-  max-height: min(90vh, 560px);
+  width: min(100%, 499px);
+  max-height: min(calc(100vh - 32px), 760px);
   overflow: hidden;
   border: 0;
   border-radius: 28px;
   box-shadow: 0 24px 48px rgba(17, 24, 39, 0.18);
 }
+.certificateProfileModalHeader {
+  justify-content: flex-start;
+  padding: 67px 68px 0 34px;
+}
+.certificateProfileModalTitle {
+  color: #111827;
+  font-size: 24px;
+  font-weight: var(--font-weight-bold);
+  line-height: normal;
+  letter-spacing: var(--letter-spacing-normal);
+}
+.certificateProfileCloseButton {
+  position: absolute;
+  top: 68px;
+  right: 34px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 0;
+  color: #000000;
+  background: transparent;
+}
+.certificateProfileCloseButton:hover,
+.certificateProfileCloseButton:focus-visible {
+  color: #000000;
+  background: transparent;
+}
+.certificateProfileCloseIcon {
+  width: 24px;
+  height: 24px;
+  background: currentcolor;
+  mask: var(--mypage-menu-icon) center / contain no-repeat;
+  -webkit-mask: var(--mypage-menu-icon) center / contain no-repeat;
+}
 .certificateProfileModalBody {
-  padding: 22px 34px 34px;
+  max-height: calc(100vh - 123px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 28px 34px 34px;
 }
 .certificateProfileForm {
   display: grid;
@@ -1631,34 +1806,41 @@
 }
 .certificateProfileDescription {
   margin: 0;
-  color: #4b5563;
-  font-size: 16px;
+  color: #111827;
+  font-size: 20px;
   font-weight: var(--font-weight-regular);
-  line-height: 1.55;
+  line-height: 1.5;
   letter-spacing: var(--letter-spacing-normal);
 }
-.certificateProfileFieldGrid {
+.certificateProfileFields {
   display: grid;
-  gap: 10px;
-  margin-top: 24px;
+  gap: 24px;
+  margin-top: 31px;
+}
+.certificateProfileField {
+  display: grid;
+  gap: 0;
 }
 .certificateProfileLabel {
   color: #111827;
-  font-size: 15px;
-  font-weight: var(--font-weight-medium);
-  line-height: 1.3;
+  font-size: 20px;
+  font-weight: var(--font-weight-semibold);
+  line-height: normal;
   letter-spacing: var(--letter-spacing-normal);
 }
 .certificateProfileInput {
   width: 100%;
   height: 48px;
-  padding: 0 14px;
+  margin-top: 20px;
+  padding: 0 18px;
   border: 1px solid #d1d5db;
   border-radius: 10px;
   color: #111827;
   font: inherit;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: var(--font-weight-regular);
   line-height: 1.3;
+  letter-spacing: var(--letter-spacing-normal);
   background: #ffffff;
 }
 .certificateProfileInput::placeholder {
@@ -1668,6 +1850,242 @@
   outline: none;
   border-color: #34b29f;
   box-shadow: 0 0 0 3px rgba(52, 178, 159, 0.16);
+}
+.certificateProfileFields + .errorText {
+  margin-top: 12px;
+}
+.certificateProfileHelpText {
+  margin: 18px 0 0;
+  color: #6b7280;
+  font-size: 18px;
+  font-weight: var(--font-weight-regular);
+  line-height: normal;
+  letter-spacing: var(--letter-spacing-normal);
+  word-break: keep-all;
+}
+.certificateProfileNotice {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  min-height: 106px;
+  margin-top: 32px;
+  padding: 22px 23px;
+  border-radius: 10px;
+  color: #374151;
+  background: #f3f4f6;
+}
+.certificateProfileNoticeIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border: 2px solid currentcolor;
+  border-radius: 999px;
+  color: #374151;
+  font-size: 16px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+.certificateProfileNoticeText {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: var(--font-weight-medium);
+  line-height: normal;
+  letter-spacing: var(--letter-spacing-normal);
+  text-align: center;
+  word-break: keep-all;
+}
+.certificateProfileNoticeText p {
+  margin: 0;
+}
+.certificateProfileActionRow {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 34px;
+}
+.certificateProfileCancelButton,
+.certificateProfileSubmitButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 157px;
+  min-width: 157px;
+  height: 49px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: var(--font-weight-medium);
+  line-height: normal;
+  letter-spacing: var(--letter-spacing-normal);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+.certificateProfileCancelButton {
+  border: 1px solid #d1d5db;
+  color: #111827;
+  background: #ffffff;
+}
+.certificateProfileCancelButton:hover,
+.certificateProfileCancelButton:focus-visible {
+  border-color: #9ca3af;
+  background: #ffffff;
+}
+.certificateProfileSubmitButton {
+  border: 0;
+  color: #ffffff;
+  background: #34b29f;
+}
+.certificateProfileSubmitButton:hover,
+.certificateProfileSubmitButton:focus-visible {
+  background: #2fa08f;
+}
+.certificateProfileSubmitButtonDisabled {
+  color: #6b7280;
+  background: #e5e7eb;
+  cursor: not-allowed;
+}
+.certificateProfileSubmitButtonDisabled:hover,
+.certificateProfileSubmitButtonDisabled:focus-visible {
+  background: #e5e7eb;
+}
+.certificatePreviewModalPanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 860px);
+  height: min(calc(100dvh - 32px), 940px);
+  max-height: min(calc(100dvh - 32px), 940px);
+  overflow: hidden;
+  border: 0;
+  border-radius: 24px;
+  box-shadow: 0 24px 48px rgba(17, 24, 39, 0.18);
+}
+.certificatePreviewModalHeader {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  padding: 24px 72px 16px 32px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.certificatePreviewModalTitle {
+  color: #111827;
+  font-size: 24px;
+  font-weight: var(--font-weight-bold);
+  line-height: normal;
+  letter-spacing: var(--letter-spacing-normal);
+}
+.certificatePreviewCloseButton {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 0;
+  color: #111827;
+  background: transparent;
+}
+.certificatePreviewCloseButton:hover,
+.certificatePreviewCloseButton:focus-visible {
+  color: #111827;
+  background: transparent;
+}
+.certificatePreviewCloseIcon {
+  width: 24px;
+  height: 24px;
+  background: currentcolor;
+  mask: var(--mypage-menu-icon) center / contain no-repeat;
+  -webkit-mask: var(--mypage-menu-icon) center / contain no-repeat;
+}
+.certificatePreviewModalBody {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+.certificatePreviewScroll {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  padding: 14px 28px;
+}
+.certificatePreviewCanvas {
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  aspect-ratio: 1054 / 1491;
+  margin: 0 auto;
+  box-shadow: 0 16px 40px rgba(17, 24, 39, 0.16);
+}
+.certificatePreviewCanvas svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #fdfbfb;
+}
+.certificatePreviewActionRow {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 16px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 16px 28px 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+.certificatePreviewSecondaryButton,
+.certificatePreviewPrimaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 157px;
+  min-width: 157px;
+  height: 49px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: var(--font-weight-medium);
+  line-height: normal;
+  letter-spacing: var(--letter-spacing-normal);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+.certificatePreviewSecondaryButton {
+  border: 1px solid #d1d5db;
+  color: #111827;
+  background: #ffffff;
+}
+.certificatePreviewSecondaryButton:hover,
+.certificatePreviewSecondaryButton:focus-visible {
+  border-color: #9ca3af;
+}
+.certificatePreviewPrimaryButton {
+  border: 0;
+  color: #ffffff;
+  background: #34b29f;
+}
+.certificatePreviewPrimaryButton:hover,
+.certificatePreviewPrimaryButton:focus-visible {
+  background: #2fa08f;
 }
 .reviewForm,
 .reviewBlockedState {
@@ -2662,6 +3080,9 @@
     margin-top: 32px;
     padding-top: 28px;
   }
+  .profileConsentList {
+    gap: 24px;
+  }
   .profileConsentRow {
     grid-template-columns: 32px minmax(0, 1fr);
     gap: 16px;
@@ -2669,9 +3090,23 @@
   .profileConsentBox {
     width: 32px;
     height: 32px;
-    border-radius: 8px;
+    border-radius: 6px;
   }
-  .profileConsentLink {
+  .profileConsentDetailRows {
+    gap: 18px;
+  }
+  .profileConsentDetailRow {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .profileConsentText,
+  .profileConsentRequired,
+  .profileConsentOptional,
+  .profileConsentViewButton {
+    font-size: 16px;
+  }
+  .profileConsentViewButton {
+    justify-self: start;
     margin-left: 48px;
   }
   .profileActionRow {
@@ -2684,6 +3119,32 @@
     width: 100%;
     height: 58px;
     font-size: 22px;
+  }
+  .profileConsentModalPanel {
+    width: min(100%, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    border-radius: 18px;
+  }
+  .profileConsentModalHeader {
+    padding: 26px 56px 18px 22px;
+  }
+  .profileConsentModalTitle {
+    font-size: 23px;
+  }
+  .profileConsentModalCloseButton {
+    top: 26px;
+    right: 22px;
+  }
+  .profileConsentModalContent {
+    padding: 22px;
+  }
+  .profileConsentModalSectionTitle {
+    font-size: 17px;
+  }
+  .profileConsentModalParagraph,
+  .profileConsentModalIndentedText {
+    font-size: 14px;
+    line-height: 1.6;
   }
   .reviewModalHeader {
     padding: 24px 20px 0;
@@ -2841,6 +3302,89 @@
   }
 }
 @media (width < 420px) {
+  .certificateProfileModalPanel {
+    width: min(100%, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    border-radius: 22px;
+  }
+  .certificateProfileModalHeader {
+    padding: 30px 56px 0 22px;
+  }
+  .certificateProfileModalTitle {
+    font-size: 23px;
+  }
+  .certificateProfileCloseButton {
+    top: 31px;
+    right: 22px;
+  }
+  .certificateProfileModalBody {
+    max-height: calc(100vh - 84px);
+    padding: 22px;
+  }
+  .certificateProfileDescription,
+  .certificateProfileLabel {
+    font-size: 18px;
+  }
+  .certificateProfileFields {
+    gap: 22px;
+    margin-top: 26px;
+  }
+  .certificateProfileInput {
+    margin-top: 14px;
+    font-size: 16px;
+  }
+  .certificateProfileHelpText,
+  .certificateProfileNoticeText {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .certificateProfileNotice {
+    align-items: flex-start;
+    justify-content: flex-start;
+    min-height: 0;
+    margin-top: 24px;
+    padding: 18px;
+  }
+  .certificateProfileNoticeText {
+    gap: 6px;
+    text-align: left;
+  }
+  .certificateProfileActionRow {
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .certificateProfileCancelButton,
+  .certificateProfileSubmitButton {
+    width: 100%;
+    min-width: 0;
+  }
+  .certificatePreviewModalPanel {
+    width: min(100%, calc(100vw - 24px));
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 18px;
+  }
+  .certificatePreviewModalHeader {
+    padding: 24px 56px 16px 20px;
+  }
+  .certificatePreviewCloseButton {
+    top: 24px;
+    right: 20px;
+  }
+  .certificatePreviewScroll {
+    padding: 16px;
+  }
+  .certificatePreviewActionRow {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 20px 20px;
+  }
+  .certificatePreviewSecondaryButton,
+  .certificatePreviewPrimaryButton {
+    width: 100%;
+    min-width: 0;
+  }
   .profilePasswordModalHeader {
     padding: 24px 48px 0 20px;
   }

@@ -4,6 +4,7 @@ import { http } from '@/api/http';
 import type { ApiEnvelope } from '@/types/auth';
 import type {
   AdminQuestionNoticeCreatePayload,
+  AdminQuestionNoticeReorderItem,
   QuestionCreatePayload,
   QuestionItem,
   QuestionScope,
@@ -34,6 +35,16 @@ export const createAdminQuestionNotice = async (
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '운영 Q&A 공지 등록에 실패했습니다.');
+  }
+};
+
+export const reorderAdminQuestionNotices = async (
+  items: readonly AdminQuestionNoticeReorderItem[],
+): Promise<void> => {
+  try {
+    await axiosInstance.put('/api/v1/admin/qna/notices/reorder', { items });
+  } catch (error: unknown) {
+    throw toApiError(error, '운영 Q&A 공지 순서를 변경하지 못했습니다.');
   }
 };
 

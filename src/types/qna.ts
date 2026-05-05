@@ -23,6 +23,7 @@ export interface QuestionItem {
   content: string;
   mine: boolean;
   notice: boolean;
+  noticeSortOrder?: number;
   answered: boolean;
   replyCount: number;
   createdAt: string;
@@ -38,6 +39,11 @@ export interface QuestionCreatePayload {
 export interface AdminQuestionNoticeCreatePayload {
   title: string;
   content: string;
+}
+
+export interface AdminQuestionNoticeReorderItem {
+  id: number;
+  sortOrder: number;
 }
 
 export interface QuestionReplyCreatePayload {

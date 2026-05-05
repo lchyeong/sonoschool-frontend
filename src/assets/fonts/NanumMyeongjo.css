@@ -1,0 +1,25 @@
+/*
+Nanum Myeongjo by NAVER.
+Served locally so certificate rendering, printing, and downloaded SVG use stable typography.
+*/
+@font-face {
+  font-family: 'Nanum Myeongjo';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('./nanum-myeongjo/NanumMyeongjo-Regular.subset.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Nanum Myeongjo';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('./nanum-myeongjo/NanumMyeongjo-Bold.subset.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Nanum Myeongjo';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url('./nanum-myeongjo/NanumMyeongjo-ExtraBold.subset.woff2') format('woff2');
+}

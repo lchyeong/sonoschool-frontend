@@ -5,6 +5,7 @@ import homeLectureImage2Src from '@/assets/sample/home_lecture_2.png';
 import homeLectureImage3Src from '@/assets/sample/home_lecture_3.jpg';
 import homeLectureImage4Src from '@/assets/sample/home_lecture_4.jpg';
 import homeLectureImage5Src from '@/assets/sample/home_lecture_5.jpg';
+import { routePaths } from '@/routes/routeRegistry';
 import { classNames } from '@/utils/classNames';
 
 import styles from './HomeFeatureShowcaseSection.module.scss';
@@ -379,7 +380,7 @@ const HomeFeatureShowcaseSection = () => {
               의사 교육 전문 국제 자격으로 증명된 차별화된 코칭을 경험하세요.
             </p>
 
-            <a className={styles['courseLink']} href='/programs'>
+            <a className={styles['courseLink']} href={routePaths.homeFeaturedCourses}>
               <span>과정 살펴보기</span>
               <span aria-hidden='true' className={styles['courseLinkArrow']} />
             </a>

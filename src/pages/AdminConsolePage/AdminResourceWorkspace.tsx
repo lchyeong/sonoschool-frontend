@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { createAdminResourceUploadTarget, uploadAdminResourceFile } from '@/api/adminResourceMedia';
 import {
   createAdminResource,
   deleteAdminResource,
@@ -34,9 +35,10 @@ interface AdminResourceWorkspaceFormProps extends AdminResourceWorkspaceProps {
 interface ResourceFormState {
   description: string;
   fileName: string;
-  fileSize: string;
-  fileUrl: string;
+  fileSize: number;
+  mediaAssetId: number | null;
   mimeType: string;
+  originalFileName: string;
   sortOrder: string;
   title: string;
 }
@@ -44,9 +46,10 @@ interface ResourceFormState {
 const EMPTY_FORM: ResourceFormState = {
   description: '',
   fileName: '',
-  fileSize: '0',
-  fileUrl: '',
+  fileSize: 0,
+  mediaAssetId: null,
   mimeType: '',
+  originalFileName: '',
   sortOrder: '0',
   title: '',
 };
@@ -59,33 +62,34 @@ const createFormState = (resource?: AdminResourceItem | null): ResourceFormState
   return {
     description: resource.description ?? '',
     fileName: resource.fileName,
-    fileSize: String(resource.fileSize),
-    fileUrl: resource.fileUrl,
+    fileSize: resource.fileSize,
+    mediaAssetId: null,
     mimeType: resource.mimeType ?? '',
+    originalFileName: resource.fileName,
     sortOrder: String(resource.sortOrder),
     title: resource.title,
   };
 };
 
+const formatFileSizeInMb = (bytes: number): string => {
+  if (bytes <= 0) {
+    return '-';
+  }
+
+  return `${Math.max(0.01, bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
+
 const validateForm = (formState: ResourceFormState): string | null => {
   if (!formState.title.trim()) {
-    return '자료 제목을 입력해 주세요.';
+    return '자료 게시글 제목을 입력해 주세요.';
   }
 
   if (!formState.fileName.trim()) {
-    return '파일명을 입력해 주세요.';
+    return '다운로드 파일명을 입력해 주세요.';
   }
 
-  if (!formState.fileUrl.trim()) {
-    return '파일 주소를 입력해 주세요.';
-  }
-
-  if (
-    !formState.fileSize.trim() ||
-    Number.isNaN(Number(formState.fileSize)) ||
-    Number(formState.fileSize) < 0
-  ) {
-    return '파일 크기를 숫자로 입력해 주세요.';
+  if (formState.fileSize < 1) {
+    return '자료 파일을 업로드해 주세요.';
   }
 
   if (!formState.sortOrder.trim() || Number.isNaN(Number(formState.sortOrder))) {
@@ -94,7 +98,7 @@ const validateForm = (formState: ResourceFormState): string | null => {
 
   return validateResourceDocumentPolicy({
     fileName: formState.fileName,
-    fileSize: Number(formState.fileSize),
+    fileSize: formState.fileSize,
     mimeType: formState.mimeType,
   });
 };
@@ -109,6 +113,7 @@ const AdminResourceWorkspaceForm = ({
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const [formState, setFormState] = useState<ResourceFormState>(initialFormState);
+  const [isUploading, setIsUploading] = useState(false);
 
   const refreshResources = async () => {
     await queryClient.invalidateQueries({ queryKey: adminResourcesQueryKey() });
@@ -118,16 +123,61 @@ const AdminResourceWorkspaceForm = ({
     return {
       description: formState.description.trim() || null,
       fileName: formState.fileName.trim(),
-      fileSize: Number(formState.fileSize),
-      fileUrl: formState.fileUrl.trim(),
       lectureId: null,
-      mimeType: formState.mimeType.trim() || null,
+      mediaAssetId: formState.mediaAssetId,
       programId: null,
       scope: 'GLOBAL',
       sortOrder: Number(formState.sortOrder),
       title: formState.title.trim(),
       visibility: 'PUBLIC',
     };
+  };
+
+  const handleResourceFileChange = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    const validationMessage = validateResourceDocumentPolicy({
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    });
+
+    if (validationMessage) {
+      showToast({ message: validationMessage, variant: 'error' });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const uploadTarget = await createAdminResourceUploadTarget({
+        contentType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        filename: file.name,
+      });
+      await uploadAdminResourceFile(uploadTarget.uploadUrl, file);
+      setFormState((current) => ({
+        ...current,
+        fileName: current.fileName.trim() ? current.fileName : file.name,
+        fileSize: file.size,
+        mediaAssetId: uploadTarget.assetId,
+        mimeType: file.type || 'application/octet-stream',
+        originalFileName: file.name,
+        title: current.title.trim() ? current.title : file.name.replace(/\.[^.]+$/, ''),
+      }));
+      showToast({
+        message: '자료 파일을 업로드했습니다.',
+        variant: 'success',
+      });
+    } catch (error: unknown) {
+      showToast({
+        message: error instanceof Error ? error.message : '자료 파일 업로드에 실패했습니다.',
+        variant: 'error',
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const createMutation = useMutation({
@@ -138,13 +188,13 @@ const AdminResourceWorkspaceForm = ({
         variant: 'error',
       });
     },
-    onSuccess: async (resource) => {
+    onSuccess: async () => {
       await refreshResources();
       showToast({
         message: '자료를 등록했습니다.',
         variant: 'success',
       });
-      void navigate(routePaths.adminResourceEdit(String(resource.id)));
+      void navigate(routePaths.adminResources);
     },
   });
 
@@ -201,6 +251,14 @@ const AdminResourceWorkspaceForm = ({
       return;
     }
 
+    if (mode === 'create' && !formState.mediaAssetId) {
+      showToast({
+        message: '자료 파일을 먼저 업로드해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
     const payload = buildPayload();
 
     if (mode === 'create') {
@@ -214,7 +272,7 @@ const AdminResourceWorkspaceForm = ({
     });
   };
 
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isSubmitting = isUploading || createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className={styles['page']}>
@@ -269,7 +327,7 @@ const AdminResourceWorkspaceForm = ({
           </div>
 
           <TextField
-            label='자료명'
+            label='자료 게시글 제목'
             name='resourceTitle'
             onChange={(event) => {
               setFormState((current) => ({ ...current, title: event.target.value }));
@@ -286,42 +344,60 @@ const AdminResourceWorkspaceForm = ({
             value={formState.description}
           />
 
+          <section
+            className={styles['noticeAttachmentPanel']}
+            aria-labelledby='resource-file-label'
+          >
+            <div className={styles['noticeAttachmentHeader']}>
+              <div>
+                <h3 className={styles['noticeAttachmentTitle']} id='resource-file-label'>
+                  자료 파일
+                </h3>
+                <p className={styles['noticeAttachmentHint']}>
+                  파일을 선택하면 원본 파일명과 파일 크기가 자동으로 저장됩니다.
+                </p>
+              </div>
+              <label className={styles['noticeAttachmentButton']}>
+                <input
+                  disabled={isUploading}
+                  onChange={(event) => {
+                    void handleResourceFileChange(event.target.files?.[0] ?? null);
+                    event.currentTarget.value = '';
+                  }}
+                  type='file'
+                />
+                {isUploading
+                  ? '업로드 중...'
+                  : formState.originalFileName
+                    ? '파일 변경'
+                    : '파일 선택'}
+              </label>
+            </div>
+
+            {formState.originalFileName ? (
+              <ul className={styles['noticeAttachmentList']}>
+                <li className={styles['noticeAttachmentItem']}>
+                  <span className={styles['noticeAttachmentName']}>
+                    {formState.originalFileName}
+                  </span>
+                  <span className={styles['noticeAttachmentSize']}>
+                    {formatFileSizeInMb(formState.fileSize)}
+                  </span>
+                </li>
+              </ul>
+            ) : (
+              <p className={styles['noticeAttachmentEmpty']}>등록된 첨부파일이 없습니다.</p>
+            )}
+          </section>
+
           <div className={styles['compactFieldRow']}>
             <TextField
-              label='파일명'
+              label='다운로드 파일명'
               name='resourceFileName'
               onChange={(event) => {
                 setFormState((current) => ({ ...current, fileName: event.target.value }));
               }}
               value={formState.fileName}
-            />
-            <TextField
-              label='파일 크기(byte)'
-              name='resourceFileSize'
-              onChange={(event) => {
-                setFormState((current) => ({ ...current, fileSize: event.target.value }));
-              }}
-              value={formState.fileSize}
-            />
-          </div>
-
-          <TextField
-            label='파일 주소'
-            name='resourceFileUrl'
-            onChange={(event) => {
-              setFormState((current) => ({ ...current, fileUrl: event.target.value }));
-            }}
-            value={formState.fileUrl}
-          />
-
-          <div className={styles['compactFieldRow']}>
-            <TextField
-              label='MIME 타입'
-              name='resourceMimeType'
-              onChange={(event) => {
-                setFormState((current) => ({ ...current, mimeType: event.target.value }));
-              }}
-              value={formState.mimeType}
             />
             <TextField
               label='정렬 순서'

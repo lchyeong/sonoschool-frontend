@@ -29,7 +29,9 @@ export interface AdminProblemQuestion extends AdminProblemMedia {
 export interface AdminProblem {
   id: number;
   lectureId: number;
+  passScore: number;
   passCorrectCount: number;
+  retakeAllowed: boolean;
   timeLimitSeconds: number | null;
   questions: AdminProblemQuestion[];
   title: string;
@@ -51,7 +53,8 @@ export interface AdminProblemQuestionUpsertPayload extends AdminProblemMedia {
 }
 
 export interface AdminProblemUpsertPayload {
-  passCorrectCount: number;
+  passScore: number;
+  retakeAllowed?: boolean | null;
   timeLimitSeconds?: number | null;
   questions: AdminProblemQuestionUpsertPayload[];
   title: string;

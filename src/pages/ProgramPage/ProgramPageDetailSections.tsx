@@ -97,6 +97,7 @@ interface ProgramPageDetailSidebarProps {
   isAlertPending: boolean;
   isAlertSubscribed: boolean;
   isCartAdded?: boolean;
+  isEnrollmentOwned?: boolean;
   isAuthenticated: boolean;
   isEnrollingNow: boolean;
   isAddingToCart: boolean;
@@ -992,6 +993,7 @@ export const ProgramPageDetailSidebar = ({
   isAlertPending,
   isAlertSubscribed,
   isCartAdded = false,
+  isEnrollmentOwned,
   isAuthenticated,
   isEnrollingNow,
   isAddingToCart,
@@ -1063,21 +1065,27 @@ export const ProgramPageDetailSidebar = ({
               <button
                 className={classNames(
                   styles['cartActionLink'],
-                  isCartAdded && styles['cartActionLinkAdded'],
+                  (isCartAdded || isEnrollmentOwned) && styles['cartActionLinkAdded'],
                 )}
-                disabled={isAddingToCart}
+                disabled={isAddingToCart || isEnrollmentOwned}
                 onClick={handleAddToCart}
                 type='button'
               >
-                {isCartAdded ? '장바구니 보기' : isAddingToCart ? '담는 중...' : '장바구니'}
+                {isEnrollmentOwned
+                  ? '수강 중'
+                  : isCartAdded
+                    ? '장바구니 보기'
+                    : isAddingToCart
+                      ? '담는 중...'
+                      : '장바구니'}
               </button>
               <button
                 className={styles['applyActionLink']}
-                disabled={isEnrollingNow}
+                disabled={isEnrollingNow || isEnrollmentOwned}
                 onClick={handleEnrollNow}
                 type='button'
               >
-                {isEnrollingNow ? '이동 중...' : '수강 신청 하기'}
+                {isEnrollmentOwned ? '수강 중' : isEnrollingNow ? '이동 중...' : '수강 신청 하기'}
               </button>
             </>
           )}

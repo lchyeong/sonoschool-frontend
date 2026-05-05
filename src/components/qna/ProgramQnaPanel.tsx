@@ -19,7 +19,6 @@ import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearch
 import Button from '@/components/ui/Button/Button';
 import {
   QNA_CONTENT_MAX_LENGTH,
-  QNA_LIST_CONTENT_PREVIEW_LENGTH,
   QNA_REPLY_MAX_LENGTH,
   QNA_TITLE_MAX_LENGTH,
 } from '@/constants/qna';
@@ -32,12 +31,7 @@ import type {
   ProgramQnaThreadItem,
 } from '@/types/programQna';
 import { classNames } from '@/utils/classNames';
-import {
-  buildQnaPreview,
-  maskQnaAuthorName,
-  resolveQnaAuthorName,
-  validateQnaQuestionDraft,
-} from '@/utils/qna';
+import { maskQnaAuthorName, resolveQnaAuthorName, validateQnaQuestionDraft } from '@/utils/qna';
 
 import styles from './ProgramQnaPanel.module.scss';
 
@@ -683,6 +677,79 @@ const ProgramQnaPanelContent = ({
           </div>
         ) : null}
       </div>
+    );
+  };
+
+  const renderBoardTableDetailContent = (thread: ProgramQnaThreadItem) => {
+    const replies = getThreadReplies(thread, answerSource);
+    const primaryReply =
+      replies.find((reply) => reply.adminReply) ?? (replies.length ? replies[0] : null);
+
+    if (editingThreadId === thread.id) {
+      return renderThreadDetailContent(thread, openReplyThreadIds.includes(thread.id));
+    }
+
+    return (
+      <>
+        {thread.mine ? (
+          <div className={styles['ownQuestionToolbar']}>
+            <span className={styles['ownQuestionLabel']}>내 질문</span>
+            <div className={styles['ownQuestionActions']}>
+              <button
+                className={styles['ownQuestionActionButton']}
+                disabled={updateThreadMutation.isPending || deleteThreadMutation.isPending}
+                onClick={() => {
+                  handleStartThreadEdit(thread);
+                }}
+                type='button'
+              >
+                수정하기
+              </button>
+              <button
+                className={styles['ownQuestionActionButton']}
+                disabled={updateThreadMutation.isPending || deleteThreadMutation.isPending}
+                onClick={() => {
+                  handleDeleteThread(thread);
+                }}
+                type='button'
+              >
+                질문 삭제
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className={styles['detailPanel']}>
+          <section className={styles['questionBlock']}>
+            <span className={styles['questionIcon']}>Q</span>
+            <strong className={styles['questionLabel']}>질문</strong>
+            <p className={styles['questionContent']}>{thread.content}</p>
+            <time className={styles['detailDate']} dateTime={thread.createdAt}>
+              {formatDateTime(thread.createdAt)}
+            </time>
+          </section>
+
+          <div className={styles['detailDivider']} />
+
+          {primaryReply ? (
+            <section className={styles['replyPanel']}>
+              <span className={styles['answerIcon']}>A</span>
+              <strong className={styles['replyAuthor']}>답변</strong>
+              <div className={styles['replyBody']}>
+                {primaryReply.adminReply ? (
+                  <span className={styles['replyBadge']}>관리자 답변</span>
+                ) : null}
+                <p className={styles['replyContent']}>{primaryReply.content}</p>
+              </div>
+              <time className={styles['detailDate']} dateTime={primaryReply.createdAt}>
+                {formatDateTime(primaryReply.createdAt)}
+              </time>
+            </section>
+          ) : (
+            <p className={styles['waitingText']}>아직 등록된 답변이 없습니다.</p>
+          )}
+        </div>
+      </>
     );
   };
 
@@ -1472,21 +1539,39 @@ const ProgramQnaPanelContent = ({
                   <col />
                   <col className={styles['authorCol']} />
                   <col className={styles['dateCol']} />
-                  <col className={styles['toggleCol']} />
                 </colgroup>
                 <tbody>
                   {paginatedThreads.length ? (
                     paginatedThreads.map((thread) => {
                       const isExpanded = activeExpandedThreadId === thread.id;
-                      const isReplyComposerOpen = openReplyThreadIds.includes(thread.id);
+                      const authorName = maskQnaAuthorName(
+                        resolveQnaAuthorName(thread.authorName, thread.mine, currentDisplayName),
+                      );
 
                       return (
                         <Fragment key={thread.id}>
                           <tr
+                            aria-expanded={isExpanded}
                             className={styles['questionRow']}
-                            data-expanded={isExpanded ? 'true' : 'false'}
+                            data-expanded={isExpanded}
+                            onClick={() => {
+                              setExpandedThreadId((current) =>
+                                current === thread.id ? null : thread.id,
+                              );
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter' && event.key !== ' ') {
+                                return;
+                              }
+
+                              event.preventDefault();
+                              setExpandedThreadId((current) =>
+                                current === thread.id ? null : thread.id,
+                              );
+                            }}
+                            tabIndex={0}
                           >
-                            <td>
+                            <td className={styles['statusCell']}>
                               <span
                                 className={styles['boardStatusBadge']}
                                 data-tone={
@@ -1494,76 +1579,31 @@ const ProgramQnaPanelContent = ({
                                 }
                               >
                                 {isThreadAnswered(thread, answerSource)
-                                  ? '답변완료'
+                                  ? '답변 완료'
                                   : waitingStatusLabel}
                               </span>
                             </td>
                             <td className={styles['titleCell']}>
-                              <button
-                                aria-controls={`program-qna-detail-${String(thread.id)}`}
-                                aria-expanded={isExpanded}
-                                className={styles['titleButton']}
-                                onClick={() => {
-                                  setExpandedThreadId((current) =>
-                                    current === thread.id ? null : thread.id,
-                                  );
-                                }}
-                                type='button'
-                              >
-                                <span className={styles['titleText']} title={thread.title}>
-                                  {thread.title}
-                                </span>
-                                <span className={styles['previewText']}>
-                                  {buildQnaPreview(thread.content, QNA_LIST_CONTENT_PREVIEW_LENGTH)}
-                                </span>
-                              </button>
+                              <span className={styles['titleButton']}>{thread.title}</span>
                             </td>
-                            <td className={styles['authorCell']}>
+                            <td className={styles['authorCell']}>{authorName}</td>
+                            <td className={styles['dateCell']}>
+                              <time dateTime={thread.createdAt}>
+                                {formatDate(thread.createdAt)}
+                              </time>
                               <span
-                                className={styles['authorText']}
-                                title={resolveQnaAuthorName(
-                                  thread.authorName,
-                                  thread.mine,
-                                  currentDisplayName,
-                                )}
-                              >
-                                {maskQnaAuthorName(
-                                  resolveQnaAuthorName(
-                                    thread.authorName,
-                                    thread.mine,
-                                    currentDisplayName,
-                                  ),
-                                )}
-                              </span>
-                            </td>
-                            <td>{formatDate(thread.createdAt)}</td>
-                            <td className={styles['toggleCell']}>
-                              <button
-                                aria-controls={`program-qna-detail-${String(thread.id)}`}
-                                aria-expanded={isExpanded}
-                                aria-label={isExpanded ? '질문 닫기' : '질문 열기'}
-                                className={styles['rowToggleButton']}
-                                onClick={() => {
-                                  setExpandedThreadId((current) =>
-                                    current === thread.id ? null : thread.id,
-                                  );
-                                }}
-                                type='button'
-                              >
-                                <span
-                                  aria-hidden='true'
-                                  className={styles['rowToggleIcon']}
-                                  data-expanded={isExpanded ? 'true' : 'false'}
-                                />
-                              </button>
+                                aria-hidden='true'
+                                className={styles['dropdownIcon']}
+                                data-expanded={isExpanded}
+                              />
                             </td>
                           </tr>
 
                           {isExpanded ? (
                             <tr className={styles['detailRow']}>
-                              <td colSpan={5}>
+                              <td colSpan={4}>
                                 <div id={`program-qna-detail-${String(thread.id)}`}>
-                                  {renderThreadDetailContent(thread, isReplyComposerOpen)}
+                                  {renderBoardTableDetailContent(thread)}
                                 </div>
                               </td>
                             </tr>
@@ -1573,7 +1613,7 @@ const ProgramQnaPanelContent = ({
                     })
                   ) : (
                     <tr>
-                      <td className={styles['emptyRow']} colSpan={5}>
+                      <td className={styles['emptyRow']} colSpan={4}>
                         {deferredSearchKeyword || statusFilter !== 'all'
                           ? '검색 조건에 맞는 질문이 없습니다.'
                           : '등록된 질문이 없습니다.'}

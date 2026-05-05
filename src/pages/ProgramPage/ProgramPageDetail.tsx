@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,7 @@ import {
   type ProgramAvailabilityAlertStatusResponse,
 } from '@/api/programAvailabilityAlerts';
 import CartAddedModal from '@/components/cart/CartAddedModal/CartAddedModal';
-import { myCartQueryKey, useMyCartQuery } from '@/query/useMyPageQueries';
+import { myCartQueryKey, useMyCartQuery, useMyEnrollmentsQuery } from '@/query/useMyPageQueries';
 import {
   programAvailabilityAlertStatusQueryKey,
   useProgramAvailabilityAlertStatusQuery,
@@ -21,6 +21,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import type { AddToCartPayload, CartItem, CartSummary, ProgramType } from '@/types/mypage';
 import type { ProgramCatalogStatus, ProgramDetailPageResponse } from '@/types/programCatalog';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
+import { blocksProgramCartAction } from '@/utils/enrollmentCartGuard';
 
 import styles from './ProgramPageDetail.module.scss';
 import {
@@ -214,6 +215,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const cartQuery = useMyCartQuery();
   const programId =
     typeof data.programId === 'number' && data.programId > 0 ? data.programId : null;
+  const enrollmentsQuery = useMyEnrollmentsQuery(isAuthenticated && programId !== null);
   const availability = resolveProgramAvailability(data);
   const viewModel = useProgramPageDetailViewModel(data);
   const {
@@ -240,6 +242,15 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const isCartAdded = (cartQuery.data?.items ?? []).some((item) => {
     return item.programId === cartPayload.programId;
   });
+  const isEnrollmentOwned = useMemo(() => {
+    if (programId === null) {
+      return false;
+    }
+
+    return (enrollmentsQuery.data ?? []).some((enrollment) => {
+      return enrollment.programId === programId && blocksProgramCartAction(enrollment);
+    });
+  }, [enrollmentsQuery.data, programId]);
 
   const addToCartMutation = useMutation({
     mutationFn: addMyCartItem,
@@ -255,6 +266,14 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
 
   const handleAddToCart = () => {
     const payload = cartPayload;
+
+    if (isEnrollmentOwned) {
+      showToast({
+        message: '이미 수강 중인 과정입니다.',
+        variant: 'info',
+      });
+      return;
+    }
 
     if (isCartAdded) {
       void navigate(routePaths.cart);
@@ -302,6 +321,14 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
 
   const handleEnrollNow = async () => {
     const payload = buildAddToCartPayload(data, discountedPriceAmount, originalPriceAmount);
+
+    if (isEnrollmentOwned) {
+      showToast({
+        message: '이미 수강 중인 과정입니다.',
+        variant: 'info',
+      });
+      return;
+    }
 
     try {
       const cart = await addToCartMutation.mutateAsync(payload);
@@ -441,6 +468,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
               isAlertPending={subscribeAlertMutation.isPending}
               isAlertSubscribed={isAlertSubscribed}
               isCartAdded={isCartAdded}
+              isEnrollmentOwned={isEnrollmentOwned}
               isAuthenticated={isAuthenticated}
               isEnrollingNow={addToCartMutation.isPending}
               originalPriceAmount={originalPriceAmount}
@@ -458,7 +486,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
               ? subscribeAlertMutation.isPending || isAlertSubscribed
               : availability.actionKind === 'DISABLED'
                 ? true
-                : addToCartMutation.isPending
+                : isEnrollmentOwned || addToCartMutation.isPending
           }
           onClick={
             availability.actionKind === 'ALERT'
@@ -479,9 +507,11 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
                   : '알림 받기'
             : availability.actionKind === 'DISABLED'
               ? availability.actionLabel
-              : addToCartMutation.isPending
-                ? '이동 중...'
-                : '수강 신청'}
+              : isEnrollmentOwned
+                ? '수강 중'
+                : addToCartMutation.isPending
+                  ? '이동 중...'
+                  : '수강 신청'}
         </button>
       </div>
 

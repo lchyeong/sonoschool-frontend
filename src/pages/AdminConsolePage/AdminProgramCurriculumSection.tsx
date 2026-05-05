@@ -29,6 +29,7 @@ import {
   fetchAdminVideoStatus,
   startAdminVideoEncoding,
 } from '@/api/adminVideos';
+import checkIconSrc from '@/assets/icons/lucide_check.svg';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { adminCurriculumQueryKey, useAdminCurriculumQuery } from '@/query/useAdminCurriculumQuery';
@@ -44,13 +45,16 @@ import type {
   AdminSortOrderItem,
 } from '@/types/adminCurriculum';
 import type { AdminProgramType } from '@/types/adminProgramsLive';
+import type { AdminVideoProcessingStage } from '@/types/adminVideo';
 import type { AdminPracticumSlotPayload, PracticumSlot } from '@/types/practicum';
 import { classNames } from '@/utils/classNames';
 
 import styles from './AdminProgramCurriculumSection.module.scss';
 
-const TARGET_PART_SIZE_BYTES = 8 * 1024 * 1024;
-const VIDEO_ENCODING_POLL_INTERVAL_MS = 5000;
+const TARGET_PART_SIZE_BYTES = 32 * 1024 * 1024;
+const VIDEO_PART_UPLOAD_CONCURRENCY = 4;
+const VIDEO_ENCODING_POLL_INTERVAL_MS = 15000;
+const VIDEO_ENCODING_MAX_POLL_ATTEMPTS = 360;
 
 const buildLectureDeleteConfirmMessage = (impact: AdminLectureDeleteImpact): string => {
   if (!impact.hasHistory) {
@@ -451,6 +455,15 @@ const formatProgressLabel = (label: string, progressPercent: number | null | und
   return `${label} ${String(Math.max(0, Math.min(100, Math.round(progressPercent))))}%`;
 };
 
+const formatVideoProcessingStageLabel = (
+  processingStage: AdminVideoProcessingStage | null | undefined,
+): string => {
+  if (processingStage === 'STREAMING_UPLOAD') {
+    return '스트리밍 파일 업로드 중';
+  }
+  return '영상 인코딩 중';
+};
+
 const buildVideoChunks = (
   file: File,
   parts: ReadonlyArray<{ partNumber: number; uploadUrl: string }>,
@@ -467,6 +480,40 @@ const buildVideoChunks = (
       uploadUrl: part.uploadUrl,
     };
   });
+};
+
+const uploadVideoChunks = async (
+  chunks: ReturnType<typeof buildVideoChunks>,
+  contentType: string,
+  onProgress: (progressPercent: number) => void,
+) => {
+  const completedParts = new Array<{ eTag: string; partNumber: number }>(chunks.length);
+  let nextIndex = 0;
+  let completedUploadPartCount = 0;
+  const workerCount = Math.min(VIDEO_PART_UPLOAD_CONCURRENCY, chunks.length);
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      for (;;) {
+        const index = nextIndex;
+        nextIndex += 1;
+        if (index >= chunks.length) {
+          return;
+        }
+
+        const chunk = chunks[index];
+        const eTag = await uploadPart(chunk.uploadUrl, chunk.blob, contentType);
+        completedParts[index] = {
+          eTag,
+          partNumber: chunk.partNumber,
+        };
+        completedUploadPartCount += 1;
+        onProgress((completedUploadPartCount / chunks.length) * 100);
+      }
+    }),
+  );
+
+  return completedParts;
 };
 
 const LectureCard = ({
@@ -896,7 +943,7 @@ const LectureCard = ({
                 ) : null}
 
                 {allowPracticum && !formState.problemOnly ? (
-                  <label className={styles['checkboxRow']}>
+                  <label className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}>
                     <input
                       checked={formState.practicumEnabled}
                       onChange={(event) => {
@@ -907,7 +954,10 @@ const LectureCard = ({
                       }}
                       type='checkbox'
                     />
-                    실습 예약 사용
+                    <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
+                      {formState.practicumEnabled ? <img alt='' src={checkIconSrc} /> : null}
+                    </span>
+                    <span>실습 예약 사용</span>
                   </label>
                 ) : null}
 
@@ -1632,7 +1682,7 @@ const SectionCard = ({
                 ) : null}
 
                 {allowPracticum && !newLectureForm.problemOnly ? (
-                  <label className={styles['checkboxRow']}>
+                  <label className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}>
                     <input
                       checked={newLectureForm.practicumEnabled}
                       onChange={(event) => {
@@ -1643,7 +1693,10 @@ const SectionCard = ({
                       }}
                       type='checkbox'
                     />
-                    실습 예약 사용
+                    <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
+                      {newLectureForm.practicumEnabled ? <img alt='' src={checkIconSrc} /> : null}
+                    </span>
+                    <span>실습 예약 사용</span>
                   </label>
                 ) : null}
 
@@ -2054,12 +2107,15 @@ const AdminProgramCurriculumSection = ({
   };
 
   const pollVideoReady = async (videoId: number, lectureId: number): Promise<void> => {
-    for (;;) {
+    for (let attempt = 0; attempt < VIDEO_ENCODING_MAX_POLL_ATTEMPTS; attempt += 1) {
       const status = await fetchAdminVideoStatus(videoId);
       if (status.status === 'PROCESSING') {
         setVideoUploadStatusByLectureId((current) => ({
           ...current,
-          [lectureId]: formatProgressLabel('영상 인코딩 중', status.progressPercent),
+          [lectureId]: formatProgressLabel(
+            formatVideoProcessingStageLabel(status.processingStage),
+            status.progressPercent,
+          ),
         }));
       }
       if (status.status === 'READY') {
@@ -2068,8 +2124,13 @@ const AdminProgramCurriculumSection = ({
       if (status.status === 'FAILED') {
         throw new Error(status.errorMessage || '영상 인코딩에 실패했습니다.');
       }
+      if (status.status === 'UPLOADING' || status.status === 'UPLOADED') {
+        throw new Error('영상 인코딩이 정상적으로 시작되지 않았습니다. 다시 업로드해 주세요.');
+      }
       await new Promise((resolve) => window.setTimeout(resolve, VIDEO_ENCODING_POLL_INTERVAL_MS));
     }
+
+    throw new Error('영상 인코딩 확인 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
   };
 
   const handleUploadLectureVideo = async (lectureId: number, file: File) => {
@@ -2107,27 +2168,15 @@ const AdminProgramCurriculumSection = ({
       });
 
       const chunks = buildVideoChunks(file, session.parts);
-      let completedUploadPartCount = 0;
-      const completedParts = await Promise.all(
-        chunks.map(async (chunk) => {
-          const eTag = await uploadPart(
-            chunk.uploadUrl,
-            chunk.blob,
-            file.type || 'application/octet-stream',
-          );
-          completedUploadPartCount += 1;
+      const completedParts = await uploadVideoChunks(
+        chunks,
+        file.type || 'application/octet-stream',
+        (progressPercent) => {
           setVideoUploadStatusByLectureId((current) => ({
             ...current,
-            [lectureId]: formatProgressLabel(
-              '영상 업로드 중',
-              (completedUploadPartCount / chunks.length) * 100,
-            ),
+            [lectureId]: formatProgressLabel('영상 업로드 중', progressPercent),
           }));
-          return {
-            eTag,
-            partNumber: chunk.partNumber,
-          };
-        }),
+        },
       );
 
       setVideoUploadStatusByLectureId((current) => ({

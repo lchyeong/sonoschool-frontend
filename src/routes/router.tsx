@@ -72,6 +72,12 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='qna' />;
   }),
+  adminQnaNoticeCreate: createLazyRoute(async () => {
+    const { default: AdminQnaNoticeWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminQnaNoticeWorkspace'
+    );
+    return <AdminQnaNoticeWorkspace />;
+  }),
   adminResources: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='resources' />;
@@ -172,12 +178,6 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='problemAreas' />;
   }),
-  adminVideos: createLazyRoute(async () => {
-    const { default: AdminVideoUploadPage } = await import(
-      '@/pages/AdminVideoUploadPage/AdminVideoUploadPage'
-    );
-    return <AdminVideoUploadPage />;
-  }),
   adminPayments: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');
     return <AdminConsolePage section='payments' />;
@@ -232,7 +232,7 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     const { default: NoticeDetailPage } = await import('@/pages/NoticeDetailPage/NoticeDetailPage');
     return <NoticeDetailPage />;
   }),
-  reviews: createStaticElementRoute(<Navigate replace to={routePaths.programs} />),
+  reviews: createStaticElementRoute(<Navigate replace to={routePaths.homeFeaturedCourses} />),
   qna: createLazyRoute(async () => {
     const { default: QnaPage } = await import('@/pages/QnaPage/QnaPage');
     return <QnaPage />;
@@ -247,10 +247,7 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     );
     return <ResourceDetailPage />;
   }),
-  programs: createLazyRoute(async () => {
-    const { default: ProgramsPage } = await import('@/pages/ProgramsPage/ProgramsPage');
-    return <ProgramsPage />;
-  }),
+  programs: createStaticElementRoute(<Navigate replace to={routePaths.homeFeaturedCourses} />),
   search: createLazyRoute(async () => {
     const { default: SearchPage } = await import('@/pages/SearchPage/SearchPage');
     return <SearchPage />;
@@ -285,6 +282,7 @@ const adminConsoleRouteKeys = [
   'adminNoticeEdit',
   'adminPopups',
   'adminQna',
+  'adminQnaNoticeCreate',
   'adminResources',
   'adminResourceCreate',
   'adminResourceEdit',
@@ -304,7 +302,6 @@ const adminConsoleRouteKeys = [
   'adminProgramDuplicate',
   'adminProgramMenus',
   'adminProblemAreas',
-  'adminVideos',
   'adminPayments',
 ] as const satisfies readonly AppRouteKey[];
 const adminRouteKeySet = new Set<AppRouteKey>([...adminAuthRouteKeys, ...adminConsoleRouteKeys]);

@@ -223,11 +223,6 @@
   background: #ffffff;
 }
 
-.boardFooter {
-  display: flex;
-  justify-content: center;
-}
-
 .pagination {
   display: flex;
   align-items: center;
@@ -263,13 +258,13 @@
 
 .pageNavButton {
   color: #000000;
-  background: #f9fafb;
+  background: #f3f4f6;
 }
 
-.pageButton:disabled,
 .pageNavButton:disabled {
   color: #9ca3af;
-  cursor: not-allowed;
+  background: #ffffff;
+  cursor: default;
 }
 
 .pageNavIcon {
@@ -291,8 +286,8 @@
 
 @media (width < 960px) {
   .page {
-    width: min(100% - 32px, 720px);
-    padding: 72px 0 96px;
+    width: min(100% - 40px, 1436px);
+    padding: 40px 0 96px;
   }
 
   .boardHeader {
@@ -312,7 +307,12 @@
   .searchForm {
     position: static;
     width: 100%;
+    max-width: 584px;
     margin-top: 8px;
+  }
+
+  .boardShell {
+    margin-top: 48px;
   }
 
   .tableWrap {

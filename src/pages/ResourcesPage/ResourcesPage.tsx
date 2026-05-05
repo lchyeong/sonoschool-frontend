@@ -200,78 +200,76 @@ const ResourcesPage = () => {
               </table>
             </div>
 
-            <div className={styles['boardFooter']}>
-              <nav aria-label='자료실 페이지 이동' className={styles['pagination']}>
-                <button
-                  aria-label='이전 페이지'
-                  className={styles['pageNavButton']}
-                  disabled={currentPage === 1}
-                  onClick={() => {
-                    setPage((value) => Math.max(1, value - 1));
-                  }}
-                  type='button'
+            <nav aria-label='자료실 페이지 이동' className={styles['pagination']}>
+              <button
+                aria-label='이전 페이지'
+                className={styles['pageNavButton']}
+                disabled={currentPage === 1}
+                onClick={() => {
+                  setPage((value) => Math.max(1, value - 1));
+                }}
+                type='button'
+              >
+                <svg
+                  aria-hidden='true'
+                  className={styles['pageNavIcon']}
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  xmlns='http://www.w3.org/2000/svg'
                 >
-                  <svg
-                    aria-hidden='true'
-                    className={styles['pageNavIcon']}
-                    fill='none'
-                    viewBox='0 0 24 24'
-                    xmlns='http://www.w3.org/2000/svg'
+                  <path
+                    d='M15 18L9 12L15 6'
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='3'
+                  />
+                </svg>
+              </button>
+
+              {visiblePageNumbers.map((pageNumber) => {
+                return (
+                  <button
+                    aria-current={pageNumber === currentPage ? 'page' : undefined}
+                    className={styles['pageButton']}
+                    data-active={pageNumber === currentPage}
+                    key={pageNumber}
+                    onClick={() => {
+                      setPage(pageNumber);
+                    }}
+                    type='button'
                   >
-                    <path
-                      d='M15 18L9 12L15 6'
-                      stroke='currentColor'
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth='3'
-                    />
-                  </svg>
-                </button>
+                    {String(pageNumber)}
+                  </button>
+                );
+              })}
 
-                {visiblePageNumbers.map((pageNumber) => {
-                  return (
-                    <button
-                      aria-current={pageNumber === currentPage ? 'page' : undefined}
-                      className={styles['pageButton']}
-                      data-active={pageNumber === currentPage}
-                      key={pageNumber}
-                      onClick={() => {
-                        setPage(pageNumber);
-                      }}
-                      type='button'
-                    >
-                      {String(pageNumber)}
-                    </button>
-                  );
-                })}
-
-                <button
-                  aria-label='다음 페이지'
-                  className={styles['pageNavButton']}
-                  disabled={currentPage === totalPages}
-                  onClick={() => {
-                    setPage((value) => Math.min(totalPages, value + 1));
-                  }}
-                  type='button'
+              <button
+                aria-label='다음 페이지'
+                className={styles['pageNavButton']}
+                disabled={currentPage === totalPages}
+                onClick={() => {
+                  setPage((value) => Math.min(totalPages, value + 1));
+                }}
+                type='button'
+              >
+                <svg
+                  aria-hidden='true'
+                  className={styles['pageNavIcon']}
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  xmlns='http://www.w3.org/2000/svg'
                 >
-                  <svg
-                    aria-hidden='true'
-                    className={styles['pageNavIcon']}
-                    fill='none'
-                    viewBox='0 0 24 24'
-                    xmlns='http://www.w3.org/2000/svg'
-                  >
-                    <path
-                      d='M9 18L15 12L9 6'
-                      stroke='currentColor'
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth='3'
-                    />
-                  </svg>
-                </button>
-              </nav>
-            </div>
+                  <path
+                    d='M9 18L15 12L9 6'
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='3'
+                  />
+                </svg>
+              </button>
+            </nav>
           </>
         ) : null}
       </main>

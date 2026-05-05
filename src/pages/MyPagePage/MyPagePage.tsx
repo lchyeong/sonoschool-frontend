@@ -1,5 +1,5 @@
 import type { ChangeEvent, CSSProperties, FormEvent } from 'react';
-import { startTransition, useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -9,7 +9,6 @@ import { ApiError } from '@/api/errors';
 import {
   createMyCertificateProfile,
   createMyEnrollmentReview,
-  downloadMyCertificate,
   fetchMyCertificateProfile,
   sendMyPhoneVerification,
   updateMyEnrollmentReview,
@@ -18,6 +17,17 @@ import {
   verifyMyProfilePassword,
 } from '@/api/mypage';
 import { cancelPayment } from '@/api/payments';
+import certificateBorderInnerSrc from '@/assets/certificates/certificate-border-inner.svg';
+import certificateBorderMiddleSrc from '@/assets/certificates/certificate-border-middle.svg';
+import certificateBorderOuterSrc from '@/assets/certificates/certificate-border-outer.svg';
+import certificateCornerBottomLeftSrc from '@/assets/certificates/certificate-corner-bottom-left.svg';
+import certificateCornerBottomRightSrc from '@/assets/certificates/certificate-corner-bottom-right.svg';
+import certificateCornerTopLeftSrc from '@/assets/certificates/certificate-corner-top-left.svg';
+import certificateCornerTopRightSrc from '@/assets/certificates/certificate-corner-top-right.svg';
+import certificateSrdmsLogoSrc from '@/assets/certificates/srdms-logo.png';
+import certificateNanumMyeongjoBoldSrc from '@/assets/fonts/nanum-myeongjo/NanumMyeongjo-Bold.subset.woff2';
+import certificateNanumMyeongjoExtraBoldSrc from '@/assets/fonts/nanum-myeongjo/NanumMyeongjo-ExtraBold.subset.woff2';
+import certificateNanumMyeongjoRegularSrc from '@/assets/fonts/nanum-myeongjo/NanumMyeongjo-Regular.subset.woff2';
 import mypageCertificateDownloadIconSrc from '@/assets/icons/lucide_arrow-down-to-line.svg';
 import mypageQuestionChevronDownIconSrc from '@/assets/icons/lucide_chevron-down.svg';
 import mypageQuestionChevronUpIconSrc from '@/assets/icons/lucide_chevron-up.svg';
@@ -38,6 +48,8 @@ import mypageUserIconSrc from '@/assets/icons/mypage-menu-user.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
+import marketingConsentText from '@/content/marketingConsent.ko-KR.txt?raw';
+import privacyCollectionConsentText from '@/content/privacyCollectionConsent.ko-KR.txt?raw';
 import {
   myEnrollmentDetailQueryKey,
   myEnrollmentsQueryKey,
@@ -55,7 +67,9 @@ import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
 import type { SmsSendResponse } from '@/types/auth';
 import type {
+  CertificateProfile,
   EnrollmentReviewPayload,
+  EnrollmentSummary,
   MyQuestionAnsweredFilter,
   MyQuestionScope,
 } from '@/types/mypage';
@@ -70,6 +84,7 @@ import { classNames } from '@/utils/classNames';
 import styles from './MyPagePage.module.scss';
 
 type MyPageViewKey = 'learning' | 'payments' | 'profile' | 'questions';
+type ProfileConsentModalType = 'privacyCollection' | 'marketing';
 
 interface SidebarItem {
   key: MyPageViewKey;
@@ -80,6 +95,25 @@ interface SidebarItem {
 interface ReviewFormDraftState {
   enrollmentId: number | null;
   values: ReviewFormValues;
+}
+
+interface CertificatePreviewState {
+  enrollment: EnrollmentSummary;
+  profile: CertificateProfile;
+}
+
+interface CertificateSvgAssets {
+  borderInnerUrl: string;
+  borderMiddleUrl: string;
+  borderOuterUrl: string;
+  cornerBottomLeftUrl: string;
+  cornerBottomRightUrl: string;
+  cornerTopLeftUrl: string;
+  cornerTopRightUrl: string;
+  logoUrl: string;
+  regularFontUrl: string;
+  boldFontUrl: string;
+  extraBoldFontUrl: string;
 }
 
 interface PhoneFormErrors {
@@ -229,6 +263,170 @@ const formatDateRange = (startValue?: string | null, endValue?: string | null) =
   return `${startDate} ~ ${endDate === '-' ? '기간 제한 없음' : endDate}`;
 };
 
+const formatCertificateDate = (value?: string | null) => {
+  if (!value) return '-';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${String(date.getFullYear())}. ${month}. ${day}`;
+};
+
+const resolveCertificateCompletedAt = (enrollment: EnrollmentSummary) => {
+  return enrollment.completedAt ?? enrollment.expireAt ?? enrollment.enrolledAt;
+};
+
+const formatCertificateNumber = (enrollment: EnrollmentSummary) => {
+  const completedDate = new Date(resolveCertificateCompletedAt(enrollment));
+  const year = Number.isNaN(completedDate.getTime())
+    ? new Date().getFullYear()
+    : completedDate.getFullYear();
+  const month = Number.isNaN(completedDate.getTime()) ? 1 : completedDate.getMonth() + 1;
+  const sequence = String(enrollment.id).padStart(4, '0');
+
+  return `SONO-${String(year).slice(2)}-${String(month).padStart(2, '0')}-${sequence}`;
+};
+
+const escapeCertificateText = (value: string) => {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+};
+
+const buildCertificateFilename = (preview: CertificatePreviewState) => {
+  const normalizedTitle = preview.enrollment.programTitle.replace(/[\\/:*?"<>|\s]+/g, '-');
+  const normalizedName = (preview.profile.englishName ?? 'certificate').replace(
+    /[\\/:*?"<>|\s]+/g,
+    '-',
+  );
+
+  return `${normalizedTitle}-${normalizedName}-certificate.svg`;
+};
+
+const resolveCertificateSvgAssets = (origin?: string): CertificateSvgAssets => {
+  const resolveAssetUrl = (assetUrl: string) => {
+    return origin ? new URL(assetUrl, origin).href : assetUrl;
+  };
+
+  return {
+    borderInnerUrl: resolveAssetUrl(certificateBorderInnerSrc),
+    borderMiddleUrl: resolveAssetUrl(certificateBorderMiddleSrc),
+    borderOuterUrl: resolveAssetUrl(certificateBorderOuterSrc),
+    boldFontUrl: resolveAssetUrl(certificateNanumMyeongjoBoldSrc),
+    cornerBottomLeftUrl: resolveAssetUrl(certificateCornerBottomLeftSrc),
+    cornerBottomRightUrl: resolveAssetUrl(certificateCornerBottomRightSrc),
+    cornerTopLeftUrl: resolveAssetUrl(certificateCornerTopLeftSrc),
+    cornerTopRightUrl: resolveAssetUrl(certificateCornerTopRightSrc),
+    extraBoldFontUrl: resolveAssetUrl(certificateNanumMyeongjoExtraBoldSrc),
+    logoUrl: resolveAssetUrl(certificateSrdmsLogoSrc),
+    regularFontUrl: resolveAssetUrl(certificateNanumMyeongjoRegularSrc),
+  };
+};
+
+const CERTIFICATE_PREVIEW_SVG_ASSETS = resolveCertificateSvgAssets();
+
+const buildCertificateSvgMarkup = (
+  preview: CertificatePreviewState,
+  assets: CertificateSvgAssets,
+) => {
+  const certificateNumber = escapeCertificateText(formatCertificateNumber(preview.enrollment));
+  const englishName = escapeCertificateText(preview.profile.englishName ?? '');
+  const programTitle = escapeCertificateText(preview.enrollment.programTitle);
+  const completedDate = escapeCertificateText(
+    formatCertificateDate(resolveCertificateCompletedAt(preview.enrollment)),
+  );
+  const logoHref = escapeCertificateText(assets.logoUrl);
+  const borderOuterHref = escapeCertificateText(assets.borderOuterUrl);
+  const borderMiddleHref = escapeCertificateText(assets.borderMiddleUrl);
+  const borderInnerHref = escapeCertificateText(assets.borderInnerUrl);
+  const cornerTopLeftHref = escapeCertificateText(assets.cornerTopLeftUrl);
+  const cornerTopRightHref = escapeCertificateText(assets.cornerTopRightUrl);
+  const cornerBottomRightHref = escapeCertificateText(assets.cornerBottomRightUrl);
+  const cornerBottomLeftHref = escapeCertificateText(assets.cornerBottomLeftUrl);
+  const regularFontHref = escapeCertificateText(assets.regularFontUrl);
+  const boldFontHref = escapeCertificateText(assets.boldFontUrl);
+  const extraBoldFontHref = escapeCertificateText(assets.extraBoldFontUrl);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1054" height="1491" viewBox="0 0 1054 1491">
+  <rect width="1054" height="1491" fill="#FDFBFB"/>
+  <defs>
+    <linearGradient id="certificateFadeLine" x1="246" y1="664" x2="808" y2="664" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDFBFB" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#9B8F83"/>
+      <stop offset="0.7" stop-color="#9B8F83"/>
+      <stop offset="1" stop-color="#FDFBFB" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="certificateTitleFadeLine" x1="314" y1="426" x2="740" y2="426" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDFBFB" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#9B8F83"/>
+      <stop offset="0.7" stop-color="#9B8F83"/>
+      <stop offset="1" stop-color="#FDFBFB" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="certificateShortFadeLine" x1="428" y1="1135" x2="626" y2="1135" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDFBFB" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#9B8F83"/>
+      <stop offset="0.7" stop-color="#9B8F83"/>
+      <stop offset="1" stop-color="#FDFBFB" stop-opacity="0"/>
+    </linearGradient>
+    <style>
+      @font-face{font-family:'Nanum Myeongjo';font-weight:400;src:url('${regularFontHref}') format('woff2')}
+      @font-face{font-family:'Nanum Myeongjo';font-weight:700;src:url('${boldFontHref}') format('woff2')}
+      @font-face{font-family:'Nanum Myeongjo';font-weight:800;src:url('${extraBoldFontHref}') format('woff2')}
+      .serif{font-family:'Nanum Myeongjo',Georgia,'Times New Roman',serif}
+      .title-ko{font-size:110px;font-weight:700;letter-spacing:4.4px;fill:#9B8F83}
+      .body-dark{fill:#111827}
+      .body-muted{fill:#4B5563}
+      .body-sub{fill:#374151}
+    </style>
+  </defs>
+  <image href="${borderOuterHref}" x="29" y="29" width="996" height="1433" preserveAspectRatio="none"/>
+  <image href="${borderMiddleHref}" x="45" y="45" width="964" height="1401" preserveAspectRatio="none"/>
+  <image href="${borderInnerHref}" x="59" y="59" width="936" height="1373" preserveAspectRatio="none"/>
+  <image href="${cornerTopLeftHref}" x="6" y="8" width="74.5" height="72.4" preserveAspectRatio="xMidYMid meet"/>
+  <image href="${cornerTopRightHref}" x="974.1" y="7" width="72.4" height="74.5" preserveAspectRatio="xMidYMid meet"/>
+  <image href="${cornerBottomRightHref}" x="973" y="1410.1" width="74.5" height="72.4" preserveAspectRatio="xMidYMid meet"/>
+  <image href="${cornerBottomLeftHref}" x="8.1" y="1409" width="72.4" height="74.5" preserveAspectRatio="xMidYMid meet"/>
+  <circle cx="622" cy="774" r="312" fill="#34B29F" opacity="0.03"/>
+  <path d="M181 650 C331 701 500 680 636 604 C483 731 331 778 151 714" fill="#34B29F" opacity="0.025"/>
+  <image href="${logoHref}" x="95" y="120" width="255" height="76" preserveAspectRatio="xMidYMid meet"/>
+  <text class="serif body-dark" x="956" y="151" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="end">${certificateNumber}</text>
+  <text class="serif title-ko" x="527" y="348.5" dominant-baseline="middle" text-anchor="middle">수 료 증</text>
+  <line x1="314" y1="426" x2="740" y2="426" stroke="url(#certificateTitleFadeLine)" stroke-width="1"/>
+  <text class="serif body-muted" x="527" y="470" font-size="28" font-weight="700" dominant-baseline="middle" text-anchor="middle">Certificate of Completion</text>
+  <text class="serif body-muted" x="527.5" y="537" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">This certifies that</text>
+  <text class="serif body-dark" x="527.5" y="605" font-size="60" font-weight="800" dominant-baseline="middle" letter-spacing="4.8" text-anchor="middle">${englishName}</text>
+  <line x1="246" y1="664" x2="808" y2="664" stroke="url(#certificateFadeLine)" stroke-width="2"/>
+  <polygon points="527,657 533,664 527,671 521,664" fill="#9B8F83"/>
+  <text class="serif body-muted" x="527" y="710" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">Has participated in the</text>
+  <text class="serif body-muted" x="527" y="757" font-size="28" font-weight="700" dominant-baseline="middle" text-anchor="middle">Educational Course Activity Titled</text>
+  <line x1="202" y1="827" x2="852" y2="823" stroke="#9B8F83" stroke-width="1"/>
+  <line x1="202" y1="889" x2="852" y2="885" stroke="#9B8F83" stroke-width="1"/>
+  <line x1="202" y1="951" x2="852" y2="947" stroke="#9B8F83" stroke-width="1"/>
+  <line x1="368" y1="836" x2="368" y2="876" stroke="#9B8F83" stroke-width="1"/>
+  <line x1="368" y1="898" x2="368" y2="938" stroke="#9B8F83" stroke-width="1"/>
+  <polygon points="368,882 371,885 368,888 365,885" fill="#9B8F83"/>
+  <text class="serif body-dark" x="266" y="856" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">교육과정명</text>
+  <text class="serif body-dark" x="422" y="856.5" font-size="22" font-weight="800" dominant-baseline="middle">${programTitle}</text>
+  <text class="serif body-dark" x="266" y="918" font-size="20" font-weight="700" dominant-baseline="middle" letter-spacing="4.4" text-anchor="middle">수료일자</text>
+  <text class="serif body-dark" x="422" y="918.5" font-size="22" font-weight="800" dominant-baseline="middle">${completedDate}</text>
+  <text class="serif body-muted" x="527.5" y="1024" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">위 사람은 본 교육과정을 성실히 이수하였으므로 이 증서를 수여합니다.</text>
+  <text class="serif body-muted" x="527" y="1062.5" font-size="18" font-weight="700" dominant-baseline="middle" text-anchor="middle">This certificate is awarded in recognition of successful completion of the above course.</text>
+  <line x1="428" y1="1135" x2="626" y2="1135" stroke="url(#certificateShortFadeLine)" stroke-width="1"/>
+  <polygon points="527,1130 531,1135 527,1140 523,1135" fill="#9B8F83"/>
+  <text class="serif body-sub" x="247.5" y="1208" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">소노스쿨 대표</text>
+  <line x1="166" y1="1313" x2="500" y2="1313" stroke="#9B8F83" stroke-width="1"/>
+  <text class="serif body-dark" x="333" y="1336.5" font-size="22" font-weight="700" dominant-baseline="middle" letter-spacing="2.64" text-anchor="middle">Jang Eun Hee</text>
+  <text class="serif body-sub" x="688.5" y="1259" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">소노스쿨 국제초음파연수원</text>
+  <text class="serif body-sub" x="571" y="1292" font-size="16" font-weight="700">Sono School Registry for</text>
+  <text class="serif body-sub" x="571" y="1316" font-size="16" font-weight="700">Diagnostic Medical Sonography</text>
+</svg>`;
+};
+
 const formatCurrency = (value: number) => `${currencyFormatter.format(value)}원`;
 
 const formatQuestionScopeLabel = (value: QuestionScopeFilterValue) => {
@@ -269,6 +467,14 @@ const REVIEW_RATING_LABELS: Record<number, string> = {
   3: '3점 - 보통이에요',
   4: '4점 - 만족해요',
   5: '5점 - 매우 만족해요',
+};
+const PROFILE_CONSENT_TEXTS: Record<ProfileConsentModalType, string> = {
+  marketing: marketingConsentText,
+  privacyCollection: privacyCollectionConsentText,
+};
+const PROFILE_CONSENT_MODAL_TITLES: Record<ProfileConsentModalType, string> = {
+  marketing: '광고성 정보 수신 동의',
+  privacyCollection: '개인정보 수집 및 이용 동의',
 };
 
 type EnrollmentCourseTabValue = 'ACTIVE' | 'EXPIRED' | 'CERTIFICATE';
@@ -317,6 +523,39 @@ const getPhoneNumberValidationError = (value: string): string | null => {
 
 const getPhoneCodeValidationError = (value: string): string | null => {
   return /^\d{6}$/.test(value.trim()) ? null : PHONE_VERIFICATION_CODE_ERROR_MESSAGE;
+};
+
+const renderProfileConsentDocumentLine = (line: string, index: number) => {
+  const trimmedLine = line.trim();
+  const lineKey = `${String(index)}-${trimmedLine}`;
+
+  if (!trimmedLine) {
+    return (
+      <span aria-hidden='true' className={styles['profileConsentModalSpacer']} key={lineKey} />
+    );
+  }
+
+  if (/^제\s*\d+\s*조/.test(trimmedLine) || /^\d+\.\s/.test(trimmedLine)) {
+    return (
+      <h3 className={styles['profileConsentModalSectionTitle']} key={lineKey}>
+        {trimmedLine}
+      </h3>
+    );
+  }
+
+  if (/^(-|\(\d+\)|[가-힣]\.)/.test(trimmedLine)) {
+    return (
+      <p className={styles['profileConsentModalIndentedText']} key={lineKey}>
+        {trimmedLine}
+      </p>
+    );
+  }
+
+  return (
+    <p className={styles['profileConsentModalParagraph']} key={lineKey}>
+      {trimmedLine}
+    </p>
+  );
 };
 
 const resolvePhoneFormApiError = (
@@ -489,6 +728,9 @@ const MyPagePage = () => {
   const [downloadingCertificateEnrollmentId, setDownloadingCertificateEnrollmentId] = useState<
     number | null
   >(null);
+  const [certificatePreview, setCertificatePreview] = useState<CertificatePreviewState | null>(
+    null,
+  );
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
   const [reviewFormDraft, setReviewFormDraft] = useState<ReviewFormDraftState>({
     enrollmentId: null,
@@ -502,7 +744,9 @@ const MyPagePage = () => {
   const [phoneFormErrors, setPhoneFormErrors] = useState<PhoneFormErrors>({});
   const [sentVerification, setSentVerification] = useState<SmsSendResponse | null>(null);
   const [phoneCountdownSeconds, setPhoneCountdownSeconds] = useState(0);
-  const [optionalMarketingConsent, setOptionalMarketingConsent] = useState(false);
+  const [isOptionalPrivacyConsentAccepted, setIsOptionalPrivacyConsentAccepted] = useState(false);
+  const [profileConsentModalType, setProfileConsentModalType] =
+    useState<ProfileConsentModalType | null>(null);
 
   const profileQuery = useMyProfileQuery();
   const enrollmentsQuery = useMyEnrollmentsQuery();
@@ -519,6 +763,13 @@ const MyPagePage = () => {
   const certificateEnrollments = allEnrollments.filter(
     (enrollment) => enrollment.certificateEligible && enrollment.learningStatus !== 'CANCELLED',
   );
+  const certificatePreviewSvgMarkup = useMemo(() => {
+    if (!certificatePreview) {
+      return null;
+    }
+
+    return buildCertificateSvgMarkup(certificatePreview, CERTIFICATE_PREVIEW_SVG_ASSETS);
+  }, [certificatePreview]);
   const filteredEnrollments =
     courseTab === 'ACTIVE'
       ? activeEnrollments
@@ -695,7 +946,7 @@ const MyPagePage = () => {
     handleViewChange(DEFAULT_VIEW);
   };
 
-  const saveCertificateDownload = (blob: Blob, filename: string) => {
+  const saveCertificateSvgDownload = (preview: CertificatePreviewState) => {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       showToast({
         message: '수료증 다운로드를 지원하지 않는 환경입니다.',
@@ -712,11 +963,16 @@ const MyPagePage = () => {
       return false;
     }
 
+    const svgMarkup = buildCertificateSvgMarkup(
+      preview,
+      resolveCertificateSvgAssets(window.location.origin),
+    );
+    const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
     const objectUrl = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
 
     anchor.href = objectUrl;
-    anchor.download = filename;
+    anchor.download = buildCertificateFilename(preview);
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
@@ -724,32 +980,88 @@ const MyPagePage = () => {
     return true;
   };
 
-  const runCertificateDownload = async (enrollmentId: number) => {
-    setDownloadingCertificateEnrollmentId(enrollmentId);
-    try {
-      const download = await downloadMyCertificate(enrollmentId);
-      const saved = saveCertificateDownload(download.blob, download.filename);
-      if (saved) {
-        showToast({
-          message: '수료증 다운로드를 시작했습니다.',
-          variant: 'success',
-        });
-      }
-    } catch (error: unknown) {
+  const openCertificatePreview = (enrollmentId: number, profile: CertificateProfile) => {
+    const targetEnrollment = allEnrollments.find((enrollment) => enrollment.id === enrollmentId);
+
+    if (!targetEnrollment) {
       showToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : '수료증을 다운로드하지 못했습니다. 다시 시도해 주세요.',
+        message: '수료증 대상 강의를 확인하지 못했습니다.',
         variant: 'error',
       });
-    } finally {
-      setDownloadingCertificateEnrollmentId(null);
+      return;
     }
+
+    setCertificatePreview({
+      enrollment: targetEnrollment,
+      profile,
+    });
+  };
+
+  const handleCertificatePreviewDownload = () => {
+    if (!certificatePreview) return;
+
+    const saved = saveCertificateSvgDownload(certificatePreview);
+    if (saved) {
+      showToast({
+        message: '수료증 이미지 다운로드를 시작했습니다.',
+        variant: 'success',
+      });
+    }
+  };
+
+  const handleCertificatePreviewPrint = () => {
+    if (!certificatePreview || typeof window === 'undefined') return;
+
+    const svgMarkup = buildCertificateSvgMarkup(
+      certificatePreview,
+      resolveCertificateSvgAssets(window.location.origin),
+    );
+    const printHtml = `<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>수료증 인쇄</title>
+    <style>
+      @page { size: A4 portrait; margin: 0; }
+      html, body { width: 100%; min-height: 100%; margin: 0; background: #f3f4f6; }
+      body { display: grid; place-items: center; }
+      svg { width: min(100vw, 794px); height: auto; background: #fdfbfb; }
+      @media print {
+        html, body { background: #ffffff; }
+        svg { width: 210mm; height: 297mm; }
+      }
+    </style>
+  </head>
+  <body>${svgMarkup}</body>
+</html>`;
+    const printDocumentUrl = URL.createObjectURL(
+      new Blob([printHtml], { type: 'text/html;charset=utf-8' }),
+    );
+    const printWindow = window.open(printDocumentUrl, '_blank');
+    if (!printWindow) {
+      URL.revokeObjectURL(printDocumentUrl);
+      showToast({
+        message: '팝업이 차단되어 인쇄 화면을 열지 못했습니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const runPrint = () => {
+      printWindow.focus();
+      printWindow.print();
+      URL.revokeObjectURL(printDocumentUrl);
+    };
+
+    printWindow.addEventListener('load', runPrint, { once: true });
+    window.setTimeout(() => {
+      URL.revokeObjectURL(printDocumentUrl);
+    }, 10_000);
   };
 
   const handleCertificateDownload = async (enrollmentId: number) => {
     setCertificateProfileFormError(null);
+    setDownloadingCertificateEnrollmentId(enrollmentId);
     try {
       const certificateProfile = await fetchMyCertificateProfile();
       if (!certificateProfile.registered) {
@@ -758,7 +1070,7 @@ const MyPagePage = () => {
         return;
       }
 
-      await runCertificateDownload(enrollmentId);
+      openCertificatePreview(enrollmentId, certificateProfile);
     } catch (error: unknown) {
       showToast({
         message:
@@ -767,6 +1079,8 @@ const MyPagePage = () => {
             : '수료증 이름 정보를 확인하지 못했습니다. 다시 시도해 주세요.',
         variant: 'error',
       });
+    } finally {
+      setDownloadingCertificateEnrollmentId(null);
     }
   };
 
@@ -1046,7 +1360,7 @@ const MyPagePage = () => {
           : '수료증 이름을 등록하지 못했습니다. 다시 시도해 주세요.',
       );
     },
-    onSuccess: async () => {
+    onSuccess: (createdProfile) => {
       const targetEnrollmentId = certificateEnrollmentId;
       closeCertificateProfileModal();
       showToast({
@@ -1054,7 +1368,7 @@ const MyPagePage = () => {
         variant: 'success',
       });
       if (targetEnrollmentId !== null) {
-        await runCertificateDownload(targetEnrollmentId);
+        openCertificatePreview(targetEnrollmentId, createdProfile);
       }
     },
   });
@@ -1228,7 +1542,7 @@ const MyPagePage = () => {
           />
           <h3 className={styles['learningEmptyStateTitle']}>{emptyState.title}</h3>
           <p className={styles['learningEmptyStateDescription']}>{emptyState.description}</p>
-          <Link className={styles['learningEmptyStateLink']} to={routePaths.programs}>
+          <Link className={styles['learningEmptyStateLink']} to={routePaths.homeFeaturedCourses}>
             강의 둘러보기
           </Link>
         </div>
@@ -2205,29 +2519,86 @@ const MyPagePage = () => {
         </div>
 
         <div className={styles['profileConsentBlock']}>
-          <h3 className={styles['profileSectionTitle']}>선택 정보 동의</h3>
+          <h3 className={styles['profileSectionTitle']}>정보 동의</h3>
 
-          <label className={styles['profileConsentRow']}>
-            <input
-              checked={optionalMarketingConsent}
-              className={styles['profileConsentInput']}
-              onChange={(event) => {
-                setOptionalMarketingConsent(event.target.checked);
-              }}
-              type='checkbox'
-            />
-            <span className={styles['profileConsentBox']} aria-hidden='true'>
-              <span className={styles['profileConsentCheck']} />
-            </span>
-            <span className={styles['profileConsentText']}>
-              이메일 변경과 마케팅 수신 동의 변경은 현재 준비 중입니다.
-            </span>
-          </label>
+          <div className={styles['profileConsentList']}>
+            <label
+              className={classNames(styles['profileConsentRow'], styles['profileConsentAllRow'])}
+            >
+              <input
+                checked={isOptionalPrivacyConsentAccepted}
+                className={styles['profileConsentInput']}
+                onChange={(event) => {
+                  setIsOptionalPrivacyConsentAccepted(event.target.checked);
+                }}
+                type='checkbox'
+              />
+              <span className={styles['profileConsentBox']} aria-hidden='true'>
+                <span className={styles['profileConsentCheck']} />
+              </span>
+              <span className={styles['profileConsentAllText']}>전체 동의하기</span>
+            </label>
 
-          <button className={styles['profileConsentLink']} type='button'>
-            마케팅 수신 동의서 (임시)
-            <span aria-hidden='true' className={styles['profileConsentArrow']} />
-          </button>
+            <div className={styles['profileConsentDetailRows']}>
+              <div className={styles['profileConsentDetailRow']}>
+                <label className={styles['profileConsentRow']}>
+                  <input
+                    checked
+                    className={styles['profileConsentInput']}
+                    disabled
+                    type='checkbox'
+                  />
+                  <span className={styles['profileConsentBox']} aria-hidden='true'>
+                    <span className={styles['profileConsentCheck']} />
+                  </span>
+                  <span className={styles['profileConsentText']}>
+                    <span className={styles['profileConsentRequired']}>필수</span>
+                    <span>개인정보 수집 및 이용 동의</span>
+                  </span>
+                </label>
+                <button
+                  aria-label='개인정보 수집 및 이용 동의 보기'
+                  className={styles['profileConsentViewButton']}
+                  onClick={() => {
+                    setProfileConsentModalType('privacyCollection');
+                  }}
+                  type='button'
+                >
+                  보기
+                </button>
+              </div>
+
+              <div className={styles['profileConsentDetailRow']}>
+                <label className={styles['profileConsentRow']}>
+                  <input
+                    checked={isOptionalPrivacyConsentAccepted}
+                    className={styles['profileConsentInput']}
+                    onChange={(event) => {
+                      setIsOptionalPrivacyConsentAccepted(event.target.checked);
+                    }}
+                    type='checkbox'
+                  />
+                  <span className={styles['profileConsentBox']} aria-hidden='true'>
+                    <span className={styles['profileConsentCheck']} />
+                  </span>
+                  <span className={styles['profileConsentText']}>
+                    <span className={styles['profileConsentOptional']}>선택</span>
+                    <span>광고성 정보 수신 동의</span>
+                  </span>
+                </label>
+                <button
+                  aria-label='광고성 정보 수신 동의 보기'
+                  className={styles['profileConsentViewButton']}
+                  onClick={() => {
+                    setProfileConsentModalType('marketing');
+                  }}
+                  type='button'
+                >
+                  보기
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className={styles['profileActionRow']}>
@@ -2271,6 +2642,54 @@ const MyPagePage = () => {
       default:
         return null;
     }
+  };
+
+  const renderProfileConsentModal = () => {
+    if (!profileConsentModalType) {
+      return null;
+    }
+
+    const modalTitle = PROFILE_CONSENT_MODAL_TITLES[profileConsentModalType];
+    const modalText = PROFILE_CONSENT_TEXTS[profileConsentModalType];
+    const modalLines = modalText.split(/\r?\n/);
+
+    return (
+      <Modal
+        bodyClassName={styles['profileConsentModalBody']}
+        closeButtonClassName={styles['profileConsentModalCloseButton']}
+        closeButtonContent={
+          <span
+            aria-hidden='true'
+            className={styles['profileConsentModalCloseIcon']}
+            style={reviewCloseIconStyle}
+          />
+        }
+        closeButtonLabel={`${modalTitle} 모달 닫기`}
+        headerClassName={styles['profileConsentModalHeader']}
+        onClose={() => {
+          setProfileConsentModalType(null);
+        }}
+        panelClassName={styles['profileConsentModalPanel']}
+        size='lg'
+        title={modalTitle}
+        titleClassName={styles['profileConsentModalTitle']}
+      >
+        <div
+          className={styles['profileConsentModalScroll']}
+          data-lenis-prevent
+          onTouchMove={(event) => {
+            event.stopPropagation();
+          }}
+          onWheel={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <div className={styles['profileConsentModalContent']}>
+            {modalLines.map((line, index) => renderProfileConsentDocumentLine(line, index))}
+          </div>
+        </div>
+      </Modal>
+    );
   };
 
   const renderProfilePasswordModal = () => {
@@ -2384,74 +2803,110 @@ const MyPagePage = () => {
     return (
       <Modal
         bodyClassName={styles['certificateProfileModalBody']}
-        closeButtonClassName={styles['reviewModalCloseButton']}
+        closeButtonClassName={styles['certificateProfileCloseButton']}
         closeButtonContent={
           <span
             aria-hidden='true'
-            className={styles['reviewModalCloseIcon']}
+            className={styles['certificateProfileCloseIcon']}
             style={reviewCloseIconStyle}
           />
         }
-        closeButtonLabel='수료증 이름 등록 모달 닫기'
-        headerClassName={styles['reviewModalHeader']}
+        closeButtonLabel='수료증 다운로드 모달 닫기'
+        headerClassName={styles['certificateProfileModalHeader']}
         onClose={closeCertificateProfileModal}
         panelClassName={styles['certificateProfileModalPanel']}
-        title='수료증 이름 등록'
-        titleClassName={styles['reviewModalTitle']}
+        title='수료증 다운로드'
+        titleClassName={styles['certificateProfileModalTitle']}
       >
         <form
           className={styles['certificateProfileForm']}
+          data-lenis-prevent
+          onTouchMove={(event) => {
+            event.stopPropagation();
+          }}
           onSubmit={handleCertificateProfileSubmit}
+          onWheel={(event) => {
+            event.stopPropagation();
+          }}
         >
           <p className={styles['certificateProfileDescription']}>
-            입력한 이름은 모든 수료증에 동일하게 사용되며, 변경하려면 관리자 초기화가 필요합니다.
+            수료증에 표기될 한글 이름과 영문 이름을 입력해주세요.
+            <br />
+            입력한 이름은 수료증에 그대로 반영됩니다.
           </p>
 
-          <div className={styles['certificateProfileFieldGrid']}>
-            <label className={styles['certificateProfileLabel']} htmlFor='certificate_korean_name'>
-              한글 이름
-            </label>
-            <input
-              className={styles['certificateProfileInput']}
-              id='certificate_korean_name'
-              maxLength={100}
-              onChange={(event) => {
-                setCertificateProfileFormValues((currentValues) => ({
-                  ...currentValues,
-                  koreanName: event.target.value,
-                }));
-                setCertificateProfileFormError(null);
-              }}
-              placeholder='예: 홍길동'
-              value={certificateProfileFormValues.koreanName}
-            />
+          <div className={styles['certificateProfileFields']}>
+            <div className={styles['certificateProfileField']}>
+              <label
+                className={styles['certificateProfileLabel']}
+                htmlFor='certificate_korean_name'
+              >
+                한글 이름
+              </label>
+              <input
+                className={styles['certificateProfileInput']}
+                id='certificate_korean_name'
+                maxLength={100}
+                onChange={(event) => {
+                  setCertificateProfileFormValues((currentValues) => ({
+                    ...currentValues,
+                    koreanName: event.target.value,
+                  }));
+                  setCertificateProfileFormError(null);
+                }}
+                placeholder='예 : 김소노'
+                value={certificateProfileFormValues.koreanName}
+              />
+              <p className={styles['certificateProfileHelpText']}>
+                수료증에 기재될 정확한 한글 이름을 입력해 주세요.
+              </p>
+            </div>
 
-            <label className={styles['certificateProfileLabel']} htmlFor='certificate_english_name'>
-              영문 이름
-            </label>
-            <input
-              className={styles['certificateProfileInput']}
-              id='certificate_english_name'
-              maxLength={100}
-              onChange={(event) => {
-                setCertificateProfileFormValues((currentValues) => ({
-                  ...currentValues,
-                  englishName: event.target.value,
-                }));
-                setCertificateProfileFormError(null);
-              }}
-              placeholder='예: Gildong Hong'
-              value={certificateProfileFormValues.englishName}
-            />
+            <div className={styles['certificateProfileField']}>
+              <label
+                className={styles['certificateProfileLabel']}
+                htmlFor='certificate_english_name'
+              >
+                영문 이름
+              </label>
+              <input
+                autoCapitalize='characters'
+                className={styles['certificateProfileInput']}
+                id='certificate_english_name'
+                maxLength={100}
+                onChange={(event) => {
+                  setCertificateProfileFormValues((currentValues) => ({
+                    ...currentValues,
+                    englishName: event.target.value,
+                  }));
+                  setCertificateProfileFormError(null);
+                }}
+                placeholder='예 : KIM SONO'
+                value={certificateProfileFormValues.englishName}
+              />
+              <p className={styles['certificateProfileHelpText']}>
+                띄어쓰기와 대소문자를 포함해 정확히 입력해주세요.
+              </p>
+            </div>
           </div>
 
           {certificateProfileFormError ? (
             <p className={styles['errorText']}>{certificateProfileFormError}</p>
           ) : null}
 
-          <div className={styles['reviewActionRow']}>
+          <div className={styles['certificateProfileNotice']}>
+            <span className={styles['certificateProfileNoticeIcon']} aria-hidden='true'>
+              !
+            </span>
+            <div className={styles['certificateProfileNoticeText']}>
+              <p>한 번 설정한 이름은 직접 수정할 수 없습니다.</p>
+              <p>수료증에 기재될 정확한 이름을 입력해 주세요.</p>
+            </div>
+          </div>
+
+          <div className={styles['certificateProfileActionRow']}>
             <button
-              className={styles['reviewCancelButton']}
+              className={styles['certificateProfileCancelButton']}
               onClick={closeCertificateProfileModal}
               type='button'
             >
@@ -2459,16 +2914,80 @@ const MyPagePage = () => {
             </button>
             <button
               className={classNames(
-                styles['reviewSubmitButton'],
-                createCertificateProfileMutation.isPending && styles['reviewSubmitButtonDisabled'],
+                styles['certificateProfileSubmitButton'],
+                createCertificateProfileMutation.isPending &&
+                  styles['certificateProfileSubmitButtonDisabled'],
               )}
               disabled={createCertificateProfileMutation.isPending}
               type='submit'
             >
-              {createCertificateProfileMutation.isPending ? '등록 중...' : '등록 후 다운로드'}
+              {createCertificateProfileMutation.isPending ? '등록 중...' : '등록하기'}
             </button>
           </div>
         </form>
+      </Modal>
+    );
+  };
+
+  const renderCertificatePreviewModal = () => {
+    if (!certificatePreview || !certificatePreviewSvgMarkup) {
+      return null;
+    }
+
+    return (
+      <Modal
+        bodyClassName={styles['certificatePreviewModalBody']}
+        closeButtonClassName={styles['certificatePreviewCloseButton']}
+        closeButtonContent={
+          <span
+            aria-hidden='true'
+            className={styles['certificatePreviewCloseIcon']}
+            style={reviewCloseIconStyle}
+          />
+        }
+        closeButtonLabel='수료증 미리보기 모달 닫기'
+        headerClassName={styles['certificatePreviewModalHeader']}
+        onClose={() => {
+          setCertificatePreview(null);
+        }}
+        panelClassName={styles['certificatePreviewModalPanel']}
+        size='lg'
+        title='수료증 미리보기'
+        titleClassName={styles['certificatePreviewModalTitle']}
+      >
+        <div
+          className={styles['certificatePreviewScroll']}
+          data-lenis-prevent
+          onTouchMove={(event) => {
+            event.stopPropagation();
+          }}
+          onWheel={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <div
+            aria-label={`${certificatePreview.enrollment.programTitle} 수료증 미리보기`}
+            className={styles['certificatePreviewCanvas']}
+            dangerouslySetInnerHTML={{ __html: certificatePreviewSvgMarkup }}
+          />
+        </div>
+
+        <div className={styles['certificatePreviewActionRow']}>
+          <button
+            className={styles['certificatePreviewSecondaryButton']}
+            onClick={handleCertificatePreviewPrint}
+            type='button'
+          >
+            인쇄하기
+          </button>
+          <button
+            className={styles['certificatePreviewPrimaryButton']}
+            onClick={handleCertificatePreviewDownload}
+            type='button'
+          >
+            다운로드
+          </button>
+        </div>
       </Modal>
     );
   };
@@ -2834,8 +3353,10 @@ const MyPagePage = () => {
       </div>
       {renderReviewModal()}
       {renderCertificateProfileModal()}
+      {renderCertificatePreviewModal()}
       {renderPaymentDetailModal()}
       {renderProfilePasswordModal()}
+      {renderProfileConsentModal()}
     </section>
   );
 };

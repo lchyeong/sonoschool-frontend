@@ -41,6 +41,8 @@ const RootLayout = () => {
     'program',
     'programSection',
     'programCatalogDeep',
+    'qna',
+    'resources',
   ]);
   const headerlessRouteKeys = new Set<AppRouteKey>(['learningLesson']);
   const isFullBleed = matches.some((match) => {

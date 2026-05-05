@@ -187,6 +187,8 @@ export interface ProtectedLectureStream {
   expiresAt: number;
   hlsKeyUrl: string;
   hlsUrl: string;
+  playbackWatermarkSessionCode: string;
+  playbackWatermarkText: string;
   playbackSessionToken: string;
 }
 

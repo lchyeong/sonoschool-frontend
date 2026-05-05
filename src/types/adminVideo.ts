@@ -46,6 +46,7 @@ export interface AdminVideoEncodingStartResponse {
 }
 
 export type AdminVideoStatus = 'UPLOADING' | 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED';
+export type AdminVideoProcessingStage = 'ENCODING' | 'STREAMING_UPLOAD' | 'COMPLETED';
 
 export interface AdminVideoStatusResponse {
   durationSeconds: number | null;
@@ -53,6 +54,7 @@ export interface AdminVideoStatusResponse {
   fileSize: number | null;
   id: number;
   originalFilename: string;
+  processingStage: AdminVideoProcessingStage | null;
   progressPercent: number | null;
   status: AdminVideoStatus;
 }

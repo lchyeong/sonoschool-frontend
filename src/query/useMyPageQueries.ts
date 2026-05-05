@@ -66,8 +66,9 @@ export const useMyProfileQuery = () => {
   });
 };
 
-export const useMyEnrollmentsQuery = () => {
+export const useMyEnrollmentsQuery = (enabled = true) => {
   return useQuery({
+    enabled,
     gcTime: 10 * 60 * 1000,
     queryFn: fetchMyEnrollments,
     queryKey: myEnrollmentsQueryKey,

@@ -189,9 +189,7 @@ describe('router layouts', () => {
       </QueryClientProvider>,
     );
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: '새 공지 등록' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: '공지 작성' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '공지사항' })).toHaveAttribute('aria-current', 'page');
   });
 

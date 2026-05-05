@@ -104,6 +104,7 @@ const HomeFeaturedCoursesSection = () => {
       className={styles['section']}
       data-home-featured-courses-section='true'
       data-intro-tone='contrast'
+      id='home-featured-courses'
       ref={sectionRef}
     >
       <div className={styles['inner']}>
