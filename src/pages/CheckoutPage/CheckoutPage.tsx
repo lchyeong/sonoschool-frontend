@@ -11,7 +11,8 @@ import {
   registerKcpMobileCheckoutPayment,
 } from '@/api/payments';
 import checkIconSrc from '@/assets/icons/lucide_check.svg';
-import Modal from '@/components/overlay/Modal/Modal';
+import LegalPolicyModal from '@/components/policy/LegalPolicyModal';
+import type { LegalPolicyType } from '@/components/policy/LegalPolicyModal';
 import {
   myCartQueryKey,
   myEnrollmentsQueryKey,
@@ -44,40 +45,7 @@ const pcPaymentApproveErrorMessage = '결제 승인에 실패했습니다. 잠�
 const pcPaymentCancelledMessage = '결제가 취소되었습니다. 다시 결제를 진행해 주세요.';
 const pcPaymentClosedMessage = '결제창이 닫혀 결제가 완료되지 않았습니다. 다시 시도해 주세요.';
 const pcPaymentReturnGraceMs = 1200;
-type CheckoutPolicyKey = 'privacy' | 'purchase' | 'refund';
-
-const checkoutPolicyContent: Record<
-  CheckoutPolicyKey,
-  {
-    title: string;
-    paragraphs: string[];
-  }
-> = {
-  privacy: {
-    title: '개인정보처리방침',
-    paragraphs: [
-      '결제 및 수강 신청 처리를 위해 이름, 이메일, 휴대폰 번호, 결제 정보가 수집 및 이용됩니다.',
-      '수집된 개인정보는 결제 승인, 수강 권한 부여, 고객 문의 대응, 관련 법령에 따른 보관 목적 외에는 사용하지 않습니다.',
-      '개인정보 보관 및 파기 기준은 소노스쿨 개인정보처리방침과 관련 법령을 따릅니다.',
-    ],
-  },
-  purchase: {
-    title: '구매조건',
-    paragraphs: [
-      '선택한 강의, 결제 금액, 할인 금액, 수강기간을 확인한 뒤 결제를 진행해 주세요.',
-      '결제 완료 후 수강 권한은 내 강의에서 확인할 수 있으며, 일부 강의는 운영 정책에 따라 수강 시작일이 별도로 적용될 수 있습니다.',
-      '무료 신청 강의도 동일하게 수강 신청 완료 후 내 강의에 반영됩니다.',
-    ],
-  },
-  refund: {
-    title: '환불정책',
-    paragraphs: [
-      '환불 가능 여부와 환불 금액은 강의 유형, 수강 시작 여부, 콘텐츠 이용 이력, 운영 정책에 따라 달라질 수 있습니다.',
-      '오프라인 및 실습 과정은 예약 일정, 준비물, 운영 비용 발생 시점에 따라 취소 및 환불 조건이 제한될 수 있습니다.',
-      '환불 요청은 고객센터 또는 마이페이지 결제 내역을 통해 접수해 주세요.',
-    ],
-  },
-};
+type CheckoutPolicyKey = Extract<LegalPolicyType, 'privacy' | 'refund'>;
 
 let kcpScrollLockSnapshot: {
   bodyOverflow: string;
@@ -926,15 +894,6 @@ const CheckoutPage = () => {
                   <div className={styles['policyLinks']} aria-label='결제 약관 링크'>
                     <button
                       onClick={() => {
-                        setActivePolicyKey('purchase');
-                      }}
-                      type='button'
-                    >
-                      구매조건
-                    </button>
-                    <span aria-hidden='true' />
-                    <button
-                      onClick={() => {
                         setActivePolicyKey('refund');
                       }}
                       type='button'
@@ -983,20 +942,12 @@ const CheckoutPage = () => {
           ) : null}
 
           {activePolicyKey ? (
-            <Modal
-              bodyClassName={styles['policyModalBody']}
+            <LegalPolicyModal
               onClose={() => {
                 setActivePolicyKey(null);
               }}
-              panelClassName={styles['policyModalPanel']}
-              title={checkoutPolicyContent[activePolicyKey].title}
-            >
-              <div className={styles['policyModalContent']}>
-                {checkoutPolicyContent[activePolicyKey].paragraphs.map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
-                ))}
-              </div>
-            </Modal>
+              type={activePolicyKey}
+            />
           ) : null}
         </div>
       </div>

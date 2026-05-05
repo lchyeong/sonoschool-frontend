@@ -1,0 +1,67 @@
+.policyModalBody {
+  padding: 0;
+}
+
+.policyModalPanel {
+  width: min(92vw, 760px);
+  max-height: min(82vh, 760px);
+}
+
+.policyModalScroll {
+  max-height: min(64vh, 560px);
+  padding: 0 4px 0 0;
+  overflow-y: auto;
+}
+
+.policyModalText {
+  display: grid;
+  gap: 10px;
+  color: #374151;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.policyModalSpacer {
+  display: block;
+  height: 8px;
+}
+
+.policyModalChapterTitle {
+  margin: 18px 0 2px;
+  color: #111827;
+  font-size: 20px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.35;
+}
+
+.policyModalArticleTitle {
+  margin: 14px 0 0;
+  color: #111827;
+  font-size: 17px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.45;
+}
+
+.policyModalParagraph,
+.policyModalIndentedText {
+  margin: 0;
+}
+
+.policyModalIndentedText {
+  padding-left: 14px;
+}
+
+@media (width < 640px) {
+  .policyModalPanel {
+    width: min(94vw, 520px);
+    max-height: 84vh;
+  }
+
+  .policyModalScroll {
+    max-height: 62vh;
+  }
+
+  .policyModalText {
+    font-size: 14px;
+  }
+}

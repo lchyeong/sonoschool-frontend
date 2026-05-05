@@ -161,14 +161,16 @@ describe('CheckoutPage', () => {
 
     expect(await screen.findByRole('heading', { name: '결제' })).toBeInTheDocument();
 
-    fireEvent.click(await screen.findByRole('button', { name: '구매조건' }));
+    expect(screen.queryByRole('button', { name: '구매조건' })).not.toBeInTheDocument();
 
-    expect(await screen.findByRole('dialog', { name: '구매조건' })).toBeInTheDocument();
-    expect(screen.getByText(/선택한 강의, 결제 금액/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: '환불정책' }));
 
-    fireEvent.click(screen.getByRole('button', { name: '모달 닫기' }));
+    expect(await screen.findByRole('dialog', { name: '환불정책' })).toBeInTheDocument();
+    expect(screen.getByText(/환불 요청은 마이페이지 결제 내역/)).toBeInTheDocument();
 
-    expect(screen.queryByRole('dialog', { name: '구매조건' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '환불정책 모달 닫기' }));
+
+    expect(screen.queryByRole('dialog', { name: '환불정책' })).not.toBeInTheDocument();
   });
 
   it('sends all selected cart item ids to checkout prepare', async () => {

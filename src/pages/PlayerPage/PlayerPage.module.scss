@@ -533,7 +533,7 @@
   font-weight: var(--font-weight-medium);
   line-height: 1.35;
   text-shadow: 0 1px 2px rgb(0 0 0 / 56%);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   pointer-events: none;
   user-select: none;
   transition:
@@ -1934,12 +1934,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 92px;
+  width: 100%;
   height: 47px;
 }
 
 .resourceBoardHeaderFile {
   justify-self: start;
+  width: 92px;
 }
 
 .resourceBoardList {
@@ -2037,7 +2038,7 @@
 }
 
 .resourceBoardSize {
-  text-align: right;
+  text-align: center;
 }
 
 .resourceBoardDate {
@@ -2046,7 +2047,7 @@
 
 .resourceBoardActions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .resourceDownloadButton {
@@ -2222,9 +2223,9 @@
   background: #ffffff;
 }
 
-.offlineCalendarPanel .practicumCalendarDay[data-selected='true'],
-.offlineCalendarPanel .practicumCalendarDay[data-reserved='true'],
-.offlineCalendarPanel .practicumCalendarDay[data-selected='true'][data-reserved='true'] {
+.offlineCalendarPanel .practicumCalendarDay:hover,
+.offlineCalendarPanel .practicumCalendarDay:focus-visible,
+.offlineCalendarPanel .practicumCalendarDay[data-reserved='true'] {
   box-shadow: inset 0 0 0 2px #34b29f;
 }
 
@@ -2642,15 +2643,9 @@
   background: #ffffff;
 }
 
-.practicumCalendarDay[data-selected='true'] {
-  box-shadow: inset 0 0 0 2px #34b29f;
-}
-
+.practicumCalendarDay:hover,
+.practicumCalendarDay:focus-visible,
 .practicumCalendarDay[data-reserved='true'] {
-  box-shadow: inset 0 0 0 2px #34b29f;
-}
-
-.practicumCalendarDay[data-selected='true'][data-reserved='true'] {
   box-shadow: inset 0 0 0 2px #34b29f;
 }
 
@@ -2705,15 +2700,18 @@
 }
 
 .practicumCalendarDayReservation::before {
+  content: '✓';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: #34b29f;
+  color: #ffffff;
+  font-size: clamp(0.3rem, 0.46vw, 0.46rem);
+  line-height: 1;
 }
 
 .practicumCalendarDayUnavailable {
   color: #111827;
-}
-
-.practicumCalendarDay[data-status='absent'] .practicumCalendarDayReservation::before {
-  background: #d1d5db;
 }
 
 .practicumCalendarDayUnavailable::before {
@@ -2836,12 +2834,20 @@
 }
 
 .practicumReservationModal {
+  --practicum-reservation-modal-max-height: min(calc(100dvh - 32px), 615px);
+  --practicum-reservation-modal-header-height: 100px;
+
   width: min(643px, calc(100vw - 32px));
-  max-height: min(90vh, 615px);
+  max-height: var(--practicum-reservation-modal-max-height);
   overflow: hidden;
   border: 0;
   border-radius: 28px;
   box-shadow: none;
+}
+
+.practicumReservationModalHeader {
+  padding: 34px 34px 37px;
+  flex-shrink: 0;
 }
 
 .practicumReservationModalTitle {
@@ -2855,12 +2861,16 @@
 .practicumReservationModalClose {
   width: 30px;
   height: 30px;
+  padding: 0;
   border-radius: 0;
   background: transparent;
   color: #111827;
-  font-size: 34px;
-  font-weight: var(--font-weight-regular);
-  line-height: 1;
+}
+
+.practicumReservationModalClose img {
+  display: block;
+  width: 30px;
+  height: 30px;
 }
 
 .practicumReservationModalClose:hover,
@@ -2872,12 +2882,23 @@
 }
 
 .practicumReservationModalBody {
-  padding: 0 34px 34px;
+  max-height: calc(
+    var(--practicum-reservation-modal-max-height) - var(--practicum-reservation-modal-header-height)
+  );
+  overflow: hidden;
+  padding: 0 34px max(34px, env(safe-area-inset-bottom));
 }
 
 .practicumReservationModalContent {
   display: grid;
-  gap: 28px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 0;
+  max-height: calc(
+    var(--practicum-reservation-modal-max-height) - var(
+        --practicum-reservation-modal-header-height
+      ) - max(34px, env(safe-area-inset-bottom))
+  );
+  min-height: 0;
 }
 
 .practicumReservationModalQuestion {
@@ -2894,6 +2915,7 @@
   gap: 16px;
   align-items: center;
   min-height: 68px;
+  margin-top: 21px;
   padding: 0 23px;
   border-radius: 10px;
   background: #ecf9f7;
@@ -2909,36 +2931,16 @@
 }
 
 .practicumReservationCalendarIcon {
-  position: relative;
+  display: block;
   width: 24px;
   height: 24px;
-  color: #34b29f;
-}
-
-.practicumReservationCalendarIcon::before {
-  position: absolute;
-  inset: 4px 3px 3px;
-  border: 2px solid currentcolor;
-  border-radius: 2px;
-  content: '';
-}
-
-.practicumReservationCalendarIcon::after {
-  position: absolute;
-  top: 8px;
-  right: 3px;
-  left: 3px;
-  height: 2px;
-  background: currentcolor;
-  box-shadow:
-    4px -5px 0 -1px currentcolor,
-    14px -5px 0 -1px currentcolor;
-  content: '';
 }
 
 .practicumReservationTimeGroup {
   display: grid;
   gap: 22px;
+  margin-top: 28px;
+  min-height: 0;
 }
 
 .practicumReservationTimeLabel {
@@ -2953,9 +2955,11 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-  max-height: 190px;
+  max-height: min(190px, 30dvh);
   overflow: hidden auto;
   padding-right: 4px;
+  scrollbar-color: #d1d5db transparent;
+  scrollbar-width: thin;
 }
 
 .practicumReservationTimeButton {
@@ -2995,7 +2999,8 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 17px;
-  margin-top: 24px;
+  margin-top: 66px;
+  padding-bottom: 0;
 }
 
 .practicumReservationCancelButton,
@@ -3019,301 +3024,6 @@
   border: 1px solid #34b29f;
   background: #34b29f;
   color: #ffffff;
-}
-
-.problemReportModal {
-  position: relative;
-  width: min(964px, calc(100vw - 28px));
-  max-height: min(94vh, 992px);
-  overflow: hidden;
-  border-radius: 28px;
-}
-
-.problemReportModalTitle {
-  color: #111827;
-  font-size: 30px;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--letter-spacing-normal);
-}
-
-.problemReportModalClose {
-  width: 30px;
-  height: 30px;
-  border-radius: 0;
-  background: transparent;
-  color: #111827;
-  font-size: 34px;
-  line-height: 1;
-}
-
-.problemReportModalClose:hover,
-.problemReportModalClose:focus-visible {
-  background: transparent;
-  color: #111827;
-  outline: 2px solid rgb(52 178 159 / 35%);
-  outline-offset: 2px;
-}
-
-.problemReportModalBody {
-  max-height: calc(94vh - 116px);
-  overflow: hidden auto;
-  padding: 0 31px 112px;
-  scrollbar-color: #d1d5db transparent;
-  scrollbar-width: thin;
-}
-
-.problemReportContent {
-  display: grid;
-  gap: 18px;
-}
-
-.problemReportSection {
-  display: grid;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid #d1d5db;
-  border-radius: 16px;
-  background: #ffffff;
-}
-
-.problemReportSectionTitle {
-  margin: 0;
-  color: #111827;
-  font-size: 22px;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--letter-spacing-normal);
-}
-
-.problemReportInfoGrid {
-  display: grid;
-  grid-template-columns: 154px minmax(0, 1fr) 154px minmax(0, 1fr);
-  margin: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #ffffff;
-}
-
-.problemReportInfoCell {
-  display: contents;
-}
-
-.problemReportInfoCell dt,
-.problemReportInfoCell dd {
-  min-height: 55px;
-  margin: 0;
-  padding: 17px 18px;
-  border-bottom: 1px solid #d1d5db;
-  color: #111827;
-  font-size: 17px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.problemReportInfoCell:nth-last-child(-n + 2) dt,
-.problemReportInfoCell:nth-last-child(-n + 2) dd {
-  border-bottom: 0;
-}
-
-.problemReportInfoCell dt {
-  background: #f3f4f6;
-}
-
-.problemReportInfoCell dd {
-  border-left: 1px solid #d1d5db;
-  background: #ffffff;
-}
-
-.problemReportInfoCell:nth-child(odd) dd {
-  border-right: 1px solid #d1d5db;
-}
-
-.problemReportMetricGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #f9fafb;
-}
-
-.problemReportMetricGrid div {
-  display: grid;
-  gap: 19px;
-  justify-items: center;
-  min-width: 0;
-  padding: 17px 16px 20px;
-  border-right: 1px solid #d1d5db;
-}
-
-.problemReportMetricGrid div:last-child {
-  border-right: 0;
-}
-
-.problemReportMetricGrid dt {
-  color: #111827;
-  font-size: 17px;
-  font-weight: var(--font-weight-semibold);
-}
-
-.problemReportMetricGrid dd {
-  margin: 0;
-  color: #111827;
-  font-size: 21px;
-  font-weight: var(--font-weight-bold);
-}
-
-.problemReportVerdictBox {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: center;
-  min-height: 99px;
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
-  background: #f9fafb;
-}
-
-.problemReportVerdictResult {
-  display: flex;
-  gap: 34px;
-  align-items: center;
-  justify-content: center;
-  min-height: 63px;
-  border-right: 1px solid #d1d5db;
-  color: #111827;
-  font-size: 20px;
-  font-weight: var(--font-weight-bold);
-}
-
-.problemReportFinalResult {
-  font-size: 22px;
-  font-weight: var(--font-weight-bold);
-}
-
-.problemReportFinalResult[data-passed='true'] {
-  color: #34b29f;
-}
-
-.problemReportFinalResult[data-passed='false'] {
-  color: #dd383e;
-}
-
-.problemReportVerdictScoreList {
-  display: grid;
-  gap: 17px;
-  margin: 0;
-  padding: 0 28px;
-}
-
-.problemReportVerdictScoreList div {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  align-items: center;
-  gap: 16px;
-}
-
-.problemReportVerdictScoreList dt,
-.problemReportVerdictScoreList dd {
-  margin: 0;
-  color: #111827;
-  font-size: 17px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.25;
-}
-
-.problemReportTableWrap {
-  overflow-x: auto;
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
-}
-
-.problemReportTable {
-  width: 100%;
-  min-width: 600px;
-  border-collapse: collapse;
-  background: #ffffff;
-}
-
-.problemReportTable th,
-.problemReportTable td {
-  padding: 16px 18px;
-  border-right: 1px solid #d1d5db;
-  border-bottom: 1px solid #d1d5db;
-  color: #111827;
-  font-size: 17px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.45;
-  text-align: left;
-}
-
-.problemReportTable th:last-child,
-.problemReportTable td:last-child {
-  border-right: 0;
-}
-
-.problemReportTable th {
-  background: #f3f4f6;
-  color: #4b5563;
-}
-
-.problemReportTable tr:last-child td {
-  border-bottom: 0;
-}
-
-.problemReportQuestionResult {
-  color: #111827;
-  font-weight: var(--font-weight-bold);
-}
-
-.problemReportQuestionResult[data-correct='true'] {
-  color: #111827;
-}
-
-.problemReportModalActions {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 18px;
-  margin: 0;
-  padding: 20px 31px 26px;
-  background: #ffffff;
-}
-
-.problemReportCloseButton,
-.problemReportPrintButton {
-  min-width: 215px;
-  min-height: 62px;
-  border-radius: 8px;
-  font-size: 20px;
-  font-weight: var(--font-weight-bold);
-}
-
-.problemReportPrintButton {
-  gap: 9px;
-}
-
-.problemReportCloseButton {
-  border-color: #d1d5db;
-  color: #4b5563;
-}
-
-.problemReportCloseButton:hover,
-.problemReportCloseButton:focus-visible {
-  border-color: #d1d5db;
-  color: #111827;
-  background: #ffffff;
-}
-
-.problemReportPrintIcon {
-  width: 24px;
-  height: 24px;
-  background: currentcolor;
-  mask: var(--player-icon) center / contain no-repeat;
 }
 
 .practicumReservationConfirmButton:disabled {
@@ -3486,10 +3196,10 @@
 }
 
 .quizPassBlock[data-passed='false'] .quizPassIconGlyph {
-  top: calc(20px * var(--quiz-result-scale));
-  left: calc(20px * var(--quiz-result-scale));
-  width: calc(32px * var(--quiz-result-scale));
-  height: calc(32px * var(--quiz-result-scale));
+  top: calc(19px * var(--quiz-result-scale));
+  left: calc(22px * var(--quiz-result-scale));
+  width: calc(28px * var(--quiz-result-scale));
+  height: calc(34px * var(--quiz-result-scale));
   background: #dd383e;
 }
 
@@ -4536,6 +4246,82 @@
     width: 100%;
   }
 
+  .practicumReservationModal {
+    --practicum-reservation-modal-max-height: calc(100dvh - 24px);
+    --practicum-reservation-modal-header-height: 75px;
+
+    width: min(643px, calc(100vw - 24px));
+    border-radius: 24px;
+  }
+
+  .practicumReservationModalHeader {
+    padding: 26px 24px 28px;
+  }
+
+  .practicumReservationModalTitle,
+  .practicumReservationModalQuestion {
+    font-size: 21px;
+  }
+
+  .practicumReservationModalBody {
+    max-height: calc(
+      var(--practicum-reservation-modal-max-height) - var(
+          --practicum-reservation-modal-header-height
+        )
+    );
+    padding: 0 24px max(26px, env(safe-area-inset-bottom));
+  }
+
+  .practicumReservationModalContent {
+    max-height: calc(
+      var(--practicum-reservation-modal-max-height) - var(
+          --practicum-reservation-modal-header-height
+        ) - max(26px, env(safe-area-inset-bottom))
+    );
+  }
+
+  .practicumReservationDateCard {
+    grid-template-columns: 24px auto minmax(0, 1fr);
+    gap: 12px;
+    min-height: 60px;
+    margin-top: 18px;
+    padding: 0 18px;
+    font-size: 18px;
+  }
+
+  .practicumReservationTimeGroup {
+    gap: 18px;
+    margin-top: 24px;
+  }
+
+  .practicumReservationTimeLabel {
+    font-size: 18px;
+  }
+
+  .practicumReservationTimeGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    max-height: min(156px, 26dvh);
+    overflow: hidden auto;
+    padding-right: 0;
+  }
+
+  .practicumReservationTimeButton {
+    min-height: 58px;
+    font-size: 18px;
+  }
+
+  .practicumReservationModalActions {
+    gap: 12px;
+    margin-top: 36px;
+  }
+
+  .practicumReservationCancelButton,
+  .practicumReservationConfirmButton {
+    min-height: 60px;
+    font-size: 21px;
+  }
+
   .settingsPanel {
     left: 0;
     right: auto;
@@ -4582,68 +4368,130 @@
   .quizReviewMedia {
     justify-self: start;
   }
+}
 
-  .problemReportModalBody {
-    padding: 0 20px 168px;
+@media (width < 430px) {
+  .practicumReservationModal {
+    --practicum-reservation-modal-header-height: 70px;
+
+    border-radius: 20px;
   }
 
-  .problemReportInfoGrid {
-    grid-template-columns: 112px minmax(0, 1fr);
+  .practicumReservationModalHeader {
+    padding: 22px 20px 24px;
   }
 
-  .problemReportInfoCell:nth-last-child(-n + 2) dt,
-  .problemReportInfoCell:nth-last-child(-n + 2) dd {
-    border-bottom: 1px solid #d1d5db;
+  .practicumReservationModalClose,
+  .practicumReservationModalClose img {
+    width: 28px;
+    height: 28px;
   }
 
-  .problemReportInfoCell:last-child dt,
-  .problemReportInfoCell:last-child dd {
-    border-bottom: 0;
+  .practicumReservationModalBody {
+    max-height: calc(
+      var(--practicum-reservation-modal-max-height) - var(
+          --practicum-reservation-modal-header-height
+        )
+    );
+    padding: 0 20px max(24px, env(safe-area-inset-bottom));
   }
 
-  .problemReportInfoCell:nth-child(odd) dd {
-    border-right: 0;
+  .practicumReservationModalContent {
+    max-height: calc(
+      var(--practicum-reservation-modal-max-height) - var(
+          --practicum-reservation-modal-header-height
+        ) - max(24px, env(safe-area-inset-bottom))
+    );
   }
 
-  .problemReportMetricGrid {
-    grid-template-columns: minmax(0, 1fr);
+  .practicumReservationModalTitle,
+  .practicumReservationModalQuestion {
+    font-size: 19px;
   }
 
-  .problemReportMetricGrid div {
-    border-right: 0;
-    border-bottom: 1px solid #d1d5db;
+  .practicumReservationDateCard {
+    grid-template-columns: 24px minmax(0, 1fr);
+    min-height: 64px;
+    padding: 10px 16px;
+    font-size: 16px;
   }
 
-  .problemReportMetricGrid div:last-child {
-    border-bottom: 0;
+  .practicumReservationDateCard strong {
+    grid-column: 2;
   }
 
-  .problemReportVerdictBox,
-  .problemReportVerdictScoreList div {
-    grid-template-columns: minmax(0, 1fr);
+  .practicumReservationTimeLabel {
+    font-size: 16px;
   }
 
-  .problemReportVerdictResult {
-    border-right: 0;
-    border-bottom: 1px solid #d1d5db;
+  .practicumReservationTimeButton {
+    min-height: 54px;
+    padding: 0 8px;
+    font-size: 16px;
   }
 
-  .problemReportVerdictScoreList {
-    padding: 20px;
+  .practicumReservationTimeGrid {
+    max-height: min(144px, 24dvh);
   }
 
-  .problemReportTable {
-    min-width: 460px;
+  .practicumReservationModalActions {
+    margin-top: 30px;
   }
 
-  .problemReportModalActions {
-    flex-direction: column-reverse;
-    padding: 14px 20px 20px;
+  .practicumReservationCancelButton,
+  .practicumReservationConfirmButton {
+    min-height: 56px;
+    font-size: 19px;
+  }
+}
+
+@media (height < 680px) {
+  .practicumReservationModal {
+    --practicum-reservation-modal-max-height: calc(100dvh - 20px);
+    --practicum-reservation-modal-header-height: 68px;
   }
 
-  .problemReportCloseButton,
-  .problemReportPrintButton {
-    width: 100%;
-    min-width: 0;
+  .practicumReservationModalHeader {
+    padding-top: 20px;
+    padding-bottom: 22px;
+  }
+
+  .practicumReservationModalBody {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+
+  .practicumReservationModalContent {
+    max-height: calc(
+      var(--practicum-reservation-modal-max-height) - var(
+          --practicum-reservation-modal-header-height
+        ) - max(20px, env(safe-area-inset-bottom))
+    );
+  }
+
+  .practicumReservationDateCard {
+    min-height: 56px;
+    margin-top: 14px;
+  }
+
+  .practicumReservationTimeGroup {
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  .practicumReservationTimeGrid {
+    max-height: min(128px, 22dvh);
+  }
+
+  .practicumReservationTimeButton {
+    min-height: 52px;
+  }
+
+  .practicumReservationModalActions {
+    margin-top: 22px;
+  }
+
+  .practicumReservationCancelButton,
+  .practicumReservationConfirmButton {
+    min-height: 52px;
   }
 }

@@ -565,7 +565,7 @@ const buildEditorTitle = (
 const programTypeOptions = [
   { value: 'ONLINE', label: '온라인' },
   { value: 'OFFLINE', label: '오프라인' },
-  { value: 'HYBRID', label: '하이브리드' },
+  { value: 'HYBRID', label: '실습예약 프로그램' },
   { value: 'PROBLEM_SOLVING', label: '문제풀이' },
 ] as const;
 
@@ -582,7 +582,7 @@ const accessPolicyOptions = [
 ] as const;
 
 const programTypeLabel: Record<AdminProgramType, string> = {
-  HYBRID: '하이브리드',
+  HYBRID: '실습예약 프로그램',
   OFFLINE: '오프라인',
   ONLINE: '온라인',
   PROBLEM_SOLVING: '문제풀이',
@@ -744,7 +744,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
         message: mode === 'edit' ? '프로그램을 수정했습니다.' : '프로그램을 등록했습니다.',
         variant: 'success',
       });
-      void navigate(routePaths.adminProgramEdit(String(response.id)));
+      void navigate(routePaths.adminPrograms);
     },
   });
 
@@ -1476,7 +1476,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                   <p className={styles['policyHint']}>
                     {formState.programType === 'OFFLINE'
                       ? '오프라인 프로그램은 개강일이 지나면 관리자 화면에서 개강됨 상태로 표시됩니다.'
-                      : '온라인·하이브리드 프로그램은 판매 종료일을 비워 두면 상시 판매로 운영할 수 있습니다.'}
+                      : '온라인·실습예약 프로그램은 판매 종료일을 비워 두면 상시 판매로 운영할 수 있습니다.'}
                   </p>
 
                   {formState.accessPolicy === 'UNLIMITED' ? (

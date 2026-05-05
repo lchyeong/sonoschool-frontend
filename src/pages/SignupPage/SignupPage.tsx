@@ -17,6 +17,8 @@ import checkIconSrc from '@/assets/icons/lucide_check_white_20.svg';
 import circleCheckIconSrc from '@/assets/icons/lucide_circle-check.svg';
 import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
 import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
+import LegalPolicyModal from '@/components/policy/LegalPolicyModal';
+import type { LegalPolicyType } from '@/components/policy/LegalPolicyModal';
 import Button from '@/components/ui/Button/Button';
 import { myCartQueryKey } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
@@ -104,6 +106,17 @@ const NICKNAME_ALLOWED_PATTERN = /^[가-힣A-Za-z0-9]+$/;
 const PASSWORD_ALLOWED_CHARACTER_PATTERN = /^[A-Za-z\d!@#$%&*?]*$/;
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%&*?])[A-Za-z\d!@#$%&*?]{8,32}$/;
 
+const resolveRegistrationTermPolicyType = (term: RegistrationTerm): LegalPolicyType | null => {
+  const text = `${term.code} ${term.title}`.toLowerCase();
+  if (text.includes('privacy') || text.includes('개인정보')) {
+    return text.includes('수집') || text.includes('collection') ? 'privacyCollection' : 'privacy';
+  }
+  if (text.includes('terms') || text.includes('이용약관') || text.includes('약관')) {
+    return 'terms';
+  }
+  return null;
+};
+
 const isValidPhoneNumber = (value: string): boolean => {
   return /^01\d{8,9}$/.test(normalizePhoneNumber(value));
 };
@@ -169,6 +182,7 @@ const SignupPage = () => {
   const [smsCountdownSeconds, setSmsCountdownSeconds] = useState(0);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isPasswordConfirmVisible, setIsPasswordConfirmVisible] = useState(false);
+  const [activePolicyType, setActivePolicyType] = useState<LegalPolicyType | null>(null);
 
   const registrationTermsQuery = useQuery({
     queryKey: ['registrationTerms'],
@@ -1115,22 +1129,36 @@ const SignupPage = () => {
 
             {registrationTerms.map((term: RegistrationTerm) => {
               const isChecked = acceptedTermCodes.includes(term.code);
+              const policyType = resolveRegistrationTermPolicyType(term);
 
               return (
-                <label className={styles['checkboxRow']} key={term.code}>
-                  <input
-                    checked={isChecked}
-                    name={term.code}
-                    onChange={handleToggleTerm(term.code)}
-                    type='checkbox'
-                  />
-                  <span aria-hidden='true' className={styles['checkboxBox']}>
-                    {isChecked ? <img alt='' src={checkIconSrc} /> : null}
-                  </span>
-                  <span>
-                    [{term.required ? '필수' : '선택'}] {term.title}
-                  </span>
-                </label>
+                <div className={styles['termRow']} key={term.code}>
+                  <label className={styles['checkboxRow']}>
+                    <input
+                      checked={isChecked}
+                      name={term.code}
+                      onChange={handleToggleTerm(term.code)}
+                      type='checkbox'
+                    />
+                    <span aria-hidden='true' className={styles['checkboxBox']}>
+                      {isChecked ? <img alt='' src={checkIconSrc} /> : null}
+                    </span>
+                    <span>
+                      [{term.required ? '필수' : '선택'}] {term.title}
+                    </span>
+                  </label>
+                  {policyType ? (
+                    <button
+                      className={styles['termViewButton']}
+                      onClick={() => {
+                        setActivePolicyType(policyType);
+                      }}
+                      type='button'
+                    >
+                      보기
+                    </button>
+                  ) : null}
+                </div>
               );
             })}
             {formErrors.acceptedTermCodes?.map((message) => (
@@ -1159,6 +1187,14 @@ const SignupPage = () => {
           </div>
         </form>
       </div>
+      {activePolicyType ? (
+        <LegalPolicyModal
+          onClose={() => {
+            setActivePolicyType(null);
+          }}
+          type={activePolicyType}
+        />
+      ) : null}
     </section>
   );
 };

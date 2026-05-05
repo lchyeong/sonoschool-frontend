@@ -212,13 +212,13 @@ const AdminResourceWorkspaceForm = ({
         variant: 'error',
       });
     },
-    onSuccess: async (resource) => {
+    onSuccess: async () => {
       await refreshResources();
-      setFormState(createFormState(resource));
       showToast({
         message: '자료를 수정했습니다.',
         variant: 'success',
       });
+      void navigate(routePaths.adminResources);
     },
   });
 

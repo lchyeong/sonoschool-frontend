@@ -144,13 +144,13 @@ const AdminNoticeWorkspaceForm = ({
         variant: 'error',
       });
     },
-    onSuccess: async (notice) => {
+    onSuccess: async () => {
       await refreshNotices();
-      setFormState(createFormState(notice));
       showToast({
         message: '공지사항을 수정했습니다.',
         variant: 'success',
       });
+      void navigate(routePaths.adminNotices);
     },
   });
 

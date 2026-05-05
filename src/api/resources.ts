@@ -1,6 +1,8 @@
+import axios from 'axios';
+
+import axiosInstance from '@/api/axiosInstance';
 import { ApiError, toApiError } from '@/api/errors';
 import { http } from '@/api/http';
-import { env } from '@/config/env';
 import type { ResourceItem } from '@/types/resource';
 
 export const fetchGlobalResources = async (): Promise<ResourceItem[]> => {
@@ -22,32 +24,63 @@ export const fetchGlobalResourceDetail = async (resourceId: number): Promise<Res
 const RESOURCE_DOWNLOAD_ERROR_MESSAGE =
   '자료 파일을 다운로드하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
-const resolveApiUrl = (path: string): string => {
-  return env.apiBaseUrl ? new URL(path, env.apiBaseUrl).toString() : path;
-};
+const resolveDownloadErrorMessage = async (error: unknown): Promise<string> => {
+  if (!axios.isAxiosError(error)) {
+    return RESOURCE_DOWNLOAD_ERROR_MESSAGE;
+  }
 
-const resolveDownloadErrorMessage = async (response: Response): Promise<string> => {
-  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  const headers = error.response?.headers as Record<string, unknown> | undefined;
+  const contentType =
+    typeof headers?.['content-type'] === 'string' ? headers['content-type'].toLowerCase() : '';
+  const payload: unknown = error.response?.data;
 
   try {
-    if (contentType.includes('application/json')) {
-      const payload = (await response.json()) as { message?: unknown };
-      if (typeof payload.message === 'string' && payload.message.trim()) {
-        return payload.message.trim();
+    if (payload instanceof Blob) {
+      const text = await payload.text();
+      if (!text.trim()) {
+        return RESOURCE_DOWNLOAD_ERROR_MESSAGE;
       }
+
+      if (contentType.includes('application/json')) {
+        const parsed = JSON.parse(text) as { message?: unknown };
+        return typeof parsed.message === 'string' && parsed.message.trim()
+          ? parsed.message.trim()
+          : RESOURCE_DOWNLOAD_ERROR_MESSAGE;
+      }
+
+      return text.trim();
     }
 
-    if (contentType.startsWith('text/')) {
-      const text = await response.text();
-      if (text.trim()) {
-        return text.trim();
-      }
+    if (payload && typeof payload === 'object' && 'message' in payload) {
+      const message = (payload as { message?: unknown }).message;
+      return typeof message === 'string' && message.trim()
+        ? message.trim()
+        : RESOURCE_DOWNLOAD_ERROR_MESSAGE;
+    }
+
+    if (typeof payload === 'string' && payload.trim()) {
+      return payload.trim();
     }
   } catch {
     return RESOURCE_DOWNLOAD_ERROR_MESSAGE;
   }
 
   return RESOURCE_DOWNLOAD_ERROR_MESSAGE;
+};
+
+const downloadFile = async (url: string, fileName: string): Promise<void> => {
+  try {
+    const response = await axiosInstance.get<Blob>(url, {
+      responseType: 'blob',
+    });
+    saveBlobAsFile(response.data, fileName);
+  } catch (error: unknown) {
+    throw new ApiError({
+      cause: error,
+      status: axios.isAxiosError(error) ? (error.response?.status ?? null) : null,
+      userMessage: await resolveDownloadErrorMessage(error),
+    });
+  }
 };
 
 const saveBlobAsFile = (blob: Blob, fileName: string): void => {
@@ -74,21 +107,7 @@ export const downloadGlobalResourceFile = async (
   resourceId: number,
   fileName: string,
 ): Promise<void> => {
-  const response = await fetch(resolveApiUrl(`/api/v1/resources/${String(resourceId)}/download`), {
-    credentials: 'include',
-    method: 'GET',
-  });
-
-  if (!response.ok) {
-    throw new ApiError({
-      cause: response,
-      status: response.status,
-      userMessage: await resolveDownloadErrorMessage(response),
-    });
-  }
-
-  const blob = await response.blob();
-  saveBlobAsFile(blob, fileName);
+  await downloadFile(`/api/v1/resources/${String(resourceId)}/download`, fileName);
 };
 
 export const downloadProgramResourceFile = async (
@@ -96,22 +115,8 @@ export const downloadProgramResourceFile = async (
   documentId: number,
   fileName: string,
 ): Promise<void> => {
-  const response = await fetch(
-    resolveApiUrl(`/api/v1/programs/${String(programId)}/resources/${String(documentId)}/download`),
-    {
-      credentials: 'include',
-      method: 'GET',
-    },
+  await downloadFile(
+    `/api/v1/programs/${String(programId)}/resources/${String(documentId)}/download`,
+    fileName,
   );
-
-  if (!response.ok) {
-    throw new ApiError({
-      cause: response,
-      status: response.status,
-      userMessage: await resolveDownloadErrorMessage(response),
-    });
-  }
-
-  const blob = await response.blob();
-  saveBlobAsFile(blob, fileName);
 };

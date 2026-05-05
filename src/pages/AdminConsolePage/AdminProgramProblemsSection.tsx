@@ -677,7 +677,7 @@ const ProblemEditor = ({
         </div>
 
         <div className={styles['stackListCompact']}>
-          <div className={styles['compactFieldRow']}>
+          <div className={`${styles['compactFieldRow']} ${styles['problemSettingsRow']}`}>
             <div className={styles['compactTextField']}>
               <TextField
                 label='합격 점수'

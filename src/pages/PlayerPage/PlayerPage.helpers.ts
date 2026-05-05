@@ -113,6 +113,18 @@ export const normalizeProtectedHlsKeyUrl = (hlsKeyUrl: string): string => {
   }
 };
 
+export const formatPlaybackWatermarkText = (watermarkText: string | null | undefined): string => {
+  if (!watermarkText) {
+    return '';
+  }
+
+  return watermarkText
+    .replace(/\*/g, '')
+    .replace(/\s*[·-]\s*(\d{4})\b/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 export const buildPlaybackRequestPrefix = (streamUrl: string): string | null => {
   try {
     const parsed = new URL(streamUrl, window.location.origin);
@@ -644,13 +656,23 @@ export const formatPracticumModalDate = (value: string) => {
     return formatDate(value);
   }
 
-  return new Intl.DateTimeFormat('ko-KR', {
+  const parts = new Intl.DateTimeFormat('ko-KR', {
     day: 'numeric',
     month: 'long',
     timeZone: 'Asia/Seoul',
     weekday: 'short',
     year: 'numeric',
-  }).format(date);
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((accumulator, part) => {
+      if (part.type !== 'literal') {
+        accumulator[part.type] = part.value;
+      }
+      return accumulator;
+    }, {});
+
+  const weekday = parts['weekday'];
+  return `${parts['year'] ?? ''}년 ${parts['month'] ?? ''} ${parts['day'] ?? ''}일${weekday ? ` (${weekday})` : ''}`.trim();
 };
 
 export const sortPracticumSlots = (slots: PracticumSlot[]) => {

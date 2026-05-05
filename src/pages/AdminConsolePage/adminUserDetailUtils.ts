@@ -26,7 +26,7 @@ export const paymentStatusLabel: Record<string, string> = {
 };
 
 export const programTypeLabel: Record<string, string> = {
-  HYBRID: '하이브리드',
+  HYBRID: '실습예약 프로그램',
   OFFLINE: '오프라인',
   ONLINE: '온라인',
 };

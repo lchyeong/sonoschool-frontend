@@ -54,6 +54,7 @@ import styles from './AdminConsolePage.module.scss';
 type PracticumStatusFilter = 'ALL' | PracticumSlotStatus;
 type PracticumGroupStatus = PracticumSlotStatus | 'MIXED';
 type OfflineAttendanceStatus = 'UNCHECKED' | 'PRESENT' | 'ABSENT';
+type OperatingWeekday = AdminPracticumOperatingHour['weekday'];
 
 const practicumStatusLabels: Record<PracticumStatusFilter, string> = {
   ALL: '전체',
@@ -88,6 +89,15 @@ const offlineAttendanceStatusOptions: OfflineAttendanceStatus[] = [
   'UNCHECKED',
   'PRESENT',
   'ABSENT',
+];
+const operatingWeekdayOptions: { label: string; value: OperatingWeekday }[] = [
+  { label: '일요일', value: 'SUNDAY' },
+  { label: '월요일', value: 'MONDAY' },
+  { label: '화요일', value: 'TUESDAY' },
+  { label: '수요일', value: 'WEDNESDAY' },
+  { label: '목요일', value: 'THURSDAY' },
+  { label: '금요일', value: 'FRIDAY' },
+  { label: '토요일', value: 'SATURDAY' },
 ];
 
 const getOfflineAttendanceDraftKey = (ruleId: number, enrollmentId: number) =>
@@ -148,6 +158,24 @@ const getWeekdayKey = (dateValue: string): AdminPracticumOperatingHour['weekday'
   return weekdayMap[weekdayLabel] ?? 'MONDAY';
 };
 
+const getRepresentativeDateForWeekday = (
+  monthValue: string,
+  weekday: OperatingWeekday,
+  fallbackDate: string,
+): string => {
+  const [yearValue, monthPart] = monthValue.split('-').map(Number);
+  const lastDay = new Date(yearValue, monthPart, 0).getDate();
+
+  for (let day = 1; day <= lastDay; day += 1) {
+    const dateValue = `${monthValue}-${String(day).padStart(2, '0')}`;
+    if (getWeekdayKey(dateValue) === weekday) {
+      return dateValue;
+    }
+  }
+
+  return fallbackDate;
+};
+
 const toIsoDateTime = (dateValue: string, hour: number): string => {
   return new Date(`${dateValue}T${String(hour).padStart(2, '0')}:00:00+09:00`).toISOString();
 };
@@ -204,9 +232,16 @@ type PracticumCalendarEntry =
     };
 
 interface OperationFormState {
+  blockedHours: number[];
   date: string;
   endHour: number;
   startHour: number;
+  weekdays: OperatingWeekday[];
+}
+
+interface OperationFeedbackState {
+  message: string;
+  tone: 'error' | 'success';
 }
 
 interface DailyOperationFormState {
@@ -324,7 +359,7 @@ const deriveOperationState = (
   if (!items.length) {
     if (operatingHour) {
       return {
-        blockedHours: [],
+        blockedHours: operatingHour.blockedHours,
         endHour: operatingHour.openToHour,
         startHour: operatingHour.openFromHour,
       };
@@ -521,6 +556,7 @@ const AdminPracticumSection = () => {
     Partial<Record<string, OfflineAttendanceStatus>>
   >({});
   const [operationDraft, setOperationDraft] = useState<OperationFormState | null>(null);
+  const [operationFeedback, setOperationFeedback] = useState<OperationFeedbackState | null>(null);
   const [dailyOperationDraft, setDailyOperationDraft] = useState<DailyOperationFormState | null>(
     null,
   );
@@ -617,9 +653,7 @@ const AdminPracticumSection = () => {
   }, [resolvedSelectedDate, slotItems]);
 
   const selectedDateGroups = useMemo(() => {
-    return groupSelectedDateItems(selectedDateItems).filter(
-      (group) => group.reservations.length > 0,
-    );
+    return groupSelectedDateItems(selectedDateItems);
   }, [selectedDateItems]);
 
   const selectedDatePersonalSchedules = useMemo(() => {
@@ -768,13 +802,28 @@ const AdminPracticumSection = () => {
     return deriveOperationState(selectedDateItems, selectedDateOperatingHour);
   }, [selectedDateItems, selectedDateOperatingHour]);
 
+  const selectedOperationWeekdays =
+    operationDraft?.date === resolvedSelectedDate
+      ? operationDraft.weekdays
+      : [getWeekdayKey(resolvedSelectedDate)];
+  const primaryOperationWeekday =
+    selectedOperationWeekdays[0] ?? getWeekdayKey(resolvedSelectedDate);
+  const selectedOperationOperatingHour = useMemo(() => {
+    return (
+      operatingHoursQuery.data?.find((item) => item.weekday === primaryOperationWeekday) ?? null
+    );
+  }, [operatingHoursQuery.data, primaryOperationWeekday]);
+
   const operationState =
     operationDraft?.date === resolvedSelectedDate
       ? operationDraft
       : {
+          blockedHours: selectedOperationOperatingHour?.blockedHours ?? [],
           date: resolvedSelectedDate,
-          endHour: selectedDateOperatingHour?.openToHour ?? DEFAULT_OPERATION_STATE.endHour,
-          startHour: selectedDateOperatingHour?.openFromHour ?? DEFAULT_OPERATION_STATE.startHour,
+          endHour: selectedOperationOperatingHour?.openToHour ?? DEFAULT_OPERATION_STATE.endHour,
+          startHour:
+            selectedOperationOperatingHour?.openFromHour ?? DEFAULT_OPERATION_STATE.startHour,
+          weekdays: selectedOperationWeekdays,
         };
 
   const updateOperationState = (updater: (current: OperationFormState) => OperationFormState) => {
@@ -783,14 +832,50 @@ const AdminPracticumSection = () => {
         current?.date === resolvedSelectedDate
           ? current
           : {
+              blockedHours: selectedOperationOperatingHour?.blockedHours ?? [],
               date: resolvedSelectedDate,
-              endHour: selectedDateOperatingHour?.openToHour ?? DEFAULT_OPERATION_STATE.endHour,
+              endHour:
+                selectedOperationOperatingHour?.openToHour ?? DEFAULT_OPERATION_STATE.endHour,
               startHour:
-                selectedDateOperatingHour?.openFromHour ?? DEFAULT_OPERATION_STATE.startHour,
+                selectedOperationOperatingHour?.openFromHour ?? DEFAULT_OPERATION_STATE.startHour,
+              weekdays: selectedOperationWeekdays,
             };
+      const nextState = updater(baseState);
+
       return {
-        ...updater(baseState),
+        ...nextState,
+        blockedHours: nextState.blockedHours
+          .filter((hour) => hour >= nextState.startHour && hour < nextState.endHour)
+          .sort((left, right) => left - right),
         date: resolvedSelectedDate,
+      };
+    });
+  };
+
+  const toggleOperationWeekday = (weekday: OperatingWeekday) => {
+    setOperationDraft((current) => {
+      const baseState =
+        current?.date === resolvedSelectedDate
+          ? current
+          : {
+              blockedHours: selectedOperationOperatingHour?.blockedHours ?? [],
+              date: resolvedSelectedDate,
+              endHour:
+                selectedOperationOperatingHour?.openToHour ?? DEFAULT_OPERATION_STATE.endHour,
+              startHour:
+                selectedOperationOperatingHour?.openFromHour ?? DEFAULT_OPERATION_STATE.startHour,
+              weekdays: selectedOperationWeekdays,
+            };
+      const isSelected = baseState.weekdays.includes(weekday);
+      const nextWeekdays = isSelected
+        ? baseState.weekdays.filter((value) => value !== weekday)
+        : [...baseState.weekdays, weekday];
+
+      return {
+        ...baseState,
+        weekdays: operatingWeekdayOptions
+          .map((option) => option.value)
+          .filter((value) => nextWeekdays.includes(value)),
       };
     });
   };
@@ -1170,11 +1255,20 @@ const AdminPracticumSection = () => {
   });
 
   const applyOperatingHoursMutation = useMutation({
-    mutationFn: (payload: AdminPracticumOperatingHourApplyPayload) =>
-      applyAdminPracticumOperatingHourRule(payload),
+    mutationFn: (payloads: AdminPracticumOperatingHourApplyPayload[]) =>
+      Promise.all(payloads.map((payload) => applyAdminPracticumOperatingHourRule(payload))),
+    onMutate: () => {
+      setOperationFeedback(null);
+    },
     onError: (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : '운영시간 변경을 반영하지 못했습니다.';
+      setOperationFeedback({
+        message,
+        tone: 'error',
+      });
       showToast({
-        message: error instanceof Error ? error.message : '운영시간 변경을 반영하지 못했습니다.',
+        message,
         variant: 'error',
       });
     },
@@ -1183,6 +1277,10 @@ const AdminPracticumSection = () => {
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumOperatingHours'] });
       setOperationDraft(null);
       setDailyOperationDraft(null);
+      setOperationFeedback({
+        message: '운영시간 변경을 반영했습니다.',
+        tone: 'success',
+      });
       showToast({
         message: '운영시간 변경을 반영했습니다.',
         variant: 'success',
@@ -1215,6 +1313,17 @@ const AdminPracticumSection = () => {
       (hour) => hour >= dailyOperationState.startHour && hour < dailyOperationState.endHour,
     );
   }, [dailyOperationState.endHour, dailyOperationState.startHour]);
+  const visibleOperationBlockHours = useMemo(() => {
+    return hourOptions.filter(
+      (hour) => hour >= operationState.startHour && hour < operationState.endHour,
+    );
+  }, [operationState.endHour, operationState.startHour]);
+  const isOperationFullyBlocked =
+    visibleOperationBlockHours.length > 0 &&
+    visibleOperationBlockHours.every((hour) => operationState.blockedHours.includes(hour));
+  const isDailyOperationFullyBlocked =
+    visibleBlockHours.length > 0 &&
+    visibleBlockHours.every((hour) => dailyOperationState.blockedHours.includes(hour));
 
   const closeCalendarModalStack = () => {
     setOfflineAttendanceDraft({});
@@ -1433,6 +1542,25 @@ const AdminPracticumSection = () => {
                   <div className={styles['practicumOperationSection']}>
                     <h4 className={styles['practicumOperationSubheading']}>운영시간 변경</h4>
                     <div className={styles['practicumOperationFields']}>
+                      <div className={`${styles['field']} ${styles['practicumWeekdayField']}`}>
+                        <span className={styles['fieldLabel']}>요일</span>
+                        <div className={styles['practicumWeekdayOptions']} role='group'>
+                          {operatingWeekdayOptions.map((option) => (
+                            <button
+                              className={styles['practicumWeekdayOption']}
+                              data-selected={operationState.weekdays.includes(option.value)}
+                              key={option.value}
+                              onClick={() => {
+                                toggleOperationWeekday(option.value);
+                              }}
+                              type='button'
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <label className={styles['field']}>
                         <span className={styles['fieldLabel']}>운영 시작</span>
                         <span className={styles['selectWrap']}>
@@ -1485,27 +1613,89 @@ const AdminPracticumSection = () => {
                       </label>
                     </div>
 
+                    <div className={styles['practicumBlockedSection']}>
+                      <div className={styles['practicumBlockedSectionHeader']}>
+                        <span className={styles['fieldLabel']}>예약불가 시간</span>
+                        <Button
+                          onClick={() => {
+                            updateOperationState((current) => ({
+                              ...current,
+                              blockedHours: isOperationFullyBlocked
+                                ? []
+                                : visibleOperationBlockHours,
+                            }));
+                          }}
+                          size='sm'
+                          type='button'
+                          variant='secondary'
+                        >
+                          {isOperationFullyBlocked ? '전체 예약가능' : '전체 예약불가'}
+                        </Button>
+                      </div>
+                      <div className={styles['practicumBlockedHours']}>
+                        {visibleOperationBlockHours.map((hour) => {
+                          const selected = operationState.blockedHours.includes(hour);
+                          return (
+                            <button
+                              className={styles['practicumBlockedHourButton']}
+                              data-selected={selected}
+                              key={hour}
+                              onClick={() => {
+                                updateOperationState((current) => ({
+                                  ...current,
+                                  blockedHours: current.blockedHours.includes(hour)
+                                    ? current.blockedHours.filter((value) => value !== hour)
+                                    : [...current.blockedHours, hour],
+                                }));
+                              }}
+                              type='button'
+                            >
+                              {String(hour).padStart(2, '0')}:00
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     <div className={styles['adminPracticumToolbar']}>
                       <Button
-                        disabled={applyOperatingHoursMutation.isPending}
+                        disabled={
+                          applyOperatingHoursMutation.isPending ||
+                          operationState.weekdays.length === 0
+                        }
                         onClick={() => {
-                          applyOperatingHoursMutation.mutate({
-                            blockedHours: [],
-                            date: resolvedSelectedDate,
-                            location: null,
-                            openFromHour: operationState.startHour,
-                            openToHour: operationState.endHour,
-                          });
+                          applyOperatingHoursMutation.mutate(
+                            operationState.weekdays.map((weekday) => ({
+                              blockedHours: operationState.blockedHours,
+                              date: getRepresentativeDateForWeekday(
+                                monthValue,
+                                weekday,
+                                resolvedSelectedDate,
+                              ),
+                              location: null,
+                              openFromHour: operationState.startHour,
+                              openToHour: operationState.endHour,
+                            })),
+                          );
                         }}
                         type='button'
                       >
                         {applyOperatingHoursMutation.isPending ? '변경 중...' : '운영시간 변경'}
                       </Button>
+                      {operationFeedback ? (
+                        <span
+                          className={styles['operationFeedback']}
+                          data-tone={operationFeedback.tone}
+                          role='status'
+                        >
+                          {operationFeedback.message}
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className={styles['stackListCompact']}>
                       <p className={styles['helperText']}>
-                        선택한 요일의 운영시간을 앞으로 1년 동안 한 번에 바꿉니다.
+                        선택한 요일의 기본 운영시간을 한 번에 바꿉니다.
                       </p>
                       <p className={styles['helperText']}>
                         해당 시간에 예약이 있으면 변경할 수 없습니다.
@@ -1572,28 +1762,46 @@ const AdminPracticumSection = () => {
                       </label>
                     </div>
 
-                    <div className={styles['practicumBlockedHours']}>
-                      {visibleBlockHours.map((hour) => {
-                        const selected = dailyOperationState.blockedHours.includes(hour);
-                        return (
-                          <button
-                            className={styles['practicumBlockedHourButton']}
-                            data-selected={selected}
-                            key={hour}
-                            onClick={() => {
-                              updateDailyOperationState((current) => ({
-                                ...current,
-                                blockedHours: current.blockedHours.includes(hour)
-                                  ? current.blockedHours.filter((value) => value !== hour)
-                                  : [...current.blockedHours, hour],
-                              }));
-                            }}
-                            type='button'
-                          >
-                            {String(hour).padStart(2, '0')}:00
-                          </button>
-                        );
-                      })}
+                    <div className={styles['practicumBlockedSection']}>
+                      <div className={styles['practicumBlockedSectionHeader']}>
+                        <span className={styles['fieldLabel']}>예약불가 시간</span>
+                        <Button
+                          onClick={() => {
+                            updateDailyOperationState((current) => ({
+                              ...current,
+                              blockedHours: isDailyOperationFullyBlocked ? [] : visibleBlockHours,
+                            }));
+                          }}
+                          size='sm'
+                          type='button'
+                          variant='secondary'
+                        >
+                          {isDailyOperationFullyBlocked ? '전체 예약가능' : '전체 예약불가'}
+                        </Button>
+                      </div>
+                      <div className={styles['practicumBlockedHours']}>
+                        {visibleBlockHours.map((hour) => {
+                          const selected = dailyOperationState.blockedHours.includes(hour);
+                          return (
+                            <button
+                              className={styles['practicumBlockedHourButton']}
+                              data-selected={selected}
+                              key={hour}
+                              onClick={() => {
+                                updateDailyOperationState((current) => ({
+                                  ...current,
+                                  blockedHours: current.blockedHours.includes(hour)
+                                    ? current.blockedHours.filter((value) => value !== hour)
+                                    : [...current.blockedHours, hour],
+                                }));
+                              }}
+                              type='button'
+                            >
+                              {String(hour).padStart(2, '0')}:00
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <div className={styles['adminPracticumToolbar']}>

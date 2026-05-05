@@ -162,10 +162,10 @@ const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
     id: 2003,
     categoryId: 2,
     categoryName: '내과과정',
-    title: '복부 실전 하이브리드 마스터',
+    title: '복부 실전 실습예약 마스터',
     slug: 'abdomen-hybrid-master',
     description:
-      '영상 강의와 예약형 실습, 문제풀이 강의, 첨부자료를 함께 구성한 하이브리드 과정입니다.',
+      '영상 강의와 예약형 실습, 문제풀이 강의, 첨부자료를 함께 구성한 실습예약 프로그램입니다.',
     thumbnailUrl: null,
     programType: 'HYBRID',
     level: 'INTERMEDIATE',

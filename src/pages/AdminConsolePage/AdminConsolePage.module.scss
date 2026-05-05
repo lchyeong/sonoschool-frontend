@@ -1666,6 +1666,19 @@
   flex: 0 0 220px;
 }
 
+.problemSettingsRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-4);
+  max-width: 900px;
+}
+
+.problemSettingsRow > .compactTextField {
+  width: 100%;
+  min-width: 0;
+}
+
 .dateTimeRow {
   display: grid;
   gap: var(--space-4);
@@ -2482,17 +2495,6 @@
   gap: var(--space-3);
 }
 
-.adminProblemReportModal {
-  width: min(860px, calc(100vw - 32px));
-  max-height: min(92vh, 880px);
-  overflow: hidden;
-}
-
-.adminProblemReportModalBody {
-  max-height: calc(92vh - 92px);
-  overflow: hidden auto;
-}
-
 .paymentDetailSection {
   display: grid;
   gap: var(--space-2);
@@ -2575,6 +2577,15 @@
 .stackListCompact {
   display: grid;
   gap: 4px;
+}
+
+.draftResourcePanel {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--admin-border-strong);
+}
+
+.draftResourcePanel + .draftResourcePanel {
+  margin-top: var(--space-3);
 }
 
 .uploadBlockingSummary {
@@ -3722,6 +3733,30 @@
   gap: var(--space-2);
 }
 
+.operationFeedback {
+  max-width: min(100%, 520px);
+  padding: 8px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.45;
+}
+
+.operationFeedback[data-tone='success'] {
+  border-color: rgba(95, 174, 164, 0.45);
+  background: rgba(95, 174, 164, 0.1);
+  color: var(--color-primary);
+}
+
+.operationFeedback[data-tone='error'] {
+  border-color: rgba(221, 56, 62, 0.35);
+  background: rgba(221, 56, 62, 0.08);
+  color: #b4232a;
+}
+
 .adminPracticumReservationList {
   display: grid;
   gap: 1px;
@@ -3967,6 +4002,10 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   justify-content: flex-start;
+}
+
+.practicumDetailHeader .panelHeader {
+  gap: var(--space-3);
 }
 
 .practicumDetailActionSecondary {
@@ -4224,6 +4263,41 @@
   gap: var(--space-3);
 }
 
+.practicumWeekdayField {
+  grid-column: 1 / -1;
+}
+
+.practicumWeekdayOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.practicumWeekdayOption {
+  min-height: 38px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.practicumWeekdayOption:hover,
+.practicumWeekdayOption:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  outline: none;
+}
+
+.practicumWeekdayOption[data-selected='true'] {
+  border-color: var(--color-primary);
+  background: rgba(95, 174, 164, 0.12);
+  color: var(--color-primary);
+}
+
 .personalScheduleFields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4256,6 +4330,19 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+}
+
+.practicumBlockedSection {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.practicumBlockedSectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .practicumBlockedHours {
@@ -4866,6 +4953,10 @@
   .compactTextField {
     width: 100%;
     flex-basis: 100%;
+  }
+
+  .problemSettingsRow {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

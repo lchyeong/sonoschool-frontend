@@ -30,18 +30,21 @@ import {
 import iconArrowDownToLine from '@/assets/icons/lucide_arrow-down-to-line.svg';
 import iconArrowLeft from '@/assets/icons/lucide_arrow-left.svg';
 import iconBookmark from '@/assets/icons/lucide_bookmark.svg';
+import iconPracticumCalendar from '@/assets/icons/lucide_calendar.svg';
 import iconCheck from '@/assets/icons/lucide_check.svg';
 import iconChevronDown from '@/assets/icons/lucide_chevron-down.svg';
+import iconResultRetryNeeded from '@/assets/icons/lucide_clipboard-x.svg';
 import iconFolderOpen from '@/assets/icons/lucide_folder-open.svg';
 import iconFullscreen from '@/assets/icons/lucide_fullscreen.svg';
 import iconPlay from '@/assets/icons/lucide_play.svg';
-import iconPrinter from '@/assets/icons/lucide_printer.svg';
 import iconRefreshCcw from '@/assets/icons/lucide_refresh-ccw.svg';
 import iconVolume from '@/assets/icons/lucide_volume-2.svg';
+import iconPracticumClose from '@/assets/icons/lucide_x.svg';
 import iconCurrentLessonIndicator from '@/assets/icons/player-current-indicator.svg';
 import iconResultPassCheck from '@/assets/icons/player-result-pass-check.svg';
-import iconResultRetryNeeded from '@/assets/icons/player-result-retry-needed.svg';
 import Modal from '@/components/overlay/Modal/Modal';
+import ProblemReportModal from '@/components/problemReport/ProblemReportModal';
+import { resolveProblemTargetScore } from '@/components/problemReport/problemReportUtils';
 import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import Button from '@/components/ui/Button/Button';
 import { getPlayerMockQueryKeySegment } from '@/mocks/player/runtime';
@@ -92,6 +95,7 @@ import {
   buildQualityOptions,
   clampQuestionIndex,
   createProtectedHlsLoader,
+  formatPlaybackWatermarkText,
   formatPracticumModalDate,
   formatQuizQuestionLabel,
   formatResourceFileSize,
@@ -153,7 +157,6 @@ const playerFullscreenIconStyle = buildPlayerIconStyle(iconFullscreen);
 const playerFolderOpenIconStyle = buildPlayerIconStyle(iconFolderOpen);
 const playerCurrentLessonIndicatorStyle = buildPlayerIconStyle(iconCurrentLessonIndicator);
 const playerArrowDownToLineIconStyle = buildPlayerIconStyle(iconArrowDownToLine);
-const playerPrinterIconStyle = buildPlayerIconStyle(iconPrinter);
 const playerRefreshCcwIconStyle = buildPlayerIconStyle(iconRefreshCcw);
 const playerResultPassCheckIconStyle = buildPlayerIconStyle(iconResultPassCheck);
 const playerResultRetryNeededIconStyle = buildPlayerIconStyle(iconResultRetryNeeded);
@@ -169,284 +172,16 @@ const PLAYBACK_WATERMARK_POSITION_INTERVAL_MS = 37_000;
 const PLAYBACK_WATERMARK_CLOCK_INTERVAL_MS = 30_000;
 const PLAYBACK_WATERMARK_EMPHASIS_INTERVAL_MS = 120_000;
 const PLAYBACK_WATERMARK_EMPHASIS_DURATION_MS = 2_600;
-const playbackWatermarkDateFormatter = new Intl.DateTimeFormat('ko-KR', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
+const formatPlaybackWatermarkTimestamp = (date: Date) => {
+  const padTwoDigits = (value: number) => String(value).padStart(2, '0');
 
-const escapeReportText = (value: string | number | null | undefined): string => {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-};
-
-const formatReportDate = (value: string): string => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('ko-KR');
+  return `${padTwoDigits(date.getFullYear() % 100)}${padTwoDigits(date.getMonth() + 1)}${padTwoDigits(
+    date.getDate(),
+  )} ${padTwoDigits(date.getHours())}:${padTwoDigits(date.getMinutes())}`;
 };
 
 const formatQuizPercent = (value: number): string => {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
-};
-
-const calculateTargetScore = (passCorrectCount: number, totalQuestionCount: number): number => {
-  if (totalQuestionCount <= 0) {
-    return 0;
-  }
-
-  return Math.ceil((passCorrectCount / totalQuestionCount) * 100);
-};
-
-const openProblemReportPrintWindow = (report: StudentProblemAttemptReport): void => {
-  const targetScore = calculateTargetScore(report.passCorrectCount, report.totalQuestionCount);
-  const areaRows = report.areaStats
-    .map(
-      (area) => `
-        <tr>
-          <td>${escapeReportText(area.problemAreaName)}</td>
-          <td>${String(area.wrongCount)} / ${String(area.totalCount)}</td>
-        </tr>
-      `,
-    )
-    .join('');
-  const questionRows = report.questionResults
-    .map(
-      (result, index) => `
-        <tr>
-          <td>${String(index + 1)}문제</td>
-          <td>${result.correct ? 'O' : 'X'}</td>
-          <td>${escapeReportText(result.problemAreaName ?? '-')}</td>
-        </tr>
-      `,
-    )
-    .join('');
-
-  const reportHtml = `
-    <!doctype html>
-    <html lang="ko">
-      <head>
-        <meta charset="utf-8" />
-        <title>${escapeReportText(report.examName)} 결과 리포트</title>
-        <style>
-          @page { margin: 18mm 16mm; }
-          * { box-sizing: border-box; }
-          body {
-            margin: 0;
-            color: #111827;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            font-size: 16px;
-            font-weight: 650;
-          }
-          h1 {
-            margin: 0 0 30px;
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: 0;
-          }
-          h2 {
-            margin: 0 0 14px;
-            font-size: 20px;
-            font-weight: 800;
-            letter-spacing: 0;
-          }
-          .section {
-            margin: 0 0 30px;
-            break-inside: avoid;
-          }
-          .tableBox,
-          .summary,
-          .verdict {
-            overflow: hidden;
-            border: 1px solid #d1d5db;
-            border-radius: 14px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-          th,
-          td {
-            min-height: 48px;
-            padding: 13px 15px;
-            border-right: 1px solid #d1d5db;
-            border-bottom: 1px solid #d1d5db;
-            color: #111827;
-            font-size: 16px;
-            font-weight: 650;
-            line-height: 1.35;
-            text-align: left;
-          }
-          th {
-            width: 14.5%;
-            background: #f3f4f6;
-          }
-          td {
-            width: 35.5%;
-            background: #ffffff;
-          }
-          tr:last-child th,
-          tr:last-child td {
-            border-bottom: 0;
-          }
-          th:last-child,
-          td:last-child {
-            border-right: 0;
-          }
-          .summary {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            min-height: 88px;
-            align-items: center;
-            text-align: center;
-          }
-          .summary div {
-            display: grid;
-            gap: 17px;
-            padding: 17px 16px;
-            border-right: 1px solid #d1d5db;
-          }
-          .summary div:last-child {
-            border-right: 0;
-          }
-          .summary strong {
-            font-size: 21px;
-            font-weight: 800;
-          }
-          .verdict {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            min-height: 82px;
-            align-items: center;
-            background: #f9fafb;
-          }
-          .verdictResult {
-            display: flex;
-            justify-content: center;
-            gap: 28px;
-            padding: 22px 16px;
-            border-right: 1px solid #d1d5db;
-            font-size: 20px;
-            font-weight: 800;
-          }
-          .verdictScores {
-            display: grid;
-            gap: 14px;
-            padding: 18px 32px;
-          }
-          .verdictScores div {
-            display: grid;
-            grid-template-columns: 92px minmax(0, 1fr);
-            gap: 16px;
-          }
-          .result {
-            color: ${report.passed ? '#34b29f' : '#dd383e'};
-            font-size: 22px;
-            font-weight: 800;
-          }
-          .analysis th,
-          .analysis td,
-          .overall th,
-          .overall td {
-            width: auto;
-          }
-          .analysis th,
-          .overall th {
-            color: #4b5563;
-          }
-          .overall th,
-          .overall td {
-            width: 33.333%;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>문제 결과 리포트</h1>
-        <section class="section">
-          <h2>기본 정보</h2>
-          <div class="tableBox">
-            <table>
-              <tbody>
-                <tr>
-                  <th>응시자</th>
-                  <td>${escapeReportText(report.applicantName)}</td>
-                  <th>시험명</th>
-                  <td>${escapeReportText(report.examName)}</td>
-                </tr>
-                <tr>
-                  <th>응시일</th>
-                  <td>${escapeReportText(formatReportDate(report.submittedAt))}</td>
-                  <th>총 문항 수</th>
-                  <td>${String(report.totalQuestionCount)}문항</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="section">
-          <h2>결과 요약</h2>
-          <div class="summary">
-            <div>정답 수<strong>${String(report.correctCount)}문항</strong></div>
-            <div>오답 수<strong>${String(report.wrongCount)}문항</strong></div>
-            <div>정답률<strong>${String(report.correctRate)}%</strong></div>
-          </div>
-        </section>
-
-        <section class="section">
-          <h2>최종 판정</h2>
-          <div class="verdict">
-            <div class="verdictResult"><span>결과</span><span class="result">${report.passed ? 'PASS' : 'FAIL'}</span></div>
-            <div class="verdictScores">
-              <div>기준 점수&nbsp;&nbsp; ${String(targetScore)}점 이상 취득 시 합격</div>
-              <div>현재 점수&nbsp;&nbsp; ${String(report.score)}점</div>
-            </div>
-          </div>
-        </section>
-
-        <section class="section">
-          <h2>오답 분석</h2>
-          <div class="tableBox">
-            <table class="analysis">
-              <thead><tr><th>영역</th><th>틀린 개수 / 총 문제 수</th></tr></thead>
-              <tbody>${areaRows}</tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="section">
-          <h2>전체 결과</h2>
-          <div class="tableBox">
-            <table class="overall">
-              <thead><tr><th>문항</th><th>결과</th><th>문제 영역</th></tr></thead>
-              <tbody>${questionRows}</tbody>
-            </table>
-          </div>
-        </section>
-        <script>
-          window.addEventListener('load', () => {
-            window.focus();
-            window.print();
-          });
-        </script>
-      </body>
-    </html>
-  `;
-  const reportUrl = URL.createObjectURL(new Blob([reportHtml], { type: 'text/html' }));
-  const popup = window.open(reportUrl, '_blank', 'width=840,height=1120');
-  if (!popup) {
-    URL.revokeObjectURL(reportUrl);
-    return;
-  }
-  window.setTimeout(() => {
-    URL.revokeObjectURL(reportUrl);
-  }, 60_000);
 };
 
 const PlayerPage = () => {
@@ -661,16 +396,12 @@ const PlayerPage = () => {
     retry: false,
   });
   const protectedStream = lectureStreamQuery.data ?? null;
-  const playbackWatermarkText = protectedStream?.playbackWatermarkText.trim() ?? '';
-  const playbackWatermarkSessionCode = protectedStream?.playbackWatermarkSessionCode.trim() ?? '';
-  const playbackWatermarkTimestamp = playbackWatermarkDateFormatter.format(playbackWatermarkClock);
-  const playbackWatermarkCompactText =
-    playbackWatermarkText && playbackWatermarkSessionCode
-      ? `${playbackWatermarkText} · ${playbackWatermarkSessionCode}`
-      : playbackWatermarkText;
-  const playbackWatermarkDetailText = playbackWatermarkCompactText
-    ? `${playbackWatermarkCompactText} · ${playbackWatermarkTimestamp}`
+  const playbackWatermarkText = formatPlaybackWatermarkText(protectedStream?.playbackWatermarkText);
+  const playbackWatermarkTimestamp = formatPlaybackWatermarkTimestamp(playbackWatermarkClock);
+  const playbackWatermarkCompactText = playbackWatermarkText
+    ? `${playbackWatermarkText} · ${playbackWatermarkTimestamp}`
     : '';
+  const playbackWatermarkDetailText = playbackWatermarkCompactText;
   const playbackWatermarkPosition =
     PLAYBACK_WATERMARK_POSITIONS[
       playbackWatermarkPositionIndex % PLAYBACK_WATERMARK_POSITIONS.length
@@ -1164,7 +895,11 @@ const PlayerPage = () => {
       ? Math.round((quizResultCorrectCount / quizResultTotalCount) * 100)
       : 0);
   const quizResultTargetScore = quizAttemptResult
-    ? calculateTargetScore(quizAttemptResult.passCorrectCount, quizResultTotalCount)
+    ? resolveProblemTargetScore(
+        quizAttemptResult.passScore ?? quizQuery.data?.passScore,
+        quizAttemptResult.passCorrectCount,
+        quizResultTotalCount,
+      )
     : 0;
 
   const persistProgress = useEffectEvent(
@@ -2075,6 +1810,16 @@ const PlayerPage = () => {
   const setQuizFlaggedQuestion = (questionId: number, flagged: boolean) => {
     quizSessionDirtyRef.current = true;
     setIsQuizQuestionListExpanded(true);
+    if (flagged) {
+      setQuizAnswers((current) => {
+        if (!(questionId in current)) {
+          return current;
+        }
+
+        const { [questionId]: _removedAnswer, ...next } = current;
+        return next;
+      });
+    }
     setQuizFlaggedQuestionIds((current) => {
       const next = new Set(current);
       if (flagged) {
@@ -2192,7 +1937,6 @@ const PlayerPage = () => {
     <div className={styles['practicumCalendarLegend']} aria-label='실습 예약 상태'>
       <span data-tone='available'>예약가능</span>
       <span data-tone='reserved'>예약됨</span>
-      <span data-tone='absent'>불참</span>
       <span data-tone='disabled'>예약불가</span>
     </div>
   );
@@ -2338,19 +2082,15 @@ const PlayerPage = () => {
                   const date = cell.date;
                   const daySlots = practicumSlotsByDate.get(date) ?? [];
                   const dayReservations = practicumReservationsByDate.get(date) ?? [];
-                  const availableCount = daySlots.filter((slot) =>
+                  const reservableSlots = daySlots.filter((slot) =>
                     isPracticumSlotReservable(slot),
-                  ).length;
+                  );
+                  const availableCount = reservableSlots.length;
                   const previewReservation = [...dayReservations].sort(
                     (left, right) => Date.parse(left.startAt) - Date.parse(right.startAt),
                   )[0];
-                  const hasNoShowReservation = dayReservations.some(
-                    (reservation) => reservation.status === 'NO_SHOW',
-                  );
                   const dayStatus = previewReservation
-                    ? hasNoShowReservation
-                      ? 'absent'
-                      : 'reserved'
+                    ? 'reserved'
                     : availableCount > 0
                       ? 'available'
                       : daySlots.length > 0
@@ -2367,9 +2107,7 @@ const PlayerPage = () => {
                       key={date}
                       onClick={() => {
                         setPracticumSelectedDateValue(date);
-                        const firstReservableSlot = daySlots.find((slot) =>
-                          isPracticumSlotReservable(slot),
-                        );
+                        const firstReservableSlot = reservableSlots[0];
 
                         if (firstReservableSlot) {
                           openPracticumReservationModal(firstReservableSlot);
@@ -2382,13 +2120,9 @@ const PlayerPage = () => {
                           {Number(date.split('-')[2])}
                         </span>
                         {previewReservation ? (
-                          <span className={styles['practicumCalendarDayReservation']}>
-                            {hasNoShowReservation ? '불참' : '예약됨'}
-                          </span>
+                          <span className={styles['practicumCalendarDayReservation']}>예약됨</span>
                         ) : availableCount ? (
-                          <span className={styles['practicumCalendarDayCount']}>
-                            {`${String(availableCount)}개 가능`}
-                          </span>
+                          <span className={styles['practicumCalendarDayCount']}>예약가능</span>
                         ) : daySlots.length ? (
                           <span className={styles['practicumCalendarDayUnavailable']}>
                             예약불가
@@ -2403,11 +2137,11 @@ const PlayerPage = () => {
                           </span>
                         ) : availableCount ? (
                           <span className={styles['practicumCalendarPreviewOpen']}>
-                            {formatTimeRange(daySlots[0].startAt, daySlots[0].endAt)}
+                            {`${String(availableCount)}개 예약 가능`}
                           </span>
                         ) : daySlots.length ? (
                           <span className={styles['practicumCalendarPreviewUnavailable']}>
-                            {formatTimeRange(daySlots[0].startAt, daySlots[0].endAt)}
+                            예약불가
                           </span>
                         ) : (
                           <span className={styles['practicumCalendarPreviewEmpty']}>일정 없음</span>
@@ -2450,7 +2184,8 @@ const PlayerPage = () => {
       <Modal
         bodyClassName={styles['practicumReservationModalBody']}
         closeButtonClassName={styles['practicumReservationModalClose']}
-        closeButtonContent={<span aria-hidden='true'>×</span>}
+        closeButtonContent={<img alt='' aria-hidden='true' src={iconPracticumClose} />}
+        headerClassName={styles['practicumReservationModalHeader']}
         onClose={() => {
           setPendingPracticumSlot(null);
         }}
@@ -2463,7 +2198,12 @@ const PlayerPage = () => {
             선택한 일정으로 예약하시겠습니까?
           </p>
           <div className={styles['practicumReservationDateCard']}>
-            <span aria-hidden='true' className={styles['practicumReservationCalendarIcon']} />
+            <img
+              alt=''
+              aria-hidden='true'
+              className={styles['practicumReservationCalendarIcon']}
+              src={iconPracticumCalendar}
+            />
             <span>선택 날짜</span>
             <strong>{selectedDateLabel}</strong>
           </div>
@@ -2526,184 +2266,13 @@ const PlayerPage = () => {
   };
 
   const renderProblemReportModal = () => {
-    if (!problemReport) {
-      return null;
-    }
-
-    const reportTargetScore = calculateTargetScore(
-      problemReport.passCorrectCount,
-      problemReport.totalQuestionCount,
-    );
-
     return (
-      <Modal
-        bodyClassName={styles['problemReportModalBody']}
-        closeButtonClassName={styles['problemReportModalClose']}
-        closeButtonContent={<span aria-hidden='true'>×</span>}
+      <ProblemReportModal
         onClose={() => {
           setProblemReport(null);
         }}
-        panelClassName={styles['problemReportModal']}
-        size='lg'
-        title='문제 결과 리포트'
-        titleClassName={styles['problemReportModalTitle']}
-      >
-        <div className={styles['problemReportContent']}>
-          <section className={styles['problemReportSection']}>
-            <h3 className={styles['problemReportSectionTitle']}>기본 정보</h3>
-            <dl className={styles['problemReportInfoGrid']}>
-              <div className={styles['problemReportInfoCell']}>
-                <dt>응시자</dt>
-                <dd>{problemReport.applicantName}</dd>
-              </div>
-              <div className={styles['problemReportInfoCell']}>
-                <dt>시험명</dt>
-                <dd>{problemReport.examName}</dd>
-              </div>
-              <div className={styles['problemReportInfoCell']}>
-                <dt>응시일</dt>
-                <dd>{formatReportDate(problemReport.submittedAt)}</dd>
-              </div>
-              <div className={styles['problemReportInfoCell']}>
-                <dt>총 문항 수</dt>
-                <dd>{problemReport.totalQuestionCount}문항</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className={styles['problemReportSection']}>
-            <h3 className={styles['problemReportSectionTitle']}>결과 요약</h3>
-            <dl className={styles['problemReportMetricGrid']}>
-              <div>
-                <dt>정답 수</dt>
-                <dd>{problemReport.correctCount}문항</dd>
-              </div>
-              <div>
-                <dt>오답 수</dt>
-                <dd>{problemReport.wrongCount}문항</dd>
-              </div>
-              <div>
-                <dt>정답률</dt>
-                <dd>{problemReport.correctRate}%</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className={styles['problemReportSection']}>
-            <h3 className={styles['problemReportSectionTitle']}>최종 판정</h3>
-            <div className={styles['problemReportVerdictBox']}>
-              <div className={styles['problemReportVerdictResult']}>
-                <span>결과</span>
-                <strong
-                  className={styles['problemReportFinalResult']}
-                  data-passed={problemReport.passed}
-                >
-                  {problemReport.passed ? 'PASS' : 'FAIL'}
-                </strong>
-              </div>
-              <dl className={styles['problemReportVerdictScoreList']}>
-                <div>
-                  <dt>기준 점수</dt>
-                  <dd>{String(reportTargetScore)}점 이상 취득 시 합격</dd>
-                </div>
-                <div>
-                  <dt>현재 점수</dt>
-                  <dd>{problemReport.score}점</dd>
-                </div>
-              </dl>
-            </div>
-          </section>
-
-          <section className={styles['problemReportSection']}>
-            <h3 className={styles['problemReportSectionTitle']}>오답 분석</h3>
-            <div className={styles['problemReportTableWrap']}>
-              <table className={styles['problemReportTable']}>
-                <thead>
-                  <tr>
-                    <th scope='col'>영역</th>
-                    <th scope='col'>틀린 개수 / 총문제수</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {problemReport.areaStats.length ? (
-                    problemReport.areaStats.map((area) => (
-                      <tr key={area.problemAreaId}>
-                        <td>{area.problemAreaName}</td>
-                        <td>
-                          {area.wrongCount} / {area.totalCount}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={2}>영역별 결과가 없습니다.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className={styles['problemReportSection']}>
-            <h3 className={styles['problemReportSectionTitle']}>전체 결과</h3>
-            <div className={styles['problemReportTableWrap']}>
-              <table className={styles['problemReportTable']}>
-                <thead>
-                  <tr>
-                    <th scope='col'>문항</th>
-                    <th scope='col'>결과</th>
-                    <th scope='col'>문제 영역</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {problemReport.questionResults.map((result, index) => (
-                    <tr key={result.questionId}>
-                      <td>{index + 1}문제</td>
-                      <td>
-                        <strong
-                          className={styles['problemReportQuestionResult']}
-                          data-correct={result.correct}
-                        >
-                          {result.correct ? 'O' : 'X'}
-                        </strong>
-                      </td>
-                      <td>{result.problemAreaName ?? '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <div className={styles['problemReportModalActions']}>
-            <Button
-              className={styles['problemReportPrintButton']}
-              onClick={() => {
-                openProblemReportPrintWindow(problemReport);
-              }}
-              type='button'
-              variant='primary'
-            >
-              <span>인쇄하기</span>
-              <span
-                aria-hidden='true'
-                className={styles['problemReportPrintIcon']}
-                style={playerPrinterIconStyle}
-              />
-            </Button>
-            <Button
-              className={styles['problemReportCloseButton']}
-              onClick={() => {
-                setProblemReport(null);
-              }}
-              type='button'
-              variant='secondary'
-            >
-              닫기
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        report={problemReport}
+      />
     );
   };
 

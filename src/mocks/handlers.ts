@@ -2270,6 +2270,7 @@ export const handlers = [
     return HttpResponse.json(
       createApiEnvelope([
         {
+          blockedHours: [],
           id: 1,
           location: '서울 강의실 A',
           openFromHour: 9,
@@ -2277,6 +2278,7 @@ export const handlers = [
           weekday: 'MONDAY',
         },
         {
+          blockedHours: [],
           id: 2,
           location: '서울 강의실 A',
           openFromHour: 9,
@@ -2284,6 +2286,7 @@ export const handlers = [
           weekday: 'TUESDAY',
         },
         {
+          blockedHours: [],
           id: 3,
           location: '서울 강의실 A',
           openFromHour: 9,
@@ -2291,6 +2294,7 @@ export const handlers = [
           weekday: 'WEDNESDAY',
         },
         {
+          blockedHours: [],
           id: 4,
           location: '서울 강의실 A',
           openFromHour: 9,
@@ -2298,6 +2302,7 @@ export const handlers = [
           weekday: 'THURSDAY',
         },
         {
+          blockedHours: [],
           id: 5,
           location: '서울 강의실 A',
           openFromHour: 9,

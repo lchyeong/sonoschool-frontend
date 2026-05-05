@@ -29,6 +29,7 @@ export interface StudentProblem {
   id: number;
   lectureId: number;
   title: string;
+  passScore: number;
   passCorrectCount: number;
   timeLimitSeconds: number | null;
   retakeAllowed: boolean;
@@ -73,6 +74,7 @@ export interface StudentProblemQuestionResult {
 export interface StudentProblemAttemptResult {
   id: number;
   score: number;
+  passScore?: number;
   passCorrectCount: number;
   correctCount?: number;
   wrongCount?: number;
@@ -103,6 +105,7 @@ export interface StudentProblemAttemptReport {
   wrongCount: number;
   correctRate: number;
   passed: boolean;
+  passScore?: number;
   passCorrectCount: number;
   score: number;
   areaStats: StudentProblemAreaStat[];

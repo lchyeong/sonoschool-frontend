@@ -78,6 +78,7 @@ export interface AdminPracticumOperatingHourApplyPayload {
 }
 
 export interface AdminPracticumOperatingHour {
+  blockedHours: number[];
   id: number;
   weekday: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
   openFromHour: number;

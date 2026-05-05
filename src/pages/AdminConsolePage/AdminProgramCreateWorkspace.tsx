@@ -555,6 +555,86 @@ const normalizeDraftPayloadShape = (
   })),
 });
 
+const mergeServerUploadStateIntoSnapshot = (
+  snapshotPayload: AdminProgramDraftPayload,
+  serverPayload: AdminProgramDraftPayload,
+): AdminProgramDraftPayload => {
+  const serverLecturesByKey = new Map(
+    serverPayload.sections
+      .flatMap((section) => section.lectures)
+      .map((lecture) => [lecture.key, lecture]),
+  );
+  const serverProblemsByLectureKey = new Map(
+    serverPayload.problems.map((problem) => [problem.lectureKey, problem]),
+  );
+  const serverResourcesByKey = new Map(
+    serverPayload.resources.map((resource) => [resource.key, resource]),
+  );
+
+  return {
+    ...snapshotPayload,
+    problems: snapshotPayload.problems.map((problem) => {
+      const serverProblem = serverProblemsByLectureKey.get(problem.lectureKey);
+      if (!serverProblem) {
+        return problem;
+      }
+
+      return {
+        ...problem,
+        questions: problem.questions.map((question, index) => {
+          const serverQuestion = serverProblem.questions[index];
+          if (!serverQuestion) {
+            return question;
+          }
+
+          return {
+            ...question,
+            mediaAssetId: serverQuestion.mediaAssetId,
+            mediaUploadErrorMessage: serverQuestion.mediaUploadErrorMessage,
+            mediaUploadFileName: serverQuestion.mediaUploadFileName,
+            mediaUploadStatus: serverQuestion.mediaUploadStatus,
+            mediaUrl: serverQuestion.mediaUrl,
+          };
+        }),
+      };
+    }),
+    resources: snapshotPayload.resources.map((resource) => {
+      const serverResource = serverResourcesByKey.get(resource.key);
+      if (!serverResource) {
+        return resource;
+      }
+
+      return {
+        ...resource,
+        fileName: serverResource.fileName,
+        fileSize: serverResource.fileSize,
+        fileUrl: serverResource.fileUrl,
+        mimeType: serverResource.mimeType,
+        uploadErrorMessage: serverResource.uploadErrorMessage,
+        uploadStatus: serverResource.uploadStatus,
+      };
+    }),
+    sections: snapshotPayload.sections.map((section) => ({
+      ...section,
+      lectures: section.lectures.map((lecture) => {
+        const serverLecture = serverLecturesByKey.get(lecture.key);
+        if (!serverLecture) {
+          return lecture;
+        }
+
+        return {
+          ...lecture,
+          durationSeconds: serverLecture.durationSeconds,
+          videoId: serverLecture.videoId,
+          videoUploadErrorMessage: serverLecture.videoUploadErrorMessage,
+          videoUploadFileName: serverLecture.videoUploadFileName,
+          videoUploadStatus: serverLecture.videoUploadStatus,
+        };
+      }),
+    })),
+  };
+};
+
 const reindexDraftResources = (
   resources: readonly AdminProgramDraftResource[],
 ): AdminProgramDraftResource[] => {
@@ -1452,7 +1532,10 @@ const AdminProgramCreateWorkspace = ({
       const normalizedPayload = normalizePayloadFromDetail(detail);
       const snapshot = loadCreateWorkspaceSnapshot(detail.id);
       const nextPayload = snapshot
-        ? normalizeDraftPayloadShape(snapshot.payload)
+        ? mergeServerUploadStateIntoSnapshot(
+            normalizeDraftPayloadShape(snapshot.payload),
+            normalizedPayload,
+          )
         : normalizedPayload;
       setPayload(nextPayload);
       currentPayloadRef.current = nextPayload;
@@ -1523,7 +1606,7 @@ const AdminProgramCreateWorkspace = ({
         variant: 'error',
       });
     },
-    onSuccess: async (result, targetDraftId) => {
+    onSuccess: async (_, targetDraftId) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: adminProgramsLiveQueryKey() }),
         queryClient.invalidateQueries({ queryKey: adminProgramDraftsQueryKey() }),
@@ -1536,7 +1619,7 @@ const AdminProgramCreateWorkspace = ({
         variant: 'success',
       });
       clearCreateWorkspaceSnapshot(targetDraftId);
-      navigateWithoutPrompt(routePaths.adminProgramEdit(String(result.programId)));
+      navigateWithoutPrompt(routePaths.adminPrograms);
     },
   });
 
@@ -1655,7 +1738,12 @@ const AdminProgramCreateWorkspace = ({
 
     const normalizedPayload = normalizePayloadFromDetail(detail);
     const snapshot = loadCreateWorkspaceSnapshot(detail.id);
-    const nextPayload = snapshot ? normalizeDraftPayloadShape(snapshot.payload) : normalizedPayload;
+    const nextPayload = snapshot
+      ? mergeServerUploadStateIntoSnapshot(
+          normalizeDraftPayloadShape(snapshot.payload),
+          normalizedPayload,
+        )
+      : normalizedPayload;
     setPayload(nextPayload);
     currentPayloadRef.current = nextPayload;
     initializedDraftIdRef.current = detail.id;
@@ -2923,7 +3011,9 @@ const AdminProgramCreateWorkspace = ({
 
         <div className={styles['stackListCompact']}>
           {lectureResources.length ? (
-            lectureResources.map(({ resource, resourceIndex }) => {
+            lectureResources.map(({ resource, resourceIndex }, lectureResourceIndex) => {
+              const resourceOrdinal = lectureResourceIndex + 1;
+              const resourceDisplayTitle = resource.title?.trim() || resource.fileName?.trim();
               const pendingSelection = pendingResourceSelections[resource.key] ?? null;
               const fileInputId = `draft-resource-upload-${lectureKey}-${String(resourceIndex)}`;
               const uploadStatusLabel = pendingSelection
@@ -2936,16 +3026,15 @@ const AdminProgramCreateWorkspace = ({
 
               return (
                 <article
-                  className={styles['panel']}
+                  className={classNames(styles['panel'], styles['draftResourcePanel'])}
                   data-draft-focus-key={`resource-${resource.key}`}
                   key={`draft-resource-${lectureKey}-${String(resourceIndex)}`}
                 >
                   <div className={styles['panelToolbar']}>
                     <div>
                       <h6 className={styles['panelTitle']}>
-                        {resource.title?.trim() ||
-                          resource.fileName?.trim() ||
-                          `첨부자료 ${String(resource.sortOrder + 1)}`}
+                        {`첨부자료 ${String(resourceOrdinal)}`}
+                        {resourceDisplayTitle ? ` · ${resourceDisplayTitle}` : ''}
                       </h6>
                       <p className={styles['metaText']}>{uploadStatusLabel}</p>
                     </div>
@@ -2958,21 +3047,6 @@ const AdminProgramCreateWorkspace = ({
                     >
                       자료 삭제
                     </Button>
-                  </div>
-
-                  <div className={styles['inlineFieldGrid']}>
-                    <TextField
-                      data-draft-focus-key={`resource-${resource.key}`}
-                      label='노출 제목'
-                      name={`draft-resource-title-${lectureKey}-${String(resourceIndex)}`}
-                      onChange={(event) => {
-                        updateResource(resourceIndex, (current) => ({
-                          ...current,
-                          title: event.target.value,
-                        }));
-                      }}
-                      value={resource.title ?? ''}
-                    />
                   </div>
 
                   <input
@@ -3046,6 +3120,22 @@ const AdminProgramCreateWorkspace = ({
                             : '미확인')}
                       </strong>
                     </div>
+                  </div>
+
+                  <div className={styles['inlineFieldGrid']}>
+                    <TextField
+                      data-draft-focus-key={`resource-${resource.key}`}
+                      label='표시할 파일명'
+                      name={`draft-resource-title-${lectureKey}-${String(resourceIndex)}`}
+                      onChange={(event) => {
+                        updateResource(resourceIndex, (current) => ({
+                          ...current,
+                          title: event.target.value,
+                        }));
+                      }}
+                      placeholder='플레이어와 수강 화면에 표시할 파일명'
+                      value={resource.title ?? ''}
+                    />
                   </div>
                 </article>
               );
@@ -3943,6 +4033,12 @@ const AdminProgramCreateWorkspace = ({
       }
 
       const lectureProblem = payload.problems.find((problem) => problem.lectureKey === lecture.key);
+      if (isProblemLecture(lecture) && (!lectureProblem || lectureProblem.questions.length === 0)) {
+        issues.push({
+          focusKey: `curriculum-lecture-${lecture.key}`,
+          message: `${sectionLabel} / ${lectureLabel}: 문제풀이 강의에는 문제를 1개 이상 추가해야 합니다.`,
+        });
+      }
       if (lectureProblem && lectureProblem.passScore === null) {
         issues.push({
           focusKey: `curriculum-${lecture.key}:0:passScore`,
@@ -5252,7 +5348,12 @@ const AdminProgramCreateWorkspace = ({
 
                                             {supportsProblem ? (
                                               <>
-                                                <div className={styles['compactFieldRow']}>
+                                                <div
+                                                  className={classNames(
+                                                    styles['compactFieldRow'],
+                                                    styles['problemSettingsRow'],
+                                                  )}
+                                                >
                                                   <div className={styles['compactTextField']}>
                                                     <TextField
                                                       label='제한시간(분)'

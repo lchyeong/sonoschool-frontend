@@ -454,7 +454,7 @@ const testStreamResponse: ProtectedLectureStream = {
   hlsKeyUrl: '/api/v1/lectures/2/hls-key',
   hlsUrl: 'https://example.com/api/v1/lectures/2/playback/test-device-id/master.m3u8',
   playbackWatermarkSessionCode: 'TEST',
-  playbackWatermarkText: '테스트회원 · ****1234',
+  playbackWatermarkText: '테스트회원1234',
   playbackSessionToken: 'test-session',
 };
 
@@ -505,6 +505,7 @@ const testQuiz: StudentProblem = {
   id: 301,
   lectureId: 2,
   latestAttempt: null,
+  passScore: 70,
   passCorrectCount: 1,
   retakeAllowed: true,
   timeLimitSeconds: 1800,
@@ -1256,19 +1257,20 @@ describe('PlayerPage', () => {
     fetchStudentProblemMock.mockResolvedValue(testQuiz);
     submitStudentProblemMock.mockResolvedValue({
       id: 9002,
+      passScore: 70,
       passCorrectCount: 1,
-      passed: true,
+      passed: false,
       results: [
         {
-          correct: true,
+          correct: false,
           correctOptionIds: [502],
           explanation: '정답 해설입니다.',
           questionId: 401,
           questionText: '첫 번째 질문',
-          submittedOptionIds: [502],
+          submittedOptionIds: [501],
         },
       ],
-      score: 100,
+      score: 0,
       submittedAt: '2026-03-10T12:30:00Z',
     });
 
@@ -1317,7 +1319,7 @@ describe('PlayerPage', () => {
     fireEvent.click(correctOption);
     expect(correctOption).toBeChecked();
     fireEvent.click(screen.getByRole('checkbox', { name: '나중에 풀기' }));
-    expect(correctOption).toBeChecked();
+    expect(correctOption).not.toBeChecked();
     expect(screen.getByRole('button', { name: /01/ })).toBeInTheDocument();
     expect(screen.queryByText('답안 입력 2번')).not.toBeInTheDocument();
     expect(screen.getAllByText('나중에 풀기').length).toBeGreaterThan(0);
@@ -1334,25 +1336,17 @@ describe('PlayerPage', () => {
     expect(typeof submitCall[1].elapsedSeconds).toBe('number');
 
     expect(await screen.findByText('채점 결과')).toBeInTheDocument();
-    expect(screen.getByText('100점')).toBeInTheDocument();
-    expect(screen.getByRole('table')).toBeInTheDocument();
-    expect(screen.getByText('O')).toBeInTheDocument();
+    expect(screen.getByLabelText('채점 결과 요약')).toHaveTextContent('0/ 100');
+    expect(screen.getByLabelText('채점 결과 요약')).toHaveTextContent('재도전 필요');
+    expect(screen.getByLabelText('채점 결과 요약')).toHaveTextContent('목표 점수는 70점입니다.');
+    expect(screen.getByLabelText('문항 리뷰')).toHaveTextContent('오답');
+    expect(screen.getByLabelText('문항 리뷰')).toHaveTextContent('선택 답안');
     expect(screen.queryByRole('button', { name: '다시 풀기' })).not.toBeInTheDocument();
-    expect(screen.queryByText(/정답 해설입니다/)).not.toBeInTheDocument();
+    expect(screen.getByText('정답 해설입니다.')).toBeInTheDocument();
     expect(screen.queryByText(/^정답:/)).not.toBeInTheDocument();
-    expect(
-      screen.getAllByRole('heading', { level: 1, name: '복부초음파 기초 2강 문제풀이' }).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getByText('현재 진행')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '문항 다시 보기' }));
-    expect((await screen.findAllByText('Question 01')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('첫 번째 질문').length).toBeGreaterThan(0);
-    expect(screen.getByLabelText('2. 정답')).toBeDisabled();
-    expect(screen.getByText('해설 보기')).toBeInTheDocument();
     expect(screen.queryByText('선택 답안: 정답')).not.toBeInTheDocument();
     expect(screen.queryByText(/^정답:/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '결과로 돌아가기' }));
-    expect(await screen.findByText('채점 결과')).toBeInTheDocument();
   });
 
   it('auto submits and grades a problem lecture when the time limit expires', async () => {
@@ -1374,6 +1368,7 @@ describe('PlayerPage', () => {
     fetchStudentProblemMock.mockResolvedValue(expiredQuiz);
     submitStudentProblemMock.mockResolvedValue({
       id: 9003,
+      passScore: 70,
       passCorrectCount: 1,
       passed: true,
       results: [
@@ -1392,8 +1387,6 @@ describe('PlayerPage', () => {
 
     renderPlayerPage();
 
-    expect(await screen.findByText('00:00')).toBeInTheDocument();
-
     await waitFor(() => {
       expect(submitStudentProblemMock).toHaveBeenCalledTimes(1);
     });
@@ -1409,6 +1402,7 @@ describe('PlayerPage', () => {
     const problemLectureSnapshot = createProblemLectureSnapshot();
     const latestAttempt: StudentProblemAttemptResult = {
       id: 9004,
+      passScore: 70,
       passCorrectCount: 1,
       passed: true,
       results: [
@@ -1443,13 +1437,13 @@ describe('PlayerPage', () => {
     renderPlayerPage();
 
     expect(await screen.findByText('채점 결과')).toBeInTheDocument();
-    expect(screen.getByText('100점')).toBeInTheDocument();
+    expect(screen.getByLabelText('채점 결과 요약')).toHaveTextContent('100/ 100');
     expect(screen.queryByRole('button', { name: '시작하기' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '제출하기' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '다시 풀기' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '문항 다시 보기' }));
-    expect(await screen.findByLabelText('2. 정답')).toBeDisabled();
-    expect(screen.getByText('해설 보기')).toBeInTheDocument();
+    expect(screen.getByLabelText('문항 리뷰')).toHaveTextContent('정답');
+    expect(screen.getByLabelText('문항 리뷰')).toHaveTextContent('선택 답안');
+    expect(screen.getByText('정답 해설입니다.')).toBeInTheDocument();
     expect(screen.queryByText('선택 답안: 정답')).not.toBeInTheDocument();
     expect(screen.queryByText(/^정답:/)).not.toBeInTheDocument();
   });
@@ -1490,7 +1484,7 @@ describe('PlayerPage', () => {
     renderPlayerPage();
 
     expect(await screen.findAllByText('복부초음파 기초 2강 실습')).not.toHaveLength(0);
-    expect(screen.getByLabelText('현재 강의 정보')).toHaveTextContent('예약가능예약됨불참예약불가');
+    expect(screen.getByLabelText('현재 강의 정보')).toHaveTextContent('예약가능예약됨예약불가');
     expect(screen.getAllByText('실습예약').length).toBeGreaterThan(0);
     expect(screen.getByText(/예약 날짜/)).toBeInTheDocument();
     expect(screen.queryByText('이 강의는 영상 없이 제공되는 강의입니다.')).not.toBeInTheDocument();

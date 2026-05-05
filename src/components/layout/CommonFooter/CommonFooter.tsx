@@ -2,9 +2,7 @@ import { useRef, useState } from 'react';
 
 import { Link, useNavigate } from 'react-router-dom';
 
-import Modal from '@/components/overlay/Modal/Modal';
-import privacyPolicyText from '@/content/privacyPolicy.ko-KR.txt?raw';
-import termsOfUseText from '@/content/termsOfUse.ko-KR.txt?raw';
+import LegalPolicyModal from '@/components/policy/LegalPolicyModal';
 import { routePaths } from '@/routes/routeRegistry';
 
 import styles from './CommonFooter.module.scss';
@@ -58,57 +56,14 @@ const footerCopyrightText =
 
 const footerCompanyInformationItems = footerInformationLines[0];
 const footerBusinessInformationItems = footerInformationLines.slice(1).flat();
-const termsOfUseLines = termsOfUseText.split(/\r?\n/);
-const privacyPolicyLines = privacyPolicyText.split(/\r?\n/);
 
 type FooterPolicyModalType = 'terms' | 'privacy';
-
-const renderPolicyLine = (line: string, index: number) => {
-  const trimmedLine = line.trim();
-  const lineKey = `${String(index)}-${trimmedLine}`;
-
-  if (trimmedLine.length === 0) {
-    return <span aria-hidden='true' className={styles['termsModalSpacer']} key={lineKey} />;
-  }
-
-  if (/^제\s*\d+\s*장/.test(trimmedLine)) {
-    return (
-      <h3 className={styles['termsModalChapterTitle']} key={lineKey}>
-        {trimmedLine}
-      </h3>
-    );
-  }
-
-  if (/^제\s*\d+\s*조/.test(trimmedLine)) {
-    return (
-      <h4 className={styles['termsModalArticleTitle']} key={lineKey}>
-        {trimmedLine}
-      </h4>
-    );
-  }
-
-  if (/^(\(\d+\)|\d+\.|①|②|③|④|⑤|⑥|-)/.test(trimmedLine)) {
-    return (
-      <p className={styles['termsModalIndentedText']} key={lineKey}>
-        {trimmedLine}
-      </p>
-    );
-  }
-
-  return (
-    <p className={styles['termsModalParagraph']} key={lineKey}>
-      {trimmedLine}
-    </p>
-  );
-};
 
 const CommonFooter = () => {
   const navigate = useNavigate();
   const adminTriggerClickTimestampsRef = useRef<number[]>([]);
   const [policyModalType, setPolicyModalType] = useState<FooterPolicyModalType | null>(null);
   const isPolicyModalOpen = policyModalType !== null;
-  const policyModalTitle = policyModalType === 'privacy' ? '개인정보처리방침' : '이용약관';
-  const policyModalLines = policyModalType === 'privacy' ? privacyPolicyLines : termsOfUseLines;
 
   const handleAdminTriggerClick = () => {
     const now = Date.now();
@@ -259,33 +214,12 @@ const CommonFooter = () => {
         </div>
       </div>
       {isPolicyModalOpen ? (
-        <Modal
-          bodyClassName={styles['termsModalBody']}
-          closeButtonClassName={styles['termsModalCloseButton']}
-          closeButtonLabel={`${policyModalTitle} 모달 닫기`}
-          headerClassName={styles['termsModalHeader']}
+        <LegalPolicyModal
           onClose={() => {
             setPolicyModalType(null);
           }}
-          panelClassName={styles['termsModalPanel']}
-          title={policyModalTitle}
-          titleClassName={styles['termsModalTitle']}
-        >
-          <div
-            className={styles['termsModalScroll']}
-            data-lenis-prevent
-            onTouchMove={(event) => {
-              event.stopPropagation();
-            }}
-            onWheel={(event) => {
-              event.stopPropagation();
-            }}
-          >
-            <div className={styles['termsModalText']}>
-              {policyModalLines.map((line, index) => renderPolicyLine(line, index))}
-            </div>
-          </div>
-        </Modal>
+          type={policyModalType}
+        />
       ) : null}
     </footer>
   );

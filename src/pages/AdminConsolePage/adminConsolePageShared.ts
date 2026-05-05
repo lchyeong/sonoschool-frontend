@@ -56,7 +56,7 @@ export const resourceVisibilityLabel: Record<AdminResourceVisibility, string> = 
 };
 
 export const programFormatLabel = {
-  hybrid: '하이브리드',
+  hybrid: '실습예약 프로그램',
   offline: '오프라인',
   online: '온라인',
 } as const;

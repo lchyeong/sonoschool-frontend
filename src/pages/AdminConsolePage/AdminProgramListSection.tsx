@@ -41,7 +41,7 @@ type ProgramTypeFilter = 'all' | AdminProgramType;
 const PROGRAMS_PAGE_SIZE = 12;
 
 const programTypeLabel: Record<AdminProgramType, string> = {
-  HYBRID: '하이브리드',
+  HYBRID: '실습예약 프로그램',
   OFFLINE: '오프라인',
   ONLINE: '온라인',
   PROBLEM_SOLVING: '문제풀이',
@@ -130,7 +130,7 @@ const typeOptions = [
   { value: 'all', label: '전체' },
   { value: 'ONLINE', label: '온라인' },
   { value: 'OFFLINE', label: '오프라인' },
-  { value: 'HYBRID', label: '하이브리드' },
+  { value: 'HYBRID', label: '실습예약 프로그램' },
 ] as const;
 
 const confirmProgramDelete = (): boolean => {

@@ -274,6 +274,27 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
+.termRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.termViewButton {
+  flex: 0 0 auto;
+  padding: 6px 0;
+  border: 0;
+  color: #0f766e;
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
 .checkboxBox {
   display: inline-flex;
   flex: 0 0 auto;
@@ -403,7 +424,15 @@
     gap: 14px;
   }
 
+  .termRow {
+    align-items: flex-start;
+  }
+
   .checkboxRow strong {
     font-size: 20px;
+  }
+
+  .termViewButton {
+    font-size: 15px;
   }
 }

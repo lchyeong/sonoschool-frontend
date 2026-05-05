@@ -249,8 +249,8 @@
 }
 
 .compactSearchBar svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .compactFilterRow {
@@ -1362,15 +1362,25 @@
 }
 
 .compactStatusBadge {
-  min-width: 70px;
-  height: 32px;
-  padding: 0 0.7rem;
-  border: 1px solid #cfd5df;
-  border-radius: 0;
-  font-size: 0.8rem;
-  font-weight: 700;
-  background: #ffffff;
+  min-width: 73px;
+  height: 26px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
   cursor: default;
+}
+
+.compactStatusBadge[data-tone='answered'] {
+  color: #34b29f;
+  background: #ecf9f7;
+}
+
+.compactStatusBadge[data-tone='waiting'] {
+  color: #4b5563;
+  background: #e5e7eb;
 }
 
 .compactThreadTextBlock {
@@ -1753,22 +1763,25 @@
 }
 
 .compactWriteActionRow {
-  display: grid;
+  display: flex;
   position: absolute;
   right: 26px;
   bottom: 26px;
   left: 26px;
-  grid-template-columns: 182px 182px;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  justify-content: start;
+  box-sizing: border-box;
 }
 
 .compactWriteCancelButton,
 .compactWriteSubmitButton {
   display: inline-flex;
+  flex: 0 1 182px;
   align-items: center;
   justify-content: center;
   width: 182px;
+  min-width: 0;
   height: 58px;
   padding: 0 18px;
   border-radius: 10px;

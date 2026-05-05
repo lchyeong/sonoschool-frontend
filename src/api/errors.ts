@@ -103,6 +103,10 @@ const resolveFriendlyApiErrorMessage = (
     return '영상 인코딩 서버에 연결하지 못했습니다. 인코딩 워커 실행 상태를 확인한 뒤 다시 시도해 주세요.';
   }
 
+  if (code === 'LECTURE_400_PROBLEM_REQUIRED') {
+    return '문제풀이 강의에는 문제를 1개 이상 추가해야 합니다. 강의 구성에서 문제풀이 강의를 확인해 주세요.';
+  }
+
   return serverMessage ?? fallbackUserMessage;
 };
 
