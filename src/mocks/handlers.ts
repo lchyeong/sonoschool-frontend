@@ -2460,6 +2460,15 @@ export const handlers = [
 
     return new HttpResponse(null, { status: 204 });
   }),
+  http.patch('*/api/v1/admin/practicum-reservations/:reservationId/complete', ({ params }) => {
+    const reservationId = Number(params['reservationId']);
+
+    if (!Number.isFinite(reservationId)) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.patch(
     '*/api/v1/admin/practicum-reservations/:reservationId/move',
     async ({ params, request }) => {

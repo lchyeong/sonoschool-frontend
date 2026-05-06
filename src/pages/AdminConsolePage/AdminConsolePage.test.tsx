@@ -281,6 +281,30 @@ describe('AdminConsolePage', () => {
     expect(screen.getAllByText('3/20강').length).toBeGreaterThan(0);
   });
 
+  it('keeps the payment dashboard and table shell when the payment query returns no rows', async () => {
+    server.use(
+      http.get('*/api/v1/admin/payments', () => {
+        return HttpResponse.json({ data: [] });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/payments');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '결제 관리' })).toBeInTheDocument();
+    expect(await screen.findByText('월별 매출 차트')).toBeInTheDocument();
+    expect(screen.getByText('주별 매출 차트')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '조회 기간 선택' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('주문번호를 입력하세요')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '프로그램명' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '관리' })).toBeInTheDocument();
+    expect(screen.getByText('선택한 기간에 결제 내역이 없습니다.')).toBeInTheDocument();
+    expect(screen.getByText('운영 결제').nextElementSibling).toHaveTextContent('0건');
+    expect(screen.getByText('결제 완료').nextElementSibling).toHaveTextContent('0건');
+    expect(screen.getByText('결제 취소').nextElementSibling).toHaveTextContent('0건');
+    expect(screen.getByText('완료 매출').nextElementSibling).toHaveTextContent('₩0');
+    expect(screen.queryByText('표시할 운영 결제 내역이 없습니다.')).not.toBeInTheDocument();
+  });
+
   it('shows a selected monthly sales marker on the chart and supports date-range filtering in the table', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-04-08T09:00:00Z'));
@@ -1161,11 +1185,11 @@ describe('AdminConsolePage', () => {
     expect(screen.getByRole('button', { name: '예약일자 변경' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '예약취소' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '불참처리' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '실습완료' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '예약일자 변경' }));
 
     expect(await screen.findByRole('heading', { name: '예약일자 변경' })).toBeInTheDocument();
-    expect(screen.getAllByText(/잔여 \d+석/).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: '실습 일정 상세로 돌아가기' }));
 

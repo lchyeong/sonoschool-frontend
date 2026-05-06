@@ -871,44 +871,45 @@ const CheckoutPage = () => {
                     <strong>{formatCurrency(pricing.totalPayablePrice)}</strong>
                   </div>
 
-                  <label className={styles['agreementRow']}>
-                    <input
-                      checked={isPolicyAgreed}
-                      onChange={(event) => {
-                        setIsPolicyAgreed(event.target.checked);
-                      }}
-                      type='checkbox'
-                    />
-                    <span
-                      className={classNames(
-                        styles['agreementCheckbox'],
-                        isPolicyAgreed ? styles['agreementCheckboxChecked'] : null,
-                      )}
-                      aria-hidden='true'
-                    >
-                      {isPolicyAgreed ? <img alt='' src={checkIconSrc} /> : null}
-                    </span>
-                    <span>주문 내용, 결제 금액, 환불정책을 확인했습니다.</span>
-                  </label>
+                  <div className={styles['agreementGroup']}>
+                    <label className={styles['agreementRow']}>
+                      <input
+                        checked={isPolicyAgreed}
+                        onChange={(event) => {
+                          setIsPolicyAgreed(event.target.checked);
+                        }}
+                        type='checkbox'
+                      />
+                      <span
+                        className={classNames(
+                          styles['agreementCheckbox'],
+                          isPolicyAgreed ? styles['agreementCheckboxChecked'] : null,
+                        )}
+                        aria-hidden='true'
+                      >
+                        {isPolicyAgreed ? <img alt='' src={checkIconSrc} /> : null}
+                      </span>
+                      <span>주문 내용, 결제 금액, 환불정책을 확인했습니다.</span>
+                    </label>
 
-                  <div className={styles['policyLinks']} aria-label='결제 약관 링크'>
-                    <button
-                      onClick={() => {
-                        setActivePolicyKey('refund');
-                      }}
-                      type='button'
-                    >
-                      환불정책
-                    </button>
-                    <span aria-hidden='true' />
-                    <button
-                      onClick={() => {
-                        setActivePolicyKey('privacy');
-                      }}
-                      type='button'
-                    >
-                      개인정보처리방침
-                    </button>
+                    <div className={styles['policyLinks']} aria-label='결제 약관 링크'>
+                      <button
+                        onClick={() => {
+                          setActivePolicyKey('refund');
+                        }}
+                        type='button'
+                      >
+                        환불정책
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActivePolicyKey('privacy');
+                        }}
+                        type='button'
+                      >
+                        개인정보처리방침
+                      </button>
+                    </div>
                   </div>
 
                   <div className={styles['actionRow']}>

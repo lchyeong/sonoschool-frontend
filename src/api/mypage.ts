@@ -696,7 +696,7 @@ export const fetchMyLecturePracticum = async (
 
 export const reserveMyLecturePracticum = async (
   enrollmentId: number,
-  slotId: number,
+  startAt: string,
   lectureId?: number,
 ): Promise<PracticumReservation> => {
   try {
@@ -704,7 +704,7 @@ export const reserveMyLecturePracticum = async (
       `/api/v1/my/enrollments/${String(enrollmentId)}/practicum-reservations`,
       {
         lectureId,
-        slotId,
+        startAt,
       },
     );
     return unwrapApiEnvelope(response.data);
@@ -729,13 +729,13 @@ export const cancelMyLecturePracticum = async (
 export const moveMyLecturePracticum = async (
   enrollmentId: number,
   reservationId: number,
-  slotId: number,
+  startAt: string,
 ): Promise<PracticumReservation> => {
   try {
     const response = await axiosInstance.patch<ApiEnvelope<PracticumReservation>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}/practicum-reservations/${String(reservationId)}/move`,
       {
-        slotId,
+        startAt,
       },
     );
     return unwrapApiEnvelope(response.data);

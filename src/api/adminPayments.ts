@@ -7,10 +7,23 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
-export const fetchAdminPayments = async (): Promise<AdminPaymentListItem[]> => {
+export interface AdminPaymentListParams {
+  from?: string;
+  to?: string;
+}
+
+export const fetchAdminPayments = async (
+  params: AdminPaymentListParams = {},
+): Promise<AdminPaymentListItem[]> => {
   try {
     const response = await axiosInstance.get<ApiEnvelope<AdminPaymentListItem[]>>(
       '/api/v1/admin/payments',
+      {
+        params: {
+          ...(params.from ? { from: params.from } : {}),
+          ...(params.to ? { to: params.to } : {}),
+        },
+      },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {

@@ -271,12 +271,12 @@ export const cancelAdminPracticumReservation = async (reservationId: number): Pr
 
 export const moveAdminPracticumReservation = async (
   reservationId: number,
-  slotId: number,
+  startAt: string,
 ): Promise<void> => {
   try {
     await axiosInstance.patch(
       `/api/v1/admin/practicum-reservations/${String(reservationId)}/move`,
-      { slotId },
+      { startAt },
     );
   } catch (error: unknown) {
     throw toApiError(error, '실습 예약 일정을 변경하지 못했습니다.');
@@ -290,5 +290,27 @@ export const markAdminPracticumReservationNoShow = async (reservationId: number)
     );
   } catch (error: unknown) {
     throw toApiError(error, '실습 불참 처리를 저장하지 못했습니다.');
+  }
+};
+
+export const restoreAdminPracticumReservationNoShow = async (
+  reservationId: number,
+): Promise<void> => {
+  try {
+    await axiosInstance.patch(
+      `/api/v1/admin/practicum-reservations/${String(reservationId)}/no-show/restore`,
+    );
+  } catch (error: unknown) {
+    throw toApiError(error, '실습 불참 처리를 취소하지 못했습니다.');
+  }
+};
+
+export const completeAdminPracticumReservation = async (reservationId: number): Promise<void> => {
+  try {
+    await axiosInstance.patch(
+      `/api/v1/admin/practicum-reservations/${String(reservationId)}/complete`,
+    );
+  } catch (error: unknown) {
+    throw toApiError(error, '실습 완료 처리를 저장하지 못했습니다.');
   }
 };

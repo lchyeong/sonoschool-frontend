@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
   createAdminLecture,
@@ -17,11 +17,6 @@ import {
   updateAdminLecture,
   updateAdminSection,
 } from '@/api/adminCurriculum';
-import {
-  createAdminPracticumSlot,
-  deleteAdminPracticumSlot,
-  fetchAdminPracticumSlots,
-} from '@/api/adminPracticum';
 import {
   assignAdminLectureVideo,
   completeAdminVideoUpload,
@@ -46,15 +41,86 @@ import type {
 } from '@/types/adminCurriculum';
 import type { AdminProgramType } from '@/types/adminProgramsLive';
 import type { AdminVideoProcessingStage } from '@/types/adminVideo';
-import type { AdminPracticumSlotPayload, PracticumSlot } from '@/types/practicum';
 import { classNames } from '@/utils/classNames';
 
 import styles from './AdminProgramCurriculumSection.module.scss';
+import OfflineSchedulePlanner from './components/OfflineSchedulePlanner/OfflineSchedulePlanner';
+import type { OfflineSchedulePlannerItem } from './components/OfflineSchedulePlanner/OfflineSchedulePlanner';
 
 const TARGET_PART_SIZE_BYTES = 32 * 1024 * 1024;
 const VIDEO_PART_UPLOAD_CONCURRENCY = 4;
 const VIDEO_ENCODING_POLL_INTERVAL_MS = 15000;
 const VIDEO_ENCODING_MAX_POLL_ATTEMPTS = 360;
+const PENDING_LECTURE_VIDEO_UPLOADS_STORAGE_PREFIX = 'admin-curriculum-pending-video-uploads:';
+const EMPTY_ADMIN_CURRICULUM_SECTIONS: AdminCurriculumSection[] = [];
+
+interface PendingLectureVideoUpload {
+  fileName: string;
+  lectureId: number;
+  videoId: number;
+}
+
+const buildPendingLectureVideoUploadsStorageKey = (programId: number): string =>
+  `${PENDING_LECTURE_VIDEO_UPLOADS_STORAGE_PREFIX}${String(programId)}`;
+
+const loadPendingLectureVideoUploads = (programId: number): PendingLectureVideoUpload[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  const raw = window.sessionStorage.getItem(buildPendingLectureVideoUploadsStorageKey(programId));
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as PendingLectureVideoUpload[];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter(
+      (item) =>
+        Number.isFinite(item.lectureId) &&
+        Number.isFinite(item.videoId) &&
+        typeof item.fileName === 'string',
+    );
+  } catch {
+    window.sessionStorage.removeItem(buildPendingLectureVideoUploadsStorageKey(programId));
+    return [];
+  }
+};
+
+const savePendingLectureVideoUploads = (
+  programId: number,
+  uploads: PendingLectureVideoUpload[],
+) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const storageKey = buildPendingLectureVideoUploadsStorageKey(programId);
+  if (uploads.length === 0) {
+    window.sessionStorage.removeItem(storageKey);
+    return;
+  }
+
+  window.sessionStorage.setItem(storageKey, JSON.stringify(uploads));
+};
+
+const upsertPendingLectureVideoUpload = (programId: number, upload: PendingLectureVideoUpload) => {
+  const uploads = loadPendingLectureVideoUploads(programId).filter(
+    (item) => item.lectureId !== upload.lectureId,
+  );
+  savePendingLectureVideoUploads(programId, [...uploads, upload]);
+};
+
+const removePendingLectureVideoUpload = (programId: number, lectureId: number) => {
+  savePendingLectureVideoUploads(
+    programId,
+    loadPendingLectureVideoUploads(programId).filter((item) => item.lectureId !== lectureId),
+  );
+};
 
 const buildLectureDeleteConfirmMessage = (impact: AdminLectureDeleteImpact): string => {
   if (!impact.hasHistory) {
@@ -98,18 +164,7 @@ interface LectureFormState {
   title: string;
 }
 
-interface PracticumSlotFormState {
-  location: string;
-  startAt: string;
-}
-
-interface OfflineScheduleFormState {
-  date: string;
-  endTime: string;
-  location: string;
-  notes: string;
-  startTime: string;
-}
+type OfflineScheduleFormState = OfflineSchedulePlannerItem;
 
 type LectureWorkspacePanel = 'basic' | 'video' | 'resource' | 'problem' | 'practicum' | 'offline';
 
@@ -127,11 +182,6 @@ const EMPTY_LECTURE_FORM: LectureFormState = {
   preview: false,
   practicumEnabled: false,
   title: '',
-};
-
-const EMPTY_PRACTICUM_SLOT_FORM: PracticumSlotFormState = {
-  location: '',
-  startAt: '',
 };
 
 const normalizeDescription = (value: string): string | null => {
@@ -248,54 +298,17 @@ const createOfflineScheduleFormStates = (
 const toOfflineSchedulesPayload = (
   formStates: OfflineScheduleFormState[],
 ): AdminLectureOfflineSchedulesReplacePayload => ({
-  offlineSchedules: formStates.slice(0, 1).map((formState) => ({
-    date: formState.date,
-    endTime: formState.endTime,
-    location: normalizeDescription(formState.location),
-    notes: normalizeDescription(formState.notes),
-    startTime: formState.startTime,
-  })),
+  offlineSchedules: formStates
+    .filter((formState) => formState.date && formState.startTime && formState.endTime)
+    .slice(0, 1)
+    .map((formState) => ({
+      date: formState.date,
+      endTime: formState.endTime,
+      location: normalizeDescription(formState.location),
+      notes: normalizeDescription(formState.notes),
+      startTime: formState.startTime,
+    })),
 });
-
-const adminPracticumSlotsQueryKey = (lectureId: number) =>
-  ['admin', 'practicumSlots', lectureId] as const;
-
-const toAdminPracticumSlotPayload = (
-  formState: PracticumSlotFormState,
-): AdminPracticumSlotPayload | null => {
-  const trimmedStartAt = formState.startAt.trim();
-
-  if (!trimmedStartAt) {
-    return null;
-  }
-
-  const parsedDate = new Date(trimmedStartAt);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return null;
-  }
-
-  return {
-    location: normalizeDescription(formState.location),
-    startAt: parsedDate.toISOString(),
-  };
-};
-
-const formatPracticumDateTime = (value: string) => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-
-  return date.toLocaleString('ko-KR', {
-    day: 'numeric',
-    hour: '2-digit',
-    hour12: false,
-    minute: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-};
 
 const toDateInputValue = (value: string | null | undefined): string => {
   if (!value) {
@@ -564,8 +577,6 @@ const LectureCard = ({
     practicumEnabled: lecture.practicumEnabled ?? false,
     title: lecture.title,
   });
-  const [practicumSlotForm, setPracticumSlotForm] =
-    useState<PracticumSlotFormState>(EMPTY_PRACTICUM_SLOT_FORM);
   const [offlineScheduleForms, setOfflineScheduleForms] = useState<OfflineScheduleFormState[]>(
     createOfflineScheduleFormStates(lecture),
   );
@@ -573,7 +584,6 @@ const LectureCard = ({
   const [activePanel, setActivePanel] = useState<LectureWorkspacePanel | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const showToast = useToastStore((state) => state.showToast);
-  const queryClient = useQueryClient();
   const offlineScheduleMinDate = allowPastOfflineScheduleDates
     ? ''
     : toDateInputValue(programLearningStartAt);
@@ -586,46 +596,6 @@ const LectureCard = ({
         : offlineScheduleMaxDate
           ? `${offlineScheduleMaxDate} 이전`
           : null;
-  const practicumSlotsQuery = useQuery({
-    enabled: Boolean(lecture.practicumEnabled),
-    queryFn: () => fetchAdminPracticumSlots(lecture.id),
-    queryKey: adminPracticumSlotsQueryKey(lecture.id),
-  });
-  const createPracticumSlotMutation = useMutation({
-    mutationFn: (payload: AdminPracticumSlotPayload) =>
-      createAdminPracticumSlot(lecture.id, payload),
-    onError: (error: unknown) => {
-      showToast({
-        message: error instanceof Error ? error.message : '실습 슬롯을 추가하지 못했습니다.',
-        variant: 'error',
-      });
-    },
-    onSuccess: async () => {
-      setPracticumSlotForm(EMPTY_PRACTICUM_SLOT_FORM);
-      await queryClient.invalidateQueries({ queryKey: adminPracticumSlotsQueryKey(lecture.id) });
-      showToast({
-        message: '실습 슬롯을 추가했습니다.',
-        variant: 'success',
-      });
-    },
-  });
-  const deletePracticumSlotMutation = useMutation({
-    mutationFn: (slotId: number) => deleteAdminPracticumSlot(slotId),
-    onError: (error: unknown) => {
-      showToast({
-        message: error instanceof Error ? error.message : '실습 슬롯을 삭제하지 못했습니다.',
-        variant: 'error',
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: adminPracticumSlotsQueryKey(lecture.id) });
-      showToast({
-        message: '실습 슬롯을 삭제했습니다.',
-        variant: 'success',
-      });
-    },
-  });
-  const practicumSlots = practicumSlotsQuery.data ?? [];
   const pendingPracticumActivation = formState.practicumEnabled && !lecture.practicumEnabled;
   const supportsDeliveryPanels = !formState.problemOnly;
   const quickActionLabel = lecture.videoId === null ? '영상 추가' : '영상 교체';
@@ -700,7 +670,7 @@ const LectureCard = ({
             >
               {lecture.published ? '공개중' : '비공개'}
             </span>
-            {lecture.offlineSchedules.map((schedule) => (
+            {lecture.offlineSchedules.slice(0, 1).map((schedule) => (
               <span
                 className={styles['statusBadge']}
                 data-tone='neutral'
@@ -1021,110 +991,12 @@ const LectureCard = ({
                   있습니다.
                 </p>
               ) : null}
-              <div className={styles['offlineRuleList']}>
-                {offlineScheduleForms.map((scheduleForm, index) => (
-                  <div
-                    className={styles['offlineRuleCard']}
-                    key={`offline-rule-form-${String(lecture.id)}-${String(index)}`}
-                  >
-                    <div className={styles['panelHeader']}>
-                      <strong className={styles['subsectionTitle']}>일정 {index + 1}</strong>
-                      {offlineScheduleForms.length > 1 ? (
-                        <Button
-                          onClick={() => {
-                            setOfflineScheduleForms((current) =>
-                              current.filter((_, currentIndex) => currentIndex !== index),
-                            );
-                          }}
-                          size='sm'
-                          type='button'
-                          variant='danger'
-                        >
-                          일정 제거
-                        </Button>
-                      ) : null}
-                    </div>
-                    <div className={styles['fieldGrid']}>
-                      <TextField
-                        label='일자'
-                        max={offlineScheduleMaxDate || undefined}
-                        min={offlineScheduleMinDate || undefined}
-                        name={`lecture-offline-date-${String(lecture.id)}-${String(index)}`}
-                        onChange={(event) => {
-                          setOfflineScheduleForms((current) =>
-                            current.map((item, currentIndex) =>
-                              currentIndex === index ? { ...item, date: event.target.value } : item,
-                            ),
-                          );
-                        }}
-                        type='date'
-                        value={scheduleForm.date}
-                      />
-                      <TextField
-                        label='시작 시간'
-                        name={`lecture-offline-start-time-${String(lecture.id)}-${String(index)}`}
-                        onChange={(event) => {
-                          setOfflineScheduleForms((current) =>
-                            current.map((item, currentIndex) =>
-                              currentIndex === index
-                                ? { ...item, startTime: event.target.value }
-                                : item,
-                            ),
-                          );
-                        }}
-                        step={3600}
-                        type='time'
-                        value={scheduleForm.startTime}
-                      />
-                      <TextField
-                        label='종료 시간'
-                        name={`lecture-offline-end-time-${String(lecture.id)}-${String(index)}`}
-                        onChange={(event) => {
-                          setOfflineScheduleForms((current) =>
-                            current.map((item, currentIndex) =>
-                              currentIndex === index
-                                ? { ...item, endTime: event.target.value }
-                                : item,
-                            ),
-                          );
-                        }}
-                        step={3600}
-                        type='time'
-                        value={scheduleForm.endTime}
-                      />
-                      <TextField
-                        label='장소'
-                        name={`lecture-offline-location-${String(lecture.id)}-${String(index)}`}
-                        onChange={(event) => {
-                          setOfflineScheduleForms((current) =>
-                            current.map((item, currentIndex) =>
-                              currentIndex === index
-                                ? { ...item, location: event.target.value }
-                                : item,
-                            ),
-                          );
-                        }}
-                        value={scheduleForm.location}
-                      />
-                      <TextAreaField
-                        label='비고'
-                        name={`lecture-offline-notes-${String(lecture.id)}-${String(index)}`}
-                        onChange={(event) => {
-                          setOfflineScheduleForms((current) =>
-                            current.map((item, currentIndex) =>
-                              currentIndex === index
-                                ? { ...item, notes: event.target.value }
-                                : item,
-                            ),
-                          );
-                        }}
-                        rows={3}
-                        value={scheduleForm.notes}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <OfflineSchedulePlanner
+                maxDate={offlineScheduleMaxDate}
+                minDate={offlineScheduleMinDate}
+                onSchedulesChange={setOfflineScheduleForms}
+                schedules={offlineScheduleForms}
+              />
               <div className={styles['buttonRow']}>
                 <Button
                   onClick={() => {
@@ -1195,9 +1067,10 @@ const LectureCard = ({
           activePanel === 'practicum' &&
           pendingPracticumActivation ? (
             <div className={styles['managementPanel']}>
-              <h5 className={styles['subsectionTitle']}>실습 슬롯</h5>
+              <h5 className={styles['subsectionTitle']}>실습 예약</h5>
               <p className={styles['helperText']}>
-                강의를 먼저 저장하면 이 아래에서 1시간 단위 실습 슬롯을 등록할 수 있습니다.
+                강의를 저장하면 운영시간 안에서 수강생 신청 시 해당 시간이 실습 예약 시간으로
+                잡힙니다.
               </p>
             </div>
           ) : null}
@@ -1207,105 +1080,12 @@ const LectureCard = ({
           lecture.practicumEnabled &&
           activePanel === 'practicum' ? (
             <div className={styles['managementPanel']}>
-              <h5 className={styles['subsectionTitle']}>실습 슬롯</h5>
+              <h5 className={styles['subsectionTitle']}>실습 예약</h5>
               <p className={styles['helperText']}>
-                같은 시간대는 강의가 달라도 전체 합산 2명까지만 예약됩니다.
+                실습 시간은 운영시간과 개인일정, 오프라인 강의 일정을 기준으로 자동 계산됩니다.
+                수강생이 예약하면 해당 1시간이 실습 예약 시간으로 잡히며, 강의 종류와 관계없이
+                시간당 최대 2명까지 받습니다.
               </p>
-
-              {practicumSlotsQuery.isLoading ? (
-                <p className={styles['helperText']}>실습 슬롯을 불러오는 중입니다.</p>
-              ) : null}
-              {practicumSlotsQuery.isError ? (
-                <p className={styles['errorText']}>
-                  {practicumSlotsQuery.error instanceof Error
-                    ? practicumSlotsQuery.error.message
-                    : '실습 슬롯을 불러오지 못했습니다.'}
-                </p>
-              ) : null}
-
-              {practicumSlots.length ? (
-                <div className={styles['practicumSlotList']}>
-                  {practicumSlots.map((slot: PracticumSlot) => (
-                    <div className={styles['practicumSlotCard']} key={slot.id}>
-                      <div>
-                        <strong className={styles['practicumSlotTitle']}>
-                          {formatPracticumDateTime(slot.startAt)} ~{' '}
-                          {formatPracticumDateTime(slot.endAt)}
-                        </strong>
-                        <div className={styles['badgeRow']}>
-                          <span className={styles['statusBadge']} data-tone='neutral'>
-                            예약 {slot.reservedCount}/{slot.maxCapacity}
-                          </span>
-                          <span className={styles['statusBadge']} data-tone='neutral'>
-                            {slot.location?.trim() || '장소 미정'}
-                          </span>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => {
-                          deletePracticumSlotMutation.mutate(slot.id);
-                        }}
-                        size='sm'
-                        type='button'
-                        variant='danger'
-                      >
-                        슬롯 삭제
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                !practicumSlotsQuery.isLoading &&
-                !practicumSlotsQuery.isError && (
-                  <p className={styles['emptyState']}>등록된 실습 슬롯이 없습니다.</p>
-                )
-              )}
-
-              <div className={styles['practicumSlotForm']}>
-                <TextField
-                  label='실습 시작 시각'
-                  name={`practicum-start-${String(lecture.id)}`}
-                  onChange={(event) => {
-                    setPracticumSlotForm((current) => ({
-                      ...current,
-                      startAt: event.target.value,
-                    }));
-                  }}
-                  step={3600}
-                  type='datetime-local'
-                  value={practicumSlotForm.startAt}
-                />
-                <TextField
-                  label='실습 장소'
-                  name={`practicum-location-${String(lecture.id)}`}
-                  onChange={(event) => {
-                    setPracticumSlotForm((current) => ({
-                      ...current,
-                      location: event.target.value,
-                    }));
-                  }}
-                  value={practicumSlotForm.location}
-                />
-                <div className={styles['buttonRow']}>
-                  <Button
-                    onClick={() => {
-                      const payload = toAdminPracticumSlotPayload(practicumSlotForm);
-                      if (!payload) {
-                        showToast({
-                          message: '실습 시작 시각을 올바르게 입력해 주세요.',
-                          variant: 'error',
-                        });
-                        return;
-                      }
-                      createPracticumSlotMutation.mutate(payload);
-                    }}
-                    size='sm'
-                    type='button'
-                  >
-                    실습 슬롯 추가
-                  </Button>
-                </div>
-              </div>
             </div>
           ) : null}
         </div>
@@ -1744,6 +1524,7 @@ const AdminProgramCurriculumSection = ({
   const [videoUploadStatusByLectureId, setVideoUploadStatusByLectureId] = useState<
     Record<number, string>
   >({});
+  const resumingVideoIdsRef = useRef<Set<number>>(new Set());
 
   const invalidateCurriculum = async () => {
     await queryClient.invalidateQueries({ queryKey: adminCurriculumQueryKey(programId) });
@@ -1988,6 +1769,89 @@ const AdminProgramCurriculumSection = ({
     },
   });
 
+  const pollVideoReady = async (videoId: number, lectureId: number): Promise<void> => {
+    for (let attempt = 0; attempt < VIDEO_ENCODING_MAX_POLL_ATTEMPTS; attempt += 1) {
+      const status = await fetchAdminVideoStatus(videoId);
+      if (status.status === 'PROCESSING') {
+        setVideoUploadStatusByLectureId((current) => ({
+          ...current,
+          [lectureId]: formatProgressLabel(
+            formatVideoProcessingStageLabel(status.processingStage),
+            status.progressPercent,
+          ),
+        }));
+      }
+      if (status.status === 'READY') {
+        return;
+      }
+      if (status.status === 'FAILED') {
+        throw new Error(status.errorMessage || '영상 인코딩에 실패했습니다.');
+      }
+      if (status.status === 'UPLOADING' || status.status === 'UPLOADED') {
+        throw new Error('영상 인코딩이 정상적으로 시작되지 않았습니다. 다시 업로드해 주세요.');
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, VIDEO_ENCODING_POLL_INTERVAL_MS));
+    }
+
+    throw new Error('영상 인코딩 확인 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
+  };
+
+  const sections = curriculumQuery.data ?? EMPTY_ADMIN_CURRICULUM_SECTIONS;
+  const allowPracticum = programType === 'HYBRID';
+
+  useEffect(() => {
+    if (!enabled || programId === null || sections.length === 0) {
+      return;
+    }
+
+    const lecturesById = new Map(
+      sections.flatMap((section) => section.lectures).map((lecture) => [lecture.id, lecture]),
+    );
+    const pendingUploads = loadPendingLectureVideoUploads(programId);
+
+    pendingUploads.forEach((pendingUpload) => {
+      const lecture = lecturesById.get(pendingUpload.lectureId);
+      if (!lecture || lecture.videoId !== null) {
+        removePendingLectureVideoUpload(programId, pendingUpload.lectureId);
+        return;
+      }
+      if (resumingVideoIdsRef.current.has(pendingUpload.videoId)) {
+        return;
+      }
+
+      resumingVideoIdsRef.current.add(pendingUpload.videoId);
+      setVideoUploadStatusByLectureId((current) => ({
+        ...current,
+        [pendingUpload.lectureId]: '영상 인코딩 중',
+      }));
+
+      void (async () => {
+        try {
+          await pollVideoReady(pendingUpload.videoId, pendingUpload.lectureId);
+          await assignAdminLectureVideo(String(pendingUpload.lectureId), pendingUpload.videoId);
+          await queryClient.invalidateQueries({ queryKey: adminCurriculumQueryKey(programId) });
+          removePendingLectureVideoUpload(programId, pendingUpload.lectureId);
+          setVideoUploadStatusByLectureId((current) => ({
+            ...current,
+            [pendingUpload.lectureId]: `연결된 videoId ${String(pendingUpload.videoId)}`,
+          }));
+        } catch (error) {
+          setVideoUploadStatusByLectureId((current) => ({
+            ...current,
+            [pendingUpload.lectureId]: '업로드 실패',
+          }));
+          showToast({
+            message:
+              error instanceof Error ? error.message : '영상 인코딩 상태를 확인하지 못했습니다.',
+            variant: 'error',
+          });
+        } finally {
+          resumingVideoIdsRef.current.delete(pendingUpload.videoId);
+        }
+      })();
+    });
+  }, [enabled, programId, queryClient, sections, showToast]);
+
   if (!enabled || programId === null) {
     return (
       <section className={classNames(styles['section'], embedded && styles['sectionEmbedded'])}>
@@ -2002,9 +1866,6 @@ const AdminProgramCurriculumSection = ({
       </section>
     );
   }
-
-  const sections = curriculumQuery.data ?? [];
-  const allowPracticum = programType === 'HYBRID';
 
   const handleCreateSection = () => {
     const validationMessage = validateSectionForm(newSectionForm);
@@ -2106,33 +1967,6 @@ const AdminProgramCurriculumSection = ({
     reorderLecturesMutation.mutate({ items, sectionId });
   };
 
-  const pollVideoReady = async (videoId: number, lectureId: number): Promise<void> => {
-    for (let attempt = 0; attempt < VIDEO_ENCODING_MAX_POLL_ATTEMPTS; attempt += 1) {
-      const status = await fetchAdminVideoStatus(videoId);
-      if (status.status === 'PROCESSING') {
-        setVideoUploadStatusByLectureId((current) => ({
-          ...current,
-          [lectureId]: formatProgressLabel(
-            formatVideoProcessingStageLabel(status.processingStage),
-            status.progressPercent,
-          ),
-        }));
-      }
-      if (status.status === 'READY') {
-        return;
-      }
-      if (status.status === 'FAILED') {
-        throw new Error(status.errorMessage || '영상 인코딩에 실패했습니다.');
-      }
-      if (status.status === 'UPLOADING' || status.status === 'UPLOADED') {
-        throw new Error('영상 인코딩이 정상적으로 시작되지 않았습니다. 다시 업로드해 주세요.');
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, VIDEO_ENCODING_POLL_INTERVAL_MS));
-    }
-
-    throw new Error('영상 인코딩 확인 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
-  };
-
   const handleUploadLectureVideo = async (lectureId: number, file: File) => {
     const lecture = sections
       .flatMap((section) => section.lectures)
@@ -2189,6 +2023,11 @@ const AdminProgramCurriculumSection = ({
         uploadId: session.uploadId,
       });
       await startAdminVideoEncoding(session.videoId);
+      upsertPendingLectureVideoUpload(programId, {
+        fileName: file.name,
+        lectureId,
+        videoId: session.videoId,
+      });
 
       setVideoUploadStatusByLectureId((current) => ({
         ...current,
@@ -2198,6 +2037,7 @@ const AdminProgramCurriculumSection = ({
       await pollVideoReady(session.videoId, lectureId);
       await assignAdminLectureVideo(String(lectureId), session.videoId);
       await invalidateCurriculum();
+      removePendingLectureVideoUpload(programId, lectureId);
 
       setVideoUploadStatusByLectureId((current) => ({
         ...current,
@@ -2212,6 +2052,7 @@ const AdminProgramCurriculumSection = ({
         ...current,
         [lectureId]: '업로드 실패',
       }));
+      removePendingLectureVideoUpload(programId, lectureId);
       showToast({
         message: error instanceof Error ? error.message : '강의 영상 업로드에 실패했습니다.',
         variant: 'error',

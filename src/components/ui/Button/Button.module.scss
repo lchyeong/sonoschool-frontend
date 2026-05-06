@@ -49,10 +49,12 @@
   }
 
   &Danger {
-    color: var(--color-text-inverse);
-    background: var(--color-error);
+    border-color: var(--color-error);
+    color: var(--color-error);
+    background: #ffffff;
 
     &:hover {
+      color: var(--color-text-inverse);
       background: var(--color-error-600);
     }
   }

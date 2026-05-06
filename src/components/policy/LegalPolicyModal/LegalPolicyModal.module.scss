@@ -1,24 +1,35 @@
 .policyModalBody {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
   padding: 0;
 }
 
 .policyModalPanel {
+  display: flex;
+  flex-direction: column;
   width: min(92vw, 760px);
   max-height: min(82vh, 760px);
+  overflow: hidden;
 }
 
 .policyModalScroll {
-  max-height: min(64vh, 560px);
-  padding: 0 4px 0 0;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .policyModalText {
   display: grid;
   gap: 10px;
+  padding: 0 var(--space-6) var(--space-6);
   color: #374151;
   font-size: 15px;
   line-height: 1.65;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
 .policyModalSpacer {
@@ -57,11 +68,8 @@
     max-height: 84vh;
   }
 
-  .policyModalScroll {
-    max-height: 62vh;
-  }
-
   .policyModalText {
+    padding: 0 var(--space-5) var(--space-5);
     font-size: 14px;
   }
 }

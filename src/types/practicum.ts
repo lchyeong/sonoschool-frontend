@@ -1,11 +1,11 @@
 export type PracticumSlotStatus = 'OPEN' | 'BLOCKED' | 'CLOSED';
 export type AdminPracticumSearchCategory = 'PROGRAM' | 'LECTURE' | 'STUDENT';
 export type AdminPracticumOperationExceptionType = 'ADMIN_SCHEDULE';
-export type PracticumReservationStatus = 'ACTIVE' | 'NO_SHOW' | 'CANCELLED';
+export type PracticumReservationStatus = 'ACTIVE' | 'COMPLETED' | 'NO_SHOW' | 'CANCELLED';
 export type AdminPracticumReservationStatus = PracticumReservationStatus;
 
 export interface PracticumSlot {
-  id: number;
+  id: number | null;
   lectureId: number;
   startAt: string;
   endAt: string;
@@ -20,7 +20,7 @@ export interface PracticumSlot {
 
 export interface PracticumReservation {
   id: number;
-  slotId: number;
+  slotId: number | null;
   lectureId: number;
   startAt: string;
   endAt: string;
@@ -152,9 +152,11 @@ export interface AdminPracticumOfflineScheduleDetail {
 
 export interface AdminPracticumReservationItem {
   enrollmentId: number;
+  lectureId: number;
   lectureCompleted: boolean;
   loginId: string;
   phoneNumber: string;
+  programId: number;
   reservationId: number;
   reservedAt: string;
   status: AdminPracticumReservationStatus;
@@ -175,7 +177,7 @@ export interface AdminPracticumSlotManagementItem {
   reservations: AdminPracticumReservationItem[];
   reservedCount: number;
   sectionTitle: string;
-  slotId: number;
+  slotId: number | null;
   slotStatus: PracticumSlotStatus;
   startAt: string;
 }

@@ -573,8 +573,8 @@ const PlayerPage = () => {
     },
   });
   const reservePracticumMutation = useMutation({
-    mutationFn: ({ lectureId, slotId }: { lectureId: number; slotId: number }) =>
-      reserveMyLecturePracticum(resolvedEnrollmentId, slotId, lectureId),
+    mutationFn: ({ lectureId, startAt }: { lectureId: number; startAt: string }) =>
+      reserveMyLecturePracticum(resolvedEnrollmentId, startAt, lectureId),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '실습 예약에 실패했습니다.',
@@ -613,8 +613,8 @@ const PlayerPage = () => {
     },
   });
   const movePracticumMutation = useMutation({
-    mutationFn: ({ reservationId, slotId }: { reservationId: number; slotId: number }) =>
-      moveMyLecturePracticum(resolvedEnrollmentId, reservationId, slotId),
+    mutationFn: ({ reservationId, startAt }: { reservationId: number; startAt: string }) =>
+      moveMyLecturePracticum(resolvedEnrollmentId, reservationId, startAt),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '실습 예약 일정을 변경하지 못했습니다.',
@@ -622,6 +622,7 @@ const PlayerPage = () => {
       });
     },
     onSuccess: async () => {
+      setPendingPracticumSlot(null);
       await queryClient.invalidateQueries({
         queryKey: myEnrollmentPracticumQueryKey(resolvedEnrollmentId),
       });
@@ -689,15 +690,25 @@ const PlayerPage = () => {
   const selectedPracticumReservations = useMemo(() => {
     return selectedPracticumLecture?.currentReservations ?? [];
   }, [selectedPracticumLecture?.currentReservations]);
-  const practicumReservationDateKeys = useMemo(() => {
-    return new Set(
-      selectedPracticumReservations.map((reservation) => getSlotDateKey(reservation.startAt)),
+  const scheduledPracticumReservations = useMemo(() => {
+    return selectedPracticumReservations.filter(
+      (reservation) => getPracticumReservationKind(reservation) === 'scheduled',
     );
   }, [selectedPracticumReservations]);
+  const noShowPracticumReservations = useMemo(() => {
+    return selectedPracticumReservations.filter(
+      (reservation) => getPracticumReservationKind(reservation) === 'noshow',
+    );
+  }, [selectedPracticumReservations]);
+  const practicumReservationDateKeys = useMemo(() => {
+    return new Set(
+      scheduledPracticumReservations.map((reservation) => getSlotDateKey(reservation.startAt)),
+    );
+  }, [scheduledPracticumReservations]);
   const practicumReservationsByDate = useMemo(() => {
     const grouped = new Map<string, PracticumReservation[]>();
 
-    selectedPracticumReservations.forEach((reservation) => {
+    scheduledPracticumReservations.forEach((reservation) => {
       const dateKey = getSlotDateKey(reservation.startAt);
       const current = grouped.get(dateKey);
       if (current) {
@@ -708,7 +719,22 @@ const PlayerPage = () => {
     });
 
     return grouped;
-  }, [selectedPracticumReservations]);
+  }, [scheduledPracticumReservations]);
+  const practicumNoShowReservationsByDate = useMemo(() => {
+    const grouped = new Map<string, PracticumReservation[]>();
+
+    noShowPracticumReservations.forEach((reservation) => {
+      const dateKey = getSlotDateKey(reservation.startAt);
+      const current = grouped.get(dateKey);
+      if (current) {
+        current.push(reservation);
+      } else {
+        grouped.set(dateKey, [reservation]);
+      }
+    });
+
+    return grouped;
+  }, [noShowPracticumReservations]);
   const practicumCalendarCells = useMemo(() => {
     return buildFixedPlayerCalendarCells(practicumMonthValue);
   }, [practicumMonthValue]);
@@ -731,7 +757,7 @@ const PlayerPage = () => {
     ? practicumSelectedDateValue
     : `${practicumMonthValue}-01`;
   const practicumSelectedDateSlots = practicumSlotsByDate.get(practicumSelectedDate) ?? [];
-  const selectedPendingPracticumSlotId = pendingPracticumSlot?.slot.id ?? null;
+  const selectedPendingPracticumStartAt = pendingPracticumSlot?.slot.startAt ?? null;
   const currentPracticumReservationKind = practicumCurrentReservation
     ? getPracticumReservationKind(practicumCurrentReservation)
     : null;
@@ -1681,14 +1707,14 @@ const PlayerPage = () => {
     if (pendingPracticumSlot.mode === 'move' && activeScheduledReservation) {
       movePracticumMutation.mutate({
         reservationId: activeScheduledReservation.id,
-        slotId: pendingPracticumSlot.slot.id,
+        startAt: pendingPracticumSlot.slot.startAt,
       });
       return;
     }
 
     reservePracticumMutation.mutate({
       lectureId: selectedPracticumLecture.lectureId,
-      slotId: pendingPracticumSlot.slot.id,
+      startAt: pendingPracticumSlot.slot.startAt,
     });
   };
 
@@ -2082,6 +2108,7 @@ const PlayerPage = () => {
                   const date = cell.date;
                   const daySlots = practicumSlotsByDate.get(date) ?? [];
                   const dayReservations = practicumReservationsByDate.get(date) ?? [];
+                  const dayNoShowReservations = practicumNoShowReservationsByDate.get(date) ?? [];
                   const reservableSlots = daySlots.filter((slot) =>
                     isPracticumSlotReservable(slot),
                   );
@@ -2089,18 +2116,27 @@ const PlayerPage = () => {
                   const previewReservation = [...dayReservations].sort(
                     (left, right) => Date.parse(left.startAt) - Date.parse(right.startAt),
                   )[0];
+                  const previewNoShowReservation = [...dayNoShowReservations].sort(
+                    (left, right) => Date.parse(left.startAt) - Date.parse(right.startAt),
+                  )[0];
                   const dayStatus = previewReservation
                     ? 'reserved'
-                    : availableCount > 0
-                      ? 'available'
-                      : daySlots.length > 0
-                        ? 'disabled'
-                        : 'empty';
+                    : previewNoShowReservation
+                      ? 'noshow'
+                      : availableCount > 0
+                        ? 'available'
+                        : daySlots.length > 0
+                          ? 'disabled'
+                          : 'empty';
 
                   return (
                     <button
                       className={styles['practicumCalendarDay']}
-                      data-has-items={availableCount > 0 || dayReservations.length > 0}
+                      data-has-items={
+                        availableCount > 0 ||
+                        dayReservations.length > 0 ||
+                        dayNoShowReservations.length > 0
+                      }
                       data-reserved={practicumReservationDateKeys.has(date)}
                       data-selected={date === practicumSelectedDate}
                       data-status={dayStatus}
@@ -2121,6 +2157,8 @@ const PlayerPage = () => {
                         </span>
                         {previewReservation ? (
                           <span className={styles['practicumCalendarDayReservation']}>예약됨</span>
+                        ) : previewNoShowReservation ? (
+                          <span className={styles['practicumCalendarDayNoShow']}>불참</span>
                         ) : availableCount ? (
                           <span className={styles['practicumCalendarDayCount']}>예약가능</span>
                         ) : daySlots.length ? (
@@ -2134,6 +2172,13 @@ const PlayerPage = () => {
                         {previewReservation ? (
                           <span className={styles['practicumCalendarPreviewReserved']}>
                             {formatTimeRange(previewReservation.startAt, previewReservation.endAt)}
+                          </span>
+                        ) : previewNoShowReservation ? (
+                          <span className={styles['practicumCalendarPreviewNoShow']}>
+                            {formatTimeRange(
+                              previewNoShowReservation.startAt,
+                              previewNoShowReservation.endAt,
+                            )}
                           </span>
                         ) : availableCount ? (
                           <span className={styles['practicumCalendarPreviewOpen']}>
@@ -2211,7 +2256,7 @@ const PlayerPage = () => {
             <p className={styles['practicumReservationTimeLabel']}>예약 가능 시간</p>
             <div className={styles['practicumReservationTimeGrid']}>
               {modalSlots.map((slot) => {
-                const isSelected = slot.id === selectedPendingPracticumSlotId;
+                const isSelected = slot.startAt === selectedPendingPracticumStartAt;
                 const isDisabled = !isPracticumSlotReservable(slot);
 
                 return (
@@ -2219,7 +2264,7 @@ const PlayerPage = () => {
                     className={styles['practicumReservationTimeButton']}
                     data-selected={isSelected}
                     disabled={isDisabled}
-                    key={slot.id}
+                    key={slot.startAt}
                     onClick={() => {
                       if (!isDisabled) {
                         setPendingPracticumSlot((current) =>

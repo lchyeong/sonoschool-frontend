@@ -82,11 +82,11 @@ const {
     >(),
   moveMyLecturePracticumMock:
     vi.fn<
-      (enrollmentId: number, reservationId: number, slotId: number) => Promise<PracticumReservation>
+      (enrollmentId: number, reservationId: number, startAt: string) => Promise<PracticumReservation>
     >(),
   reserveMyLecturePracticumMock:
     vi.fn<
-      (enrollmentId: number, slotId: number, lectureId?: number) => Promise<PracticumReservation>
+      (enrollmentId: number, startAt: string, lectureId?: number) => Promise<PracticumReservation>
     >(),
   fetchStudentProblemAttemptReportMock:
     vi.fn<(attemptId: number) => Promise<StudentProblemAttemptReport>>(),
@@ -174,10 +174,10 @@ vi.mock('@/api/mypage', () => ({
     fetchMyEnrollmentPracticumOverviewMock(enrollmentId),
   fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
     fetchMyLearningPlayerSnapshotMock(enrollmentId),
-  moveMyLecturePracticum: (enrollmentId: number, reservationId: number, slotId: number) =>
-    moveMyLecturePracticumMock(enrollmentId, reservationId, slotId),
-  reserveMyLecturePracticum: (enrollmentId: number, slotId: number, lectureId?: number) =>
-    reserveMyLecturePracticumMock(enrollmentId, slotId, lectureId),
+  moveMyLecturePracticum: (enrollmentId: number, reservationId: number, startAt: string) =>
+    moveMyLecturePracticumMock(enrollmentId, reservationId, startAt),
+  reserveMyLecturePracticum: (enrollmentId: number, startAt: string, lectureId?: number) =>
+    reserveMyLecturePracticumMock(enrollmentId, startAt, lectureId),
   saveLectureProgress: (enrollmentId: number, lectureId: number, watchedSeconds: number) =>
     saveLectureProgressMock(enrollmentId, lectureId, watchedSeconds),
   sendLectureProgressBeacon: (enrollmentId: number, lectureId: number, watchedSeconds: number) =>
@@ -1525,7 +1525,94 @@ describe('PlayerPage', () => {
     fireEvent.click(moveButton);
 
     await waitFor(() => {
-      expect(moveMyLecturePracticumMock).toHaveBeenCalledWith(101, 7001, 5002);
+      expect(moveMyLecturePracticumMock).toHaveBeenCalledWith(
+        101,
+        7001,
+        '2026-05-20T04:00:00Z',
+      );
     });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '실습 예약' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('marks a no-show practicum reservation as absence and blocks schedule change from the calendar', async () => {
+    const noShowPracticumOverview: EnrollmentPracticumOverview = {
+      ...testPracticumOverview,
+      lectures: [
+        {
+          ...testPracticumOverview.lectures[0],
+          blockedReason: '불참 처리된 실습은 다시 예약할 수 없습니다.',
+          currentReservation: null,
+          currentReservations: [
+            {
+              ...testPracticumOverview.lectures[0].currentReservations[0],
+              status: 'NO_SHOW',
+            },
+          ],
+          eligible: false,
+          slots: testPracticumOverview.lectures[0].slots.map((slot) => ({
+            ...slot,
+            reservedByMe: false,
+            reservedCount: 0,
+            remainingCapacity: slot.maxCapacity,
+          })),
+        },
+      ],
+    };
+    const practicumSnapshot: LearningPlayerSnapshot = {
+      ...testSnapshot,
+      curriculumTrack: {
+        ...testSnapshot.curriculumTrack,
+        sections: testSnapshot.curriculumTrack.sections.map((section) => ({
+          ...section,
+          lessons: section.lessons.map((lesson) =>
+            lesson.id === 'enrollment-101-lesson-2'
+              ? {
+                  ...lesson,
+                  deliveryType: 'practicum',
+                  durationLabel: '실습 예약',
+                  durationMinutes: null,
+                  title: '복부초음파 기초 2강 실습',
+                }
+              : lesson,
+          ),
+        })),
+      },
+      currentLessonId: 'enrollment-101-lesson-2',
+      lessonPlaybackById: {
+        ...testSnapshot.lessonPlaybackById,
+        'enrollment-101-lesson-2': {
+          lectureId: 2,
+          mimeType: 'application/x-mpegURL',
+          posterUrl: null,
+        },
+      },
+    };
+
+    fetchMyEnrollmentPracticumOverviewMock.mockResolvedValue(noShowPracticumOverview);
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(practicumSnapshot);
+
+    renderPlayerPage();
+
+    expect(await screen.findAllByText('복부초음파 기초 2강 실습')).not.toHaveLength(0);
+
+    const noShowCalendarDay = screen
+      .getAllByText('11:00 - 12:00')
+      .map((node) => node.closest('button'))
+      .find((button): button is HTMLButtonElement => button instanceof HTMLButtonElement);
+
+    if (!noShowCalendarDay) {
+      throw new Error('불참 날짜 버튼을 찾지 못했습니다.');
+    }
+
+    expect(noShowCalendarDay).toHaveTextContent('불참');
+    expect(noShowCalendarDay).not.toHaveTextContent('예약됨');
+
+    fireEvent.click(noShowCalendarDay);
+
+    expect(screen.queryByRole('dialog', { name: '실습 예약' })).not.toBeInTheDocument();
+    expect(moveMyLecturePracticumMock).not.toHaveBeenCalled();
+    expect(reserveMyLecturePracticumMock).not.toHaveBeenCalled();
   });
 });

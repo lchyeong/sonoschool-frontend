@@ -20,9 +20,6 @@ export const lectureTypeLabel: Record<string, string> = {
 export const paymentStatusLabel: Record<string, string> = {
   CANCELLED: '취소',
   COMPLETED: '결제완료',
-  FAILED: '실패',
-  PENDING: '대기',
-  REGISTERED: '등록',
 };
 
 export const programTypeLabel: Record<string, string> = {

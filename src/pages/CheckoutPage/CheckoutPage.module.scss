@@ -270,12 +270,20 @@
   line-height: 1.3;
 }
 
+.agreementGroup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 18px;
+  margin-top: 80px;
+  align-items: start;
+}
+
 .agreementRow {
   position: relative;
   display: flex;
   gap: 10px;
   align-items: center;
-  margin-top: 80px;
+  margin: 0;
   color: #111827;
   font-size: 16px;
   font-weight: 400;
@@ -324,12 +332,10 @@
 }
 
 .policyLinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 16px;
-  align-items: center;
-  margin-top: 25px;
-  padding-left: 38px;
+  display: grid;
+  gap: 9px;
+  justify-items: end;
+  padding-top: 2px;
 }
 
 .policyLinks button {
@@ -341,13 +347,6 @@
   line-height: 1.3;
   text-decoration: underline;
   text-underline-offset: 4px;
-}
-
-.policyLinks span {
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: #6b7280;
 }
 
 .actionRow {
@@ -521,12 +520,17 @@
     gap: 8px;
   }
 
-  .agreementRow {
-    align-items: flex-start;
+  .agreementGroup {
+    grid-template-columns: minmax(0, 1fr);
     margin-top: 48px;
   }
 
+  .agreementRow {
+    align-items: flex-start;
+  }
+
   .policyLinks {
-    padding-left: 0;
+    justify-items: start;
+    padding: 0 0 0 38px;
   }
 }

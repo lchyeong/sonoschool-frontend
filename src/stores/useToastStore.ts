@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export type ToastVariant = 'info' | 'success' | 'error';
 
 export interface ToastItem {
+  durationMs: number | null;
   id: string;
   message: string;
   variant: ToastVariant;
@@ -28,7 +29,21 @@ const createToastId = (): string => {
 
 export const useToastStore = create<ToastState>((set) => ({
   toasts: [],
-  showToast: () => createToastId(),
+  showToast: (input) => {
+    const id = createToastId();
+    set((state) => ({
+      toasts: [
+        ...state.toasts,
+        {
+          durationMs: input.durationMs === undefined ? 3200 : input.durationMs,
+          id,
+          message: input.message,
+          variant: input.variant ?? 'info',
+        },
+      ],
+    }));
+    return id;
+  },
   dismissToast: (id) => {
     set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) }));
   },

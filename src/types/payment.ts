@@ -5,6 +5,7 @@ export type CheckoutPaymentMethod = 'CARD' | 'FREE';
 export type PaymentMethodValue =
   | CheckoutPaymentMethod
   | 'BANK'
+  | 'KAKAOPAY'
   | 'MOBILE'
   | 'POINT'
   | 'GIFT'
@@ -80,13 +81,14 @@ export interface MockCheckoutRedirectPayload {
 }
 
 export const paymentMethodLabels: Record<
-  'BANK' | 'CARD' | 'FREE' | 'GIFT' | 'MOBILE' | 'POINT',
+  'BANK' | 'CARD' | 'FREE' | 'GIFT' | 'KAKAOPAY' | 'MOBILE' | 'POINT',
   string
 > = {
   BANK: '계좌이체',
   CARD: '카드 결제',
   FREE: '무료 신청',
   GIFT: '상품권',
+  KAKAOPAY: '카카오페이',
   MOBILE: '휴대폰 결제',
   POINT: '포인트',
 };

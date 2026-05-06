@@ -2666,6 +2666,7 @@
 
 .practicumCalendarDayCount,
 .practicumCalendarDayReservation,
+.practicumCalendarDayNoShow,
 .practicumCalendarDayUnavailable {
   display: inline-flex;
   align-items: center;
@@ -2682,6 +2683,7 @@
 
 .practicumCalendarDayCount::before,
 .practicumCalendarDayReservation::before,
+.practicumCalendarDayNoShow::before,
 .practicumCalendarDayUnavailable::before {
   content: '';
   width: clamp(0.38rem, 0.6vw, 0.62rem);
@@ -2710,6 +2712,14 @@
   line-height: 1;
 }
 
+.practicumCalendarDayNoShow {
+  color: #dd383e;
+}
+
+.practicumCalendarDayNoShow::before {
+  background: #dd383e;
+}
+
 .practicumCalendarDayUnavailable {
   color: #111827;
 }
@@ -2726,6 +2736,7 @@
 .practicumCalendarPreviewReserved,
 .practicumCalendarPreviewOpen,
 .practicumCalendarPreviewEmpty,
+.practicumCalendarPreviewNoShow,
 .practicumCalendarPreviewUnavailable {
   display: inline-flex;
   align-items: center;
@@ -2744,6 +2755,11 @@
 .practicumCalendarPreviewReserved {
   background: #ecf9f7;
   color: #34b29f;
+}
+
+.practicumCalendarPreviewNoShow {
+  background: rgba(221, 56, 62, 0.1);
+  color: #dd383e;
 }
 
 .practicumCalendarPreviewOpen {

@@ -428,7 +428,9 @@ export const AdminDeferredSection = ({ section }: DeferredSectionProps) => {
 export const AdminPaymentsSection = () => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
-  const paymentsQuery = useAdminPaymentsQuery();
+  const [requestedDateFrom, setRequestedDateFrom] = useState('');
+  const [requestedDateTo, setRequestedDateTo] = useState('');
+  const paymentsQuery = useAdminPaymentsQuery(requestedDateFrom, requestedDateTo);
   const [searchField, setSearchField] = useState<'orderNumber' | 'buyerDisplayName' | 'orderName'>(
     'orderNumber',
   );
@@ -436,8 +438,6 @@ export const AdminPaymentsSection = () => {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [hoveredMonthlyPointKey, setHoveredMonthlyPointKey] = useState<string | null>(null);
   const [hoveredWeeklyPointKey, setHoveredWeeklyPointKey] = useState<string | null>(null);
-  const [requestedDateFrom, setRequestedDateFrom] = useState('');
-  const [requestedDateTo, setRequestedDateTo] = useState('');
   const [draftRequestedDateFrom, setDraftRequestedDateFrom] = useState('');
   const [draftRequestedDateTo, setDraftRequestedDateTo] = useState('');
   const [datePickerMessage, setDatePickerMessage] = useState<string | null>(null);
@@ -599,14 +599,20 @@ export const AdminPaymentsSection = () => {
   };
 
   const handleCalendarDateSelect = (dateValue: string) => {
-    setRequestedDateFrom(dateValue);
-    setRequestedDateTo(dateValue);
-    setDraftRequestedDateFrom(dateValue);
-    setDraftRequestedDateTo(dateValue);
-    setCurrentPage(0);
+    if (!draftRequestedDateFrom || draftRequestedDateTo) {
+      setDraftRequestedDateFrom(dateValue);
+      setDraftRequestedDateTo('');
+      setDatePickerMessage(null);
+      return;
+    }
+
+    if (dateValue < draftRequestedDateFrom) {
+      setDraftRequestedDateTo(draftRequestedDateFrom);
+      setDraftRequestedDateFrom(dateValue);
+    } else {
+      setDraftRequestedDateTo(dateValue);
+    }
     setDatePickerMessage(null);
-    setIsDatePickerOpen(false);
-    void queryClient.invalidateQueries({ queryKey: adminPaymentsQueryKey() });
   };
 
   const handleApplyDateFilter = () => {
@@ -617,6 +623,7 @@ export const AdminPaymentsSection = () => {
 
     setRequestedDateFrom(draftRequestedDateFrom);
     setRequestedDateTo(draftRequestedDateTo);
+    setCurrentPage(0);
     setDatePickerMessage(null);
     setIsDatePickerOpen(false);
   };
@@ -666,17 +673,6 @@ export const AdminPaymentsSection = () => {
           {paymentsQuery.error instanceof Error
             ? paymentsQuery.error.message
             : '관리자 결제 API 상태를 확인해 주세요.'}
-        </p>
-      </section>
-    );
-  }
-
-  if (operationalPaymentItems.length === 0) {
-    return (
-      <section className={styles['stateSection']}>
-        <h2 className={styles['stateTitle']}>표시할 운영 결제 내역이 없습니다.</h2>
-        <p className={styles['stateDescription']}>
-          관리자 화면에는 결제 완료와 취소 건만 노출합니다.
         </p>
       </section>
     );

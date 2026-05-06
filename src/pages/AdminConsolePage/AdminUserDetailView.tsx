@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 
 import Button from '@/components/ui/Button/Button';
+import { formatPaymentMethodLabel } from '@/types/payment';
 import type {
   AdminUserDetail,
   AdminUserDetailEnrollmentItem,
@@ -252,7 +253,7 @@ const renderPaymentRow = (payment: AdminUserDetailPaymentItem) => {
     <tr key={payment.paymentId}>
       <td>{payment.programTitle ?? '-'}</td>
       <td>{paymentStatusLabel[payment.paymentStatus] ?? payment.paymentStatus}</td>
-      <td>{payment.paymentMethod}</td>
+      <td>{formatPaymentMethodLabel(payment.paymentMethod)}</td>
       <td>{formatCurrency(payment.approvedAmount ?? payment.amount)}</td>
       <td>{formatDateTime(payment.paidAt ?? payment.requestedAt)}</td>
       <td>{formatDateTime(payment.cancelledAt)}</td>
@@ -378,7 +379,7 @@ const renderEnrollmentCard = (
               </strong>
               <small>
                 {enrollment.payment
-                  ? `${paymentStatusLabel[enrollment.payment.paymentStatus] ?? enrollment.payment.paymentStatus} · ${formatDateTime(enrollment.payment.paidAt)}`
+                  ? `${paymentStatusLabel[enrollment.payment.paymentStatus] ?? enrollment.payment.paymentStatus} · ${formatPaymentMethodLabel(enrollment.payment.paymentMethod)} · ${formatDateTime(enrollment.payment.paidAt)}`
                   : '결제 정보 없음'}
               </small>
             </div>

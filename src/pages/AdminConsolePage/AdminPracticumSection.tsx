@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -6,8 +6,10 @@ import { fetchAdminCurriculum, replaceAdminLectureOfflineSchedules } from '@/api
 import {
   applyAdminPracticumOperatingHourRule,
   cancelAdminPracticumReservation,
+  completeAdminPracticumReservation,
   createAdminPracticumOperationException,
   deleteAdminPracticumOperationException,
+  fetchAdminPracticumSlots,
   fetchAdminPracticumOfflineScheduleDetail,
   fetchAdminPracticumOfflineSchedules,
   fetchAdminPracticumOperatingHours,
@@ -15,11 +17,12 @@ import {
   fetchAdminPracticumSlotManagement,
   markAdminPracticumReservationNoShow,
   moveAdminPracticumReservation,
+  restoreAdminPracticumReservationNoShow,
   syncAdminPracticumDailyOperation,
   updateAdminPracticumOfflineScheduleAttendance,
   updateAdminPracticumOperationException,
-  updateAdminPracticumSlotStatuses,
 } from '@/api/adminPracticum';
+import calendarIconSrc from '@/assets/icons/lucide_calendar.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
@@ -36,12 +39,14 @@ import type {
   AdminPracticumReservationItem,
   AdminPracticumSearchCategory,
   AdminPracticumSlotManagementItem,
+  PracticumSlot,
   PracticumSlotStatus,
 } from '@/types/practicum';
 import {
   buildCalendarCells,
   calendarWeekdays,
   formatDate,
+  formatMonthLabel,
   formatTimeRange,
   getMonthBounds,
   getSlotDateKey,
@@ -89,6 +94,20 @@ const offlineAttendanceStatusOptions: OfflineAttendanceStatus[] = [
   'UNCHECKED',
   'PRESENT',
   'ABSENT',
+];
+const monthPickerLabels = [
+  '1월',
+  '2월',
+  '3월',
+  '4월',
+  '5월',
+  '6월',
+  '7월',
+  '8월',
+  '9월',
+  '10월',
+  '11월',
+  '12월',
 ];
 const operatingWeekdayOptions: { label: string; value: OperatingWeekday }[] = [
   { label: '일요일', value: 'SUNDAY' },
@@ -185,7 +204,6 @@ interface PracticumTimeReservationRow extends AdminPracticumReservationItem {
   programTitle: string;
   sectionTitle: string;
   slotEndAt: string;
-  slotId: number;
   slotLocation: string | null;
   slotStartAt: string;
 }
@@ -197,7 +215,6 @@ interface PracticumTimeGroup {
   maxCapacity: number;
   reservations: PracticumTimeReservationRow[];
   reservedCount: number;
-  slotIds: number[];
   slotStatus: PracticumGroupStatus;
   startAt: string;
 }
@@ -260,12 +277,12 @@ interface PersonalScheduleFormState {
 }
 
 interface ReservationActionItem {
+  lectureId: number;
   lectureTitle: string;
   programTitle: string;
   reservationId: number;
   sectionTitle: string;
   slotEndAt: string;
-  slotId: number;
   slotStartAt: string;
   sourceKind: 'OFFLINE' | 'PRACTICUM';
   status: AdminPracticumReservationStatus;
@@ -273,8 +290,10 @@ interface ReservationActionItem {
 }
 
 interface MoveReservationState {
+  monthValue: string;
   reservations: ReservationActionItem[];
   returnLabel: string;
+  selectedDate: string;
   sourceKind: 'OFFLINE' | 'PRACTICUM';
 }
 
@@ -322,7 +341,6 @@ const groupSelectedDateItems = (
             programTitle: item.programTitle,
             sectionTitle: item.sectionTitle,
             slotEndAt: item.endAt,
-            slotId: item.slotId,
             slotLocation: item.location,
             slotStartAt: item.startAt,
           })),
@@ -340,7 +358,6 @@ const groupSelectedDateItems = (
         maxCapacity: totalCapacity,
         reservations: reservationRows,
         reservedCount: activeReservedCount,
-        slotIds: sortedItems.map((item) => item.slotId),
         slotStatus: deriveGroupStatus(sortedItems),
         startAt: sortedItems[0].startAt,
       } satisfies PracticumTimeGroup;
@@ -404,14 +421,17 @@ const isFutureDateTime = (value: string): boolean => {
 };
 
 const getReservationProgressLabel = (reservation: PracticumTimeReservationRow): string => {
+  if (reservation.status === 'COMPLETED') {
+    return '실습완료';
+  }
   if (reservation.status === 'NO_SHOW') {
     return '실습불참';
   }
-  if (reservation.lectureCompleted) {
-    return '실습완료';
-  }
   if (isFutureDateTime(reservation.slotStartAt)) {
     return '예약신청완료';
+  }
+  if (reservation.lectureCompleted) {
+    return '선행강의완료';
   }
   return '실습미진행';
 };
@@ -419,7 +439,7 @@ const getReservationProgressLabel = (reservation: PracticumTimeReservationRow): 
 const renderReservationProgressBadge = (reservation: PracticumTimeReservationRow) => {
   const label = getReservationProgressLabel(reservation);
 
-  if (label === '실습완료') {
+  if (label === '실습완료' || label === '선행강의완료') {
     return <span className={styles['badgeSuccess']}>{label}</span>;
   }
   if (label === '예약신청완료') {
@@ -454,6 +474,9 @@ const renderOfflineAttendanceBadge = (status: OfflineAttendanceStatus) => {
 };
 
 const getReservationStatusLabel = (status: AdminPracticumReservationStatus): string => {
+  if (status === 'COMPLETED') {
+    return '완료';
+  }
   if (status === 'NO_SHOW') {
     return '불참';
   }
@@ -477,6 +500,22 @@ const buildCalendarEntryLabel = (entry: PracticumCalendarEntry): string => {
     return `${formatTimeRange(entry.startAt, entry.endAt)} 오프라인`;
   }
   return `${formatTimeRange(entry.startAt, entry.endAt)} 실습`;
+};
+
+const shiftMonthValue = (value: string, offset: number): string => {
+  const [yearPart, monthPart] = value.split('-');
+  const date = new Date(Number(yearPart), Number(monthPart) - 1 + offset, 1);
+  return toMonthValue(date);
+};
+
+const shiftMonthYearValue = (value: string, offset: number): string => {
+  const [yearPart, monthPart] = value.split('-');
+  return `${String(Number(yearPart) + offset)}-${monthPart}`;
+};
+
+const resolveMonthYear = (value: string): number => {
+  const [yearPart] = value.split('-');
+  return Number(yearPart);
 };
 
 const isExceptionOnDate = (
@@ -531,6 +570,35 @@ const PracticumModalBackButton = ({ label, onClick }: { label: string; onClick: 
   );
 };
 
+const CalendarIconDateInput = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const openPicker = () => {
+    inputRef.current?.showPicker?.();
+  };
+
+  return (
+    <span className={styles['dateInputWithIcon']} onClick={openPicker}>
+      <input
+        className={styles['searchInput']}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+        ref={inputRef}
+        type='date'
+        value={value}
+      />
+      <img alt='' aria-hidden='true' className={styles['dateInputIcon']} src={calendarIconSrc} />
+    </span>
+  );
+};
+
 const AdminPracticumSection = () => {
   const [activeConfigPanel, setActiveConfigPanel] = useState<
     'DAILY_OPERATION' | 'OPERATING_HOURS' | 'ADMIN_SCHEDULE'
@@ -552,6 +620,8 @@ const AdminPracticumSection = () => {
   );
   const [moveOfflineScheduleState, setMoveOfflineScheduleState] =
     useState<MoveOfflineScheduleState | null>(null);
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const monthPickerRef = useRef<HTMLDivElement | null>(null);
   const [offlineAttendanceDraft, setOfflineAttendanceDraft] = useState<
     Partial<Record<string, OfflineAttendanceStatus>>
   >({});
@@ -571,6 +641,12 @@ const AdminPracticumSection = () => {
   const resolvedSelectedDate = selectedDate.startsWith(monthValue)
     ? selectedDate
     : monthBounds.from;
+  const selectedMonthYear = resolveMonthYear(monthValue);
+  const moveReservationMonthValue = moveReservationState?.monthValue ?? monthValue;
+  const moveReservationCalendarCells = useMemo(
+    () => buildCalendarCells(moveReservationMonthValue),
+    [moveReservationMonthValue],
+  );
 
   const practicumManagementQuery = useQuery({
     gcTime: 60 * 1000,
@@ -620,6 +696,20 @@ const AdminPracticumSection = () => {
       deferredKeyword,
       searchCategory,
     ],
+    staleTime: 15 * 1000,
+  });
+
+  const moveReservationOptionsQuery = useQuery({
+    enabled: moveReservationState?.reservations[0]?.lectureId !== undefined,
+    gcTime: 60 * 1000,
+    queryFn: () => {
+      const lectureId = moveReservationState?.reservations[0]?.lectureId;
+      if (lectureId === undefined) {
+        throw new Error('예약 강의 정보를 찾지 못했습니다.');
+      }
+      return fetchAdminPracticumSlots(lectureId);
+    },
+    queryKey: ['adminPracticumMoveOptions', moveReservationState?.reservations[0]?.lectureId],
     staleTime: 15 * 1000,
   });
 
@@ -681,10 +771,44 @@ const AdminPracticumSection = () => {
   }, [selectedDateOverviewDate, slotItems]);
 
   const moveReservationOptions = useMemo(() => {
-    return slotItems
+    const requiredCapacity = moveReservationState?.reservations.length ?? 1;
+    const currentStartAt = moveReservationState?.reservations[0]?.slotStartAt ?? null;
+
+    return (moveReservationOptionsQuery.data ?? [])
       .filter((item) => item.slotStatus === 'OPEN' && item.remainingCapacity > 0)
+      .filter((item) => item.startAt !== currentStartAt)
+      .filter((item) => item.remainingCapacity >= requiredCapacity)
+      .filter((item) => getSlotDateKey(item.startAt).startsWith(moveReservationMonthValue))
       .sort((left, right) => Date.parse(left.startAt) - Date.parse(right.startAt));
-  }, [slotItems]);
+  }, [
+    moveReservationMonthValue,
+    moveReservationOptionsQuery.data,
+    moveReservationState?.reservations,
+  ]);
+
+  const moveReservationOptionsByDate = useMemo(() => {
+    const optionsByDate = new Map<string, PracticumSlot[]>();
+
+    for (const item of moveReservationOptions) {
+      const dateKey = getSlotDateKey(item.startAt);
+      const current = optionsByDate.get(dateKey);
+      if (current) {
+        current.push(item);
+      } else {
+        optionsByDate.set(dateKey, [item]);
+      }
+    }
+
+    return optionsByDate;
+  }, [moveReservationOptions]);
+
+  const selectedMoveReservationOptions = useMemo(() => {
+    if (!moveReservationState) {
+      return [];
+    }
+
+    return moveReservationOptionsByDate.get(moveReservationState.selectedDate) ?? [];
+  }, [moveReservationOptionsByDate, moveReservationState]);
 
   const overviewDatePersonalSchedules = useMemo(() => {
     if (!selectedDateOverviewDate) {
@@ -970,30 +1094,37 @@ const AdminPracticumSection = () => {
     });
   };
 
-  const updatePracticumTimeGroupStatusMutation = useMutation({
-    mutationFn: async ({ slotIds, status }: { slotIds: number[]; status: PracticumSlotStatus }) => {
-      await updateAdminPracticumSlotStatuses(slotIds, status);
-    },
-    onError: (error: unknown) => {
-      showToast({
-        message:
-          error instanceof Error ? error.message : '선택한 시간대 상태를 변경하지 못했습니다.',
-        variant: 'error',
-      });
-    },
-    onSuccess: async (_, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
-      setOperationDraft(null);
-      setDailyOperationDraft(null);
-      showToast({
-        message:
-          variables.status === 'BLOCKED'
-            ? '선택한 시간대를 예약 제외로 설정했습니다.'
-            : '선택한 시간대를 예약 가능으로 변경했습니다.',
-        variant: 'success',
-      });
-    },
-  });
+  const updateSelectedPracticumReservationStatus = (
+    reservationIds: number[],
+    status: AdminPracticumReservationStatus,
+  ) => {
+    const reservationIdSet = new Set(reservationIds);
+
+    setSelectedCalendarEntry((current) => {
+      if (current?.kind !== 'PRACTICUM') {
+        return current;
+      }
+
+      const reservations = current.group.reservations.map((reservation) =>
+        reservationIdSet.has(reservation.reservationId)
+          ? {
+              ...reservation,
+              status,
+            }
+          : reservation,
+      );
+
+      return {
+        ...current,
+        group: {
+          ...current.group,
+          reservations,
+          reservedCount: reservations.filter((reservation) => reservation.status === 'ACTIVE')
+            .length,
+        },
+      };
+    });
+  };
 
   const cancelReservationMutation = useMutation({
     mutationFn: (reservationId: number) => cancelAdminPracticumReservation(reservationId),
@@ -1005,10 +1136,13 @@ const AdminPracticumSection = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumMoveOptions'] });
       setOperationDraft(null);
       setDailyOperationDraft(null);
+      setMoveReservationState(null);
+      setSelectedCalendarEntry(null);
       showToast({
-        message: '실습 예약을 취소했습니다.',
+        message: '관리자 권한으로 실습 예약이 취소되었습니다.',
         variant: 'success',
       });
     },
@@ -1017,13 +1151,15 @@ const AdminPracticumSection = () => {
   const moveReservationMutation = useMutation({
     mutationFn: async ({
       reservationIds,
-      slotId,
+      startAt,
     }: {
       reservationIds: number[];
-      slotId: number;
+      startAt: string;
     }) => {
       await Promise.all(
-        reservationIds.map((reservationId) => moveAdminPracticumReservation(reservationId, slotId)),
+        reservationIds.map((reservationId) =>
+          moveAdminPracticumReservation(reservationId, startAt),
+        ),
       );
     },
     onError: (error: unknown) => {
@@ -1069,14 +1205,55 @@ const AdminPracticumSection = () => {
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineSchedules'] });
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineScheduleDetail'] });
-      if (selectedCalendarEntry?.kind === 'PRACTICUM' && reservationIds.length === 1) {
-        setSelectedCalendarEntry(null);
-      }
+      updateSelectedPracticumReservationStatus(reservationIds, 'NO_SHOW');
       showToast({
         message:
           reservationIds.length > 1
             ? '선택한 예약을 불참 처리했습니다.'
             : '실습 불참으로 처리했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const restoreNoShowMutation = useMutation({
+    mutationFn: async (reservationId: number) => {
+      await restoreAdminPracticumReservationNoShow(reservationId);
+    },
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '실습 불참 처리를 취소하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, reservationId) => {
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineSchedules'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineScheduleDetail'] });
+      updateSelectedPracticumReservationStatus([reservationId], 'ACTIVE');
+      showToast({
+        message: '실습 불참 처리를 취소했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const completeReservationMutation = useMutation({
+    mutationFn: async (reservationId: number) => {
+      await completeAdminPracticumReservation(reservationId);
+    },
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '실습 완료 처리를 저장하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineSchedules'] });
+      await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineScheduleDetail'] });
+      showToast({
+        message: '실습완료로 처리했고 진도율에 반영했습니다.',
         variant: 'success',
       });
     },
@@ -1325,6 +1502,35 @@ const AdminPracticumSection = () => {
     visibleBlockHours.length > 0 &&
     visibleBlockHours.every((hour) => dailyOperationState.blockedHours.includes(hour));
 
+  useEffect(() => {
+    if (!isMonthPickerOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (monthPickerRef.current?.contains(target)) {
+        return;
+      }
+      setIsMonthPickerOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isMonthPickerOpen]);
+
+  const updateMonthFilter = (nextMonthValue: string) => {
+    setMonthValue(nextMonthValue);
+    if (!resolvedSelectedDate.startsWith(nextMonthValue)) {
+      setSelectedDate(getMonthBounds(nextMonthValue).from);
+    }
+  };
+
   const closeCalendarModalStack = () => {
     setOfflineAttendanceDraft({});
     setMoveOfflineScheduleState(null);
@@ -1345,21 +1551,86 @@ const AdminPracticumSection = () => {
         <section className={styles['panelWide']}>
           <div className={styles['panelToolbar']}>
             <div className={styles['adminInlineFilters']}>
-              <label className={`${styles['field']} ${styles['adminInlineFilterField']}`}>
+              <div className={`${styles['field']} ${styles['adminInlineFilterField']}`}>
                 <span className={styles['fieldLabel']}>조회 월</span>
-                <input
-                  className={styles['searchInput']}
-                  onChange={(event) => {
-                    const nextMonthValue = event.target.value;
-                    setMonthValue(nextMonthValue);
-                    if (!resolvedSelectedDate.startsWith(nextMonthValue)) {
-                      setSelectedDate(getMonthBounds(nextMonthValue).from);
-                    }
-                  }}
-                  type='month'
-                  value={monthValue}
-                />
-              </label>
+                <div className={styles['monthPickerShell']} ref={monthPickerRef}>
+                  <button
+                    aria-expanded={isMonthPickerOpen}
+                    aria-haspopup='dialog'
+                    className={styles['monthPickerTrigger']}
+                    onClick={() => {
+                      setIsMonthPickerOpen((current) => !current);
+                    }}
+                    type='button'
+                  >
+                    <span>{formatMonthLabel(monthValue)}</span>
+                    <img
+                      alt=''
+                      aria-hidden='true'
+                      className={styles['monthPickerIcon']}
+                      src={calendarIconSrc}
+                    />
+                  </button>
+                  <input
+                    aria-label='조회 월'
+                    className={styles['visuallyHiddenInput']}
+                    onChange={(event) => {
+                      updateMonthFilter(event.target.value);
+                    }}
+                    tabIndex={-1}
+                    type='month'
+                    value={monthValue}
+                  />
+                  {isMonthPickerOpen ? (
+                    <div className={styles['monthPickerPopover']} role='dialog'>
+                      <div className={styles['monthPickerHeader']}>
+                        <button
+                          aria-label='이전 연도'
+                          className={styles['monthPickerNav']}
+                          onClick={() => {
+                            updateMonthFilter(shiftMonthYearValue(monthValue, -1));
+                          }}
+                          type='button'
+                        >
+                          &lt;
+                        </button>
+                        <strong>{String(selectedMonthYear)}년</strong>
+                        <button
+                          aria-label='다음 연도'
+                          className={styles['monthPickerNav']}
+                          onClick={() => {
+                            updateMonthFilter(shiftMonthYearValue(monthValue, 1));
+                          }}
+                          type='button'
+                        >
+                          &gt;
+                        </button>
+                      </div>
+                      <div className={styles['monthPickerGrid']}>
+                        {monthPickerLabels.map((label, index) => {
+                          const nextMonthValue = `${String(selectedMonthYear)}-${String(
+                            index + 1,
+                          ).padStart(2, '0')}`;
+                          return (
+                            <button
+                              className={styles['monthPickerMonthButton']}
+                              data-selected={nextMonthValue === monthValue}
+                              key={label}
+                              onClick={() => {
+                                updateMonthFilter(nextMonthValue);
+                                setIsMonthPickerOpen(false);
+                              }}
+                              type='button'
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
 
               <label className={`${styles['field']} ${styles['adminInlineFilterField']}`}>
                 <span className={styles['fieldLabel']}>상태</span>
@@ -2032,19 +2303,6 @@ const AdminPracticumSection = () => {
 
                           <div className={styles['adminPracticumActions']}>
                             {renderSlotStatusBadge(group.slotStatus)}
-                            <Button
-                              onClick={() => {
-                                updatePracticumTimeGroupStatusMutation.mutate({
-                                  slotIds: group.slotIds,
-                                  status: group.slotStatus === 'BLOCKED' ? 'OPEN' : 'BLOCKED',
-                                });
-                              }}
-                              size='sm'
-                              type='button'
-                              variant='secondary'
-                            >
-                              {group.slotStatus === 'BLOCKED' ? '예약 가능' : '예약 제외'}
-                            </Button>
                           </div>
                         </div>
 
@@ -2380,15 +2638,19 @@ const AdminPracticumSection = () => {
                                   <Button
                                     disabled={moveReservationMutation.isPending}
                                     onClick={() => {
+                                      const reservationDate = getSlotDateKey(
+                                        reservation.slotStartAt,
+                                      );
                                       setMoveReservationState({
+                                        monthValue: toMonthValue(parseSeoulDate(reservationDate)),
                                         reservations: [
                                           {
+                                            lectureId: reservation.lectureId,
                                             lectureTitle: reservation.lectureTitle,
                                             programTitle: reservation.programTitle,
                                             reservationId: reservation.reservationId,
                                             sectionTitle: reservation.sectionTitle,
                                             slotEndAt: reservation.slotEndAt,
-                                            slotId: reservation.slotId,
                                             slotStartAt: reservation.slotStartAt,
                                             sourceKind: 'PRACTICUM',
                                             status: reservation.status,
@@ -2396,6 +2658,7 @@ const AdminPracticumSection = () => {
                                           },
                                         ],
                                         returnLabel: '실습 일정 상세로 돌아가기',
+                                        selectedDate: reservationDate,
                                         sourceKind: 'PRACTICUM',
                                       });
                                     }}
@@ -2426,6 +2689,45 @@ const AdminPracticumSection = () => {
                                     variant='secondary'
                                   >
                                     불참처리
+                                  </Button>
+                                  <span
+                                    className={styles['practicumActionTooltipWrap']}
+                                    data-tooltip={
+                                      isFutureDateTime(reservation.slotEndAt)
+                                        ? '실습 종료 후 완료 처리할 수 있습니다.'
+                                        : completeReservationMutation.isPending
+                                          ? '실습 완료 처리 중입니다.'
+                                          : undefined
+                                    }
+                                  >
+                                    <Button
+                                      disabled={
+                                        completeReservationMutation.isPending ||
+                                        isFutureDateTime(reservation.slotEndAt)
+                                      }
+                                      onClick={() => {
+                                        completeReservationMutation.mutate(reservation.reservationId);
+                                      }}
+                                      size='sm'
+                                      type='button'
+                                      variant='primary'
+                                    >
+                                      실습완료
+                                    </Button>
+                                  </span>
+                                </div>
+                              ) : reservation.status === 'NO_SHOW' ? (
+                                <div className={styles['practicumModalActionRow']}>
+                                  <Button
+                                    disabled={restoreNoShowMutation.isPending}
+                                    onClick={() => {
+                                      restoreNoShowMutation.mutate(reservation.reservationId);
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    불참취소
                                   </Button>
                                 </div>
                               ) : null}
@@ -2623,15 +2925,13 @@ const AdminPracticumSection = () => {
                           <div className={styles['practicumOperationFields']}>
                             <label className={styles['field']}>
                               <span className={styles['fieldLabel']}>날짜</span>
-                              <input
-                                className={styles['searchInput']}
-                                onChange={(event) => {
+                              <CalendarIconDateInput
+                                onChange={(value) => {
                                   updatePersonalScheduleEditState((current) => ({
                                     ...current,
-                                    date: event.target.value,
+                                    date: value,
                                   }));
                                 }}
-                                type='date'
                                 value={selectedPersonalScheduleEditDraft.date}
                               />
                             </label>
@@ -2859,19 +3159,17 @@ const AdminPracticumSection = () => {
                     <div className={styles['practicumOperationFields']}>
                       <label className={styles['field']}>
                         <span className={styles['fieldLabel']}>이동 날짜</span>
-                        <input
-                          className={styles['searchInput']}
-                          onChange={(event) => {
+                        <CalendarIconDateInput
+                          onChange={(value) => {
                             setMoveOfflineScheduleState((current) =>
                               current
                                 ? {
                                     ...current,
-                                    nextDate: event.target.value,
+                                    nextDate: value,
                                   }
                                 : current,
                             );
                           }}
-                          type='date'
                           value={moveOfflineScheduleState.nextDate}
                         />
                       </label>
@@ -2949,52 +3247,134 @@ const AdminPracticumSection = () => {
                       <strong>{moveReservationState.reservations[0]?.lectureTitle ?? '-'}</strong>
                     </div>
 
-                    {moveReservationOptions.filter(
-                      (item) =>
-                        item.slotId !== moveReservationState.reservations[0]?.slotId &&
-                        item.remainingCapacity >= moveReservationState.reservations.length,
-                    ).length ? (
-                      <div className={styles['practicumDayOverviewList']}>
-                        {moveReservationOptions
-                          .filter(
-                            (item) =>
-                              item.slotId !== moveReservationState.reservations[0]?.slotId &&
-                              item.remainingCapacity >= moveReservationState.reservations.length,
-                          )
-                          .map((item) => (
+                    <p className={styles['helperText']}>
+                      예약취소는 예약 자체를 취소해 자리를 다시 열고, 불참처리는 예약 기록을 남긴 채
+                      수강생을 불참 상태로 표시합니다.
+                    </p>
+
+                    <div className={styles['practicumMoveCalendar']}>
+                      <div className={styles['practicumMoveCalendarHeader']}>
+                        <Button
+                          onClick={() => {
+                            setMoveReservationState((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    monthValue: shiftMonthValue(current.monthValue, -1),
+                                  }
+                                : current,
+                            );
+                          }}
+                          size='sm'
+                          type='button'
+                          variant='secondary'
+                        >
+                          이전 달
+                        </Button>
+                        <strong>{formatMonthLabel(moveReservationState.monthValue)}</strong>
+                        <Button
+                          onClick={() => {
+                            setMoveReservationState((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    monthValue: shiftMonthValue(current.monthValue, 1),
+                                  }
+                                : current,
+                            );
+                          }}
+                          size='sm'
+                          type='button'
+                          variant='secondary'
+                        >
+                          다음 달
+                        </Button>
+                      </div>
+                      {moveReservationOptionsQuery.isPending ? (
+                        <p className={styles['helperText']}>
+                          예약 가능한 날짜를 불러오는 중입니다.
+                        </p>
+                      ) : (
+                        <>
+                          <div className={styles['practicumCalendarWeekdays']}>
+                            {calendarWeekdays.map((weekday) => (
+                              <span className={styles['practicumCalendarWeekday']} key={weekday}>
+                                {weekday}
+                              </span>
+                            ))}
+                          </div>
+                          <div className={styles['practicumMoveCalendarGrid']}>
+                            {moveReservationCalendarCells.map((cell, index) => {
+                              if (!cell.date) {
+                                return (
+                                  <span
+                                    className={styles['practicumMoveCalendarEmptyCell']}
+                                    key={`move-empty-${String(index)}`}
+                                  />
+                                );
+                              }
+
+                              const availableCount =
+                                moveReservationOptionsByDate.get(cell.date)?.length ?? 0;
+
+                              return (
+                                <button
+                                  className={styles['practicumMoveCalendarDay']}
+                                  data-has-items={availableCount > 0}
+                                  data-selected={cell.date === moveReservationState.selectedDate}
+                                  key={`move-date-${cell.date}`}
+                                  onClick={() => {
+                                    setMoveReservationState((current) =>
+                                      current
+                                        ? { ...current, selectedDate: cell.date ?? '' }
+                                        : current,
+                                    );
+                                  }}
+                                  type='button'
+                                >
+                                  <strong>{Number(cell.date.slice(-2))}</strong>
+                                  <span>
+                                    {availableCount > 0
+                                      ? `${String(availableCount)}개 예약 가능`
+                                      : '예약불가'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {selectedMoveReservationOptions.length ? (
+                      <div className={styles['practicumMoveTimePicker']}>
+                        <h4 className={styles['practicumMoveTimeTitle']}>예약 가능 시간</h4>
+                        <div className={styles['practicumMoveTimeGrid']}>
+                          {selectedMoveReservationOptions.map((item) => (
                             <button
-                              className={styles['practicumDayOverviewCard']}
-                              key={`move-slot-${String(item.slotId)}`}
+                              className={styles['practicumMoveTimeButton']}
+                              disabled={moveReservationMutation.isPending}
+                              key={`move-slot-${item.startAt}`}
                               onClick={() => {
                                 moveReservationMutation.mutate({
                                   reservationIds: moveReservationState.reservations.map(
                                     (reservation) => reservation.reservationId,
                                   ),
-                                  slotId: item.slotId,
+                                  startAt: item.startAt,
                                 });
                               }}
                               type='button'
                             >
-                              <div className={styles['cellStack']}>
-                                <strong className={styles['cellPrimary']}>
-                                  {formatDateTime(item.startAt)} ~ {formatDateTime(item.endAt)}
-                                </strong>
-                                <span className={styles['cellSecondary']}>
-                                  {item.programTitle} &gt; {item.sectionTitle} &gt;{' '}
-                                  {item.lectureTitle}
-                                </span>
-                              </div>
-                              <span className={styles['badge']}>
-                                잔여 {String(item.remainingCapacity)}석
-                              </span>
+                              <span>{formatTimeRange(item.startAt, item.endAt)}</span>
                             </button>
                           ))}
+                        </div>
                       </div>
-                    ) : (
+                    ) : !moveReservationOptionsQuery.isPending ? (
                       <p className={styles['helperText']}>
-                        선택한 인원을 변경할 수 있는 예약 시간이 없습니다.
+                        선택한 날짜에 변경 가능한 예약 시간이 없습니다.
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </Modal>
               ) : null}

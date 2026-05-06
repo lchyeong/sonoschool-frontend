@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { RouterProvider } from 'react-router-dom';
 
 import AppErrorBoundary from '@/app/AppErrorBoundary';
+import ToastViewport from '@/components/feedback/ToastViewport/ToastViewport';
 import ModalRoot from '@/components/overlay/Modal/ModalRoot';
 import { createQueryClient } from '@/query/queryClient';
 import { router } from '@/routes/router';
@@ -23,6 +24,7 @@ const AppProviders = () => {
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
         <ModalRoot />
+        <ToastViewport />
         {__DEV__ ? <ReactQueryDevtools initialIsOpen={false} /> : null}
       </QueryClientProvider>
     </AppErrorBoundary>

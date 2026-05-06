@@ -697,6 +697,9 @@ export interface PendingPracticumSlot {
 }
 
 export const getPracticumReservationKind = (reservation: PracticumReservation) => {
+  if (reservation.status === 'COMPLETED') {
+    return 'completed';
+  }
   if (reservation.status === 'NO_SHOW') {
     return 'noshow';
   }

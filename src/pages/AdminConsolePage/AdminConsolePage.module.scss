@@ -2110,6 +2110,152 @@
   font-weight: var(--font-weight-medium);
 }
 
+.monthPickerShell {
+  position: relative;
+  width: min(100%, 220px);
+}
+
+.monthPickerTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  gap: var(--space-3);
+}
+
+.monthPickerTrigger:hover,
+.monthPickerTrigger:focus-visible,
+.monthPickerTrigger[aria-expanded='true'] {
+  border-color: var(--color-brand-main);
+  box-shadow: 0 0 0 3px rgba(52, 178, 159, 0.14);
+  outline: none;
+}
+
+.monthPickerIcon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.visuallyHiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.monthPickerPopover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  width: 284px;
+  padding: var(--space-3);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  box-shadow: var(--shadow-lg);
+}
+
+.monthPickerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.monthPickerHeader strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.monthPickerNav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.monthPickerNav:hover,
+.monthPickerNav:focus-visible {
+  border-color: var(--color-brand-main);
+  color: var(--color-brand-main);
+  outline: none;
+}
+
+.monthPickerGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.monthPickerMonthButton {
+  min-height: 38px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
+.monthPickerMonthButton:hover,
+.monthPickerMonthButton:focus-visible,
+.monthPickerMonthButton[data-selected='true'] {
+  border-color: var(--color-brand-main);
+  background: rgba(52, 178, 159, 0.1);
+  color: var(--color-brand-darken-10);
+  outline: none;
+}
+
+.dateInputWithIcon {
+  position: relative;
+  display: block;
+}
+
+.dateInputWithIcon .searchInput {
+  width: 100%;
+  padding-right: 42px;
+  cursor: pointer;
+}
+
+.dateInputWithIcon .searchInput::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dateInputIcon {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
 .fieldHint {
   margin: calc(var(--space-2) * -1) 0 0;
   color: var(--color-text-secondary);
@@ -2872,35 +3018,6 @@
 
 .lectureWorkspaceSection:first-child {
   border-top: 0;
-}
-
-.offlineScheduleDraftList {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.offlineScheduleDraftCard {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid color-mix(in srgb, var(--admin-border-strong) 68%, #ffffff);
-  background: var(--admin-surface);
-}
-
-.offlineScheduleTimeGrid {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) 176px 176px;
-  gap: var(--space-2);
-  align-items: start;
-}
-
-.offlineScheduleTimeSelect {
-  width: 100%;
-  flex-basis: auto;
-}
-
-.offlineScheduleFieldError {
-  display: none;
 }
 
 .curriculumLectureList {
@@ -4068,6 +4185,41 @@
   justify-content: flex-end;
 }
 
+.practicumActionTooltipWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.practicumActionTooltipWrap[data-tooltip]::after {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: var(--color-gray-900);
+  box-shadow: var(--shadow-md);
+  color: var(--color-white);
+  content: attr(data-tooltip);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  white-space: normal;
+}
+
+.practicumActionTooltipWrap[data-tooltip]:hover::after,
+.practicumActionTooltipWrap[data-tooltip]:focus-within::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .practicumDetailSummary {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
@@ -4216,6 +4368,61 @@
   text-align: left;
 }
 
+.practicumMoveTimePicker {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.practicumMoveTimeTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.practicumMoveTimeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-3);
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.practicumMoveTimeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
+  padding: 0 var(--space-3);
+  border: 1px solid #d3d7df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #384151;
+  cursor: pointer;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.practicumMoveTimeButton:hover,
+.practicumMoveTimeButton:focus-visible {
+  border-color: #34b29f;
+  background: #ecf9f7;
+  color: #269987;
+  outline: none;
+}
+
+.practicumMoveTimeButton:disabled {
+  cursor: progress;
+  opacity: 0.62;
+}
+
 .practicumDetailReservationCard {
   display: grid;
   gap: var(--space-3);
@@ -4243,6 +4450,88 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-relaxed);
+}
+
+.practicumMoveCalendar {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.practicumMoveCalendarHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.practicumMoveCalendarHeader strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.practicumMoveCalendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--admin-border);
+  border-left: 1px solid var(--admin-border);
+}
+
+.practicumMoveCalendarEmptyCell,
+.practicumMoveCalendarDay {
+  min-height: 64px;
+  border-right: 1px solid var(--admin-border);
+  border-bottom: 1px solid var(--admin-border);
+  background: #ffffff;
+}
+
+.practicumMoveCalendarDay {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  justify-items: center;
+  padding: 8px 6px;
+  border-top: 0;
+  border-left: 0;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.practicumMoveCalendarDay strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.practicumMoveCalendarDay span {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.practicumMoveCalendarDay[data-has-items='true'] {
+  background: #f6faf9;
+}
+
+.practicumMoveCalendarDay[data-has-items='true'] span {
+  color: var(--color-primary);
+}
+
+.practicumMoveCalendarDay[data-selected='true'] {
+  background: #eef7f5;
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.practicumMoveCalendarDay:hover,
+.practicumMoveCalendarDay:focus-visible {
+  background: #eef7f5;
+  outline: none;
 }
 
 .practicumOperationSection {
@@ -4541,7 +4830,6 @@
   gap: 0;
   min-height: 252px;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-top-width: 3px;
   border-radius: 20px;
   overflow: hidden;
   background: #ffffff;
@@ -4550,12 +4838,10 @@
 
 .salesChartCardAmber {
   --sales-chart-accent: #c87416;
-  border-top-color: #c87416;
 }
 
 .salesChartCardTeal {
   --sales-chart-accent: #228c91;
-  border-top-color: #228c91;
 }
 
 .salesChartHeader {
@@ -4979,8 +5265,7 @@
   .inlineFieldGrid,
   .programFieldGrid,
   .userEnrollmentMetrics,
-  .dateTimeFieldRow,
-  .offlineScheduleTimeGrid {
+  .dateTimeFieldRow {
     grid-template-columns: 1fr;
   }
 

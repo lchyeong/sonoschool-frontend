@@ -2,17 +2,20 @@ import { useQuery } from '@tanstack/react-query';
 
 import { fetchAdminPaymentDetail, fetchAdminPayments } from '@/api/adminPayments';
 
-export const adminPaymentsQueryKey = () => ['adminPayments'] as const;
+export const adminPaymentsQueryKey = (from?: string, to?: string) =>
+  from === undefined && to === undefined
+    ? (['adminPayments'] as const)
+    : (['adminPayments', from ?? '', to ?? ''] as const);
 
 export const adminPaymentDetailQueryKey = (paymentId: number | null) =>
   ['adminPaymentDetail', paymentId] as const;
 
-export const useAdminPaymentsQuery = (enabled = true) => {
+export const useAdminPaymentsQuery = (from = '', to = '', enabled = true) => {
   return useQuery({
     enabled,
     gcTime: 5 * 60 * 1000,
-    queryFn: () => fetchAdminPayments(),
-    queryKey: adminPaymentsQueryKey(),
+    queryFn: () => fetchAdminPayments({ from, to }),
+    queryKey: adminPaymentsQueryKey(from, to),
     staleTime: 30 * 1000,
   });
 };
