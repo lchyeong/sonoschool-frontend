@@ -32,7 +32,7 @@ import type { CartSummary } from '@/types/mypage';
 const s3ThumbnailUrl =
   's3://sonoschool-prod-media/uploads/videos/assets/programs/thumbnails/a345472c-cdaf-49f5-97cb-aa6aba6fe1de/sample.png';
 const signedThumbnailUrl =
-  'https://sonoschool-prod-media.s3.amazonaws.com/uploads/videos/assets/programs/thumbnails/a345472c-cdaf-49f5-97cb-aa6aba6fe1de/sample.png?X-Amz-Signature=test';
+  'https://media.newzest.xyz/uploads/videos/assets/programs/thumbnails/a345472c-cdaf-49f5-97cb-aa6aba6fe1de/sample.png';
 const expiredSignedThumbnailUrl =
   'https://sonoschool-prod-media.s3.amazonaws.com/uploads/videos/assets/programs/thumbnails/a345472c-cdaf-49f5-97cb-aa6aba6fe1de/sample.png?X-Amz-Date=20260504T072345Z&X-Amz-Expires=900&X-Amz-Signature=expired';
 

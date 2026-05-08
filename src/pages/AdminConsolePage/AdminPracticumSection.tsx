@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { fetchAdminCurriculum, replaceAdminLectureOfflineSchedules } from '@/api/adminCurriculum';
 import {
-  applyAdminPracticumOperatingHourRule,
   cancelAdminPracticumReservation,
   completeAdminPracticumReservation,
   createAdminPracticumOperationException,
@@ -17,6 +16,7 @@ import {
   fetchAdminPracticumSlotManagement,
   markAdminPracticumReservationNoShow,
   moveAdminPracticumReservation,
+  replaceAdminPracticumOperatingHours,
   restoreAdminPracticumReservationNoShow,
   syncAdminPracticumDailyOperation,
   updateAdminPracticumOfflineScheduleAttendance,
@@ -32,7 +32,6 @@ import type {
   AdminPracticumOfflineScheduleOccurrence,
   AdminPracticumOfflineScheduleDetail,
   AdminPracticumOperatingHour,
-  AdminPracticumOperatingHourApplyPayload,
   AdminPracticumOperationException,
   AdminPracticumOperationExceptionPayload,
   AdminPracticumReservationStatus,
@@ -118,7 +117,6 @@ const operatingWeekdayOptions: { label: string; value: OperatingWeekday }[] = [
   { label: '금요일', value: 'FRIDAY' },
   { label: '토요일', value: 'SATURDAY' },
 ];
-
 const getOfflineAttendanceDraftKey = (ruleId: number, enrollmentId: number) =>
   `${String(ruleId)}:${String(enrollmentId)}`;
 
@@ -177,22 +175,19 @@ const getWeekdayKey = (dateValue: string): AdminPracticumOperatingHour['weekday'
   return weekdayMap[weekdayLabel] ?? 'MONDAY';
 };
 
-const getRepresentativeDateForWeekday = (
-  monthValue: string,
-  weekday: OperatingWeekday,
-  fallbackDate: string,
-): string => {
-  const [yearValue, monthPart] = monthValue.split('-').map(Number);
-  const lastDay = new Date(yearValue, monthPart, 0).getDate();
+const formatHourLabel = (hour: number): string => `${String(hour).padStart(2, '0')}:00`;
 
-  for (let day = 1; day <= lastDay; day += 1) {
-    const dateValue = `${monthValue}-${String(day).padStart(2, '0')}`;
-    if (getWeekdayKey(dateValue) === weekday) {
-      return dateValue;
-    }
+const formatHourRangeTitleLabel = (startHour: number, endHour: number): string =>
+  `${formatHourLabel(startHour)}~${formatHourLabel(endHour)}`;
+
+const formatOperatingHourRangeSummary = (
+  operatingHour: AdminPracticumOperatingHour | null,
+): string => {
+  if (!operatingHour) {
+    return '운영시간 없음';
   }
 
-  return fallbackDate;
+  return `운영시간 ${formatHourRangeTitleLabel(operatingHour.openFromHour, operatingHour.openToHour)}`;
 };
 
 const toIsoDateTime = (dateValue: string, hour: number): string => {
@@ -267,6 +262,8 @@ interface DailyOperationFormState {
   endHour: number;
   startHour: number;
 }
+
+type DailyBlockedHourReason = 'OFFLINE' | 'PERSONAL' | 'PRACTICUM';
 
 interface PersonalScheduleFormState {
   content: string;
@@ -555,6 +552,43 @@ const buildPersonalScheduleFormState = (
   };
 };
 
+const buildOccupiedHours = (
+  dateValue: string,
+  schedules: { endAt: string; startAt: string }[],
+): number[] => {
+  const hours = new Set<number>();
+  const dayStart = parseSeoulDate(dateValue).getTime();
+  const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+
+  for (const schedule of schedules) {
+    const scheduleStart = Math.max(new Date(schedule.startAt).getTime(), dayStart);
+    const scheduleEnd = Math.min(new Date(schedule.endAt).getTime(), dayEnd);
+    if (scheduleStart >= scheduleEnd) {
+      continue;
+    }
+
+    for (let hour = 0; hour < 24; hour += 1) {
+      const hourStart = dayStart + hour * 60 * 60 * 1000;
+      const hourEnd = dayStart + (hour + 1) * 60 * 60 * 1000;
+      if (scheduleStart < hourEnd && scheduleEnd > hourStart) {
+        hours.add(hour);
+      }
+    }
+  }
+
+  return [...hours].sort((left, right) => left - right);
+};
+
+const addOccupiedHourReasons = (
+  reasons: Map<number, DailyBlockedHourReason>,
+  hours: number[],
+  reason: DailyBlockedHourReason,
+) => {
+  for (const hour of hours) {
+    reasons.set(hour, reason);
+  }
+};
+
 const PracticumModalBackButton = ({ label, onClick }: { label: string; onClick: () => void }) => {
   return (
     <Button
@@ -580,7 +614,7 @@ const CalendarIconDateInput = ({
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const openPicker = () => {
-    inputRef.current?.showPicker?.();
+    inputRef.current?.showPicker();
   };
 
   return (
@@ -670,8 +704,8 @@ const AdminPracticumSection = () => {
   });
 
   const operatingHoursQuery = useQuery({
-    queryFn: fetchAdminPracticumOperatingHours,
-    queryKey: ['adminPracticumOperatingHours'],
+    queryFn: () => fetchAdminPracticumOperatingHours(resolvedSelectedDate),
+    queryKey: ['adminPracticumOperatingHours', resolvedSelectedDate],
     staleTime: 60 * 1000,
   });
 
@@ -735,7 +769,9 @@ const AdminPracticumSection = () => {
 
   const selectedDateOperatingHour = useMemo(() => {
     const weekday = getWeekdayKey(resolvedSelectedDate);
-    return operatingHoursQuery.data?.find((item) => item.weekday === weekday) ?? null;
+    return (
+      operatingHoursQuery.data?.find((item) => item.weekday === weekday && item.enabled) ?? null
+    );
   }, [operatingHoursQuery.data, resolvedSelectedDate]);
 
   const selectedDateItems = useMemo(() => {
@@ -751,6 +787,12 @@ const AdminPracticumSection = () => {
       isExceptionOnDate(item, resolvedSelectedDate),
     );
   }, [operationExceptionsQuery.data, resolvedSelectedDate]);
+
+  const selectedDateOfflineSchedules = useMemo(() => {
+    return (offlineSchedulesQuery.data ?? []).filter(
+      (item) => getSlotDateKey(item.startAt) === resolvedSelectedDate,
+    );
+  }, [offlineSchedulesQuery.data, resolvedSelectedDate]);
 
   const overviewDateOfflineSchedules = useMemo(() => {
     if (!selectedDateOverviewDate) {
@@ -926,15 +968,28 @@ const AdminPracticumSection = () => {
     return deriveOperationState(selectedDateItems, selectedDateOperatingHour);
   }, [selectedDateItems, selectedDateOperatingHour]);
 
+  const currentOperatingWeekdays = useMemo(() => {
+    const operatingWeekdaySet = new Set(
+      (operatingHoursQuery.data ?? []).filter((item) => item.enabled).map((item) => item.weekday),
+    );
+    return operatingWeekdayOptions
+      .map((option) => option.value)
+      .filter((weekday) => operatingWeekdaySet.has(weekday));
+  }, [operatingHoursQuery.data]);
+
   const selectedOperationWeekdays =
     operationDraft?.date === resolvedSelectedDate
       ? operationDraft.weekdays
-      : [getWeekdayKey(resolvedSelectedDate)];
+      : currentOperatingWeekdays;
   const primaryOperationWeekday =
-    selectedOperationWeekdays[0] ?? getWeekdayKey(resolvedSelectedDate);
+    selectedOperationWeekdays.length > 0
+      ? selectedOperationWeekdays[0]
+      : getWeekdayKey(resolvedSelectedDate);
   const selectedOperationOperatingHour = useMemo(() => {
     return (
-      operatingHoursQuery.data?.find((item) => item.weekday === primaryOperationWeekday) ?? null
+      operatingHoursQuery.data?.find(
+        (item) => item.weekday === primaryOperationWeekday && item.enabled,
+      ) ?? null
     );
   }, [operatingHoursQuery.data, primaryOperationWeekday]);
 
@@ -1421,9 +1476,14 @@ const AdminPracticumSection = () => {
         variant: 'error',
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
-      setDailyOperationDraft(null);
+      setDailyOperationDraft({
+        blockedHours: variables.blockedHours,
+        date: variables.date,
+        endHour: variables.openToHour,
+        startHour: variables.openFromHour,
+      });
       showToast({
         message: '당일 일정을 반영했습니다.',
         variant: 'success',
@@ -1432,8 +1492,34 @@ const AdminPracticumSection = () => {
   });
 
   const applyOperatingHoursMutation = useMutation({
-    mutationFn: (payloads: AdminPracticumOperatingHourApplyPayload[]) =>
-      Promise.all(payloads.map((payload) => applyAdminPracticumOperatingHourRule(payload))),
+    mutationFn: (payload: {
+      blockedHours: number[];
+      endHour: number;
+      startHour: number;
+      weekdays: OperatingWeekday[];
+    }) =>
+      replaceAdminPracticumOperatingHours({
+        effectiveFrom: resolvedSelectedDate,
+        hours: operatingWeekdayOptions.map((option) => {
+          const enabled = payload.weekdays.includes(option.value);
+          if (!enabled) {
+            return {
+              enabled,
+              location: null,
+              weekday: option.value,
+            };
+          }
+
+          return {
+            blockedHours: payload.blockedHours,
+            enabled,
+            location: null,
+            openFromHour: payload.startHour,
+            openToHour: payload.endHour,
+            weekday: option.value,
+          };
+        }),
+      }),
     onMutate: () => {
       setOperationFeedback(null);
     },
@@ -1449,10 +1535,16 @@ const AdminPracticumSection = () => {
         variant: 'error',
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumManagement'] });
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumOperatingHours'] });
-      setOperationDraft(null);
+      setOperationDraft({
+        blockedHours: variables.blockedHours,
+        date: resolvedSelectedDate,
+        endHour: variables.endHour,
+        startHour: variables.startHour,
+        weekdays: variables.weekdays,
+      });
       setDailyOperationDraft(null);
       setOperationFeedback({
         message: '운영시간 변경을 반영했습니다.',
@@ -1498,9 +1590,60 @@ const AdminPracticumSection = () => {
   const isOperationFullyBlocked =
     visibleOperationBlockHours.length > 0 &&
     visibleOperationBlockHours.every((hour) => operationState.blockedHours.includes(hour));
+  const selectedDateOperatingHourLabel = formatOperatingHourRangeSummary(selectedDateOperatingHour);
+  const selectedDateReservedPracticumSchedules = selectedDateGroups
+    .filter((group) => group.reservations.some((reservation) => reservation.status === 'ACTIVE'))
+    .map((group) => ({
+      endAt: group.endAt,
+      startAt: group.startAt,
+    }));
+  const selectedDateReservedPracticumHours = buildOccupiedHours(
+    resolvedSelectedDate,
+    selectedDateReservedPracticumSchedules,
+  );
+  const selectedDatePersonalScheduleHours = buildOccupiedHours(
+    resolvedSelectedDate,
+    selectedDatePersonalSchedules,
+  );
+  const selectedDateOfflineScheduleHours = buildOccupiedHours(
+    resolvedSelectedDate,
+    selectedDateOfflineSchedules,
+  );
+  const fixedDailyBlockedHours = [
+    ...new Set([...selectedDatePersonalScheduleHours, ...selectedDateOfflineScheduleHours]),
+  ].sort((left, right) => left - right);
+  const lockedDailyBlockedHours = [
+    ...new Set([...fixedDailyBlockedHours, ...selectedDateReservedPracticumHours]),
+  ].sort((left, right) => left - right);
+  const lockedDailyBlockedHourSet = new Set(lockedDailyBlockedHours);
+  const lockedDailyBlockedHourReasons = new Map<number, DailyBlockedHourReason>();
+  addOccupiedHourReasons(
+    lockedDailyBlockedHourReasons,
+    selectedDatePersonalScheduleHours,
+    'PERSONAL',
+  );
+  addOccupiedHourReasons(
+    lockedDailyBlockedHourReasons,
+    selectedDateOfflineScheduleHours,
+    'OFFLINE',
+  );
+  addOccupiedHourReasons(
+    lockedDailyBlockedHourReasons,
+    selectedDateReservedPracticumHours,
+    'PRACTICUM',
+  );
+  const dailyOperationBlockedHours = [
+    ...new Set([...dailyOperationState.blockedHours, ...lockedDailyBlockedHours]),
+  ].sort((left, right) => left - right);
+  const earliestFixedDailyBlockedHour =
+    lockedDailyBlockedHours.length > 0 ? lockedDailyBlockedHours[0] : null;
+  const latestFixedDailyBlockedHour =
+    lockedDailyBlockedHours.length > 0
+      ? lockedDailyBlockedHours[lockedDailyBlockedHours.length - 1]
+      : null;
   const isDailyOperationFullyBlocked =
     visibleBlockHours.length > 0 &&
-    visibleBlockHours.every((hour) => dailyOperationState.blockedHours.includes(hour));
+    visibleBlockHours.every((hour) => dailyOperationBlockedHours.includes(hour));
 
   useEffect(() => {
     if (!isMonthPickerOpen) {
@@ -1792,11 +1935,17 @@ const AdminPracticumSection = () => {
                       개인일정 추가
                     </Button>
                   </div>
-                  <h3 className={styles['panelTitle']}>{formatDate(resolvedSelectedDate)}</h3>
+                  <h3 className={styles['panelTitle']}>
+                    {formatDate(resolvedSelectedDate)}
+                    <span className={styles['panelTitleMeta']}>
+                      {selectedDateOperatingHourLabel}
+                    </span>
+                  </h3>
                 </div>
                 <div className={styles['practicumDetailActionSecondary']}>
                   <Button
                     onClick={() => {
+                      setOperationDraft(null);
                       setActiveConfigPanel('OPERATING_HOURS');
                     }}
                     size='sm'
@@ -1935,19 +2084,12 @@ const AdminPracticumSection = () => {
                           operationState.weekdays.length === 0
                         }
                         onClick={() => {
-                          applyOperatingHoursMutation.mutate(
-                            operationState.weekdays.map((weekday) => ({
-                              blockedHours: operationState.blockedHours,
-                              date: getRepresentativeDateForWeekday(
-                                monthValue,
-                                weekday,
-                                resolvedSelectedDate,
-                              ),
-                              location: null,
-                              openFromHour: operationState.startHour,
-                              openToHour: operationState.endHour,
-                            })),
-                          );
+                          applyOperatingHoursMutation.mutate({
+                            blockedHours: operationState.blockedHours,
+                            endHour: operationState.endHour,
+                            startHour: operationState.startHour,
+                            weekdays: operationState.weekdays,
+                          });
                         }}
                         type='button'
                       >
@@ -2000,7 +2142,14 @@ const AdminPracticumSection = () => {
                             value={dailyOperationState.startHour}
                           >
                             {hourOptions.map((hour) => (
-                              <option key={hour} value={hour}>
+                              <option
+                                disabled={
+                                  earliestFixedDailyBlockedHour !== null &&
+                                  hour > earliestFixedDailyBlockedHour
+                                }
+                                key={hour}
+                                value={hour}
+                              >
                                 {String(hour).padStart(2, '0')}:00
                               </option>
                             ))}
@@ -2024,7 +2173,14 @@ const AdminPracticumSection = () => {
                             {endHourOptions
                               .filter((hour) => hour > dailyOperationState.startHour)
                               .map((hour) => (
-                                <option key={hour} value={hour}>
+                                <option
+                                  disabled={
+                                    latestFixedDailyBlockedHour !== null &&
+                                    hour <= latestFixedDailyBlockedHour
+                                  }
+                                  key={hour}
+                                  value={hour}
+                                >
                                   {String(hour).padStart(2, '0')}:00
                                 </option>
                               ))}
@@ -2035,12 +2191,26 @@ const AdminPracticumSection = () => {
 
                     <div className={styles['practicumBlockedSection']}>
                       <div className={styles['practicumBlockedSectionHeader']}>
-                        <span className={styles['fieldLabel']}>예약불가 시간</span>
+                        <div className={styles['practicumBlockedLabelGroup']}>
+                          <span className={styles['fieldLabel']}>예약불가 시간</span>
+                          <div
+                            aria-label='자동 예약불가 사유'
+                            className={styles['practicumBlockedLegend']}
+                          >
+                            <span data-reason='PRACTICUM'>실습예약</span>
+                            <span data-reason='OFFLINE'>오프라인 강의</span>
+                            <span data-reason='PERSONAL'>강사 개인일정</span>
+                          </div>
+                        </div>
                         <Button
                           onClick={() => {
                             updateDailyOperationState((current) => ({
                               ...current,
-                              blockedHours: isDailyOperationFullyBlocked ? [] : visibleBlockHours,
+                              blockedHours: isDailyOperationFullyBlocked
+                                ? []
+                                : visibleBlockHours.filter(
+                                    (hour) => !lockedDailyBlockedHourSet.has(hour),
+                                  ),
                             }));
                           }}
                           size='sm'
@@ -2052,13 +2222,20 @@ const AdminPracticumSection = () => {
                       </div>
                       <div className={styles['practicumBlockedHours']}>
                         {visibleBlockHours.map((hour) => {
-                          const selected = dailyOperationState.blockedHours.includes(hour);
+                          const fixed = lockedDailyBlockedHourSet.has(hour);
+                          const reason = lockedDailyBlockedHourReasons.get(hour);
+                          const selected = dailyOperationBlockedHours.includes(hour);
                           return (
                             <button
                               className={styles['practicumBlockedHourButton']}
+                              data-reason={reason}
                               data-selected={selected}
+                              disabled={fixed}
                               key={hour}
                               onClick={() => {
+                                if (fixed) {
+                                  return;
+                                }
                                 updateDailyOperationState((current) => ({
                                   ...current,
                                   blockedHours: current.blockedHours.includes(hour)
@@ -2080,7 +2257,9 @@ const AdminPracticumSection = () => {
                         disabled={syncDailyOperationMutation.isPending}
                         onClick={() => {
                           syncDailyOperationMutation.mutate({
-                            blockedHours: dailyOperationState.blockedHours,
+                            blockedHours: dailyOperationState.blockedHours.filter(
+                              (hour) => !lockedDailyBlockedHourSet.has(hour),
+                            ),
                             date: resolvedSelectedDate,
                             location: null,
                             openFromHour: dailyOperationState.startHour,
@@ -2706,7 +2885,9 @@ const AdminPracticumSection = () => {
                                         isFutureDateTime(reservation.slotEndAt)
                                       }
                                       onClick={() => {
-                                        completeReservationMutation.mutate(reservation.reservationId);
+                                        completeReservationMutation.mutate(
+                                          reservation.reservationId,
+                                        );
                                       }}
                                       size='sm'
                                       type='button'

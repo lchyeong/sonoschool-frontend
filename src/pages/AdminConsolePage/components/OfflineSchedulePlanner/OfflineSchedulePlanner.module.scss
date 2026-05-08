@@ -49,6 +49,10 @@
   line-height: 1.6;
 }
 
+.helperText[data-tone='warning'] {
+  color: #b45309;
+}
+
 .selectField,
 .datePicker {
   display: grid;
@@ -67,7 +71,7 @@
   min-height: 2.75rem;
   border: 1px solid rgba(148, 163, 184, 0.55);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: #ffffff;
   color: #0f172a;
   font: inherit;
 }
@@ -128,7 +132,7 @@
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: #ffffff;
   overflow-y: auto;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
 }
@@ -227,7 +231,7 @@
 
 .daySelected {
   background: #34b29f;
-  color: #fff !important;
+  color: #ffffff !important;
   font-weight: var(--font-weight-bold);
 }
 

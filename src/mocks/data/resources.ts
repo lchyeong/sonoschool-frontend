@@ -3,6 +3,7 @@ import type { ResourceItem } from '@/types/resource';
 const initialResources: ResourceItem[] = [
   {
     id: 1,
+    publicSlug: 'resource-1',
     scope: 'GLOBAL',
     visibility: 'PUBLIC',
     programId: null,
@@ -13,6 +14,7 @@ const initialResources: ResourceItem[] = [
     attachments: [
       {
         documentId: 101,
+        publicSlug: 'resource-1-pdf',
         fileName: 'sonoschool-2026-schedule.pdf',
         fileSize: 1_824_512,
         mimeType: 'application/pdf',
@@ -20,6 +22,7 @@ const initialResources: ResourceItem[] = [
       },
       {
         documentId: 102,
+        publicSlug: 'resource-1-hwp',
         fileName: 'sonoschool-2026-schedule.hwp',
         fileSize: 824_512,
         mimeType: 'application/x-hwp',
@@ -29,6 +32,7 @@ const initialResources: ResourceItem[] = [
   },
   {
     id: 2,
+    publicSlug: 'resource-2',
     scope: 'GLOBAL',
     visibility: 'PUBLIC',
     programId: null,
@@ -39,6 +43,7 @@ const initialResources: ResourceItem[] = [
     attachments: [
       {
         documentId: 201,
+        publicSlug: 'resource-2-pdf',
         fileName: 'offline-hands-on-checklist.pdf',
         fileSize: 942_114,
         mimeType: 'application/pdf',
@@ -48,6 +53,7 @@ const initialResources: ResourceItem[] = [
   },
   {
     id: 3,
+    publicSlug: 'resource-3',
     scope: 'GLOBAL',
     visibility: 'PUBLIC',
     programId: null,
@@ -58,6 +64,7 @@ const initialResources: ResourceItem[] = [
     attachments: [
       {
         documentId: 301,
+        publicSlug: 'resource-3-pdf',
         fileName: 'payment-receipt-guide.pdf',
         fileSize: 724_615,
         mimeType: 'application/pdf',
@@ -84,6 +91,16 @@ export const getMockGlobalResources = (): ResourceItem[] => {
 
 export const getMockGlobalResourceById = (resourceId: number): ResourceItem | null => {
   return resources.find((resource) => resource.id === resourceId) ?? null;
+};
+
+export const getMockGlobalResourceByPublicSlug = (publicSlug: string): ResourceItem | null => {
+  return (
+    resources.find(
+      (resource) =>
+        resource.publicSlug === publicSlug ||
+        resource.attachments.some((attachment) => attachment.publicSlug === publicSlug),
+    ) ?? null
+  );
 };
 
 export const resetMockResourcesData = (): void => {

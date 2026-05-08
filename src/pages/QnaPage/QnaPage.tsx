@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { createGlobalQuestion, deleteGlobalQuestion, updateGlobalQuestion } from '@/api/qna';
+import checkWhiteIconSrc from '@/assets/icons/lucide_check_white_20.svg';
 import squarePenIconSrc from '@/assets/icons/mypage-menu-square-pen.svg';
 import { QNA_CONTENT_MAX_LENGTH, QNA_TITLE_MAX_LENGTH } from '@/constants/qna';
 import { globalQuestionsQueryKey, useGlobalQuestionsQuery } from '@/query/useQnaQueries';
@@ -29,6 +30,12 @@ const buildMaskIconStyle = (iconSrc: string) => {
   return {
     '--qna-icon': `url("${iconSrc}")`,
   } as CSSProperties & Record<'--qna-icon', string>;
+};
+
+const buildPrivateCheckStyle = () => {
+  return {
+    '--qna-private-check-icon': `url("${checkWhiteIconSrc}")`,
+  } as CSSProperties & Record<'--qna-private-check-icon', string>;
 };
 
 const formatDate = (value: string): string => {
@@ -69,10 +76,12 @@ const QnaPage = () => {
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const currentDisplayName = useAuthStore((state) => state.displayName);
+  const currentRole = useAuthStore((state) => state.role);
   const showToast = useToastStore((state) => state.showToast);
   const questionsQuery = useGlobalQuestionsQuery();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [privateQuestion, setPrivateQuestion] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BoardStatusFilter>('all');
@@ -83,6 +92,7 @@ const QnaPage = () => {
 
   const questions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
   const writeIconStyle = useMemo(() => buildMaskIconStyle(squarePenIconSrc), []);
+  const privateCheckStyle = useMemo(() => buildPrivateCheckStyle(), []);
   const editingQuestion = useMemo(() => {
     if (editingQuestionId === null) {
       return null;
@@ -155,6 +165,7 @@ const QnaPage = () => {
     onSuccess: async () => {
       setTitle('');
       setContent('');
+      setPrivateQuestion(false);
       setIsWriteFormOpen(false);
       setCurrentPage(1);
       await queryClient.invalidateQueries({ queryKey: globalQuestionsQueryKey() });
@@ -168,13 +179,20 @@ const QnaPage = () => {
   const updateQuestionMutation = useMutation({
     mutationFn: ({
       content: nextContent,
+      privateQuestion: nextPrivateQuestion,
       questionId,
       title: nextTitle,
     }: {
       content: string;
+      privateQuestion: boolean;
       questionId: number;
       title: string;
-    }) => updateGlobalQuestion(questionId, { content: nextContent, title: nextTitle }),
+    }) =>
+      updateGlobalQuestion(questionId, {
+        content: nextContent,
+        privateQuestion: nextPrivateQuestion,
+        title: nextTitle,
+      }),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '질문 수정에 실패했습니다.',
@@ -184,6 +202,7 @@ const QnaPage = () => {
     onSuccess: async (updatedQuestion) => {
       setTitle('');
       setContent('');
+      setPrivateQuestion(false);
       setEditingQuestionId(null);
       setIsWriteFormOpen(false);
       setExpandedQuestionId(updatedQuestion.id);
@@ -236,6 +255,7 @@ const QnaPage = () => {
     if (editingQuestionId !== null) {
       void updateQuestionMutation.mutateAsync({
         content: trimmedContent,
+        privateQuestion,
         questionId: editingQuestionId,
         title: trimmedTitle,
       });
@@ -244,6 +264,7 @@ const QnaPage = () => {
 
     void createQuestionMutation.mutateAsync({
       content: trimmedContent,
+      privateQuestion,
       title: trimmedTitle,
     });
   };
@@ -261,16 +282,19 @@ const QnaPage = () => {
     if (editingQuestion) {
       setTitle(editingQuestion.title);
       setContent(editingQuestion.content);
+      setPrivateQuestion(editingQuestion.privateQuestion);
       return;
     }
 
     setTitle('');
     setContent('');
+    setPrivateQuestion(false);
   };
 
   const handleCloseWriteForm = () => {
     setTitle('');
     setContent('');
+    setPrivateQuestion(false);
     setEditingQuestionId(null);
     setIsWriteFormOpen(false);
   };
@@ -278,6 +302,7 @@ const QnaPage = () => {
   const handleStartEdit = (question: (typeof questions)[number]) => {
     setTitle(question.title);
     setContent(question.content);
+    setPrivateQuestion(question.privateQuestion);
     setEditingQuestionId(question.id);
     setIsWriteFormOpen(true);
   };
@@ -288,6 +313,22 @@ const QnaPage = () => {
     }
 
     void deleteQuestionMutation.mutateAsync(questionId);
+  };
+
+  const canReadQuestion = (question: (typeof questions)[number]) => {
+    return !question.privateQuestion || question.mine || currentRole === 'ROLE_ADMIN';
+  };
+
+  const handleToggleQuestion = (question: (typeof questions)[number]) => {
+    if (!canReadQuestion(question)) {
+      showToast({
+        message: '비밀글은 작성자와 관리자만 확인할 수 있습니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setExpandedQuestionId((current) => (current === question.id ? null : question.id));
   };
 
   if (isWriteFormOpen) {
@@ -345,6 +386,18 @@ const QnaPage = () => {
             <p className={styles['writerCounter']}>
               {content.length} / {QNA_CONTENT_MAX_LENGTH}
             </p>
+
+            <label className={styles['privateOption']}>
+              <input
+                checked={privateQuestion}
+                onChange={(event) => {
+                  setPrivateQuestion(event.currentTarget.checked);
+                }}
+                style={privateCheckStyle}
+                type='checkbox'
+              />
+              <span>비밀글로 등록</span>
+            </label>
 
             <div className={styles['writerDivider']} />
 
@@ -474,6 +527,7 @@ const QnaPage = () => {
                   {paginatedQuestions.length ? (
                     paginatedQuestions.map((question) => {
                       const isExpanded = expandedQuestionId === question.id;
+                      const isReadable = canReadQuestion(question);
                       const primaryReply =
                         question.replies.length > 0
                           ? (question.replies.find((reply) => reply.adminReply) ??
@@ -493,10 +547,9 @@ const QnaPage = () => {
                             aria-expanded={isExpanded}
                             className={styles['questionRow']}
                             data-expanded={isExpanded}
+                            data-locked={!isReadable}
                             onClick={() => {
-                              setExpandedQuestionId((current) =>
-                                current === question.id ? null : question.id,
-                              );
+                              handleToggleQuestion(question);
                             }}
                             onKeyDown={(event) => {
                               if (event.key !== 'Enter' && event.key !== ' ') {
@@ -504,9 +557,7 @@ const QnaPage = () => {
                               }
 
                               event.preventDefault();
-                              setExpandedQuestionId((current) =>
-                                current === question.id ? null : question.id,
-                              );
+                              handleToggleQuestion(question);
                             }}
                             tabIndex={0}
                           >
@@ -529,7 +580,12 @@ const QnaPage = () => {
                               </span>
                             </td>
                             <td className={styles['titleCell']}>
-                              <span className={styles['titleButton']}>{question.title}</span>
+                              <span className={styles['titleButton']}>
+                                {question.privateQuestion && !question.notice ? (
+                                  <span className={styles['privateBadge']}>비밀글</span>
+                                ) : null}
+                                {question.title}
+                              </span>
                             </td>
                             <td className={styles['authorCell']}>
                               {question.notice ? '운영팀' : authorName}

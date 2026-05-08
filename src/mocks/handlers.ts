@@ -36,7 +36,7 @@ import {
   createMockNotice,
   deleteMockNotice,
   getMockAdminNotices,
-  getMockNoticeById,
+  getMockNoticeByPublicSlug,
   getMockPublishedGlobalNotices,
   updateMockNotice,
 } from '@/mocks/data/notices';
@@ -78,7 +78,7 @@ import {
   reorderMockAdminQuestionNotices,
   updateMockGlobalQuestion,
 } from '@/mocks/data/qna';
-import { getMockGlobalResourceById, getMockGlobalResources } from '@/mocks/data/resources';
+import { getMockGlobalResourceByPublicSlug, getMockGlobalResources } from '@/mocks/data/resources';
 import { getMockSiteNavigation } from '@/mocks/data/siteNavigation';
 import {
   getMockRegistrationTerms,
@@ -236,7 +236,6 @@ const createMockAdminProgramDraftDetail = () => {
         saleEndAt: null,
         salePrice: null,
         saleStartAt: null,
-        slug: null,
         summaryItems: [],
         thumbnailUrl: null,
         title: null,
@@ -410,6 +409,16 @@ export const handlers = [
     const nickname = getStringField(body, 'nickname');
     const password = getStringField(body, 'password');
     const phoneNumber = getStringField(body, 'phoneNumber');
+    const phoneVerificationToken = getStringField(body, 'phoneVerificationToken');
+    const acceptedTerms = Array.isArray(body['acceptedTerms'])
+      ? body['acceptedTerms']
+          .filter(isRecord)
+          .map((term) => ({
+            code: getStringField(term, 'code') ?? '',
+            version: getStringField(term, 'version') ?? '',
+          }))
+          .filter((term) => term.code.length > 0 && term.version.length > 0)
+      : [];
 
     if (
       loginId === null ||
@@ -417,7 +426,8 @@ export const handlers = [
       name === null ||
       nickname === null ||
       password === null ||
-      phoneNumber === null
+      phoneNumber === null ||
+      phoneVerificationToken === null
     ) {
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
@@ -430,9 +440,8 @@ export const handlers = [
         nickname,
         password,
         phoneNumber,
-        acceptedTermCodes: Array.isArray(body['acceptedTermCodes'])
-          ? body['acceptedTermCodes'].filter((value): value is string => typeof value === 'string')
-          : [],
+        phoneVerificationToken,
+        acceptedTerms,
       });
 
       if (!result) {
@@ -1120,9 +1129,9 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(response));
   }),
-  http.get('*/api/v1/resources/:resourceId', ({ params }) => {
-    const resourceId = Number(params['resourceId']);
-    const response: ResourceItem | null = getMockGlobalResourceById(resourceId);
+  http.get('*/api/v1/resources/:resourceSlug', ({ params }) => {
+    const resourceSlug = String(params['resourceSlug']);
+    const response: ResourceItem | null = getMockGlobalResourceByPublicSlug(resourceSlug);
 
     if (!response) {
       return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
@@ -1130,12 +1139,12 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(response));
   }),
-  http.get('*/api/v1/resources/:resourceId/download', ({ params }) => {
-    const resourceId = Number(params['resourceId']);
+  http.get('*/api/v1/resources/:resourceSlug/download', ({ params }) => {
+    const resourceSlug = String(params['resourceSlug']);
     const resource = getMockGlobalResources().find((item) =>
-      item.attachments.some((attachment) => attachment.documentId === resourceId),
+      item.attachments.some((attachment) => attachment.publicSlug === resourceSlug),
     );
-    const attachment = resource?.attachments.find((item) => item.documentId === resourceId);
+    const attachment = resource?.attachments.find((item) => item.publicSlug === resourceSlug);
 
     if (!attachment) {
       return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
@@ -1330,9 +1339,9 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(reply), { status: 201 });
   }),
-  http.get('*/api/v1/notices/:noticeId', ({ params }) => {
-    const noticeId = Number(params['noticeId']);
-    const notice = getMockNoticeById(noticeId);
+  http.get('*/api/v1/notices/:noticeSlug', ({ params }) => {
+    const noticeSlug = String(params['noticeSlug']);
+    const notice = getMockNoticeByPublicSlug(noticeSlug);
 
     if (!notice || !notice.published) {
       return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
@@ -2271,6 +2280,7 @@ export const handlers = [
       createApiEnvelope([
         {
           blockedHours: [],
+          enabled: true,
           id: 1,
           location: '서울 강의실 A',
           openFromHour: 9,
@@ -2279,6 +2289,7 @@ export const handlers = [
         },
         {
           blockedHours: [],
+          enabled: true,
           id: 2,
           location: '서울 강의실 A',
           openFromHour: 9,
@@ -2287,6 +2298,7 @@ export const handlers = [
         },
         {
           blockedHours: [],
+          enabled: true,
           id: 3,
           location: '서울 강의실 A',
           openFromHour: 9,
@@ -2295,6 +2307,7 @@ export const handlers = [
         },
         {
           blockedHours: [],
+          enabled: true,
           id: 4,
           location: '서울 강의실 A',
           openFromHour: 9,
@@ -2303,6 +2316,7 @@ export const handlers = [
         },
         {
           blockedHours: [],
+          enabled: true,
           id: 5,
           location: '서울 강의실 A',
           openFromHour: 9,

@@ -3,6 +3,7 @@ export type ResourceVisibility = 'PUBLIC' | 'ENROLLED_ONLY';
 
 export interface ResourceAttachmentItem {
   documentId: number;
+  publicSlug: string;
   fileName: string;
   fileSize: number;
   mimeType: string;
@@ -11,6 +12,7 @@ export interface ResourceAttachmentItem {
 
 export interface ResourceItem {
   id: number;
+  publicSlug: string;
   scope: ResourceScope;
   visibility: ResourceVisibility;
   programId: number | null;

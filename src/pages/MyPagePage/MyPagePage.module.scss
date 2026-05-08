@@ -1615,23 +1615,15 @@
 }
 .courseCardFooter {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: stretch;
   align-self: end;
   margin-top: 0;
   padding-top: 16px;
 }
 .courseCardFooterExpired {
   justify-content: stretch;
-}
-.courseActionGroup {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 16px;
-  align-items: center;
-  width: 100%;
 }
 .learningPagination {
   display: flex;
@@ -2284,9 +2276,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 157px;
-  min-width: 157px;
+  width: 100%;
+  min-width: 0;
   height: 43px;
+  border: 0;
   border-radius: 10px;
   color: #ffffff;
   font-size: 18px;
@@ -2294,12 +2287,14 @@
   line-height: 1.3;
   text-decoration: none;
   background: #34b29f;
+  cursor: pointer;
 }
-.learningActionLink:hover {
+.learningActionLink:hover:not(:disabled) {
   background: #2fa08f;
 }
 .learningActionLinkDisabled,
-.learningActionLinkDisabled:hover {
+.learningActionLinkDisabled:hover,
+.learningActionLink:disabled {
   color: #6b7280;
   background: #e5e7eb;
   cursor: not-allowed;
@@ -2788,6 +2783,119 @@
   justify-content: center;
   margin-top: 40px;
 }
+.learningStartNoticeModalPanel {
+  width: min(100%, 520px);
+  border-radius: 18px;
+}
+.learningStartNoticeModalHeader {
+  padding: 30px 32px 0;
+}
+.learningStartNoticeModalTitle {
+  color: #111827;
+  font-size: 24px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.35;
+}
+.learningStartNoticeModalCloseButton {
+  width: 30px;
+  height: 30px;
+  border-radius: 0;
+  background: transparent;
+  color: #111827;
+
+  &:hover,
+  &:focus-visible {
+    background: transparent;
+    color: #111827;
+  }
+}
+.learningStartNoticeModalCloseIcon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  background: currentcolor;
+  mask: var(--mypage-menu-icon) center / contain no-repeat;
+  -webkit-mask: var(--mypage-menu-icon) center / contain no-repeat;
+}
+.learningStartNoticeModalBody {
+  padding: 22px 32px 32px;
+}
+.learningStartNoticeModalContent {
+  display: grid;
+  gap: 18px;
+}
+.learningStartNoticeProgramTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.45;
+}
+.learningStartNoticeIntro {
+  margin: 0;
+  color: #4b5563;
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.55;
+}
+.learningStartNoticeList {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 18px 18px 18px 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+.learningStartNoticeItem {
+  color: #374151;
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.55;
+}
+.learningStartNoticeActionRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 4px;
+}
+.learningStartNoticeCancelButton,
+.learningStartNoticeConfirmButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  cursor: pointer;
+}
+.learningStartNoticeCancelButton {
+  border: 1px solid #d1d5db;
+  color: #374151;
+  background: #ffffff;
+}
+.learningStartNoticeConfirmButton {
+  border: 1px solid #34b29f;
+  color: #ffffff;
+  background: #34b29f;
+}
+.learningStartNoticeCancelButton:hover:not(:disabled) {
+  background: #f9fafb;
+}
+.learningStartNoticeConfirmButton:hover:not(:disabled) {
+  background: #2fa08f;
+}
+.learningStartNoticeCancelButton:disabled,
+.learningStartNoticeConfirmButton:disabled {
+  color: #6b7280;
+  border-color: #e5e7eb;
+  background: #e5e7eb;
+  cursor: not-allowed;
+}
 .paymentDetailModalPanel {
   position: relative;
   width: min(100%, 780px);
@@ -3206,6 +3314,27 @@
     gap: 18px;
     grid-template-columns: 1fr;
     margin-top: 28px;
+  }
+  .learningStartNoticeModalPanel {
+    width: min(100%, calc(100vw - 24px));
+    border-radius: 18px;
+  }
+  .learningStartNoticeModalHeader {
+    padding: 26px 56px 0 22px;
+  }
+  .learningStartNoticeModalCloseButton {
+    top: 26px;
+    right: 22px;
+  }
+  .learningStartNoticeModalBody {
+    padding: 20px 22px 24px;
+  }
+  .learningStartNoticeActionRow {
+    flex-direction: column;
+  }
+  .learningStartNoticeCancelButton,
+  .learningStartNoticeConfirmButton {
+    width: 100%;
   }
   .paymentDetailModalHeader {
     padding: 24px 56px 0 20px;

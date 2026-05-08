@@ -75,6 +75,15 @@ export interface EnrollmentSummary {
   lastLearningAt: string | null;
 }
 
+export interface LearningStartNotice {
+  required: boolean;
+  accepted: boolean;
+  acceptedAt: string | null;
+  version: string;
+  title: string;
+  messages: string[];
+}
+
 export interface EnrollmentReview {
   id: number;
   rating: number;
@@ -288,6 +297,7 @@ export interface MyQuestionItem {
   title: string;
   content: string;
   mine: boolean;
+  privateQuestion: boolean;
   answered: boolean;
   replyCount: number;
   createdAt: string;

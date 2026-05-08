@@ -92,7 +92,7 @@ const resolveFriendlyApiErrorMessage = (
   fallbackUserMessage: string,
 ): string => {
   if (code === 'AUTH_401_SESSION') {
-    return '보안을 위해 로그인 상태가 종료되었습니다. 다시 로그인해 주세요.';
+    return '다른 기기에서 로그인되었거나 인증 시간이 만료되어 로그아웃되었습니다. 다시 로그인해 주세요.';
   }
 
   if (code === 'AUTH_401_REFRESH') {

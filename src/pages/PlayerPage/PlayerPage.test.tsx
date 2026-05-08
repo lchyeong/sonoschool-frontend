@@ -82,7 +82,11 @@ const {
     >(),
   moveMyLecturePracticumMock:
     vi.fn<
-      (enrollmentId: number, reservationId: number, startAt: string) => Promise<PracticumReservation>
+      (
+        enrollmentId: number,
+        reservationId: number,
+        startAt: string,
+      ) => Promise<PracticumReservation>
     >(),
   reserveMyLecturePracticumMock:
     vi.fn<
@@ -642,6 +646,7 @@ const testProgramQnaResponse: ProgramQnaPageResponse = {
       createdAt: '2026-03-10T12:00:00Z',
       id: 9101,
       mine: false,
+      privateQuestion: false,
       programId: 2001,
       programTitle: '복부초음파 기초',
       replies: [
@@ -669,6 +674,7 @@ const testProgramQnaResponse: ProgramQnaPageResponse = {
       createdAt: '2026-03-09T12:00:00Z',
       id: 9102,
       mine: false,
+      privateQuestion: false,
       programId: 2001,
       programTitle: '복부초음파 기초',
       replies: [
@@ -1525,11 +1531,7 @@ describe('PlayerPage', () => {
     fireEvent.click(moveButton);
 
     await waitFor(() => {
-      expect(moveMyLecturePracticumMock).toHaveBeenCalledWith(
-        101,
-        7001,
-        '2026-05-20T04:00:00Z',
-      );
+      expect(moveMyLecturePracticumMock).toHaveBeenCalledWith(101, 7001, '2026-05-20T04:00:00Z');
     });
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: '실습 예약' })).not.toBeInTheDocument();

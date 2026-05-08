@@ -854,6 +854,16 @@
   line-height: var(--line-height-tight);
 }
 
+.panelTitleMeta {
+  display: inline-flex;
+  margin-left: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+  vertical-align: baseline;
+}
+
 .panelToolbar {
   display: flex;
   flex-wrap: wrap;
@@ -2153,7 +2163,7 @@
   margin: -1px;
   padding: 0;
   border: 0;
-  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
@@ -4630,8 +4640,61 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-2);
+}
+
+.practicumBlockedSectionHeader > button {
+  margin-left: auto;
+}
+
+.practicumBlockedLabelGroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.practicumBlockedLegend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.practicumBlockedLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: var(--radius-full);
+  background: #ffffff;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.practicumBlockedLegend span::before {
+  content: '';
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: var(--radius-full);
+  background: #94a3b8;
+}
+
+.practicumBlockedLegend span[data-reason='PRACTICUM']::before {
+  background: #ef4444;
+}
+
+.practicumBlockedLegend span[data-reason='OFFLINE']::before {
+  background: #f59e0b;
+}
+
+.practicumBlockedLegend span[data-reason='PERSONAL']::before {
+  background: #6366f1;
 }
 
 .practicumBlockedHours {
@@ -4660,6 +4723,28 @@
   background: #34b29f;
   box-shadow: none;
   color: #ffffff;
+}
+
+.practicumBlockedHourButton[data-reason='PRACTICUM'] {
+  border-color: #ef4444;
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.practicumBlockedHourButton[data-reason='OFFLINE'] {
+  border-color: #f59e0b;
+  background: #f59e0b;
+  color: #111827;
+}
+
+.practicumBlockedHourButton[data-reason='PERSONAL'] {
+  border-color: #6366f1;
+  background: #6366f1;
+  color: #ffffff;
+}
+
+.practicumBlockedHourButton:disabled {
+  cursor: not-allowed;
 }
 
 .adminPracticumToolbar {

@@ -350,10 +350,10 @@ const appLeafRouteDefinitions = {
   noticeDetail: defineDynamicRoute({
     key: 'noticeDetail',
     access: 'public',
-    routePath: 'notices/:noticeId',
-    absolutePathPattern: '/notices/:noticeId',
-    buildPath: ({ noticeId }: { noticeId: string }) => {
-      return generatePath('/notices/:noticeId', { noticeId });
+    routePath: 'notices/:noticeSlug',
+    absolutePathPattern: '/notices/:noticeSlug',
+    buildPath: ({ noticeSlug }: { noticeSlug: string }) => {
+      return generatePath('/notices/:noticeSlug', { noticeSlug });
     },
   }),
   reviews: defineStaticRoute({
@@ -377,10 +377,10 @@ const appLeafRouteDefinitions = {
   resourceDetail: defineDynamicRoute({
     key: 'resourceDetail',
     access: 'public',
-    routePath: 'resources/:resourceId',
-    absolutePathPattern: '/resources/:resourceId',
-    buildPath: ({ resourceId }: { resourceId: string }) => {
-      return generatePath('/resources/:resourceId', { resourceId });
+    routePath: 'resources/:resourceSlug',
+    absolutePathPattern: '/resources/:resourceSlug',
+    buildPath: ({ resourceSlug }: { resourceSlug: string }) => {
+      return generatePath('/resources/:resourceSlug', { resourceSlug });
     },
   }),
   programs: defineStaticRoute({
@@ -555,11 +555,11 @@ export const routePaths = {
   paymentResult: routes.paymentResult.absolutePath,
   homeFeaturedCourses: `${routes.home.absolutePath}#home-featured-courses`,
   notices: routes.notices.absolutePath,
-  noticeDetail: (noticeId: string) => routes.noticeDetail.buildPath({ noticeId }),
+  noticeDetail: (noticeSlug: string) => routes.noticeDetail.buildPath({ noticeSlug }),
   reviews: routes.reviews.absolutePath,
   qna: routes.qna.absolutePath,
   resources: routes.resources.absolutePath,
-  resourceDetail: (resourceId: string) => routes.resourceDetail.buildPath({ resourceId }),
+  resourceDetail: (resourceSlug: string) => routes.resourceDetail.buildPath({ resourceSlug }),
   programs: routes.programs.absolutePath,
   search: routes.search.absolutePath,
   contact: routes.contact.absolutePath,

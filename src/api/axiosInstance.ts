@@ -79,6 +79,24 @@ const showSessionEndedToast = (error: unknown) => {
   });
 };
 
+const getResponseErrorCode = (error: unknown): string | null => {
+  if (!axios.isAxiosError<unknown>(error)) return null;
+
+  const responseData = error.response?.data;
+  if (!responseData || typeof responseData !== 'object') {
+    return null;
+  }
+
+  const code = (responseData as Record<string, unknown>)['code'];
+  return typeof code === 'string' && code.trim() ? code.trim() : null;
+};
+
+const endStudentSession = (error: unknown) => {
+  clearStudentSession();
+  showSessionEndedToast(error);
+  redirectToLogin(routePaths.login);
+};
+
 axiosInstance.interceptors.request.use((config) => {
   const accessToken = isAdminApiRequest(config.url)
     ? getAdminAccessToken()
@@ -103,6 +121,7 @@ axiosInstance.interceptors.response.use(
 
     const requestConfig = error.config as RetriableRequestConfig | undefined;
     const statusCode = error.response?.status ?? null;
+    const errorCode = getResponseErrorCode(error);
 
     if (
       statusCode === 401 &&
@@ -112,6 +131,17 @@ axiosInstance.interceptors.response.use(
     ) {
       clearAdminSession();
       redirectToLogin(routePaths.adminLogin);
+    }
+
+    if (
+      statusCode === 401 &&
+      errorCode === 'AUTH_401_SESSION' &&
+      requestConfig &&
+      !isAdminApiRequest(requestConfig.url) &&
+      isStudentAuthenticated()
+    ) {
+      endStudentSession(error);
+      return Promise.reject(error);
     }
 
     if (
@@ -139,9 +169,7 @@ axiosInstance.interceptors.response.use(
         requestConfig.headers.set('Authorization', `Bearer ${nextSession.accessToken}`);
         return await axiosInstance(requestConfig);
       } catch (refreshError: unknown) {
-        clearStudentSession();
-        showSessionEndedToast(refreshError);
-        redirectToLogin(routePaths.login);
+        endStudentSession(refreshError);
         const normalizedRefreshError =
           refreshError instanceof Error
             ? refreshError

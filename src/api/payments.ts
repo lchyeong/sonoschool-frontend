@@ -11,10 +11,19 @@ import type {
   PaymentInitiatePayload,
   PaymentResult,
 } from '@/types/payment';
+import { sanitizePublicAssetUrl } from '@/utils/publicAssetUrl';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
+
+const sanitizePaymentResult = (payment: PaymentResult): PaymentResult => ({
+  ...payment,
+  purchasedItems: payment.purchasedItems?.map((item) => ({
+    ...item,
+    thumbnailUrl: sanitizePublicAssetUrl(item.thumbnailUrl),
+  })),
+});
 
 export const fetchPaymentResult = async (paymentId: number): Promise<PaymentResult> => {
   try {
@@ -52,7 +61,7 @@ export const fetchPaymentHistory = async (): Promise<PaymentResult[]> => {
 
   try {
     const response = await axiosInstance.get<ApiEnvelope<PaymentResult[]>>('/api/v1/payments');
-    return unwrapApiEnvelope(response.data);
+    return unwrapApiEnvelope(response.data).map(sanitizePaymentResult);
   } catch (error: unknown) {
     throw toApiError(error, '결제 내역을 불러오지 못했습니다.', {
       preferFallbackUserMessage: true,
@@ -132,7 +141,7 @@ export const completeFreeCheckoutPayment = async (
       '/api/v1/payments/checkout/free/complete',
       payload,
     );
-    return unwrapApiEnvelope(response.data);
+    return sanitizePaymentResult(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '무료 신청 처리에 실패했습니다.', {
       preferFallbackUserMessage: true,
@@ -146,7 +155,7 @@ export const approveKcpPcPayment = async (payload: KcpPcApprovePayload): Promise
       '/api/v1/payments/kcp/pc/approve',
       payload,
     );
-    return unwrapApiEnvelope(response.data);
+    return sanitizePaymentResult(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, 'PC 결제 승인에 실패했습니다.', {
       preferFallbackUserMessage: true,
@@ -163,7 +172,7 @@ export const cancelPayment = async (
       `/api/v1/payments/${String(paymentId)}/cancel`,
       payload,
     );
-    return unwrapApiEnvelope(response.data);
+    return sanitizePaymentResult(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '결제 취소 처리에 실패했습니다.', {
       preferFallbackUserMessage: true,

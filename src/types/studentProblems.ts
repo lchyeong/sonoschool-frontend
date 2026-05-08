@@ -4,6 +4,7 @@ export type StudentProblemMediaType = 'IMAGE' | 'VIDEO';
 export interface StudentProblemMedia {
   mediaType: StudentProblemMediaType | null;
   mediaAssetId?: number | null;
+  mediaVideoId?: number | null;
   mediaPreviewUrl?: string | null;
   mediaUrl: string | null;
 }

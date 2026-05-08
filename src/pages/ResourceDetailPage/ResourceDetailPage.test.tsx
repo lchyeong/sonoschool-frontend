@@ -28,9 +28,9 @@ describe('ResourceDetailPage', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/resources/1']}>
+        <MemoryRouter initialEntries={['/resources/resource-1']}>
           <Routes>
-            <Route element={<ResourceDetailPage />} path='/resources/:resourceId' />
+            <Route element={<ResourceDetailPage />} path='/resources/:resourceSlug' />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>,

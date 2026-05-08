@@ -3,6 +3,7 @@ import { toApiError } from '@/api/errors';
 import type {
   AdminLectureVideoAssignmentResponse,
   AdminVideoEncodingStartResponse,
+  AdminVideoEncodingProfile,
   AdminVideoProgramSummary,
   AdminVideoSectionResponse,
   AdminVideoStatusResponse,
@@ -122,12 +123,14 @@ export const completeAdminVideoUpload = async (
 
 export const startAdminVideoEncoding = async (
   videoId: number,
+  profile?: AdminVideoEncodingProfile,
 ): Promise<AdminVideoEncodingStartResponse> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<AdminVideoEncodingStartResponse>>(
       `/api/v1/admin/videos/${String(videoId)}/encoding/start`,
       undefined,
       {
+        params: profile ? { profile } : undefined,
         timeout: VIDEO_UPLOAD_API_TIMEOUT_MS,
       },
     );

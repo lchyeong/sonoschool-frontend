@@ -13,9 +13,9 @@ export const fetchGlobalResources = async (): Promise<ResourceItem[]> => {
   }
 };
 
-export const fetchGlobalResourceDetail = async (resourceId: number): Promise<ResourceItem> => {
+export const fetchGlobalResourceDetail = async (resourceSlug: string): Promise<ResourceItem> => {
   try {
-    return await http.get<ResourceItem>(`/api/v1/resources/${String(resourceId)}`);
+    return await http.get<ResourceItem>(`/api/v1/resources/${encodeURIComponent(resourceSlug)}`);
   } catch (error: unknown) {
     throw toApiError(error, '자료 상세를 불러오지 못했습니다.');
   }
@@ -104,10 +104,10 @@ const saveBlobAsFile = (blob: Blob, fileName: string): void => {
 };
 
 export const downloadGlobalResourceFile = async (
-  resourceId: number,
+  resourceSlug: string,
   fileName: string,
 ): Promise<void> => {
-  await downloadFile(`/api/v1/resources/${String(resourceId)}/download`, fileName);
+  await downloadFile(`/api/v1/resources/${encodeURIComponent(resourceSlug)}/download`, fileName);
 };
 
 export const downloadProgramResourceFile = async (

@@ -145,7 +145,6 @@ export interface AdminProgramDetail {
 export interface AdminProgramUpsertPayload {
   categoryId: number;
   title: string;
-  slug: string;
   description: string | null;
   thumbnailUrl: string | null;
   programType: AdminProgramType;

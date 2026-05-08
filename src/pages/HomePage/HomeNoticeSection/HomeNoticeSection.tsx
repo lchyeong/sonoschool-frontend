@@ -85,7 +85,7 @@ const HomeNoticeSection = () => {
                       <Link
                         aria-label={`${item.title} 공지 자세히 보기`}
                         className={styles['noticeItemLink']}
-                        to={routePaths.noticeDetail(String(item.id))}
+                        to={routePaths.noticeDetail(item.publicSlug)}
                       >
                         <h3 className={styles['noticeCardTitle']}>{item.title}</h3>
                         <span className={styles['noticeDate']}>{formatDate(item.createdAt)}</span>

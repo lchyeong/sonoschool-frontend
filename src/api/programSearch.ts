@@ -4,6 +4,14 @@ import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
 import { searchScopeValues } from '@/search/programSearchShared';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
+import { sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
+
+const DEFAULT_PROGRAM_IMAGE = '/SRDMS_OG.png';
+
+const publicImageSchema = z
+  .string()
+  .min(1)
+  .transform((value) => sanitizeRequiredPublicAssetUrl(value, DEFAULT_PROGRAM_IMAGE));
 
 const programSearchItemSchema = z.object({
   id: z.string().min(1),
@@ -12,7 +20,7 @@ const programSearchItemSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   categoryLabel: z.string().min(1),
-  thumbnailSrc: z.string().min(1),
+  thumbnailSrc: publicImageSchema,
   thumbnailAlt: z.string().min(1),
 });
 
@@ -65,7 +73,7 @@ export const fetchProgramSearchIndex = async (): Promise<ProgramSearchIndexRespo
       title: item.title,
       description: item.description?.trim() || `${item.categoryName} 강의`,
       categoryLabel: item.categoryName,
-      thumbnailSrc: item.thumbnailUrl || '/SRDMS_OG.png',
+      thumbnailSrc: sanitizeRequiredPublicAssetUrl(item.thumbnailUrl, DEFAULT_PROGRAM_IMAGE),
       thumbnailAlt: `${item.title} 썸네일`,
     })),
   };

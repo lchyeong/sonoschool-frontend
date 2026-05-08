@@ -95,7 +95,6 @@ interface AdminProgramFormState {
   recommendedFor: string[];
   saleEndAt: string;
   saleStartAt: string;
-  slug: string;
   summaryItems: AdminProgramSummaryFormItem[];
   thumbnailPreviewUrl: string;
   thumbnailUrl: string;
@@ -119,7 +118,6 @@ const INITIAL_FORM_STATE: AdminProgramFormState = {
   recommendedFor: [],
   saleEndAt: '',
   saleStartAt: '',
-  slug: '',
   summaryItems: [],
   thumbnailPreviewUrl: '',
   thumbnailUrl: '',
@@ -381,7 +379,6 @@ const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormS
     recommendedFor: [...detail.recommendedFor],
     saleEndAt: toDateTimeLocal(detail.saleEndAt),
     saleStartAt: toDateTimeLocal(detail.saleStartAt),
-    slug: detail.slug,
     summaryItems: detail.summaryItems.map((item) => ({
       label: item.label,
       value: item.value,
@@ -463,7 +460,6 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
     saleEndAt: toIsoStringOrNull(formState.saleEndAt),
     salePrice: resolveSalePriceFromPercent(formState.price, formState.discountPercent),
     saleStartAt: toIsoStringOrNull(formState.saleStartAt),
-    slug: formState.slug.trim(),
     summaryItems: sanitizeSummaryItems(formState.summaryItems),
     thumbnailUrl: formState.thumbnailUrl.trim() || null,
     title: formState.title.trim(),
@@ -680,7 +676,6 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       mode === 'duplicate'
         ? {
             ...nextState,
-            slug: '',
             title: `${nextState.title} 복제본`,
           }
         : nextState;

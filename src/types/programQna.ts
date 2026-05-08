@@ -22,6 +22,7 @@ export interface ProgramQnaThreadItem {
   title: string;
   content: string;
   mine: boolean;
+  privateQuestion: boolean;
   answered: boolean;
   replyCount: number;
   createdAt: string;
@@ -48,6 +49,7 @@ export interface ProgramQnaPageResponse {
 export interface ProgramQnaThreadCreatePayload {
   title: string;
   content: string;
+  privateQuestion?: boolean;
 }
 
 export interface ProgramQnaReplyCreatePayload {

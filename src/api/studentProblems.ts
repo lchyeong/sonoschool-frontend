@@ -3,6 +3,7 @@ import axios from 'axios';
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
 import type { ApiEnvelope } from '@/types/auth';
+import type { ProtectedLectureStream } from '@/types/mypage';
 import type {
   StudentProblem,
   StudentProblemAttemptReport,
@@ -28,6 +29,49 @@ export const fetchStudentProblem = async (lectureId: number): Promise<StudentPro
     }
 
     throw toApiError(error, '문제 정보를 불러오지 못했습니다.');
+  }
+};
+
+export const fetchProblemVideoStream = async (
+  lectureId: number,
+  videoId: number,
+  deviceId: string,
+): Promise<ProtectedLectureStream> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<ProtectedLectureStream>>(
+      `/api/v1/lectures/${String(lectureId)}/problem-videos/${String(videoId)}/stream`,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+        },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '문제 영상 스트리밍 주소를 불러오지 못했습니다.');
+  }
+};
+
+export const refreshProblemVideoStreamCookies = async (
+  lectureId: number,
+  videoId: number,
+  deviceId: string,
+  playbackSessionToken: string,
+): Promise<{ expiresAt: number }> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<{ expiresAt: number }>>(
+      `/api/v1/lectures/${String(lectureId)}/problem-videos/${String(videoId)}/stream/refresh`,
+      null,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+          'X-Playback-Session-Token': playbackSessionToken,
+        },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '문제 영상 스트리밍 쿠키를 갱신하지 못했습니다.');
   }
 };
 

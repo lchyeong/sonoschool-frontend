@@ -3,11 +3,25 @@ import { z } from 'zod';
 import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
+import { sanitizePublicAssetUrl, sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
+
+const DEFAULT_HOME_IMAGE = '/SRDMS_OG.png';
+
+const publicImageSchema = z
+  .string()
+  .min(1)
+  .transform((value) => sanitizeRequiredPublicAssetUrl(value, DEFAULT_HOME_IMAGE));
+
+const optionalPublicImageSchema = z
+  .string()
+  .min(1)
+  .optional()
+  .transform((value) => sanitizePublicAssetUrl(value) ?? undefined);
 
 const homeHeroBannerSlideSchema = z.object({
   id: z.string().min(1),
   type: z.literal('banner'),
-  imageSrc: z.string().min(1),
+  imageSrc: publicImageSchema,
   imageAlt: z.string().min(1),
 });
 
@@ -16,9 +30,9 @@ const homeHeroLectureSlideSchema = z.object({
   type: z.literal('lecture'),
   title: z.string().min(1),
   description: z.string().min(1),
-  thumbnailSrc: z.string().min(1),
+  thumbnailSrc: publicImageSchema,
   thumbnailAlt: z.string().min(1),
-  backgroundSrc: z.string().min(1).optional(),
+  backgroundSrc: optionalPublicImageSchema,
 });
 
 const homeHeroSlidesResponseSchema = z.object({

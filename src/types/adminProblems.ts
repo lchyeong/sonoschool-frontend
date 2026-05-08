@@ -4,6 +4,7 @@ export type AdminProblemMediaType = 'IMAGE' | 'VIDEO';
 export interface AdminProblemMedia {
   mediaType: AdminProblemMediaType | null;
   mediaAssetId?: number | null;
+  mediaVideoId?: number | null;
   mediaPreviewUrl?: string | null;
   mediaUrl: string | null;
 }

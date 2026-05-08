@@ -1,13 +1,23 @@
-import type { ChangeEvent, CSSProperties, FormEvent, ReactNode, RefObject } from 'react';
-import { useRef, useState } from 'react';
+import type {
+  ChangeEvent,
+  CSSProperties,
+  FormEvent,
+  KeyboardEvent,
+  ReactNode,
+  RefObject,
+} from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { loginStudent, verifyStudentLoginSms } from '@/api/auth';
+import clockIconSrc from '@/assets/icons/lucide_clock_sono.svg';
 import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
 import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
+import closeIconSrc from '@/assets/icons/lucide_x.svg';
+import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { myCartQueryKey } from '@/query/useMyPageQueries';
@@ -67,6 +77,21 @@ const INITIAL_FORM_VALUES: LoginFormValues = {
 };
 const MOCK_SMS_CODE = '123456';
 const LOGIN_AUTH_ERROR_MESSAGE = '아이디 및 비밀번호를 확인해주세요.';
+const SMS_CODE_LENGTH = 6;
+
+const getRemainingSeconds = (expiresAt: string | null): number => {
+  if (!expiresAt) return 0;
+
+  const remainingMilliseconds = new Date(expiresAt).getTime() - Date.now();
+  return remainingMilliseconds > 0 ? Math.ceil(remainingMilliseconds / 1000) : 0;
+};
+
+const formatRemainingTimeLabel = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+};
 
 const StudentLoginForm = ({
   className,
@@ -88,6 +113,7 @@ const StudentLoginForm = ({
   const internalLoginIdInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
+  const codeBoxRefs = useRef<Array<HTMLInputElement | null>>([]);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -101,10 +127,15 @@ const StudentLoginForm = ({
   const [formErrors, setFormErrors] = useState<LoginFormErrors>({});
   const [verificationCode, setVerificationCode] = useState('');
   const [loginChallenge, setLoginChallenge] = useState<StudentLoginChallenge | null>(null);
+  const [challengeCountdownSeconds, setChallengeCountdownSeconds] = useState(0);
   const [rememberLoginId, setRememberLoginId] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const isPageVariant = variant === 'page';
+  const codeDigits = useMemo(
+    () => Array.from({ length: SMS_CODE_LENGTH }, (_, index) => verificationCode[index] ?? ''),
+    [verificationCode],
+  );
 
   const resolvePostLoginPath = () => {
     const redirectState = location.state as LoginRedirectState | null;
@@ -173,12 +204,13 @@ const StudentLoginForm = ({
       if (session.status === 'SMS_REQUIRED') {
         setLoginChallenge(session);
         setVerificationCode(MOCK_SMS_CODE);
+        setChallengeCountdownSeconds(getRemainingSeconds(session.challengeExpiresAt));
         showToast({
           message: `${session.maskedPhoneNumber} 번호로 인증번호를 보냈습니다.`,
           variant: 'success',
         });
         window.setTimeout(() => {
-          codeInputRef.current?.focus();
+          codeBoxRefs.current[0]?.focus();
         }, 0);
         return;
       }
@@ -201,9 +233,31 @@ const StudentLoginForm = ({
     onSuccess: async (session) => {
       setLoginChallenge(null);
       setVerificationCode('');
+      setChallengeCountdownSeconds(0);
       await finalizeAuthenticatedLogin(session);
     },
   });
+
+  useEffect(() => {
+    if (!loginChallenge || challengeCountdownSeconds === 0) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setChallengeCountdownSeconds((current) => {
+        if (current <= 1) {
+          window.clearInterval(intervalId);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [challengeCountdownSeconds, loginChallenge]);
 
   const handleFieldChange =
     (fieldName: keyof LoginFormValues) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -277,21 +331,77 @@ const StudentLoginForm = ({
     });
   };
 
-  const handleCodeChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setVerificationCode(event.target.value);
+  const handleSmsSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.stopPropagation();
+    handleSubmit(event);
+  };
+
+  const handleCodeBoxChange = (index: number) => (event: ChangeEvent<HTMLInputElement>) => {
+    const nextDigits = event.target.value.replace(/\D/g, '').slice(0, SMS_CODE_LENGTH);
+    if (!nextDigits) {
+      const currentDigits = codeDigits.slice();
+      currentDigits[index] = '';
+      setVerificationCode(currentDigits.join('').slice(0, SMS_CODE_LENGTH));
+      return;
+    }
+
+    const currentDigits = codeDigits.slice();
+    nextDigits.split('').forEach((digit, digitIndex) => {
+      const targetIndex = index + digitIndex;
+      if (targetIndex < SMS_CODE_LENGTH) {
+        currentDigits[targetIndex] = digit;
+      }
+    });
+
+    const nextCode = currentDigits.join('').slice(0, SMS_CODE_LENGTH);
+    const nextFocusIndex = Math.min(index + nextDigits.length, SMS_CODE_LENGTH - 1);
+    setVerificationCode(nextCode);
+    setFormErrors((current) => ({
+      ...current,
+      code: '',
+    }));
+    window.setTimeout(() => {
+      codeBoxRefs.current[nextFocusIndex]?.focus();
+    }, 0);
+  };
+
+  const handleCodeBoxKeyDown = (index: number) => (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Backspace' && !codeDigits[index] && index > 0) {
+      event.preventDefault();
+      codeBoxRefs.current[index - 1]?.focus();
+    }
+
+    if (event.key === 'ArrowLeft' && index > 0) {
+      event.preventDefault();
+      codeBoxRefs.current[index - 1]?.focus();
+    }
+
+    if (event.key === 'ArrowRight' && index < SMS_CODE_LENGTH - 1) {
+      event.preventDefault();
+      codeBoxRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const resetLoginChallenge = () => {
+    setLoginChallenge(null);
+    setVerificationCode('');
+    setChallengeCountdownSeconds(0);
     setFormErrors((current) => ({
       ...current,
       code: '',
     }));
   };
 
-  const resetLoginChallenge = () => {
-    setLoginChallenge(null);
+  const handleResendChallenge = () => {
     setVerificationCode('');
     setFormErrors((current) => ({
       ...current,
       code: '',
     }));
+    loginMutation.mutate({
+      loginId: formValues.loginId.trim(),
+      password: formValues.password,
+    });
   };
 
   return (
@@ -303,84 +413,58 @@ const StudentLoginForm = ({
       {supportText ? <p className={styles['supportText']}>{supportText}</p> : null}
 
       <div className={styles['fieldGroup']}>
-        {loginChallenge ? (
-          <>
-            <p className={styles['challengeSummary']}>
-              새 환경 로그인으로 확인되어 {loginChallenge.maskedPhoneNumber} 번호로 문자 인증이
-              필요합니다.
-            </p>
-            <p className={styles['challengeHint']}>
-              개발환경에서는 인증번호가 `123456`으로 고정됩니다.
-            </p>
-            <TextField
-              autoComplete='one-time-code'
-              errorMessage={formErrors.code}
-              label='인증번호'
-              name='verificationCode'
-              onChange={handleCodeChange}
-              placeholder='123456'
-              ref={codeInputRef}
-              value={verificationCode}
-            />
-          </>
-        ) : (
-          <>
-            <TextField
-              autoComplete='username'
-              className={inputClassName}
-              errorClassName={inputErrorClassName}
-              errorMessage={formErrors.loginId}
-              fieldClassName={inputFieldClassName}
-              label='아이디'
-              labelClassName={inputLabelClassName}
-              name='loginId'
-              onChange={handleFieldChange('loginId')}
-              placeholder='아이디 또는 이메일을 입력해주세요.'
-              ref={resolvedLoginIdInputRef}
-              value={formValues.loginId}
-            />
+        <TextField
+          autoComplete='username'
+          className={inputClassName}
+          errorClassName={inputErrorClassName}
+          errorMessage={formErrors.loginId}
+          fieldClassName={inputFieldClassName}
+          label='아이디'
+          labelClassName={inputLabelClassName}
+          name='loginId'
+          onChange={handleFieldChange('loginId')}
+          placeholder='아이디 또는 이메일을 입력해주세요.'
+          ref={resolvedLoginIdInputRef}
+          value={formValues.loginId}
+        />
 
-            <div className={styles['passwordFieldWrap']}>
-              <TextField
-                autoComplete='current-password'
-                className={classNames(inputClassName, isPageVariant && styles['passwordInput'])}
-                errorClassName={inputErrorClassName}
-                errorMessage={formErrors.password}
-                fieldClassName={inputFieldClassName}
-                label='비밀번호'
-                labelClassName={inputLabelClassName}
-                name='password'
-                onChange={handleFieldChange('password')}
-                placeholder='비밀번호를 입력해주세요.'
-                ref={passwordInputRef}
-                type={isPasswordVisible ? 'text' : 'password'}
-                value={formValues.password}
+        <div className={styles['passwordFieldWrap']}>
+          <TextField
+            autoComplete='current-password'
+            className={classNames(inputClassName, isPageVariant && styles['passwordInput'])}
+            errorClassName={inputErrorClassName}
+            errorMessage={formErrors.password}
+            fieldClassName={inputFieldClassName}
+            label='비밀번호'
+            labelClassName={inputLabelClassName}
+            name='password'
+            onChange={handleFieldChange('password')}
+            placeholder='비밀번호를 입력해주세요.'
+            ref={passwordInputRef}
+            type={isPasswordVisible ? 'text' : 'password'}
+            value={formValues.password}
+          />
+          {isPageVariant ? (
+            <button
+              aria-label={isPasswordVisible ? '비밀번호 숨기기' : '비밀번호 보기'}
+              className={styles['passwordVisibilityButton']}
+              onClick={() => {
+                setIsPasswordVisible((current) => !current);
+              }}
+              type='button'
+            >
+              <span
+                aria-hidden='true'
+                className={styles['passwordVisibilityIcon']}
+                style={
+                  {
+                    '--login-eye-icon': `url("${isPasswordVisible ? eyeIconSrc : eyeOffIconSrc}")`,
+                  } as LoginEyeIconStyle
+                }
               />
-              {isPageVariant ? (
-                <button
-                  aria-label={isPasswordVisible ? '비밀번호 숨기기' : '비밀번호 보기'}
-                  className={styles['passwordVisibilityButton']}
-                  onClick={() => {
-                    setIsPasswordVisible((current) => !current);
-                  }}
-                  type='button'
-                >
-                  <span
-                    aria-hidden='true'
-                    className={styles['passwordVisibilityIcon']}
-                    style={
-                      {
-                        '--login-eye-icon': `url("${
-                          isPasswordVisible ? eyeIconSrc : eyeOffIconSrc
-                        }")`,
-                      } as LoginEyeIconStyle
-                    }
-                  />
-                </button>
-              ) : null}
-            </div>
-          </>
-        )}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {!loginChallenge && (showRememberLoginId || secondaryAction) && isPageVariant ? (
@@ -422,21 +506,119 @@ const StudentLoginForm = ({
           disabled={loginMutation.isPending || verifyMutation.isPending}
           type='submit'
         >
-          {loginChallenge
-            ? verifyMutation.isPending
-              ? '인증 확인 중...'
-              : '문자 인증 확인'
-            : loginMutation.isPending
-              ? '로그인 중...'
-              : submitLabel}
+          {loginMutation.isPending ? '로그인 중...' : submitLabel}
         </Button>
-        {loginChallenge ? (
-          <Button onClick={resetLoginChallenge} type='button' variant='secondary'>
-            다시 입력
-          </Button>
-        ) : null}
         {!isPageVariant ? secondaryAction : null}
       </div>
+
+      {loginChallenge ? (
+        <Modal
+          bodyClassName={styles['smsModalBody']}
+          closeButtonClassName={styles['smsModalCloseButton']}
+          closeButtonContent={
+            <span
+              aria-hidden='true'
+              className={styles['smsModalCloseIcon']}
+              style={{ '--login-eye-icon': `url("${closeIconSrc}")` } as LoginEyeIconStyle}
+            />
+          }
+          headerClassName={styles['smsModalHeader']}
+          onClose={resetLoginChallenge}
+          panelClassName={styles['smsModalPanel']}
+          title='로그인'
+          titleClassName={styles['smsModalTitle']}
+        >
+          <form className={styles['smsModalForm']} noValidate onSubmit={handleSmsSubmit}>
+            <p className={styles['smsModalDescription']}>
+              새 환경 로그인으로 확인되어 {loginChallenge.maskedPhoneNumber} 번호로 문자 인증이
+              필요합니다.
+            </p>
+            <p className={styles['smsModalDescription']}>
+              문자로 전송된 6자리 인증번호를 입력해 주세요.
+            </p>
+            <div className={styles['smsModalCodeHeader']}>
+              <label className={styles['smsModalCodeLabel']} htmlFor='login_sms_code_0'>
+                인증번호
+              </label>
+              <div className={styles['smsModalTimerGroup']}>
+                <span aria-hidden='true' className={styles['smsModalTimerIconSlot']}>
+                  <img alt='' className={styles['smsModalTimerIcon']} src={clockIconSrc} />
+                </span>
+                <span className={styles['smsModalTimerText']}>
+                  {formatRemainingTimeLabel(challengeCountdownSeconds)}
+                </span>
+                <span aria-hidden='true' className={styles['smsModalDivider']} />
+                <button
+                  className={styles['smsModalResendButton']}
+                  disabled={loginMutation.isPending}
+                  onClick={handleResendChallenge}
+                  type='button'
+                >
+                  재전송
+                </button>
+              </div>
+            </div>
+            <div className={styles['smsModalCodeGrid']}>
+              {codeDigits.map((digit, index) => (
+                <input
+                  autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                  className={classNames(
+                    styles['smsModalCodeInput'],
+                    digit && styles['smsModalCodeInputFilled'],
+                    formErrors.code && styles['smsModalCodeInputError'],
+                  )}
+                  id={`login_sms_code_${String(index)}`}
+                  inputMode='numeric'
+                  key={index}
+                  maxLength={1}
+                  onChange={handleCodeBoxChange(index)}
+                  onKeyDown={handleCodeBoxKeyDown(index)}
+                  ref={(element) => {
+                    codeBoxRefs.current[index] = element;
+                    if (index === 0) {
+                      codeInputRef.current = element;
+                    }
+                  }}
+                  type='text'
+                  value={digit}
+                />
+              ))}
+            </div>
+            <p
+              aria-hidden={!formErrors.code}
+              className={classNames(
+                styles['smsModalError'],
+                !formErrors.code && styles['smsModalErrorHidden'],
+              )}
+              role={formErrors.code ? 'alert' : undefined}
+            >
+              {formErrors.code ?? '인증번호를 확인해 주세요.'}
+            </p>
+            <Button
+              className={styles['smsModalSubmitButton']}
+              disabled={
+                verifyMutation.isPending ||
+                verificationCode.length !== SMS_CODE_LENGTH ||
+                challengeCountdownSeconds === 0
+              }
+              type='submit'
+            >
+              {verifyMutation.isPending ? '확인 중...' : '문자 인증 확인'}
+            </Button>
+            <Button
+              className={styles['smsModalResetButton']}
+              onClick={resetLoginChallenge}
+              type='button'
+              variant='secondary'
+            >
+              다시 입력
+            </Button>
+            {secondaryAction ? (
+              <div className={styles['smsModalSecondaryAction']}>{secondaryAction}</div>
+            ) : null}
+          </form>
+        </Modal>
+      ) : null}
     </form>
   );
 };

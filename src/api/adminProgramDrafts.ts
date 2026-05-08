@@ -59,7 +59,9 @@ const normalizeDraftDetail = (detail: AdminProgramDraftDetail): AdminProgramDraf
           ...question,
           mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
           mediaUploadFileName: question.mediaUploadFileName ?? null,
-          mediaUploadStatus: question.mediaUploadStatus ?? (question.mediaAssetId ? 'READY' : null),
+          mediaUploadStatus:
+            question.mediaUploadStatus ??
+            (question.mediaAssetId || question.mediaVideoId ? 'READY' : null),
         })),
       })),
       resources: detail.payload.resources.map((resource) => ({
@@ -102,7 +104,9 @@ const normalizeDraftPayload = (payload: AdminProgramDraftPayload) => {
         ...question,
         mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
         mediaUploadFileName: question.mediaUploadFileName ?? null,
-        mediaUploadStatus: question.mediaUploadStatus ?? (question.mediaAssetId ? 'READY' : null),
+        mediaUploadStatus:
+          question.mediaUploadStatus ??
+          (question.mediaAssetId || question.mediaVideoId ? 'READY' : null),
       })),
     })),
   };
@@ -254,5 +258,32 @@ export const updateDraftResourceUploadState = async (
     );
   } catch (error: unknown) {
     throw toApiError(error, '자료 업로드 상태를 저장하지 못했습니다.');
+  }
+};
+
+export const updateDraftProblemQuestionMediaUploadState = async (
+  draftId: number,
+  lectureKey: string,
+  questionIndex: number,
+  payload: {
+    clearMedia?: boolean;
+    errorMessage?: string | null;
+    fileName?: string | null;
+    mediaAssetId?: number | null;
+    mediaType?: 'IMAGE' | 'VIDEO' | null;
+    mediaUrl?: string | null;
+    mediaVideoId?: number | null;
+    status?: AdminDraftUploadStatus | null;
+  },
+): Promise<void> => {
+  try {
+    await axiosInstance.post(
+      `/api/v1/admin/program-drafts/${String(draftId)}/problems/${encodeURIComponent(
+        lectureKey,
+      )}/questions/${String(questionIndex)}/media-upload-state`,
+      payload,
+    );
+  } catch (error: unknown) {
+    throw toApiError(error, '문제 미디어 업로드 상태를 저장하지 못했습니다.');
   }
 };

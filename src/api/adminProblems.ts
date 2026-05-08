@@ -35,12 +35,17 @@ const normalizePayload = (payload: AdminProblemUpsertPayload): AdminProblemUpser
       problemAreaId: question.problemAreaId,
       explanation: normalizeDescription(question.explanation),
       mediaAssetId: question.mediaAssetId ?? null,
+      mediaVideoId: question.mediaVideoId ?? null,
       mediaType:
-        (question.mediaAssetId ?? null) !== null || normalizeMediaUrl(question.mediaUrl)
+        (question.mediaAssetId ?? null) !== null ||
+        (question.mediaVideoId ?? null) !== null ||
+        normalizeMediaUrl(question.mediaUrl)
           ? question.mediaType
           : null,
       mediaUrl:
-        (question.mediaAssetId ?? null) !== null ? null : normalizeMediaUrl(question.mediaUrl),
+        (question.mediaAssetId ?? null) !== null || (question.mediaVideoId ?? null) !== null
+          ? null
+          : normalizeMediaUrl(question.mediaUrl),
       options: question.options.map((option) => ({
         ...option,
         mediaType: null,

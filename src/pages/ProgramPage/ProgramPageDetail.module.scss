@@ -165,11 +165,19 @@
 }
 
 .heroDescription {
+  --hero-description-font-size: clamp(14px, calc((100vw - 62px) * 0.0097), 18px);
+
+  display: -webkit-box;
   max-width: min(606px, 32.76vw);
+  min-height: calc(var(--hero-description-font-size) * 1.5 * 2);
   margin-top: clamp(8px, calc((100vw - 62px) * 0.0065), 12px);
+  overflow: hidden;
   color: #ffffff;
-  font-size: clamp(14px, calc((100vw - 62px) * 0.0097), 18px);
-  line-height: normal;
+  font-size: var(--hero-description-font-size);
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .heroRatingRow {
@@ -1637,6 +1645,8 @@
   }
 
   .heroDescription {
+    --hero-description-font-size: 16px;
+
     max-width: 100%;
     font-size: 16px;
     line-height: 1.5;

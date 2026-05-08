@@ -21,6 +21,7 @@ const initialThreadsByProgramId = new Map<number, ProgramQnaThreadItem[]>([
         title: '비수강생도 예습 자료를 먼저 볼 수 있나요?',
         content: '수강 전인데 준비물과 예습 범위를 알고 싶습니다.',
         mine: false,
+        privateQuestion: false,
         answered: true,
         replyCount: 1,
         createdAt: '2026-04-02T01:20:00Z',
@@ -48,6 +49,7 @@ const initialThreadsByProgramId = new Map<number, ProgramQnaThreadItem[]>([
         title: '2강에서 probe angle 설명이 빠르게 느껴집니다.',
         content: '해당 부분만 다시 보기 좋은 구간이 있으면 알려 주세요.',
         mine: false,
+        privateQuestion: false,
         answered: true,
         replyCount: 2,
         createdAt: '2026-04-03T02:00:00Z',
@@ -123,6 +125,7 @@ export const createMockProgramQnaThread = (
     title: payload.title,
     content: payload.content,
     mine: true,
+    privateQuestion: payload.privateQuestion ?? false,
     answered: false,
     replyCount: 0,
     createdAt: now,
@@ -160,6 +163,7 @@ export const updateMockProgramQnaThread = (
         ...thread,
         title: payload.title,
         content: payload.content,
+        privateQuestion: payload.privateQuestion ?? thread.privateQuestion,
         updatedAt,
       };
 

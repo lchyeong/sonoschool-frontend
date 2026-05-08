@@ -42,6 +42,7 @@ interface ModalProps {
   closeButtonLabel?: string | undefined;
   onClose: () => void;
   initialFocusRef?: RefObject<HTMLElement | null> | undefined;
+  lockScroll?: boolean | undefined;
   restoreFocusElement?: HTMLElement | null | undefined;
   size?: 'md' | 'lg' | undefined;
 }
@@ -61,6 +62,7 @@ const Modal = ({
   closeButtonContent,
   closeButtonLabel,
   initialFocusRef,
+  lockScroll = true,
   onClose,
   overlayClassName,
   restoreFocusElement,
@@ -81,29 +83,33 @@ const Modal = ({
 
     const previousBodyOverflow = document.body.style.overflow;
     const previousDocumentOverflow = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
+    if (lockScroll) {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    }
 
     const dialogElement = dialogRef.current;
     const focusTarget =
       initialFocusRef?.current ?? (dialogElement ? getFocusableElements(dialogElement)[0] : null);
 
     if (focusTarget) {
-      focusTarget.focus();
+      focusTarget.focus({ preventScroll: true });
     } else {
-      dialogElement?.focus();
+      dialogElement?.focus({ preventScroll: true });
     }
 
     return () => {
-      document.documentElement.style.overflow = previousDocumentOverflow;
-      document.body.style.overflow = previousBodyOverflow;
+      if (lockScroll) {
+        document.documentElement.style.overflow = previousDocumentOverflow;
+        document.body.style.overflow = previousBodyOverflow;
+      }
 
       const nextFocusTarget = restoreFocusElementRef.current;
       if (nextFocusTarget?.isConnected) {
-        nextFocusTarget.focus();
+        nextFocusTarget.focus({ preventScroll: true });
       }
     };
-  }, [initialFocusRef, restoreFocusElement]);
+  }, [initialFocusRef, lockScroll, restoreFocusElement]);
 
   if (typeof document === 'undefined') {
     return null;

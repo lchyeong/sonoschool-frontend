@@ -20,9 +20,9 @@ export const fetchGlobalNotices = async (): Promise<NoticeItem[]> => {
   }
 };
 
-export const fetchNoticeDetail = async (noticeId: number): Promise<NoticeItem> => {
+export const fetchNoticeDetail = async (noticeSlug: string): Promise<NoticeItem> => {
   try {
-    return await http.get<NoticeItem>(`/api/v1/notices/${String(noticeId)}`);
+    return await http.get<NoticeItem>(`/api/v1/notices/${encodeURIComponent(noticeSlug)}`);
   } catch (error: unknown) {
     throw toApiError(error, '공지 상세를 불러오지 못했습니다.');
   }

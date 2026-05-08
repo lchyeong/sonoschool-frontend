@@ -73,6 +73,7 @@ const buildInitialMyQuestions = (): MyQuestionItem[] => {
       createdAt: '2026-03-27T13:15:00Z',
       id: 7001,
       mine: true,
+      privateQuestion: false,
       programId: 2002,
       programTitle: '응급 POCUS FAST 집중 과정',
       replies: [
@@ -112,6 +113,7 @@ const buildInitialMyQuestions = (): MyQuestionItem[] => {
       createdAt: '2026-03-08T22:15:00Z',
       id: 7002,
       mine: true,
+      privateQuestion: false,
       programId: null,
       programTitle: null,
       replies: [
@@ -141,6 +143,7 @@ const buildInitialMyQuestions = (): MyQuestionItem[] => {
       createdAt: '2026-03-27T13:15:00Z',
       id: 7003,
       mine: true,
+      privateQuestion: false,
       programId: 2002,
       programTitle: '응급 POCUS FAST 집중 과정',
       replies: [],
@@ -409,6 +412,7 @@ export const getMockedMyQuestions = (options?: {
 
 export const createMockedMyGlobalQuestion = (payload: {
   content: string;
+  privateQuestion?: boolean;
   title: string;
 }): MyQuestionItem => {
   ensureMockScenarioState();
@@ -422,6 +426,7 @@ export const createMockedMyGlobalQuestion = (payload: {
     createdAt: now,
     id: nextQuestionId++,
     mine: true,
+    privateQuestion: payload.privateQuestion ?? false,
     programId: null,
     programTitle: null,
     replies: [],
@@ -436,9 +441,10 @@ export const createMockedMyGlobalQuestion = (payload: {
 };
 
 export const updateMockedMyQuestion = (
-  question: Pick<MyQuestionItem, 'id' | 'programId' | 'scope'>,
+  question: Pick<MyQuestionItem, 'id' | 'privateQuestion' | 'programId' | 'scope'>,
   payload: {
     content: string;
+    privateQuestion?: boolean;
     title: string;
   },
 ): MyQuestionItem => {
@@ -453,6 +459,7 @@ export const updateMockedMyQuestion = (
   const updatedQuestion: MyQuestionItem = {
     ...targetQuestion,
     content: payload.content,
+    privateQuestion: payload.privateQuestion ?? targetQuestion.privateQuestion,
     title: payload.title,
     updatedAt: new Date().toISOString(),
   };

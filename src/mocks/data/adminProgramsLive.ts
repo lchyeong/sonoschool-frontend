@@ -10,6 +10,16 @@ type AdminProgramStateItem = AdminProgramDetail;
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
+const toMockPublicSlug = (title: string, id: number): string => {
+  const semanticSlug = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return /[a-z]/.test(semanticSlug) ? semanticSlug : `course-${String(id)}`;
+};
+
 const CATEGORY_TREE: AdminProgramCategoryTreeItem[] = [
   {
     id: 1,
@@ -383,7 +393,7 @@ const toStateItem = (
     categoryId: payload.categoryId,
     categoryName: findCategoryName(payload.categoryId),
     title: payload.title,
-    slug: payload.slug,
+    slug: toMockPublicSlug(payload.title, id),
     description: payload.description,
     thumbnailUrl: payload.thumbnailUrl,
     thumbnailPreviewUrl: resolveMockThumbnailPreviewUrl(payload.thumbnailUrl),

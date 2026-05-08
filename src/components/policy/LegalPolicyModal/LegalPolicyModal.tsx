@@ -1,4 +1,5 @@
 import Modal from '@/components/overlay/Modal/Modal';
+import marketingConsentText from '@/content/marketingConsent.ko-KR.txt?raw';
 import privacyCollectionConsentText from '@/content/privacyCollectionConsent.ko-KR.txt?raw';
 import privacyPolicyText from '@/content/privacyPolicy.ko-KR.txt?raw';
 import refundPolicyText from '@/content/refundPolicy.ko-KR.txt?raw';
@@ -6,9 +7,13 @@ import termsOfUseText from '@/content/termsOfUse.ko-KR.txt?raw';
 
 import styles from './LegalPolicyModal.module.scss';
 
-export type LegalPolicyType = 'privacy' | 'privacyCollection' | 'refund' | 'terms';
+export type LegalPolicyType = 'marketing' | 'privacy' | 'privacyCollection' | 'refund' | 'terms';
 
 const policyContent: Record<LegalPolicyType, { text: string; title: string }> = {
+  marketing: {
+    text: marketingConsentText,
+    title: '마케팅 정보 수신 동의',
+  },
   privacy: {
     text: privacyPolicyText,
     title: '개인정보처리방침',
@@ -79,7 +84,9 @@ const LegalPolicyModal = ({ onClose, type }: LegalPolicyModalProps) => {
     <Modal
       bodyClassName={styles['policyModalBody']}
       closeButtonLabel={`${content.title} 모달 닫기`}
+      lockScroll={false}
       onClose={onClose}
+      overlayClassName={styles['policyModalOverlay']}
       panelClassName={styles['policyModalPanel']}
       title={content.title}
     >

@@ -31,7 +31,6 @@ export interface AdminProgramDraftBasicInfo {
   saleEndAt: string | null;
   salePrice: number | null;
   saleStartAt: string | null;
-  slug: string | null;
   summaryItems: AdminProgramSummaryInfoItem[];
   thumbnailUrl: string | null;
   thumbnailPreviewUrl?: string | null;
@@ -86,6 +85,7 @@ export interface AdminProgramDraftProblemQuestion {
   mediaUploadFileName: string | null;
   mediaUploadStatus: AdminDraftUploadStatus | null;
   mediaUrl: string | null;
+  mediaVideoId: number | null;
   options: AdminProgramDraftProblemOption[];
   problemAreaId: number | null;
   questionText: string;

@@ -76,9 +76,9 @@ const ResourceDetailPage = () => {
   const [downloadConfirmState, setDownloadConfirmState] = useState<DownloadConfirmState | null>(
     null,
   );
-  const resourceId = Number(params['resourceId']);
-  const resolvedResourceId = Number.isInteger(resourceId) && resourceId > 0 ? resourceId : null;
-  const resourceQuery = useGlobalResourceDetailQuery(resolvedResourceId);
+  const resourceSlug = params['resourceSlug']?.trim() ?? '';
+  const resolvedResourceSlug = resourceSlug.length > 0 ? resourceSlug : null;
+  const resourceQuery = useGlobalResourceDetailQuery(resolvedResourceSlug);
   const resourcesQuery = useGlobalResourcesQuery();
   const resource = resourceQuery.data;
   const attachments = resource?.attachments ?? [];
@@ -106,8 +106,8 @@ const ResourceDetailPage = () => {
   }, [resource, resourcesQuery.data]);
 
   const downloadMutation = useMutation({
-    mutationFn: ({ documentId, fileName }: { documentId: number; fileName: string }) =>
-      downloadGlobalResourceFile(documentId, fileName),
+    mutationFn: ({ resourceSlug, fileName }: { resourceSlug: string; fileName: string }) =>
+      downloadGlobalResourceFile(resourceSlug, fileName),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '자료 파일을 다운로드하지 못했습니다.',
@@ -145,7 +145,7 @@ const ResourceDetailPage = () => {
 
     for (const attachment of downloadConfirmState.attachments) {
       await downloadMutation.mutateAsync({
-        documentId: attachment.documentId,
+        resourceSlug: attachment.publicSlug,
         fileName: attachment.fileName,
       });
     }
@@ -153,7 +153,7 @@ const ResourceDetailPage = () => {
     setDownloadConfirmState(null);
   };
 
-  if (resolvedResourceId === null) {
+  if (resolvedResourceSlug === null) {
     return (
       <section className={styles['stateSection']}>
         <h1 className={styles['stateTitle']}>자료 경로가 올바르지 않습니다.</h1>
@@ -238,7 +238,7 @@ const ResourceDetailPage = () => {
               {attachments.map((attachment) => {
                 const isDownloading =
                   downloadMutation.isPending &&
-                  downloadMutation.variables.documentId === attachment.documentId;
+                  downloadMutation.variables.resourceSlug === attachment.publicSlug;
 
                 return (
                   <li className={styles['attachmentItem']} key={attachment.documentId}>
@@ -445,7 +445,7 @@ const AdjacentResourceLink = ({ direction, resource }: AdjacentResourceLinkProps
     <Link
       className={styles['adjacentLink']}
       data-direction={direction}
-      to={routePaths.resourceDetail(String(resource.id))}
+      to={routePaths.resourceDetail(resource.publicSlug)}
     >
       {content}
     </Link>

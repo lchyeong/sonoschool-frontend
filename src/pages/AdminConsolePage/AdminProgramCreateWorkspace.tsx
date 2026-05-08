@@ -19,6 +19,7 @@ import {
   createAdminProgramDraft,
   discardAdminProgramDraft,
   finalizeAdminProgramDraft,
+  updateDraftProblemQuestionMediaUploadState,
   updateDraftLectureVideoUploadState,
   updateDraftResourceUploadState,
   updateAdminProgramDraft,
@@ -71,7 +72,7 @@ import type {
   AdminProgramLevel,
   AdminProgramType,
 } from '@/types/adminProgramsLive';
-import type { AdminVideoProcessingStage } from '@/types/adminVideo';
+import type { AdminVideoEncodingProfile, AdminVideoProcessingStage } from '@/types/adminVideo';
 import { classNames } from '@/utils/classNames';
 import {
   buildCalendarCells,
@@ -138,6 +139,7 @@ interface PendingQuestionMediaFile extends PendingLocalFile {
   previousMediaUploadFileName: string | null;
   previousMediaUploadStatus: AdminDraftUploadStatus | null;
   previousMediaUrl: string | null;
+  previousMediaVideoId: number | null;
 }
 
 interface PendingThumbnailFile extends PendingLocalFile {
@@ -237,7 +239,6 @@ const createEmptyBasicInfo = (): AdminProgramDraftPayload['basicInfo'] => ({
   saleEndAt: null,
   salePrice: null,
   saleStartAt: null,
-  slug: null,
   summaryItems: [],
   thumbnailPreviewUrl: null,
   thumbnailUrl: null,
@@ -314,6 +315,7 @@ const createEmptyQuestion = (): AdminProgramDraftProblemQuestion => ({
   mediaUploadFileName: null,
   mediaUploadStatus: null,
   mediaUrl: null,
+  mediaVideoId: null,
   options: createFiveChoiceOptions(),
   problemAreaId: null,
   questionText: '',
@@ -450,16 +452,6 @@ const normalizeDraftBasicInfo = (
       : null,
 });
 
-const withServerManagedSlug = (
-  draftPayload: AdminProgramDraftPayload,
-): AdminProgramDraftPayload => ({
-  ...draftPayload,
-  basicInfo: {
-    ...normalizeDraftBasicInfo(draftPayload.basicInfo),
-    slug: null,
-  },
-});
-
 const normalizeLegacyOfflineSchedules = (
   lecture: AdminProgramDraftLecture & {
     offlineScheduleRule?: {
@@ -525,6 +517,7 @@ const normalizeDraftPayloadShape = (
         mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
         mediaUploadFileName: question.mediaUploadFileName ?? null,
         mediaUploadStatus: normalizeQuestionMediaUploadStatus(question),
+        mediaVideoId: question.mediaVideoId ?? null,
       })),
     };
   }),
@@ -578,6 +571,7 @@ const mergeServerUploadStateIntoSnapshot = (
             mediaUploadFileName: serverQuestion.mediaUploadFileName,
             mediaUploadStatus: serverQuestion.mediaUploadStatus,
             mediaUrl: serverQuestion.mediaUrl,
+            mediaVideoId: serverQuestion.mediaVideoId,
           };
         }),
       };
@@ -755,12 +749,15 @@ const formatVideoProcessingStageLabel = (
 };
 
 const normalizeQuestionMediaUploadStatus = (
-  question: Pick<AdminProgramDraftProblemQuestion, 'mediaAssetId' | 'mediaUploadStatus'>,
+  question: Pick<
+    AdminProgramDraftProblemQuestion,
+    'mediaAssetId' | 'mediaUploadStatus' | 'mediaVideoId'
+  >,
 ): AdminDraftUploadStatus | null => {
   if (question.mediaUploadStatus) {
     return question.mediaUploadStatus;
   }
-  return question.mediaAssetId ? 'READY' : null;
+  return question.mediaAssetId || question.mediaVideoId ? 'READY' : null;
 };
 
 const programTypeOptions = [
@@ -1859,6 +1856,32 @@ const AdminProgramCreateWorkspace = ({
     });
   };
 
+  const persistProblemQuestionMediaUploadState = async (
+    targetDraftId: number,
+    lectureKey: string,
+    questionIndex: number,
+    payload: {
+      clearMedia?: boolean;
+      errorMessage?: string | null;
+      fileName?: string | null;
+      mediaAssetId?: number | null;
+      mediaType?: 'IMAGE' | 'VIDEO' | null;
+      mediaUrl?: string | null;
+      mediaVideoId?: number | null;
+      status?: AdminDraftUploadStatus | null;
+    },
+  ) => {
+    await updateDraftProblemQuestionMediaUploadState(
+      targetDraftId,
+      lectureKey,
+      questionIndex,
+      payload,
+    );
+    await queryClient.invalidateQueries({
+      queryKey: adminProgramDraftDetailQueryKey(targetDraftId),
+    });
+  };
+
   const toggleSectionExpanded = (sectionKey: string) => {
     setExpandedSectionKeys((current) =>
       current.includes(sectionKey)
@@ -2588,13 +2611,15 @@ const AdminProgramCreateWorkspace = ({
                 questionUploadStatus[uploadKey] ??
                 formatUploadStatusLabel(
                   questionMediaUploadStatus,
-                  question.mediaAssetId ? '업로드 완료' : '파일 미선택',
+                  question.mediaAssetId || question.mediaVideoId ? '업로드 완료' : '파일 미선택',
                   question.mediaUploadErrorMessage,
                 );
               const questionMediaFileLabel =
                 pendingQuestionMediaSelection?.file.name ??
                 question.mediaUploadFileName ??
-                (question.mediaAssetId ? '업로드된 미디어' : '아직 선택한 파일이 없습니다.');
+                (question.mediaAssetId || question.mediaVideoId
+                  ? '업로드된 미디어'
+                  : '아직 선택한 파일이 없습니다.');
               const questionCollapsed = collapsedProblemQuestionKeys.includes(uploadKey);
 
               return (
@@ -2694,7 +2719,9 @@ const AdminProgramCreateWorkspace = ({
                               type='button'
                               variant='secondary'
                             >
-                              {pendingQuestionMediaSelection || question.mediaAssetId
+                              {pendingQuestionMediaSelection ||
+                              question.mediaAssetId ||
+                              question.mediaVideoId
                                 ? '파일 변경'
                                 : '파일 선택'}
                             </Button>
@@ -2735,6 +2762,8 @@ const AdminProgramCreateWorkspace = ({
                                     mediaUploadStatus:
                                       pendingQuestionMediaSelection.previousMediaUploadStatus,
                                     mediaUrl: pendingQuestionMediaSelection.previousMediaUrl,
+                                    mediaVideoId:
+                                      pendingQuestionMediaSelection.previousMediaVideoId,
                                   }));
                                 }}
                                 size='sm'
@@ -2744,7 +2773,8 @@ const AdminProgramCreateWorkspace = ({
                                 선택 취소
                               </Button>
                             ) : null}
-                            {question.mediaAssetId && !pendingQuestionMediaSelection ? (
+                            {(question.mediaAssetId || question.mediaVideoId) &&
+                            !pendingQuestionMediaSelection ? (
                               <Button
                                 onClick={() => {
                                   updateProblemQuestion(lectureKey, questionIndex, (current) => ({
@@ -2755,7 +2785,25 @@ const AdminProgramCreateWorkspace = ({
                                     mediaUploadFileName: null,
                                     mediaUploadStatus: null,
                                     mediaUrl: null,
+                                    mediaVideoId: null,
                                   }));
+                                  if (draftId !== null) {
+                                    void persistProblemQuestionMediaUploadState(
+                                      draftId,
+                                      lectureKey,
+                                      questionIndex,
+                                      {
+                                        clearMedia: true,
+                                        errorMessage: null,
+                                        fileName: null,
+                                        mediaAssetId: null,
+                                        mediaType: null,
+                                        mediaUrl: null,
+                                        mediaVideoId: null,
+                                        status: null,
+                                      },
+                                    );
+                                  }
                                   setQuestionUploadStatus((current) => {
                                     const next = { ...current };
                                     delete next[uploadKey];
@@ -3149,11 +3197,7 @@ const AdminProgramCreateWorkspace = ({
       }
     }
 
-    const nextPayload = normalizeDraftPayloadShape(
-      mode === 'create'
-        ? withServerManagedSlug(currentPayloadRef.current)
-        : currentPayloadRef.current,
-    );
+    const nextPayload = normalizeDraftPayloadShape(currentPayloadRef.current);
     if (nextPayload === null) {
       return false;
     }
@@ -3239,44 +3283,32 @@ const AdminProgramCreateWorkspace = ({
     }
   };
 
-  const pollVideoReady = async (videoId: number, lectureKey: string): Promise<number | null> => {
+  const pollEncodedVideoReady = async (
+    videoId: number,
+    options: {
+      onProgress?: (
+        progressPercent: number | null,
+        processingStage: AdminVideoProcessingStage | null,
+      ) => void;
+      profile?: AdminVideoEncodingProfile;
+      startIfUploaded?: boolean;
+    } = {},
+  ): Promise<number | null> => {
     for (let attempt = 0; attempt < VIDEO_ENCODING_MAX_POLL_ATTEMPTS; attempt += 1) {
       const status = await fetchAdminVideoStatus(videoId);
       if (status.status === 'PROCESSING') {
-        setLectureVideoProgressByKey((current) => ({
-          ...current,
-          [lectureKey]: status.progressPercent ?? 0,
-        }));
-        setLectureVideoProcessingStageByKey((current) => ({
-          ...current,
-          [lectureKey]: status.processingStage ?? 'ENCODING',
-        }));
+        options.onProgress?.(status.progressPercent ?? 0, status.processingStage ?? 'ENCODING');
       }
       if (status.status === 'READY') {
-        setLectureVideoProgressByKey((current) => ({
-          ...current,
-          [lectureKey]: 100,
-        }));
-        setLectureVideoProcessingStageByKey((current) => {
-          const next = { ...current };
-          delete next[lectureKey];
-          return next;
-        });
+        options.onProgress?.(100, null);
         return status.durationSeconds;
       }
       if (status.status === 'FAILED') {
         throw new Error(status.errorMessage || '영상 인코딩에 실패했습니다.');
       }
-      if (status.status === 'UPLOADED') {
-        await startAdminVideoEncoding(videoId);
-        setLectureVideoProgressByKey((current) => ({
-          ...current,
-          [lectureKey]: status.progressPercent ?? 0,
-        }));
-        setLectureVideoProcessingStageByKey((current) => ({
-          ...current,
-          [lectureKey]: 'ENCODING',
-        }));
+      if (status.status === 'UPLOADED' && options.startIfUploaded !== false) {
+        await startAdminVideoEncoding(videoId, options.profile);
+        options.onProgress?.(status.progressPercent ?? 0, 'ENCODING');
       }
       if (status.status === 'UPLOADING') {
         throw new Error('영상 인코딩이 정상적으로 시작되지 않았습니다. 다시 업로드해 주세요.');
@@ -3285,6 +3317,75 @@ const AdminProgramCreateWorkspace = ({
     }
 
     throw new Error('영상 인코딩 확인 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
+  };
+
+  const pollVideoReady = async (videoId: number, lectureKey: string): Promise<number | null> => {
+    return pollEncodedVideoReady(videoId, {
+      onProgress: (progressPercent, processingStage) => {
+        setLectureVideoProgressByKey((current) => ({
+          ...current,
+          [lectureKey]: progressPercent ?? 0,
+        }));
+        setLectureVideoProcessingStageByKey((current) => {
+          if (processingStage === null) {
+            const next = { ...current };
+            delete next[lectureKey];
+            return next;
+          }
+          return {
+            ...current,
+            [lectureKey]: processingStage,
+          };
+        });
+      },
+    });
+  };
+
+  const uploadAndEncodeVideo = async (
+    file: File,
+    options: {
+      onEncodingProgress?: (
+        progressPercent: number | null,
+        processingStage: AdminVideoProcessingStage | null,
+      ) => void;
+      onProcessingStarted?: (videoId: number) => Promise<void> | void;
+      onUploadProgress?: (progressPercent: number) => void;
+      profile?: AdminVideoEncodingProfile;
+      usage?: 'LECTURE' | 'PROBLEM';
+    } = {},
+  ) => {
+    const uploadSessionPayload = {
+      contentType: file.type || 'application/octet-stream',
+      fileSize: file.size,
+      filename: file.name,
+      partCount: calculatePartCount(file.size),
+      ...(options.usage ? { usage: options.usage } : {}),
+    };
+    const session = await createAdminVideoUploadSession(uploadSessionPayload);
+    const chunks = buildVideoChunks(file, session.parts);
+    const completedParts = await uploadVideoChunks(
+      chunks,
+      file.type || 'application/octet-stream',
+      options.onUploadProgress ?? (() => {}),
+    );
+
+    await completeAdminVideoUpload(session.videoId, {
+      parts: completedParts,
+      uploadId: session.uploadId,
+    });
+    await startAdminVideoEncoding(session.videoId, options.profile);
+    await options.onProcessingStarted?.(session.videoId);
+    const durationSeconds = await pollEncodedVideoReady(session.videoId, {
+      ...(options.onEncodingProgress ? { onProgress: options.onEncodingProgress } : {}),
+      ...(options.profile ? { profile: options.profile } : {}),
+      startIfUploaded: false,
+    });
+
+    return {
+      durationSeconds,
+      fileName: file.name,
+      videoId: session.videoId,
+    };
   };
 
   useEffect(() => {
@@ -3366,6 +3467,95 @@ const AdminProgramCreateWorkspace = ({
           } finally {
             if (lecture.videoId !== null) {
               resumingVideoIdsRef.current.delete(lecture.videoId);
+            }
+          }
+        })();
+      });
+    });
+  }, [draftId, payload]);
+
+  useEffect(() => {
+    if (draftId === null || payload === null) {
+      return;
+    }
+
+    payload.problems.forEach((problem) => {
+      problem.questions.forEach((question, questionIndex) => {
+        if (
+          question.mediaUploadStatus !== 'PROCESSING' ||
+          question.mediaVideoId === null ||
+          question.mediaType !== 'VIDEO'
+        ) {
+          return;
+        }
+        if (resumingVideoIdsRef.current.has(question.mediaVideoId)) {
+          return;
+        }
+
+        const uploadKey = `${problem.lectureKey}:${String(questionIndex)}`;
+        resumingVideoIdsRef.current.add(question.mediaVideoId);
+        void (async () => {
+          try {
+            await pollEncodedVideoReady(question.mediaVideoId as number, {
+              onProgress: (progressPercent) => {
+                setQuestionUploadStatus((current) => ({
+                  ...current,
+                  [uploadKey]: formatProgressLabel('문제 영상 인코딩 중', progressPercent, true),
+                }));
+              },
+              profile: 'PROBLEM_HLS_720',
+            });
+
+            updateProblemQuestion(problem.lectureKey, questionIndex, (current) => ({
+              ...current,
+              mediaUploadErrorMessage: null,
+              mediaUploadStatus: 'READY',
+            }));
+            await persistProblemQuestionMediaUploadState(
+              draftId,
+              problem.lectureKey,
+              questionIndex,
+              {
+                errorMessage: null,
+                fileName: question.mediaUploadFileName,
+                mediaType: 'VIDEO',
+                mediaVideoId: question.mediaVideoId,
+                status: 'READY',
+              },
+            );
+            setQuestionUploadStatus((current) => ({
+              ...current,
+              [uploadKey]: '인코딩 완료',
+            }));
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error
+                ? error.message
+                : '문제 영상 인코딩 상태를 확인하지 못했습니다.';
+            updateProblemQuestion(problem.lectureKey, questionIndex, (current) => ({
+              ...current,
+              mediaUploadErrorMessage: errorMessage,
+              mediaUploadStatus: 'FAILED',
+            }));
+            await persistProblemQuestionMediaUploadState(
+              draftId,
+              problem.lectureKey,
+              questionIndex,
+              {
+                errorMessage,
+                fileName: question.mediaUploadFileName,
+                mediaType: 'VIDEO',
+                mediaVideoId: question.mediaVideoId,
+                status: 'FAILED',
+              },
+            );
+            setQuestionUploadStatus((current) => ({
+              ...current,
+              [uploadKey]: '인코딩 실패',
+            }));
+          } finally {
+            if (question.mediaVideoId !== null) {
+              resumingVideoIdsRef.current.delete(question.mediaVideoId);
             }
           }
         })();
@@ -3465,77 +3655,79 @@ const AdminProgramCreateWorkspace = ({
         return next;
       });
 
-      const session = await createAdminVideoUploadSession({
-        contentType: file.type || 'application/octet-stream',
-        fileSize: file.size,
-        filename: file.name,
-        partCount: calculatePartCount(file.size),
-      });
-
-      const chunks = buildVideoChunks(file, session.parts);
-      const completedParts = await uploadVideoChunks(
-        chunks,
-        file.type || 'application/octet-stream',
-        (progressPercent) => {
+      const encodedVideo = await uploadAndEncodeVideo(file, {
+        onEncodingProgress: (progressPercent, processingStage) => {
+          setLectureVideoProgressByKey((current) => ({
+            ...current,
+            [lectureKey]: progressPercent ?? 0,
+          }));
+          setLectureVideoProcessingStageByKey((current) => {
+            if (processingStage === null) {
+              const next = { ...current };
+              delete next[lectureKey];
+              return next;
+            }
+            return {
+              ...current,
+              [lectureKey]: processingStage,
+            };
+          });
+        },
+        onProcessingStarted: async (videoId) => {
+          setLectureVideoProgressByKey((current) => ({
+            ...current,
+            [lectureKey]: 0,
+          }));
+          setLectureVideoProcessingStageByKey((current) => ({
+            ...current,
+            [lectureKey]: 'ENCODING',
+          }));
+          updatePayload((current) => ({
+            ...current,
+            sections: current.sections.map((section) => ({
+              ...section,
+              lectures: section.lectures.map((currentLecture) =>
+                currentLecture.key === lectureKey
+                  ? {
+                      ...currentLecture,
+                      videoId,
+                      videoUploadErrorMessage: null,
+                      videoUploadFileName: file.name,
+                      videoUploadStatus: 'PROCESSING',
+                    }
+                  : currentLecture,
+              ),
+            })),
+          }));
+          await persistLectureVideoUploadState(draftId, lectureKey, {
+            errorMessage: null,
+            fileName: file.name,
+            status: 'PROCESSING',
+            videoId,
+          });
+        },
+        onUploadProgress: (progressPercent) => {
           setLectureVideoProgressByKey((current) => ({
             ...current,
             [lectureKey]: progressPercent,
           }));
         },
-      );
-
-      setLectureVideoProgressByKey((current) => ({
-        ...current,
-        [lectureKey]: 0,
-      }));
-      setLectureVideoProcessingStageByKey((current) => ({
-        ...current,
-        [lectureKey]: 'ENCODING',
-      }));
-      updatePayload((current) => ({
-        ...current,
-        sections: current.sections.map((section) => ({
-          ...section,
-          lectures: section.lectures.map((currentLecture) =>
-            currentLecture.key === lectureKey
-              ? {
-                  ...currentLecture,
-                  videoId: session.videoId,
-                  videoUploadErrorMessage: null,
-                  videoUploadFileName: file.name,
-                  videoUploadStatus: 'PROCESSING',
-                }
-              : currentLecture,
-          ),
-        })),
-      }));
-      await persistLectureVideoUploadState(draftId, lectureKey, {
-        errorMessage: null,
-        fileName: file.name,
-        status: 'PROCESSING',
-        videoId: session.videoId,
       });
-      await completeAdminVideoUpload(session.videoId, {
-        parts: completedParts,
-        uploadId: session.uploadId,
-      });
-      await startAdminVideoEncoding(session.videoId);
-      const durationSeconds = await pollVideoReady(session.videoId, lectureKey);
 
       updateLecture(sectionKey, lectureKey, (lecture) => ({
         ...lecture,
-        durationSeconds: durationSeconds ?? lecture.durationSeconds,
-        videoId: session.videoId,
+        durationSeconds: encodedVideo.durationSeconds ?? lecture.durationSeconds,
+        videoId: encodedVideo.videoId,
         videoUploadErrorMessage: null,
         videoUploadFileName: file.name,
         videoUploadStatus: 'READY',
       }));
       await persistLectureVideoUploadState(draftId, lectureKey, {
-        durationSeconds,
+        durationSeconds: encodedVideo.durationSeconds,
         errorMessage: null,
         fileName: file.name,
         status: 'READY',
-        videoId: session.videoId,
+        videoId: encodedVideo.videoId,
       });
       setLectureVideoProgressByKey((current) => {
         const next = { ...current };
@@ -3610,9 +3802,10 @@ const AdminProgramCreateWorkspace = ({
         previousMediaUploadErrorMessage: previousQuestion?.mediaUploadErrorMessage ?? null,
         previousMediaUploadFileName: previousQuestion?.mediaUploadFileName ?? null,
         previousMediaUploadStatus: normalizeQuestionMediaUploadStatus(
-          previousQuestion ?? { mediaAssetId: null, mediaUploadStatus: null },
+          previousQuestion ?? { mediaAssetId: null, mediaUploadStatus: null, mediaVideoId: null },
         ),
         previousMediaUrl: previousQuestion?.mediaUrl ?? null,
+        previousMediaVideoId: previousQuestion?.mediaVideoId ?? null,
         sizeLabel: `${formatFileSizeInMb(file.size)} MB`,
       },
     }));
@@ -3628,6 +3821,7 @@ const AdminProgramCreateWorkspace = ({
       mediaUploadFileName: file.name,
       mediaUploadStatus: 'UPLOADING',
       mediaUrl: null,
+      mediaVideoId: null,
     }));
   };
 
@@ -3646,6 +3840,81 @@ const AdminProgramCreateWorkspace = ({
         [uploadKey]: '문제 미디어 업로드 중',
       }));
 
+      if (file.type.startsWith('video/')) {
+        if (draftId === null) {
+          throw new Error('프로그램 초안을 먼저 저장해 주세요.');
+        }
+
+        const encodedVideo = await uploadAndEncodeVideo(file, {
+          onEncodingProgress: (progressPercent) => {
+            setQuestionUploadStatus((current) => ({
+              ...current,
+              [uploadKey]: formatProgressLabel('문제 영상 인코딩 중', progressPercent, true),
+            }));
+          },
+          onProcessingStarted: async (videoId) => {
+            updateProblemQuestion(lectureKey, questionIndex, (question) => ({
+              ...question,
+              mediaAssetId: null,
+              mediaType: 'VIDEO',
+              mediaUploadErrorMessage: null,
+              mediaUploadFileName: file.name,
+              mediaUploadStatus: 'PROCESSING',
+              mediaUrl: null,
+              mediaVideoId: videoId,
+            }));
+            await persistProblemQuestionMediaUploadState(draftId, lectureKey, questionIndex, {
+              errorMessage: null,
+              fileName: file.name,
+              mediaAssetId: null,
+              mediaType: 'VIDEO',
+              mediaUrl: null,
+              mediaVideoId: videoId,
+              status: 'PROCESSING',
+            });
+          },
+          onUploadProgress: (progressPercent) => {
+            setQuestionUploadStatus((current) => ({
+              ...current,
+              [uploadKey]: `문제 영상 업로드 중 ${String(progressPercent)}%`,
+            }));
+          },
+          profile: 'PROBLEM_HLS_720',
+          usage: 'PROBLEM',
+        });
+
+        updateProblemQuestion(lectureKey, questionIndex, (question) => ({
+          ...question,
+          mediaUploadErrorMessage: null,
+          mediaUploadStatus: 'READY',
+          mediaVideoId: encodedVideo.videoId,
+        }));
+        await persistProblemQuestionMediaUploadState(draftId, lectureKey, questionIndex, {
+          errorMessage: null,
+          fileName: file.name,
+          mediaAssetId: null,
+          mediaType: 'VIDEO',
+          mediaUrl: null,
+          mediaVideoId: encodedVideo.videoId,
+          status: 'READY',
+        });
+        setQuestionUploadStatus((current) => ({
+          ...current,
+          [uploadKey]: '인코딩 완료',
+        }));
+        setPendingQuestionMediaSelections((current) => {
+          const next = { ...current };
+          delete next[uploadKey];
+          return next;
+        });
+        showToast({
+          message:
+            mode === 'edit' ? '문제 영상을 연결했습니다.' : '문제 영상을 초안에 연결했습니다.',
+          variant: 'success',
+        });
+        return;
+      }
+
       const uploadTarget = await createAdminProblemMediaUploadTarget({
         contentType: file.type || 'application/octet-stream',
         fileSize: file.size,
@@ -3661,7 +3930,19 @@ const AdminProgramCreateWorkspace = ({
         mediaUploadFileName: file.name,
         mediaUploadStatus: 'READY',
         mediaUrl: uploadTarget.previewUrl,
+        mediaVideoId: null,
       }));
+      if (draftId !== null) {
+        await persistProblemQuestionMediaUploadState(draftId, lectureKey, questionIndex, {
+          errorMessage: null,
+          fileName: file.name,
+          mediaAssetId: uploadTarget.assetId,
+          mediaType: uploadTarget.mediaType,
+          mediaUrl: uploadTarget.previewUrl,
+          mediaVideoId: null,
+          status: 'READY',
+        });
+      }
 
       setQuestionUploadStatus((current) => ({
         ...current,
@@ -3678,18 +3959,30 @@ const AdminProgramCreateWorkspace = ({
         variant: 'success',
       });
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : '문제 미디어 업로드에 실패했습니다.';
       updateProblemQuestion(lectureKey, questionIndex, (question) => ({
         ...question,
-        mediaUploadErrorMessage:
-          error instanceof Error ? error.message : '문제 미디어 업로드에 실패했습니다.',
+        mediaUploadErrorMessage: errorMessage,
         mediaUploadStatus: 'FAILED',
       }));
+      if (draftId !== null) {
+        try {
+          await persistProblemQuestionMediaUploadState(draftId, lectureKey, questionIndex, {
+            errorMessage,
+            fileName: file.name,
+            status: 'FAILED',
+          });
+        } catch {
+          // Preserve local failure state even if status persistence fails.
+        }
+      }
       setQuestionUploadStatus((current) => ({
         ...current,
         [uploadKey]: '업로드 실패',
       }));
       showToast({
-        message: error instanceof Error ? error.message : '문제 미디어 업로드에 실패했습니다.',
+        message: errorMessage,
         variant: 'error',
       });
     }
@@ -4550,7 +4843,6 @@ const AdminProgramCreateWorkspace = ({
                           ...current,
                           basicInfo: {
                             ...current.basicInfo,
-                            slug: mode === 'create' ? null : current.basicInfo.slug,
                             title: nextTitle,
                           },
                         }));

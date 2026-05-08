@@ -50,7 +50,7 @@ interface SignupFormErrors {
   passwordConfirm?: string[];
   phoneNumber?: string[];
   smsCode?: string[];
-  acceptedTermCodes?: string[];
+  acceptedTerms?: string[];
 }
 
 interface SmsVerificationState {
@@ -58,6 +58,7 @@ interface SmsVerificationState {
   expiresAt: string | null;
   verifiedPhoneNumber: string | null;
   verifiedAt: string | null;
+  verificationToken: string | null;
 }
 
 interface AvailabilityCheckState {
@@ -81,6 +82,7 @@ const INITIAL_SMS_STATE: SmsVerificationState = {
   expiresAt: null,
   verifiedPhoneNumber: null,
   verifiedAt: null,
+  verificationToken: null,
 };
 
 const INITIAL_AVAILABILITY_STATE: AvailabilityCheckState = {
@@ -108,6 +110,9 @@ const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%&*?])[A-Za-z\d!@#$%&
 
 const resolveRegistrationTermPolicyType = (term: RegistrationTerm): LegalPolicyType | null => {
   const text = `${term.code} ${term.title}`.toLowerCase();
+  if (text.includes('marketing') || text.includes('마케팅') || text.includes('광고성')) {
+    return 'marketing';
+  }
   if (text.includes('privacy') || text.includes('개인정보')) {
     return text.includes('수집') || text.includes('collection') ? 'privacyCollection' : 'privacy';
   }
@@ -172,7 +177,7 @@ const SignupPage = () => {
   const [formValues, setFormValues] = useState<SignupFormValues>(INITIAL_FORM_VALUES);
   const [formErrors, setFormErrors] = useState<SignupFormErrors>({});
   const [smsState, setSmsState] = useState<SmsVerificationState>(INITIAL_SMS_STATE);
-  const [acceptedTermCodes, setAcceptedTermCodes] = useState<string[]>([]);
+  const [acceptedTermKeys, setAcceptedTermKeys] = useState<string[]>([]);
   const [loginIdAvailability, setLoginIdAvailability] = useState<AvailabilityCheckState>(
     INITIAL_AVAILABILITY_STATE,
   );
@@ -191,7 +196,7 @@ const SignupPage = () => {
   const registrationTerms = registrationTermsQuery.data ?? [];
   const areAllTermsAccepted =
     registrationTerms.length > 0 &&
-    registrationTerms.every((term) => acceptedTermCodes.includes(term.code));
+    registrationTerms.every((term) => acceptedTermKeys.includes(term.code));
   const isSmsCodeVisible = smsState.sentPhoneNumber !== null;
   const isSmsExpired =
     isSmsCodeVisible &&
@@ -284,6 +289,7 @@ const SignupPage = () => {
         expiresAt: response.expiresAt,
         verifiedPhoneNumber: null,
         verifiedAt: null,
+        verificationToken: null,
       });
       setSmsCountdownSeconds(getRemainingSeconds(response.expiresAt));
       showToast({
@@ -322,6 +328,7 @@ const SignupPage = () => {
         ...current,
         verifiedPhoneNumber: response.phoneNumber,
         verifiedAt: response.verifiedAt,
+        verificationToken: response.verificationToken,
       }));
       setSmsCountdownSeconds(0);
       showToast({
@@ -624,7 +631,7 @@ const SignupPage = () => {
       phoneNumberErrors.push('올바른 휴대폰 번호 형식이 아닙니다.');
     }
 
-    if (smsState.verifiedPhoneNumber !== normalizedPhoneNumber) {
+    if (smsState.verifiedPhoneNumber !== normalizedPhoneNumber || !smsState.verificationToken) {
       phoneNumberErrors.push('휴대폰 인증을 완료해주세요.');
     }
 
@@ -643,8 +650,8 @@ const SignupPage = () => {
     if (phoneNumberErrors.length) nextErrors.phoneNumber = phoneNumberErrors;
     if (smsCodeErrors.length) nextErrors.smsCode = smsCodeErrors;
 
-    if (requiredTerms.some((term) => !acceptedTermCodes.includes(term.code))) {
-      nextErrors.acceptedTermCodes = ['필수 약관에 동의해주세요.'];
+    if (requiredTerms.some((term) => !acceptedTermKeys.includes(term.code))) {
+      nextErrors.acceptedTerms = ['필수 약관에 동의해주세요.'];
     }
 
     setFormErrors(nextErrors);
@@ -666,26 +673,32 @@ const SignupPage = () => {
       nickname: formValues.nickname.trim(),
       password: formValues.password,
       phoneNumber: normalizedPhoneNumber,
-      acceptedTermCodes,
+      phoneVerificationToken: smsState.verificationToken ?? '',
+      acceptedTerms: registrationTerms
+        .filter((term) => acceptedTermKeys.includes(term.code))
+        .map((term) => ({
+          code: term.code,
+          version: term.version,
+        })),
     });
   };
 
   const handleToggleTerm = (termCode: string) => (event: ChangeEvent<HTMLInputElement>) => {
     const isChecked = event.target.checked;
-    setAcceptedTermCodes((current) => {
+    setAcceptedTermKeys((current) => {
       if (isChecked) {
         return current.includes(termCode) ? current : [...current, termCode];
       }
       return current.filter((code) => code !== termCode);
     });
-    setFormErrors((current) => omitSignupFormError(current, 'acceptedTermCodes'));
+    setFormErrors((current) => omitSignupFormError(current, 'acceptedTerms'));
   };
 
   const handleToggleAllTerms = (event: ChangeEvent<HTMLInputElement>) => {
     const isChecked = event.target.checked;
 
-    setAcceptedTermCodes(isChecked ? registrationTerms.map((term) => term.code) : []);
-    setFormErrors((current) => omitSignupFormError(current, 'acceptedTermCodes'));
+    setAcceptedTermKeys(isChecked ? registrationTerms.map((term) => term.code) : []);
+    setFormErrors((current) => omitSignupFormError(current, 'acceptedTerms'));
   };
 
   const handleCheckLoginId = () => {
@@ -1128,7 +1141,7 @@ const SignupPage = () => {
             ) : null}
 
             {registrationTerms.map((term: RegistrationTerm) => {
-              const isChecked = acceptedTermCodes.includes(term.code);
+              const isChecked = acceptedTermKeys.includes(term.code);
               const policyType = resolveRegistrationTermPolicyType(term);
 
               return (
@@ -1161,7 +1174,7 @@ const SignupPage = () => {
                 </div>
               );
             })}
-            {formErrors.acceptedTermCodes?.map((message) => (
+            {formErrors.acceptedTerms?.map((message) => (
               <p className={styles['termsErrorText']} key={message}>
                 {message}
               </p>

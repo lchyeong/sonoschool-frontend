@@ -77,8 +77,23 @@ export interface AdminPracticumOperatingHourApplyPayload {
   location: string | null;
 }
 
+export interface AdminPracticumOperatingHourUpdateItem {
+  weekday: AdminPracticumOperatingHour['weekday'];
+  enabled: boolean;
+  openFromHour?: number;
+  openToHour?: number;
+  blockedHours?: number[];
+  location: string | null;
+}
+
+export interface AdminPracticumOperatingHoursReplacePayload {
+  effectiveFrom: string;
+  hours: AdminPracticumOperatingHourUpdateItem[];
+}
+
 export interface AdminPracticumOperatingHour {
   blockedHours: number[];
+  enabled: boolean;
   id: number;
   weekday: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
   openFromHour: number;

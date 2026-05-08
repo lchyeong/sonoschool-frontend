@@ -370,8 +370,11 @@
 }
 
 .titleButton {
-  display: block;
+  display: flex;
   width: 100%;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
   color: #111827;
   font-size: 20px;
   font-weight: 600;
@@ -379,9 +382,38 @@
   text-align: left;
 }
 
+.privateBadge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  background: #f9fafb;
+}
+
 .questionRow:hover .titleButton,
 .questionRow:focus-visible .titleButton {
   color: #34b29f;
+}
+
+.questionRow[data-locked='true'] {
+  cursor: not-allowed;
+}
+
+.questionRow[data-locked='true'] .titleButton {
+  color: #6b7280;
+}
+
+.compactThreadButton[data-locked='true'] {
+  cursor: not-allowed;
 }
 
 .authorCell,
@@ -1221,6 +1253,55 @@
 
 .composerCharacterCount span {
   color: #374151;
+}
+
+.privateOption {
+  display: inline-flex;
+  width: fit-content;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  color: #374151;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.privateOption input {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  place-content: center;
+  border: 2px solid #9ca3af;
+  border-radius: 4px;
+  background: #ffffff;
+  appearance: none;
+}
+
+.privateOption input::before {
+  width: 13px;
+  height: 13px;
+  content: '';
+  transform: scale(0);
+  transition: transform 120ms ease;
+  background: #ffffff;
+  mask: var(--qna-private-check-icon) center / contain no-repeat;
+}
+
+.privateOption input:checked {
+  border-color: #34b29f;
+  background: #34b29f;
+}
+
+.privateOption input:checked::before {
+  transform: scale(1);
+}
+
+.privateOption input:focus-visible {
+  outline: 3px solid rgba(52, 178, 159, 0.28);
+  outline-offset: 3px;
 }
 
 .actionRow {

@@ -82,8 +82,8 @@ export interface ProgramCurriculumScheduleItem {
   date: string | null;
   startTime: string | null;
   endTime: string | null;
-  location?: string | undefined;
-  notes?: string | undefined;
+  location?: string | null | undefined;
+  notes?: string | null | undefined;
   ruleId?: number | null | undefined;
 }
 

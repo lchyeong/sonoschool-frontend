@@ -242,6 +242,46 @@
   }
 }
 
+@media (width >= 1200px) and (width < 1380px) {
+  .inner {
+    justify-content: space-between;
+    gap: 28px;
+    padding: 10px 20px;
+  }
+
+  .logoArea {
+    width: 170px;
+  }
+
+  .logoImage {
+    width: 136px;
+  }
+
+  .desktopNav {
+    flex: 1 1 auto;
+  }
+
+  .desktopNavList {
+    width: 100%;
+    gap: 22px;
+  }
+
+  .desktopNavLink,
+  .desktopNavTrigger {
+    font-size: 16px;
+  }
+
+  .desktopUtilityArea {
+    gap: 14px;
+  }
+
+  .desktopLoginLink {
+    width: auto;
+    padding: 10px 20px;
+    font-size: 16px;
+  }
+}
+
 .icon {
   &Button,
   &Link {

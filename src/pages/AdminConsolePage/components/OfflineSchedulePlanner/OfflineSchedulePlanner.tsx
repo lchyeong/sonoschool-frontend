@@ -105,7 +105,7 @@ const resolveOperatingHour = (
     return null;
   }
 
-  return operatingHours.find((item) => item.weekday === weekday) ?? null;
+  return operatingHours.find((item) => item.weekday === weekday && item.enabled) ?? null;
 };
 
 const buildStartTimeOptions = (operatingHour: AdminPracticumOperatingHour | null): string[] => {
@@ -166,6 +166,10 @@ const isScheduleTimeWithinOperatingHour = (
   }
 
   return true;
+};
+
+const formatBlockedHours = (blockedHours: number[]): string => {
+  return blockedHours.map(toTimeValue).join(', ');
 };
 
 const DatePicker = ({
@@ -328,14 +332,41 @@ const OfflineSchedulePlanner = ({
   schedules,
 }: OfflineSchedulePlannerProps) => {
   const operatingHoursQuery = useQuery({
-    queryFn: fetchAdminPracticumOperatingHours,
-    queryKey: ['adminPracticumOperatingHours'],
+    enabled: Boolean(schedules[0]?.date),
+    queryFn: () => fetchAdminPracticumOperatingHours(schedules[0]?.date),
+    queryKey: ['adminPracticumOperatingHours', schedules[0]?.date ?? ''],
   });
   const schedule = schedules[0] ?? EMPTY_SCHEDULE;
-  const operatingHours = operatingHoursQuery.data ?? [];
-  const selectedOperatingHour = resolveOperatingHour(schedule.date, operatingHours);
-  const startTimeOptions = buildStartTimeOptions(selectedOperatingHour);
-  const endTimeOptions = buildEndTimeOptions(selectedOperatingHour, schedule.startTime);
+  const operatingHours = useMemo(() => operatingHoursQuery.data ?? [], [operatingHoursQuery.data]);
+  const selectedOperatingHour = useMemo(
+    () => resolveOperatingHour(schedule.date, operatingHours),
+    [operatingHours, schedule.date],
+  );
+  const startTimeOptions = useMemo(
+    () => buildStartTimeOptions(selectedOperatingHour),
+    [selectedOperatingHour],
+  );
+  const endTimeOptions = useMemo(
+    () => buildEndTimeOptions(selectedOperatingHour, schedule.startTime),
+    [schedule.startTime, selectedOperatingHour],
+  );
+  const blockedHourLabels = selectedOperatingHour
+    ? formatBlockedHours(
+        [...selectedOperatingHour.blockedHours].sort((left, right) => left - right),
+      )
+    : '';
+  const startTimeDisabled =
+    disabled ||
+    !schedule.date ||
+    operatingHoursQuery.isPending ||
+    !selectedOperatingHour ||
+    startTimeOptions.length === 0;
+  const endTimeDisabled =
+    disabled ||
+    !schedule.startTime ||
+    operatingHoursQuery.isPending ||
+    !selectedOperatingHour ||
+    endTimeOptions.length === 0;
   const [datePicker, setDatePicker] = useState<{ isOpen: boolean; month: Date }>({
     isOpen: false,
     month: parseDateValue(schedule.date || minDate),
@@ -352,16 +383,19 @@ const OfflineSchedulePlanner = ({
       return;
     }
 
-    const hasTime = Boolean(schedule.startTime || schedule.endTime);
-    const validTime =
-      schedule.startTime && schedule.endTime
-        ? isScheduleTimeWithinOperatingHour(
-            selectedOperatingHour,
-            schedule.startTime,
-            schedule.endTime,
-          )
-        : !hasTime;
-    if (validTime) {
+    const hasStartTime = Boolean(schedule.startTime);
+    const hasEndTime = Boolean(schedule.endTime);
+    const hasValidStartTime = !hasStartTime || startTimeOptions.includes(schedule.startTime);
+    const hasValidEndTime =
+      !hasEndTime ||
+      (hasStartTime &&
+        isScheduleTimeWithinOperatingHour(
+          selectedOperatingHour,
+          schedule.startTime,
+          schedule.endTime,
+        ));
+
+    if (hasValidStartTime && hasValidEndTime) {
       return;
     }
 
@@ -369,10 +403,16 @@ const OfflineSchedulePlanner = ({
       {
         ...schedule,
         endTime: '',
-        startTime: '',
+        startTime: hasValidStartTime ? schedule.startTime : '',
       },
     ]);
-  }, [onSchedulesChange, operatingHoursQuery.isPending, schedule, selectedOperatingHour]);
+  }, [
+    onSchedulesChange,
+    operatingHoursQuery.isPending,
+    schedule,
+    selectedOperatingHour,
+    startTimeOptions,
+  ]);
 
   return (
     <div className={styles['planner']}>
@@ -388,18 +428,12 @@ const OfflineSchedulePlanner = ({
             max={maxDate}
             min={minDate}
             onChange={(dateValue) => {
-              const nextOperatingHour = resolveOperatingHour(dateValue, operatingHours);
               updateSchedule((current) => {
-                const shouldKeepTime = isScheduleTimeWithinOperatingHour(
-                  nextOperatingHour,
-                  current.startTime,
-                  current.endTime,
-                );
                 return {
                   ...current,
                   date: dateValue,
-                  endTime: shouldKeepTime ? current.endTime : '',
-                  startTime: shouldKeepTime ? current.startTime : '',
+                  endTime: '',
+                  startTime: '',
                 };
               });
             }}
@@ -422,7 +456,7 @@ const OfflineSchedulePlanner = ({
             <span className={styles['fieldLabel']}>시작 시간</span>
             <select
               className={styles['selectControl']}
-              disabled={disabled || !schedule.date || operatingHoursQuery.isPending}
+              disabled={startTimeDisabled}
               onChange={(event) => {
                 const startTime = event.target.value;
                 updateSchedule((current) => ({
@@ -445,7 +479,7 @@ const OfflineSchedulePlanner = ({
             <span className={styles['fieldLabel']}>종료 시간</span>
             <select
               className={styles['selectControl']}
-              disabled={disabled || !schedule.startTime || operatingHoursQuery.isPending}
+              disabled={endTimeDisabled}
               onChange={(event) => {
                 updateSchedule((current) => ({ ...current, endTime: event.target.value }));
               }}
@@ -471,12 +505,26 @@ const OfflineSchedulePlanner = ({
           </div>
         </div>
         {schedule.date && operatingHoursQuery.isSuccess && !selectedOperatingHour ? (
-          <p className={styles['helperText']}>선택한 요일에 설정된 운영시간이 없습니다.</p>
+          <p className={styles['helperText']} data-tone='warning'>
+            선택한 날짜에 운영시간이 없어 시작 시간을 선택할 수 없습니다.
+          </p>
+        ) : null}
+        {schedule.date && operatingHoursQuery.isError ? (
+          <p className={styles['helperText']} data-tone='warning'>
+            운영시간을 불러오지 못해 시간을 선택할 수 없습니다.
+          </p>
+        ) : null}
+        {schedule.date && selectedOperatingHour && startTimeOptions.length === 0 ? (
+          <p className={styles['helperText']} data-tone='warning'>
+            운영시간 내 선택 가능한 시간이 없습니다.
+            {blockedHourLabels ? ` 예약불가 시간: ${blockedHourLabels}` : ''}
+          </p>
         ) : null}
         {schedule.date && selectedOperatingHour ? (
           <p className={styles['helperText']}>
             운영시간 {toTimeValue(selectedOperatingHour.openFromHour)}~
             {toTimeValue(selectedOperatingHour.openToHour)} 안에서만 등록할 수 있습니다.
+            {blockedHourLabels ? ` 예약불가 시간: ${blockedHourLabels}` : ''}
           </p>
         ) : null}
       </div>

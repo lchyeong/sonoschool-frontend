@@ -1,4 +1,11 @@
-import { Fragment, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -12,6 +19,7 @@ import {
   programQnaQueryKey,
   updateProgramQnaThread,
 } from '@/api/programQna';
+import checkWhiteIconSrc from '@/assets/icons/lucide_check_white_20.svg';
 import closeIconSrc from '@/assets/icons/lucide_x.svg';
 import squarePenIconSrc from '@/assets/icons/mypage-menu-square-pen.svg';
 import Modal from '@/components/overlay/Modal/Modal';
@@ -103,6 +111,12 @@ const formatDate = (value: string) => {
   return `${String(year)}.${month}.${day}.`;
 };
 
+const buildPrivateCheckStyle = () => {
+  return {
+    '--qna-private-check-icon': `url("${checkWhiteIconSrc}")`,
+  } as CSSProperties & Record<'--qna-private-check-icon', string>;
+};
+
 const matchesSearchKeyword = (thread: ProgramQnaThreadItem, keyword: string) => {
   if (!keyword) {
     return true;
@@ -161,6 +175,7 @@ const ProgramQnaPanelContent = ({
   const showToast = useToastStore((state) => state.showToast);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const currentDisplayName = useAuthStore((state) => state.displayName);
+  const currentRole = useAuthStore((state) => state.role);
   const isBoardVariant = variant === 'board';
   const isCompactBoard = isBoardVariant && boardLayout === 'compact';
   const waitingStatusLabel = detailDisplay === 'answersOnly' ? '미답변' : '답변 대기';
@@ -172,12 +187,15 @@ const ProgramQnaPanelContent = ({
   const [editingThreadId, setEditingThreadId] = useState<number | null>(null);
   const [editingThreadTitle, setEditingThreadTitle] = useState('');
   const [editingThreadContent, setEditingThreadContent] = useState('');
+  const [editingThreadPrivateQuestion, setEditingThreadPrivateQuestion] = useState(false);
   const [isWriteFormOpen, setIsWriteFormOpen] = useState(defaultWriteOpen);
   const [threadTitle, setThreadTitle] = useState('');
   const [threadContent, setThreadContent] = useState('');
+  const [threadPrivateQuestion, setThreadPrivateQuestion] = useState(false);
   const [openReplyThreadIds, setOpenReplyThreadIds] = useState<number[]>([]);
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
   const [pendingDeleteThread, setPendingDeleteThread] = useState<ProgramQnaThreadItem | null>(null);
+  const privateCheckStyle = useMemo(() => buildPrivateCheckStyle(), []);
   const deferredSearchKeyword = useDeferredValue(searchKeyword.trim().toLowerCase());
   const showBoardReadContent = !(
     isBoardVariant &&
@@ -199,9 +217,10 @@ const ProgramQnaPanelContent = ({
   };
 
   const createThreadMutation = useMutation({
-    mutationFn: (payload: { content: string; title: string }) =>
+    mutationFn: (payload: { content: string; privateQuestion: boolean; title: string }) =>
       createProgramQnaThread(resolvedProgramId, {
         content: payload.content,
+        privateQuestion: payload.privateQuestion,
         title: payload.title,
       }),
     onError: (error: unknown) => {
@@ -213,6 +232,7 @@ const ProgramQnaPanelContent = ({
     onSuccess: async () => {
       setThreadTitle('');
       setThreadContent('');
+      setThreadPrivateQuestion(false);
       setIsWriteFormOpen(false);
       await invalidateQna();
       showToast({
@@ -247,13 +267,15 @@ const ProgramQnaPanelContent = ({
   const updateThreadMutation = useMutation({
     mutationFn: ({
       content,
+      privateQuestion,
       threadId,
       title,
     }: {
       content: string;
+      privateQuestion: boolean;
       threadId: number;
       title: string;
-    }) => updateProgramQnaThread(resolvedProgramId, threadId, { content, title }),
+    }) => updateProgramQnaThread(resolvedProgramId, threadId, { content, privateQuestion, title }),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : 'Q&A를 수정하지 못했습니다.',
@@ -264,6 +286,7 @@ const ProgramQnaPanelContent = ({
       setEditingThreadId(null);
       setEditingThreadTitle('');
       setEditingThreadContent('');
+      setEditingThreadPrivateQuestion(false);
       await invalidateQna();
       showToast({
         message: 'Q&A를 수정했습니다.',
@@ -381,6 +404,7 @@ const ProgramQnaPanelContent = ({
     setEditingThreadId(thread.id);
     setEditingThreadTitle(thread.title);
     setEditingThreadContent(thread.content);
+    setEditingThreadPrivateQuestion(thread.privateQuestion);
     setExpandedThreadId(thread.id);
     setIsWriteFormOpen(false);
   };
@@ -389,6 +413,7 @@ const ProgramQnaPanelContent = ({
     setEditingThreadId(null);
     setEditingThreadTitle('');
     setEditingThreadContent('');
+    setEditingThreadPrivateQuestion(false);
   };
 
   const handleSubmitThreadEdit = (threadId: number) => {
@@ -406,6 +431,7 @@ const ProgramQnaPanelContent = ({
 
     void updateThreadMutation.mutateAsync({
       content: trimmedContent,
+      privateQuestion: editingThreadPrivateQuestion,
       threadId,
       title: trimmedTitle,
     });
@@ -429,6 +455,34 @@ const ProgramQnaPanelContent = ({
     }
 
     void deleteThreadMutation.mutateAsync(pendingDeleteThread.id);
+  };
+
+  const canReadThread = (thread: ProgramQnaThreadItem) => {
+    return !thread.privateQuestion || thread.mine || currentRole === 'ROLE_ADMIN';
+  };
+
+  const handleToggleThread = (thread: ProgramQnaThreadItem) => {
+    if (!canReadThread(thread)) {
+      showToast({
+        message: '비밀글은 작성자와 관리자만 확인할 수 있습니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setExpandedThreadId((current) => (current === thread.id ? null : thread.id));
+  };
+
+  const handleOpenCompactThread = (thread: ProgramQnaThreadItem) => {
+    if (!canReadThread(thread)) {
+      showToast({
+        message: '비밀글은 작성자와 관리자만 확인할 수 있습니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setExpandedThreadId(thread.id);
   };
 
   const handleToggleWriteForm = () => {
@@ -475,6 +529,7 @@ const ProgramQnaPanelContent = ({
 
     void createThreadMutation.mutateAsync({
       content: threadContent.trim(),
+      privateQuestion: threadPrivateQuestion,
       title: threadTitle.trim(),
     });
   };
@@ -556,6 +611,17 @@ const ProgramQnaPanelContent = ({
                   placeholder={`내용 (${String(QNA_CONTENT_MAX_LENGTH)}자 이내)`}
                   value={editingThreadContent}
                 />
+                <label className={styles['privateOption']}>
+                  <input
+                    checked={editingThreadPrivateQuestion}
+                    onChange={(event) => {
+                      setEditingThreadPrivateQuestion(event.currentTarget.checked);
+                    }}
+                    style={privateCheckStyle}
+                    type='checkbox'
+                  />
+                  <span>비밀글로 등록</span>
+                </label>
                 <div className={styles['threadActionRow']}>
                   <Button
                     disabled={updateThreadMutation.isPending || deleteThreadMutation.isPending}
@@ -841,6 +907,17 @@ const ProgramQnaPanelContent = ({
                 placeholder='강의와 관련하여 궁금한 내용을 작성해주세요.'
                 value={editingThreadContent}
               />
+              <label className={styles['privateOption']}>
+                <input
+                  checked={editingThreadPrivateQuestion}
+                  onChange={(event) => {
+                    setEditingThreadPrivateQuestion(event.currentTarget.checked);
+                  }}
+                  style={privateCheckStyle}
+                  type='checkbox'
+                />
+                <span>비밀글로 등록</span>
+              </label>
             </div>
           ) : (
             <>
@@ -974,6 +1051,7 @@ const ProgramQnaPanelContent = ({
   const resetCompactWrite = () => {
     setThreadTitle('');
     setThreadContent('');
+    setThreadPrivateQuestion(false);
   };
 
   const renderCompactComposer = () => (
@@ -1055,6 +1133,17 @@ const ProgramQnaPanelContent = ({
         >
           <span>{String(threadContent.length)}</span> / {String(QNA_CONTENT_MAX_LENGTH)}
         </p>
+        <label className={styles['privateOption']}>
+          <input
+            checked={threadPrivateQuestion}
+            onChange={(event) => {
+              setThreadPrivateQuestion(event.currentTarget.checked);
+            }}
+            style={privateCheckStyle}
+            type='checkbox'
+          />
+          <span>비밀글로 등록</span>
+        </label>
       </div>
 
       <div className={styles['compactWriteActionRow']}>
@@ -1150,6 +1239,17 @@ const ProgramQnaPanelContent = ({
           <span>{String(threadContent.length)}</span> / {String(QNA_CONTENT_MAX_LENGTH)}
         </p>
       ) : null}
+      <label className={styles['privateOption']}>
+        <input
+          checked={threadPrivateQuestion}
+          onChange={(event) => {
+            setThreadPrivateQuestion(event.currentTarget.checked);
+          }}
+          style={privateCheckStyle}
+          type='checkbox'
+        />
+        <span>비밀글로 등록</span>
+      </label>
       <div className={styles['actionRow']}>
         {isBoardVariant ? (
           <Button
@@ -1158,6 +1258,7 @@ const ProgramQnaPanelContent = ({
             onClick={() => {
               setThreadTitle('');
               setThreadContent('');
+              setThreadPrivateQuestion(false);
             }}
             size='sm'
             type='button'
@@ -1452,6 +1553,7 @@ const ProgramQnaPanelContent = ({
                 {paginatedThreads.map((thread) => {
                   const isExpanded = activeExpandedThreadId === thread.id;
                   const isReplyComposerOpen = openReplyThreadIds.includes(thread.id);
+                  const isReadable = canReadThread(thread);
 
                   return (
                     <article
@@ -1466,8 +1568,9 @@ const ProgramQnaPanelContent = ({
                         aria-controls={`program-qna-detail-${String(thread.id)}`}
                         aria-expanded={isExpanded}
                         className={styles['compactThreadButton']}
+                        data-locked={!isReadable}
                         onClick={() => {
-                          setExpandedThreadId(thread.id);
+                          handleOpenCompactThread(thread);
                         }}
                         type='button'
                       >
@@ -1544,6 +1647,7 @@ const ProgramQnaPanelContent = ({
                   {paginatedThreads.length ? (
                     paginatedThreads.map((thread) => {
                       const isExpanded = activeExpandedThreadId === thread.id;
+                      const isReadable = canReadThread(thread);
                       const authorName = maskQnaAuthorName(
                         resolveQnaAuthorName(thread.authorName, thread.mine, currentDisplayName),
                       );
@@ -1554,10 +1658,9 @@ const ProgramQnaPanelContent = ({
                             aria-expanded={isExpanded}
                             className={styles['questionRow']}
                             data-expanded={isExpanded}
+                            data-locked={!isReadable}
                             onClick={() => {
-                              setExpandedThreadId((current) =>
-                                current === thread.id ? null : thread.id,
-                              );
+                              handleToggleThread(thread);
                             }}
                             onKeyDown={(event) => {
                               if (event.key !== 'Enter' && event.key !== ' ') {
@@ -1565,9 +1668,7 @@ const ProgramQnaPanelContent = ({
                               }
 
                               event.preventDefault();
-                              setExpandedThreadId((current) =>
-                                current === thread.id ? null : thread.id,
-                              );
+                              handleToggleThread(thread);
                             }}
                             tabIndex={0}
                           >
@@ -1584,7 +1685,12 @@ const ProgramQnaPanelContent = ({
                               </span>
                             </td>
                             <td className={styles['titleCell']}>
-                              <span className={styles['titleButton']}>{thread.title}</span>
+                              <span className={styles['titleButton']}>
+                                {thread.privateQuestion ? (
+                                  <span className={styles['privateBadge']}>비밀글</span>
+                                ) : null}
+                                {thread.title}
+                              </span>
                             </td>
                             <td className={styles['authorCell']}>{authorName}</td>
                             <td className={styles['dateCell']}>

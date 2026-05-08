@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchAdminNotices, fetchGlobalNotices, fetchNoticeDetail } from '@/api/notices';
 
 export const globalNoticesQueryKey = () => ['globalNotices'] as const;
-export const noticeDetailQueryKey = (noticeId: number | null) =>
-  ['noticeDetail', noticeId] as const;
+export const noticeDetailQueryKey = (noticeSlug: string | null) =>
+  ['noticeDetail', noticeSlug] as const;
 export const adminNoticesQueryKey = () => ['adminNotices'] as const;
 
 export const useGlobalNoticesQuery = () => {
@@ -16,12 +16,12 @@ export const useGlobalNoticesQuery = () => {
   });
 };
 
-export const useNoticeDetailQuery = (noticeId: number | null) => {
+export const useNoticeDetailQuery = (noticeSlug: string | null) => {
   return useQuery({
-    enabled: noticeId !== null && Number.isFinite(noticeId),
+    enabled: noticeSlug !== null && noticeSlug.length > 0,
     gcTime: 30 * 60 * 1000,
-    queryFn: () => fetchNoticeDetail(noticeId as number),
-    queryKey: noticeDetailQueryKey(noticeId),
+    queryFn: () => fetchNoticeDetail(noticeSlug as string),
+    queryKey: noticeDetailQueryKey(noticeSlug),
     staleTime: 60 * 1000,
   });
 };

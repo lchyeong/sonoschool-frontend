@@ -96,9 +96,7 @@ export const checkLoginIdAvailability = async (
   }
 };
 
-export const checkEmailAvailability = async (
-  email: string,
-): Promise<AvailabilityCheckResponse> => {
+export const checkEmailAvailability = async (email: string): Promise<AvailabilityCheckResponse> => {
   try {
     const response = await axiosInstance.get<ApiEnvelope<AvailabilityCheckResponse>>(
       '/api/v1/auth/check-email',
@@ -124,10 +122,16 @@ export const fetchRegistrationTerms = async (): Promise<RegistrationTerm[]> => {
 };
 
 export const sendSmsVerification = async (payload: SmsSendPayload): Promise<SmsSendResponse> => {
+  const authDeviceId = getOrCreateAuthDeviceId();
   try {
     const response = await axiosInstance.post<ApiEnvelope<SmsSendResponse>>(
       '/api/v1/auth/sms/send',
       payload,
+      {
+        headers: {
+          'X-Auth-Device-Id': authDeviceId,
+        },
+      },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -136,10 +140,16 @@ export const sendSmsVerification = async (payload: SmsSendPayload): Promise<SmsS
 };
 
 export const verifySmsCode = async (payload: SmsVerifyPayload): Promise<SmsVerifyResponse> => {
+  const authDeviceId = getOrCreateAuthDeviceId();
   try {
     const response = await axiosInstance.post<ApiEnvelope<SmsVerifyResponse>>(
       '/api/v1/auth/sms/verify',
       payload,
+      {
+        headers: {
+          'X-Auth-Device-Id': authDeviceId,
+        },
+      },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {

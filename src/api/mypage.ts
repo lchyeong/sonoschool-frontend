@@ -39,6 +39,7 @@ import type {
   EnrollmentDetail,
   EnrollmentReviewPayload,
   EnrollmentSummary,
+  LearningStartNotice,
   LectureProgressSaveResponse,
   LearningPlayerSnapshot,
   MyQuestionItem,
@@ -56,6 +57,7 @@ import type {
   LecturePracticum,
   PracticumReservation,
 } from '@/types/practicum';
+import { isUnsafeStorageAssetUrl, sanitizePublicAssetUrl } from '@/utils/publicAssetUrl';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
@@ -73,6 +75,20 @@ interface BackendUserProfile {
 }
 
 const CERTIFICATE_PROFILE_STORAGE_KEY = 'sonoschool.mock.certificateProfile';
+const LEARNING_START_NOTICE_STORAGE_KEY_PREFIX = 'sonoschool.mock.learningStartNoticeAccepted';
+
+const DEFAULT_LEARNING_START_NOTICE: LearningStartNotice = {
+  accepted: false,
+  acceptedAt: null,
+  messages: [
+    '동의 후 강의 수강을 시작하면 취소 및 환불이 제한될 수 있습니다.',
+    '강의 영상, 자료, 문제 콘텐츠의 무단 복제, 녹화, 배포, 공유는 금지됩니다.',
+    '무단 복제 또는 배포 시 관련 법령에 따라 민형사상 법적 책임이 발생할 수 있습니다.',
+  ],
+  required: true,
+  title: '수강 시작 전 확인',
+  version: '2026-05-08',
+};
 
 interface MyQuestionsQueryOptions {
   answered?: boolean | undefined;
@@ -92,6 +108,42 @@ const toUserProfile = (profile: BackendUserProfile): UserProfile => {
     phoneNumber: profile.phoneNumber,
     phoneVerifiedAt: profile.phoneVerifiedAt ?? null,
     role: profile.role,
+  };
+};
+
+const getMockedLearningStartNoticeStorageKey = (enrollmentId: number): string => {
+  return `${LEARNING_START_NOTICE_STORAGE_KEY_PREFIX}.${String(enrollmentId)}`;
+};
+
+const getMockedLearningStartNotice = (enrollmentId: number): LearningStartNotice => {
+  if (typeof window === 'undefined') {
+    return DEFAULT_LEARNING_START_NOTICE;
+  }
+
+  const acceptedAt = window.localStorage.getItem(
+    getMockedLearningStartNoticeStorageKey(enrollmentId),
+  );
+
+  return {
+    ...DEFAULT_LEARNING_START_NOTICE,
+    accepted: acceptedAt !== null,
+    acceptedAt,
+    required: acceptedAt === null,
+  };
+};
+
+const acceptMockedLearningStartNotice = (enrollmentId: number): LearningStartNotice => {
+  const acceptedAt = new Date().toISOString();
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(getMockedLearningStartNoticeStorageKey(enrollmentId), acceptedAt);
+  }
+
+  return {
+    ...DEFAULT_LEARNING_START_NOTICE,
+    accepted: true,
+    acceptedAt,
+    required: false,
   };
 };
 
@@ -189,10 +241,6 @@ const toRefundHistory = (payment: PaymentResult): RefundHistory | null => {
   };
 };
 
-const isS3StorageUrl = (value: string | null | undefined): value is string => {
-  return typeof value === 'string' && value.startsWith('s3://');
-};
-
 const getS3PresignedUrlExpiresAt = (value: string | null | undefined): number | null => {
   if (typeof value !== 'string') {
     return null;
@@ -240,8 +288,13 @@ const isExpiredS3PresignedUrl = (value: string | null | undefined): value is str
 };
 
 const shouldResolveCartThumbnailUrl = (value: string | null | undefined): value is string => {
-  return isS3StorageUrl(value) || isExpiredS3PresignedUrl(value);
+  return isUnsafeStorageAssetUrl(value) || isExpiredS3PresignedUrl(value);
 };
+
+const sanitizeEnrollmentSummary = (enrollment: EnrollmentSummary): EnrollmentSummary => ({
+  ...enrollment,
+  programThumbnailUrl: sanitizePublicAssetUrl(enrollment.programThumbnailUrl),
+});
 
 const getProgramIdFromSearchItemId = (id: string): number | null => {
   const match = /^lecture-(\d+)$/.exec(id);
@@ -516,7 +569,7 @@ export const fetchMyEnrollments = async (): Promise<EnrollmentSummary[]> => {
   try {
     const response =
       await axiosInstance.get<ApiEnvelope<EnrollmentSummary[]>>('/api/v1/my/enrollments');
-    return unwrapApiEnvelope(response.data);
+    return unwrapApiEnvelope(response.data).map(sanitizeEnrollmentSummary);
   } catch (error: unknown) {
     throw toApiError(error, '수강 내역을 불러오지 못했습니다.');
   }
@@ -540,6 +593,40 @@ export const fetchMyEnrollmentDetail = async (enrollmentId: number): Promise<Enr
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '수강 상세 정보를 불러오지 못했습니다.');
+  }
+};
+
+export const fetchLearningStartNotice = async (
+  enrollmentId: number,
+): Promise<LearningStartNotice> => {
+  if (isMyPageMockModeEnabled()) {
+    return getMockedLearningStartNotice(enrollmentId);
+  }
+
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<LearningStartNotice>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/learning-start-notice`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '수강 시작 안내를 불러오지 못했습니다.');
+  }
+};
+
+export const acceptLearningStartNotice = async (
+  enrollmentId: number,
+): Promise<LearningStartNotice> => {
+  if (isMyPageMockModeEnabled()) {
+    return acceptMockedLearningStartNotice(enrollmentId);
+  }
+
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<LearningStartNotice>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/learning-start-notice/accept`,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '수강 시작 동의 처리에 실패했습니다.');
   }
 };
 
@@ -637,6 +724,28 @@ export const fetchLectureStream = async (
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '보호된 스트리밍 주소를 불러오지 못했습니다.');
+  }
+};
+
+export const refreshLectureStreamCookies = async (
+  lectureId: number,
+  deviceId: string,
+  playbackSessionToken: string,
+): Promise<{ expiresAt: number }> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<{ expiresAt: number }>>(
+      `/api/v1/lectures/${String(lectureId)}/stream/refresh`,
+      null,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+          'X-Playback-Session-Token': playbackSessionToken,
+        },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '스트리밍 쿠키를 갱신하지 못했습니다.');
   }
 };
 
@@ -918,6 +1027,7 @@ export const fetchMyQuestions = async (
 
 export const createMyGlobalQuestion = async (payload: {
   content: string;
+  privateQuestion?: boolean;
   title: string;
 }): Promise<MyQuestionItem> => {
   if (isMyPageMockModeEnabled()) {
@@ -933,9 +1043,10 @@ export const createMyGlobalQuestion = async (payload: {
 };
 
 export const updateMyQuestion = async (
-  question: Pick<MyQuestionItem, 'id' | 'programId' | 'scope'>,
+  question: Pick<MyQuestionItem, 'id' | 'privateQuestion' | 'programId' | 'scope'>,
   payload: {
     content: string;
+    privateQuestion?: boolean;
     title: string;
   },
 ): Promise<MyQuestionItem> => {
@@ -949,6 +1060,7 @@ export const updateMyQuestion = async (
         `/api/v1/programs/${String(question.programId)}/qna/${String(question.id)}`,
         {
           content: payload.content,
+          privateQuestion: payload.privateQuestion ?? question.privateQuestion,
           title: payload.title,
         },
       );
@@ -957,7 +1069,11 @@ export const updateMyQuestion = async (
 
     const response = await axiosInstance.put<ApiEnvelope<MyQuestionItem>>(
       `/api/v1/questions/${String(question.id)}`,
-      payload,
+      {
+        content: payload.content,
+        privateQuestion: payload.privateQuestion ?? question.privateQuestion,
+        title: payload.title,
+      },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {

@@ -63,9 +63,9 @@ const getNoticeAttachments = (notice: NoticeItem | undefined): NoticeAttachmentI
 
 const NoticeDetailPage = () => {
   const params = useParams();
-  const noticeId = Number(params['noticeId']);
-  const resolvedNoticeId = Number.isInteger(noticeId) && noticeId > 0 ? noticeId : null;
-  const noticeQuery = useNoticeDetailQuery(resolvedNoticeId);
+  const noticeSlug = params['noticeSlug']?.trim() ?? '';
+  const resolvedNoticeSlug = noticeSlug.length > 0 ? noticeSlug : null;
+  const noticeQuery = useNoticeDetailQuery(resolvedNoticeSlug);
   const noticesQuery = useGlobalNoticesQuery();
   const notice = noticeQuery.data;
   const [downloadTarget, setDownloadTarget] = useState<NoticeAttachmentItem | null>(null);
@@ -116,7 +116,7 @@ const NoticeDetailPage = () => {
     closeDownloadConfirm();
   };
 
-  if (resolvedNoticeId === null) {
+  if (resolvedNoticeSlug === null) {
     return (
       <section className={styles['stateSection']}>
         <h1 className={styles['stateTitle']}>공지 경로가 올바르지 않습니다.</h1>
@@ -375,7 +375,7 @@ const AdjacentNoticeLink = ({ direction, notice }: AdjacentNoticeLinkProps) => {
     <Link
       className={styles['adjacentLink']}
       data-direction={direction}
-      to={routePaths.noticeDetail(String(notice.id))}
+      to={routePaths.noticeDetail(notice.publicSlug)}
     >
       {content}
     </Link>

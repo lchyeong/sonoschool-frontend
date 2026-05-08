@@ -396,6 +396,7 @@ const AdminQnaSection = () => {
                                         question.scope,
                                         question.programTitle,
                                       )}
+                                  {question.privateQuestion && !question.notice ? ' · 비밀글' : ''}
                                   {!question.notice ? (
                                     <>
                                       {' · 답변 '}
@@ -456,7 +457,9 @@ const AdminQnaSection = () => {
                                   <section className={styles['qnaInlineQuestion']}>
                                     <div className={styles['qnaSectionHeader']}>
                                       <h3 className={styles['qnaQuestionTitle']}>
-                                        {question.title}
+                                        {question.privateQuestion && !question.notice
+                                          ? `[비밀글] ${question.title}`
+                                          : question.title}
                                       </h3>
                                       <p className={styles['qnaPanelMeta']}>
                                         {question.authorName} · {formatDateTime(question.createdAt)}

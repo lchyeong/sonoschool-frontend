@@ -15,14 +15,17 @@ import {
   fetchLectureStream,
   moveMyLecturePracticum,
   reserveMyLecturePracticum,
+  refreshLectureStreamCookies,
   saveLectureProgress,
   sendLectureProgressBeacon,
   updateMyOfflineScheduleAbsence,
 } from '@/api/mypage';
 import { downloadProgramResourceFile } from '@/api/resources';
 import {
+  fetchProblemVideoStream,
   fetchStudentProblemAttemptReport,
   fetchStudentProblem,
+  refreshProblemVideoStreamCookies,
   saveStudentProblemSession,
   startStudentProblemSession,
   submitStudentProblem,
@@ -184,6 +187,203 @@ const formatQuizPercent = (value: number): string => {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 };
 
+const resolvePlaybackCookieRefreshDelayMs = (expiresAt: number): number => {
+  const refreshBeforeExpiryMs = 60_000;
+  const minimumDelayMs = 30_000;
+  return Math.max(minimumDelayMs, expiresAt * 1000 - Date.now() - refreshBeforeExpiryMs);
+};
+
+interface QuizProtectedVideoProps {
+  alt: string;
+  className: string;
+  deviceId: string;
+  lectureId: number;
+  videoId: number;
+}
+
+const QuizProtectedVideo = ({
+  alt,
+  className,
+  deviceId,
+  lectureId,
+  videoId,
+}: QuizProtectedVideoProps) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [watermarkClock, setWatermarkClock] = useState(new Date());
+  const [cookieExpiresAt, setCookieExpiresAt] = useState<number | null>(null);
+  const [watermarkPositionIndex, setWatermarkPositionIndex] = useState(0);
+  const [isWatermarkEmphasized, setIsWatermarkEmphasized] = useState(false);
+  const streamQuery = useQuery<ProtectedLectureStream>({
+    queryKey: [
+      'problem-video-stream',
+      lectureId,
+      videoId,
+      deviceId,
+      getPlayerMockQueryKeySegment(),
+    ],
+    queryFn: () => fetchProblemVideoStream(lectureId, videoId, deviceId),
+    retry: false,
+  });
+  const stream = streamQuery.data ?? null;
+  const watermarkText = formatPlaybackWatermarkText(stream?.playbackWatermarkText);
+  const watermarkTimestamp = formatPlaybackWatermarkTimestamp(watermarkClock);
+  const watermarkCompactText = watermarkText ? `${watermarkText} · ${watermarkTimestamp}` : '';
+  const watermarkPosition =
+    PLAYBACK_WATERMARK_POSITIONS[watermarkPositionIndex % PLAYBACK_WATERMARK_POSITIONS.length];
+
+  useEffect(() => {
+    const syncTimer = window.setTimeout(() => {
+      setCookieExpiresAt(stream?.expiresAt ?? null);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(syncTimer);
+    };
+  }, [stream?.expiresAt, stream?.playbackSessionToken]);
+
+  useEffect(() => {
+    if (!stream?.playbackSessionToken || cookieExpiresAt === null) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void refreshProblemVideoStreamCookies(
+        lectureId,
+        videoId,
+        deviceId,
+        stream.playbackSessionToken,
+      )
+        .then((response) => {
+          setCookieExpiresAt(response.expiresAt);
+        })
+        .catch(() => {
+          setCookieExpiresAt(null);
+        });
+    }, resolvePlaybackCookieRefreshDelayMs(cookieExpiresAt));
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [cookieExpiresAt, deviceId, lectureId, stream?.playbackSessionToken, videoId]);
+
+  useEffect(() => {
+    const resetTimer = window.setTimeout(() => {
+      setWatermarkPositionIndex(0);
+      setWatermarkClock(new Date());
+      setIsWatermarkEmphasized(false);
+    }, 0);
+
+    if (!stream?.playbackWatermarkText) {
+      return () => {
+        window.clearTimeout(resetTimer);
+      };
+    }
+
+    const positionTimer = window.setInterval(() => {
+      setWatermarkPositionIndex((current) => current + 1);
+    }, PLAYBACK_WATERMARK_POSITION_INTERVAL_MS);
+    const clockTimer = window.setInterval(() => {
+      setWatermarkClock(new Date());
+    }, PLAYBACK_WATERMARK_CLOCK_INTERVAL_MS);
+    let emphasisTimeoutId: number | null = null;
+    const emphasisTimer = window.setInterval(() => {
+      setIsWatermarkEmphasized(true);
+      if (emphasisTimeoutId !== null) {
+        window.clearTimeout(emphasisTimeoutId);
+      }
+      emphasisTimeoutId = window.setTimeout(() => {
+        setIsWatermarkEmphasized(false);
+      }, PLAYBACK_WATERMARK_EMPHASIS_DURATION_MS);
+    }, PLAYBACK_WATERMARK_EMPHASIS_INTERVAL_MS);
+
+    return () => {
+      window.clearTimeout(resetTimer);
+      window.clearInterval(positionTimer);
+      window.clearInterval(clockTimer);
+      window.clearInterval(emphasisTimer);
+      if (emphasisTimeoutId !== null) {
+        window.clearTimeout(emphasisTimeoutId);
+      }
+    };
+  }, [stream?.playbackSessionToken, stream?.playbackWatermarkText]);
+
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    const playbackSessionToken = stream?.playbackSessionToken ?? '';
+    const selectedHlsKeyUrl = normalizeProtectedHlsKeyUrl(stream?.hlsKeyUrl ?? '');
+    const selectedStreamUrl = stream?.hlsUrl ?? '';
+    const playbackRequestPrefix = buildPlaybackRequestPrefix(selectedStreamUrl);
+
+    if (!videoElement || !selectedStreamUrl || !Hls.isSupported()) {
+      return;
+    }
+
+    const ProtectedLoader = createProtectedHlsLoader(selectedHlsKeyUrl);
+    const hls = new Hls({
+      enableWorker: true,
+      loader: ProtectedLoader,
+      xhrSetup: (xhr, url) => {
+        xhr.withCredentials = true;
+        const isKeyRequest = url === selectedHlsKeyUrl;
+        const isProtectedPlaybackRequest =
+          playbackRequestPrefix !== null && url.startsWith(playbackRequestPrefix);
+
+        if (isKeyRequest || isProtectedPlaybackRequest) {
+          xhr.setRequestHeader('X-Playback-Session-Token', playbackSessionToken);
+          xhr.setRequestHeader('X-Playback-Device-Id', deviceId);
+        }
+      },
+    });
+    hls.loadSource(selectedStreamUrl);
+    hls.attachMedia(videoElement);
+
+    return () => {
+      videoElement.removeAttribute('src');
+      hls.destroy();
+    };
+  }, [deviceId, stream?.hlsKeyUrl, stream?.hlsUrl, stream?.playbackSessionToken]);
+
+  return (
+    <div className={classNames(styles['quizVideoFrame'], className)}>
+      <video
+        aria-label={alt}
+        className={styles['quizVideoElement']}
+        controls
+        controlsList='nodownload noremoteplayback'
+        disablePictureInPicture
+        disableRemotePlayback
+        playsInline
+        preload='metadata'
+        ref={videoRef}
+      />
+      {streamQuery.isLoading ? (
+        <div className={styles['quizVideoOverlay']}>영상 준비 중</div>
+      ) : null}
+      {streamQuery.isError ? (
+        <div className={styles['quizVideoOverlay']}>영상을 불러오지 못했습니다.</div>
+      ) : null}
+      {watermarkCompactText ? (
+        <>
+          <div
+            aria-hidden='true'
+            className={styles['playbackWatermark']}
+            data-position={watermarkPosition}
+          >
+            {watermarkCompactText}
+          </div>
+          <div
+            aria-hidden='true'
+            className={styles['playbackWatermarkEmphasis']}
+            data-visible={isWatermarkEmphasized}
+          >
+            {watermarkCompactText}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+};
+
 const PlayerPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -236,6 +436,9 @@ const PlayerPage = () => {
   const [playbackWatermarkPositionIndex, setPlaybackWatermarkPositionIndex] = useState(0);
   const [playbackWatermarkClock, setPlaybackWatermarkClock] = useState(() => new Date());
   const [isPlaybackWatermarkEmphasized, setIsPlaybackWatermarkEmphasized] = useState(false);
+  const [lecturePlaybackCookieExpiresAt, setLecturePlaybackCookieExpiresAt] = useState<
+    number | null
+  >(null);
   const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
   const [lessonProgressByLessonId, setLessonProgressByLessonId] = useState<
     Partial<Record<string, LearningPlayerLessonProgress>>
@@ -416,6 +619,43 @@ const PlayerPage = () => {
     isValidEnrollmentId ? resolvedEnrollmentId : null,
     isValidEnrollmentId && hasPracticumLesson,
   );
+
+  useEffect(() => {
+    setLecturePlaybackCookieExpiresAt(protectedStream?.expiresAt ?? null);
+  }, [protectedStream?.expiresAt, protectedStream?.playbackSessionToken]);
+
+  useEffect(() => {
+    if (
+      activeLectureId === null ||
+      !protectedStream?.playbackSessionToken ||
+      lecturePlaybackCookieExpiresAt === null
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void refreshLectureStreamCookies(
+        activeLectureId,
+        playbackDeviceId,
+        protectedStream.playbackSessionToken,
+      )
+        .then((response) => {
+          setLecturePlaybackCookieExpiresAt(response.expiresAt);
+        })
+        .catch(() => {
+          setLecturePlaybackCookieExpiresAt(null);
+        });
+    }, resolvePlaybackCookieRefreshDelayMs(lecturePlaybackCookieExpiresAt));
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    activeLectureId,
+    lecturePlaybackCookieExpiresAt,
+    playbackDeviceId,
+    protectedStream?.playbackSessionToken,
+  ]);
   const saveQuizSessionMutation = useMutation({
     mutationFn: ({
       payload,
@@ -1903,6 +2143,7 @@ const PlayerPage = () => {
 
   const renderQuizMedia = (
     mediaType: StudentProblem['questions'][number]['mediaType'],
+    mediaVideoId: number | null | undefined,
     mediaPreviewUrl: string | null | undefined,
     mediaUrl: string | null,
     alt: string,
@@ -1910,18 +2151,32 @@ const PlayerPage = () => {
   ) => {
     const resolvedMediaUrl = mediaPreviewUrl || mediaUrl;
 
-    if (!mediaType || !resolvedMediaUrl) {
+    if (!mediaType || (!resolvedMediaUrl && !mediaVideoId)) {
       return null;
     }
 
     if (mediaType === 'VIDEO') {
+      if (selectedLectureId && mediaVideoId) {
+        return (
+          <QuizProtectedVideo
+            alt={alt}
+            className={className}
+            deviceId={playbackDeviceId}
+            lectureId={selectedLectureId}
+            videoId={mediaVideoId}
+          />
+        );
+      }
       return (
         <video className={className} controls preload='metadata'>
-          <source src={resolvedMediaUrl} />
+          <source src={resolvedMediaUrl ?? undefined} />
         </video>
       );
     }
 
+    if (!resolvedMediaUrl) {
+      return null;
+    }
     return <img alt={alt} className={className} src={resolvedMediaUrl} />;
   };
 
@@ -2952,6 +3207,7 @@ const PlayerPage = () => {
                 {reviewQuestion
                   ? renderQuizMedia(
                       reviewQuestion.mediaType,
+                      reviewQuestion.mediaVideoId,
                       reviewQuestion.mediaPreviewUrl,
                       reviewQuestion.mediaUrl,
                       `${String(quizResultReviewIndex + 1)}번 문항 해설 미디어`,
@@ -3559,6 +3815,7 @@ const PlayerPage = () => {
                                           </span>
                                           {renderQuizMedia(
                                             option.mediaType,
+                                            option.mediaVideoId,
                                             option.mediaPreviewUrl,
                                             option.mediaUrl,
                                             `${String(resolvedQuizQuestionIndex + 1)}번 문항 ${String(optionIndex + 1)}번 보기 미디어`,
@@ -3572,6 +3829,7 @@ const PlayerPage = () => {
 
                                 {renderQuizMedia(
                                   currentQuizQuestion.mediaType,
+                                  currentQuizQuestion.mediaVideoId,
                                   currentQuizQuestion.mediaPreviewUrl,
                                   currentQuizQuestion.mediaUrl,
                                   `${String(resolvedQuizQuestionIndex + 1)}번 문항 미디어`,

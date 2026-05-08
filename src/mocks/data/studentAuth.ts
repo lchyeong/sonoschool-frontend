@@ -21,6 +21,7 @@ interface PendingSmsVerification {
   phoneNumber: string;
   code: string;
   expiresAt: string;
+  verificationToken: string;
 }
 
 const normalizePhoneNumber = (value: string): string => {
@@ -62,6 +63,7 @@ const createInitialAccounts = (): MockStudentAccount[] => {
 let accounts = createInitialAccounts();
 let pendingVerification: PendingSmsVerification | null = null;
 let verifiedPhoneNumber: string | null = null;
+let verifiedPhoneToken: string | null = null;
 let currentRefreshToken: string | null = null;
 let currentSessionLoginId: string | null = null;
 
@@ -93,6 +95,7 @@ export const resetMockStudentAuthState = () => {
   accounts = createInitialAccounts();
   pendingVerification = null;
   verifiedPhoneNumber = null;
+  verifiedPhoneToken = null;
   currentRefreshToken = null;
   currentSessionLoginId = null;
 };
@@ -116,8 +119,10 @@ export const sendMockSmsVerification = (phoneNumber: string): SmsSendResponse | 
     phoneNumber: normalizedPhoneNumber,
     code: '123456',
     expiresAt,
+    verificationToken: `mock-phone-verification-${String(Date.now())}`,
   };
   verifiedPhoneNumber = null;
+  verifiedPhoneToken = null;
 
   return {
     phoneNumber: normalizedPhoneNumber,
@@ -139,11 +144,13 @@ export const verifyMockSmsCode = (payload: SmsVerifyPayload): SmsVerifyResponse 
   }
 
   verifiedPhoneNumber = normalizedPhoneNumber;
+  verifiedPhoneToken = pendingVerification.verificationToken;
   pendingVerification = null;
 
   return {
     phoneNumber: normalizedPhoneNumber,
     verifiedAt: new Date().toISOString(),
+    verificationToken: verifiedPhoneToken,
   };
 };
 
@@ -151,15 +158,22 @@ export const registerMockStudent = (
   payload: RegisterPayload,
 ): { session: StudentSession; refreshToken: string } | null => {
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
-  const requiredTermCodes = registrationTerms
+  const requiredTerms = registrationTerms
     .filter((term) => term.required)
-    .map((term) => term.code);
+    .map((term) => `${term.code}:${term.version}`);
+  const acceptedTerms = new Set(
+    payload.acceptedTerms.map((term) => `${term.code}:${term.version}`),
+  );
 
-  if (verifiedPhoneNumber !== normalizedPhoneNumber) {
+  if (
+    verifiedPhoneNumber !== normalizedPhoneNumber ||
+    !verifiedPhoneToken ||
+    payload.phoneVerificationToken !== verifiedPhoneToken
+  ) {
     return null;
   }
 
-  if (!requiredTermCodes.every((code) => payload.acceptedTermCodes.includes(code))) {
+  if (!requiredTerms.every((termKey) => acceptedTerms.has(termKey))) {
     throw new Error('Required registration terms must be accepted.');
   }
 
@@ -185,6 +199,7 @@ export const registerMockStudent = (
 
   accounts = [...accounts, account];
   verifiedPhoneNumber = null;
+  verifiedPhoneToken = null;
 
   const session = buildSession(account);
   const refreshToken = `mock-refresh-token-${payload.loginId}-${String(Date.now())}`;

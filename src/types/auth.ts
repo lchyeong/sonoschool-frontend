@@ -52,7 +52,13 @@ export interface RegisterPayload {
   nickname: string;
   password: string;
   phoneNumber: string;
-  acceptedTermCodes: string[];
+  phoneVerificationToken: string;
+  acceptedTerms: TermAcceptance[];
+}
+
+export interface TermAcceptance {
+  code: string;
+  version: string;
 }
 
 export interface SmsSendPayload {
@@ -72,6 +78,7 @@ export interface SmsVerifyPayload {
 export interface SmsVerifyResponse {
   phoneNumber: string;
   verifiedAt: string;
+  verificationToken: string | null;
 }
 
 export interface RegistrationTerm {

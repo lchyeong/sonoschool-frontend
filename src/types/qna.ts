@@ -24,6 +24,7 @@ export interface QuestionItem {
   mine: boolean;
   notice: boolean;
   noticeSortOrder?: number;
+  privateQuestion: boolean;
   answered: boolean;
   replyCount: number;
   createdAt: string;
@@ -34,6 +35,7 @@ export interface QuestionItem {
 export interface QuestionCreatePayload {
   title: string;
   content: string;
+  privateQuestion?: boolean;
 }
 
 export interface AdminQuestionNoticeCreatePayload {

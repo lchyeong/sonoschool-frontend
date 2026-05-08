@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchGlobalResourceDetail, fetchGlobalResources } from '@/api/resources';
 
 export const globalResourcesQueryKey = () => ['globalResources'] as const;
-export const globalResourceDetailQueryKey = (resourceId: number | null) =>
-  ['globalResourceDetail', resourceId] as const;
+export const globalResourceDetailQueryKey = (resourceSlug: string | null) =>
+  ['globalResourceDetail', resourceSlug] as const;
 
 export const useGlobalResourcesQuery = () => {
   return useQuery({
@@ -15,12 +15,12 @@ export const useGlobalResourcesQuery = () => {
   });
 };
 
-export const useGlobalResourceDetailQuery = (resourceId: number | null) => {
+export const useGlobalResourceDetailQuery = (resourceSlug: string | null) => {
   return useQuery({
-    enabled: resourceId !== null && Number.isFinite(resourceId),
+    enabled: resourceSlug !== null && resourceSlug.length > 0,
     gcTime: 30 * 60 * 1000,
-    queryFn: () => fetchGlobalResourceDetail(resourceId as number),
-    queryKey: globalResourceDetailQueryKey(resourceId),
+    queryFn: () => fetchGlobalResourceDetail(resourceSlug as string),
+    queryKey: globalResourceDetailQueryKey(resourceSlug),
     staleTime: 60 * 1000,
   });
 };

@@ -168,7 +168,7 @@ const NoticesPage = () => {
                         <td className={styles['titleCell']}>
                           <Link
                             className={styles['titleLink']}
-                            to={routePaths.noticeDetail(String(notice.id))}
+                            to={routePaths.noticeDetail(notice.publicSlug)}
                           >
                             {notice.pinned ? (
                               <span className={styles['statusBadge']} data-tone='pinned'>

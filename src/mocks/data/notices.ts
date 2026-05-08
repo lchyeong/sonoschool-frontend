@@ -3,6 +3,7 @@ import type { NoticeItem } from '@/types/notice';
 const initialNotices: NoticeItem[] = [
   {
     id: 2,
+    publicSlug: 'notice-2',
     scope: 'GLOBAL',
     programId: null,
     programTitle: null,
@@ -16,6 +17,7 @@ const initialNotices: NoticeItem[] = [
   },
   {
     id: 3,
+    publicSlug: 'notice-3',
     scope: 'GLOBAL',
     programId: null,
     programTitle: null,
@@ -29,6 +31,7 @@ const initialNotices: NoticeItem[] = [
   },
   {
     id: 4,
+    publicSlug: 'notice-4',
     scope: 'GLOBAL',
     programId: null,
     programTitle: null,
@@ -41,6 +44,7 @@ const initialNotices: NoticeItem[] = [
   },
   {
     id: 5,
+    publicSlug: 'notice-5',
     scope: 'GLOBAL',
     programId: null,
     programTitle: null,
@@ -78,8 +82,12 @@ export const getMockNoticeById = (noticeId: number): NoticeItem | null => {
   return notices.find((notice) => notice.id === noticeId) ?? null;
 };
 
+export const getMockNoticeByPublicSlug = (publicSlug: string): NoticeItem | null => {
+  return notices.find((notice) => notice.publicSlug === publicSlug) ?? null;
+};
+
 export const createMockNotice = (
-  payload: Omit<NoticeItem, 'id' | 'createdAt' | 'updatedAt'>,
+  payload: Omit<NoticeItem, 'id' | 'publicSlug' | 'createdAt' | 'updatedAt'>,
 ): NoticeItem => {
   const nextId = Math.max(...notices.map((notice) => notice.id), 0) + 1;
   const now = new Date().toISOString();
@@ -87,6 +95,7 @@ export const createMockNotice = (
     ...payload,
     createdAt: now,
     id: nextId,
+    publicSlug: `notice-${String(nextId)}`,
     updatedAt: now,
   };
 

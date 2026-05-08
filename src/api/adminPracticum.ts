@@ -8,6 +8,7 @@ import type {
   AdminPracticumOfflineScheduleOccurrence,
   AdminPracticumOperationException,
   AdminPracticumOperationExceptionPayload,
+  AdminPracticumOperatingHoursReplacePayload,
   AdminPracticumSearchCategory,
   AdminPracticumSlotManagementItem,
   AdminPracticumDailyOperationPayload,
@@ -125,12 +126,14 @@ export const syncAdminPracticumDailyOperation = async (
   }
 };
 
-export const fetchAdminPracticumOperatingHours = async (): Promise<
-  AdminPracticumOperatingHour[]
-> => {
+export const fetchAdminPracticumOperatingHours = async (
+  dateOrContext?: string | { queryKey: readonly unknown[] },
+): Promise<AdminPracticumOperatingHour[]> => {
+  const date = typeof dateOrContext === 'string' ? dateOrContext : undefined;
   try {
     const response = await axiosInstance.get<ApiEnvelope<AdminPracticumOperatingHour[]>>(
       '/api/v1/admin/practicum/operating-hours',
+      { params: date ? { date } : undefined },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -143,6 +146,20 @@ export const applyAdminPracticumOperatingHourRule = async (
 ): Promise<void> => {
   try {
     await axiosInstance.put('/api/v1/admin/practicum/operating-hours/apply', payload);
+  } catch (error: unknown) {
+    throw toApiError(error, '운영시간 변경을 반영하지 못했습니다.');
+  }
+};
+
+export const replaceAdminPracticumOperatingHours = async (
+  payload: AdminPracticumOperatingHoursReplacePayload,
+): Promise<AdminPracticumOperatingHour[]> => {
+  try {
+    const response = await axiosInstance.put<ApiEnvelope<AdminPracticumOperatingHour[]>>(
+      '/api/v1/admin/practicum/operating-hours',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '운영시간 변경을 반영하지 못했습니다.');
   }

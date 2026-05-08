@@ -11,6 +11,7 @@ export interface NoticeAttachmentItem {
 
 export interface NoticeItem {
   id: number;
+  publicSlug: string;
   scope: NoticeScope;
   programId: number | null;
   programTitle: string | null;

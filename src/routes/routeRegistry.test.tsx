@@ -77,10 +77,10 @@ describe('appRouteRegistry', () => {
     expect(routePaths.myEnrollmentPracticum('101')).toBe('/mypage/enrollments/101/practicum');
     expect(routePaths.checkout).toBe(appRouteRegistry.routes.checkout.absolutePath);
     expect(routePaths.paymentResult).toBe(appRouteRegistry.routes.paymentResult.absolutePath);
-    expect(routePaths.noticeDetail('7')).toBe('/notices/7');
+    expect(routePaths.noticeDetail('notice-7')).toBe('/notices/notice-7');
     expect(routePaths.reviews).toBe(appRouteRegistry.routes.reviews.absolutePath);
     expect(routePaths.resources).toBe(appRouteRegistry.routes.resources.absolutePath);
-    expect(routePaths.resourceDetail('7')).toBe('/resources/7');
+    expect(routePaths.resourceDetail('resource-7')).toBe('/resources/resource-7');
     expect(routePaths.programCatalog()).toBe('/programs');
     expect(routePaths.programCatalog('general-course', 'abdomen', 'abdomen-basic-6-weeks')).toBe(
       '/programs/general-course/abdomen/abdomen-basic-6-weeks',
@@ -261,11 +261,11 @@ describe('appRouteRegistry', () => {
       routeKey: 'paymentResult',
       access: 'public',
     });
-    expect(getRouteHandle('notices/:noticeId')).toEqual({
+    expect(getRouteHandle('notices/:noticeSlug')).toEqual({
       routeKey: 'noticeDetail',
       access: 'public',
     });
-    expect(getRouteHandle('resources/:resourceId')).toEqual({
+    expect(getRouteHandle('resources/:resourceSlug')).toEqual({
       routeKey: 'resourceDetail',
       access: 'public',
     });

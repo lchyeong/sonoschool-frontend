@@ -175,7 +175,7 @@ const ResourcesPage = () => {
                             <Link
                               aria-label={resource.title}
                               className={styles['titleLink']}
-                              to={routePaths.resourceDetail(String(resource.id))}
+                              to={routePaths.resourceDetail(resource.publicSlug)}
                             >
                               <span className={styles['titleText']}>{resource.title}</span>
                             </Link>

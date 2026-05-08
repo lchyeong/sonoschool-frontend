@@ -7,8 +7,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { logoutStudent } from '@/api/auth';
 import { ApiError } from '@/api/errors';
 import {
+  acceptLearningStartNotice,
   createMyCertificateProfile,
   createMyEnrollmentReview,
+  fetchLearningStartNotice,
   fetchMyCertificateProfile,
   sendMyPhoneVerification,
   updateMyEnrollmentReview,
@@ -70,6 +72,7 @@ import type {
   CertificateProfile,
   EnrollmentReviewPayload,
   EnrollmentSummary,
+  LearningStartNotice,
   MyQuestionAnsweredFilter,
   MyQuestionScope,
 } from '@/types/mypage';
@@ -100,6 +103,11 @@ interface ReviewFormDraftState {
 interface CertificatePreviewState {
   enrollment: EnrollmentSummary;
   profile: CertificateProfile;
+}
+
+interface LearningStartNoticeModalState {
+  enrollment: EnrollmentSummary;
+  notice: LearningStartNotice;
 }
 
 interface CertificateSvgAssets {
@@ -747,6 +755,11 @@ const MyPagePage = () => {
   const [isOptionalPrivacyConsentAccepted, setIsOptionalPrivacyConsentAccepted] = useState(false);
   const [profileConsentModalType, setProfileConsentModalType] =
     useState<ProfileConsentModalType | null>(null);
+  const [learningStartNoticeModal, setLearningStartNoticeModal] =
+    useState<LearningStartNoticeModalState | null>(null);
+  const [checkingLearningStartEnrollmentId, setCheckingLearningStartEnrollmentId] = useState<
+    number | null
+  >(null);
 
   const profileQuery = useMyProfileQuery();
   const enrollmentsQuery = useMyEnrollmentsQuery();
@@ -1397,6 +1410,24 @@ const MyPagePage = () => {
     },
   });
 
+  const acceptLearningStartNoticeMutation = useMutation({
+    mutationFn: (enrollmentId: number) => acceptLearningStartNotice(enrollmentId),
+    onError: (error: unknown) => {
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : '수강 시작 동의 처리에 실패했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_notice, enrollmentId) => {
+      setLearningStartNoticeModal(null);
+      await queryClient.invalidateQueries({ queryKey: myEnrollmentsQueryKey });
+      void navigate(routePaths.learningPlayer(String(enrollmentId)));
+    },
+  });
+
   const handleReviewSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -1471,6 +1502,43 @@ const MyPagePage = () => {
         {enrollment.reviewAction === 'EDIT' ? '후기 수정' : '후기 작성'}
       </Button>
     );
+  };
+
+  const getLearningActionLabel = (enrollment: (typeof allEnrollments)[number]) => {
+    if (enrollment.learningStatus === 'PENDING') {
+      return '시작 전';
+    }
+
+    return enrollment.lastLearningAt ? '이어보기' : '수강 시작하기';
+  };
+
+  const handleLearningActionClick = async (enrollment: EnrollmentSummary) => {
+    if (enrollment.learningStatus === 'PENDING') {
+      return;
+    }
+
+    setCheckingLearningStartEnrollmentId(enrollment.id);
+
+    try {
+      const notice = await fetchLearningStartNotice(enrollment.id);
+
+      if (notice.required) {
+        setLearningStartNoticeModal({ enrollment, notice });
+        return;
+      }
+
+      void navigate(routePaths.learningPlayer(String(enrollment.id)));
+    } catch (error: unknown) {
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : '수강 시작 상태를 확인하지 못했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    } finally {
+      setCheckingLearningStartEnrollmentId(null);
+    }
   };
 
   const renderLearningCourses = () => {
@@ -1701,7 +1769,8 @@ const MyPagePage = () => {
                 const reviewAction =
                   courseTab === 'EXPIRED'
                     ? renderReviewAction(enrollment, styles['courseSecondaryActionWide'])
-                    : renderReviewAction(enrollment);
+                    : null;
+                const learningActionLabel = getLearningActionLabel(enrollment);
 
                 const cardBody = (
                   <>
@@ -1781,27 +1850,30 @@ const MyPagePage = () => {
                         </div>
                       ) : (
                         <div className={styles['courseCardFooter']}>
-                          <div className={styles['courseActionGroup']}>
-                            {isPendingEnrollment ? (
-                              <span
-                                aria-disabled='true'
-                                className={classNames(
-                                  styles['learningActionLink'],
-                                  styles['learningActionLinkDisabled'],
-                                )}
-                              >
-                                시작 전
-                              </span>
-                            ) : (
-                              <Link
-                                className={styles['learningActionLink']}
-                                to={routePaths.learningPlayer(String(enrollment.id))}
-                              >
-                                이어보기
-                              </Link>
-                            )}
-                            {reviewAction}
-                          </div>
+                          {isPendingEnrollment ? (
+                            <span
+                              aria-disabled='true'
+                              className={classNames(
+                                styles['learningActionLink'],
+                                styles['learningActionLinkDisabled'],
+                              )}
+                            >
+                              {learningActionLabel}
+                            </span>
+                          ) : (
+                            <button
+                              className={styles['learningActionLink']}
+                              disabled={checkingLearningStartEnrollmentId === enrollment.id}
+                              onClick={() => {
+                                void handleLearningActionClick(enrollment);
+                              }}
+                              type='button'
+                            >
+                              {checkingLearningStartEnrollmentId === enrollment.id
+                                ? '확인 중'
+                                : learningActionLabel}
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2183,7 +2255,10 @@ const MyPagePage = () => {
                 <article className={styles['questionCard']} key={question.id}>
                   <div className={styles['questionCardMain']}>
                     <div className={styles['questionCardHeader']}>
-                      <strong className={styles['questionCardTitle']}>{question.title}</strong>
+                      <strong className={styles['questionCardTitle']}>
+                        {question.privateQuestion ? '[비밀글] ' : ''}
+                        {question.title}
+                      </strong>
                       <span
                         className={classNames(
                           styles['questionStatusChip'],
@@ -2642,6 +2717,74 @@ const MyPagePage = () => {
       default:
         return null;
     }
+  };
+
+  const renderLearningStartNoticeModal = () => {
+    if (!learningStartNoticeModal) {
+      return null;
+    }
+
+    const { enrollment, notice } = learningStartNoticeModal;
+
+    return (
+      <Modal
+        bodyClassName={styles['learningStartNoticeModalBody']}
+        closeButtonClassName={styles['learningStartNoticeModalCloseButton']}
+        closeButtonContent={
+          <span
+            aria-hidden='true'
+            className={styles['learningStartNoticeModalCloseIcon']}
+            style={reviewCloseIconStyle}
+          />
+        }
+        closeButtonLabel='수강 시작 확인 모달 닫기'
+        headerClassName={styles['learningStartNoticeModalHeader']}
+        onClose={() => {
+          if (!acceptLearningStartNoticeMutation.isPending) {
+            setLearningStartNoticeModal(null);
+          }
+        }}
+        panelClassName={styles['learningStartNoticeModalPanel']}
+        title={notice.title}
+        titleClassName={styles['learningStartNoticeModalTitle']}
+      >
+        <div className={styles['learningStartNoticeModalContent']}>
+          <p className={styles['learningStartNoticeProgramTitle']}>{enrollment.programTitle}</p>
+          <p className={styles['learningStartNoticeIntro']}>
+            아래 내용을 확인하고 동의하면 수강이 시작됩니다.
+          </p>
+          <ul className={styles['learningStartNoticeList']}>
+            {notice.messages.map((message) => (
+              <li className={styles['learningStartNoticeItem']} key={message}>
+                {message}
+              </li>
+            ))}
+          </ul>
+          <div className={styles['learningStartNoticeActionRow']}>
+            <button
+              className={styles['learningStartNoticeCancelButton']}
+              disabled={acceptLearningStartNoticeMutation.isPending}
+              onClick={() => {
+                setLearningStartNoticeModal(null);
+              }}
+              type='button'
+            >
+              취소
+            </button>
+            <button
+              className={styles['learningStartNoticeConfirmButton']}
+              disabled={acceptLearningStartNoticeMutation.isPending}
+              onClick={() => {
+                acceptLearningStartNoticeMutation.mutate(enrollment.id);
+              }}
+              type='button'
+            >
+              {acceptLearningStartNoticeMutation.isPending ? '처리 중' : '동의하고 수강 시작'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
   };
 
   const renderProfileConsentModal = () => {
@@ -3355,6 +3498,7 @@ const MyPagePage = () => {
       {renderCertificateProfileModal()}
       {renderCertificatePreviewModal()}
       {renderPaymentDetailModal()}
+      {renderLearningStartNoticeModal()}
       {renderProfilePasswordModal()}
       {renderProfileConsentModal()}
     </section>

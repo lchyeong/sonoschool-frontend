@@ -7,6 +7,14 @@ import type {
   ProgramPageResponse,
   ProgramsOverviewResponse,
 } from '@/types/programCatalog';
+import { sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
+
+const DEFAULT_PROGRAM_IMAGE = '/SRDMS_OG.png';
+
+const publicImageSchema = z
+  .string()
+  .min(1)
+  .transform((value) => sanitizeRequiredPublicAssetUrl(value, DEFAULT_PROGRAM_IMAGE));
 
 const programStatSchema = z.object({
   label: z.string().min(1),
@@ -24,7 +32,7 @@ const instructorSchema = z.object({
   introduction: z.string().min(1),
   name: z.string().min(1),
   profileImageAlt: z.string().min(1),
-  profileImageSrc: z.string().min(1),
+  profileImageSrc: publicImageSchema,
 });
 
 const lectureCardSchema = z.object({
@@ -44,14 +52,14 @@ const lectureCardSchema = z.object({
   scheduleLabel: z.string().min(1),
   summary: z.string().min(1),
   thumbnailAlt: z.string().min(1),
-  thumbnailSrc: z.string().min(1),
+  thumbnailSrc: publicImageSchema,
   title: z.string().min(1),
   to: z.string().min(1),
 });
 
 const collectionCardSchema = z.object({
   coverImageAlt: z.string().min(1),
-  coverImageSrc: z.string().min(1),
+  coverImageSrc: publicImageSchema,
   description: z.string().min(1),
   formatLabels: z.array(z.string().trim().min(1)).max(4),
   id: z.string().min(1),
@@ -88,8 +96,8 @@ const reviewItemSchema = z.object({
 const curriculumScheduleItemSchema = z.object({
   date: z.string().min(1).nullable(),
   endTime: z.string().min(1).nullable(),
-  location: z.string().trim().optional(),
-  notes: z.string().trim().optional(),
+  location: z.string().trim().nullable().optional(),
+  notes: z.string().trim().nullable().optional(),
   startTime: z.string().min(1).nullable(),
 });
 
@@ -146,7 +154,7 @@ const programCollectionPageResponseSchema = z.object({
   curatorNote: z.string().min(1),
   description: z.string().min(1),
   heroImageAlt: z.string().min(1),
-  heroImageSrc: z.string().min(1),
+  heroImageSrc: publicImageSchema,
   instructor: instructorSchema,
   kicker: z.string().min(1),
   lectures: z.array(lectureCardSchema).max(120),
@@ -168,7 +176,7 @@ const programDetailPageResponseSchema = z.object({
   qnaSummary: qnaSummarySchema.optional(),
   formatLabel: z.string().min(1),
   heroImageAlt: z.string().min(1),
-  heroImageSrc: z.string().min(1),
+  heroImageSrc: publicImageSchema,
   instructor: instructorSchema,
   kicker: z.string().min(1),
   learningOutcomes: z.array(infoItemSchema).min(1).max(8).optional(),

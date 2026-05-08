@@ -22,6 +22,7 @@ export interface AdminVideoUploadSessionRequest {
   fileSize: number;
   filename: string;
   partCount: number;
+  usage?: 'LECTURE' | 'PROBLEM';
 }
 
 export interface AdminVideoUploadSessionResponse {
@@ -44,6 +45,8 @@ export interface AdminVideoUploadCompleteRequest {
 export interface AdminVideoEncodingStartResponse {
   videoId: number;
 }
+
+export type AdminVideoEncodingProfile = 'LECTURE_HLS_1080' | 'PROBLEM_HLS_720';
 
 export type AdminVideoStatus = 'UPLOADING' | 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED';
 export type AdminVideoProcessingStage = 'ENCODING' | 'STREAMING_UPLOAD' | 'COMPLETED';
