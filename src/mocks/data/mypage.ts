@@ -215,6 +215,9 @@ const createLearningResourceAttachments = (detail: MockEnrollmentDetail, lessonN
   return [
     {
       description: '표준 스캔 순서에 대한 핵심 자료입니다.',
+      downloadable: true,
+      downloadCount: 0,
+      downloadLimit: 3,
       fileName: 'standard-scan-order.pdf',
       fileSize: 18_700_000,
       fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
@@ -222,12 +225,16 @@ const createLearningResourceAttachments = (detail: MockEnrollmentDetail, lessonN
       )}-summary.pdf`,
       id: lessonNumber * 100 + 1,
       mimeType: 'application/pdf',
+      remainingDownloadCount: 3,
       sortOrder: 0,
       title: '표준 스캔 순서',
       updatedAt: '2026-04-10T00:00:00.000Z',
     },
     {
       description: '복부 초음파 실습 전 점검 항목입니다.',
+      downloadable: true,
+      downloadCount: 1,
+      downloadLimit: 3,
       fileName: 'abdominal-ultrasound-checklist.docx',
       fileSize: 1_800_000,
       fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
@@ -235,12 +242,16 @@ const createLearningResourceAttachments = (detail: MockEnrollmentDetail, lessonN
       )}-checklist.docx`,
       id: lessonNumber * 100 + 2,
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      remainingDownloadCount: 2,
       sortOrder: 1,
       title: '복부 초음파 체크리스트',
       updatedAt: '2026-04-08T00:00:00.000Z',
     },
     {
       description: '실습 중 기록할 수 있는 표준 스캔 순서 기록표입니다.',
+      downloadable: true,
+      downloadCount: 0,
+      downloadLimit: 3,
       fileName: 'abdominal-scan-practice-log.xlsx',
       fileSize: 824_000,
       fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
@@ -248,12 +259,16 @@ const createLearningResourceAttachments = (detail: MockEnrollmentDetail, lessonN
       )}-practice-log.xlsx`,
       id: lessonNumber * 100 + 3,
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      remainingDownloadCount: 3,
       sortOrder: 2,
       title: '복부 초음파 표준 스캔 순서 실습 기록표',
       updatedAt: '2026-04-05T00:00:00.000Z',
     },
     {
       description: '예제 영상에서 캡처한 참고 이미지 모음입니다.',
+      downloadable: false,
+      downloadCount: 3,
+      downloadLimit: 3,
       fileName: 'example-video-captures.zip',
       fileSize: 824_000,
       fileUrl: `https://example.com/assets/programs/${String(detail.programId)}/lesson-${String(
@@ -261,6 +276,7 @@ const createLearningResourceAttachments = (detail: MockEnrollmentDetail, lessonN
       )}-captures.zip`,
       id: lessonNumber * 100 + 4,
       mimeType: 'application/zip',
+      remainingDownloadCount: 0,
       sortOrder: 3,
       title: '예제 영상 캡쳐 모음',
       updatedAt: '2026-04-05T00:00:00.000Z',

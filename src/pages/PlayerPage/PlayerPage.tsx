@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import type {
   ChangeEvent as ReactChangeEvent,
+  CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
 } from 'react';
@@ -39,6 +40,7 @@ import iconChevronDown from '@/assets/icons/lucide_chevron-down.svg';
 import iconResultRetryNeeded from '@/assets/icons/lucide_clipboard-x.svg';
 import iconFolderOpen from '@/assets/icons/lucide_folder-open.svg';
 import iconFullscreen from '@/assets/icons/lucide_fullscreen.svg';
+import iconInfo from '@/assets/icons/lucide_info.svg';
 import iconPlay from '@/assets/icons/lucide_play.svg';
 import iconRefreshCcw from '@/assets/icons/lucide_refresh-ccw.svg';
 import iconVolume from '@/assets/icons/lucide_volume-2.svg';
@@ -185,6 +187,27 @@ const formatPlaybackWatermarkTimestamp = (date: Date) => {
 
 const formatQuizPercent = (value: number): string => {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
+};
+
+const getResourceAttachmentDownloadLimit = (attachment: LearningPlayerResourceAttachment): number =>
+  Math.max(1, attachment.downloadLimit ?? 3);
+
+const getResourceAttachmentRemainingDownloadCount = (
+  attachment: LearningPlayerResourceAttachment,
+): number =>
+  Math.max(0, attachment.remainingDownloadCount ?? getResourceAttachmentDownloadLimit(attachment));
+
+const getResourceDownloadBlockedReason = (
+  attachment: LearningPlayerResourceAttachment,
+): string | null => {
+  if (
+    attachment.downloadable === false ||
+    getResourceAttachmentRemainingDownloadCount(attachment) <= 0
+  ) {
+    return '다운로드 가능 횟수 3회를 모두 사용했습니다.';
+  }
+
+  return null;
 };
 
 const resolvePlaybackCookieRefreshDelayMs = (expiresAt: number): number => {
@@ -463,6 +486,9 @@ const PlayerPage = () => {
   const [pendingPracticumSlot, setPendingPracticumSlot] = useState<PendingPracticumSlot | null>(
     null,
   );
+  const [pendingResourceDownloadAttachments, setPendingResourceDownloadAttachments] = useState<
+    LearningPlayerResourceAttachment[] | null
+  >(null);
   const [practicumMonthValue, setPracticumMonthValue] = useState(() => toMonthValue(new Date()));
   const [practicumSelectedDateValue, setPracticumSelectedDateValue] = useState(() =>
     toDateInputValue(new Date()),
@@ -2576,6 +2602,66 @@ const PlayerPage = () => {
     );
   };
 
+  const renderResourceDownloadModal = () => {
+    if (!pendingResourceDownloadAttachments) {
+      return null;
+    }
+
+    const modalRemainingDownloadCount = Math.min(
+      ...pendingResourceDownloadAttachments.map(getResourceAttachmentRemainingDownloadCount),
+    );
+
+    return (
+      <Modal
+        bodyClassName={styles['resourceDownloadModalBody']}
+        closeButtonClassName={styles['resourceDownloadModalClose']}
+        closeButtonContent={<img alt='' aria-hidden='true' src={iconPracticumClose} />}
+        closeButtonLabel='자료 다운로드 안내 닫기'
+        headerClassName={styles['resourceDownloadModalHeader']}
+        headerLeading={
+          <span
+            aria-hidden='true'
+            className={styles['resourceDownloadModalInfoIcon']}
+            style={{ '--player-icon': `url("${iconInfo}")` } as CSSProperties}
+          />
+        }
+        onClose={() => {
+          setPendingResourceDownloadAttachments(null);
+        }}
+        panelClassName={styles['resourceDownloadModal']}
+        title='자료 다운로드 안내'
+        titleClassName={styles['resourceDownloadModalTitle']}
+      >
+        <div className={styles['resourceDownloadModalContent']}>
+          <ul className={styles['resourceDownloadModalList']}>
+            <li>본 자료는 프로그램 구매자 본인만 활용 가능합니다.</li>
+            <li>자료 유출, 공유, 무단 배포 시 법적 책임이 발생할 수 있습니다.</li>
+            <li>다운로드 가능 횟수가 {modalRemainingDownloadCount}회 남았습니다.</li>
+            <li>추가 다운로드가 필요한 경우 문의해 주세요.</li>
+          </ul>
+          <div className={styles['resourceDownloadModalActions']}>
+            <button
+              className={styles['resourceDownloadModalCancelButton']}
+              onClick={() => {
+                setPendingResourceDownloadAttachments(null);
+              }}
+              type='button'
+            >
+              취소
+            </button>
+            <button
+              className={styles['resourceDownloadModalConfirmButton']}
+              onClick={confirmResourceDownload}
+              type='button'
+            >
+              다운로드
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
+  };
+
   const renderOfflineSchedulePanel = () => {
     if (!selectedLesson || selectedLesson.deliveryType !== 'offline') {
       return null;
@@ -2839,6 +2925,11 @@ const PlayerPage = () => {
       fileName: string;
       programId: number;
     }) => downloadProgramResourceFile(programId, documentId, fileName),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: myLearningPlayerQueryKey(isValidEnrollmentId ? resolvedEnrollmentId : null),
+      });
+    },
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '자료 파일을 다운로드하지 못했습니다.',
@@ -2847,12 +2938,12 @@ const PlayerPage = () => {
     },
   });
 
-  const handleDownloadResourceAttachment = (attachment: LearningPlayerResourceAttachment) => {
+  const isResourceAttachmentDownloadable = (attachment: LearningPlayerResourceAttachment) => {
+    return getResourceDownloadBlockedReason(attachment) === null;
+  };
+
+  const executeResourceAttachmentDownload = (attachment: LearningPlayerResourceAttachment) => {
     if (!resourceProgramId) {
-      showToast({
-        message: '프로그램 정보를 확인하지 못해 자료를 다운로드할 수 없습니다.',
-        variant: 'error',
-      });
       return;
     }
 
@@ -2863,10 +2954,16 @@ const PlayerPage = () => {
     });
   };
 
-  const handleDownloadAllResourceAttachments = () => {
-    const downloadableAttachments = resourceProgramId ? lessonResourceAttachments : [];
+  const openResourceDownloadModal = (attachments: LearningPlayerResourceAttachment[]) => {
+    if (!resourceProgramId) {
+      showToast({
+        message: '프로그램 정보를 확인하지 못해 자료를 다운로드할 수 없습니다.',
+        variant: 'error',
+      });
+      return;
+    }
 
-    if (!downloadableAttachments.length) {
+    if (!attachments.length) {
       showToast({
         message: '다운로드할 수 있는 첨부파일이 아직 없습니다.',
         variant: 'error',
@@ -2874,10 +2971,55 @@ const PlayerPage = () => {
       return;
     }
 
-    downloadableAttachments.forEach((attachment) => {
-      handleDownloadResourceAttachment(attachment);
+    if (attachments.some((attachment) => !isResourceAttachmentDownloadable(attachment))) {
+      showToast({
+        message: '첨부파일 다운로드 가능 횟수 3회를 모두 사용했습니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setPendingResourceDownloadAttachments(attachments);
+  };
+
+  const handleDownloadResourceAttachment = (attachment: LearningPlayerResourceAttachment) => {
+    openResourceDownloadModal([attachment]);
+  };
+
+  const confirmResourceDownload = () => {
+    const attachments = pendingResourceDownloadAttachments ?? [];
+    setPendingResourceDownloadAttachments(null);
+
+    attachments.forEach((attachment) => {
+      executeResourceAttachmentDownload(attachment);
     });
   };
+
+  const handleDownloadAllResourceAttachments = () => {
+    const downloadableAttachments = resourceProgramId
+      ? lessonResourceAttachments.filter(isResourceAttachmentDownloadable)
+      : [];
+
+    if (!downloadableAttachments.length) {
+      showToast({
+        message: lessonResourceAttachments.length
+          ? '다운로드 가능한 횟수가 남은 첨부파일이 없습니다.'
+          : '다운로드할 수 있는 첨부파일이 아직 없습니다.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    openResourceDownloadModal(downloadableAttachments);
+  };
+
+  const canDownloadAnyResourceAttachment =
+    Boolean(resourceProgramId) && lessonResourceAttachments.some(isResourceAttachmentDownloadable);
+
+  const resourceDownloadAllBlockedReason =
+    lessonResourceAttachments.length > 0 && !canDownloadAnyResourceAttachment
+      ? '다운로드 가능 횟수 3회를 모두 사용했습니다.'
+      : null;
 
   const renderResourcePanel = () => {
     return (
@@ -2891,44 +3033,57 @@ const PlayerPage = () => {
           </div>
           {lessonResourceAttachments.length ? (
             <div className={styles['resourceBoardList']}>
-              {lessonResourceAttachments.map((attachment) => (
-                <article className={styles['resourceBoardRow']} key={attachment.id}>
-                  <div className={styles['resourceFileCell']}>
-                    <span className={styles['resourceFileType']}>
-                      {formatResourceFileTypeLabel(attachment)}
+              {lessonResourceAttachments.map((attachment) => {
+                const isDownloadable = isResourceAttachmentDownloadable(attachment);
+                const isDownloading =
+                  resourceDownloadMutation.isPending &&
+                  resourceDownloadMutation.variables?.documentId === attachment.id;
+                const downloadBlockedReason = getResourceDownloadBlockedReason(attachment);
+
+                return (
+                  <article className={styles['resourceBoardRow']} key={attachment.id}>
+                    <div className={styles['resourceFileCell']}>
+                      <span className={styles['resourceFileType']}>
+                        {formatResourceFileTypeLabel(attachment)}
+                      </span>
+                      <strong className={styles['resourceBoardTitle']}>
+                        {attachment.title?.trim() || attachment.fileName}
+                      </strong>
+                    </div>
+                    <span className={styles['resourceBoardSize']}>
+                      {formatResourceFileSize(attachment.fileSize)}
                     </span>
-                    <strong className={styles['resourceBoardTitle']}>
-                      {attachment.title?.trim() || attachment.fileName}
-                    </strong>
-                  </div>
-                  <span className={styles['resourceBoardSize']}>
-                    {formatResourceFileSize(attachment.fileSize)}
-                  </span>
-                  <span className={styles['resourceBoardDate']}>
-                    {formatResourceUpdatedDate(attachment.updatedAt)}
-                  </span>
-                  <div className={styles['resourceBoardActions']}>
-                    <button
-                      className={styles['resourceDownloadButton']}
-                      disabled={
-                        resourceDownloadMutation.isPending &&
-                        resourceDownloadMutation.variables?.documentId === attachment.id
-                      }
-                      onClick={() => {
-                        handleDownloadResourceAttachment(attachment);
-                      }}
-                      type='button'
-                    >
-                      다운로드
+                    <span className={styles['resourceBoardDate']}>
+                      {formatResourceUpdatedDate(attachment.updatedAt)}
+                    </span>
+                    <div className={styles['resourceBoardActions']}>
                       <span
-                        aria-hidden='true'
-                        className={styles['resourceDownloadIcon']}
-                        style={playerArrowDownToLineIconStyle}
-                      />
-                    </button>
-                  </div>
-                </article>
-              ))}
+                        className={styles['resourceDownloadButtonTooltipAnchor']}
+                        data-tooltip={
+                          !isDownloadable ? (downloadBlockedReason ?? undefined) : undefined
+                        }
+                        title={!isDownloadable ? (downloadBlockedReason ?? undefined) : undefined}
+                      >
+                        <button
+                          className={styles['resourceDownloadButton']}
+                          disabled={!isDownloadable || isDownloading}
+                          onClick={() => {
+                            handleDownloadResourceAttachment(attachment);
+                          }}
+                          type='button'
+                        >
+                          다운로드
+                          <span
+                            aria-hidden='true'
+                            className={styles['resourceDownloadIcon']}
+                            style={playerArrowDownToLineIconStyle}
+                          />
+                        </button>
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <div className={styles['resourceBoardEmptyState']}>
@@ -3284,18 +3439,25 @@ const PlayerPage = () => {
                         {selectedLesson && (isResourceLesson || isPracticumLesson) ? (
                           <div className={styles['stageMeta']} aria-label='현재 강의 정보'>
                             {isResourceLesson ? (
-                              <button
-                                className={styles['resourceDownloadAllButton']}
-                                onClick={handleDownloadAllResourceAttachments}
-                                type='button'
+                              <span
+                                className={styles['resourceDownloadAllButtonTooltipAnchor']}
+                                data-tooltip={resourceDownloadAllBlockedReason ?? undefined}
+                                title={resourceDownloadAllBlockedReason ?? undefined}
                               >
-                                모두 다운로드
-                                <span
-                                  aria-hidden='true'
-                                  className={styles['resourceDownloadIcon']}
-                                  style={playerArrowDownToLineIconStyle}
-                                />
-                              </button>
+                                <button
+                                  className={styles['resourceDownloadAllButton']}
+                                  disabled={Boolean(resourceDownloadAllBlockedReason)}
+                                  onClick={handleDownloadAllResourceAttachments}
+                                  type='button'
+                                >
+                                  모두 다운로드
+                                  <span
+                                    aria-hidden='true'
+                                    className={styles['resourceDownloadIcon']}
+                                    style={playerArrowDownToLineIconStyle}
+                                  />
+                                </button>
+                              </span>
                             ) : isPracticumLesson ? (
                               renderPracticumLegend()
                             ) : null}
@@ -4584,6 +4746,7 @@ const PlayerPage = () => {
       </div>
       {renderPracticumReservationModal()}
       {renderProblemReportModal()}
+      {renderResourceDownloadModal()}
     </div>
   );
 };

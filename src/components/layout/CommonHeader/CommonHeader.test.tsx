@@ -173,6 +173,18 @@ describe('CommonHeader', () => {
     expect(screen.getAllByRole('link', { name: '로그인' })[0]).toHaveAttribute('href', '/login');
   });
 
+  it('renders the mobile drawer outside the transformed header stacking context', () => {
+    renderCommonHeader();
+
+    fireEvent.click(screen.getByRole('button', { name: '모바일 메뉴 열기' }));
+
+    const header = screen.getByRole('banner');
+    const mobileDrawer = screen.getByRole('dialog', { name: '모바일 메뉴' });
+
+    expect(header).not.toContainElement(mobileDrawer);
+    expect(document.body).toContainElement(mobileDrawer);
+  });
+
   it('renders menu descriptions from navigation data in the desktop dropdown', async () => {
     renderCommonHeader();
 

@@ -437,12 +437,66 @@
     color 160ms ease;
 }
 
+.resourceDownloadAllButtonTooltipAnchor,
+.resourceDownloadButtonTooltipAnchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.resourceDownloadAllButtonTooltipAnchor[data-tooltip],
+.resourceDownloadButtonTooltipAnchor[data-tooltip] {
+  cursor: help;
+}
+
+.resourceDownloadAllButtonTooltipAnchor[data-tooltip]::after,
+.resourceDownloadButtonTooltipAnchor[data-tooltip]::after {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: calc(100% + 10px);
+  width: max-content;
+  max-width: 260px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgb(0 0 0 / 18%);
+  content: attr(data-tooltip);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  white-space: normal;
+}
+
+.resourceDownloadAllButtonTooltipAnchor[data-tooltip]:hover::after,
+.resourceDownloadAllButtonTooltipAnchor[data-tooltip]:focus-within::after,
+.resourceDownloadButtonTooltipAnchor[data-tooltip]:hover::after,
+.resourceDownloadButtonTooltipAnchor[data-tooltip]:focus-within::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .resourceDownloadAllButton:hover,
 .resourceDownloadAllButton:focus-visible {
   border-color: #34b29f;
   background: rgb(52 178 159 / 14%);
   color: #34b29f;
   outline: none;
+}
+
+.resourceDownloadAllButton:disabled,
+.resourceDownloadAllButton:disabled:hover,
+.resourceDownloadAllButton:disabled:focus-visible {
+  border-color: rgb(255 255 255 / 34%);
+  background: rgb(255 255 255 / 8%);
+  color: rgb(255 255 255 / 48%);
+  cursor: not-allowed;
 }
 
 .stageProgressText,
@@ -2078,6 +2132,15 @@
   outline: none;
 }
 
+.resourceDownloadButton:disabled,
+.resourceDownloadButton:disabled:hover,
+.resourceDownloadButton:disabled:focus-visible {
+  border-color: #d1d5db;
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
 .resourceDownloadIcon {
   width: 24px;
   height: 24px;
@@ -3045,6 +3108,145 @@
 .practicumReservationConfirmButton:disabled {
   cursor: not-allowed;
   opacity: 0.62;
+}
+
+.resourceDownloadModal {
+  width: min(643px, calc(100vw - 32px));
+  min-height: 512px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.resourceDownloadModalHeader {
+  position: relative;
+  align-items: center;
+  padding: 100px 34px 29px;
+}
+
+.resourceDownloadModalHeader::after {
+  position: absolute;
+  right: 34px;
+  bottom: 0;
+  left: 34px;
+  height: 1px;
+  background: #d1d5db;
+  content: '';
+}
+
+.resourceDownloadModalInfoIcon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  background: #34b29f;
+  mask: var(--player-icon) center / contain no-repeat;
+  -webkit-mask: var(--player-icon) center / contain no-repeat;
+}
+
+.resourceDownloadModalTitle {
+  color: #111827;
+  font-size: 30px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: normal;
+}
+
+.resourceDownloadModalClose {
+  position: absolute;
+  top: 34px;
+  right: 34px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #111827;
+}
+
+.resourceDownloadModalClose img {
+  display: block;
+  width: 30px;
+  height: 30px;
+}
+
+.resourceDownloadModalClose:hover,
+.resourceDownloadModalClose:focus-visible {
+  background: transparent;
+  color: #111827;
+  outline: 2px solid rgb(52 178 159 / 35%);
+  outline-offset: 2px;
+}
+
+.resourceDownloadModalBody {
+  padding: 0 34px 34px;
+}
+
+.resourceDownloadModalContent {
+  display: grid;
+  min-height: 344px;
+  padding-top: 33px;
+}
+
+.resourceDownloadModalList {
+  display: grid;
+  gap: 0;
+  align-content: start;
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  color: #374151;
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.5;
+}
+
+.resourceDownloadModalList li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  min-height: 30px;
+  padding-left: 0;
+  white-space: nowrap;
+}
+
+.resourceDownloadModalList li::before {
+  width: 4px;
+  height: 4px;
+  margin-top: 13px;
+  border-radius: 999px;
+  background: currentcolor;
+  content: '';
+}
+
+.resourceDownloadModalActions {
+  align-self: end;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 17px;
+}
+
+.resourceDownloadModalCancelButton,
+.resourceDownloadModalConfirmButton {
+  min-height: 70px;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 24px;
+  font-weight: var(--font-weight-semibold);
+  line-height: normal;
+}
+
+.resourceDownloadModalCancelButton {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+}
+
+.resourceDownloadModalConfirmButton {
+  border: 1px solid #34b29f;
+  background: #34b29f;
+  color: #ffffff;
 }
 
 .quizWorkspace {

@@ -32,6 +32,9 @@ export interface AdminProgramDraftBasicInfo {
   salePrice: number | null;
   saleStartAt: string | null;
   summaryItems: AdminProgramSummaryInfoItem[];
+  thumbnailCropOffsetX?: number | null;
+  thumbnailCropOffsetY?: number | null;
+  thumbnailCropZoom?: number | null;
   thumbnailUrl: string | null;
   thumbnailPreviewUrl?: string | null;
   title: string | null;

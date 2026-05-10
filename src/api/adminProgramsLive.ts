@@ -126,6 +126,9 @@ const normalizeUpsertPayload = (payload: AdminProgramUpsertPayload) => {
       content: item.value,
       title: item.label,
     })),
+    thumbnailCropOffsetX: payload.thumbnailCropOffsetX,
+    thumbnailCropOffsetY: payload.thumbnailCropOffsetY,
+    thumbnailCropZoom: payload.thumbnailCropZoom,
     thumbnailUrl: toNullableString(payload.thumbnailUrl),
   };
 };

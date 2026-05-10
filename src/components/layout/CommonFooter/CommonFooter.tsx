@@ -50,7 +50,10 @@ const footerInformationLines: readonly (readonly FooterInfoItem[])[] = [
   ],
 ] as const;
 
-const footerLegalTexts = ['이용약관', '쿠키 설정', '개인정보처리방침'] as const;
+const footerLegalItems = [
+  { text: '이용약관', modalType: 'terms' },
+  { text: '개인정보처리방침', modalType: 'privacy' },
+] as const;
 const footerCopyrightText =
   'Copyright 2026 소노스쿨 국제초음파연수원. All right reserved. Built by newzest studio.';
 
@@ -115,43 +118,18 @@ const CommonFooter = () => {
           </nav>
 
           <div className={styles['legalLinks']} aria-label='푸터 정책 링크'>
-            {footerLegalTexts.map((text) => {
-              if (text === '이용약관') {
-                return (
-                  <button
-                    className={styles['legalButton']}
-                    key={text}
-                    onClick={() => {
-                      setPolicyModalType('terms');
-                    }}
-                    type='button'
-                  >
-                    {text}
-                  </button>
-                );
-              }
-
-              if (text === '개인정보처리방침') {
-                return (
-                  <button
-                    className={styles['legalButton']}
-                    key={text}
-                    onClick={() => {
-                      setPolicyModalType('privacy');
-                    }}
-                    type='button'
-                  >
-                    {text}
-                  </button>
-                );
-              }
-
-              return (
-                <span className={styles['legalText']} key={text}>
-                  {text}
-                </span>
-              );
-            })}
+            {footerLegalItems.map((item) => (
+              <button
+                className={styles['legalButton']}
+                key={item.text}
+                onClick={() => {
+                  setPolicyModalType(item.modalType);
+                }}
+                type='button'
+              >
+                {item.text}
+              </button>
+            ))}
           </div>
         </div>
 

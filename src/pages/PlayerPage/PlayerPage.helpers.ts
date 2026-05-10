@@ -359,6 +359,18 @@ export const getNumberValue = (record: UnknownRecord, keys: readonly string[]): 
   return null;
 };
 
+export const getBooleanValue = (record: UnknownRecord, keys: readonly string[]): boolean | null => {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+  }
+
+  return null;
+};
+
 export const normalizeResourceAttachment = (
   value: unknown,
   fallbackIndex: number,
@@ -375,11 +387,15 @@ export const normalizeResourceAttachment = (
 
   return {
     description: getStringValue(value, ['description']),
+    downloadable: getBooleanValue(value, ['downloadable']) ?? true,
+    downloadCount: getNumberValue(value, ['downloadCount']) ?? 0,
+    downloadLimit: getNumberValue(value, ['downloadLimit']) ?? 3,
     fileName,
     fileSize: getNumberValue(value, ['fileSize', 'size']),
     fileUrl: getStringValue(value, ['fileUrl', 'downloadUrl', 'url']),
     id: getNumberValue(value, ['id', 'documentId', 'resourceId']) ?? fallbackIndex + 1,
     mimeType: getStringValue(value, ['mimeType', 'contentType']),
+    remainingDownloadCount: getNumberValue(value, ['remainingDownloadCount']) ?? 3,
     sortOrder: getNumberValue(value, ['sortOrder', 'order']) ?? fallbackIndex,
     title: getStringValue(value, ['title']),
     updatedAt: getStringValue(value, ['updatedAt', 'createdAt']),

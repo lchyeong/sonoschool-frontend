@@ -19,6 +19,11 @@ import {
 import AdminCategoryPicker from '@/components/admin/AdminCategoryPicker/AdminCategoryPicker';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import AdminFieldArray from '@/components/admin/AdminFieldArray/AdminFieldArray';
+import AdminImageCropField, {
+  DEFAULT_ADMIN_IMAGE_CROP,
+  normalizeAdminImageCrop,
+  type AdminImageCropValue,
+} from '@/components/admin/AdminImageCropField';
 import { LoadingSpinner } from '@/components/feedback/Loading/LoadingSpinner';
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
@@ -96,6 +101,7 @@ interface AdminProgramFormState {
   saleEndAt: string;
   saleStartAt: string;
   summaryItems: AdminProgramSummaryFormItem[];
+  thumbnailCrop: AdminImageCropValue;
   thumbnailPreviewUrl: string;
   thumbnailUrl: string;
   title: string;
@@ -119,6 +125,7 @@ const INITIAL_FORM_STATE: AdminProgramFormState = {
   saleEndAt: '',
   saleStartAt: '',
   summaryItems: [],
+  thumbnailCrop: DEFAULT_ADMIN_IMAGE_CROP,
   thumbnailPreviewUrl: '',
   thumbnailUrl: '',
   title: '',
@@ -383,6 +390,11 @@ const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormS
       label: item.label,
       value: item.value,
     })),
+    thumbnailCrop: normalizeAdminImageCrop({
+      offsetX: detail.thumbnailCropOffsetX ?? 0,
+      offsetY: detail.thumbnailCropOffsetY ?? 0,
+      zoom: detail.thumbnailCropZoom ?? 1,
+    }),
     thumbnailPreviewUrl: detail.thumbnailPreviewUrl ?? detail.thumbnailUrl ?? '',
     thumbnailUrl: detail.thumbnailUrl ?? '',
     title: detail.title,
@@ -461,6 +473,9 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
     salePrice: resolveSalePriceFromPercent(formState.price, formState.discountPercent),
     saleStartAt: toIsoStringOrNull(formState.saleStartAt),
     summaryItems: sanitizeSummaryItems(formState.summaryItems),
+    thumbnailCropOffsetX: formState.thumbnailCrop.offsetX,
+    thumbnailCropOffsetY: formState.thumbnailCrop.offsetY,
+    thumbnailCropZoom: formState.thumbnailCrop.zoom,
     thumbnailUrl: formState.thumbnailUrl.trim() || null,
     title: formState.title.trim(),
   };
@@ -663,7 +678,6 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     null,
   );
   const [memberActionReason, setMemberActionReason] = useState('사용자 요청 취소');
-  const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!detailQuery.data) {
@@ -1315,76 +1329,31 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                         </p>
                       </div>
                     </div>
-                    <input
+                    <AdminImageCropField
                       accept={PROGRAM_THUMBNAIL_FILE_ACCEPT}
-                      className={styles['thumbnailFileInput']}
-                      name='program-thumbnail-file'
-                      onChange={(event) => {
-                        void handleThumbnailFileChange(event.target.files?.[0] ?? null);
-                        event.currentTarget.value = '';
+                      alt={
+                        formState.title ? `${formState.title} 대표 이미지` : '프로그램 대표 이미지'
+                      }
+                      aspectRatio={4 / 3}
+                      disabled={isUploadingThumbnail}
+                      imageUrl={formState.thumbnailPreviewUrl}
+                      label='대표 이미지 미리보기'
+                      onChange={(nextCrop) => {
+                        updateField('thumbnailCrop', nextCrop);
                       }}
-                      ref={thumbnailInputRef}
-                      type='file'
+                      onRemove={() => {
+                        setFormState((current) => ({
+                          ...current,
+                          thumbnailCrop: DEFAULT_ADMIN_IMAGE_CROP,
+                          thumbnailPreviewUrl: '',
+                          thumbnailUrl: '',
+                        }));
+                      }}
+                      onSelectFile={(file) => {
+                        void handleThumbnailFileChange(file);
+                      }}
+                      value={formState.thumbnailCrop}
                     />
-
-                    <div className={styles['thumbnailUploadPanel']}>
-                      <div className={styles['thumbnailPreviewPanel']}>
-                        {formState.thumbnailPreviewUrl ? (
-                          <div className={styles['thumbnailPreview']}>
-                            <img
-                              alt={
-                                formState.title
-                                  ? `${formState.title} 대표 이미지`
-                                  : '프로그램 대표 이미지'
-                              }
-                              className={styles['thumbnailPreviewImage']}
-                              src={formState.thumbnailPreviewUrl}
-                            />
-                          </div>
-                        ) : (
-                          <div className={styles['thumbnailEmptyState']}>
-                            등록된 대표 이미지가 없습니다.
-                          </div>
-                        )}
-                      </div>
-
-                      <div className={styles['thumbnailPreviewMeta']}>
-                        <p className={styles['thumbnailPreviewTitle']}>대표 이미지 미리보기</p>
-                        <div className={styles['thumbnailActionRow']}>
-                          <Button
-                            disabled={isUploadingThumbnail}
-                            onClick={() => {
-                              thumbnailInputRef.current?.click();
-                            }}
-                            size='sm'
-                            type='button'
-                            variant='primary'
-                          >
-                            {isUploadingThumbnail ? '업로드 중...' : '파일 선택'}
-                          </Button>
-                          {formState.thumbnailPreviewUrl ? (
-                            <Button
-                              disabled={isUploadingThumbnail}
-                              onClick={() => {
-                                setFormState((current) => ({
-                                  ...current,
-                                  thumbnailPreviewUrl: '',
-                                  thumbnailUrl: '',
-                                }));
-                              }}
-                              size='sm'
-                              type='button'
-                              variant='secondary'
-                            >
-                              이미지 제거
-                            </Button>
-                          ) : null}
-                        </div>
-                        <p className={styles['thumbnailFileCaption']}>
-                          허용 형식 · {PROGRAM_THUMBNAIL_FILE_ACCEPT.replaceAll(',', ', ')}
-                        </p>
-                      </div>
-                    </div>
                   </div>
 
                   <div className={styles['inlineFieldGrid']}>

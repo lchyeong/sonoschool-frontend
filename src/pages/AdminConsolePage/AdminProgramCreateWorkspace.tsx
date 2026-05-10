@@ -39,6 +39,10 @@ import checkIconSrc from '@/assets/icons/lucide_check.svg';
 import AdminCategoryPicker from '@/components/admin/AdminCategoryPicker/AdminCategoryPicker';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import AdminFieldArray from '@/components/admin/AdminFieldArray/AdminFieldArray';
+import AdminImageCropField, {
+  DEFAULT_ADMIN_IMAGE_CROP,
+  normalizeAdminImageCrop,
+} from '@/components/admin/AdminImageCropField';
 import { LoadingSpinner } from '@/components/feedback/Loading/LoadingSpinner';
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
@@ -240,6 +244,9 @@ const createEmptyBasicInfo = (): AdminProgramDraftPayload['basicInfo'] => ({
   salePrice: null,
   saleStartAt: null,
   summaryItems: [],
+  thumbnailCropOffsetX: DEFAULT_ADMIN_IMAGE_CROP.offsetX,
+  thumbnailCropOffsetY: DEFAULT_ADMIN_IMAGE_CROP.offsetY,
+  thumbnailCropZoom: DEFAULT_ADMIN_IMAGE_CROP.zoom,
   thumbnailPreviewUrl: null,
   thumbnailUrl: null,
   title: null,
@@ -444,13 +451,24 @@ const isValidDateRange = (startAt: string | null, endAt: string | null): boolean
 
 const normalizeDraftBasicInfo = (
   basicInfo: AdminProgramDraftPayload['basicInfo'],
-): AdminProgramDraftPayload['basicInfo'] => ({
-  ...basicInfo,
-  accessDays:
-    basicInfo.accessPolicy === 'FIXED_DURATION'
-      ? calculateAccessDaysFromLearningRange(basicInfo.learningStartAt, basicInfo.learningEndAt)
-      : null,
-});
+): AdminProgramDraftPayload['basicInfo'] => {
+  const thumbnailCrop = normalizeAdminImageCrop({
+    offsetX: basicInfo.thumbnailCropOffsetX ?? DEFAULT_ADMIN_IMAGE_CROP.offsetX,
+    offsetY: basicInfo.thumbnailCropOffsetY ?? DEFAULT_ADMIN_IMAGE_CROP.offsetY,
+    zoom: basicInfo.thumbnailCropZoom ?? DEFAULT_ADMIN_IMAGE_CROP.zoom,
+  });
+
+  return {
+    ...basicInfo,
+    accessDays:
+      basicInfo.accessPolicy === 'FIXED_DURATION'
+        ? calculateAccessDaysFromLearningRange(basicInfo.learningStartAt, basicInfo.learningEndAt)
+        : null,
+    thumbnailCropOffsetX: thumbnailCrop.offsetX,
+    thumbnailCropOffsetY: thumbnailCrop.offsetY,
+    thumbnailCropZoom: thumbnailCrop.zoom,
+  };
+};
 
 const normalizeLegacyOfflineSchedules = (
   lecture: AdminProgramDraftLecture & {
@@ -1488,7 +1506,6 @@ const AdminProgramCreateWorkspace = ({
   const currentPayloadRef = useRef<AdminProgramDraftPayload | null>(null);
   const bypassNavigationBlockRef = useRef(false);
   const lectureTypeMenuRef = useRef<HTMLDivElement | null>(null);
-  const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const numericInputsInitializedForDraftRef = useRef<number | null>(null);
   const resumingVideoIdsRef = useRef<Set<number>>(new Set());
   const draftFocusHintTimerRef = useRef<number | null>(null);
@@ -2016,6 +2033,9 @@ const AdminProgramCreateWorkspace = ({
       ...current,
       basicInfo: {
         ...current.basicInfo,
+        thumbnailCropOffsetX: DEFAULT_ADMIN_IMAGE_CROP.offsetX,
+        thumbnailCropOffsetY: DEFAULT_ADMIN_IMAGE_CROP.offsetY,
+        thumbnailCropZoom: DEFAULT_ADMIN_IMAGE_CROP.zoom,
         thumbnailPreviewUrl: previewObjectUrl,
         thumbnailUrl: null,
       },
@@ -4928,86 +4948,58 @@ const AdminProgramCreateWorkspace = ({
                         </p>
                       </div>
                     </div>
-                    <input
+                    <AdminImageCropField
                       accept={PROGRAM_THUMBNAIL_FILE_ACCEPT}
-                      className={styles['thumbnailFileInput']}
-                      name='draft-thumbnail-file'
-                      onChange={(event) => {
-                        handleProgramThumbnailFileChange(event.target.files?.[0] ?? null);
-                        event.currentTarget.value = '';
+                      alt={
+                        payload.basicInfo.title
+                          ? `${payload.basicInfo.title} 대표 이미지`
+                          : '프로그램 대표 이미지'
+                      }
+                      aspectRatio={4 / 3}
+                      disabled={isUploadingThumbnail}
+                      fileCaption={
+                        pendingThumbnailSelection
+                          ? `업로드 대기 중 · ${pendingThumbnailSelection.file.name} · ${pendingThumbnailSelection.sizeLabel}`
+                          : null
+                      }
+                      imageUrl={payload.basicInfo.thumbnailPreviewUrl}
+                      label='대표 이미지 미리보기'
+                      onChange={(nextCrop) => {
+                        updatePayload((current) => ({
+                          ...current,
+                          basicInfo: {
+                            ...current.basicInfo,
+                            thumbnailCropOffsetX: nextCrop.offsetX,
+                            thumbnailCropOffsetY: nextCrop.offsetY,
+                            thumbnailCropZoom: nextCrop.zoom,
+                          },
+                        }));
                       }}
-                      ref={thumbnailInputRef}
-                      type='file'
+                      onRemove={() => {
+                        updatePayload((current) => ({
+                          ...current,
+                          basicInfo: {
+                            ...current.basicInfo,
+                            thumbnailCropOffsetX: DEFAULT_ADMIN_IMAGE_CROP.offsetX,
+                            thumbnailCropOffsetY: DEFAULT_ADMIN_IMAGE_CROP.offsetY,
+                            thumbnailCropZoom: DEFAULT_ADMIN_IMAGE_CROP.zoom,
+                            thumbnailPreviewUrl: null,
+                            thumbnailUrl: null,
+                          },
+                        }));
+                        setPendingThumbnailSelection(null);
+                      }}
+                      onSelectFile={handleProgramThumbnailFileChange}
+                      value={normalizeAdminImageCrop({
+                        offsetX:
+                          payload.basicInfo.thumbnailCropOffsetX ??
+                          DEFAULT_ADMIN_IMAGE_CROP.offsetX,
+                        offsetY:
+                          payload.basicInfo.thumbnailCropOffsetY ??
+                          DEFAULT_ADMIN_IMAGE_CROP.offsetY,
+                        zoom: payload.basicInfo.thumbnailCropZoom ?? DEFAULT_ADMIN_IMAGE_CROP.zoom,
+                      })}
                     />
-
-                    <div className={styles['thumbnailUploadPanel']}>
-                      <div className={styles['thumbnailPreviewPanel']}>
-                        {payload.basicInfo.thumbnailPreviewUrl ? (
-                          <div className={styles['thumbnailPreview']}>
-                            <img
-                              alt={
-                                payload.basicInfo.title
-                                  ? `${payload.basicInfo.title} 대표 이미지`
-                                  : '프로그램 대표 이미지'
-                              }
-                              className={styles['thumbnailPreviewImage']}
-                              src={payload.basicInfo.thumbnailPreviewUrl}
-                            />
-                          </div>
-                        ) : (
-                          <div className={styles['thumbnailEmptyState']}>
-                            등록된 대표 이미지가 없습니다.
-                          </div>
-                        )}
-                      </div>
-
-                      <div className={styles['thumbnailPreviewMeta']}>
-                        <p className={styles['thumbnailPreviewTitle']}>대표 이미지 미리보기</p>
-                        {pendingThumbnailSelection ? (
-                          <p className={styles['thumbnailFileCaption']}>
-                            업로드 대기 중 · {pendingThumbnailSelection.file.name} ·{' '}
-                            {pendingThumbnailSelection.sizeLabel}
-                          </p>
-                        ) : null}
-                        <div className={styles['thumbnailActionRow']}>
-                          <Button
-                            disabled={isUploadingThumbnail}
-                            onClick={() => {
-                              thumbnailInputRef.current?.click();
-                            }}
-                            size='sm'
-                            type='button'
-                            variant='primary'
-                          >
-                            {isUploadingThumbnail ? '업로드 중...' : '파일 선택'}
-                          </Button>
-                          {payload.basicInfo.thumbnailPreviewUrl ? (
-                            <Button
-                              disabled={isUploadingThumbnail}
-                              onClick={() => {
-                                updatePayload((current) => ({
-                                  ...current,
-                                  basicInfo: {
-                                    ...current.basicInfo,
-                                    thumbnailPreviewUrl: null,
-                                    thumbnailUrl: null,
-                                  },
-                                }));
-                                setPendingThumbnailSelection(null);
-                              }}
-                              size='sm'
-                              type='button'
-                              variant='secondary'
-                            >
-                              이미지 제거
-                            </Button>
-                          ) : null}
-                        </div>
-                        <p className={styles['thumbnailFileCaption']}>
-                          허용 형식 · {PROGRAM_THUMBNAIL_FILE_ACCEPT.replaceAll(',', ', ')}
-                        </p>
-                      </div>
-                    </div>
                   </div>
 
                   <div className={styles['inlineFieldGrid']}>

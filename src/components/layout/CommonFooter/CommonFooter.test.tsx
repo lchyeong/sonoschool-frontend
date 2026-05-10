@@ -49,7 +49,7 @@ describe('CommonFooter', () => {
 
     const legalLinks = screen.getByLabelText('푸터 정책 링크');
 
-    expect(legalLinks).toHaveTextContent('이용약관쿠키 설정개인정보처리방침');
+    expect(legalLinks).toHaveTextContent('이용약관개인정보처리방침');
   });
 
   it('navigates to the admin login page after five rapid clicks on the copyright text', () => {
@@ -61,7 +61,7 @@ describe('CommonFooter', () => {
     );
 
     const adminTriggerButton = screen.getByRole('button', {
-      name: 'Copyright 2026 ㈜국제티엔씨. All right reserved. Built by newzest studio.',
+      name: 'Copyright 2026 소노스쿨 국제초음파연수원. All right reserved. Built by newzest studio.',
     });
 
     fireEvent.click(adminTriggerButton);

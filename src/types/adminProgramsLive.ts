@@ -107,6 +107,9 @@ export interface AdminProgramDetail {
   description: string | null;
   thumbnailUrl: string | null;
   thumbnailPreviewUrl?: string | null;
+  thumbnailCropOffsetX?: number | null;
+  thumbnailCropOffsetY?: number | null;
+  thumbnailCropZoom?: number | null;
   programType: AdminProgramType;
   level: AdminProgramLevel | null;
   price: number;
@@ -147,6 +150,9 @@ export interface AdminProgramUpsertPayload {
   title: string;
   description: string | null;
   thumbnailUrl: string | null;
+  thumbnailCropOffsetX: number | null;
+  thumbnailCropOffsetY: number | null;
+  thumbnailCropZoom: number | null;
   programType: AdminProgramType;
   level: AdminProgramLevel | null;
   price: number;

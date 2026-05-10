@@ -190,6 +190,10 @@ export interface LearningPlayerResourceAttachment {
   mimeType: string | null;
   sortOrder: number;
   updatedAt?: string | null;
+  downloadCount?: number;
+  downloadLimit?: number;
+  remainingDownloadCount?: number;
+  downloadable?: boolean;
 }
 
 export interface ProtectedLectureStream {

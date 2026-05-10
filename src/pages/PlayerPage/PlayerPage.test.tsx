@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -385,22 +385,30 @@ const testResourceSnapshot: LearningPlayerSnapshot = {
     'enrollment-101-lesson-2': [
       {
         description: '강의 핵심 개념을 정리한 문서입니다.',
+        downloadable: true,
+        downloadCount: 0,
+        downloadLimit: 3,
         fileName: 'abdomen-summary.pdf',
         fileSize: 2_450_000,
         fileUrl: 'https://example.com/resources/abdomen-summary.pdf',
         id: 201,
         mimeType: 'application/pdf',
+        remainingDownloadCount: 3,
         sortOrder: 0,
         title: '강의 요약 자료',
         updatedAt: '2026-04-10T00:00:00.000Z',
       },
       {
         description: '실습 전 점검해야 하는 항목을 정리했습니다.',
+        downloadable: false,
+        downloadCount: 3,
+        downloadLimit: 3,
         fileName: 'abdomen-checklist.xlsx',
         fileSize: 980_000,
         fileUrl: 'https://example.com/resources/abdomen-checklist.xlsx',
         id: 202,
         mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        remainingDownloadCount: 0,
         sortOrder: 1,
         title: '실습 체크리스트',
         updatedAt: '2026-04-08T00:00:00.000Z',
@@ -1073,6 +1081,15 @@ describe('PlayerPage', () => {
     expect(screen.getByText('2026. 04. 10.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '모두 다운로드' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '다운로드' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: '다운로드' })[1]).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: '다운로드' })[1].parentElement).toHaveAttribute(
+      'data-tooltip',
+      '다운로드 가능 횟수 3회를 모두 사용했습니다.',
+    );
+    expect(screen.getAllByRole('button', { name: '다운로드' })[1].parentElement).toHaveAttribute(
+      'title',
+      '다운로드 가능 횟수 3회를 모두 사용했습니다.',
+    );
   });
 
   it('downloads resource attachments through the protected program resource endpoint', async () => {
@@ -1082,6 +1099,11 @@ describe('PlayerPage', () => {
 
     fireEvent.click((await screen.findAllByRole('button', { name: '다운로드' }))[0]);
 
+    const dialog = await screen.findByRole('dialog', { name: '자료 다운로드 안내' });
+    expect(within(dialog).getByText('다운로드 가능 횟수가 3회 남았습니다.')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '다운로드' }));
+
     await waitFor(() => {
       expect(downloadProgramResourceFileMock).toHaveBeenCalledWith(
         2001,
@@ -1089,6 +1111,57 @@ describe('PlayerPage', () => {
         'abdomen-summary.pdf',
       );
     });
+  });
+
+  it('shows the current remaining download count in the resource download modal', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
+      ...testResourceSnapshot,
+      resourceAttachmentsByLessonId: {
+        'enrollment-101-lesson-2': testResourceSnapshot.resourceAttachmentsByLessonId[
+          'enrollment-101-lesson-2'
+        ].map((attachment) =>
+          attachment.id === 201
+            ? { ...attachment, downloadCount: 1, remainingDownloadCount: 2 }
+            : attachment,
+        ),
+      },
+    });
+
+    renderPlayerPage();
+
+    fireEvent.click((await screen.findAllByRole('button', { name: '다운로드' }))[0]);
+
+    const dialog = await screen.findByRole('dialog', { name: '자료 다운로드 안내' });
+    expect(within(dialog).getByText('다운로드 가능 횟수가 2회 남았습니다.')).toBeInTheDocument();
+  });
+
+  it('explains why the bulk resource download button is disabled', async () => {
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
+      ...testResourceSnapshot,
+      resourceAttachmentsByLessonId: {
+        'enrollment-101-lesson-2': testResourceSnapshot.resourceAttachmentsByLessonId[
+          'enrollment-101-lesson-2'
+        ].map((attachment) => ({
+          ...attachment,
+          downloadable: false,
+          downloadCount: 3,
+          remainingDownloadCount: 0,
+        })),
+      },
+    });
+
+    renderPlayerPage();
+
+    const bulkDownloadButton = await screen.findByRole('button', { name: '모두 다운로드' });
+    expect(bulkDownloadButton).toBeDisabled();
+    expect(bulkDownloadButton.parentElement).toHaveAttribute(
+      'data-tooltip',
+      '다운로드 가능 횟수 3회를 모두 사용했습니다.',
+    );
+    expect(bulkDownloadButton.parentElement).toHaveAttribute(
+      'title',
+      '다운로드 가능 횟수 3회를 모두 사용했습니다.',
+    );
   });
 
   it('renders resource attachments embedded in the selected lesson payload', async () => {
@@ -1112,6 +1185,7 @@ describe('PlayerPage', () => {
                       fileUrl: 'https://example.com/resources/linked-lecture-resource.pdf',
                       id: 301,
                       mimeType: 'application/pdf',
+                      remainingDownloadCount: 2,
                       sortOrder: 0,
                       title: '강의에 연결된 첨부파일',
                       updatedAt: '2026-04-12T00:00:00.000Z',

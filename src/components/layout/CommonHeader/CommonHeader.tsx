@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { useMutation } from '@tanstack/react-query';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 import { logoutStudent } from '@/api/auth';
@@ -124,6 +125,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
     !isMobileMenuOpen &&
     openedDesktopItemId === null &&
     !isDesktopDropdownVisible;
+  const mobileDrawerPortalRoot = typeof document === 'undefined' ? null : document.body;
 
   // fixed 헤더는 문서 흐름에서 빠지기 때문에,
   // 실제 높이를 측정해 아래쪽에 같은 높이의 빈 공간을 만들어 줘야 본문이 가려지지 않습니다.
@@ -564,22 +566,24 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
             onCloseMenu={closeDesktopMenu}
           />
         ) : null}
-
-        {/* 모바일 메뉴가 열려 있을 때만 전체 화면 드로어를 렌더링합니다. */}
-        {isMobileMenuOpen ? (
-          <CommonHeaderMobileDrawer
-            expandedMobileItemIds={expandedMobileItemIds}
-            isAuthenticated={isAuthenticated}
-            isError={isError}
-            LinkComponent={LinkComponent}
-            logo={logo}
-            navigationItems={navigationItems}
-            onCloseMenu={closeMobileMenu}
-            onCloseMenuAndRestoreFocus={closeMobileMenuAndRestoreFocus}
-            onToggleMobileItem={handleToggleMobileItem}
-          />
-        ) : null}
       </header>
+      {/* 모바일 드로어는 헤더의 transform 쌓임 맥락에 갇히지 않도록 body에 올립니다. */}
+      {isMobileMenuOpen && mobileDrawerPortalRoot
+        ? createPortal(
+            <CommonHeaderMobileDrawer
+              expandedMobileItemIds={expandedMobileItemIds}
+              isAuthenticated={isAuthenticated}
+              isError={isError}
+              LinkComponent={LinkComponent}
+              logo={logo}
+              navigationItems={navigationItems}
+              onCloseMenu={closeMobileMenu}
+              onCloseMenuAndRestoreFocus={closeMobileMenuAndRestoreFocus}
+              onToggleMobileItem={handleToggleMobileItem}
+            />,
+            mobileDrawerPortalRoot,
+          )
+        : null}
       {/* fixed 헤더만큼의 빈 공간을 문서 흐름에 넣어,
       아래 본문이 헤더 뒤에 가려지지 않게 합니다. */}
       <div
