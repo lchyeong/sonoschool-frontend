@@ -5,6 +5,7 @@
   isolation: isolate;
   width: 100%;
   padding-top: 176px;
+  padding-bottom: 350px;
   background: transparent;
 
   &[data-intro-tone='light'] {
@@ -291,6 +292,7 @@
 @media (width < 768px) {
   .section {
     padding-top: 96px;
+    padding-bottom: 180px;
   }
 
   .inner {

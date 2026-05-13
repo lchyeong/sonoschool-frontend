@@ -3,55 +3,22 @@
   .philosophyCopy {
     position: relative;
     overflow: hidden;
-    opacity: 0;
-    transition-duration: 980ms;
-    transition-property: opacity;
+    opacity: var(--philosophy-heading-opacity);
+    transition-duration: 180ms;
+    transition-property: opacity, transform;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translateY(var(--philosophy-heading-y));
     will-change: opacity;
   }
 
-  .philosophyHeadingBlock::after,
-  .philosophyCopy::after {
-    position: absolute;
-    inset: -24%;
-    background: linear-gradient(
-      115deg,
-      transparent 0%,
-      transparent 38%,
-      rgba(255, 255, 255, 0.18) 47%,
-      rgba(255, 255, 255, 0.56) 50%,
-      rgba(255, 255, 255, 0.18) 53%,
-      transparent 62%,
-      transparent 100%
-    );
-    content: '';
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(-58%);
-  }
-}
-
-.philosophyActive {
-  .philosophyHeadingBlock,
   .philosophyCopy {
-    opacity: 1;
+    opacity: var(--philosophy-copy-opacity);
+    transform: translateY(var(--philosophy-copy-y));
   }
 
   .philosophyHeadingBlock::after,
   .philosophyCopy::after {
-    animation: philosophyShine 980ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  .philosophyHeadingBlock {
-    transition-delay: 80ms;
-  }
-
-  .philosophyCopy {
-    transition-delay: 320ms;
-
-    &::after {
-      animation-delay: 320ms;
-    }
+    display: none;
   }
 }
 
@@ -265,22 +232,6 @@
     opacity: 0;
     transform: translateY(-10px);
     transition-duration: 760ms;
-  }
-}
-
-@keyframes philosophyShine {
-  0% {
-    opacity: 0;
-    transform: translateX(-58%);
-  }
-
-  28% {
-    opacity: 0.75;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(58%);
   }
 }
 

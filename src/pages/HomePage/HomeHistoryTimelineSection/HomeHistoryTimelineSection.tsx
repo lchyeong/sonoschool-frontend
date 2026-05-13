@@ -23,6 +23,25 @@ const clamp = (value: number, min = 0, max = 1) => {
   return Math.min(Math.max(value, min), max);
 };
 
+const easeInOutProgress = (value: number) => {
+  return value * value * (3 - 2 * value);
+};
+
+const DIRECTOR_BACKGROUND_RGB = {
+  from: [255, 255, 255],
+  to: [233, 251, 248],
+} as const;
+
+const getDirectorBackgroundColor = (progress: number) => {
+  const [fromRed, fromGreen, fromBlue] = DIRECTOR_BACKGROUND_RGB.from;
+  const [toRed, toGreen, toBlue] = DIRECTOR_BACKGROUND_RGB.to;
+  const red = Math.round(fromRed + (toRed - fromRed) * progress);
+  const green = Math.round(fromGreen + (toGreen - fromGreen) * progress);
+  const blue = Math.round(fromBlue + (toBlue - fromBlue) * progress);
+
+  return `rgb(${String(red)} ${String(green)} ${String(blue)})`;
+};
+
 const getDirectorStep = (progress: number) => {
   if (progress >= 0.96) {
     return 13;
@@ -91,32 +110,79 @@ const HomeHistoryTimelineSection = () => {
       return undefined;
     }
 
-    const philosophyObserver = new IntersectionObserver(
-      ([entry]) => {
-        philosophyElement.classList.toggle(styles['philosophyActive'], entry.isIntersecting);
-      },
-      {
-        root: null,
-        rootMargin: '0px 0px -24% 0px',
-        threshold: 0.22,
-      },
-    );
-
-    philosophyObserver.observe(philosophyElement);
-
     let animationFrameId = 0;
+    let lastPhilosophyHeadingOpacity = '';
+    let lastPhilosophyHeadingY = '';
+    let lastPhilosophyCopyOpacity = '';
+    let lastPhilosophyCopyY = '';
+    let lastBackgroundColor = '';
 
-    const updateDirectorStep = () => {
+    const getRangeProgress = (value: number, start: number, end: number) => {
+      return clamp((value - start) / (end - start));
+    };
+
+    const updateScrollAnimation = () => {
       animationFrameId = 0;
 
-      const rect = directorPanelElement.getBoundingClientRect();
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const philosophyRect = philosophyElement.getBoundingClientRect();
+      const philosophyDistance = Math.max(philosophyRect.height - viewportHeight * 0.38, 1);
+      const philosophyProgress = clamp(
+        (viewportHeight * 0.72 - philosophyRect.top) / philosophyDistance,
+      );
+      const headingEnterProgress = getRangeProgress(philosophyProgress, 0.02, 0.18);
+      const headingExitProgress = getRangeProgress(philosophyProgress, 0.38, 0.54);
+      const copyEnterProgress = getRangeProgress(philosophyProgress, 0.42, 0.58);
+      const copyExitProgress = getRangeProgress(philosophyProgress, 0.7, 0.86);
+      const backgroundEnterProgress = easeInOutProgress(
+        getRangeProgress(philosophyProgress, 0.72, 0.92),
+      );
+      const headingOpacity = headingEnterProgress * (1 - headingExitProgress);
+      const copyOpacity = copyEnterProgress * (1 - copyExitProgress);
+      const headingY = 28 * (1 - headingEnterProgress) - 22 * headingExitProgress;
+      const copyY = 28 * (1 - copyEnterProgress) - 22 * copyExitProgress;
+      const nextPhilosophyHeadingOpacity = headingOpacity.toFixed(4);
+      const nextPhilosophyHeadingY = `${headingY.toFixed(2)}px`;
+      const nextPhilosophyCopyOpacity = copyOpacity.toFixed(4);
+      const nextPhilosophyCopyY = `${copyY.toFixed(2)}px`;
+      const rect = directorPanelElement.getBoundingClientRect();
       const revealStart = viewportHeight * 0.82;
       const revealDistance = Math.max(viewportHeight * 2.2, rect.height * 0.94);
       const progress = clamp((revealStart - rect.top) / revealDistance);
+      const backgroundExitProgress = easeInOutProgress(getRangeProgress(progress, 0.94, 1));
+      const backgroundProgress = backgroundEnterProgress * (1 - backgroundExitProgress);
+      const nextBackgroundColor = getDirectorBackgroundColor(backgroundProgress);
       const nextStep = getDirectorStep(progress);
       const currentStep = Number(directorPanelElement.dataset['directorStep'] ?? 0);
       const nextTone = progress >= 0.96 ? 'light' : 'contrast';
+
+      if (lastPhilosophyHeadingOpacity !== nextPhilosophyHeadingOpacity) {
+        philosophyElement.style.setProperty(
+          '--philosophy-heading-opacity',
+          nextPhilosophyHeadingOpacity,
+        );
+        lastPhilosophyHeadingOpacity = nextPhilosophyHeadingOpacity;
+      }
+
+      if (lastPhilosophyHeadingY !== nextPhilosophyHeadingY) {
+        philosophyElement.style.setProperty('--philosophy-heading-y', nextPhilosophyHeadingY);
+        lastPhilosophyHeadingY = nextPhilosophyHeadingY;
+      }
+
+      if (lastPhilosophyCopyOpacity !== nextPhilosophyCopyOpacity) {
+        philosophyElement.style.setProperty('--philosophy-copy-opacity', nextPhilosophyCopyOpacity);
+        lastPhilosophyCopyOpacity = nextPhilosophyCopyOpacity;
+      }
+
+      if (lastPhilosophyCopyY !== nextPhilosophyCopyY) {
+        philosophyElement.style.setProperty('--philosophy-copy-y', nextPhilosophyCopyY);
+        lastPhilosophyCopyY = nextPhilosophyCopyY;
+      }
+
+      if (lastBackgroundColor !== nextBackgroundColor) {
+        document.documentElement.style.setProperty('--home-page-background', nextBackgroundColor);
+        lastBackgroundColor = nextBackgroundColor;
+      }
 
       if (directorPanelElement.dataset['followingTone'] !== nextTone) {
         directorPanelElement.dataset['followingTone'] = nextTone;
@@ -129,27 +195,27 @@ const HomeHistoryTimelineSection = () => {
       directorPanelElement.dataset['directorStep'] = String(nextStep);
     };
 
-    const requestDirectorStepUpdate = () => {
+    const requestScrollAnimationUpdate = () => {
       if (animationFrameId) {
         return;
       }
 
-      animationFrameId = window.requestAnimationFrame(updateDirectorStep);
+      animationFrameId = window.requestAnimationFrame(updateScrollAnimation);
     };
 
-    updateDirectorStep();
+    updateScrollAnimation();
 
-    window.addEventListener('scroll', requestDirectorStepUpdate, { passive: true });
-    window.addEventListener('resize', requestDirectorStepUpdate);
+    window.addEventListener('scroll', requestScrollAnimationUpdate, { passive: true });
+    window.addEventListener('resize', requestScrollAnimationUpdate);
 
     return () => {
       if (animationFrameId) {
         window.cancelAnimationFrame(animationFrameId);
       }
 
-      philosophyObserver.disconnect();
-      window.removeEventListener('scroll', requestDirectorStepUpdate);
-      window.removeEventListener('resize', requestDirectorStepUpdate);
+      window.removeEventListener('scroll', requestScrollAnimationUpdate);
+      window.removeEventListener('resize', requestScrollAnimationUpdate);
+      document.documentElement.style.removeProperty('--home-page-background');
     };
   }, []);
 
@@ -159,20 +225,25 @@ const HomeHistoryTimelineSection = () => {
         className={classNames(styles['philosophy'], styles['philosophyAnimationRoot'])}
         ref={philosophyRef}
       >
-        <div className={styles['philosophyHeadingBlock']}>
-          <h2 className={styles['philosophyHeading']} id='home-philosophy-heading'>
-            <span>진료 현장에서 즉각 발휘되는</span>
-            <span>실전 중심의 초음파 기술을 지향합니다.</span>
-          </h2>
-        </div>
+        <div className={styles['philosophySticky']}>
+          <div className={styles['philosophyStage']}>
+            <div className={styles['philosophyHeadingBlock']}>
+              <h2 className={styles['philosophyHeading']} id='home-philosophy-heading'>
+                <span>진료 현장에서 즉각 발휘되는</span>
+                <span>실전 중심의 초음파 기술을 지향합니다.</span>
+              </h2>
+            </div>
 
-        <div className={styles['philosophyCopy']}>
-          <p className={styles['philosophyLead']}>선명한 스캔, 명확한 진단.</p>
-          <p>
-            소노스쿨은 장은희 강사가 직접 설계한 엄격한 학습 기준과 1:1 피드백 시스템을 모든 과정에
-            일관되게 적용합니다.
-          </p>
-          <p>기술을 넘어, 더 정확하고 안전한 초음파 문화를 만들어갑니다.</p>
+            <div className={styles['philosophyCopy']}>
+              <p className={styles['philosophyLead']}>선명한 스캔, 명확한 진단.</p>
+              <p>
+                소노스쿨은 장은희 강사가 직접 설계한 엄격한 학습 기준과
+                <br />
+                1:1 피드백 시스템을 모든 과정에 일관되게 적용합니다.
+              </p>
+              <p>기술을 넘어, 더 정확하고 안전한 초음파 문화를 만들어갑니다.</p>
+            </div>
+          </div>
         </div>
       </div>
 

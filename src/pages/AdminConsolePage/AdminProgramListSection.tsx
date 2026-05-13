@@ -135,7 +135,7 @@ const typeOptions = [
 
 const confirmProgramDelete = (): boolean => {
   return window.confirm(
-    '프로그램을 삭제하면 되돌릴 수 없습니다.\n강의 구성이나 수강 이력이 있는 프로그램은 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
+    '프로그램을 삭제하면 되돌릴 수 없습니다.\n커리큘럼, 결제/수강 등록 이력, 리뷰 또는 공지사항이 연결된 프로그램은 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
   );
 };
 
@@ -145,6 +145,10 @@ const confirmDraftDelete = (draft: AdminProgramDraftSummary): boolean => {
 };
 
 const isProgramDeletable = (item: AdminProgramListItem): boolean => item.deletable !== false;
+
+const buildProgramDeleteBlockedMessage = (item: AdminProgramListItem): string => {
+  return item.deleteBlockedReason?.trim() || '현재 상태에서는 프로그램을 삭제할 수 없습니다.';
+};
 
 const buildDraftContinuePath = (draft: AdminProgramDraftSummary): string => {
   const search = `?draftId=${String(draft.id)}`;
@@ -606,8 +610,15 @@ const AdminProgramListSection = () => {
                             )}
                             <button
                               className={styles['tableActionButtonDanger']}
-                              disabled={!deletable}
+                              aria-disabled={!deletable}
                               onClick={() => {
+                                if (!deletable) {
+                                  showToast({
+                                    message: buildProgramDeleteBlockedMessage(item),
+                                    variant: 'error',
+                                  });
+                                  return;
+                                }
                                 if (!confirmProgramDelete()) {
                                   return;
                                 }

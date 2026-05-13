@@ -11,6 +11,26 @@ const cloneNavigationItem = (item: SiteNavigationItem): HeaderNavigationItem => 
   };
 };
 
+const COURSE_ROOT_PATH_BY_LABEL: Record<string, string> = {
+  의사과정: routePaths.programCatalog('doctor-course'),
+  일반과정: routePaths.programCatalog('general-course'),
+  온라인과정: routePaths.programCatalog('online-course'),
+};
+
+const normalizeCourseRootNavigationItem = (item: SiteNavigationItem): HeaderNavigationItem => {
+  const clonedItem = cloneNavigationItem(item);
+  const courseRootPath = COURSE_ROOT_PATH_BY_LABEL[clonedItem.label];
+
+  if (!courseRootPath) {
+    return clonedItem;
+  }
+
+  return {
+    ...clonedItem,
+    to: courseRootPath,
+  };
+};
+
 const DEFAULT_COURSE_NAVIGATION: HeaderNavigationItem[] = [
   {
     id: 'fixed-doctor-courses',
@@ -164,35 +184,10 @@ export const buildHeaderNavigation = (
     },
   ];
 
-  const fixedCoursePaths = new Set(DEFAULT_COURSE_NAVIGATION.map((item) => item.to));
-  const dynamicNavigationByPath = new Map(
-    dynamicNavigationItems.map((item) => [item.to, cloneNavigationItem(item)]),
-  );
+  const courseNavigation =
+    dynamicNavigationItems.length > 0
+      ? dynamicNavigationItems.map(normalizeCourseRootNavigationItem)
+      : DEFAULT_COURSE_NAVIGATION;
 
-  const resolvedCourseNavigation = DEFAULT_COURSE_NAVIGATION.map((item) => {
-    const dynamicMatch = dynamicNavigationByPath.get(item.to);
-
-    if (!dynamicMatch) {
-      return item;
-    }
-
-    return {
-      ...dynamicMatch,
-      id: item.id,
-      isFixed: true,
-      label: item.label,
-      to: item.to,
-    };
-  });
-
-  const remainingDynamicNavigation = dynamicNavigationItems
-    .filter((item) => !fixedCoursePaths.has(item.to))
-    .map(cloneNavigationItem);
-
-  return [
-    fixedLeadingNavigation,
-    ...resolvedCourseNavigation,
-    ...remainingDynamicNavigation,
-    ...fixedTrailingNavigation,
-  ];
+  return [fixedLeadingNavigation, ...courseNavigation, ...fixedTrailingNavigation];
 };

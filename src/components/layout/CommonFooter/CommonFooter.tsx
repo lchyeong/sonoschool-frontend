@@ -37,7 +37,10 @@ const footerInformationLines: readonly (readonly FooterInfoItem[])[] = [
   [
     { label: '상호명', value: '소노스쿨 국제초음파연수원' },
     { label: '대표자', value: '장은희' },
-    { label: '주소', value: '경기도 화성시 동탄구 동탄신리천로5길 79, 3832동 603호' },
+    {
+      label: '주소',
+      value: '경기도 화성시 동탄구 동탄지성로 17, B1층 101호(반송동, 동탄 위버폴리스)',
+    },
   ],
   [
     { label: '통신판매업', value: '2018-성남분당B-0062' },

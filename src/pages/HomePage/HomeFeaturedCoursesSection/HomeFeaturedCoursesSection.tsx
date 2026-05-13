@@ -202,14 +202,16 @@ const HomeFeaturedCoursesSection = () => {
               </div>
             </div>
 
-            <div className={styles['carouselControls']}>
-              <Pagination
-                ariaLabel='전체 강의 페이지 이동'
-                currentPage={activePage}
-                onChange={handleSelectPage}
-                totalPages={pageCount}
-              />
-            </div>
+            {pageCount > 1 ? (
+              <div className={styles['carouselControls']}>
+                <Pagination
+                  ariaLabel='전체 강의 페이지 이동'
+                  currentPage={activePage}
+                  onChange={handleSelectPage}
+                  totalPages={pageCount}
+                />
+              </div>
+            ) : null}
           </>
         )}
       </div>

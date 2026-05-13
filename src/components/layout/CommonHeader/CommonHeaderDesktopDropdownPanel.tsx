@@ -109,19 +109,38 @@ const CommonHeaderDesktopDropdownPanel = ({
                 {activeSectionChildren.map((child) => {
                   const childDescription =
                     child.description?.trim() || `${child.label} 온라인과정을 살펴보세요.`;
+                  const fourthDepthItems = child.children ?? [];
 
                   return (
-                    <LinkComponent
-                      className={styles['dropdownGrandchildCard']}
-                      key={child.id}
-                      onClick={onCloseMenu}
-                      to={child.to}
-                    >
-                      <span className={styles['dropdownGrandchildTitle']}>{child.label}</span>
-                      <span className={styles['dropdownGrandchildDescription']}>
-                        {childDescription}
-                      </span>
-                    </LinkComponent>
+                    <div className={styles['dropdownGrandchildGroup']} key={child.id}>
+                      <LinkComponent
+                        className={styles['dropdownGrandchildCard']}
+                        onClick={onCloseMenu}
+                        to={child.to}
+                      >
+                        <span className={styles['dropdownGrandchildTitle']}>{child.label}</span>
+                        <span className={styles['dropdownGrandchildDescription']}>
+                          {childDescription}
+                        </span>
+                      </LinkComponent>
+
+                      {fourthDepthItems.length ? (
+                        <div className={styles['dropdownFourthDepthList']}>
+                          {fourthDepthItems.map((fourthDepthItem) => {
+                            return (
+                              <LinkComponent
+                                className={styles['dropdownFourthDepthLink']}
+                                key={fourthDepthItem.id}
+                                onClick={onCloseMenu}
+                                to={fourthDepthItem.to}
+                              >
+                                {fourthDepthItem.label}
+                              </LinkComponent>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>

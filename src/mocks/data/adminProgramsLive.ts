@@ -350,6 +350,8 @@ const toListItem = (program: AdminProgramStateItem): AdminProgramListItem => ({
   }),
   saleStartAt: program.saleStartAt,
   saleEndAt: program.saleEndAt,
+  deletable: program.deletable ?? true,
+  deleteBlockedReason: program.deleteBlockedReason ?? null,
 });
 
 const toDetail = (program: AdminProgramStateItem): AdminProgramDetail =>

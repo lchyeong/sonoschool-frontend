@@ -65,48 +65,54 @@ const HomeNoticeSection = () => {
             </Link>
           </div>
 
-          {noticesQuery.isError ? (
-            <div className={styles['noticeState']}>
-              <p className={styles['noticeStateTitle']}>최신 공지를 불러오지 못했습니다.</p>
-              <p className={styles['noticeStateDescription']}>
-                {noticesQuery.error instanceof Error
-                  ? noticesQuery.error.message
-                  : '공지 API 상태를 확인해 주세요.'}
-              </p>
-            </div>
-          ) : (
-            <div className={styles['noticeRail']}>
-              <span aria-hidden='true' className={styles['noticeRailTopLine']} />
+          <div className={styles['noticeRail']}>
+            <span aria-hidden='true' className={styles['noticeRailTopLine']} />
 
-              <ul aria-label='최신 공지 4개' className={styles['noticeList']}>
-                {items.map((item) => {
-                  return (
-                    <li className={styles['noticeItem']} key={item.id}>
-                      <Link
-                        aria-label={`${item.title} 공지 자세히 보기`}
-                        className={styles['noticeItemLink']}
-                        to={routePaths.noticeDetail(item.publicSlug)}
-                      >
-                        <h3 className={styles['noticeCardTitle']}>{item.title}</h3>
-                        <span className={styles['noticeDate']}>{formatDate(item.createdAt)}</span>
-                      </Link>
+            <ul aria-label='최신 공지 4개' className={styles['noticeList']}>
+              {noticesQuery.isError ? (
+                <li className={styles['noticeItem']}>
+                  <div className={styles['noticeState']}>
+                    <p className={styles['noticeStateTitle']}>최신 공지를 불러오지 못했습니다.</p>
+                    <p className={styles['noticeStateDescription']}>
+                      {noticesQuery.error instanceof Error
+                        ? noticesQuery.error.message
+                        : '공지 API 상태를 확인해 주세요.'}
+                    </p>
+                  </div>
+                </li>
+              ) : (
+                <>
+                  {items.map((item) => {
+                    return (
+                      <li className={styles['noticeItem']} key={item.id}>
+                        <Link
+                          aria-label={`${item.title} 공지 자세히 보기`}
+                          className={styles['noticeItemLink']}
+                          to={routePaths.noticeDetail(item.publicSlug)}
+                        >
+                          <h3 className={styles['noticeCardTitle']}>{item.title}</h3>
+                          <span className={styles['noticeDate']}>{formatDate(item.createdAt)}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+
+                  {!noticesQuery.isPending && !items.length ? (
+                    <li className={styles['noticeItem']}>
+                      <div className={styles['noticeState']}>
+                        <p className={styles['noticeStateTitle']}>
+                          현재 공개 중인 공지가 없습니다.
+                        </p>
+                        <p className={styles['noticeStateDescription']}>
+                          새 공지가 게시되면 이 영역에서 바로 확인할 수 있습니다.
+                        </p>
+                      </div>
                     </li>
-                  );
-                })}
-
-                {!noticesQuery.isPending && !items.length ? (
-                  <li className={styles['noticeItem']}>
-                    <div className={styles['noticeState']}>
-                      <p className={styles['noticeStateTitle']}>현재 공개 중인 공지가 없습니다.</p>
-                      <p className={styles['noticeStateDescription']}>
-                        새 공지가 게시되면 이 영역에서 바로 확인할 수 있습니다.
-                      </p>
-                    </div>
-                  </li>
-                ) : null}
-              </ul>
-            </div>
-          )}
+                  ) : null}
+                </>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
     </section>

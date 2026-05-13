@@ -10,6 +10,7 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => response.data;
 const sanitizePopupItem = (popup: PopupItem): PopupItem => ({
   ...popup,
   imageUrl: sanitizePublicAssetUrl(popup.imageUrl, '') ?? '',
+  linkUrl: typeof popup.linkUrl === 'string' ? popup.linkUrl.trim() : '',
 });
 
 export const fetchGlobalPopups = async (): Promise<PopupItem[]> => {

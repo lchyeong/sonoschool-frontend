@@ -147,6 +147,19 @@ export const createAdminProgramEditDraft = async (
   }
 };
 
+export const createAdminProgramDuplicateDraft = async (
+  programId: number,
+): Promise<AdminProgramDraftDetail> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<AdminProgramDraftDetail>>(
+      `/api/v1/admin/program-drafts/duplicate-from-program/${String(programId)}`,
+    );
+    return normalizeDraftDetail(unwrapApiEnvelope(response.data));
+  } catch (error: unknown) {
+    throw toApiError(error, '프로그램 복제 화면을 준비하지 못했습니다.');
+  }
+};
+
 export const fetchAdminProgramDraft = async (draftId: number): Promise<AdminProgramDraftDetail> => {
   try {
     const response = await axiosInstance.get<ApiEnvelope<AdminProgramDraftDetail>>(
@@ -161,7 +174,7 @@ export const fetchAdminProgramDraft = async (draftId: number): Promise<AdminProg
 export const updateAdminProgramDraft = async (
   draftId: number,
   payload: AdminProgramDraftPayload,
-  options?: { mode?: 'create' | 'edit' },
+  options?: { mode?: 'create' | 'duplicate' | 'edit' },
 ): Promise<AdminProgramDraftDetail> => {
   try {
     const response = await axiosInstance.put<ApiEnvelope<AdminProgramDraftDetail>>(
@@ -181,7 +194,7 @@ export const updateAdminProgramDraft = async (
 
 export const finalizeAdminProgramDraft = async (
   draftId: number,
-  options?: { mode?: 'create' | 'edit' },
+  options?: { mode?: 'create' | 'duplicate' | 'edit' },
 ): Promise<AdminProgramDraftFinalizeResponse> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<AdminProgramDraftFinalizeResponse>>(
@@ -200,7 +213,7 @@ export const finalizeAdminProgramDraft = async (
 
 export const discardAdminProgramDraft = async (
   draftId: number,
-  options?: { mode?: 'create' | 'edit' },
+  options?: { mode?: 'create' | 'duplicate' | 'edit' },
 ): Promise<void> => {
   try {
     await axiosInstance.delete(`/api/v1/admin/program-drafts/${String(draftId)}`);

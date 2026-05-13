@@ -110,6 +110,9 @@ const mockProgramDraftApis = (draftDetail = createAdminProgramDraftDetailFixture
     http.post('*/api/v1/admin/program-drafts/from-program/:programId', () => {
       return HttpResponse.json({ data: draftDetail });
     }),
+    http.post('*/api/v1/admin/program-drafts/duplicate-from-program/:programId', () => {
+      return HttpResponse.json({ data: { ...draftDetail, finalProgramId: null } });
+    }),
     http.get('*/api/v1/admin/program-drafts/:draftId', () => {
       return HttpResponse.json({ data: draftDetail });
     }),
@@ -344,6 +347,95 @@ describe('AdminConsolePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
     ).toBeInTheDocument();
+  });
+
+  it('shows the blocked delete reason without sending a delete request', async () => {
+    let deleteRequested = false;
+    const confirmSpy = vi.spyOn(window, 'confirm');
+
+    server.use(
+      http.get('*/api/v1/admin/programs', () => {
+        return HttpResponse.json({
+          data: {
+            content: [
+              {
+                activeEnrollmentCount: 3,
+                catalogStatus: 'OPEN',
+                categoryId: 2,
+                categoryName: '내과과정',
+                currentStudents: 3,
+                deletable: false,
+                deleteBlockedReason:
+                  '수강 등록 이력이 있는 프로그램은 삭제할 수 없습니다. 결제 없이 관리자 수동 등록되었거나 만료/취소된 수강 기록이 남아 있습니다.',
+                featured: false,
+                full: false,
+                id: 2001,
+                level: 'BEGINNER',
+                maxStudents: null,
+                price: 220000,
+                programType: 'ONLINE',
+                published: false,
+                saleEndAt: null,
+                salePrice: null,
+                saleStartAt: null,
+                slug: 'abdomen-ultrasound-basic',
+                thumbnailUrl: null,
+                title: '복부초음파 기초',
+              },
+            ],
+          },
+        });
+      }),
+      http.delete('*/api/v1/admin/programs/:programId', () => {
+        deleteRequested = true;
+        return HttpResponse.json({ data: null });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/programs');
+
+    expect(await screen.findByText('복부초음파 기초')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+
+    await waitFor(() => {
+      expect(
+        useToastStore
+          .getState()
+          .toasts.some(
+            (toast) =>
+              toast.message ===
+              '수강 등록 이력이 있는 프로그램은 삭제할 수 없습니다. 결제 없이 관리자 수동 등록되었거나 만료/취소된 수강 기록이 남아 있습니다.',
+          ),
+      ).toBe(true);
+    });
+    expect(deleteRequested).toBe(false);
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it('opens duplicate programs in the integrated draft workspace with curriculum copied', async () => {
+    const draftDetail = createAdminProgramDraftDetailFixture();
+    draftDetail.finalProgramId = null;
+    draftDetail.payload.basicInfo.title = '복부초음파 기초 복제본';
+    draftDetail.payload.basicInfo.saleStartAt = '2026-04-01T00:00:00Z';
+    draftDetail.payload.basicInfo.saleEndAt = '2026-04-30T23:59:59Z';
+    draftDetail.payload.basicInfo.learningStartAt = '2026-05-01T00:00:00Z';
+    draftDetail.payload.basicInfo.learningEndAt = '2026-05-31T23:59:59Z';
+    draftDetail.payload.sections[0].title = '기본 섹션';
+    draftDetail.payload.sections[0].lectures[0].title = '오리엔테이션';
+
+    renderAdminConsoleRoute('/admin/programs/2001/duplicate', { draftDetail });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue('복부초음파 기초 복제본')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '강의 구성' }));
+
+    expect(await screen.findByText('기본 섹션')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
+    expect(await screen.findByText('오리엔테이션')).toBeInTheDocument();
   });
 
   it('shows the student column in the program list with offline capacity only for offline programs', async () => {
@@ -622,27 +714,17 @@ describe('AdminConsolePage', () => {
     fireEvent.click(await screen.findByRole('button', { name: '새 팝업 등록' }));
 
     expect(await screen.findByLabelText('팝업 이미지 파일')).toBeInTheDocument();
+    expect(screen.getByLabelText('이동 URL')).toHaveAttribute(
+      'placeholder',
+      '예: https://newzest.xyz/programs',
+    );
+    expect(screen.getByText(/도메인을 제외한 주소를 입력하세요/)).toBeInTheDocument();
+    expect(screen.queryByText('노출기간')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '상시 노출' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('노출 우선순위')).not.toBeInTheDocument();
     expect(screen.queryByText('노출 우선순위')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('팝업 제목')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('팝업 본문')).not.toBeInTheDocument();
-  });
-
-  it('closes the popup visibility date picker when clicking outside it', async () => {
-    renderAdminConsoleRoute('/admin/popups');
-
-    expect(await screen.findByRole('heading', { level: 1, name: '팝업 관리' })).toBeInTheDocument();
-
-    fireEvent.click(await screen.findByRole('button', { name: '새 팝업 등록' }));
-    fireEvent.click(screen.getByRole('button', { name: '상시 노출' }));
-
-    expect(screen.getByRole('button', { name: '이전' })).toBeInTheDocument();
-
-    fireEvent.mouseDown(document.body);
-
-    await waitFor(() => {
-      expect(screen.queryByRole('button', { name: '이전' })).not.toBeInTheDocument();
-    });
   });
 
   it('renders the qna management section with pending threads first', async () => {

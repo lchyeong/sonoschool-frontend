@@ -52,6 +52,11 @@ type QnaReplySource = 'all' | 'adminOnly';
 const BOARD_PAGE_SIZE = 8;
 const COMPACT_BOARD_PAGE_SIZE = 4;
 const EMPTY_THREADS: ProgramQnaThreadItem[] = [];
+const BOARD_STATUS_FILTER_OPTIONS: Array<{ label: string; value: BoardStatusFilter }> = [
+  { label: '전체 상태', value: 'all' },
+  { label: '답변 완료', value: 'answered' },
+  { label: '답변 대기', value: 'waiting' },
+];
 
 interface ProgramQnaPanelProps {
   allowReplies?: boolean;
@@ -194,6 +199,9 @@ const ProgramQnaPanelContent = ({
   const [threadPrivateQuestion, setThreadPrivateQuestion] = useState(false);
   const [openReplyThreadIds, setOpenReplyThreadIds] = useState<number[]>([]);
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({});
+  const statusFilterIndex = BOARD_STATUS_FILTER_OPTIONS.findIndex(
+    (option) => option.value === statusFilter,
+  );
   const [pendingDeleteThread, setPendingDeleteThread] = useState<ProgramQnaThreadItem | null>(null);
   const privateCheckStyle = useMemo(() => buildPrivateCheckStyle(), []);
   const deferredSearchKeyword = useDeferredValue(searchKeyword.trim().toLowerCase());
@@ -1355,21 +1363,18 @@ const ProgramQnaPanelContent = ({
                 {!isCompactBoard ? (
                   <div
                     className={styles['boardFilterGroup']}
+                    data-active-index={statusFilterIndex}
                     role='tablist'
                     aria-label='질문 상태 필터'
                   >
-                    {[
-                      { label: '전체 상태', value: 'all' },
-                      { label: '답변 완료', value: 'answered' },
-                      { label: '답변 대기', value: 'waiting' },
-                    ].map((option) => (
+                    {BOARD_STATUS_FILTER_OPTIONS.map((option) => (
                       <button
                         aria-selected={statusFilter === option.value}
                         className={styles['boardFilterButton']}
                         data-active={statusFilter === option.value ? 'true' : 'false'}
                         key={option.value}
                         onClick={() => {
-                          setStatusFilter(option.value as BoardStatusFilter);
+                          setStatusFilter(option.value);
                           setCurrentPage(1);
                         }}
                         role='tab'
@@ -1416,6 +1421,7 @@ const ProgramQnaPanelContent = ({
                 {isCompactBoard ? (
                   <div
                     className={styles['compactFilterRow']}
+                    data-active-index={statusFilterIndex}
                     role='tablist'
                     aria-label='질문 상태 필터'
                   >

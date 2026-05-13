@@ -88,6 +88,9 @@ const QnaPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
   const [isWriteFormOpen, setIsWriteFormOpen] = useState(false);
+  const statusFilterIndex = statusFilterOptions.findIndex(
+    (option) => option.value === statusFilter,
+  );
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
 
   const questions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
@@ -438,7 +441,12 @@ const QnaPage = () => {
 
       <section className={styles['boardShell']}>
         <div className={styles['toolbar']}>
-          <div className={styles['filterGroup']} role='tablist' aria-label='운영 Q&A 답변 상태'>
+          <div
+            className={styles['filterGroup']}
+            data-active-index={statusFilterIndex}
+            role='tablist'
+            aria-label='운영 Q&A 답변 상태'
+          >
             {statusFilterOptions.map((option) => {
               const isActive = statusFilter === option.value;
 

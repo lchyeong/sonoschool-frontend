@@ -909,18 +909,46 @@
   margin-top: 34px;
 }
 .questionStatusFilterRow {
-  display: flex;
-  gap: 12px;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 127px));
   align-items: center;
+  width: max-content;
+  padding: 2px;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+.questionStatusFilterRow::before {
+  position: absolute;
+  z-index: 0;
+  top: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / 3);
+  height: calc(100% - 4px);
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+  content: '';
+  transform: translateX(0);
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+.questionStatusFilterRow[data-active-index='1']::before {
+  transform: translateX(100%);
+}
+.questionStatusFilterRow[data-active-index='2']::before {
+  transform: translateX(200%);
 }
 .questionStatusFilterButton {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 127px;
+  width: auto;
   height: 50px;
   padding: 0 18px;
-  border: 1px solid #d1d5db;
+  border: 0;
   border-radius: 100px;
   color: #4b5563;
   font-size: 18px;
@@ -928,14 +956,18 @@
   line-height: 1.3;
   letter-spacing: var(--letter-spacing-normal);
   white-space: nowrap;
-  background: #ffffff;
+  background: transparent;
 }
 .questionStatusFilterButton:hover,
 .questionStatusFilterButton:focus-visible,
 .questionStatusFilterButtonActive {
-  border-color: #34b29f;
   color: #34b29f;
-  background: #ecf9f7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .questionStatusFilterRow::before {
+    transition-duration: 1ms;
+  }
 }
 .questionToolbar {
   margin-top: 73px;

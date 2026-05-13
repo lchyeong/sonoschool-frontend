@@ -50,7 +50,7 @@ const INITIAL_FORM_STATE: CategoryFormState = {
   name: '',
 };
 
-const MAX_DEPTH = 3;
+const MAX_DEPTH = 4;
 
 const sortCategoryTree = (items: readonly AdminCategoryTreeItem[]): AdminCategoryTreeItem[] => {
   return [...items]

@@ -16,6 +16,7 @@ import {
 } from '@/api/adminProblemMedia';
 import {
   createAdminProgramEditDraft,
+  createAdminProgramDuplicateDraft,
   createAdminProgramDraft,
   discardAdminProgramDraft,
   finalizeAdminProgramDraft,
@@ -111,7 +112,7 @@ interface DraftValidationIssue {
 }
 
 interface AdminProgramCreateWorkspaceProps {
-  mode?: 'create' | 'edit';
+  mode?: 'create' | 'duplicate' | 'edit';
   view?: AdminProgramCreateView;
 }
 
@@ -1443,6 +1444,13 @@ const AdminProgramCreateWorkspace = ({
     mode === 'edit' && Number.isFinite(requestedEditProgramId) && requestedEditProgramId > 0
       ? requestedEditProgramId
       : null;
+  const requestedDuplicateSourceProgramId = Number(params['sourceProgramId'] ?? '');
+  const duplicateSourceProgramId =
+    mode === 'duplicate' &&
+    Number.isFinite(requestedDuplicateSourceProgramId) &&
+    requestedDuplicateSourceProgramId > 0
+      ? requestedDuplicateSourceProgramId
+      : null;
   const detailQuery = useAdminProgramDraftDetailQuery(draftId, draftId !== null);
   const categoriesQuery = useAdminCategoriesTreeQuery(true);
   const problemAreasQuery = useAdminProblemAreasQuery(true);
@@ -1527,6 +1535,12 @@ const AdminProgramCreateWorkspace = ({
         }
         return createAdminProgramEditDraft(editProgramId);
       }
+      if (mode === 'duplicate') {
+        if (duplicateSourceProgramId === null) {
+          throw new Error('복제할 프로그램을 찾지 못했습니다.');
+        }
+        return createAdminProgramDuplicateDraft(duplicateSourceProgramId);
+      }
       return createAdminProgramDraft();
     },
     onError: (error: unknown) => {
@@ -1536,7 +1550,9 @@ const AdminProgramCreateWorkspace = ({
             ? error.message
             : mode === 'edit'
               ? '프로그램 수정 화면을 준비하지 못했습니다.'
-              : '프로그램 초안을 생성하지 못했습니다.',
+              : mode === 'duplicate'
+                ? '프로그램 복제 화면을 준비하지 못했습니다.'
+                : '프로그램 초안을 생성하지 못했습니다.',
         variant: 'error',
       });
     },
@@ -1714,7 +1730,7 @@ const AdminProgramCreateWorkspace = ({
 
     hasRequestedDraftRef.current = true;
     createDraftMutation.mutate();
-  }, [createDraftMutation, draftId, editProgramId, mode]);
+  }, [createDraftMutation, draftId, duplicateSourceProgramId, editProgramId, mode]);
 
   useEffect(() => {
     if (openLectureTypeMenuSectionKey === null) {

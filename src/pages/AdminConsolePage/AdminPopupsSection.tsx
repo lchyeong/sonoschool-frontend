@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -24,14 +24,6 @@ import {
 } from '@/query/usePopupQueries';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AdminPopupCreatePayload, AdminPopupUpdatePayload, PopupItem } from '@/types/popup';
-import { classNames } from '@/utils/classNames';
-import {
-  buildCalendarCells,
-  calendarWeekdays,
-  formatDate,
-  formatMonthLabel,
-  toMonthValue,
-} from '@/utils/practicumCalendar';
 
 import styles from './AdminConsolePage.module.scss';
 
@@ -40,11 +32,10 @@ interface PopupFormState {
   imageAssetId: number | null;
   imagePreviewObjectUrl: string | null;
   imageUrl: string;
+  linkUrl: string;
   pendingImageFile: File | null;
   published: boolean;
   sortOrder: number;
-  visibleEndAt: string;
-  visibleStartAt: string;
 }
 
 type PopupAdminTab = 'form' | 'list';
@@ -54,11 +45,10 @@ const createEmptyForm = (sortOrder = 0): PopupFormState => ({
   imageAssetId: null,
   imagePreviewObjectUrl: null,
   imageUrl: '',
+  linkUrl: '',
   pendingImageFile: null,
   published: true,
   sortOrder,
-  visibleEndAt: '',
-  visibleStartAt: '',
 });
 
 const formatDisplayDate = (value: string | null): string => {
@@ -72,86 +62,6 @@ const formatDisplayDate = (value: string | null): string => {
   const day = String(date.getDate()).padStart(2, '0');
 
   return `${String(year)}.${month}.${day}`;
-};
-
-const formatDateInputValue = (value: string | null): string => {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${String(year)}-${month}-${day}`;
-};
-
-const formatEndDateInputValue = (value: string | null): string => {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-  date.setMilliseconds(date.getMilliseconds() - 1);
-
-  return formatDateInputValue(date.toISOString());
-};
-
-const toStartOfDayIsoStringOrNull = (value: string): string | null => {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return null;
-  }
-
-  const date = new Date(`${trimmed}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-};
-
-const toEndOfDayIsoStringOrNull = (value: string): string | null => {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return null;
-  }
-
-  const date = new Date(`${trimmed}T00:00:00`);
-  date.setDate(date.getDate() + 1);
-
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-};
-
-const addMonths = (value: Date, amount: number): Date => {
-  return new Date(value.getFullYear(), value.getMonth() + amount, 1);
-};
-
-const formatPopupDateRangeText = (startDate: string, endDate: string): string => {
-  if (!startDate && !endDate) {
-    return '상시 노출';
-  }
-
-  if (startDate && endDate) {
-    return `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
-  }
-
-  if (startDate) {
-    return `${formatDate(startDate)}부터`;
-  }
-
-  return `${formatDate(endDate)}까지`;
-};
-
-const isDateInRange = (date: string, startDate: string, endDate: string): boolean => {
-  if (!startDate) {
-    return false;
-  }
-
-  if (!endDate) {
-    return date === startDate;
-  }
-
-  return date >= startDate && date <= endDate;
 };
 
 const buildPopupLabelFromFilename = (filename: string): string => {
@@ -268,11 +178,10 @@ const createFormState = (popup?: PopupItem | null): PopupFormState => {
     imageAssetId: popup.imageAssetId,
     imagePreviewObjectUrl: null,
     imageUrl: popup.imageUrl,
+    linkUrl: popup.linkUrl,
     pendingImageFile: null,
     published: popup.published,
     sortOrder: popup.sortOrder,
-    visibleEndAt: formatEndDateInputValue(popup.visibleEndAt),
-    visibleStartAt: formatDateInputValue(popup.visibleStartAt),
   };
 };
 
@@ -343,10 +252,6 @@ const AdminPopupsSection = () => {
   const [formState, setFormState] = useState<PopupFormState>(createEmptyForm());
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<PopupAdminTab>('list');
-  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [hoveredCalendarDate, setHoveredCalendarDate] = useState<string | null>(null);
-  const datePickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const previewObjectUrl = formState.imagePreviewObjectUrl;
@@ -358,52 +263,7 @@ const AdminPopupsSection = () => {
     };
   }, [formState.imagePreviewObjectUrl]);
 
-  useEffect(() => {
-    if (!isDatePickerOpen) {
-      return;
-    }
-
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (datePickerRef.current?.contains(target)) {
-        return;
-      }
-
-      setIsDatePickerOpen(false);
-      setHoveredCalendarDate(null);
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-    };
-  }, [isDatePickerOpen]);
-
   const popups = useMemo(() => popupsQuery.data ?? [], [popupsQuery.data]);
-  const rightCalendarMonth = useMemo(() => addMonths(calendarMonth, 1), [calendarMonth]);
-  const leftCalendarCells = useMemo(
-    () => buildCalendarCells(toMonthValue(calendarMonth)),
-    [calendarMonth],
-  );
-  const rightCalendarCells = useMemo(
-    () => buildCalendarCells(toMonthValue(rightCalendarMonth)),
-    [rightCalendarMonth],
-  );
-  const visibleRangeText = useMemo(
-    () => formatPopupDateRangeText(formState.visibleStartAt, formState.visibleEndAt),
-    [formState.visibleEndAt, formState.visibleStartAt],
-  );
-  const previewVisibleEndAt =
-    formState.visibleEndAt ||
-    (formState.visibleStartAt &&
-    hoveredCalendarDate &&
-    hoveredCalendarDate >= formState.visibleStartAt
-      ? hoveredCalendarDate
-      : '');
   const currentDisplayPopup = useMemo(() => {
     return (
       [...popups]
@@ -544,7 +404,6 @@ const AdminPopupsSection = () => {
     setEditingPopupId(null);
     const nextFormState = createEmptyForm(getNextSortOrder(popups));
     setFormState(nextFormState);
-    setCalendarMonth(new Date());
     setActiveTab('form');
   };
 
@@ -552,11 +411,6 @@ const AdminPopupsSection = () => {
     const nextFormState = createFormState(popup);
     setEditingPopupId(popup.id);
     setFormState(nextFormState);
-    setCalendarMonth(
-      nextFormState.visibleStartAt
-        ? new Date(`${nextFormState.visibleStartAt}T00:00:00`)
-        : new Date(),
-    );
     setActiveTab('form');
     setPreviewPopupId(null);
   };
@@ -606,45 +460,9 @@ const AdminPopupsSection = () => {
     }
   };
 
-  const handleCalendarDateSelect = (dateValue: string) => {
-    setFormState((current) => {
-      if (!current.visibleStartAt || current.visibleEndAt) {
-        return {
-          ...current,
-          visibleEndAt: '',
-          visibleStartAt: dateValue,
-        };
-      }
-
-      if (dateValue < current.visibleStartAt) {
-        return {
-          ...current,
-          visibleEndAt: '',
-          visibleStartAt: dateValue,
-        };
-      }
-
-      setIsDatePickerOpen(false);
-
-      return {
-        ...current,
-        visibleEndAt: dateValue,
-      };
-    });
-  };
-
-  const resetVisibleRange = () => {
-    setFormState((current) => ({
-      ...current,
-      visibleEndAt: '',
-      visibleStartAt: '',
-    }));
-  };
-
   const handleSubmit = async () => {
     const imageAlt = formState.imageAlt.trim();
-    const visibleStartAt = toStartOfDayIsoStringOrNull(formState.visibleStartAt);
-    const visibleEndAt = toEndOfDayIsoStringOrNull(formState.visibleEndAt);
+    const linkUrl = formState.linkUrl.trim();
 
     if (formState.imageAssetId === null && formState.pendingImageFile === null) {
       showToast({ message: '팝업 이미지를 첨부해 주세요.', variant: 'error' });
@@ -653,19 +471,6 @@ const AdminPopupsSection = () => {
 
     if (!imageAlt) {
       showToast({ message: '이미지 설명을 입력해 주세요.', variant: 'error' });
-      return;
-    }
-
-    if (
-      (formState.visibleStartAt && !formState.visibleEndAt) ||
-      (!formState.visibleStartAt && formState.visibleEndAt)
-    ) {
-      showToast({ message: '노출기간은 시작일과 종료일을 모두 선택해 주세요.', variant: 'error' });
-      return;
-    }
-
-    if (visibleStartAt && visibleEndAt && new Date(visibleStartAt) > new Date(visibleEndAt)) {
-      showToast({ message: '노출 시작일은 종료일보다 늦을 수 없습니다.', variant: 'error' });
       return;
     }
 
@@ -692,9 +497,10 @@ const AdminPopupsSection = () => {
     const payload = {
       altText: imageAlt,
       imageAssetId,
+      linkUrl,
       sortOrder: Math.max(0, formState.sortOrder),
-      visibleEndAt,
-      visibleStartAt,
+      visibleEndAt: null,
+      visibleStartAt: null,
     };
 
     if (editingPopupId === null) {
@@ -804,148 +610,21 @@ const AdminPopupsSection = () => {
               value={formState.imageAlt}
             />
 
-            <div className={styles['popupDateRangeField']}>
-              <p className={styles['fieldLabel']}>노출기간</p>
-              <div className={styles['popupDateRangePicker']} ref={datePickerRef}>
-                <button
-                  className={classNames(
-                    styles['popupDateRangeTrigger'],
-                    isDatePickerOpen && styles['popupDateRangeTriggerActive'],
-                  )}
-                  onClick={() => {
-                    setIsDatePickerOpen((current) => !current);
-                  }}
-                  type='button'
-                >
-                  <span aria-hidden='true' className={styles['popupDateRangeIcon']} />
-                  <span>{visibleRangeText}</span>
-                </button>
-
-                {isDatePickerOpen ? (
-                  <div
-                    className={styles['popupDateRangePopover']}
-                    onMouseLeave={() => {
-                      setHoveredCalendarDate(null);
-                    }}
-                  >
-                    <div className={styles['popupDateRangeCalendarGrid']}>
-                      {[
-                        { cells: leftCalendarCells, key: 'left', month: calendarMonth },
-                        { cells: rightCalendarCells, key: 'right', month: rightCalendarMonth },
-                      ].map((calendar) => (
-                        <div
-                          className={styles['paymentDatePickerCalendarPanel']}
-                          key={calendar.key}
-                        >
-                          <div className={styles['paymentDatePickerCalendarHead']}>
-                            {calendar.key === 'left' ? (
-                              <button
-                                className={styles['paymentDatePickerNav']}
-                                onClick={() => {
-                                  setCalendarMonth((previous) => addMonths(previous, -1));
-                                }}
-                                type='button'
-                              >
-                                이전
-                              </button>
-                            ) : (
-                              <span className={styles['paymentDatePickerNavSpacer']} />
-                            )}
-                            <strong className={styles['paymentDatePickerMonthLabel']}>
-                              {formatMonthLabel(toMonthValue(calendar.month))}
-                            </strong>
-                            {calendar.key === 'right' ? (
-                              <button
-                                className={styles['paymentDatePickerNav']}
-                                onClick={() => {
-                                  setCalendarMonth((previous) => addMonths(previous, 1));
-                                }}
-                                type='button'
-                              >
-                                다음
-                              </button>
-                            ) : (
-                              <span className={styles['paymentDatePickerNavSpacer']} />
-                            )}
-                          </div>
-                          <div className={styles['paymentDatePickerWeekdays']}>
-                            {calendarWeekdays.map((label) => (
-                              <span key={`${calendar.key}-weekday-${label}`}>{label}</span>
-                            ))}
-                          </div>
-                          <div className={styles['paymentDatePickerDays']}>
-                            {calendar.cells.map((cell, index) => {
-                              const dateValue = cell.date;
-                              const isInRange = Boolean(
-                                dateValue &&
-                                  cell.isCurrentMonth &&
-                                  isDateInRange(
-                                    dateValue,
-                                    formState.visibleStartAt,
-                                    previewVisibleEndAt,
-                                  ),
-                              );
-                              const isSelectedStart = Boolean(
-                                dateValue &&
-                                  cell.isCurrentMonth &&
-                                  formState.visibleStartAt === dateValue,
-                              );
-                              const isSelectedEnd = Boolean(
-                                dateValue &&
-                                  cell.isCurrentMonth &&
-                                  formState.visibleEndAt === dateValue,
-                              );
-
-                              return (
-                                <button
-                                  aria-label={dateValue ? formatDate(dateValue) : undefined}
-                                  className={`${styles['paymentDatePickerDay']} ${
-                                    !cell.isCurrentMonth
-                                      ? styles['paymentDatePickerDayOutside']
-                                      : ''
-                                  } ${isInRange ? styles['paymentDatePickerDayInRange'] : ''} ${
-                                    isSelectedStart
-                                      ? styles['paymentDatePickerDaySelectedStart']
-                                      : ''
-                                  } ${
-                                    isSelectedEnd ? styles['paymentDatePickerDaySelectedEnd'] : ''
-                                  }`}
-                                  disabled={!cell.isCurrentMonth || !dateValue}
-                                  key={`${calendar.key}-${dateValue ?? 'empty'}-${String(index)}`}
-                                  onClick={() => {
-                                    if (dateValue) {
-                                      handleCalendarDateSelect(dateValue);
-                                    }
-                                  }}
-                                  onMouseEnter={() => {
-                                    setHoveredCalendarDate(dateValue);
-                                  }}
-                                  type='button'
-                                >
-                                  {dateValue ? Number(dateValue.slice(-2)) : ''}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className={styles['popupDateRangeActions']}>
-                      <button
-                        className={styles['tableActionButton']}
-                        disabled={!formState.visibleStartAt && !formState.visibleEndAt}
-                        onClick={() => {
-                          resetVisibleRange();
-                          setIsDatePickerOpen(false);
-                        }}
-                        type='button'
-                      >
-                        상시 노출
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+            <div className={styles['cellStack']}>
+              <TextField
+                label='이동 URL'
+                name='popupLinkUrl'
+                onChange={(event) => {
+                  setFormState((current) => ({ ...current, linkUrl: event.target.value }));
+                }}
+                placeholder='예: https://newzest.xyz/programs'
+                value={formState.linkUrl}
+              />
+              <p className={styles['metaText']}>
+                팝업을 눌렀을 때 이동할 주소입니다. 소노스쿨 안의 페이지로 이동하려면 도메인을
+                제외한 주소를 입력하세요. 예: /programs, /notices. 외부 사이트로 이동하려면
+                https://로 시작하는 전체 주소를 입력하세요. 비워두면 이동하지 않습니다.
+              </p>
             </div>
 
             <div className={styles['actionRow']}>
@@ -976,6 +655,7 @@ const AdminPopupsSection = () => {
                       imageAssetId: null,
                       imagePreviewObjectUrl: null,
                       imageUrl: '',
+                      linkUrl: '',
                       pendingImageFile: null,
                     }));
                   }}

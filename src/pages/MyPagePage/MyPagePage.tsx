@@ -2174,6 +2174,13 @@ const MyPagePage = () => {
           <div className={styles['questionControlRow']}>
             <div
               className={styles['questionStatusFilterRow']}
+              data-active-index={
+                questionAnsweredFilter === 'ANSWERED'
+                  ? 1
+                  : questionAnsweredFilter === 'WAITING'
+                    ? 2
+                    : 0
+              }
               role='tablist'
               aria-label='답변 상태 필터'
             >

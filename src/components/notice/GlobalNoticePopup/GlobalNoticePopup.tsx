@@ -3,10 +3,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useGlobalPopupsQuery } from '@/query/usePopupQueries';
+import type { PopupItem } from '@/types/popup';
 
 import styles from './GlobalNoticePopup.module.scss';
 
 const DISMISS_STORAGE_PREFIX = 'popup-banner-dismissed';
+const MAX_VISIBLE_POPUP_COUNT = 3;
 
 const buildTodayLabel = (): string => {
   const now = new Date();
@@ -35,6 +37,8 @@ const dismissForToday = (popupId: number) => {
   window.localStorage.setItem(buildStorageKey(popupId), buildTodayLabel());
 };
 
+const isPopupLinkExternal = (linkUrl: string): boolean => /^https?:\/\//i.test(linkUrl);
+
 const GlobalNoticePopup = () => {
   const popupsQuery = useGlobalPopupsQuery();
   const [closedPopupIds, setClosedPopupIds] = useState<number[]>([]);
@@ -42,50 +46,60 @@ const GlobalNoticePopup = () => {
     checked: boolean;
     popupId: number | null;
   }>({ checked: false, popupId: null });
-  const [preloadedImageUrl, setPreloadedImageUrl] = useState<string | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [preloadedImageUrls, setPreloadedImageUrls] = useState<string[]>([]);
+  const firstCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  const activePopup = useMemo(() => {
+  const visiblePopups = useMemo(() => {
     const popups = popupsQuery.data ?? [];
 
-    return (
-      popups.find((popup) => {
+    return popups
+      .filter((popup) => {
         return !closedPopupIds.includes(popup.id) && !hasDismissedToday(popup.id);
-      }) ?? null
-    );
+      })
+      .slice(0, MAX_VISIBLE_POPUP_COUNT);
   }, [closedPopupIds, popupsQuery.data]);
 
   useEffect(() => {
-    if (!activePopup) {
+    if (visiblePopups.length === 0) {
       return;
     }
 
-    const popupImageUrl = activePopup.imageUrl;
     let cancelled = false;
-    const image = new Image();
-    image.onload = () => {
+    const popupImageUrls = visiblePopups.map((popup) => popup.imageUrl);
+    const preloadImage = (popupImageUrl: string) =>
+      new Promise<string>((resolve) => {
+        const image = new Image();
+        image.onload = () => {
+          resolve(popupImageUrl);
+        };
+        image.onerror = () => {
+          resolve(popupImageUrl);
+        };
+        image.src = popupImageUrl;
+      });
+
+    void Promise.all(popupImageUrls.map(preloadImage)).then((loadedImageUrls) => {
       if (!cancelled) {
-        setPreloadedImageUrl(popupImageUrl);
+        setPreloadedImageUrls(loadedImageUrls);
       }
-    };
-    image.onerror = () => {
-      if (!cancelled) {
-        setPreloadedImageUrl(popupImageUrl);
-      }
-    };
-    image.src = popupImageUrl;
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [activePopup]);
+  }, [visiblePopups]);
 
   useEffect(() => {
-    if (!activePopup || preloadedImageUrl !== activePopup.imageUrl) {
+    const visiblePopupIds = visiblePopups.map((popup) => popup.id);
+
+    if (
+      visiblePopups.length === 0 ||
+      visiblePopups.some((popup) => !preloadedImageUrls.includes(popup.imageUrl))
+    ) {
       return;
     }
 
-    closeButtonRef.current?.focus();
+    firstCloseButtonRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') {
@@ -93,7 +107,7 @@ const GlobalNoticePopup = () => {
       }
 
       event.preventDefault();
-      setClosedPopupIds((current) => [...current, activePopup.id]);
+      setClosedPopupIds((current) => [...new Set([...current, ...visiblePopupIds])]);
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -101,77 +115,100 @@ const GlobalNoticePopup = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [activePopup, preloadedImageUrl]);
+  }, [preloadedImageUrls, visiblePopups]);
 
   if (
     popupsQuery.isPending ||
     popupsQuery.isError ||
-    !activePopup ||
-    preloadedImageUrl !== activePopup.imageUrl
+    visiblePopups.length === 0 ||
+    visiblePopups.some((popup) => !preloadedImageUrls.includes(popup.imageUrl))
   ) {
     return null;
   }
 
-  const closePopup = () => {
-    const shouldDismissForToday =
-      dismissSelection.popupId === activePopup.id && dismissSelection.checked;
+  const closePopup = (popup: PopupItem) => {
+    const shouldDismissForToday = dismissSelection.popupId === popup.id && dismissSelection.checked;
 
     if (shouldDismissForToday) {
-      dismissForToday(activePopup.id);
+      dismissForToday(popup.id);
     }
 
-    setClosedPopupIds((current) => [...current, activePopup.id]);
+    setClosedPopupIds((current) => [...current, popup.id]);
   };
-
-  const isDismissForTodayChecked =
-    dismissSelection.popupId === activePopup.id && dismissSelection.checked;
 
   return createPortal(
     <div className={styles['popupLayer']}>
-      <section
-        aria-label={activePopup.altText || '홈 팝업'}
-        aria-modal='false'
-        className={styles['panel']}
-        role='dialog'
-      >
-        <div className={styles['imageWrap']}>
-          <img
-            alt={activePopup.altText || '홈 팝업'}
-            className={styles['image']}
-            decoding='async'
-            fetchPriority='high'
-            loading='eager'
-            src={activePopup.imageUrl}
-          />
-        </div>
-        <div className={styles['actionRow']}>
-          <label className={styles['dismissControl']}>
-            <input
-              checked={isDismissForTodayChecked}
-              className={styles['dismissInput']}
-              onChange={(event) => {
-                setDismissSelection({
-                  checked: event.target.checked,
-                  popupId: activePopup.id,
-                });
-              }}
-              type='checkbox'
+      <div className={styles['popupGrid']}>
+        {visiblePopups.map((popup, index) => {
+          const isDismissForTodayChecked =
+            dismissSelection.popupId === popup.id && dismissSelection.checked;
+          const linkUrl = popup.linkUrl.trim();
+          const imageElement = (
+            <img
+              alt={popup.altText || '홈 팝업'}
+              className={styles['image']}
+              decoding='async'
+              fetchPriority={index === 0 ? 'high' : 'auto'}
+              loading='eager'
+              src={popup.imageUrl}
             />
-            <span aria-hidden='true' className={styles['dismissCheckbox']}>
-              <span className={styles['dismissCheckMark']} />
-            </span>
-            오늘 하루 보지 않기
-          </label>
-          <button
-            className={styles['closeButton']}
-            onClick={closePopup}
-            ref={closeButtonRef}
-            type='button'
-          >
-            닫기
-          </button>
-        </div>
-      </section>
+          );
+
+          return (
+            <section
+              aria-label={popup.altText || '홈 팝업'}
+              aria-modal='false'
+              className={styles['panel']}
+              key={popup.id}
+              role='dialog'
+            >
+              <div className={styles['imageWrap']}>
+                {linkUrl ? (
+                  <a
+                    className={styles['imageLink']}
+                    href={linkUrl}
+                    rel={isPopupLinkExternal(linkUrl) ? 'noopener noreferrer' : undefined}
+                    target={isPopupLinkExternal(linkUrl) ? '_blank' : undefined}
+                  >
+                    {imageElement}
+                  </a>
+                ) : (
+                  imageElement
+                )}
+              </div>
+              <div className={styles['actionRow']}>
+                <label className={styles['dismissControl']}>
+                  <input
+                    checked={isDismissForTodayChecked}
+                    className={styles['dismissInput']}
+                    onChange={(event) => {
+                      setDismissSelection({
+                        checked: event.target.checked,
+                        popupId: popup.id,
+                      });
+                    }}
+                    type='checkbox'
+                  />
+                  <span aria-hidden='true' className={styles['dismissCheckbox']}>
+                    <span className={styles['dismissCheckMark']} />
+                  </span>
+                  오늘 하루 보지 않기
+                </label>
+                <button
+                  className={styles['closeButton']}
+                  onClick={() => {
+                    closePopup(popup);
+                  }}
+                  ref={index === 0 ? firstCloseButtonRef : undefined}
+                  type='button'
+                >
+                  닫기
+                </button>
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </div>,
     document.body,
   );

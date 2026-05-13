@@ -154,11 +154,19 @@
 }
 
 .courseLinkArrow {
-  width: 0.646cqw;
-  height: 0.646cqw;
-  border-top: 0.129cqw solid currentColor;
-  border-right: 0.129cqw solid currentColor;
-  transform: rotate(45deg);
+  display: inline-flex;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.courseLinkArrowIcon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  color: currentColor;
 }
 
 .cardList {
@@ -279,9 +287,9 @@
 }
 
 .cardTitle {
-  font-size: 1.163cqw;
-  font-weight: var(--font-weight-extrabold);
-  letter-spacing: 0.07cqw;
+  font-size: 1.421cqw;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.085cqw;
   -webkit-line-clamp: 1;
 }
 
@@ -341,10 +349,8 @@
   }
 
   .courseLinkArrow {
-    width: 10px;
-    height: 10px;
-    border-top-width: 2px;
-    border-right-width: 2px;
+    width: 24px;
+    height: 24px;
   }
 
   .cardList {

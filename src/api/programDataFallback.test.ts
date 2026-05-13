@@ -58,6 +58,70 @@ describe('program data API fallback', () => {
     await expect(fetchSiteNavigation()).rejects.toBe(error);
   });
 
+  it('accepts site navigation up to four category depths', async () => {
+    httpGetMock.mockResolvedValue({
+      items: [
+        {
+          id: '1',
+          label: '의사과정',
+          to: '/programs/doctor-course',
+          children: [
+            {
+              id: '2',
+              label: '내과과정',
+              to: '/programs/doctor-course/internal-medicine',
+              children: [
+                {
+                  id: '3',
+                  label: '복부',
+                  to: '/programs/doctor-course/internal-medicine/abdomen',
+                  children: [
+                    {
+                      id: '4',
+                      label: '심화',
+                      to: '/programs/doctor-course/internal-medicine/abdomen/advanced',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    await expect(fetchSiteNavigation()).resolves.toEqual({
+      items: [
+        {
+          id: '1',
+          label: '의사과정',
+          to: '/programs/doctor-course',
+          children: [
+            {
+              id: '2',
+              label: '내과과정',
+              to: '/programs/doctor-course/internal-medicine',
+              children: [
+                {
+                  id: '3',
+                  label: '복부',
+                  to: '/programs/doctor-course/internal-medicine/abdomen',
+                  children: [
+                    {
+                      id: '4',
+                      label: '심화',
+                      to: '/programs/doctor-course/internal-medicine/abdomen/advanced',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('keeps rejecting when the search index API fails', async () => {
     const error = new Error('search failed');
 

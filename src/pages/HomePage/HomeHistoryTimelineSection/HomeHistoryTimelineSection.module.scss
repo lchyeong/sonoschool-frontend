@@ -2,19 +2,44 @@
 
 .section {
   width: 100%;
-  padding-top: 205px;
-  background: #ffffff;
+  padding-top: 0;
+  background: transparent;
 }
 
 .philosophy {
   --philosophy-heading-font-size: clamp(28px, 2.55vw, 36px);
+  --philosophy-heading-opacity: 0;
+  --philosophy-heading-y: 28px;
+  --philosophy-copy-opacity: 0;
+  --philosophy-copy-y: 28px;
 
+  position: relative;
+  width: 100%;
+  height: 230vh;
+  min-height: 1500px;
+  margin: 0 auto;
+  background: transparent;
+}
+
+.philosophySticky {
+  position: sticky;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100vh;
+  min-height: 690px;
+  overflow: hidden;
+}
+
+.philosophyStage {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 665px) minmax(0, 620px);
   gap: 151px;
   align-items: start;
   width: min(1436px, calc(100% - 48px));
-  margin: 0 auto 140px;
+  min-height: 420px;
 }
 
 .philosophyHeading,
@@ -59,7 +84,7 @@
 .directorPanel {
   position: relative;
   width: 100%;
-  height: min(3300px, calc(100vh * 3.55));
+  height: min(3400px, calc(100vh * 3.65));
   min-height: 2300px;
   margin-bottom: clamp(96px, 10vw, 168px);
   overflow: visible;
@@ -75,7 +100,7 @@
   width: 100%;
   height: 100vh;
   min-height: 665px;
-  background: #ffffff;
+  background: transparent;
 }
 
 .directorInner::before,
@@ -85,36 +110,48 @@
 }
 
 .directorInner::before {
+  display: none;
   z-index: 0;
   inset: 0;
-  background: linear-gradient(90deg, rgba(194, 241, 234, 0.2) 0%, rgba(157, 226, 216, 0.2) 100%);
+  background: transparent;
 }
 
 .directorInner::after {
-  top: 280.62px;
-  left: calc(50% + 170.63px);
+  display: none;
+  top: auto;
+  bottom: 0;
+  left: 0;
   z-index: 0;
-  width: 702.27px;
-  height: 458.6px;
+  width: 0;
+  aspect-ratio: 702.27 / 458.6;
+  height: auto;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 702.27 458.6'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='458.6' x2='702.27' y2='0' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0' stop-color='%2334B29F' stop-opacity='0.4'/%3E%3Cstop offset='1' stop-color='%237CD4C7' stop-opacity='0.1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cellipse cx='351.135' cy='229.3' rx='351.135' ry='229.3' fill='url(%23g)'/%3E%3C/svg%3E")
     center / 100% 100% no-repeat;
   transform: rotate(-25.62deg);
 }
 
 .directorInner {
+  --director-ellipse-width: clamp(780px, 55vw, 1056px);
+  --director-image-group-left: clamp(-120px, -5vw, -72px);
+  --director-image-height: clamp(690px, 44vw, 845px);
+  --director-image-left: clamp(64px, 9.2vw, 178px);
+  --director-image-top-offset: clamp(305px, 28vw, 345px);
+  --director-image-width: clamp(515px, 34vw, 650px);
+
   position: relative;
   z-index: 1;
   display: block;
   overflow: hidden;
   width: 100%;
-  height: 665px;
+  height: 100vh;
+  min-height: 720px;
   margin: 0 auto;
 }
 
 .directorCopy {
   position: absolute;
-  top: 147px;
-  left: calc(50% - 591px);
+  top: calc(50% - 230px);
+  left: max(48px, calc(50% - 591px));
   z-index: 1;
   min-width: 0;
 }
@@ -193,36 +230,73 @@
 
 .directorImageWrap {
   position: absolute;
-  top: 38px;
-  left: calc(50% + 268px);
+  top: calc(50% - var(--director-image-top-offset));
+  left: calc(50% + var(--director-image-group-left));
   z-index: 1;
-  width: 470px;
-  height: 627px;
+  width: var(--director-ellipse-width);
+  height: var(--director-image-height);
+  overflow: hidden;
+}
+
+.directorImageWrap::before {
+  position: absolute;
+  bottom: -70px;
+  left: 0;
+  z-index: 0;
+  width: 100%;
+  aspect-ratio: 702.27 / 458.6;
+  height: auto;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 702.27 458.6'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='458.6' x2='702.27' y2='0' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0' stop-color='%2334B29F' stop-opacity='0.4'/%3E%3Cstop offset='1' stop-color='%237CD4C7' stop-opacity='0.1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cellipse cx='351.135' cy='229.3' rx='351.135' ry='229.3' fill='url(%23g)'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+  content: '';
+  transform: rotate(-25.62deg);
+  transform-origin: center center;
 }
 
 .directorImage {
+  position: absolute;
+  bottom: 0;
+  left: var(--director-image-left);
+  z-index: 1;
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: var(--director-image-width);
+  height: auto;
+  object-fit: contain;
   object-position: center top;
 }
 
 @media (width < 1024px) {
   .section {
-    padding-top: 120px;
-  }
-
-  .philosophy,
-  .directorInner {
-    grid-template-columns: 1fr;
+    padding-top: 0;
   }
 
   .directorInner {
     display: grid;
+    grid-template-columns: 1fr;
     gap: 56px;
     height: auto;
     padding-top: 80px;
+  }
+
+  .philosophy {
+    height: auto;
+    min-height: 0;
+    padding: 120px 0;
+  }
+
+  .philosophySticky {
+    position: relative;
+    height: auto;
+    min-height: 0;
+  }
+
+  .philosophyStage {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  .philosophyCopy {
+    padding-top: 0;
   }
 
   .directorCopy {
@@ -246,7 +320,10 @@
   }
 
   .directorInner::after {
-    inset: auto -120px -86px auto;
+    right: -120px;
+    bottom: 0;
+    left: auto;
+    width: min(92vw, 720px);
   }
 
   .directorImageWrap {
@@ -255,22 +332,41 @@
     left: auto;
     right: auto;
     justify-self: center;
+    width: min(100%, 720px);
+    height: auto;
+    aspect-ratio: 548 / 730;
+  }
+
+  .directorImageWrap::before {
+    bottom: -36px;
+    left: -18%;
+    width: 126%;
+  }
+
+  .directorImage {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    width: 100%;
   }
 }
 
 @media (width < 768px) {
   .section {
-    padding-top: 88px;
+    padding-top: 0;
   }
 
-  .philosophy,
   .directorInner {
     width: min(100%, calc(100% - 32px));
   }
 
   .philosophy {
+    padding: 88px 0;
+  }
+
+  .philosophyStage {
+    width: min(100%, calc(100% - 32px));
     gap: 32px;
-    margin-bottom: 80px;
   }
 
   .philosophyHeading {

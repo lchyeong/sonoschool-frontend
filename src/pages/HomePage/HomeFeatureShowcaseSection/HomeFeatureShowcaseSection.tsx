@@ -1,50 +1,47 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 
-import homeLectureImage1Src from '@/assets/sample/home_lecture_1.jpg';
-import homeLectureImage2Src from '@/assets/sample/home_lecture_2.png';
-import homeLectureImage3Src from '@/assets/sample/home_lecture_3.jpg';
-import homeLectureImage4Src from '@/assets/sample/home_lecture_4.jpg';
-import homeLectureImage5Src from '@/assets/sample/home_lecture_5.jpg';
 import { routePaths } from '@/routes/routeRegistry';
 import { classNames } from '@/utils/classNames';
 
 import styles from './HomeFeatureShowcaseSection.module.scss';
 
+const HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH = '/images/home/feature-showcase';
+
 const homeFeatureShowcaseCards = [
   {
-    description: '의국을 대상으로 초음파 교육을 진행하기 시작했습니다.',
+    description: '영상 해석과 진단 포인트 집중 학습',
     id: 'home-feature-showcase-card-1',
-    imageAlt: '소노스쿨 교육 현장 1',
-    imageSrc: homeLectureImage1Src,
-    title: '교육 현장',
+    imageAlt: '초음파 판독 이론을 강의하는 소노스쿨 교육 현장',
+    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/ultrasound-reading-training.png`,
+    title: '초음파 판독 역량 강화',
   },
   {
-    description: '의국을 대상으로 초음파 교육을 진행하기 시작했습니다.',
+    description: '응급 POCUS 실습 · 반복 스캔 교육',
     id: 'home-feature-showcase-card-2',
-    imageAlt: '소노스쿨 교육 현장 2',
-    imageSrc: homeLectureImage2Src,
-    title: '교육 현장',
+    imageAlt: '실전 케이스를 설명하는 소노스쿨 초음파 강의 현장',
+    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/case-based-ultrasound-lecture.png`,
+    title: 'FAST 핵심 Window 훈련',
   },
   {
-    description: '의국을 대상으로 초음파 교육을 진행하기 시작했습니다.',
+    description: '진료 현장 사례 기반 초음파 교육',
     id: 'home-feature-showcase-card-3',
-    imageAlt: '소노스쿨 교육 현장 3',
-    imageSrc: homeLectureImage3Src,
-    title: '교육 현장',
+    imageAlt: '소수 인원으로 진행되는 소노스쿨 핸즈온 수업 현장',
+    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/small-group-hands-on-class.png`,
+    title: '실전 케이스 중심 강의',
   },
   {
-    description: '의국을 대상으로 초음파 교육을 진행하기 시작했습니다.',
+    description: '개인별 자세 교정 및 즉각적인 피드백 교육',
     id: 'home-feature-showcase-card-4',
-    imageAlt: '소노스쿨 교육 현장 4',
-    imageSrc: homeLectureImage4Src,
-    title: '교육 현장',
+    imageAlt: 'FAST 핵심 Window 훈련을 진행하는 소노스쿨 강의 현장',
+    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/fast-window-pocus-training.jpg`,
+    title: '소수정예 핸즈온 수업',
   },
   {
-    description: '의국을 대상으로 초음파 교육을 진행하기 시작했습니다.',
+    description: '서울 오프라인 강의 · 기초 이론 과정',
     id: 'home-feature-showcase-card-5',
-    imageAlt: '소노스쿨 교육 현장 5',
-    imageSrc: homeLectureImage5Src,
-    title: '교육 현장',
+    imageAlt: '복부 초음파 기초 교육을 진행하는 소노스쿨 오프라인 강의 현장',
+    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/abdominal-ultrasound-basic-course.png`,
+    title: '복부 초음파 기초 교육',
   },
 ] as const;
 
@@ -64,8 +61,21 @@ const HOME_BACKGROUND_RGB = {
   from: [255, 255, 255],
   to: [58, 197, 176],
 } as const;
-const SHOWCASE_BACKGROUND_ENTER_START_RATIO = 0.51;
-const SHOWCASE_BACKGROUND_ENTER_END_RATIO = 0.45;
+const SHOWCASE_BACKGROUND_ENTER_START_RATIO = 0.86;
+const SHOWCASE_BACKGROUND_ENTER_END_RATIO = -0.24;
+const COURSES_BACKGROUND_EXIT_START_RATIO = 0.82;
+const COURSES_BACKGROUND_EXIT_END_RATIO = -0.14;
+
+const getViewportRangeProgress = (
+  targetTop: number,
+  viewportHeight: number,
+  startRatio: number,
+  endRatio: number,
+) => {
+  return clamp(
+    (viewportHeight * startRatio - targetTop) / (viewportHeight * (startRatio - endRatio)),
+  );
+};
 
 const getShowcaseStep = (progress: number) => {
   if (progress >= 0.98) {
@@ -249,17 +259,24 @@ const HomeFeatureShowcaseSection = () => {
       const cardProgress = clamp(-rect.top / stickyDistance);
       const backgroundEnterProgress = introRect
         ? easeInOutProgress(
-            clamp(
-              (viewportHeight * SHOWCASE_BACKGROUND_ENTER_START_RATIO - introRect.bottom) /
-                (viewportHeight *
-                  (SHOWCASE_BACKGROUND_ENTER_START_RATIO - SHOWCASE_BACKGROUND_ENTER_END_RATIO)),
+            getViewportRangeProgress(
+              introRect.bottom,
+              viewportHeight,
+              SHOWCASE_BACKGROUND_ENTER_START_RATIO,
+              SHOWCASE_BACKGROUND_ENTER_END_RATIO,
             ),
           )
         : 0;
-      const hasEnteredCoursesBackground = featuredCoursesRect
-        ? featuredCoursesRect.top <= viewportHeight * 0.34
-        : false;
-      const backgroundExitProgress = hasEnteredCoursesBackground ? 1 : 0;
+      const backgroundExitProgress = featuredCoursesRect
+        ? easeInOutProgress(
+            getViewportRangeProgress(
+              featuredCoursesRect.top,
+              viewportHeight,
+              COURSES_BACKGROUND_EXIT_START_RATIO,
+              COURSES_BACKGROUND_EXIT_END_RATIO,
+            ),
+          )
+        : 0;
       const backgroundProgress = backgroundEnterProgress * (1 - backgroundExitProgress);
       const hasSettledShowcaseCopy = introRect ? introRect.bottom <= viewportHeight * 0.43 : false;
       const copyRevealProgress = backgroundProgress === 1 && hasSettledShowcaseCopy ? 1 : 0;
@@ -274,7 +291,7 @@ const HomeFeatureShowcaseSection = () => {
       const nextCopyY = hasSettledShowcaseCopy ? '0vh' : '15vh';
       const nextCopyToneProgress = copyToneProgress.toFixed(4);
       const nextCardScrollY = `${cardScrollY.toFixed(2)}vh`;
-      const nextFeaturedCoursesTone = hasEnteredCoursesBackground ? 'light' : 'contrast';
+      const nextFeaturedCoursesTone = backgroundExitProgress >= 0.72 ? 'light' : 'contrast';
 
       if (lastBackgroundColor !== nextBackgroundColor) {
         document.documentElement.style.setProperty('--home-page-background', nextBackgroundColor);
@@ -382,7 +399,29 @@ const HomeFeatureShowcaseSection = () => {
 
             <a className={styles['courseLink']} href={routePaths.homeFeaturedCourses}>
               <span>과정 살펴보기</span>
-              <span aria-hidden='true' className={styles['courseLinkArrow']} />
+              <span aria-hidden='true' className={styles['courseLinkArrow']}>
+                <svg
+                  className={styles['courseLinkArrowIcon']}
+                  fill='none'
+                  focusable='false'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    d='M5 12H19'
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='2'
+                  />
+                  <path
+                    d='M12 5L19 12L12 19'
+                    stroke='currentColor'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='2'
+                  />
+                </svg>
+              </span>
             </a>
           </div>
 

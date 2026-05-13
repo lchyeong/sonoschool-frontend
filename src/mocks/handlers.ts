@@ -89,6 +89,7 @@ import {
   sendMockSmsVerification,
   verifyMockSmsCode,
 } from '@/mocks/data/studentAuth';
+import type { AdminProgramDraftDetail } from '@/types/adminProgramDrafts';
 import type { ApiEnvelope, StudentSession } from '@/types/auth';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
@@ -211,7 +212,7 @@ const createApiEnvelope = <T>(data: T): ApiEnvelope<T> => {
   };
 };
 
-const createMockAdminProgramDraftDetail = () => {
+const createMockAdminProgramDraftDetail = (): AdminProgramDraftDetail => {
   return {
     createdAt: '2026-03-27T09:00:00Z',
     finalProgramId: null,
@@ -979,6 +980,18 @@ export const handlers = [
       status: 201,
     });
   }),
+  ...createAdminPostHandlers('/program-drafts/duplicate-from-program/:programId', ({ params }) => {
+    const programId = Number(params['programId']);
+
+    if (!Number.isInteger(programId) || programId <= 0) {
+      return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
+    }
+
+    const draftDetail = createMockAdminProgramDraftDetail();
+    draftDetail.payload.basicInfo.title = '복부초음파 기초 복제본';
+    draftDetail.titlePreview = '복부초음파 기초 복제본';
+    return HttpResponse.json(createApiEnvelope(draftDetail), { status: 201 });
+  }),
   ...createAdminGetHandlers('/program-drafts/:draftId', ({ params }) => {
     const draftId = Number(params['draftId']);
 
@@ -1560,6 +1573,7 @@ export const handlers = [
       altText: body['altText'],
       imageAssetId: body['imageAssetId'],
       imageUrl: `https://cdn.mock/popups/${String(body['imageAssetId'])}.png`,
+      linkUrl: typeof body['linkUrl'] === 'string' ? body['linkUrl'] : '',
       published: Boolean(body['published']),
       visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
       visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,
@@ -1585,6 +1599,7 @@ export const handlers = [
       altText: body['altText'],
       imageAssetId: body['imageAssetId'],
       imageUrl: `https://cdn.mock/popups/${String(body['imageAssetId'])}.png`,
+      linkUrl: typeof body['linkUrl'] === 'string' ? body['linkUrl'] : '',
       sortOrder: body['sortOrder'],
       visibleEndAt: typeof body['visibleEndAt'] === 'string' ? body['visibleEndAt'] : null,
       visibleStartAt: typeof body['visibleStartAt'] === 'string' ? body['visibleStartAt'] : null,

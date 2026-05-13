@@ -165,10 +165,10 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     return <AdminProgramCreateWorkspace mode='edit' view='resources' />;
   }),
   adminProgramDuplicate: createLazyRoute(async () => {
-    const { default: AdminProgramEditorSection } = await import(
-      '@/pages/AdminConsolePage/AdminProgramEditorSection'
+    const { default: AdminProgramCreateWorkspace } = await import(
+      '@/pages/AdminConsolePage/AdminProgramCreateWorkspace'
     );
-    return <AdminProgramEditorSection mode='duplicate' />;
+    return <AdminProgramCreateWorkspace mode='duplicate' />;
   }),
   adminProgramMenus: createLazyRoute(async () => {
     const { default: AdminConsolePage } = await import('@/pages/AdminConsolePage/AdminConsolePage');

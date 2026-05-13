@@ -4,7 +4,7 @@ import { routePaths } from '@/routes/routeRegistry';
 import { buildHeaderNavigation } from '@/utils/buildHeaderNavigation';
 
 describe('buildHeaderNavigation', () => {
-  it('places fixed menus around dynamic items in the correct order', () => {
+  it('places loaded program menus between fixed leading and trailing menus', () => {
     const navigation = buildHeaderNavigation([
       { id: 'dynamic-1', label: '동적 메뉴 1', to: '/dynamic-1' },
       { id: 'dynamic-2', label: '동적 메뉴 2', to: '/dynamic-2' },
@@ -12,9 +12,6 @@ describe('buildHeaderNavigation', () => {
 
     expect(navigation.map((item) => item.label)).toEqual([
       '소노스쿨',
-      '의사과정',
-      '일반과정',
-      '온라인과정',
       '동적 메뉴 1',
       '동적 메뉴 2',
       '공지사항',
@@ -22,9 +19,8 @@ describe('buildHeaderNavigation', () => {
       '자료실',
     ]);
     expect(navigation[0]?.to).toBe(routePaths.home);
-    expect(navigation[1]?.to).toBe(routePaths.programCatalog('doctor-course'));
-    expect(navigation[2]?.to).toBe(routePaths.programCatalog('general-course'));
-    expect(navigation[3]?.to).toBe(routePaths.programCatalog('online-course'));
+    expect(navigation[1]?.to).toBe('/dynamic-1');
+    expect(navigation[2]?.to).toBe('/dynamic-2');
     expect(navigation.at(-3)?.to).toBe(routePaths.notices);
     expect(navigation.at(-2)?.to).toBe(routePaths.qna);
     expect(navigation.at(-1)?.to).toBe(routePaths.resources);
@@ -58,7 +54,7 @@ describe('buildHeaderNavigation', () => {
     ]);
   });
 
-  it('merges matching lecture roots with dynamic navigation data and keeps extra items after them', () => {
+  it('uses loaded program navigation without overriding labels or paths', () => {
     const navigation = buildHeaderNavigation([
       {
         id: 'dynamic-doctor-course',
@@ -95,15 +91,57 @@ describe('buildHeaderNavigation', () => {
 
     expect(navigation.slice(0, 5).map((item) => item.label)).toEqual([
       '소노스쿨',
-      '의사과정',
-      '일반과정',
-      '온라인과정',
+      '의사과정 실험값',
+      '일반과정 실험값',
+      '온라인과정 실험값',
       '특별과정',
     ]);
     expect(navigation[1]?.description).toBe('의사과정 설명');
+    expect(navigation[1]?.to).toBe(routePaths.programCatalog('doctor-course'));
     expect(navigation[1]?.children?.[0]?.label).toBe('심장과정');
-    expect(navigation[1]?.isFixed).toBe(true);
     expect(navigation[3]?.children?.map((item) => item.label)).toEqual(['POCUS 라이브러리']);
+  });
+
+  it('normalizes known course root menus to canonical collection paths', () => {
+    const navigation = buildHeaderNavigation([
+      {
+        id: 'dynamic-doctor-course',
+        label: '의사과정',
+        to: '/programs/doctor-course/course-6f7c40f9cc48',
+        children: [
+          {
+            id: 'dynamic-doctor-child',
+            label: '심장과정',
+            to: '/programs/doctor-courses/cardiology',
+          },
+        ],
+      },
+      {
+        id: 'dynamic-general-course',
+        label: '일반과정',
+        to: '/programs/general-course/gd',
+      },
+      {
+        id: 'dynamic-online-course',
+        label: '온라인과정',
+        to: '/programs/online-course/course-1234',
+      },
+    ]);
+
+    expect(navigation.map((item) => item.label)).toEqual([
+      '소노스쿨',
+      '의사과정',
+      '일반과정',
+      '온라인과정',
+      '공지사항',
+      'Q&A',
+      '자료실',
+    ]);
+    expect(navigation.filter((item) => item.label === '의사과정')).toHaveLength(1);
+    expect(navigation[1]?.to).toBe(routePaths.programCatalog('doctor-course'));
+    expect(navigation[1]?.children?.[0]?.label).toBe('심장과정');
+    expect(navigation[2]?.to).toBe(routePaths.programCatalog('general-course'));
+    expect(navigation[3]?.to).toBe(routePaths.programCatalog('online-course'));
   });
 
   it('preserves optional descriptions across nested navigation items', () => {

@@ -1114,12 +1114,13 @@ describe('PlayerPage', () => {
   });
 
   it('shows the current remaining download count in the resource download modal', async () => {
+    const resourceAttachments =
+      testResourceSnapshot.resourceAttachmentsByLessonId?.['enrollment-101-lesson-2'] ?? [];
+
     fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
       ...testResourceSnapshot,
       resourceAttachmentsByLessonId: {
-        'enrollment-101-lesson-2': testResourceSnapshot.resourceAttachmentsByLessonId[
-          'enrollment-101-lesson-2'
-        ].map((attachment) =>
+        'enrollment-101-lesson-2': resourceAttachments.map((attachment) =>
           attachment.id === 201
             ? { ...attachment, downloadCount: 1, remainingDownloadCount: 2 }
             : attachment,
@@ -1136,12 +1137,13 @@ describe('PlayerPage', () => {
   });
 
   it('explains why the bulk resource download button is disabled', async () => {
+    const resourceAttachments =
+      testResourceSnapshot.resourceAttachmentsByLessonId?.['enrollment-101-lesson-2'] ?? [];
+
     fetchMyLearningPlayerSnapshotMock.mockResolvedValue({
       ...testResourceSnapshot,
       resourceAttachmentsByLessonId: {
-        'enrollment-101-lesson-2': testResourceSnapshot.resourceAttachmentsByLessonId[
-          'enrollment-101-lesson-2'
-        ].map((attachment) => ({
+        'enrollment-101-lesson-2': resourceAttachments.map((attachment) => ({
           ...attachment,
           downloadable: false,
           downloadCount: 3,
@@ -1389,7 +1391,7 @@ describe('PlayerPage', () => {
     expect(screen.getByRole('button', { name: 'Q&A 패널' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: '문제 문항 목록' })).toBeInTheDocument();
     expect(screen.getAllByText('문제풀이').length).toBeGreaterThan(0);
-    expect(screen.getByText('1문항')).toBeInTheDocument();
+    expect(screen.getAllByText('1문항').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Q&A 패널' }));
     expect(screen.queryByRole('navigation', { name: '문제 문항 목록' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '프로그램 패널' }));
@@ -1398,13 +1400,24 @@ describe('PlayerPage', () => {
     const correctOption = await screen.findByLabelText('2. 정답');
     fireEvent.click(correctOption);
     expect(correctOption).toBeChecked();
-    fireEvent.click(screen.getByRole('checkbox', { name: '나중에 풀기' }));
+    const flagLaterButton = screen.getByRole('button', { name: '나중에 풀기' });
+    fireEvent.click(flagLaterButton);
     expect(correctOption).not.toBeChecked();
     expect(screen.getByRole('button', { name: /01/ })).toBeInTheDocument();
     expect(screen.queryByText('답안 입력 2번')).not.toBeInTheDocument();
-    expect(screen.getAllByText('나중에 풀기').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('checkbox', { name: '나중에 풀기' }));
+    expect(flagLaterButton).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: /나중에 풀기\s*1/ }));
+    const flaggedDialog = await screen.findByRole('dialog', { name: '나중에 풀기' });
+    expect(within(flaggedDialog).queryByText('체크한 문항')).not.toBeInTheDocument();
+    expect(
+      within(flaggedDialog).getByRole('button', { name: /01\s*첫 번째 질문\s*나중에 풀기/ }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(flaggedDialog).getByRole('button', { name: '나중에 풀기 모아보기 닫기' }),
+    );
     fireEvent.click(correctOption);
+    expect(flagLaterButton).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /나중에 풀기\s*0/ })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: '최종 제출' }));
 
     await waitFor(() => {
@@ -1427,6 +1440,48 @@ describe('PlayerPage', () => {
     expect(screen.getAllByText('첫 번째 질문').length).toBeGreaterThan(0);
     expect(screen.queryByText('선택 답안: 정답')).not.toBeInTheDocument();
     expect(screen.queryByText(/^정답:/)).not.toBeInTheDocument();
+  });
+
+  it('shows flagged questions in the expanded problem list and moves to the selected question', async () => {
+    const problemLectureSnapshot = createProblemLectureSnapshot();
+    const secondQuestion = {
+      ...testQuiz.questions[0],
+      id: 402,
+      mediaType: null,
+      mediaUrl: null,
+      options: testQuiz.questions[0].options.map((option) => ({
+        ...option,
+        id: option.id + 10,
+        mediaType: null,
+        mediaUrl: null,
+      })),
+      questionText: '두 번째 질문',
+      sortOrder: 1,
+    } satisfies StudentProblem['questions'][number];
+
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(problemLectureSnapshot);
+    fetchStudentProblemMock.mockResolvedValue({
+      ...testQuiz,
+      questions: [testQuiz.questions[0], secondQuestion],
+      session: {
+        answers: {},
+        currentQuestionIndex: 0,
+        elapsedSeconds: 0,
+        flaggedQuestionIds: [402],
+        remainingSeconds: 1800,
+        startedAt: '2026-03-10T12:00:00Z',
+        status: 'IN_PROGRESS',
+      },
+    });
+
+    renderPlayerPage();
+
+    expect((await screen.findAllByText('첫 번째 질문')).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: /02두 번째 질문나중에 풀기/ }));
+
+    expect(screen.getAllByText('두 번째 질문').length).toBeGreaterThan(0);
+    expect(screen.getByText('Question 02')).toBeInTheDocument();
   });
 
   it('auto submits and grades a problem lecture when the time limit expires', async () => {
@@ -1566,6 +1621,8 @@ describe('PlayerPage', () => {
     expect(await screen.findAllByText('복부초음파 기초 2강 실습')).not.toHaveLength(0);
     expect(screen.getByLabelText('현재 강의 정보')).toHaveTextContent('예약가능예약됨예약불가');
     expect(screen.getAllByText('실습예약').length).toBeGreaterThan(0);
+    expect(screen.getByText('2 / 3 완료')).toBeInTheDocument();
+    expect(screen.getByText('67%')).toBeInTheDocument();
     expect(screen.getByText(/예약 날짜/)).toBeInTheDocument();
     expect(screen.queryByText('이 강의는 영상 없이 제공되는 강의입니다.')).not.toBeInTheDocument();
     expect(document.querySelector('video')).toBeNull();

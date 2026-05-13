@@ -43,7 +43,7 @@ describe('CommonFooter', () => {
     );
     expect(screen.getByText('2018-성남분당B-0062')).toBeInTheDocument();
     expect(
-      screen.getByText('경기도 화성시 동탄구 동탄신리천로5길 79, 3832동 603호'),
+      screen.getByText('경기도 화성시 동탄구 동탄지성로 17, B1층 101호(반송동, 동탄 위버폴리스)'),
     ).toBeInTheDocument();
     expect(screen.getByAltText('SONO SCHOOL 로고')).toBeInTheDocument();
 

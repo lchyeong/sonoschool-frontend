@@ -7,10 +7,6 @@ import { classNames } from '@/utils/classNames';
 import styles from './HomePage.module.scss';
 import { getHomeHeroSlideBackgroundImageSrc, isHomeHeroLectureSlide } from './homePageShared';
 
-const DEFAULT_HERO_ASPECT_RATIO = 1850 / 906;
-const DEFAULT_HERO_TOP_GAP_PX = 31;
-const DEFAULT_HERO_BOTTOM_GAP_PX = 50;
-
 interface HomePageHeroSectionProps {
   activeSlide: HomeHeroSlide;
   autoPlayDurationMs: number;
@@ -125,59 +121,8 @@ const HomePageHeroSection = ({
 
     const smoothStep = (value: number) => value * value * (3 - 2 * value);
 
-    const parsePixelValue = (value: string, fallback: number) => {
-      const parsedValue = Number.parseFloat(value);
-
-      return Number.isFinite(parsedValue) ? parsedValue : fallback;
-    };
-
-    const parseAspectRatio = (value: string) => {
-      const ratioParts = value
-        .split('/')
-        .map((part) => Number.parseFloat(part.trim()))
-        .filter((part) => Number.isFinite(part) && part > 0);
-
-      if (ratioParts.length === 2) {
-        return ratioParts[0] / ratioParts[1];
-      }
-
-      const parsedValue = Number.parseFloat(value);
-
-      return Number.isFinite(parsedValue) && parsedValue > 0
-        ? parsedValue
-        : DEFAULT_HERO_ASPECT_RATIO;
-    };
-
-    const syncViewportFitWidth = () => {
-      const headerElementHeight = document.querySelector('header')?.getBoundingClientRect().height;
-      const headerVariableHeight = Number.parseFloat(
-        window
-          .getComputedStyle(document.documentElement)
-          .getPropertyValue('--common-header-height'),
-      );
-      const sliderStyle = window.getComputedStyle(sliderSection);
-      const aspectRatio = parseAspectRatio(
-        sliderStyle.getPropertyValue('--home-hero-aspect-ratio'),
-      );
-      const topGap = parsePixelValue(
-        sliderStyle.getPropertyValue('--home-hero-top-gap'),
-        DEFAULT_HERO_TOP_GAP_PX,
-      );
-      const bottomGap = parsePixelValue(
-        sliderStyle.getPropertyValue('--home-hero-bottom-gap'),
-        DEFAULT_HERO_BOTTOM_GAP_PX,
-      );
-      const headerHeight =
-        headerElementHeight ?? (Number.isFinite(headerVariableHeight) ? headerVariableHeight : 92);
-      const availableHeight = window.innerHeight - headerHeight - topGap - bottomGap;
-      const fitWidth = Math.max(0, Math.floor(availableHeight * aspectRatio));
-
-      sliderSection.style.setProperty('--home-hero-fit-width', `${String(fitWidth)}px`);
-    };
-
     const updateScrollState = () => {
       animationFrameId = 0;
-      syncViewportFitWidth();
 
       if (reducedMotionQuery?.matches === true) {
         applyDefaultState();
@@ -189,7 +134,8 @@ const HomePageHeroSection = ({
       const sectionHeight = sectionRect.height;
       const fadeStart = sectionTop + sectionHeight * 0.38;
       const fadeEnd = sectionTop + sectionHeight * 0.9;
-      const progress = clamp((window.scrollY - fadeStart) / (fadeEnd - fadeStart), 0, 1);
+      const fadeDistance = Math.max(fadeEnd - fadeStart, 1);
+      const progress = clamp((window.scrollY - fadeStart) / fadeDistance, 0, 1);
       const easedProgress = smoothStep(progress);
 
       sliderSection.style.setProperty(
@@ -315,6 +261,11 @@ const HomePageHeroSection = ({
             </div>
           </>
         )}
+
+        <div aria-hidden='true' className={styles['heroScrollIndicator']}>
+          <span className={styles['heroScrollLabel']}>SCROLL</span>
+          <span className={styles['heroScrollTrack']} />
+        </div>
       </article>
     </section>
   );
