@@ -20,7 +20,7 @@ export interface AddToCartPayload {
 
 export interface UserProfile {
   loginId: string;
-  email: string;
+  email: string | null;
   name: string;
   nickname: string | null;
   displayName: string;
@@ -30,11 +30,17 @@ export interface UserProfile {
 }
 
 export interface UserProfileUpdatePayload {
-  nickname: string;
+  email: string;
+  nickname: string | null;
 }
 
 export interface UserPasswordVerifyPayload {
   password: string;
+}
+
+export interface UserPasswordChangePayload {
+  password: string;
+  passwordConfirm: string;
 }
 
 export interface CertificateProfile {

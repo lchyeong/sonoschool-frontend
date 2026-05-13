@@ -1,7 +1,7 @@
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import type { ApiEnvelope } from '@/types/auth';
 import type { AdminPaymentDetail, AdminPaymentListItem } from '@/types/adminPayment';
+import type { ApiEnvelope } from '@/types/auth';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;

@@ -1,14 +1,615 @@
-.fieldGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.page {
+  min-height: 1126px;
+  padding: 154px 20px 332px;
+  font-family: Pretendard, var(--font-family-base);
+  background: #ffffff;
 }
 
-.actionRow {
+.shell {
+  width: 700px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.title {
+  margin: 0;
+  color: #111827;
+  font-size: 40px;
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1.2;
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+.tabList {
+  position: relative;
   display: grid;
-  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 50px;
 }
 
-@media (width < 720px) {
-  .fieldGrid {
+.tabList::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  height: 2px;
+  background: #d1d5db;
+  content: '';
+}
+
+.tabButton {
+  position: relative;
+  z-index: 1;
+  height: 58px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 0;
+  color: #4b5563;
+  font: inherit;
+  font-size: 20px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  background: transparent;
+  transition: color 160ms ease;
+}
+
+.tabButton:hover {
+  color: #34b29f;
+}
+
+.tabButton:focus,
+.tabButton:focus-visible {
+  outline: none;
+}
+
+.tabButtonActive {
+  color: #34b29f;
+}
+
+.tabButtonActive::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: #34b29f;
+  content: '';
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+  margin-top: 50px;
+}
+
+.passwordChangeForm {
+  margin-top: 55px;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 137px minmax(0, 1fr);
+  align-items: start;
+}
+
+.fieldLabel {
+  padding-top: 16px;
+  color: #111827;
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+.fieldControl {
+  min-width: 0;
+}
+
+.fieldControlLine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.fieldControlLineWithAction {
+  grid-template-columns: minmax(0, 386px) 157px;
+}
+
+.inputWrap {
+  position: relative;
+  min-width: 0;
+}
+
+.input {
+  width: 100%;
+  height: 59px;
+  min-width: 0;
+  padding: 0 17px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  color: #111827;
+  font: inherit;
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  background: #ffffff;
+}
+
+.input::placeholder {
+  color: #d1d5db;
+}
+
+.input:hover {
+  border-color: #34b29f;
+}
+
+.input:focus,
+.input:focus-visible {
+  outline: none;
+  border-color: #34b29f;
+  box-shadow: 0 0 0 3px rgb(52 178 159 / 14%);
+}
+
+.inputError {
+  border-color: #dd383e;
+}
+
+.inputWithAdornment {
+  padding-right: 58px;
+}
+
+.inputCompact {
+  max-width: 386px;
+}
+
+.passwordVisibilityButton {
+  position: absolute;
+  top: 50%;
+  right: 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  color: #6b7280;
+  background: transparent;
+  transform: translateY(-50%);
+}
+
+.passwordVisibilityButton:focus,
+.passwordVisibilityButton:focus-visible {
+  outline: none;
+}
+
+.passwordVisibilityIcon {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.sideButton {
+  width: 157px;
+  height: 59px;
+  border: 1px solid #34b29f;
+  border-radius: 12px;
+  color: #34b29f;
+  font: inherit;
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  background: #ffffff;
+}
+
+.sideButton:hover {
+  color: #ffffff;
+  background: #34b29f;
+}
+
+.sideButton:focus,
+.sideButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(52 178 159 / 14%);
+}
+
+.sideButton:disabled,
+.sideButtonDisabled {
+  border-color: #d1d5db;
+  color: #9ca3af;
+  background: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.sideButtonConfirmed {
+  border-color: #34b29f;
+  color: #ffffff;
+  background: #34b29f;
+}
+
+.fieldMessage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 21px;
+  margin: 5px 0 0;
+  font-size: 16px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+.fieldMessageError {
+  color: #dd383e;
+}
+
+.fieldMessageSuccess {
+  color: #34b29f;
+}
+
+.fieldMessageTimer {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: #34b29f;
+  font-size: 16px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+.fieldMessageTimerIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.resultText {
+  margin: -12px 0 0 137px;
+  color: #111827;
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+}
+
+.statusText {
+  margin: 50px 0 0;
+  color: #6b7280;
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+.idResultCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1.7fr);
+  align-items: center;
+  width: 100%;
+  height: 90px;
+  margin-top: 50px;
+  padding: 0 96px;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+}
+
+.idResultLabel {
+  color: #6b7280;
+  font-size: 22px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+  text-align: center;
+}
+
+.idResultDivider {
+  width: 1px;
+  height: 36px;
+  background: #e5e7eb;
+}
+
+.idResultValue {
+  color: #34b29f;
+  font-size: 22px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  text-align: center;
+}
+
+.resultActions {
+  display: grid;
+  gap: 16px;
+  margin-top: 83px;
+}
+
+.primaryLinkButton,
+.secondaryLinkButton,
+.secondaryButtonLarge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 75px;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 24px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+  text-align: center;
+  text-decoration: none;
+}
+
+.primaryLinkButton {
+  border: 0;
+  color: #ffffff;
+  background: #34b29f;
+}
+
+.primaryLinkButton:hover {
+  background: #2fa08f;
+}
+
+.secondaryLinkButton,
+.secondaryButtonLarge {
+  border: 1px solid #d1d5db;
+  color: #374151;
+  background: #ffffff;
+}
+
+.secondaryLinkButton:hover,
+.secondaryButtonLarge:hover {
+  border-color: #34b29f;
+  color: #34b29f;
+}
+
+.secondaryButtonLarge {
+  cursor: pointer;
+}
+
+.completionCard {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+  min-height: 251px;
+  margin-top: 50px;
+  padding: 55px 32px 48px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+}
+
+.completionCard + .resultActions {
+  margin-top: 46px;
+}
+
+.completionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  color: #34b29f;
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  background: #ecf9f7;
+}
+
+.completionTitle {
+  margin-top: 24px;
+  color: #34b29f;
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+  text-align: center;
+}
+
+.completionDescription {
+  margin: 16px 0 0;
+  color: #374151;
+  font-size: 20px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+  text-align: center;
+}
+
+.submitButton {
+  width: 100%;
+  height: 75px;
+  margin-top: 24px;
+  border: 0;
+  border-radius: 14px;
+  color: #ffffff;
+  font: inherit;
+  font-size: 24px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+  background: #34b29f;
+}
+
+.submitButton:hover {
+  background: #2fa08f;
+}
+
+.submitButton:focus,
+.submitButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(52 178 159 / 18%);
+}
+
+.submitButton:disabled {
+  background: #9ca3af;
+  cursor: wait;
+}
+
+.linkRow {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.textLink {
+  display: inline-flex;
+  align-items: center;
+  color: #4b5563;
+  font-size: 18px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.textLink:hover {
+  color: #111827;
+  text-decoration: underline;
+}
+
+.textLink:focus,
+.textLink:focus-visible {
+  outline: none;
+  color: #111827;
+}
+
+.linkDivider {
+  width: 1px;
+  height: 16px;
+  background: #d1d5db;
+}
+
+@media (width < 768px) {
+  .page {
+    min-height: auto;
+    padding: 64px 16px 120px;
+  }
+
+  .title {
+    font-size: 34px;
+  }
+
+  .tabList {
+    margin-top: 36px;
+  }
+
+  .tabButton {
+    height: 54px;
+    padding: 0 10px;
+    font-size: 18px;
+  }
+
+  .form {
+    gap: 24px;
+    margin-top: 34px;
+  }
+
+  .passwordChangeForm {
+    margin-top: 34px;
+  }
+
+  .fieldRow {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .fieldLabel {
+    padding-top: 0;
+    font-size: 16px;
+  }
+
+  .fieldControlLineWithAction {
+    grid-template-columns: minmax(0, 1fr) 130px;
+    gap: 10px;
+  }
+
+  .input,
+  .sideButton {
+    height: 56px;
+    font-size: 16px;
+  }
+
+  .inputCompact {
+    max-width: none;
+  }
+
+  .sideButton {
+    width: 130px;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  .fieldMessage {
+    font-size: 14px;
+  }
+
+  .resultText {
+    margin-left: 0;
+  }
+
+  .submitButton {
+    height: 62px;
+    font-size: 20px;
+  }
+
+  .statusText {
+    margin-top: 34px;
+    font-size: 16px;
+  }
+
+  .idResultCard {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    height: auto;
+    margin-top: 28px;
+    padding: 28px 20px;
+  }
+
+  .idResultDivider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .idResultLabel,
+  .idResultValue {
+    font-size: 18px;
+  }
+
+  .resultActions,
+  .completionCard + .resultActions {
+    gap: 12px;
+    margin-top: 36px;
+  }
+
+  .primaryLinkButton,
+  .secondaryLinkButton,
+  .secondaryButtonLarge {
+    height: 62px;
+    font-size: 20px;
+  }
+
+  .completionCard {
+    min-height: 0;
+    margin-top: 32px;
+    padding: 40px 20px;
+  }
+
+  .completionTitle {
+    font-size: 19px;
+  }
+
+  .completionDescription {
+    font-size: 16px;
+  }
+
+  .textLink {
+    font-size: 16px;
+  }
+}
+
+@media (width < 420px) {
+  .title {
+    font-size: 30px;
+  }
+
+  .fieldControlLineWithAction {
+    grid-template-columns: 1fr;
+  }
+
+  .sideButton {
+    width: 100%;
   }
 }

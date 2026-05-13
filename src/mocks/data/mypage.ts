@@ -1689,8 +1689,9 @@ export const getMockMyProfile = (): UserProfile => {
 export const updateMockMyProfile = (payload: UserProfileUpdatePayload): UserProfile => {
   profileState = {
     ...profileState,
-    displayName: payload.nickname.trim() || profileState.name,
-    nickname: payload.nickname,
+    email: payload.email,
+    displayName: payload.nickname?.trim() || profileState.name,
+    nickname: payload.nickname?.trim() || null,
   };
 
   return cloneData(profileState);

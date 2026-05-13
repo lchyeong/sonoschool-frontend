@@ -12,10 +12,8 @@ import {
   createMyEnrollmentReview,
   fetchLearningStartNotice,
   fetchMyCertificateProfile,
-  sendMyPhoneVerification,
   updateMyEnrollmentReview,
   updateMyProfile,
-  verifyMyPhoneChange,
   verifyMyProfilePassword,
 } from '@/api/mypage';
 import { cancelPayment } from '@/api/payments';
@@ -26,7 +24,7 @@ import certificateCornerBottomLeftSrc from '@/assets/certificates/certificate-co
 import certificateCornerBottomRightSrc from '@/assets/certificates/certificate-corner-bottom-right.svg';
 import certificateCornerTopLeftSrc from '@/assets/certificates/certificate-corner-top-left.svg';
 import certificateCornerTopRightSrc from '@/assets/certificates/certificate-corner-top-right.svg';
-import certificateSrdmsLogoSrc from '@/assets/certificates/srdms-logo.png';
+import certificateSonoSchoolLogoSrc from '@/assets/certificates/sono-school-logo.png';
 import certificateNanumMyeongjoBoldSrc from '@/assets/fonts/nanum-myeongjo/NanumMyeongjo-Bold.subset.woff2';
 import certificateNanumMyeongjoExtraBoldSrc from '@/assets/fonts/nanum-myeongjo/NanumMyeongjo-ExtraBold.subset.woff2';
 import certificateNanumMyeongjoRegularSrc from '@/assets/fonts/nanum-myeongjo/NanumMyeongjo-Regular.subset.woff2';
@@ -67,7 +65,6 @@ import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import sharedStyles from '@/styles/accountPage.module.scss';
-import type { SmsSendResponse } from '@/types/auth';
 import type {
   CertificateProfile,
   EnrollmentReviewPayload,
@@ -84,6 +81,8 @@ import {
 } from '@/types/payment';
 import { classNames } from '@/utils/classNames';
 
+import ProfilePasswordChangeSection from './components/ProfilePasswordChangeSection';
+import ProfilePhoneChangeSection from './components/ProfilePhoneChangeSection';
 import styles from './MyPagePage.module.scss';
 
 type MyPageViewKey = 'learning' | 'payments' | 'profile' | 'questions';
@@ -118,18 +117,17 @@ interface CertificateSvgAssets {
   cornerBottomRightUrl: string;
   cornerTopLeftUrl: string;
   cornerTopRightUrl: string;
+  emblemUrl: string;
   logoUrl: string;
   regularFontUrl: string;
+  sealUrl: string;
+  signatureUrl: string;
   boldFontUrl: string;
   extraBoldFontUrl: string;
 }
 
-interface PhoneFormErrors {
-  phoneNumber?: string;
-  code?: string;
-}
-
 interface ProfileFormErrors {
+  email?: string;
   nickname?: string;
 }
 
@@ -330,9 +328,12 @@ const resolveCertificateSvgAssets = (origin?: string): CertificateSvgAssets => {
     cornerBottomRightUrl: resolveAssetUrl(certificateCornerBottomRightSrc),
     cornerTopLeftUrl: resolveAssetUrl(certificateCornerTopLeftSrc),
     cornerTopRightUrl: resolveAssetUrl(certificateCornerTopRightSrc),
+    emblemUrl: resolveAssetUrl('/certificates/srdms-emblem.png'),
     extraBoldFontUrl: resolveAssetUrl(certificateNanumMyeongjoExtraBoldSrc),
-    logoUrl: resolveAssetUrl(certificateSrdmsLogoSrc),
+    logoUrl: resolveAssetUrl(certificateSonoSchoolLogoSrc),
     regularFontUrl: resolveAssetUrl(certificateNanumMyeongjoRegularSrc),
+    sealUrl: resolveAssetUrl('/certificates/seal.png'),
+    signatureUrl: resolveAssetUrl('/certificates/director-signature.png'),
   };
 };
 
@@ -356,20 +357,23 @@ const buildCertificateSvgMarkup = (
   const cornerTopRightHref = escapeCertificateText(assets.cornerTopRightUrl);
   const cornerBottomRightHref = escapeCertificateText(assets.cornerBottomRightUrl);
   const cornerBottomLeftHref = escapeCertificateText(assets.cornerBottomLeftUrl);
+  const emblemHref = escapeCertificateText(assets.emblemUrl);
   const regularFontHref = escapeCertificateText(assets.regularFontUrl);
+  const sealHref = escapeCertificateText(assets.sealUrl);
+  const signatureHref = escapeCertificateText(assets.signatureUrl);
   const boldFontHref = escapeCertificateText(assets.boldFontUrl);
   const extraBoldFontHref = escapeCertificateText(assets.extraBoldFontUrl);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1054" height="1491" viewBox="0 0 1054 1491">
   <rect width="1054" height="1491" fill="#FDFBFB"/>
   <defs>
-    <linearGradient id="certificateFadeLine" x1="246" y1="664" x2="808" y2="664" gradientUnits="userSpaceOnUse">
+    <linearGradient id="certificateFadeLine" x1="246" y1="640" x2="808" y2="640" gradientUnits="userSpaceOnUse">
       <stop stop-color="#FDFBFB" stop-opacity="0"/>
       <stop offset="0.3" stop-color="#9B8F83"/>
       <stop offset="0.7" stop-color="#9B8F83"/>
       <stop offset="1" stop-color="#FDFBFB" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="certificateTitleFadeLine" x1="314" y1="426" x2="740" y2="426" gradientUnits="userSpaceOnUse">
+    <linearGradient id="certificateTitleFadeLine" x1="138" y1="426" x2="916" y2="426" gradientUnits="userSpaceOnUse">
       <stop stop-color="#FDFBFB" stop-opacity="0"/>
       <stop offset="0.3" stop-color="#9B8F83"/>
       <stop offset="0.7" stop-color="#9B8F83"/>
@@ -386,9 +390,8 @@ const buildCertificateSvgMarkup = (
       @font-face{font-family:'Nanum Myeongjo';font-weight:700;src:url('${boldFontHref}') format('woff2')}
       @font-face{font-family:'Nanum Myeongjo';font-weight:800;src:url('${extraBoldFontHref}') format('woff2')}
       .serif{font-family:'Nanum Myeongjo',Georgia,'Times New Roman',serif}
-      .title-ko{font-size:110px;font-weight:700;letter-spacing:4.4px;fill:#9B8F83}
       .body-dark{fill:#111827}
-      .body-muted{fill:#4B5563}
+      .body-muted{fill:#374151}
       .body-sub{fill:#374151}
     </style>
   </defs>
@@ -399,39 +402,43 @@ const buildCertificateSvgMarkup = (
   <image href="${cornerTopRightHref}" x="974.1" y="7" width="72.4" height="74.5" preserveAspectRatio="xMidYMid meet"/>
   <image href="${cornerBottomRightHref}" x="973" y="1410.1" width="74.5" height="72.4" preserveAspectRatio="xMidYMid meet"/>
   <image href="${cornerBottomLeftHref}" x="8.1" y="1409" width="72.4" height="74.5" preserveAspectRatio="xMidYMid meet"/>
-  <circle cx="622" cy="774" r="312" fill="#34B29F" opacity="0.03"/>
-  <path d="M181 650 C331 701 500 680 636 604 C483 731 331 778 151 714" fill="#34B29F" opacity="0.025"/>
-  <image href="${logoHref}" x="95" y="120" width="255" height="76" preserveAspectRatio="xMidYMid meet"/>
+  <image href="${emblemHref}" x="42" y="302" width="970" height="970" opacity="0.08" preserveAspectRatio="xMidYMid meet"/>
+  <image href="${logoHref}" x="95" y="120" width="210" height="69" opacity="0.8" preserveAspectRatio="xMidYMid meet"/>
   <text class="serif body-dark" x="956" y="151" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="end">${certificateNumber}</text>
-  <text class="serif title-ko" x="527" y="348.5" dominant-baseline="middle" text-anchor="middle">수 료 증</text>
-  <line x1="314" y1="426" x2="740" y2="426" stroke="url(#certificateTitleFadeLine)" stroke-width="1"/>
-  <text class="serif body-muted" x="527" y="470" font-size="28" font-weight="700" dominant-baseline="middle" text-anchor="middle">Certificate of Completion</text>
-  <text class="serif body-muted" x="527.5" y="537" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">This certifies that</text>
-  <text class="serif body-dark" x="527.5" y="605" font-size="60" font-weight="800" dominant-baseline="middle" letter-spacing="4.8" text-anchor="middle">${englishName}</text>
-  <line x1="246" y1="664" x2="808" y2="664" stroke="url(#certificateFadeLine)" stroke-width="2"/>
-  <polygon points="527,657 533,664 527,671 521,664" fill="#9B8F83"/>
-  <text class="serif body-muted" x="527" y="710" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">Has participated in the</text>
-  <text class="serif body-muted" x="527" y="757" font-size="28" font-weight="700" dominant-baseline="middle" text-anchor="middle">Educational Course Activity Titled</text>
+  <text class="serif" x="527" y="360.5" font-size="70" font-weight="700" fill="#1F2937" dominant-baseline="middle" text-anchor="middle">Certificate of Completion</text>
+  <line x1="138" y1="426" x2="916" y2="426" stroke="url(#certificateTitleFadeLine)" stroke-width="1"/>
+  <text class="serif body-muted" x="527" y="489" font-size="26" font-weight="700" dominant-baseline="middle" text-anchor="middle">This certifies that</text>
+  <text class="serif body-dark" x="527.5" y="577" font-size="60" font-weight="800" dominant-baseline="middle" letter-spacing="4.8" text-anchor="middle">${englishName}</text>
+  <line x1="246" y1="640" x2="808" y2="640" stroke="url(#certificateFadeLine)" stroke-width="2"/>
+  <polygon points="527,633 533,640 527,647 521,640" fill="#9B8F83"/>
+  <text class="serif body-muted" x="527" y="707" font-size="28" font-weight="700" dominant-baseline="middle" text-anchor="middle">Has participated in the</text>
+  <text class="serif body-muted" x="527" y="756" font-size="32" font-weight="700" dominant-baseline="middle" text-anchor="middle">Educational Course Activity Titled</text>
   <line x1="202" y1="827" x2="852" y2="823" stroke="#9B8F83" stroke-width="1"/>
   <line x1="202" y1="889" x2="852" y2="885" stroke="#9B8F83" stroke-width="1"/>
   <line x1="202" y1="951" x2="852" y2="947" stroke="#9B8F83" stroke-width="1"/>
-  <line x1="368" y1="836" x2="368" y2="876" stroke="#9B8F83" stroke-width="1"/>
-  <line x1="368" y1="898" x2="368" y2="938" stroke="#9B8F83" stroke-width="1"/>
-  <polygon points="368,882 371,885 368,888 365,885" fill="#9B8F83"/>
-  <text class="serif body-dark" x="266" y="856" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">교육과정명</text>
-  <text class="serif body-dark" x="422" y="856.5" font-size="22" font-weight="800" dominant-baseline="middle">${programTitle}</text>
-  <text class="serif body-dark" x="266" y="918" font-size="20" font-weight="700" dominant-baseline="middle" letter-spacing="4.4" text-anchor="middle">수료일자</text>
-  <text class="serif body-dark" x="422" y="918.5" font-size="22" font-weight="800" dominant-baseline="middle">${completedDate}</text>
-  <text class="serif body-muted" x="527.5" y="1024" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">위 사람은 본 교육과정을 성실히 이수하였으므로 이 증서를 수여합니다.</text>
-  <text class="serif body-muted" x="527" y="1062.5" font-size="18" font-weight="700" dominant-baseline="middle" text-anchor="middle">This certificate is awarded in recognition of successful completion of the above course.</text>
+  <line x1="419" y1="840" x2="419" y2="880" stroke="#9B8F83" stroke-width="1"/>
+  <line x1="419" y1="902" x2="419" y2="942" stroke="#9B8F83" stroke-width="1"/>
+  <polygon points="419,886 422,889 419,892 416,889" fill="#9B8F83"/>
+  <text class="serif body-dark" x="309.5" y="862" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">Course Title</text>
+  <text class="serif body-dark" x="455" y="860.5" font-size="22" font-weight="800" dominant-baseline="middle">${programTitle}</text>
+  <text class="serif body-dark" x="309" y="923" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">Date of Completion</text>
+  <text class="serif body-dark" x="455" y="922.5" font-size="22" font-weight="800" dominant-baseline="middle">${completedDate}</text>
+  <text class="serif body-muted" x="527" y="1020" font-size="28" font-weight="700" dominant-baseline="middle" text-anchor="middle">
+    <tspan x="527" dy="0">This certificate is awarded in recognition of</tspan>
+    <tspan x="527" dy="36">successful completion of the above course.</tspan>
+  </text>
   <line x1="428" y1="1135" x2="626" y2="1135" stroke="url(#certificateShortFadeLine)" stroke-width="1"/>
   <polygon points="527,1130 531,1135 527,1140 523,1135" fill="#9B8F83"/>
-  <text class="serif body-sub" x="247.5" y="1208" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">소노스쿨 대표</text>
+  <text class="serif body-sub" x="187" y="1215" font-size="20" font-weight="700">Director of Sonoschool</text>
   <line x1="166" y1="1313" x2="500" y2="1313" stroke="#9B8F83" stroke-width="1"/>
   <text class="serif body-dark" x="333" y="1336.5" font-size="22" font-weight="700" dominant-baseline="middle" letter-spacing="2.64" text-anchor="middle">Jang Eun Hee</text>
-  <text class="serif body-sub" x="688.5" y="1259" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">소노스쿨 국제초음파연수원</text>
-  <text class="serif body-sub" x="571" y="1292" font-size="16" font-weight="700">Sono School Registry for</text>
-  <text class="serif body-sub" x="571" y="1316" font-size="16" font-weight="700">Diagnostic Medical Sonography</text>
+  <text class="serif body-sub" x="688.5" y="1320" font-size="20" font-weight="700" dominant-baseline="middle" text-anchor="middle">소노스쿨 국제초음파연수원</text>
+  <text class="serif body-sub" x="571" y="1275" font-size="16" font-weight="700">
+    <tspan x="571" dy="0">Sono School Registry for</tspan>
+    <tspan x="571" dy="24">Diagnostic Medical Sonography</tspan>
+  </text>
+  <image href="${signatureHref}" x="179" y="1215" width="270" height="118" opacity="0.8" preserveAspectRatio="none"/>
+  <image href="${sealHref}" x="745" y="1164" width="262" height="216" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>
 </svg>`;
 };
 
@@ -445,29 +452,12 @@ const formatQuestionAnsweredLabel = (answered: boolean) => {
   return answered ? '답변 완료' : '답변 대기';
 };
 
-const getRemainingSeconds = (expiresAt: string | null): number => {
-  if (!expiresAt) return 0;
-
-  const remainingMilliseconds = new Date(expiresAt).getTime() - Date.now();
-  return remainingMilliseconds > 0 ? Math.ceil(remainingMilliseconds / 1000) : 0;
-};
-
-const formatRemainingTimeLabel = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
-};
-
 const MY_COURSE_PAGE_SIZE = 6;
 const ORDER_LIST_PAGE_SIZE = 8;
-const PHONE_ALREADY_EXISTS_ERROR_MESSAGE = '이미 등록된 휴대폰 번호입니다.';
-const PHONE_UNCHANGED_ERROR_MESSAGE = '현재 사용 중인 휴대폰 번호입니다.';
-const PHONE_NUMBER_INVALID_ERROR_MESSAGE = '휴대폰 번호를 정확히 입력해 주세요.';
-const PHONE_CHANGE_REQUEST_INVALID_ERROR_MESSAGE = '휴대폰 인증을 다시 진행해 주세요.';
-const PHONE_VERIFICATION_CODE_ERROR_MESSAGE = '인증번호를 확인해 주세요.';
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_ALREADY_EXISTS_ERROR_MESSAGE = '이미 사용 중인 이메일입니다.';
+const EMAIL_INVALID_ERROR_MESSAGE = '올바른 이메일 형식이 아닙니다.';
 const NICKNAME_ALREADY_EXISTS_ERROR_MESSAGE = '이미 사용 중인 닉네임입니다.';
-const PHONE_VERIFICATION_LIMIT_SECONDS = 180;
 const DEFAULT_PAYMENT_CANCEL_REASON = '사용자 요청 취소';
 const REVIEW_RATING_LABELS: Record<number, string> = {
   1: '1점 - 아쉬워요',
@@ -488,7 +478,6 @@ const PROFILE_CONSENT_MODAL_TITLES: Record<ProfileConsentModalType, string> = {
 type EnrollmentCourseTabValue = 'ACTIVE' | 'EXPIRED' | 'CERTIFICATE';
 type PaymentStatusFilterValue = 'ALL' | PaymentStatus;
 type QuestionScopeFilterValue = MyQuestionScope | 'ALL';
-type PhoneVerificationStep = 'send' | 'verify';
 
 const paginateItems = <T,>(items: T[], page: number, pageSize: number): T[] => {
   const safePage = Math.max(1, page);
@@ -507,30 +496,6 @@ const getEnrollmentCompletionRate = (completedLectures: number, totalLectures: n
   }
 
   return Math.min(100, Math.max(0, Math.round((completedLectures / totalLectures) * 100)));
-};
-
-const omitPhoneFormError = (
-  errors: PhoneFormErrors,
-  fieldName: keyof PhoneFormErrors,
-): PhoneFormErrors => {
-  const { [fieldName]: omittedField, ...nextErrors } = errors;
-  void omittedField;
-  return nextErrors;
-};
-
-const normalizePhoneDigits = (value: string): string => {
-  const digits = value.replace(/\D/g, '');
-  return digits.startsWith('82') ? `0${digits.slice(2)}` : digits;
-};
-
-const getPhoneNumberValidationError = (value: string): string | null => {
-  return /^01\d{8,9}$/.test(normalizePhoneDigits(value))
-    ? null
-    : PHONE_NUMBER_INVALID_ERROR_MESSAGE;
-};
-
-const getPhoneCodeValidationError = (value: string): string | null => {
-  return /^\d{6}$/.test(value.trim()) ? null : PHONE_VERIFICATION_CODE_ERROR_MESSAGE;
 };
 
 const renderProfileConsentDocumentLine = (line: string, index: number) => {
@@ -564,66 +529,6 @@ const renderProfileConsentDocumentLine = (line: string, index: number) => {
       {trimmedLine}
     </p>
   );
-};
-
-const resolvePhoneFormApiError = (
-  error: unknown,
-  step: PhoneVerificationStep,
-): {
-  message: string;
-  fieldErrors: PhoneFormErrors;
-} => {
-  if (!(error instanceof ApiError)) {
-    return {
-      fieldErrors: {},
-      message: error instanceof Error ? error.message : '휴대폰 번호를 처리하지 못했습니다.',
-    };
-  }
-
-  switch (error.code) {
-    case 'AUTH_400_SMS_PHONE':
-      return {
-        fieldErrors: { phoneNumber: PHONE_NUMBER_INVALID_ERROR_MESSAGE },
-        message: PHONE_NUMBER_INVALID_ERROR_MESSAGE,
-      };
-    case 'GLOBAL_400':
-      return step === 'send'
-        ? {
-            fieldErrors: { phoneNumber: PHONE_NUMBER_INVALID_ERROR_MESSAGE },
-            message: PHONE_NUMBER_INVALID_ERROR_MESSAGE,
-          }
-        : {
-            fieldErrors: { code: PHONE_VERIFICATION_CODE_ERROR_MESSAGE },
-            message: PHONE_VERIFICATION_CODE_ERROR_MESSAGE,
-          };
-    case 'USER_400_PHONE':
-      return {
-        fieldErrors: { phoneNumber: PHONE_ALREADY_EXISTS_ERROR_MESSAGE },
-        message: PHONE_ALREADY_EXISTS_ERROR_MESSAGE,
-      };
-    case 'USER_400_PHONE_UNCHANGED':
-      return {
-        fieldErrors: { phoneNumber: PHONE_UNCHANGED_ERROR_MESSAGE },
-        message: PHONE_UNCHANGED_ERROR_MESSAGE,
-      };
-    case 'USER_400_PHONE_CHANGE_REQUEST':
-      return {
-        fieldErrors: { phoneNumber: PHONE_CHANGE_REQUEST_INVALID_ERROR_MESSAGE },
-        message: PHONE_CHANGE_REQUEST_INVALID_ERROR_MESSAGE,
-      };
-    case 'AUTH_400_SMS_CODE':
-    case 'AUTH_400_SMS_EXPIRED':
-    case 'AUTH_429_SMS_ATTEMPTS':
-      return {
-        fieldErrors: { code: PHONE_VERIFICATION_CODE_ERROR_MESSAGE },
-        message: PHONE_VERIFICATION_CODE_ERROR_MESSAGE,
-      };
-    default:
-      return {
-        fieldErrors: {},
-        message: error.message,
-      };
-  }
 };
 
 const PaginationControls = ({
@@ -722,6 +627,7 @@ const MyPagePage = () => {
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
   const [profileFormValues, setProfileFormValues] = useState<ProfileFormValues | null>(null);
   const [profileFormErrors, setProfileFormErrors] = useState<ProfileFormErrors>({});
+  const [profileFormResetVersion, setProfileFormResetVersion] = useState(0);
   const [isProfilePasswordVerified, setIsProfilePasswordVerified] = useState(false);
   const [profilePassword, setProfilePassword] = useState('');
   const [profilePasswordError, setProfilePasswordError] = useState<string | null>(null);
@@ -745,13 +651,6 @@ const MyPagePage = () => {
     values: DEFAULT_REVIEW_FORM_VALUES,
   });
   const [reviewFormError, setReviewFormError] = useState<string | null>(null);
-  const [phoneFormValues, setPhoneFormValues] = useState({
-    phoneNumber: '',
-    code: '',
-  });
-  const [phoneFormErrors, setPhoneFormErrors] = useState<PhoneFormErrors>({});
-  const [sentVerification, setSentVerification] = useState<SmsSendResponse | null>(null);
-  const [phoneCountdownSeconds, setPhoneCountdownSeconds] = useState(0);
   const [isOptionalPrivacyConsentAccepted, setIsOptionalPrivacyConsentAccepted] = useState(false);
   const [profileConsentModalType, setProfileConsentModalType] =
     useState<ProfileConsentModalType | null>(null);
@@ -839,8 +738,6 @@ const MyPagePage = () => {
             ? String(enrollmentDetailQuery.data.review.rating)
             : '',
         };
-  const isPhoneVerificationExpired = sentVerification !== null && phoneCountdownSeconds === 0;
-
   useEffect(() => {
     if (!profileQuery.data) return;
 
@@ -850,27 +747,6 @@ const MyPagePage = () => {
       role: profileQuery.data.role,
     });
   }, [profileQuery.data, syncProfileSnapshot]);
-
-  useEffect(() => {
-    if (!sentVerification || phoneCountdownSeconds === 0) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setPhoneCountdownSeconds((current) => {
-        if (current <= 1) {
-          window.clearInterval(intervalId);
-          return 0;
-        }
-
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [phoneCountdownSeconds, sentVerification]);
 
   useEffect(() => {
     const totalPages = questionsQuery.data?.totalPages ?? 1;
@@ -1114,23 +990,19 @@ const MyPagePage = () => {
       }));
 
       if (fieldName === 'nickname') {
-        setProfileFormErrors({});
+        setProfileFormErrors((current) => {
+          const next = { ...current };
+          delete next.nickname;
+          return next;
+        });
       }
-    };
 
-  const handlePhoneFieldChange =
-    (fieldName: 'phoneNumber' | 'code') => (event: ChangeEvent<HTMLInputElement>) => {
-      const nextValue = event.target.value;
-
-      setPhoneFormValues((currentValues) => ({
-        ...currentValues,
-        [fieldName]: nextValue,
-      }));
-      setPhoneFormErrors((currentErrors) => omitPhoneFormError(currentErrors, fieldName));
-
-      if (fieldName === 'phoneNumber') {
-        setSentVerification(null);
-        setPhoneCountdownSeconds(0);
+      if (fieldName === 'email') {
+        setProfileFormErrors((current) => {
+          const next = { ...current };
+          delete next.email;
+          return next;
+        });
       }
     };
 
@@ -1157,9 +1029,24 @@ const MyPagePage = () => {
     mutationFn: updateMyProfile,
     onError: (error: unknown) => {
       if (error instanceof ApiError && error.code === 'USER_400_NICKNAME') {
-        setProfileFormErrors({ nickname: NICKNAME_ALREADY_EXISTS_ERROR_MESSAGE });
+        setProfileFormErrors((current) => ({
+          ...current,
+          nickname: NICKNAME_ALREADY_EXISTS_ERROR_MESSAGE,
+        }));
         showToast({
           message: NICKNAME_ALREADY_EXISTS_ERROR_MESSAGE,
+          variant: 'error',
+        });
+        return;
+      }
+
+      if (error instanceof ApiError && error.code === 'USER_400_EMAIL') {
+        setProfileFormErrors((current) => ({
+          ...current,
+          email: EMAIL_ALREADY_EXISTS_ERROR_MESSAGE,
+        }));
+        showToast({
+          message: EMAIL_ALREADY_EXISTS_ERROR_MESSAGE,
           variant: 'error',
         });
         return;
@@ -1181,69 +1068,13 @@ const MyPagePage = () => {
         role: updatedProfile.role,
       });
       setProfileFormValues({
-        email: updatedProfile.email,
+        email: updatedProfile.email ?? '',
         name: updatedProfile.name,
         nickname: updatedProfile.nickname ?? '',
       });
       setProfileFormErrors({});
       showToast({
         message: '회원 정보를 수정했습니다.',
-        variant: 'success',
-      });
-    },
-  });
-
-  const sendPhoneVerificationMutation = useMutation({
-    mutationFn: sendMyPhoneVerification,
-    onError: (error: unknown) => {
-      const { fieldErrors, message } = resolvePhoneFormApiError(error, 'send');
-      setPhoneFormErrors(fieldErrors);
-      setSentVerification(null);
-      setPhoneCountdownSeconds(0);
-      showToast({
-        message,
-        variant: 'error',
-      });
-    },
-    onSuccess: (response) => {
-      setSentVerification(response);
-      setPhoneCountdownSeconds(
-        Math.min(PHONE_VERIFICATION_LIMIT_SECONDS, getRemainingSeconds(response.expiresAt)),
-      );
-      setPhoneFormErrors({});
-      showToast({
-        message: '인증번호를 발송했습니다.',
-        variant: 'success',
-      });
-    },
-  });
-
-  const verifyPhoneMutation = useMutation({
-    mutationFn: verifyMyPhoneChange,
-    onError: (error: unknown) => {
-      const { fieldErrors, message } = resolvePhoneFormApiError(error, 'verify');
-      setPhoneFormErrors(fieldErrors);
-      showToast({
-        message,
-        variant: 'error',
-      });
-    },
-    onSuccess: (updatedProfile) => {
-      queryClient.setQueryData(myProfileQueryKey, updatedProfile);
-      syncProfileSnapshot({
-        displayName: updatedProfile.displayName,
-        loginId: updatedProfile.loginId,
-        role: updatedProfile.role,
-      });
-      setPhoneFormValues({
-        code: '',
-        phoneNumber: '',
-      });
-      setPhoneFormErrors({});
-      setSentVerification(null);
-      setPhoneCountdownSeconds(0);
-      showToast({
-        message: '휴대폰 번호를 변경했습니다.',
         variant: 'success',
       });
     },
@@ -1273,53 +1104,6 @@ const MyPagePage = () => {
 
     setProfilePasswordError(null);
     verifyProfilePasswordMutation.mutate({ password });
-  };
-
-  const handleSendPhoneVerification = () => {
-    const phoneNumber = phoneFormValues.phoneNumber.trim();
-    const phoneNumberError = getPhoneNumberValidationError(phoneNumber);
-
-    if (phoneNumberError) {
-      setSentVerification(null);
-      setPhoneCountdownSeconds(0);
-      setPhoneFormErrors((currentErrors) => ({
-        ...omitPhoneFormError(currentErrors, 'code'),
-        phoneNumber: phoneNumberError,
-      }));
-      showToast({
-        message: phoneNumberError,
-        variant: 'error',
-      });
-      return;
-    }
-
-    setSentVerification(null);
-    setPhoneCountdownSeconds(0);
-    sendPhoneVerificationMutation.mutate({ phoneNumber });
-  };
-
-  const handleVerifyPhoneChange = () => {
-    const phoneNumber = phoneFormValues.phoneNumber.trim();
-    const code = phoneFormValues.code.trim();
-    const phoneNumberError = getPhoneNumberValidationError(phoneNumber);
-    const codeError = getPhoneCodeValidationError(code);
-
-    if (phoneNumberError || codeError) {
-      setPhoneFormErrors({
-        ...(phoneNumberError ? { phoneNumber: phoneNumberError } : {}),
-        ...(codeError ? { code: codeError } : {}),
-      });
-      showToast({
-        message: phoneNumberError ?? codeError ?? '입력값을 확인해 주세요.',
-        variant: 'error',
-      });
-      return;
-    }
-
-    verifyPhoneMutation.mutate({
-      code,
-      phoneNumber,
-    });
   };
 
   const reviewMutation = useMutation({
@@ -2393,18 +2177,12 @@ const MyPagePage = () => {
 
     const resetProfileForm = () => {
       setProfileFormValues({
-        email: profileQuery.data.email,
+        email: profileQuery.data.email ?? '',
         name: profileQuery.data.name,
         nickname: profileQuery.data.nickname ?? '',
       });
       setProfileFormErrors({});
-      setPhoneFormValues({
-        code: '',
-        phoneNumber: '',
-      });
-      setPhoneFormErrors({});
-      setSentVerification(null);
-      setPhoneCountdownSeconds(0);
+      setProfileFormResetVersion((currentVersion) => currentVersion + 1);
     };
 
     return (
@@ -2429,28 +2207,39 @@ const MyPagePage = () => {
             </div>
 
             <div className={styles['profileFormRow']}>
-              <span className={styles['profileRowLabel']}>이메일</span>
+              <span className={styles['profileRowLabel']}>이름</span>
               <div className={styles['profileFieldShell']}>
                 <input
                   className={classNames(styles['profileInlineInput'], styles['profileInputMuted'])}
-                  name='email'
+                  name='name'
                   readOnly
-                  type='email'
-                  value={resolvedProfileFormValues.email}
+                  value={resolvedProfileFormValues.name}
                 />
               </div>
               <span className={styles['profileRowHint']}>변경이 불가능합니다.</span>
             </div>
 
             <div className={styles['profileFormRow']}>
-              <span className={styles['profileRowLabel']}>이름</span>
+              <label className={styles['profileRowLabel']} htmlFor='profile_email'>
+                이메일
+              </label>
               <div className={styles['profileFieldShell']}>
                 <input
+                  aria-describedby={profileFormErrors.email ? 'profile_email_error' : undefined}
+                  aria-invalid={Boolean(profileFormErrors.email)}
                   className={styles['profileInlineInput']}
-                  name='name'
-                  readOnly
-                  value={resolvedProfileFormValues.name}
+                  id='profile_email'
+                  name='email'
+                  onChange={handleProfileFieldChange('email')}
+                  placeholder='이메일'
+                  type='email'
+                  value={resolvedProfileFormValues.email}
                 />
+                {profileFormErrors.email ? (
+                  <p className={styles['profileFieldErrorText']} id='profile_email_error'>
+                    {profileFormErrors.email}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -2481,124 +2270,13 @@ const MyPagePage = () => {
           </div>
         </div>
 
-        <div className={styles['profilePhoneBlock']}>
-          <div className={styles['profileFormRows']}>
-            <div className={styles['profileStaticRow']}>
-              <span className={styles['profileRowLabel']}>현재 휴대폰 번호</span>
-              <strong className={styles['profileStaticValue']}>
-                {profileQuery.data.phoneNumber || '-'}
-              </strong>
-            </div>
-
-            <div className={styles['profileStaticRow']}>
-              <span className={styles['profileRowLabel']}>휴대폰 인증 상태</span>
-              {profileQuery.data.phoneVerifiedAt ? (
-                <span aria-label='휴대폰 인증 완료' className={styles['profileVerifiedBadge']}>
-                  <span
-                    aria-hidden='true'
-                    className={styles['profileVerifiedIcon']}
-                    style={profileCircleCheckIconStyle}
-                  />
-                  인증 완료
-                </span>
-              ) : (
-                <span className={styles['profileUnverifiedText']}>휴대폰 인증 필요</span>
-              )}
-            </div>
-
-            <div className={styles['profileFormRow']}>
-              <label className={styles['profileRowLabel']} htmlFor='profile_new_phone'>
-                새 휴대폰 번호
-              </label>
-              <div className={styles['profilePhoneFieldGroup']}>
-                <input
-                  aria-describedby={
-                    phoneFormErrors.phoneNumber ? 'profile_new_phone_error' : undefined
-                  }
-                  aria-invalid={Boolean(phoneFormErrors.phoneNumber)}
-                  className={styles['profileInlineInput']}
-                  id='profile_new_phone'
-                  inputMode='tel'
-                  name='phoneNumber'
-                  onChange={handlePhoneFieldChange('phoneNumber')}
-                  placeholder='- 없이 숫자만 입력해주세요'
-                  type='tel'
-                  value={phoneFormValues.phoneNumber}
-                />
-                {phoneFormErrors.phoneNumber ? (
-                  <p className={styles['profileFieldErrorText']} id='profile_new_phone_error'>
-                    {phoneFormErrors.phoneNumber}
-                  </p>
-                ) : null}
-              </div>
-              <button
-                className={styles['profileOutlineButton']}
-                disabled={
-                  sendPhoneVerificationMutation.isPending ||
-                  phoneFormValues.phoneNumber.trim().length === 0 ||
-                  (sentVerification !== null && !isPhoneVerificationExpired)
-                }
-                onClick={handleSendPhoneVerification}
-                type='button'
-              >
-                {sendPhoneVerificationMutation.isPending
-                  ? '발송 중...'
-                  : sentVerification && !isPhoneVerificationExpired
-                    ? '발송 완료'
-                    : '인증번호 받기'}
-              </button>
-            </div>
-
-            <div className={styles['profileFormRow']}>
-              <label className={styles['profileRowLabel']} htmlFor='profile_phone_code'>
-                인증번호 입력
-              </label>
-              <div className={styles['profilePhoneFieldGroup']}>
-                <input
-                  aria-describedby={
-                    phoneFormErrors.code || sentVerification
-                      ? 'profile_phone_code_status'
-                      : undefined
-                  }
-                  aria-invalid={Boolean(phoneFormErrors.code)}
-                  className={styles['profileInlineInput']}
-                  id='profile_phone_code'
-                  inputMode='numeric'
-                  maxLength={6}
-                  name='code'
-                  onChange={handlePhoneFieldChange('code')}
-                  pattern='[0-9]{6}'
-                  placeholder='인증번호 6자리를입력해주세요'
-                  value={phoneFormValues.code}
-                />
-                {phoneFormErrors.code ? (
-                  <p className={styles['profileFieldErrorText']} id='profile_phone_code_status'>
-                    {phoneFormErrors.code}
-                  </p>
-                ) : sentVerification ? (
-                  <p className={styles['profileAssistText']} id='profile_phone_code_status'>
-                    {isPhoneVerificationExpired
-                      ? '인증 시간이 만료되었습니다. 다시 발송해 주세요.'
-                      : `남은 시간 ${formatRemainingTimeLabel(phoneCountdownSeconds)}`}
-                  </p>
-                ) : null}
-              </div>
-              <button
-                className={styles['profileDisabledButton']}
-                disabled={
-                  verifyPhoneMutation.isPending ||
-                  isPhoneVerificationExpired ||
-                  phoneFormValues.phoneNumber.trim().length === 0 ||
-                  phoneFormValues.code.trim().length !== 6
-                }
-                onClick={handleVerifyPhoneChange}
-                type='button'
-              >
-                {verifyPhoneMutation.isPending ? '변경 중...' : '번호 변경'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ProfilePasswordChangeSection key={`profile-password-${String(profileFormResetVersion)}`} />
+        <ProfilePhoneChangeSection
+          key={`profile-phone-${String(profileFormResetVersion)}`}
+          phoneNumber={profileQuery.data.phoneNumber}
+          phoneVerifiedAt={profileQuery.data.phoneVerifiedAt}
+          verifiedIconStyle={profileCircleCheckIconStyle}
+        />
 
         <div className={styles['profileConsentBlock']}>
           <h3 className={styles['profileSectionTitle']}>정보 동의</h3>
@@ -2694,12 +2372,21 @@ const MyPagePage = () => {
           <button
             className={styles['profileSaveButton']}
             disabled={
-              updateProfileMutation.isPending ||
-              resolvedProfileFormValues.nickname.trim().length === 0
+              updateProfileMutation.isPending || resolvedProfileFormValues.email.trim().length === 0
             }
             onClick={() => {
+              const email = resolvedProfileFormValues.email.trim();
+              if (!EMAIL_PATTERN.test(email)) {
+                setProfileFormErrors((current) => ({
+                  ...current,
+                  email: EMAIL_INVALID_ERROR_MESSAGE,
+                }));
+                return;
+              }
+
               updateProfileMutation.mutate({
-                nickname: resolvedProfileFormValues.nickname.trim(),
+                email,
+                nickname: resolvedProfileFormValues.nickname.trim() || null,
               });
             }}
             type='button'
@@ -3119,6 +2806,15 @@ const MyPagePage = () => {
             aria-label={`${certificatePreview.enrollment.programTitle} 수료증 미리보기`}
             className={styles['certificatePreviewCanvas']}
             dangerouslySetInnerHTML={{ __html: certificatePreviewSvgMarkup }}
+            onContextMenu={(event) => {
+              event.preventDefault();
+            }}
+            onCopy={(event) => {
+              event.preventDefault();
+            }}
+            onDragStart={(event) => {
+              event.preventDefault();
+            }}
           />
         </div>
 

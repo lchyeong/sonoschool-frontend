@@ -330,3 +330,181 @@
     min-width: 900px;
   }
 }
+
+/* Mobile compact notice board layout */
+@media (width < 960px) {
+  .boardSummary {
+    white-space: normal;
+  }
+
+  .numberCol {
+    width: 76px;
+  }
+
+  .dateCol {
+    width: 132px;
+  }
+
+  .tableWrap {
+    overflow-x: clip;
+  }
+
+  .boardTable {
+    min-width: 0;
+  }
+
+  .boardTable th,
+  .boardTable td {
+    height: 64px;
+    padding: 16px 10px;
+  }
+
+  .statusBadge {
+    min-width: 52px;
+    min-height: 30px;
+    padding: 4px 12px;
+    border-width: 1px;
+    font-size: 13px;
+  }
+
+  .statusBadge + .titleText {
+    margin-left: 12px;
+  }
+}
+
+@media (width < 640px) {
+  .page {
+    width: min(100% - 32px, 1436px);
+    padding: 32px 0 80px;
+  }
+
+  .boardTitle {
+    font-size: 28px;
+  }
+
+  .boardSummary {
+    margin-top: 14px;
+    font-size: 15px;
+  }
+
+  .searchForm {
+    height: 50px;
+    padding: 8px 8px 8px 16px;
+  }
+
+  .searchInput {
+    font-size: 15px;
+  }
+
+  .searchButton {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    flex-basis: 36px;
+  }
+
+  .searchIcon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .boardShell {
+    gap: 32px;
+    margin-top: 32px;
+  }
+
+  .boardTable,
+  .boardTable tbody,
+  .boardTable tr,
+  .boardTable td {
+    display: block;
+    width: 100%;
+  }
+
+  .boardTable colgroup,
+  .boardTable thead {
+    display: none;
+  }
+
+  .boardTable tr {
+    box-sizing: border-box;
+    padding: 16px 0;
+    border-bottom: 1px solid #d1d5db;
+  }
+
+  .boardTable td {
+    height: auto;
+    padding: 0 !important;
+    border-bottom: 0;
+    text-align: left;
+  }
+
+  .boardTable td:first-child {
+    display: none;
+  }
+
+  .boardTable td.emptyRow {
+    display: block;
+  }
+
+  .titleLink {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .statusBadge {
+    min-width: 46px;
+    min-height: 26px;
+    padding: 3px 10px;
+    font-size: 12px;
+  }
+
+  .statusBadge + .titleText {
+    margin-left: 0;
+  }
+
+  .titleText {
+    flex-basis: 100%;
+    font-size: 16px;
+    line-height: 1.45;
+    white-space: normal;
+  }
+
+  .boardTable td:nth-child(3) {
+    margin-top: 8px;
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .boardTable td:nth-child(3)::before {
+    content: '등록일 ';
+    color: #374151;
+    font-weight: var(--font-weight-medium);
+  }
+
+  .stateBox,
+  .emptyRow {
+    padding: 40px 16px !important;
+    font-size: 15px;
+  }
+
+  .pagination {
+    gap: 8px;
+  }
+
+  .pageButton,
+  .pageNavButton {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+    letter-spacing: 0;
+  }
+
+  .pageNavIcon {
+    width: 20px;
+    height: 20px;
+  }
+}

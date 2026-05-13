@@ -3,8 +3,12 @@ import { toApiError } from '@/api/errors';
 import type {
   ApiEnvelope,
   AvailabilityCheckResponse,
+  FindLoginIdPayload,
+  FindLoginIdResponse,
   LoginPayload,
   LoginSmsVerifyPayload,
+  PasswordResetPayload,
+  PasswordResetSendPayload,
   RegistrationTerm,
   RegisterPayload,
   SmsSendPayload,
@@ -154,6 +158,40 @@ export const verifySmsCode = async (payload: SmsVerifyPayload): Promise<SmsVerif
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '인증번호 확인에 실패했습니다.');
+  }
+};
+
+export const findLoginId = async (payload: FindLoginIdPayload): Promise<FindLoginIdResponse> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<FindLoginIdResponse>>(
+      '/api/v1/auth/recovery/login-id',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '가입 정보를 확인하지 못했습니다.');
+  }
+};
+
+export const sendPasswordResetSms = async (
+  payload: PasswordResetSendPayload,
+): Promise<SmsSendResponse> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<SmsSendResponse>>(
+      '/api/v1/auth/recovery/password/send',
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '인증번호 발송에 실패했습니다.');
+  }
+};
+
+export const resetPassword = async (payload: PasswordResetPayload): Promise<void> => {
+  try {
+    await axiosInstance.post<ApiEnvelope<null>>('/api/v1/auth/recovery/password/reset', payload);
+  } catch (error: unknown) {
+    throw toApiError(error, '비밀번호를 재설정하지 못했습니다.');
   }
 };
 

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
@@ -349,42 +349,48 @@ const CheckoutPage = () => {
 
   const cart = cartQuery.data;
   const profile = profileQuery.data;
-  const pricing = calculateSelectedCartPricing(cart, selectedItemIds);
+  const pricing = useMemo(
+    () => calculateSelectedCartPricing(cart, selectedItemIds),
+    [cart, selectedItemIds],
+  );
   const isMobilePayment = isMobileBrowser();
   const isFreeCheckout = pricing.totalPayablePrice === 0;
   const effectivePaymentMethod: CheckoutPaymentMethod = isFreeCheckout
     ? 'FREE'
     : defaultCheckoutPaymentMethod;
-  const selectedCartItemIds = pricing.selectedItems.map((item) => item.id);
+  const selectedCartItemIds = useMemo(
+    () => pricing.selectedItems.map((item) => item.id),
+    [pricing.selectedItems],
+  );
   const pcPrepareKey = buildPcPrepareKey(
     selectedCartItemIds,
     effectivePaymentMethod,
     pcPrepareVersion,
   );
 
-  const clearPcAttemptRecoveryTimer = () => {
+  const clearPcAttemptRecoveryTimer = useCallback(() => {
     if (pcAttemptRecoveryTimerRef.current !== null) {
       window.clearTimeout(pcAttemptRecoveryTimerRef.current);
       pcAttemptRecoveryTimerRef.current = null;
     }
-  };
+  }, []);
 
-  const resetPcPreparedPayment = () => {
+  const resetPcPreparedPayment = useCallback(() => {
     latestPrepareRef.current = null;
     setIsPcPaymentReady(false);
-  };
+  }, []);
 
-  const requestPcReprepare = () => {
+  const requestPcReprepare = useCallback(() => {
     resetPcPreparedPayment();
     setPcPrepareVersion((current) => current + 1);
-  };
+  }, [resetPcPreparedPayment]);
 
-  const completePcAttempt = () => {
+  const completePcAttempt = useCallback(() => {
     isPcAttemptPendingRef.current = false;
     clearPcAttemptRecoveryTimer();
     setIsSubmitting(false);
     setKcpPaymentVisibility(false);
-  };
+  }, [clearPcAttemptRecoveryTimer]);
 
   useEffect(() => {
     if (!cart) {
@@ -396,7 +402,7 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     resetPcPreparedPayment();
-  }, [pcPrepareKey]);
+  }, [pcPrepareKey, resetPcPreparedPayment]);
 
   useEffect(() => {
     if (isMobilePayment || isFreeCheckout || pricing.itemCount === 0) {
@@ -453,7 +459,15 @@ const CheckoutPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [effectivePaymentMethod, isFreeCheckout, isMobilePayment, pcPrepareKey, pricing.itemCount]);
+  }, [
+    effectivePaymentMethod,
+    isFreeCheckout,
+    isMobilePayment,
+    pcPrepareKey,
+    pricing.itemCount,
+    resetPcPreparedPayment,
+    selectedCartItemIds,
+  ]);
 
   useEffect(() => {
     const recoverPendingPcAttempt = () => {
@@ -504,7 +518,7 @@ const CheckoutPage = () => {
       window.removeEventListener('beforeunload', handlePageHide);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [showToast]);
+  }, [clearPcAttemptRecoveryTimer, completePcAttempt, requestPcReprepare, showToast]);
 
   useEffect(() => {
     window.jsf__pay = (form: HTMLFormElement) => {
@@ -608,7 +622,16 @@ const CheckoutPage = () => {
       delete window.jsf__pay;
       delete window.m_Completepayment;
     };
-  }, [cartScope, navigate, queryClient, showToast]);
+  }, [
+    cartScope,
+    clearPcAttemptRecoveryTimer,
+    completePcAttempt,
+    navigate,
+    queryClient,
+    requestPcReprepare,
+    resetPcPreparedPayment,
+    showToast,
+  ]);
 
   const handleStartPayment = async () => {
     if (!pricing.itemCount) {

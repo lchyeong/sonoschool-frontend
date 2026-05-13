@@ -259,7 +259,8 @@
   }
 
   .heading {
-    font-size: 48px;
+    font-size: 34px;
+    line-height: 1.42;
   }
 
   .noticeItemLink {
@@ -281,7 +282,14 @@
   }
 
   .heading {
-    font-size: 42px;
+    font-size: 28px;
+    line-height: 1.42;
+  }
+
+  .description {
+    margin-top: 10px;
+    font-size: 16px;
+    line-height: 1.5;
   }
 
   .boardLink {
@@ -302,5 +310,37 @@
   .noticeDate {
     font-size: 16px;
     text-align: left;
+  }
+}
+
+/* Mobile proportional notice scale */
+@media (width < 640px) {
+  .section {
+    margin-top: 96px;
+  }
+
+  .heading {
+    font-size: 25px;
+  }
+
+  .description {
+    font-size: 15px;
+  }
+
+  .boardLinkLabel {
+    font-size: 16px;
+  }
+
+  .noticeItemLink {
+    padding: 22px 0;
+  }
+
+  .noticeCardTitle {
+    font-size: 20px;
+    line-height: 1.35;
+  }
+
+  .noticeDate {
+    font-size: 14px;
   }
 }

@@ -22,6 +22,7 @@ const HomeFeaturedCoursesSection = () => {
   const { data, error, isError, isPending } = useProgramLectureCatalogQuery();
   const courses = useMemo(() => data?.items ?? [], [data?.items]);
   const [requestedPageIndex, setRequestedPageIndex] = useState(0);
+  const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
 
   const coursePages = useMemo(() => {
     if (!courses.length) {
@@ -41,9 +42,42 @@ const HomeFeaturedCoursesSection = () => {
   const pageCount = coursePages.length;
   const activePageIndex = pageCount ? Math.min(requestedPageIndex, pageCount - 1) : 0;
   const activePage = activePageIndex + 1;
+  const activeMobileSlideIndex = courses.length
+    ? Math.min(mobileSlideIndex, courses.length - 1)
+    : 0;
 
   const handleSelectPage = (page: number) => {
     setRequestedPageIndex(page - 1);
+  };
+
+  const handleMoveMobileSlide = (direction: 'next' | 'prev') => {
+    setMobileSlideIndex((currentIndex) => {
+      const offset = direction === 'next' ? 1 : -1;
+      return Math.min(Math.max(currentIndex + offset, 0), Math.max(courses.length - 1, 0));
+    });
+  };
+
+  const renderCourseCard = (course: (typeof courses)[number]) => {
+    return (
+      <Link className={styles['cardLink']} to={course.to}>
+        <article className={styles['courseCard']}>
+          <div className={styles['courseImageFrame']}>
+            <img
+              alt={course.thumbnailAlt}
+              className={styles['courseImage']}
+              loading='lazy'
+              src={course.thumbnailSrc}
+            />
+          </div>
+
+          <div className={styles['courseBody']}>
+            <h3 className={styles['courseTitle']}>{course.title}</h3>
+            <p className={styles['courseDescription']}>{course.summary}</p>
+            <p className={styles['coursePrice']}>{course.priceLabel}</p>
+          </div>
+        </article>
+      </Link>
+    );
   };
 
   useEffect(() => {
@@ -54,6 +88,7 @@ const HomeFeaturedCoursesSection = () => {
     }
 
     let animationFrameId = 0;
+    let lastHeadingOffset = '';
     let lastHeadingOpacity = '';
     let isHeadingVisible = false;
 
@@ -65,9 +100,15 @@ const HomeFeaturedCoursesSection = () => {
       const shouldShowHeading = isHeadingVisible
         ? rect.top <= viewportHeight * COURSES_HEADING_RESET_RATIO
         : rect.top <= viewportHeight * COURSES_HEADING_REVEAL_RATIO;
+      const nextHeadingOffset = shouldShowHeading ? '0px' : '18px';
       const nextHeadingOpacity = shouldShowHeading ? '1' : '0';
 
       isHeadingVisible = shouldShowHeading;
+
+      if (lastHeadingOffset !== nextHeadingOffset) {
+        sectionElement.style.setProperty('--featured-courses-heading-offset', nextHeadingOffset);
+        lastHeadingOffset = nextHeadingOffset;
+      }
 
       if (lastHeadingOpacity !== nextHeadingOpacity) {
         sectionElement.style.setProperty('--featured-courses-heading-opacity', nextHeadingOpacity);
@@ -174,24 +215,7 @@ const HomeFeaturedCoursesSection = () => {
                         {page.map((course) => {
                           return (
                             <li className={styles['courseItem']} key={course.id}>
-                              <Link className={styles['cardLink']} to={course.to}>
-                                <article className={styles['courseCard']}>
-                                  <div className={styles['courseImageFrame']}>
-                                    <img
-                                      alt={course.thumbnailAlt}
-                                      className={styles['courseImage']}
-                                      loading='lazy'
-                                      src={course.thumbnailSrc}
-                                    />
-                                  </div>
-
-                                  <div className={styles['courseBody']}>
-                                    <h3 className={styles['courseTitle']}>{course.title}</h3>
-                                    <p className={styles['courseDescription']}>{course.summary}</p>
-                                    <p className={styles['coursePrice']}>{course.priceLabel}</p>
-                                  </div>
-                                </article>
-                              </Link>
+                              {renderCourseCard(course)}
                             </li>
                           );
                         })}
@@ -212,6 +236,58 @@ const HomeFeaturedCoursesSection = () => {
                 />
               </div>
             ) : null}
+
+            <div
+              aria-label={`${String(activeMobileSlideIndex + 1)} / ${String(courses.length)}`}
+              aria-roledescription='carousel'
+              className={styles['mobileCourseCarousel']}
+            >
+              <button
+                aria-label='이전 대표 과정 보기'
+                className={styles['mobileCourseArrowButton']}
+                disabled={activeMobileSlideIndex === 0}
+                onClick={() => {
+                  handleMoveMobileSlide('prev');
+                }}
+                type='button'
+              >
+                &lt;
+              </button>
+
+              <div className={styles['mobileCourseViewport']}>
+                <ul
+                  aria-label='대표 과정 좌우 슬라이드'
+                  className={styles['mobileCourseTrack']}
+                  style={{
+                    transform: `translateX(-${String(activeMobileSlideIndex * 100)}%)`,
+                  }}
+                >
+                  {courses.map((course, courseIndex) => {
+                    return (
+                      <li
+                        aria-hidden={courseIndex !== activeMobileSlideIndex}
+                        className={styles['mobileCourseSlide']}
+                        key={`mobile-${course.id}`}
+                      >
+                        {renderCourseCard(course)}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+
+              <button
+                aria-label='다음 대표 과정 보기'
+                className={styles['mobileCourseArrowButton']}
+                disabled={activeMobileSlideIndex >= courses.length - 1}
+                onClick={() => {
+                  handleMoveMobileSlide('next');
+                }}
+                type='button'
+              >
+                &gt;
+              </button>
+            </div>
           </>
         )}
       </div>

@@ -146,12 +146,24 @@
     padding: 64px 16px 120px;
   }
 
+  .shell,
   .surface {
+    min-width: 0;
+  }
+
+  .surface {
+    width: 100%;
     padding: 32px 0;
   }
 
   .header {
+    min-width: 0;
     margin-bottom: 36px;
+  }
+
+  .form {
+    width: 100%;
+    min-width: 0;
   }
 
   .title {

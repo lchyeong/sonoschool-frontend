@@ -1,7 +1,6 @@
 import axiosInstance from '@/api/axiosInstance';
-import { http } from '@/api/http';
 import { toApiError } from '@/api/errors';
-import type { ApiEnvelope } from '@/types/auth';
+import { http } from '@/api/http';
 import type {
   AdminCategoryCreatePayload,
   AdminCategoryRecord,
@@ -9,6 +8,7 @@ import type {
   AdminCategoryTreeItem,
   AdminCategoryUpsertPayload,
 } from '@/types/adminCategories';
+import type { ApiEnvelope } from '@/types/auth';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;

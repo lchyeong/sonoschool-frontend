@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchAdminProblemAttempts } from '@/api/adminProblemAttempts';
-import { fetchAdminProblemLectureSummaries } from '@/api/adminProblemSummaries';
 import { fetchAdminProblem } from '@/api/adminProblems';
+import { fetchAdminProblemLectureSummaries } from '@/api/adminProblemSummaries';
 
 export const adminProblemQueryKey = (lectureId: number | null) =>
   ['adminProblem', lectureId] as const;

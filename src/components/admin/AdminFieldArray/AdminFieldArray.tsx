@@ -41,7 +41,7 @@ const AdminFieldArray = <T,>({
             <div className={styles['row']} key={index}>
               <div className={styles['rowFields']}>{renderItem(item, index)}</div>
               <button
-                aria-label={`${label} ${index + 1} 삭제`}
+                aria-label={`${label} ${String(index + 1)} 삭제`}
                 className={styles['removeButton']}
                 onClick={() => {
                   onRemove(index);

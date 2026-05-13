@@ -14,6 +14,7 @@ import {
   getMockedMyPageProfile,
   getMockedMyQuestions,
   getMockedMyRefunds,
+  changeMockedMyPagePassword,
   sendMockedMyPagePhoneVerification,
   updateMockedMyEnrollmentReview,
   updateMockedMyPageProfile,
@@ -47,6 +48,7 @@ import type {
   MyQuestionScope,
   ProtectedLectureStream,
   RefundHistory,
+  UserPasswordChangePayload,
   UserPasswordVerifyPayload,
   UserProfile,
   UserProfileUpdatePayload,
@@ -65,7 +67,7 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
 
 interface BackendUserProfile {
   loginId: string;
-  email: string;
+  email: string | null;
   name: string;
   nickname: string | null;
   displayName: string;
@@ -403,7 +405,8 @@ export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promis
     const response = await axiosInstance.patch<ApiEnvelope<BackendUserProfile>>(
       '/api/v1/users/me',
       {
-        nickname: payload.nickname,
+        email: payload.email,
+        nickname: payload.nickname ?? '',
       },
     );
     return toUserProfile(unwrapApiEnvelope(response.data));
@@ -427,6 +430,19 @@ export const verifyMyProfilePassword = async (
     await axiosInstance.post('/api/v1/users/me/password/verify', payload);
   } catch (error: unknown) {
     throw toApiError(error, '비밀번호를 확인하지 못했습니다.');
+  }
+};
+
+export const changeMyPassword = async (payload: UserPasswordChangePayload): Promise<void> => {
+  if (isMyPageMockModeEnabled()) {
+    changeMockedMyPagePassword(payload);
+    return;
+  }
+
+  try {
+    await axiosInstance.patch('/api/v1/users/me/password', payload);
+  } catch (error: unknown) {
+    throw toApiError(error, '비밀번호를 변경하지 못했습니다.');
   }
 };
 

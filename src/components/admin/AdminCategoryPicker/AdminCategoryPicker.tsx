@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import type { AdminCategoryTreeItem } from '@/types/adminCategories';
@@ -81,7 +81,7 @@ const buildCategoryColumns = (
 };
 
 const AdminCategoryPicker = ({
-  helperText = '강의는 가장 하위 카테고리에만 등록할 수 있습니다.',
+  helperText = '프로그램을 노출할 카테고리를 선택해 주세요.',
   label,
   onChange,
   tree,
@@ -97,20 +97,11 @@ const AdminCategoryPicker = ({
   const selectedCategoryId = value.trim() ? Number(value) : null;
   const selectedCategory =
     selectedCategoryId !== null ? (categoryMap.get(selectedCategoryId) ?? null) : null;
-  const [focusPathIds, setFocusPathIds] = useState<number[]>(selectedCategory?.pathIds ?? []);
-
-  useEffect(() => {
-    if (selectedCategory) {
-      setFocusPathIds(selectedCategory.pathIds);
-      return;
-    }
-
-    setFocusPathIds([]);
-  }, [selectedCategory]);
+  const selectedPathIds = useMemo(() => selectedCategory?.pathIds ?? [], [selectedCategory]);
 
   const columns = useMemo(
-    () => buildCategoryColumns(sortedTree, focusPathIds),
-    [focusPathIds, sortedTree],
+    () => buildCategoryColumns(sortedTree, selectedPathIds),
+    [selectedPathIds, sortedTree],
   );
 
   return (
@@ -130,13 +121,18 @@ const AdminCategoryPicker = ({
       <div className={styles['browserShell']}>
         <div className={styles['browserGrid']}>
           {columns.map((columnItems, columnIndex) => (
-            <section className={styles['browserColumn']} key={`picker-column-${String(columnIndex)}`}>
-              <div className={styles['browserColumnHeader']}>{`${String(columnIndex + 1)}차 카테고리`}</div>
+            <section
+              className={styles['browserColumn']}
+              key={`picker-column-${String(columnIndex)}`}
+            >
+              <div
+                className={styles['browserColumnHeader']}
+              >{`${String(columnIndex + 1)}차 카테고리`}</div>
               {columnItems.length ? (
                 <div className={styles['browserList']} role='list'>
                   {columnItems.map((item) => {
                     const flatItem = categoryMap.get(item.id);
-                    const isActive = focusPathIds[columnIndex] === item.id;
+                    const isActive = selectedPathIds[columnIndex] === item.id;
                     const isSelected = selectedCategoryId === item.id;
 
                     return (
@@ -153,10 +149,7 @@ const AdminCategoryPicker = ({
                             return;
                           }
 
-                          setFocusPathIds(flatItem.pathIds);
-                          if (flatItem.isLeaf) {
-                            onChange(String(flatItem.id));
-                          }
+                          onChange(String(flatItem.id));
                         }}
                         type='button'
                       >

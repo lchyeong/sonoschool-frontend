@@ -362,6 +362,10 @@
 }
 
 @media (width < 1200px) {
+  .footer {
+    margin-top: 200px;
+  }
+
   .inner {
     width: min(100%, calc(100% - 40px));
     padding: 64px 0 70px;
@@ -371,6 +375,11 @@
     flex-direction: column;
     gap: 28px;
     align-items: flex-start;
+  }
+
+  .navigation {
+    flex: 0 1 auto;
+    width: 100%;
   }
 
   .legalLinks {
@@ -394,6 +403,50 @@
 
   .informationGroupList {
     gap: 10px;
+  }
+}
+
+@media (width < 960px) {
+  .footer {
+    margin-top: 144px;
+  }
+
+  .inner {
+    padding: 54px 0 62px;
+  }
+
+  .topRow {
+    gap: 24px;
+    padding-bottom: 24px;
+  }
+
+  .navigationList {
+    gap: 16px 28px;
+  }
+
+  .navigationLink,
+  .legalLinks,
+  .informationItem,
+  .bottomRow {
+    font-size: 16px;
+    line-height: 1.45;
+  }
+
+  .middleRow {
+    gap: 24px;
+    padding: 34px 0 22px;
+  }
+
+  .brandArea {
+    width: min(272px, 100%);
+  }
+
+  .informationList {
+    gap: 8px 24px;
+  }
+
+  .copyrightButton {
+    text-align: left;
   }
 }
 

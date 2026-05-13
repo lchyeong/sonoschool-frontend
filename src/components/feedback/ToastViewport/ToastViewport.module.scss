@@ -62,7 +62,7 @@
   outline: none;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .viewport {
     right: 16px;
     bottom: 16px;

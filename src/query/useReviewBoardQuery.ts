@@ -4,7 +4,6 @@ import { useQueries } from '@tanstack/react-query';
 
 import { fetchProgramPage } from '@/api/programCatalog';
 import { useProgramSearchIndexQuery } from '@/query/useProgramSearchIndexQuery';
-import type { ProgramDetailPageResponse } from '@/types/programCatalog';
 
 import { programPageQueryKey } from './useProgramPageQuery';
 
@@ -65,7 +64,7 @@ export const useReviewBoardQuery = () => {
         return;
       }
 
-      const detailPage = programPage as ProgramDetailPageResponse;
+      const detailPage = programPage;
 
       if (!detailPage.reviews.length) {
         return;
@@ -110,7 +109,8 @@ export const useReviewBoardQuery = () => {
   const isPending =
     searchIndexQuery.isPending ||
     (searchIndexQuery.isSuccess && programDetailQueries.some((query) => query.isPending));
-  const error = searchIndexQuery.error ?? programDetailQueries.find((query) => query.error)?.error ?? null;
+  const error =
+    searchIndexQuery.error ?? programDetailQueries.find((query) => query.error)?.error ?? null;
 
   return {
     data,

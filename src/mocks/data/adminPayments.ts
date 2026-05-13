@@ -83,7 +83,7 @@ export const cancelMockAdminPayment = (
 
   const current = adminPaymentDetails[targetIndex];
 
-  if (!current || current.status !== 'COMPLETED') {
+  if (current.status !== 'COMPLETED') {
     return null;
   }
 

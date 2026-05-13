@@ -853,12 +853,12 @@
 }
 
 .mobileDrawer {
-  width: min(420px, 100vw);
+  width: min(300px, 78vw);
   height: 100%;
   display: grid;
   align-content: start;
-  gap: var(--space-5);
-  padding: var(--space-5);
+  gap: var(--space-4);
+  padding: var(--space-4);
   overflow: auto;
   background: var(--color-bg-primary);
 
@@ -894,8 +894,8 @@
   &Link,
   &Button {
     justify-content: flex-start;
-    min-height: 44px;
-    padding: 0 var(--space-4);
+    min-height: 40px;
+    padding: 0 var(--space-3);
   }
 }
 
@@ -918,8 +918,8 @@
     &Depth2,
     &Depth3 {
       margin-top: var(--space-2);
-      margin-left: var(--space-4);
-      padding-left: var(--space-3);
+      margin-left: var(--space-3);
+      padding-left: var(--space-2);
       border-left: 1px solid var(--color-border);
     }
   }
@@ -942,13 +942,13 @@
 
     &Primary {
       color: var(--color-text-primary);
-      font-size: 1rem;
+      font-size: 0.94rem;
       font-weight: var(--font-weight-semibold);
     }
 
     &Secondary {
       color: var(--color-text-primary);
-      font-size: var(--font-size-base);
+      font-size: var(--font-size-sm);
     }
 
     &Tertiary {
@@ -960,8 +960,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     flex-shrink: 0;
     border: 0;
     border-radius: var(--radius-md);

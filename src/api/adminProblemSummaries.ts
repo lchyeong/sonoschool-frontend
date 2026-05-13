@@ -1,7 +1,7 @@
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import type { ApiEnvelope } from '@/types/auth';
 import type { AdminProblemLectureSummary } from '@/types/adminProblemSummaries';
+import type { ApiEnvelope } from '@/types/auth';
 
 interface AdminProblemLectureSummaryApiResponse {
   attemptCount: number;

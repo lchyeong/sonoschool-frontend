@@ -20,6 +20,7 @@ import type {
   MyQuestionPage,
   MyQuestionScope,
   RefundHistory,
+  UserPasswordChangePayload,
   UserProfile,
   UserProfileUpdatePayload,
 } from '@/types/mypage';
@@ -159,6 +160,7 @@ let activeScenario: MyPageMockScenario | null = null;
 let mockReviewStateByEnrollmentId: Partial<Record<number, MockReviewState>> =
   buildInitialReviewState();
 let mockMyQuestions = buildInitialMyQuestions();
+let mockMyPagePassword = 'password123';
 let nextReviewId = 9_500;
 let nextQuestionId = 8_000;
 
@@ -167,6 +169,7 @@ const resetScenarioState = (scenario: MyPageMockScenario) => {
   activeScenario = scenario;
   mockReviewStateByEnrollmentId = buildInitialReviewState();
   mockMyQuestions = buildInitialMyQuestions();
+  mockMyPagePassword = 'password123';
   nextReviewId = 9_500;
   nextQuestionId = 8_000;
 };
@@ -315,7 +318,17 @@ export const updateMockedMyPageProfile = (payload: UserProfileUpdatePayload): Us
 
 export const verifyMockedMyPagePassword = (password: string): boolean => {
   ensureMockScenarioState();
-  return password === 'password123';
+  return password === mockMyPagePassword;
+};
+
+export const changeMockedMyPagePassword = (payload: UserPasswordChangePayload): void => {
+  ensureMockScenarioState();
+
+  if (payload.password !== payload.passwordConfirm) {
+    throw new Error('비밀번호가 일치하지 않습니다.');
+  }
+
+  mockMyPagePassword = payload.password;
 };
 
 export const sendMockedMyPagePhoneVerification = (

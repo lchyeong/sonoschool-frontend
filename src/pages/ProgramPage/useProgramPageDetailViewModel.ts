@@ -110,7 +110,7 @@ export const useProgramPageDetailViewModel = (
       setOpenFaqId(data.faqItems[0]?.id ?? null);
       setReviewSortOrder('recommended');
     });
-  }, [detailResetKey]);
+  }, [data, detailResetKey]);
 
   useEffect(() => {
     const handleScroll = () => {

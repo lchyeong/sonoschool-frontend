@@ -1,9 +1,13 @@
 .panel {
   display: grid;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   gap: 18px;
 }
 
 .panelBoard {
+  min-width: 0;
   gap: 0;
 }
 
@@ -301,6 +305,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-width: 0;
   min-height: 36px;
   padding: 6px 16px;
   border: 0;
@@ -808,6 +813,7 @@
   display: grid;
   gap: 10px;
   margin-top: 16px;
+  min-width: 0;
 }
 
 .pagination {
@@ -1441,6 +1447,7 @@
   display: grid;
   gap: 20px;
   width: 100%;
+  min-width: 0;
   min-height: 108px;
   padding: 17px 20px;
   border: 0;
@@ -2045,6 +2052,75 @@
 }
 
 @media (width <= 768px) {
+  .courseQnaNotice {
+    min-height: auto;
+    padding: 16px;
+  }
+
+  .courseQnaNoticeTitle,
+  .courseQnaNoticeDescription {
+    font-size: 14px;
+  }
+
+  .boardToolbarCompact {
+    gap: 12px;
+  }
+
+  .compactFilterButton {
+    gap: 4px;
+    padding-right: 8px;
+    padding-left: 8px;
+    font-size: 14px;
+  }
+
+  .compactBoardList {
+    margin-top: 14px;
+  }
+
+  .compactThreadButton {
+    gap: 14px;
+    min-height: 96px;
+    padding: 15px 14px;
+  }
+
+  .compactThreadPrimary {
+    gap: 14px;
+  }
+
+  .compactThreadTopRow {
+    gap: 10px;
+  }
+
+  .compactStatusBadge {
+    min-width: 66px;
+    height: 24px;
+    padding-right: 8px;
+    padding-left: 8px;
+    font-size: 13px;
+  }
+
+  .compactThreadAuthor {
+    font-size: 14px;
+  }
+
+  .compactThreadDate {
+    font-size: 13px;
+  }
+
+  .compactThreadTitle,
+  .compactDetailBody {
+    font-size: 15px;
+  }
+
+  .compactBoardFooter {
+    margin-top: 28px;
+  }
+
+  .compactBoardFooter .writeButton {
+    min-height: 52px;
+    font-size: 18px;
+  }
+
   .boardFooter {
     flex-direction: column;
     align-items: stretch;

@@ -69,7 +69,7 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  padding-top: calc((var(--philosophy-heading-font-size) * 1.5 * 2) + 80px);
+  padding-top: calc((var(--philosophy-heading-font-size) * 1.5 * 2) + 104px);
   font-size: clamp(18px, 1.55vw, 22px);
   font-weight: var(--font-weight-medium);
   line-height: 1.5;
@@ -79,6 +79,10 @@
   font-size: clamp(22px, 1.85vw, 26px);
   font-weight: var(--font-weight-bold);
   line-height: 1.5;
+}
+
+.desktopLineBreak {
+  display: block;
 }
 
 .directorPanel {
@@ -271,23 +275,25 @@
   }
 
   .directorInner {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 56px;
-    height: auto;
-    padding-top: 80px;
+    display: block;
+    width: min(100%, calc(100% - 48px));
+    height: 100svh;
+    min-height: 720px;
+    padding-top: 0;
   }
 
   .philosophy {
-    height: auto;
-    min-height: 0;
-    padding: 120px 0;
+    height: max(1280px, 175vh);
+    min-height: 1280px;
+    padding: 0;
   }
 
   .philosophySticky {
-    position: relative;
-    height: auto;
-    min-height: 0;
+    position: sticky;
+    height: 100svh;
+    min-height: 640px;
+    box-sizing: border-box;
+    place-items: start center;
   }
 
   .philosophyStage {
@@ -300,23 +306,25 @@
   }
 
   .directorCopy {
-    position: relative;
-    top: auto;
-    left: auto;
+    position: absolute;
+    top: 17%;
+    left: 0;
+    width: min(52%, 420px);
   }
 
   .directorPanel {
-    height: auto;
-    min-height: 0;
+    height: max(2600px, 320vh);
+    min-height: 2600px;
     margin-bottom: 96px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .directorSticky {
-    position: relative;
+    position: sticky;
+    top: 0;
     display: block;
-    height: auto;
-    min-height: auto;
+    height: 100svh;
+    min-height: 720px;
   }
 
   .directorInner::after {
@@ -327,12 +335,9 @@
   }
 
   .directorImageWrap {
-    position: relative;
-    top: auto;
-    left: auto;
-    right: auto;
-    justify-self: center;
-    width: min(100%, 720px);
+    position: absolute;
+    inset: auto -5% -4% auto;
+    width: min(54%, 430px);
     height: auto;
     aspect-ratio: 548 / 730;
   }
@@ -344,9 +349,9 @@
   }
 
   .directorImage {
-    position: relative;
-    bottom: auto;
-    left: auto;
+    position: absolute;
+    bottom: 0;
+    left: 0;
     width: 100%;
   }
 }
@@ -358,26 +363,50 @@
 
   .directorInner {
     width: min(100%, calc(100% - 32px));
+    min-height: 680px;
   }
 
   .philosophy {
-    padding: 88px 0;
+    height: max(1120px, 170vh);
+    min-height: 1120px;
+    padding: 0;
+  }
+
+  .philosophySticky {
+    min-height: 620px;
+    padding-top: 0;
+    place-items: center;
   }
 
   .philosophyStage {
     width: min(100%, calc(100% - 32px));
-    gap: 32px;
+    gap: 84px;
+    align-content: start;
   }
 
   .philosophyHeading {
     width: 100%;
     font-size: 30px;
+
+    span {
+      overflow-wrap: break-word;
+      white-space: normal;
+      word-break: keep-all;
+    }
   }
 
   .philosophyCopy {
     gap: 16px;
+    width: 100%;
     padding-top: 0;
+    margin-left: auto;
     font-size: 20px;
+    text-align: right;
+
+    p {
+      overflow-wrap: break-word;
+      word-break: keep-all;
+    }
   }
 
   .philosophyLead {
@@ -385,7 +414,104 @@
   }
 
   .directorImageWrap {
+    right: -14%;
+    bottom: -11%;
+    width: min(88vw, 420px);
     height: auto;
     aspect-ratio: 470 / 627;
+  }
+
+  .directorCopy {
+    top: 9%;
+    width: 100%;
+  }
+}
+
+@media (width < 1024px) and (height < 720px) {
+  .directorPanel {
+    height: auto;
+    min-height: 0;
+    padding: 72px 0 96px;
+    margin-bottom: 80px;
+  }
+
+  .directorSticky {
+    position: relative;
+    height: auto;
+    min-height: 0;
+  }
+
+  .directorInner {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, calc(100% - 32px));
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .directorCopy {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: 100%;
+  }
+
+  .directorImageWrap {
+    position: relative;
+    inset: auto;
+    align-self: center;
+    width: min(72vw, 320px);
+    margin-top: 36px;
+  }
+}
+
+/* Mobile proportional history scale */
+@media (width < 768px) {
+  .philosophyHeading {
+    font-size: 26px;
+    line-height: 1.46;
+  }
+
+  .philosophyCopy,
+  .philosophyLead {
+    font-size: 17px;
+    line-height: 1.55;
+  }
+
+  .directorName {
+    font-size: 30px;
+  }
+
+  .directorRole {
+    font-size: 21px;
+  }
+
+  .careerList,
+  .certificationTitle,
+  .certificationList {
+    font-size: 15px;
+  }
+}
+
+@media (width < 420px) {
+  .philosophyStage {
+    width: min(100%, calc(100% - 40px));
+    gap: 72px;
+  }
+
+  .philosophyHeading {
+    font-size: clamp(21px, 5.6vw, 23px);
+    line-height: 1.52;
+  }
+
+  .philosophyCopy {
+    gap: 14px;
+  }
+
+  .philosophyCopy,
+  .philosophyLead {
+    font-size: clamp(14px, 3.75vw, 15px);
+    line-height: 1.6;
   }
 }

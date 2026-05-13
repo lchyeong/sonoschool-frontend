@@ -33,14 +33,10 @@ describe('CommonFooter', () => {
       'https://blog.naver.com/sonoschool',
     );
     expect(screen.getByText('139-17-02906')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '031-934-6224' })).toHaveAttribute(
-      'href',
-      'tel:0319346224',
-    );
-    expect(screen.getByRole('link', { name: 'sonoschool@naver.com' })).toHaveAttribute(
-      'href',
-      'mailto:sonoschool@naver.com',
-    );
+    expect(screen.getByText('031-934-6224')).toBeInTheDocument();
+    expect(screen.getByText('sonoschool@naver.com')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '031-934-6224' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'sonoschool@naver.com' })).not.toBeInTheDocument();
     expect(screen.getByText('2018-성남분당B-0062')).toBeInTheDocument();
     expect(
       screen.getByText('경기도 화성시 동탄구 동탄지성로 17, B1층 101호(반송동, 동탄 위버폴리스)'),

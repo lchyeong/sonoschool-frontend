@@ -51,6 +51,7 @@ type QnaReplySource = 'all' | 'adminOnly';
 
 const BOARD_PAGE_SIZE = 8;
 const COMPACT_BOARD_PAGE_SIZE = 4;
+const COMPACT_BOARD_MEDIA_QUERY = '(width < 768px)';
 const EMPTY_THREADS: ProgramQnaThreadItem[] = [];
 const BOARD_STATUS_FILTER_OPTIONS: Array<{ label: string; value: BoardStatusFilter }> = [
   { label: '전체 상태', value: 'all' },
@@ -80,6 +81,14 @@ const AUTHOR_TYPE_LABELS: Record<ProgramQnaAuthorType, string> = {
   ADMIN: '관리자',
   ENROLLED: '수강생',
   MEMBER: '회원',
+};
+
+const getShouldUseCompactBoard = () => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+
+  return window.matchMedia(COMPACT_BOARD_MEDIA_QUERY).matches;
 };
 
 const formatDateTime = (value: string) => {
@@ -182,7 +191,11 @@ const ProgramQnaPanelContent = ({
   const currentDisplayName = useAuthStore((state) => state.displayName);
   const currentRole = useAuthStore((state) => state.role);
   const isBoardVariant = variant === 'board';
-  const isCompactBoard = isBoardVariant && boardLayout === 'compact';
+  const [matchesCompactBoardMedia, setMatchesCompactBoardMedia] =
+    useState(getShouldUseCompactBoard);
+  const resolvedBoardLayout =
+    boardLayout === 'table' && matchesCompactBoardMedia ? 'compact' : boardLayout;
+  const isCompactBoard = isBoardVariant && resolvedBoardLayout === 'compact';
   const waitingStatusLabel = detailDisplay === 'answersOnly' ? '미답변' : '답변 대기';
   const [searchInput, setSearchInput] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -211,6 +224,23 @@ const ProgramQnaPanelContent = ({
     isWriteFormOpen &&
     !isCompactBoard
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia(COMPACT_BOARD_MEDIA_QUERY);
+    const handleMediaChange = (event: MediaQueryListEvent) => {
+      setMatchesCompactBoardMedia(event.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleMediaChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleMediaChange);
+    };
+  }, []);
 
   const qnaQuery = useQuery({
     enabled,

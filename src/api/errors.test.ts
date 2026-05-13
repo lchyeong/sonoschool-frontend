@@ -23,11 +23,11 @@ describe('API errors', () => {
     expect(apiError.code).toBe('AUTH_401_SESSION');
     expect(apiError.status).toBe(401);
     expect(apiError.userMessage).toBe(
-      '보안을 위해 로그인 상태가 종료되었습니다. 다시 로그인해 주세요.',
+      '다른 기기에서 로그인되었거나 인증 시간이 만료되어 로그아웃되었습니다. 다시 로그인해 주세요.',
     );
   });
 
-  it('keeps generic server messages when no friendly override is needed', () => {
+  it('maps invalid credential errors into the shared login message', () => {
     const apiError = toApiError(
       {
         isAxiosError: true,
@@ -44,7 +44,7 @@ describe('API errors', () => {
     );
 
     expect(apiError.code).toBe('AUTH_401');
-    expect(apiError.userMessage).toBe('Invalid username or password.');
+    expect(apiError.userMessage).toBe('아이디 및 비밀번호를 확인해주세요.');
   });
 
   it('maps video worker dispatch failures into an admin-friendly message', () => {

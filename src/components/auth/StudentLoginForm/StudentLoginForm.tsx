@@ -13,6 +13,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { loginStudent, verifyStudentLoginSms } from '@/api/auth';
+import { ApiError } from '@/api/errors';
 import clockIconSrc from '@/assets/icons/lucide_clock_sono.svg';
 import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
 import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
@@ -75,7 +76,6 @@ const INITIAL_FORM_VALUES: LoginFormValues = {
   loginId: '',
   password: '',
 };
-const MOCK_SMS_CODE = '123456';
 const LOGIN_AUTH_ERROR_MESSAGE = '아이디 및 비밀번호를 확인해주세요.';
 const SMS_CODE_LENGTH = 6;
 
@@ -190,6 +190,11 @@ const StudentLoginForm = ({
     mutationFn: loginStudent,
     onError: (error: unknown) => {
       if (isPageVariant) {
+        if (error instanceof ApiError && error.code === 'AUTH_429_SMS_SEND') {
+          setAuthErrorMessage(error.userMessage);
+          return;
+        }
+
         setAuthErrorMessage(LOGIN_AUTH_ERROR_MESSAGE);
         return;
       }
@@ -203,7 +208,7 @@ const StudentLoginForm = ({
     onSuccess: async (session) => {
       if (session.status === 'SMS_REQUIRED') {
         setLoginChallenge(session);
-        setVerificationCode(MOCK_SMS_CODE);
+        setVerificationCode('');
         setChallengeCountdownSeconds(getRemainingSeconds(session.challengeExpiresAt));
         showToast({
           message: `${session.maskedPhoneNumber} 번호로 인증번호를 보냈습니다.`,
@@ -286,7 +291,7 @@ const StudentLoginForm = ({
       if (!trimmedCode) {
         setFormErrors((current) => ({
           ...current,
-          code: '인증번호를 입력해 주세요.',
+          code: '인증번호를 확인해주세요.',
         }));
         codeInputRef.current?.focus();
         return;
@@ -306,11 +311,11 @@ const StudentLoginForm = ({
     const nextErrors: LoginFormErrors = {};
 
     if (!formValues.loginId.trim()) {
-      nextErrors.loginId = '아이디를 입력해 주세요.';
+      nextErrors.loginId = '아이디를 확인해주세요.';
     }
 
     if (!formValues.password.trim()) {
-      nextErrors.password = '비밀번호를 입력해 주세요.';
+      nextErrors.password = '비밀번호를 확인해주세요.';
     }
 
     setFormErrors(nextErrors);
@@ -592,7 +597,7 @@ const StudentLoginForm = ({
               )}
               role={formErrors.code ? 'alert' : undefined}
             >
-              {formErrors.code ?? '인증번호를 확인해 주세요.'}
+              {formErrors.code ?? '인증번호를 확인해주세요.'}
             </p>
             <Button
               className={styles['smsModalSubmitButton']}

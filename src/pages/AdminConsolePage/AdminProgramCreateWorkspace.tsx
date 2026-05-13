@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete */
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1840,36 +1840,40 @@ const AdminProgramCreateWorkspace = ({
     };
   }, [hasUnsavedChanges]);
 
-  const updatePayload = (
-    updater: (current: AdminProgramDraftPayload) => AdminProgramDraftPayload,
-  ) => {
-    const current = currentPayloadRef.current;
-    if (!current) {
-      return null;
-    }
+  const updatePayload = useCallback(
+    (updater: (current: AdminProgramDraftPayload) => AdminProgramDraftPayload) => {
+      const current = currentPayloadRef.current;
+      if (!current) {
+        return null;
+      }
 
-    const next = updater(current);
-    currentPayloadRef.current = next;
-    setPayload(next);
-    return next;
-  };
-
-  const persistLectureVideoUploadState = async (
-    targetDraftId: number,
-    lectureKey: string,
-    payload: {
-      durationSeconds?: number | null;
-      errorMessage?: string | null;
-      fileName?: string | null;
-      status: AdminDraftUploadStatus;
-      videoId?: number | null;
+      const next = updater(current);
+      currentPayloadRef.current = next;
+      setPayload(next);
+      return next;
     },
-  ) => {
-    await updateDraftLectureVideoUploadState(targetDraftId, lectureKey, payload);
-    await queryClient.invalidateQueries({
-      queryKey: adminProgramDraftDetailQueryKey(targetDraftId),
-    });
-  };
+    [],
+  );
+
+  const persistLectureVideoUploadState = useCallback(
+    async (
+      targetDraftId: number,
+      lectureKey: string,
+      payload: {
+        durationSeconds?: number | null;
+        errorMessage?: string | null;
+        fileName?: string | null;
+        status: AdminDraftUploadStatus;
+        videoId?: number | null;
+      },
+    ) => {
+      await updateDraftLectureVideoUploadState(targetDraftId, lectureKey, payload);
+      await queryClient.invalidateQueries({
+        queryKey: adminProgramDraftDetailQueryKey(targetDraftId),
+      });
+    },
+    [queryClient],
+  );
 
   const persistResourceUploadState = async (
     targetDraftId: number,
@@ -1889,31 +1893,34 @@ const AdminProgramCreateWorkspace = ({
     });
   };
 
-  const persistProblemQuestionMediaUploadState = async (
-    targetDraftId: number,
-    lectureKey: string,
-    questionIndex: number,
-    payload: {
-      clearMedia?: boolean;
-      errorMessage?: string | null;
-      fileName?: string | null;
-      mediaAssetId?: number | null;
-      mediaType?: 'IMAGE' | 'VIDEO' | null;
-      mediaUrl?: string | null;
-      mediaVideoId?: number | null;
-      status?: AdminDraftUploadStatus | null;
+  const persistProblemQuestionMediaUploadState = useCallback(
+    async (
+      targetDraftId: number,
+      lectureKey: string,
+      questionIndex: number,
+      payload: {
+        clearMedia?: boolean;
+        errorMessage?: string | null;
+        fileName?: string | null;
+        mediaAssetId?: number | null;
+        mediaType?: 'IMAGE' | 'VIDEO' | null;
+        mediaUrl?: string | null;
+        mediaVideoId?: number | null;
+        status?: AdminDraftUploadStatus | null;
+      },
+    ) => {
+      await updateDraftProblemQuestionMediaUploadState(
+        targetDraftId,
+        lectureKey,
+        questionIndex,
+        payload,
+      );
+      await queryClient.invalidateQueries({
+        queryKey: adminProgramDraftDetailQueryKey(targetDraftId),
+      });
     },
-  ) => {
-    await updateDraftProblemQuestionMediaUploadState(
-      targetDraftId,
-      lectureKey,
-      questionIndex,
-      payload,
-    );
-    await queryClient.invalidateQueries({
-      queryKey: adminProgramDraftDetailQueryKey(targetDraftId),
-    });
-  };
+    [queryClient],
+  );
 
   const toggleSectionExpanded = (sectionKey: string) => {
     setExpandedSectionKeys((current) =>
@@ -2399,34 +2406,37 @@ const AdminProgramCreateWorkspace = ({
     });
   };
 
-  const upsertProblem = (
-    lectureKey: string,
-    updater: (problem: AdminProgramDraftProblem) => AdminProgramDraftProblem,
-  ) => {
-    updatePayload((current) => {
-      const lectureTitle = current.sections
-        .flatMap((section) => section.lectures)
-        .find((lecture) => lecture.key === lectureKey)
-        ?.title?.trim();
-      const existingProblem =
-        current.problems.find((problem) => problem.lectureKey === lectureKey) ??
-        createEmptyProblem(lectureKey);
-      const nextProblem = updater({
-        ...existingProblem,
-        title: existingProblem.title?.trim() || lectureTitle || '문제',
-      });
-      const hasProblem = current.problems.some((problem) => problem.lectureKey === lectureKey);
+  const upsertProblem = useCallback(
+    (
+      lectureKey: string,
+      updater: (problem: AdminProgramDraftProblem) => AdminProgramDraftProblem,
+    ) => {
+      updatePayload((current) => {
+        const lectureTitle = current.sections
+          .flatMap((section) => section.lectures)
+          .find((lecture) => lecture.key === lectureKey)
+          ?.title?.trim();
+        const existingProblem =
+          current.problems.find((problem) => problem.lectureKey === lectureKey) ??
+          createEmptyProblem(lectureKey);
+        const nextProblem = updater({
+          ...existingProblem,
+          title: existingProblem.title?.trim() || lectureTitle || '문제',
+        });
+        const hasProblem = current.problems.some((problem) => problem.lectureKey === lectureKey);
 
-      return {
-        ...current,
-        problems: hasProblem
-          ? current.problems.map((problem) =>
-              problem.lectureKey === lectureKey ? nextProblem : problem,
-            )
-          : [...current.problems, nextProblem],
-      };
-    });
-  };
+        return {
+          ...current,
+          problems: hasProblem
+            ? current.problems.map((problem) =>
+                problem.lectureKey === lectureKey ? nextProblem : problem,
+              )
+            : [...current.problems, nextProblem],
+        };
+      });
+    },
+    [updatePayload],
+  );
 
   const removeProblem = (lectureKey: string) => {
     updatePayload((current) => ({
@@ -2473,18 +2483,21 @@ const AdminProgramCreateWorkspace = ({
     }));
   };
 
-  const updateProblemQuestion = (
-    lectureKey: string,
-    questionIndex: number,
-    updater: (question: AdminProgramDraftProblemQuestion) => AdminProgramDraftProblemQuestion,
-  ) => {
-    upsertProblem(lectureKey, (problem) => ({
-      ...problem,
-      questions: problem.questions.map((question, index) =>
-        index === questionIndex ? updater(question) : question,
-      ),
-    }));
-  };
+  const updateProblemQuestion = useCallback(
+    (
+      lectureKey: string,
+      questionIndex: number,
+      updater: (question: AdminProgramDraftProblemQuestion) => AdminProgramDraftProblemQuestion,
+    ) => {
+      upsertProblem(lectureKey, (problem) => ({
+        ...problem,
+        questions: problem.questions.map((question, index) =>
+          index === questionIndex ? updater(question) : question,
+        ),
+      }));
+    },
+    [upsertProblem],
+  );
 
   const removeProblemQuestion = (lectureKey: string, questionIndex: number) => {
     const targetProblem =
@@ -3319,63 +3332,69 @@ const AdminProgramCreateWorkspace = ({
     }
   };
 
-  const pollEncodedVideoReady = async (
-    videoId: number,
-    options: {
-      onProgress?: (
-        progressPercent: number | null,
-        processingStage: AdminVideoProcessingStage | null,
-      ) => void;
-      profile?: AdminVideoEncodingProfile;
-      startIfUploaded?: boolean;
-    } = {},
-  ): Promise<number | null> => {
-    for (let attempt = 0; attempt < VIDEO_ENCODING_MAX_POLL_ATTEMPTS; attempt += 1) {
-      const status = await fetchAdminVideoStatus(videoId);
-      if (status.status === 'PROCESSING') {
-        options.onProgress?.(status.progressPercent ?? 0, status.processingStage ?? 'ENCODING');
+  const pollEncodedVideoReady = useCallback(
+    async (
+      videoId: number,
+      options: {
+        onProgress?: (
+          progressPercent: number | null,
+          processingStage: AdminVideoProcessingStage | null,
+        ) => void;
+        profile?: AdminVideoEncodingProfile;
+        startIfUploaded?: boolean;
+      } = {},
+    ): Promise<number | null> => {
+      for (let attempt = 0; attempt < VIDEO_ENCODING_MAX_POLL_ATTEMPTS; attempt += 1) {
+        const status = await fetchAdminVideoStatus(videoId);
+        if (status.status === 'PROCESSING') {
+          options.onProgress?.(status.progressPercent ?? 0, status.processingStage ?? 'ENCODING');
+        }
+        if (status.status === 'READY') {
+          options.onProgress?.(100, null);
+          return status.durationSeconds;
+        }
+        if (status.status === 'FAILED') {
+          throw new Error(status.errorMessage || '영상 인코딩에 실패했습니다.');
+        }
+        if (status.status === 'UPLOADED' && options.startIfUploaded !== false) {
+          await startAdminVideoEncoding(videoId, options.profile);
+          options.onProgress?.(status.progressPercent ?? 0, 'ENCODING');
+        }
+        if (status.status === 'UPLOADING') {
+          throw new Error('영상 인코딩이 정상적으로 시작되지 않았습니다. 다시 업로드해 주세요.');
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, VIDEO_ENCODING_POLL_INTERVAL_MS));
       }
-      if (status.status === 'READY') {
-        options.onProgress?.(100, null);
-        return status.durationSeconds;
-      }
-      if (status.status === 'FAILED') {
-        throw new Error(status.errorMessage || '영상 인코딩에 실패했습니다.');
-      }
-      if (status.status === 'UPLOADED' && options.startIfUploaded !== false) {
-        await startAdminVideoEncoding(videoId, options.profile);
-        options.onProgress?.(status.progressPercent ?? 0, 'ENCODING');
-      }
-      if (status.status === 'UPLOADING') {
-        throw new Error('영상 인코딩이 정상적으로 시작되지 않았습니다. 다시 업로드해 주세요.');
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, VIDEO_ENCODING_POLL_INTERVAL_MS));
-    }
 
-    throw new Error('영상 인코딩 확인 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
-  };
+      throw new Error('영상 인코딩 확인 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
+    },
+    [],
+  );
 
-  const pollVideoReady = async (videoId: number, lectureKey: string): Promise<number | null> => {
-    return pollEncodedVideoReady(videoId, {
-      onProgress: (progressPercent, processingStage) => {
-        setLectureVideoProgressByKey((current) => ({
-          ...current,
-          [lectureKey]: progressPercent ?? 0,
-        }));
-        setLectureVideoProcessingStageByKey((current) => {
-          if (processingStage === null) {
-            const next = { ...current };
-            delete next[lectureKey];
-            return next;
-          }
-          return {
+  const pollVideoReady = useCallback(
+    async (videoId: number, lectureKey: string): Promise<number | null> => {
+      return pollEncodedVideoReady(videoId, {
+        onProgress: (progressPercent, processingStage) => {
+          setLectureVideoProgressByKey((current) => ({
             ...current,
-            [lectureKey]: processingStage,
-          };
-        });
-      },
-    });
-  };
+            [lectureKey]: progressPercent ?? 0,
+          }));
+          setLectureVideoProcessingStageByKey((current) => {
+            if (processingStage === null) {
+              const next = { ...current };
+              delete next[lectureKey];
+              return next;
+            }
+            return {
+              ...current,
+              [lectureKey]: processingStage,
+            };
+          });
+        },
+      });
+    },
+    [pollEncodedVideoReady],
+  );
 
   const uploadAndEncodeVideo = async (
     file: File,
@@ -3508,7 +3527,7 @@ const AdminProgramCreateWorkspace = ({
         })();
       });
     });
-  }, [draftId, payload]);
+  }, [draftId, payload, persistLectureVideoUploadState, pollVideoReady, updatePayload]);
 
   useEffect(() => {
     if (draftId === null || payload === null) {
@@ -3597,7 +3616,13 @@ const AdminProgramCreateWorkspace = ({
         })();
       });
     });
-  }, [draftId, payload]);
+  }, [
+    draftId,
+    payload,
+    persistProblemQuestionMediaUploadState,
+    pollEncodedVideoReady,
+    updateProblemQuestion,
+  ]);
 
   const handleLectureVideoSelection = (lectureKey: string, file: File) => {
     const sizeLabel = `${formatFileSizeInMb(file.size)} MB`;
@@ -4846,7 +4871,7 @@ const AdminProgramCreateWorkspace = ({
                 <div className={styles['form']}>
                   <div data-draft-focus-key='basic-category'>
                     <AdminCategoryPicker
-                      helperText='가장 하위 카테고리를 선택해 주세요.'
+                      helperText='프로그램을 노출할 카테고리를 선택해 주세요.'
                       label='카테고리'
                       onChange={(nextValue) => {
                         setBasicInfoErrors((current) => ({ ...current, category: undefined }));

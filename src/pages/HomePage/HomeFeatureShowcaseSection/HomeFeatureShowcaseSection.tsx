@@ -252,9 +252,13 @@ const HomeFeatureShowcaseSection = () => {
       const introRect = introSceneElement?.getBoundingClientRect();
       const featuredCoursesRect = featuredCoursesElement?.getBoundingClientRect();
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const isStackedLayout = window.innerWidth < 960;
+      const isMobileCardStackLayout = window.innerWidth < 768;
       const stickyDistance = Math.max(rect.height - viewportHeight, 1);
-      const revealStart = viewportHeight * 0.78;
-      const revealDistance = Math.max(viewportHeight * 1.8, rect.height * 0.82);
+      const revealStart = viewportHeight * (isStackedLayout ? 0.92 : 0.78);
+      const revealDistance = isStackedLayout
+        ? Math.max(viewportHeight * 0.9, rect.height * 0.42)
+        : Math.max(viewportHeight * 1.8, rect.height * 0.82);
       const progress = clamp((revealStart - rect.top) / revealDistance);
       const cardProgress = clamp(-rect.top / stickyDistance);
       const backgroundEnterProgress = introRect
@@ -279,16 +283,33 @@ const HomeFeatureShowcaseSection = () => {
         : 0;
       const backgroundProgress = backgroundEnterProgress * (1 - backgroundExitProgress);
       const hasSettledShowcaseCopy = introRect ? introRect.bottom <= viewportHeight * 0.43 : false;
-      const copyRevealProgress = backgroundProgress === 1 && hasSettledShowcaseCopy ? 1 : 0;
+      const copyRevealProgress = isStackedLayout
+        ? easeInOutProgress(clamp((progress - 0.02) / 0.16))
+        : backgroundProgress === 1 && hasSettledShowcaseCopy
+          ? 1
+          : 0;
       const cardScrollProgress = cardProgress;
-      const cardScrollY = 54 - cardScrollProgress * 154;
+      const cardScrollY = isStackedLayout
+        ? isMobileCardStackLayout
+          ? 0
+          : 36 - cardScrollProgress * 106
+        : 54 - cardScrollProgress * 154;
+      const mobileStackPhase = isMobileCardStackLayout
+        ? clamp((cardProgress - 0.08) / 0.82) * (homeFeatureShowcaseCards.length - 1)
+        : 0;
       const nextStep = getShowcaseStep(progress);
       const currentStep = Number(showcasePanelElement.dataset['showcaseStep'] ?? 0);
       const nextBackgroundColor = getHomeBackgroundColor(backgroundProgress);
       const nextCopyOpacity =
         copyRevealProgress === 0 ? '0' : (0.25 + copyRevealProgress * 0.75).toFixed(4);
-      const copyToneProgress = easeInOutProgress(clamp((cardProgress - 0.01) / 0.07));
-      const nextCopyY = hasSettledShowcaseCopy ? '0vh' : '15vh';
+      const copyToneProgress = easeInOutProgress(
+        isStackedLayout ? clamp((progress - 0.04) / 0.18) : clamp((cardProgress - 0.01) / 0.07),
+      );
+      const nextCopyY = isStackedLayout
+        ? `${(24 * (1 - copyRevealProgress)).toFixed(2)}px`
+        : hasSettledShowcaseCopy
+          ? '0vh'
+          : '15vh';
       const nextCopyToneProgress = copyToneProgress.toFixed(4);
       const nextCardScrollY = `${cardScrollY.toFixed(2)}vh`;
       const nextFeaturedCoursesTone = backgroundExitProgress >= 0.72 ? 'light' : 'contrast';
@@ -320,6 +341,25 @@ const HomeFeatureShowcaseSection = () => {
         showcasePanelElement.style.setProperty('--showcase-card-scroll-y', nextCardScrollY);
         lastCardScrollY = nextCardScrollY;
       }
+
+      homeFeatureShowcaseCards.forEach((_, index) => {
+        const cardNumber = index + 1;
+        const enterProgress = index === 0 ? 1 : clamp(mobileStackPhase - (index - 1));
+        const leaveProgress =
+          index === homeFeatureShowcaseCards.length - 1 ? 0 : clamp(mobileStackPhase - index);
+        const stackedOffset = index * 10 * (1 - enterProgress);
+        const exitOffset = 560 * leaveProgress;
+        const opacity = 1 - clamp((leaveProgress - 0.42) / 0.28);
+
+        showcasePanelElement.style.setProperty(
+          `--showcase-mobile-card-${String(cardNumber)}-y`,
+          `${(stackedOffset - exitOffset).toFixed(2)}px`,
+        );
+        showcasePanelElement.style.setProperty(
+          `--showcase-mobile-card-${String(cardNumber)}-opacity`,
+          opacity.toFixed(4),
+        );
+      });
 
       if (featuredCoursesElement && lastFeaturedCoursesTone !== nextFeaturedCoursesTone) {
         featuredCoursesElement.dataset['introTone'] = nextFeaturedCoursesTone;

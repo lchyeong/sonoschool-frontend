@@ -24,15 +24,16 @@
 
 .sliderSection {
   --home-hero-top-gap: 0px;
-  --home-hero-bottom-gap: 50px;
-  --home-hero-aspect-ratio: 1850 / 906;
+  --home-hero-bottom-gap: 0px;
+  --home-hero-side-gap: 40px;
 
   position: relative;
   z-index: 1;
-  width: max(0px, calc(100% - 70px));
+  width: auto;
+  height: calc(100svh - var(--common-header-height, 75px) - var(--home-hero-top-gap));
   margin-top: var(--home-hero-top-gap);
-  margin-right: 35px;
-  margin-left: 35px;
+  margin-right: var(--home-hero-side-gap);
+  margin-left: var(--home-hero-side-gap);
   padding-bottom: var(--home-hero-bottom-gap);
   opacity: var(--home-hero-scroll-opacity, 1);
   transform: translate3d(0, var(--home-hero-scroll-y, 0px), 0)
@@ -46,9 +47,8 @@
 .errorSlide {
   position: relative;
   width: 100%;
-  aspect-ratio: var(--home-hero-aspect-ratio);
+  height: 100%;
   container-type: inline-size;
-  height: auto;
   overflow: hidden;
   border-radius: 40px;
 }
@@ -126,7 +126,7 @@
 
   &CopyColumn {
     position: absolute;
-    top: 53.863%;
+    bottom: clamp(120px, 18.5%, 178px);
     left: 6.216%;
     display: flex;
     flex-direction: column;
@@ -415,7 +415,7 @@
 @media (width < 1024px) {
   .lecture {
     &CopyColumn {
-      top: 52%;
+      bottom: clamp(108px, 18%, 150px);
       left: 5.4%;
       width: 50%;
     }
@@ -455,12 +455,8 @@
 @media (width < 640px) {
   .sliderSection {
     --home-hero-top-gap: 16px;
-    --home-hero-bottom-gap: 32px;
-    --home-hero-aspect-ratio: 4 / 3;
-
-    width: max(0px, calc(100% - 32px));
-    margin-right: 16px;
-    margin-left: 16px;
+    --home-hero-bottom-gap: 0px;
+    --home-hero-side-gap: 16px;
   }
 
   .slideFrame,
@@ -472,12 +468,12 @@
   .lecture {
     &Overlay {
       background:
-        linear-gradient(90deg, rgba(17, 24, 39, 0.96) 0%, rgba(17, 24, 39, 0.84) 100%),
-        linear-gradient(0deg, #111827 0%, rgba(17, 24, 39, 0.24) 100%);
+        linear-gradient(0deg, rgba(17, 24, 39, 0.94) 0%, rgba(17, 24, 39, 0.48) 100%),
+        linear-gradient(90deg, rgba(17, 24, 39, 0.72) 0%, rgba(17, 24, 39, 0.34) 100%);
     }
 
     &CopyColumn {
-      top: 18%;
+      bottom: clamp(232px, 34%, 286px);
       left: 6.8%;
       width: 86.4%;
     }
@@ -508,7 +504,24 @@
 
   .thumbnail {
     &Column {
-      display: none;
+      top: clamp(52px, 9%, 72px);
+      right: 6.8%;
+      left: 6.8%;
+      display: flex;
+      width: auto;
+      justify-content: center;
+    }
+
+    &Frame {
+      width: min(100%, 520px);
+      max-height: min(42svh, 310px);
+      aspect-ratio: 697 / 475.13;
+      border-radius: 22px;
+    }
+
+    &Image {
+      object-fit: contain;
+      background: rgba(255, 255, 255, 0.9);
     }
   }
 

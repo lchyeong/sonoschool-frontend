@@ -1249,7 +1249,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
               <div className={styles['formShell']}>
                 <div className={styles['form']}>
                   <AdminCategoryPicker
-                    helperText='프로그램 카테고리 관리와 같은 3단 구조에서 가장 하위 카테고리를 선택해 주세요.'
+                    helperText='프로그램을 노출할 카테고리를 선택해 주세요.'
                     label='카테고리'
                     onChange={(nextValue) => {
                       updateField('categoryId', nextValue);

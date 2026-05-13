@@ -1,7 +1,6 @@
 import { Fragment } from 'react';
 
 import Button from '@/components/ui/Button/Button';
-import { formatPaymentMethodLabel } from '@/types/payment';
 import type {
   AdminUserDetail,
   AdminUserDetailEnrollmentItem,
@@ -11,6 +10,7 @@ import type {
   AdminUserDetailQuestionItem,
   AdminUserDetailQuestionResultItem,
 } from '@/types/adminUsers';
+import { formatPaymentMethodLabel } from '@/types/payment';
 
 import styles from './AdminConsolePage.module.scss';
 import {

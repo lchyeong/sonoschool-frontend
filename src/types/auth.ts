@@ -81,6 +81,28 @@ export interface SmsVerifyResponse {
   verificationToken: string | null;
 }
 
+export interface FindLoginIdPayload {
+  name: string;
+  phoneNumber: string;
+}
+
+export interface FindLoginIdResponse {
+  loginId: string;
+}
+
+export interface PasswordResetSendPayload {
+  loginId: string;
+  phoneNumber: string;
+}
+
+export interface PasswordResetPayload {
+  loginId: string;
+  phoneNumber: string;
+  code: string;
+  password: string;
+  passwordConfirm: string;
+}
+
 export interface RegistrationTerm {
   code: string;
   title: string;

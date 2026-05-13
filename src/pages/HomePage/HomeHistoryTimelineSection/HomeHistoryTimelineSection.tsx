@@ -125,15 +125,31 @@ const HomeHistoryTimelineSection = () => {
       animationFrameId = 0;
 
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const isStackedLayout = window.innerWidth < 1024;
+      const isCompactLayout = window.innerWidth < 768;
       const philosophyRect = philosophyElement.getBoundingClientRect();
-      const philosophyDistance = Math.max(philosophyRect.height - viewportHeight * 0.38, 1);
-      const philosophyProgress = clamp(
-        (viewportHeight * 0.72 - philosophyRect.top) / philosophyDistance,
+      const philosophyTriggerY =
+        viewportHeight * (isCompactLayout ? 0 : isStackedLayout ? 0.18 : 0.72);
+      const philosophyDistance = Math.max(
+        philosophyRect.height -
+          viewportHeight * (isCompactLayout ? 0.56 : isStackedLayout ? 0.48 : 0.38),
+        1,
       );
-      const headingEnterProgress = getRangeProgress(philosophyProgress, 0.02, 0.18);
-      const headingExitProgress = getRangeProgress(philosophyProgress, 0.38, 0.54);
-      const copyEnterProgress = getRangeProgress(philosophyProgress, 0.42, 0.58);
-      const copyExitProgress = getRangeProgress(philosophyProgress, 0.7, 0.86);
+      const philosophyProgress = clamp(
+        (philosophyTriggerY - philosophyRect.top) / philosophyDistance,
+      );
+      const headingEnterProgress = getRangeProgress(
+        philosophyProgress,
+        0.02,
+        isCompactLayout ? 0.28 : 0.18,
+      );
+      const headingExitProgress = getRangeProgress(philosophyProgress, 0.82, 0.96);
+      const copyEnterProgress = getRangeProgress(
+        philosophyProgress,
+        isCompactLayout ? 0.34 : 0.42,
+        isCompactLayout ? 0.72 : 0.58,
+      );
+      const copyExitProgress = getRangeProgress(philosophyProgress, 0.82, 0.96);
       const backgroundEnterProgress = easeInOutProgress(
         getRangeProgress(philosophyProgress, 0.72, 0.92),
       );
@@ -146,8 +162,10 @@ const HomeHistoryTimelineSection = () => {
       const nextPhilosophyCopyOpacity = copyOpacity.toFixed(4);
       const nextPhilosophyCopyY = `${copyY.toFixed(2)}px`;
       const rect = directorPanelElement.getBoundingClientRect();
-      const revealStart = viewportHeight * 0.82;
-      const revealDistance = Math.max(viewportHeight * 2.2, rect.height * 0.94);
+      const revealStart = viewportHeight * (isStackedLayout ? 0.88 : 0.82);
+      const revealDistance = isStackedLayout
+        ? Math.max(viewportHeight * 1.05, rect.height * 0.58)
+        : Math.max(viewportHeight * 2.2, rect.height * 0.94);
       const progress = clamp((revealStart - rect.top) / revealDistance);
       const backgroundExitProgress = easeInOutProgress(getRangeProgress(progress, 0.94, 1));
       const backgroundProgress = backgroundEnterProgress * (1 - backgroundExitProgress);
@@ -238,7 +256,7 @@ const HomeHistoryTimelineSection = () => {
               <p className={styles['philosophyLead']}>선명한 스캔, 명확한 진단.</p>
               <p>
                 소노스쿨은 장은희 강사가 직접 설계한 엄격한 학습 기준과
-                <br />
+                <br className={styles['desktopLineBreak']} />
                 1:1 피드백 시스템을 모든 과정에 일관되게 적용합니다.
               </p>
               <p>기술을 넘어, 더 정확하고 안전한 초음파 문화를 만들어갑니다.</p>

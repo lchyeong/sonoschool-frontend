@@ -677,6 +677,7 @@
 
 .writerInput,
 .writerTextarea {
+  box-sizing: border-box;
   width: 100%;
   border: 1px solid #d1d5db;
   border-radius: 12px;
@@ -885,12 +886,22 @@
 
 @media (width < 960px) {
   .page {
-    width: min(100% - 40px, 1436px);
+    width: min(1436px, calc(100% - 40px));
     padding: 40px 0 96px;
   }
 
   .boardHeader {
     display: grid;
+    min-width: 0;
+  }
+
+  .writePageHeader,
+  .writerPanel,
+  .privacyNotice,
+  .privacyNoticeText,
+  .writerForm,
+  .writerActions {
+    min-width: 0;
   }
 
   .boardTitle {
@@ -899,14 +910,17 @@
 
   .boardSummary {
     font-size: 18px;
+    white-space: normal;
   }
 
   .searchForm {
     width: 100%;
+    min-width: 0;
     max-width: 584px;
   }
 
   .boardShell {
+    min-width: 0;
     margin-top: 48px;
   }
 }
@@ -918,6 +932,7 @@
 
   .filterGroup {
     flex: 1 1 100%;
+    min-width: 0;
   }
 
   .filterButton {
@@ -942,5 +957,348 @@
   .pageNavButton {
     width: 42px;
     height: 42px;
+  }
+}
+
+@media (width < 640px) {
+  .writePageDescription,
+  .privacyNoticeText {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .writerPanel {
+    margin-top: 36px;
+    padding: 20px;
+  }
+
+  .privacyNotice {
+    min-height: 0;
+    padding: 20px;
+  }
+
+  .writerLabel {
+    font-size: 18px;
+  }
+
+  .privacyNotice + .writerForm,
+  .writerInput + .writerLabel {
+    margin-top: 28px;
+  }
+
+  .writerInput {
+    height: 56px;
+    padding: 0 16px;
+  }
+
+  .writerTextarea {
+    height: 280px;
+    padding: 16px;
+  }
+
+  .writerInput,
+  .writerTextarea {
+    font-size: 16px;
+  }
+
+  .writerCounter {
+    font-size: 15px;
+  }
+
+  .privateOption {
+    font-size: 16px;
+  }
+
+  .writerActions {
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 28px;
+  }
+
+  .secondaryAction,
+  .listAction,
+  .submitWriteButton {
+    width: 100%;
+    min-width: 0;
+    height: 48px;
+    flex: 1 1 100%;
+    font-size: 16px;
+  }
+}
+
+@media (width < 420px) {
+  .page {
+    width: min(1436px, calc(100% - 32px));
+  }
+
+  .toolbar,
+  .filterGroup,
+  .searchForm,
+  .stateBox,
+  .writePageHeader,
+  .writerPanel,
+  .writerForm,
+  .writerActions {
+    min-width: 0;
+  }
+
+  .filterGroup {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .filterButton {
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  .searchForm {
+    height: 56px;
+    padding: 8px 8px 8px 18px;
+  }
+
+  .searchInput {
+    font-size: 16px;
+  }
+}
+
+/* Mobile compact Q&A board layout */
+@media (width < 860px) {
+  .tableWrap {
+    overflow-x: clip;
+  }
+
+  .boardTable {
+    min-width: 0;
+  }
+}
+
+@media (width < 720px) {
+  .page {
+    width: min(1436px, calc(100% - 32px));
+    padding: 32px 0 80px;
+  }
+
+  .boardTitle {
+    font-size: 28px;
+  }
+
+  .boardSummary {
+    margin-top: 14px;
+    font-size: 15px;
+  }
+
+  .toolbar {
+    gap: 12px;
+  }
+
+  .filterButton {
+    height: 40px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .searchForm {
+    height: 50px;
+    padding: 8px 8px 8px 16px;
+  }
+
+  .searchInput {
+    font-size: 15px;
+  }
+
+  .searchButton {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    flex-basis: 36px;
+  }
+
+  .searchIcon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .writeButton {
+    width: 100%;
+    height: 48px;
+    flex-basis: 100%;
+    justify-content: center;
+    padding: 0 18px;
+    font-size: 16px;
+  }
+
+  .boardShell {
+    gap: 32px;
+    margin-top: 32px;
+  }
+
+  .boardTable,
+  .boardTable tbody,
+  .boardTable tr,
+  .boardTable td {
+    display: block;
+    width: 100%;
+  }
+
+  .boardTable colgroup,
+  .boardTable thead {
+    display: none;
+  }
+
+  .questionRow {
+    box-sizing: border-box;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--color-gray-200);
+  }
+
+  .questionRow > td {
+    min-height: 0;
+    padding: 0 !important;
+    border-bottom: 0;
+  }
+
+  .statusCell {
+    margin-bottom: 8px;
+  }
+
+  .statusBadge {
+    min-width: 72px;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 12px;
+  }
+
+  .titleButton {
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 16px;
+    line-height: 1.45;
+  }
+
+  .privateBadge {
+    min-width: 46px;
+    height: 24px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .authorCell,
+  .dateCell {
+    margin-top: 8px;
+    color: var(--color-gray-500);
+    font-size: 13px;
+    text-align: left;
+  }
+
+  .dateCell {
+    display: flex;
+    justify-content: space-between;
+    padding-right: 0 !important;
+  }
+
+  .authorCell {
+    padding-right: 0 !important;
+  }
+
+  .detailRow > td {
+    padding: 0 0 20px !important;
+  }
+
+  .detailPanel {
+    padding: 18px;
+  }
+
+  .ownQuestionToolbar,
+  .ownQuestionActions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ownQuestionLabel {
+    font-size: 15px;
+  }
+
+  .ownQuestionActionButton {
+    min-width: 72px;
+    height: 36px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  .questionBlock,
+  .replyPanel {
+    grid-template-columns: 32px 10px minmax(0, 1fr);
+  }
+
+  .questionIcon,
+  .answerIcon {
+    width: 32px;
+    height: 32px;
+    font-size: 17px;
+  }
+
+  .questionLabel,
+  .replyAuthor,
+  .questionContent,
+  .replyBody,
+  .detailDate {
+    grid-column: 3;
+  }
+
+  .questionLabel,
+  .replyAuthor {
+    margin-top: 3px;
+    font-size: 16px;
+  }
+
+  .questionContent,
+  .replyContent,
+  .waitingText {
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .detailDate {
+    min-width: 0;
+    margin-top: 8px;
+    font-size: 12px;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .replyBadge {
+    min-width: 0;
+    min-height: 26px;
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+
+  .detailDivider {
+    margin: 22px 0;
+  }
+
+  .stateBox,
+  .emptyRow {
+    padding: 40px 16px !important;
+    font-size: 15px;
+  }
+
+  .pagination {
+    gap: 8px;
+  }
+
+  .pageButton,
+  .pageNavButton {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+  }
+
+  .pageNavIcon {
+    width: 20px;
+    height: 20px;
   }
 }

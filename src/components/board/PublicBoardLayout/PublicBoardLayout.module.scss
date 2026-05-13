@@ -422,3 +422,61 @@
     align-items: start;
   }
 }
+
+/* Mobile proportional board scale */
+@media (width < 720px) {
+  .page {
+    gap: 1rem;
+    padding: 1.5rem 1rem 3.5rem;
+  }
+
+  .hero,
+  .metricCard,
+  .sectionCard,
+  .stateSection,
+  .featuredCard,
+  .listCard,
+  .boardLink,
+  .cardLink {
+    padding: 1rem;
+  }
+
+  .title {
+    font-size: clamp(1.75rem, 8vw, 2.35rem);
+    letter-spacing: -0.02em;
+  }
+
+  .description,
+  .featuredExcerpt,
+  .itemSummary,
+  .itemMeta,
+  .ctaText,
+  .helperText {
+    font-size: 0.9rem;
+  }
+
+  .sectionTitle,
+  .panelTitle,
+  .itemTitle,
+  .stateTitle,
+  .featuredTitle {
+    font-size: clamp(1.05rem, 5vw, 1.35rem);
+    line-height: 1.25;
+  }
+
+  .heroLink,
+  .secondaryLink,
+  .actionButton {
+    min-height: 40px;
+    padding: 0 0.95rem;
+    font-size: 0.82rem;
+  }
+
+  .badge,
+  .badgeAccent,
+  .statusBadge {
+    min-height: 26px;
+    padding: 0 0.65rem;
+    font-size: 0.7rem;
+  }
+}

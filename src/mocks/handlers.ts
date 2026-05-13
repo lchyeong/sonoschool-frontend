@@ -112,6 +112,8 @@ import type { ResourceItem } from '@/types/resource';
 import type { SiteNavigationResponse } from '@/types/siteNavigation';
 import { validateQnaQuestionDraft } from '@/utils/qna';
 
+let mockedMyPagePassword = 'password123';
+
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === 'object';
 };
@@ -489,14 +491,21 @@ export const handlers = [
   http.patch('*/api/v1/users/me', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
-    if (!isRecord(body) || typeof body['nickname'] !== 'string') {
+    if (
+      !isRecord(body) ||
+      typeof body['email'] !== 'string' ||
+      (typeof body['nickname'] !== 'string' && body['nickname'] !== null)
+    ) {
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
+
+    const nickname = typeof body['nickname'] === 'string' ? body['nickname'] : null;
 
     return HttpResponse.json(
       createApiEnvelope(
         updateMockMyProfile({
-          nickname: body['nickname'],
+          email: body['email'],
+          nickname,
         }),
       ),
     );
@@ -508,10 +517,108 @@ export const handlers = [
       return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
     }
 
-    if (body['password'] !== 'password123') {
+    if (body['password'] !== mockedMyPagePassword) {
       return HttpResponse.json({ message: '비밀번호가 일치하지 않습니다.' }, { status: 401 });
     }
 
+    return HttpResponse.json(createApiEnvelope(null));
+  }),
+  http.post('*/api/v1/auth/recovery/login-id', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+    const profile = getMockMyProfile();
+
+    if (
+      !isRecord(body) ||
+      typeof body['name'] !== 'string' ||
+      typeof body['phoneNumber'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    if (
+      body['name'] !== profile.name ||
+      body['phoneNumber'].replace(/\D/g, '') !== profile.phoneNumber
+    ) {
+      return HttpResponse.json({ message: '가입 정보를 확인하지 못했습니다.' }, { status: 401 });
+    }
+
+    return HttpResponse.json(createApiEnvelope({ loginId: profile.loginId }));
+  }),
+  http.post('*/api/v1/auth/recovery/password/send', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+    const profile = getMockMyProfile();
+
+    if (
+      !isRecord(body) ||
+      typeof body['loginId'] !== 'string' ||
+      typeof body['phoneNumber'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    if (
+      body['loginId'] !== profile.loginId ||
+      body['phoneNumber'].replace(/\D/g, '') !== profile.phoneNumber
+    ) {
+      return HttpResponse.json({ message: '가입 정보를 확인하지 못했습니다.' }, { status: 401 });
+    }
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        phoneNumber: profile.phoneNumber,
+        expiresAt: new Date(Date.now() + 180_000).toISOString(),
+      }),
+    );
+  }),
+  http.post('*/api/v1/auth/recovery/password/reset', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+    const profile = getMockMyProfile();
+
+    if (
+      !isRecord(body) ||
+      typeof body['loginId'] !== 'string' ||
+      typeof body['phoneNumber'] !== 'string' ||
+      typeof body['code'] !== 'string' ||
+      typeof body['password'] !== 'string' ||
+      typeof body['passwordConfirm'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    if (
+      body['loginId'] !== profile.loginId ||
+      body['phoneNumber'].replace(/\D/g, '') !== profile.phoneNumber
+    ) {
+      return HttpResponse.json({ message: '가입 정보를 확인하지 못했습니다.' }, { status: 401 });
+    }
+
+    if (body['code'] !== '123456') {
+      return HttpResponse.json({ message: '인증번호를 확인해 주세요.' }, { status: 400 });
+    }
+
+    if (body['password'] !== body['passwordConfirm']) {
+      return HttpResponse.json({ message: '비밀번호가 일치하지 않습니다.' }, { status: 400 });
+    }
+
+    mockedMyPagePassword = body['password'];
+    return HttpResponse.json(createApiEnvelope(null));
+  }),
+  http.patch('*/api/v1/users/me/password', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (
+      !isRecord(body) ||
+      typeof body['password'] !== 'string' ||
+      typeof body['passwordConfirm'] !== 'string'
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    if (body['password'] !== body['passwordConfirm']) {
+      return HttpResponse.json({ message: '비밀번호가 일치하지 않습니다.' }, { status: 400 });
+    }
+
+    mockedMyPagePassword = body['password'];
     return HttpResponse.json(createApiEnvelope(null));
   }),
   http.post('*/api/v1/users/me/phone/send', async ({ request }) => {

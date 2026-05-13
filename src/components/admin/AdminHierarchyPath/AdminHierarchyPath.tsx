@@ -21,7 +21,7 @@ const AdminHierarchyPath = ({ path, className }: AdminHierarchyPathProps) => {
   return (
     <span className={classNames(styles['path'], className)}>
       {segments.map((segment, index) => (
-        <span className={styles['segmentGroup']} key={`${segment}-${index}`}>
+        <span className={styles['segmentGroup']} key={`${segment}-${String(index)}`}>
           {index > 0 ? (
             <img alt='' aria-hidden='true' className={styles['arrow']} src={rightArrowIconSrc} />
           ) : null}

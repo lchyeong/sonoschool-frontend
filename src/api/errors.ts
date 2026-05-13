@@ -99,6 +99,14 @@ const resolveFriendlyApiErrorMessage = (
     return '로그인 정보가 만료되었습니다. 다시 로그인해 주세요.';
   }
 
+  if (code === 'AUTH_401' && serverMessage === 'Invalid username or password.') {
+    return '아이디 및 비밀번호를 확인해주세요.';
+  }
+
+  if (code === 'AUTH_429_SMS_SEND') {
+    return '인증번호는 3분에 한 번만 요청할 수 있습니다. 잠시 후 다시 시도해 주세요.';
+  }
+
   if (code === 'VIDEO_502_WORKER_DISPATCH') {
     return '영상 인코딩 서버에 연결하지 못했습니다. 인코딩 워커 실행 상태를 확인한 뒤 다시 시도해 주세요.';
   }

@@ -1,4 +1,5 @@
 .section {
+  --featured-courses-heading-offset: 18px;
   --featured-courses-heading-opacity: 0;
 
   position: relative;
@@ -77,6 +78,7 @@
 
 .courseGrid,
 .carouselViewport,
+.mobileCourseCarousel,
 .carouselControls,
 .statusPanel {
   position: relative;
@@ -119,6 +121,10 @@
   align-items: center;
   justify-content: center;
   margin-top: 46px;
+}
+
+.mobileCourseCarousel {
+  display: none;
 }
 
 .cardLink {
@@ -289,6 +295,48 @@
   }
 }
 
+@media (width < 900px) {
+  .section {
+    padding-top: 132px;
+    padding-bottom: 240px;
+  }
+
+  .inner {
+    width: min(100%, calc(100% - 40px));
+  }
+
+  .headingBlock {
+    gap: 18px;
+    transform: translate3d(0, var(--featured-courses-heading-offset), 0);
+    transition:
+      opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+
+  .heading {
+    max-width: 100%;
+    font-size: 46px;
+    line-height: 1.32;
+    white-space: normal;
+  }
+
+  .description,
+  .supportText {
+    max-width: 660px;
+    font-size: 20px;
+    line-height: 1.55;
+  }
+
+  .supportText {
+    margin-top: 4px;
+  }
+
+  .carouselViewport {
+    margin-top: 56px;
+  }
+}
+
 @media (width < 768px) {
   .section {
     padding-top: 96px;
@@ -300,14 +348,101 @@
   }
 
   .heading {
-    font-size: 42px;
-    white-space: normal;
+    font-size: 36px;
+    line-height: 1.35;
+  }
+
+  .description,
+  .supportText {
+    max-width: 100%;
+    font-size: 17px;
   }
 
   .courseGrid,
   .carouselPageGrid {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+
+  .carouselViewport,
+  .carouselControls {
+    display: none;
+  }
+
+  .mobileCourseCarousel {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    gap: 10px;
+    align-items: center;
+    margin-top: 44px;
+  }
+
+  .mobileCourseArrowButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid rgb(255 255 255 / 0.7);
+    border-radius: 999px;
+    color: #ffffff;
+    background: rgb(17 24 39 / 0.16);
+    font-family: Pretendard, var(--font-family-base);
+    font-size: 20px;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+  }
+
+  .mobileCourseArrowButton:disabled {
+    border-color: rgb(255 255 255 / 0.26);
+    color: rgb(255 255 255 / 0.34);
+    background: rgb(17 24 39 / 0.08);
+  }
+
+  .mobileCourseViewport {
+    overflow: hidden;
+    border-radius: 20px;
+  }
+
+  .mobileCourseTrack {
+    display: flex;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .mobileCourseSlide {
+    flex: 0 0 100%;
+    min-width: 0;
+  }
+
+  .mobileCourseSlide .courseCard {
+    min-height: 330px;
+    border-radius: 20px;
+  }
+
+  .mobileCourseSlide .courseImageFrame {
+    border-radius: 20px 20px 0 0;
+  }
+
+  .mobileCourseSlide .courseBody {
+    min-height: 168px;
+    padding: 20px;
+  }
+
+  .mobileCourseSlide .courseTitle {
+    font-size: 20px;
+  }
+
+  .mobileCourseSlide .courseDescription {
+    font-size: var(--font-size-base);
+  }
+
+  .mobileCourseSlide .coursePrice {
+    font-size: 18px;
   }
 
   .carouselControls {
@@ -341,10 +476,82 @@
 
 @media (prefers-reduced-motion: reduce) {
   .section {
+    --featured-courses-heading-offset: 0px;
     --featured-courses-heading-opacity: 1;
   }
 
   .headingBlock {
+    transform: none;
     transition: none;
+  }
+}
+
+/* Mobile proportional course scale */
+@media (width < 768px) {
+  .section {
+    padding-top: 72px;
+    padding-bottom: 142px;
+  }
+
+  .headingBlock {
+    gap: 0;
+  }
+
+  .heading {
+    font-size: clamp(28px, 7.2vw, 34px);
+    line-height: 1.32;
+  }
+
+  .description,
+  .supportText {
+    max-width: min(100%, 520px);
+    font-size: clamp(15px, 4vw, 18px);
+    line-height: 1.72;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .description {
+    margin-top: 28px;
+  }
+
+  .description br {
+    display: none;
+  }
+
+  .supportText {
+    margin-top: 34px;
+  }
+
+  .mobileCourseCarousel {
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    margin-top: 48px;
+  }
+
+  .mobileCourseArrowButton {
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
+  }
+
+  .mobileCourseSlide .courseCard {
+    min-height: 300px;
+  }
+
+  .mobileCourseSlide .courseBody {
+    min-height: 150px;
+    padding: 18px;
+  }
+
+  .mobileCourseSlide .courseTitle {
+    font-size: 18px;
+  }
+
+  .mobileCourseSlide .courseDescription {
+    font-size: 14px;
+  }
+
+  .mobileCourseSlide .coursePrice {
+    font-size: 16px;
   }
 }
