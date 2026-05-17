@@ -13,6 +13,8 @@ import type {
   ProgramReviewItem,
 } from '@/types/programCatalog';
 import { classNames } from '@/utils/classNames';
+import { getProgramImageCropStyle } from '@/utils/programImageCrop';
+import { sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
 
 import styles from './ProgramPageDetail.module.scss';
 import {
@@ -498,11 +500,22 @@ const CurriculumWeekRow = ({
 
 export const ProgramPageDetailHero = ({ data, heroInfoPills }: ProgramPageDetailHeroProps) => {
   const breadcrumbItems = getDisplayBreadcrumbItems(data);
+  const heroImageSrc = sanitizeRequiredPublicAssetUrl(data.heroImageSrc, sampleBannerSrc);
+  const heroImageCropStyle = getProgramImageCropStyle({
+    offsetX: data.heroImageCropOffsetX,
+    offsetY: data.heroImageCropOffsetY,
+    zoom: data.heroImageCropZoom,
+  });
 
   return (
     <section className={styles['heroSection']}>
       <div className={styles['heroBackground']}>
-        <img alt='' className={styles['heroBackgroundImage']} src={sampleBannerSrc} />
+        <img
+          alt=''
+          className={styles['heroBackgroundImage']}
+          src={heroImageSrc}
+          style={heroImageCropStyle}
+        />
         <div aria-hidden='true' className={styles['heroBackgroundOverlay']} />
       </div>
 

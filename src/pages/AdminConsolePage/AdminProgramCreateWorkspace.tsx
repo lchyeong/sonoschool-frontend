@@ -86,6 +86,7 @@ import {
   formatMonthLabel,
   toMonthValue,
 } from '@/utils/practicumCalendar';
+import { isUnsafeStorageAssetUrl } from '@/utils/publicAssetUrl';
 
 import styles from './AdminConsolePage.module.scss';
 import {
@@ -567,68 +568,103 @@ const mergeServerUploadStateIntoSnapshot = (
     serverPayload.resources.map((resource) => [resource.key, resource]),
   );
 
-  return {
-    ...snapshotPayload,
-    problems: snapshotPayload.problems.map((problem) => {
-      const serverProblem = serverProblemsByLectureKey.get(problem.lectureKey);
-      if (!serverProblem) {
-        return problem;
-      }
-
-      return {
-        ...problem,
-        questions: problem.questions.map((question, index) => {
-          const serverQuestion = serverProblem.questions[index];
-          if (!serverQuestion) {
-            return question;
-          }
-
-          return {
-            ...question,
-            mediaAssetId: serverQuestion.mediaAssetId,
-            mediaUploadErrorMessage: serverQuestion.mediaUploadErrorMessage,
-            mediaUploadFileName: serverQuestion.mediaUploadFileName,
-            mediaUploadStatus: serverQuestion.mediaUploadStatus,
-            mediaUrl: serverQuestion.mediaUrl,
-            mediaVideoId: serverQuestion.mediaVideoId,
-          };
-        }),
-      };
-    }),
-    resources: snapshotPayload.resources.map((resource) => {
-      const serverResource = serverResourcesByKey.get(resource.key);
-      if (!serverResource) {
-        return resource;
-      }
-
-      return {
-        ...resource,
-        fileName: serverResource.fileName,
-        fileSize: serverResource.fileSize,
-        fileUrl: serverResource.fileUrl,
-        mimeType: serverResource.mimeType,
-        uploadErrorMessage: serverResource.uploadErrorMessage,
-        uploadStatus: serverResource.uploadStatus,
-      };
-    }),
-    sections: snapshotPayload.sections.map((section) => ({
-      ...section,
-      lectures: section.lectures.map((lecture) => {
-        const serverLecture = serverLecturesByKey.get(lecture.key);
-        if (!serverLecture) {
-          return lecture;
+  return mergeServerThumbnailPreview(
+    {
+      ...snapshotPayload,
+      problems: snapshotPayload.problems.map((problem) => {
+        const serverProblem = serverProblemsByLectureKey.get(problem.lectureKey);
+        if (!serverProblem) {
+          return problem;
         }
 
         return {
-          ...lecture,
-          durationSeconds: serverLecture.durationSeconds,
-          videoId: serverLecture.videoId,
-          videoUploadErrorMessage: serverLecture.videoUploadErrorMessage,
-          videoUploadFileName: serverLecture.videoUploadFileName,
-          videoUploadStatus: serverLecture.videoUploadStatus,
+          ...problem,
+          questions: problem.questions.map((question, index) => {
+            const serverQuestion = serverProblem.questions[index];
+            if (!serverQuestion) {
+              return question;
+            }
+
+            return {
+              ...question,
+              mediaAssetId: serverQuestion.mediaAssetId,
+              mediaUploadErrorMessage: serverQuestion.mediaUploadErrorMessage,
+              mediaUploadFileName: serverQuestion.mediaUploadFileName,
+              mediaUploadStatus: serverQuestion.mediaUploadStatus,
+              mediaUrl: serverQuestion.mediaUrl,
+              mediaVideoId: serverQuestion.mediaVideoId,
+            };
+          }),
         };
       }),
-    })),
+      resources: snapshotPayload.resources.map((resource) => {
+        const serverResource = serverResourcesByKey.get(resource.key);
+        if (!serverResource) {
+          return resource;
+        }
+
+        return {
+          ...resource,
+          fileName: serverResource.fileName,
+          fileSize: serverResource.fileSize,
+          fileUrl: serverResource.fileUrl,
+          mimeType: serverResource.mimeType,
+          uploadErrorMessage: serverResource.uploadErrorMessage,
+          uploadStatus: serverResource.uploadStatus,
+        };
+      }),
+      sections: snapshotPayload.sections.map((section) => ({
+        ...section,
+        lectures: section.lectures.map((lecture) => {
+          const serverLecture = serverLecturesByKey.get(lecture.key);
+          if (!serverLecture) {
+            return lecture;
+          }
+
+          return {
+            ...lecture,
+            durationSeconds: serverLecture.durationSeconds,
+            videoId: serverLecture.videoId,
+            videoUploadErrorMessage: serverLecture.videoUploadErrorMessage,
+            videoUploadFileName: serverLecture.videoUploadFileName,
+            videoUploadStatus: serverLecture.videoUploadStatus,
+          };
+        }),
+      })),
+    },
+    serverPayload,
+  );
+};
+
+const mergeServerThumbnailPreview = (
+  targetPayload: AdminProgramDraftPayload,
+  serverPayload: AdminProgramDraftPayload,
+): AdminProgramDraftPayload => {
+  const serverThumbnailPreviewUrl = serverPayload.basicInfo.thumbnailPreviewUrl;
+
+  if (!serverThumbnailPreviewUrl) {
+    return targetPayload;
+  }
+
+  const targetThumbnailUrl = targetPayload.basicInfo.thumbnailUrl;
+  const serverThumbnailUrl = serverPayload.basicInfo.thumbnailUrl;
+  const targetThumbnailPreviewUrl = targetPayload.basicInfo.thumbnailPreviewUrl;
+  const shouldUseServerPreview =
+    targetThumbnailUrl === serverThumbnailUrl ||
+    !targetThumbnailPreviewUrl ||
+    isUnsafeStorageAssetUrl(targetThumbnailPreviewUrl);
+
+  if (!shouldUseServerPreview) {
+    return targetPayload;
+  }
+
+  return {
+    ...targetPayload,
+    basicInfo: {
+      ...targetPayload.basicInfo,
+      thumbnailPreviewUrl: serverThumbnailPreviewUrl,
+      thumbnailUrl: serverThumbnailUrl ?? targetThumbnailUrl,
+    },
   };
 };
 
@@ -1596,11 +1632,21 @@ const AdminProgramCreateWorkspace = ({
       });
     },
     onSuccess: (detail, variables) => {
-      const savedPayload = normalizeDraftPayloadShape(variables.nextPayload);
+      const serverPayload = normalizePayloadFromDetail(detail);
+      const savedPayload = mergeServerThumbnailPreview(
+        normalizeDraftPayloadShape(variables.nextPayload),
+        serverPayload,
+      );
       const savedSerializedPayload = JSON.stringify(savedPayload);
       lastSavedPayloadRef.current = savedSerializedPayload;
       setLastSavedAt(detail.updatedAt);
-      const latestPayload = currentPayloadRef.current;
+      const latestPayload = currentPayloadRef.current
+        ? mergeServerThumbnailPreview(currentPayloadRef.current, serverPayload)
+        : null;
+      if (latestPayload) {
+        currentPayloadRef.current = latestPayload;
+        setPayload(latestPayload);
+      }
       const latestSerializedPayload = latestPayload
         ? JSON.stringify(latestPayload)
         : lastSavedPayloadRef.current;

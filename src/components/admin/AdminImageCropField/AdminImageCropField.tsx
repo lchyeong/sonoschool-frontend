@@ -1,15 +1,50 @@
-import { useRef, type PointerEvent } from 'react';
+import { useId, useRef, type CSSProperties, type PointerEvent } from 'react';
 
 import Button from '@/components/ui/Button/Button';
 import { classNames } from '@/utils/classNames';
 
 import styles from './AdminImageCropField.module.scss';
 import {
+  ADMIN_IMAGE_CROP_MAX_ZOOM,
+  ADMIN_IMAGE_CROP_MIN_ZOOM,
   DEFAULT_ADMIN_IMAGE_CROP,
   getAdminImageCropObjectStyle,
   normalizeAdminImageCrop,
   type AdminImageCropValue,
 } from './AdminImageCropField.utils';
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(max, Math.max(min, value));
+};
+
+const createRangeProgressStyle = (value: number, min: number, max: number) => {
+  const progress = ((clamp(value, min, max) - min) / (max - min)) * 100;
+
+  return {
+    '--range-start': '0%',
+    '--range-end': `${String(progress)}%`,
+  } as CSSProperties;
+};
+
+const toZoomSliderValue = (zoom: number) => {
+  const nextZoom = clamp(zoom, ADMIN_IMAGE_CROP_MIN_ZOOM, ADMIN_IMAGE_CROP_MAX_ZOOM);
+
+  if (nextZoom >= 1) {
+    return ((nextZoom - 1) / (ADMIN_IMAGE_CROP_MAX_ZOOM - 1)) * 100;
+  }
+
+  return -((1 - nextZoom) / (1 - ADMIN_IMAGE_CROP_MIN_ZOOM)) * 100;
+};
+
+const toZoomValue = (sliderValue: number) => {
+  const nextSliderValue = clamp(sliderValue, -100, 100);
+
+  if (nextSliderValue >= 0) {
+    return 1 + (nextSliderValue / 100) * (ADMIN_IMAGE_CROP_MAX_ZOOM - 1);
+  }
+
+  return 1 + (nextSliderValue / 100) * (1 - ADMIN_IMAGE_CROP_MIN_ZOOM);
+};
 
 interface AdminImageCropFieldProps {
   accept: string;
@@ -38,6 +73,7 @@ const AdminImageCropField = ({
   onSelectFile,
   value,
 }: AdminImageCropFieldProps) => {
+  const fieldId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dragStateRef = useRef<{
     crop: AdminImageCropValue;
@@ -51,6 +87,11 @@ const AdminImageCropField = ({
   const updateCrop = (partial: Partial<AdminImageCropValue>) => {
     onChange(normalizeAdminImageCrop({ ...crop, ...partial }));
   };
+
+  const zoomInputId = `${fieldId}-zoom`;
+  const offsetXInputId = `${fieldId}-offset-x`;
+  const offsetYInputId = `${fieldId}-offset-y`;
+  const zoomSliderValue = toZoomSliderValue(crop.zoom);
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (disabled || !hasImage) {
@@ -150,32 +191,74 @@ const AdminImageCropField = ({
 
         {fileCaption ? <p className={styles['caption']}>{fileCaption}</p> : null}
 
-        <div className={styles['zoomControls']} aria-label={`${label} 확대 조정`}>
-          <button
-            aria-label='축소'
-            className={styles['zoomButton']}
-            disabled={disabled || !hasImage || crop.zoom <= 1}
-            onClick={() => {
-              updateCrop({ zoom: crop.zoom - 0.1 });
-            }}
-            type='button'
-          >
-            -
-          </button>
-          <output className={styles['zoomValue']} aria-label='확대 배율'>
-            {Math.round(crop.zoom * 100)}%
-          </output>
-          <button
-            aria-label='확대'
-            className={styles['zoomButton']}
-            disabled={disabled || !hasImage || crop.zoom >= 3}
-            onClick={() => {
-              updateCrop({ zoom: crop.zoom + 0.1 });
-            }}
-            type='button'
-          >
-            +
-          </button>
+        <div className={styles['rangeControlGroup']}>
+          <div className={styles['rangeControl']}>
+            <div className={styles['rangeLabelRow']}>
+              <label className={styles['rangeLabel']} htmlFor={zoomInputId}>
+                확대/축소
+              </label>
+            </div>
+            <input
+              className={styles['rangeInput']}
+              disabled={disabled || !hasImage}
+              id={zoomInputId}
+              max='100'
+              min='-100'
+              onChange={(event) => {
+                updateCrop({ zoom: toZoomValue(Number(event.target.value)) });
+              }}
+              step='1'
+              style={createRangeProgressStyle(zoomSliderValue, -100, 100)}
+              type='range'
+              value={zoomSliderValue}
+            />
+          </div>
+
+          <div className={styles['rangeGrid']}>
+            <div className={styles['rangeControl']}>
+              <div className={styles['rangeLabelRow']}>
+                <label className={styles['rangeLabel']} htmlFor={offsetXInputId}>
+                  가로 위치
+                </label>
+              </div>
+              <input
+                className={styles['rangeInput']}
+                disabled={disabled || !hasImage}
+                id={offsetXInputId}
+                max='100'
+                min='-100'
+                onChange={(event) => {
+                  updateCrop({ offsetX: Number(event.target.value) });
+                }}
+                step='1'
+                style={createRangeProgressStyle(crop.offsetX, -100, 100)}
+                type='range'
+                value={crop.offsetX}
+              />
+            </div>
+
+            <div className={styles['rangeControl']}>
+              <div className={styles['rangeLabelRow']}>
+                <label className={styles['rangeLabel']} htmlFor={offsetYInputId}>
+                  세로 위치
+                </label>
+              </div>
+              <input
+                className={styles['rangeInput']}
+                disabled={disabled || !hasImage}
+                id={offsetYInputId}
+                max='100'
+                min='-100'
+                onChange={(event) => {
+                  updateCrop({ offsetY: Number(event.target.value) });
+                }}
+                step='1'
+                style={createRangeProgressStyle(crop.offsetY, -100, 100)}
+                type='range'
+                value={crop.offsetY}
+              />
+            </div>
+          </div>
         </div>
 
         <div className={styles['actions']}>

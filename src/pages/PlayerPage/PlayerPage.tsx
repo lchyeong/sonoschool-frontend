@@ -3820,7 +3820,12 @@ const PlayerPage = () => {
                                     </span>
                                   </div>
                                   <div className={styles['playerSecondaryControls']}>
-                                    <div className={styles['settingsAnchor']}>
+                                    <div
+                                      className={classNames(
+                                        styles['settingsAnchor'],
+                                        styles['speedSettingsAnchor'],
+                                      )}
+                                    >
                                       <button
                                         aria-expanded={activeSettingsPanel === 'speed'}
                                         aria-haspopup='dialog'
@@ -3866,7 +3871,12 @@ const PlayerPage = () => {
                                         </div>
                                       ) : null}
                                     </div>
-                                    <div className={styles['settingsAnchor']}>
+                                    <div
+                                      className={classNames(
+                                        styles['settingsAnchor'],
+                                        styles['qualitySettingsAnchor'],
+                                      )}
+                                    >
                                       <button
                                         aria-expanded={activeSettingsPanel === 'quality'}
                                         aria-haspopup='dialog'
@@ -3914,8 +3924,12 @@ const PlayerPage = () => {
                                     </div>
                                     <button
                                       aria-label='전체화면'
-                                      className={styles['playerIconButton']}
+                                      className={classNames(
+                                        styles['playerIconButton'],
+                                        styles['playerFullscreenButton'],
+                                      )}
                                       onClick={togglePlayerFullscreen}
+                                      title='전체화면'
                                       type='button'
                                     >
                                       <span

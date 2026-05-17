@@ -51,6 +51,9 @@ export interface ProgramLectureCard {
   tags?: string[] | undefined;
   thumbnailSrc: string;
   thumbnailAlt: string;
+  thumbnailCropOffsetX?: number | null | undefined;
+  thumbnailCropOffsetY?: number | null | undefined;
+  thumbnailCropZoom?: number | null | undefined;
 }
 
 export interface ProgramCollectionPageResponse {
@@ -159,6 +162,9 @@ export interface ProgramDetailPageResponse {
   kicker: string;
   heroImageSrc: string;
   heroImageAlt: string;
+  heroImageCropOffsetX?: number | null | undefined;
+  heroImageCropOffsetY?: number | null | undefined;
+  heroImageCropZoom?: number | null | undefined;
   breadcrumbItems: ProgramBreadcrumbItem[];
   categoryLabel: string;
   formatLabel: string;

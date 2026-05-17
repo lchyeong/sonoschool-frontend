@@ -234,7 +234,8 @@
 
 .directorImageWrap {
   position: absolute;
-  top: calc(50% - var(--director-image-top-offset));
+  top: auto;
+  bottom: 0;
   left: calc(50% + var(--director-image-group-left));
   z-index: 1;
   width: var(--director-ellipse-width);
@@ -336,7 +337,7 @@
 
   .directorImageWrap {
     position: absolute;
-    inset: auto -5% -4% auto;
+    inset: auto -5% 0 auto;
     width: min(54%, 430px);
     height: auto;
     aspect-ratio: 548 / 730;
@@ -415,7 +416,7 @@
 
   .directorImageWrap {
     right: -14%;
-    bottom: -11%;
+    bottom: 0;
     width: min(88vw, 420px);
     height: auto;
     aspect-ratio: 470 / 627;

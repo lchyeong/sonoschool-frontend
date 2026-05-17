@@ -19,7 +19,11 @@ const HomeNoticeSection = () => {
   const items = (noticesQuery.data ?? []).slice(0, 4);
 
   return (
-    <section aria-labelledby='home-notice-heading' className={styles['section']}>
+    <section
+      aria-labelledby='home-notice-heading'
+      className={styles['section']}
+      data-home-notice-section='true'
+    >
       <div className={styles['inner']}>
         <div className={styles['layout']}>
           <div className={styles['header']}>

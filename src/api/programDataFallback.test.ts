@@ -50,6 +50,72 @@ describe('program data API fallback', () => {
     await expect(fetchProgramPage('/programs/unknown-course')).rejects.toBe(error);
   });
 
+  it('prefers admin thumbnail URL fields over default collection card images', async () => {
+    httpGetMock.mockResolvedValue({
+      breadcrumbItems: [{ label: '교육과정', to: '/programs' }],
+      childCollections: [
+        {
+          coverImageAlt: '소아과정 대표 이미지',
+          coverImageSrc: '/SRDMS_OG.png',
+          description: '소아과정 목록',
+          formatLabels: ['오프라인 과정'],
+          id: 'category-1',
+          lectureCount: 1,
+          thumbnailPreviewUrl: 'https://media.newzest.xyz/assets/programs/category.png',
+          title: '소아과정',
+          to: '/programs/general-course/pediatric-course',
+        },
+      ],
+      curatorNote: '실제 모집 중인 과정입니다.',
+      description: '일반과정 목록입니다.',
+      heroImageAlt: '일반과정 대표 이미지',
+      heroImageSrc: '/SRDMS_OG.png',
+      instructor: {
+        careerHighlights: ['실제 모집 과정 중심'],
+        headline: '소노스쿨 강의',
+        introduction: '실제 개설된 강의입니다.',
+        name: '소노스쿨',
+        profileImageAlt: '소노스쿨 프로필 이미지',
+        profileImageSrc: '/SRDMS_OG.png',
+      },
+      kicker: '교육과정',
+      lectures: [
+        {
+          categoryLabel: '소아과정',
+          difficultyLabel: '입문',
+          durationLabel: '2026.05.01 - 2027.01.31',
+          formatLabel: '오프라인 과정',
+          id: 'program-1',
+          priceLabel: '1,980,000원',
+          scheduleLabel: '2026.05.01 - 2027.01.01',
+          summary: '소아 초음파 정규과정입니다.',
+          thumbnailAlt: '소아 초음파 정규과정 썸네일',
+          thumbnailSrc: '/SRDMS_OG.png',
+          thumbnailPreviewUrl: 'https://media.newzest.xyz/assets/programs/program.png',
+          thumbnailUrl: 's3://sonoschool-prod-media/assets/programs/thumbnails/program.png',
+          title: '소아 초음파 정규과정',
+          to: '/programs/general-course/pediatric-course/course-1',
+        },
+      ],
+      pageKind: 'collection',
+      stats: [{ label: '모집 중 과정', value: '1개' }],
+      title: '일반과정',
+    });
+
+    await expect(fetchProgramPage('/programs/general-course')).resolves.toMatchObject({
+      childCollections: [
+        {
+          coverImageSrc: 'https://media.newzest.xyz/assets/programs/category.png',
+        },
+      ],
+      lectures: [
+        {
+          thumbnailSrc: 'https://media.newzest.xyz/assets/programs/program.png',
+        },
+      ],
+    });
+  });
+
   it('keeps rejecting when the navigation API fails', async () => {
     const error = new Error('navigation failed');
 
@@ -128,6 +194,36 @@ describe('program data API fallback', () => {
     httpGetMock.mockRejectedValue(error);
 
     await expect(fetchProgramSearchIndex()).rejects.toBe(error);
+  });
+
+  it('prefers admin thumbnail preview URLs in the search index', async () => {
+    httpGetMock.mockResolvedValue({
+      items: [
+        {
+          programId: 4,
+          categoryId: 4,
+          categoryName: 'gdfdg',
+          categorySlug: 'gdfdg',
+          title: 'ㅎㅇ 복제본',
+          slug: 'course-e690949bf964',
+          description: 'ㅎㅇ',
+          thumbnailPreviewUrl: 'https://media.newzest.xyz/assets/programs/thumbnails/Frame_511.png',
+          thumbnailUrl:
+            's3://sonoschool-prod-media/assets/programs/thumbnails/27bf3759/Frame_511.png',
+          instructorName: null,
+          catalogStatus: 'OPEN',
+          detailPath: '/programs/doctor-course/gdfdg/course-e690949bf964',
+        },
+      ],
+    });
+
+    await expect(fetchProgramSearchIndex()).resolves.toMatchObject({
+      items: [
+        {
+          thumbnailSrc: 'https://media.newzest.xyz/assets/programs/thumbnails/Frame_511.png',
+        },
+      ],
+    });
   });
 
   it('hides home hero response validation details behind a friendly message', async () => {

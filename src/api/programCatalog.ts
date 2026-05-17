@@ -7,7 +7,7 @@ import type {
   ProgramPageResponse,
   ProgramsOverviewResponse,
 } from '@/types/programCatalog';
-import { sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
+import { sanitizePublicAssetUrl, sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
 
 const DEFAULT_PROGRAM_IMAGE = '/SRDMS_OG.png';
 
@@ -15,6 +15,22 @@ const publicImageSchema = z
   .string()
   .min(1)
   .transform((value) => sanitizeRequiredPublicAssetUrl(value, DEFAULT_PROGRAM_IMAGE));
+
+const optionalPublicImageSchema = z.string().min(1).nullable().optional();
+const optionalCropValueSchema = z.number().nullable().optional();
+
+const resolvePreferredProgramImageSrc = (...values: Array<string | null | undefined>): string => {
+  const sanitizedValues = values
+    .map((value) => sanitizePublicAssetUrl(value))
+    .filter((value): value is string => Boolean(value));
+  const preferredValue = sanitizedValues.find((value) => value !== DEFAULT_PROGRAM_IMAGE);
+
+  if (preferredValue) {
+    return preferredValue;
+  }
+
+  return sanitizedValues.length > 0 ? sanitizedValues[0] : DEFAULT_PROGRAM_IMAGE;
+};
 
 const programStatSchema = z.object({
   label: z.string().min(1),
@@ -35,38 +51,61 @@ const instructorSchema = z.object({
   profileImageSrc: publicImageSchema,
 });
 
-const lectureCardSchema = z.object({
-  categoryLabel: z.string().min(1),
-  difficultyLabel: z.string().min(1),
-  durationLabel: z.string().min(1),
-  formatLabel: z.string().min(1),
-  id: z.string().min(1),
-  programId: z.number().int().positive().optional(),
-  priceLabel: z.string().min(1),
-  originalPriceLabel: z.string().min(1).optional(),
-  discountRateLabel: z.string().min(1).optional(),
-  discountedPriceLabel: z.string().min(1).optional(),
-  remainingSeatsCount: z.number().int().nonnegative().optional(),
-  remainingSeatsLabel: z.string().min(1).optional(),
-  catalogStatus: z.enum(['OPEN', 'SCHEDULED', 'STARTED', 'CLOSED', 'ENDED', 'FULL']).optional(),
-  scheduleLabel: z.string().min(1),
-  summary: z.string().min(1),
-  thumbnailAlt: z.string().min(1),
-  thumbnailSrc: publicImageSchema,
-  title: z.string().min(1),
-  to: z.string().min(1),
-});
+const lectureCardSchema = z
+  .object({
+    categoryLabel: z.string().min(1),
+    difficultyLabel: z.string().min(1),
+    durationLabel: z.string().min(1),
+    formatLabel: z.string().min(1),
+    id: z.string().min(1),
+    programId: z.number().int().positive().optional(),
+    priceLabel: z.string().min(1),
+    originalPriceLabel: z.string().min(1).optional(),
+    discountRateLabel: z.string().min(1).optional(),
+    discountedPriceLabel: z.string().min(1).optional(),
+    remainingSeatsCount: z.number().int().nonnegative().optional(),
+    remainingSeatsLabel: z.string().min(1).optional(),
+    catalogStatus: z.enum(['OPEN', 'SCHEDULED', 'STARTED', 'CLOSED', 'ENDED', 'FULL']).optional(),
+    scheduleLabel: z.string().min(1),
+    summary: z.string().min(1),
+    thumbnailAlt: z.string().min(1),
+    thumbnailCropOffsetX: optionalCropValueSchema,
+    thumbnailCropOffsetY: optionalCropValueSchema,
+    thumbnailCropZoom: optionalCropValueSchema,
+    thumbnailPreviewUrl: optionalPublicImageSchema,
+    thumbnailSrc: optionalPublicImageSchema,
+    thumbnailUrl: optionalPublicImageSchema,
+    title: z.string().min(1),
+    to: z.string().min(1),
+  })
+  .transform(({ thumbnailPreviewUrl, thumbnailSrc, thumbnailUrl, ...item }) => ({
+    ...item,
+    thumbnailSrc: resolvePreferredProgramImageSrc(thumbnailPreviewUrl, thumbnailUrl, thumbnailSrc),
+  }));
 
-const collectionCardSchema = z.object({
-  coverImageAlt: z.string().min(1),
-  coverImageSrc: publicImageSchema,
-  description: z.string().min(1),
-  formatLabels: z.array(z.string().trim().min(1)).max(4),
-  id: z.string().min(1),
-  lectureCount: z.number().int().nonnegative(),
-  title: z.string().min(1),
-  to: z.string().min(1),
-});
+const collectionCardSchema = z
+  .object({
+    coverImageAlt: z.string().min(1),
+    coverImageSrc: optionalPublicImageSchema,
+    coverImageUrl: optionalPublicImageSchema,
+    description: z.string().min(1),
+    formatLabels: z.array(z.string().trim().min(1)).max(4),
+    id: z.string().min(1),
+    lectureCount: z.number().int().nonnegative(),
+    thumbnailPreviewUrl: optionalPublicImageSchema,
+    thumbnailUrl: optionalPublicImageSchema,
+    title: z.string().min(1),
+    to: z.string().min(1),
+  })
+  .transform(({ coverImageSrc, coverImageUrl, thumbnailPreviewUrl, thumbnailUrl, ...item }) => ({
+    ...item,
+    coverImageSrc: resolvePreferredProgramImageSrc(
+      coverImageUrl,
+      thumbnailPreviewUrl,
+      thumbnailUrl,
+      coverImageSrc,
+    ),
+  }));
 
 const infoItemSchema = z.object({
   label: z.string().min(1),
@@ -176,6 +215,9 @@ const programDetailPageResponseSchema = z.object({
   qnaSummary: qnaSummarySchema.optional(),
   formatLabel: z.string().min(1),
   heroImageAlt: z.string().min(1),
+  heroImageCropOffsetX: optionalCropValueSchema,
+  heroImageCropOffsetY: optionalCropValueSchema,
+  heroImageCropZoom: optionalCropValueSchema,
   heroImageSrc: publicImageSchema,
   instructor: instructorSchema,
   kicker: z.string().min(1),

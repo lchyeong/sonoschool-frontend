@@ -1,10 +1,14 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProgramDetailPageResponse } from '@/types/programCatalog';
 
 import { ProgramPageDetailHero, ProgramPageDetailSidebar } from './ProgramPageDetailSections';
+
+afterEach(() => {
+  cleanup();
+});
 
 const createDetailData = (
   overrides: Partial<ProgramDetailPageResponse> = {},
@@ -135,6 +139,47 @@ describe('ProgramPageDetailSidebar', () => {
 });
 
 describe('ProgramPageDetailHero', () => {
+  it('상세 히어로 배경에 API 대표 이미지를 사용한다', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <ProgramPageDetailHero
+          data={createDetailData({
+            heroImageSrc: 'https://media.newzest.xyz/assets/programs/detail.png',
+          })}
+          heroInfoPills={[]}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(container.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://media.newzest.xyz/assets/programs/detail.png',
+    );
+  });
+
+  it('상세 히어로 배경에 대표 이미지 크롭 값을 적용한다', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <ProgramPageDetailHero
+          data={createDetailData({
+            heroImageCropOffsetX: 40,
+            heroImageCropOffsetY: -20,
+            heroImageCropZoom: 1.5,
+          })}
+          heroInfoPills={[]}
+        />
+      </MemoryRouter>,
+    );
+
+    const image = container.querySelector('img');
+
+    expect(image).toHaveStyle({
+      objectPosition: '70% 40%',
+      transform: 'scale(1.5)',
+      transformOrigin: '70% 40%',
+    });
+  });
+
   it('상세 히어로 breadcrumb에서 페이지 루트인 교육과정 라벨을 제외한다', () => {
     render(
       <MemoryRouter>

@@ -4,7 +4,7 @@ import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
 import { searchScopeValues } from '@/search/programSearchShared';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
-import { sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
+import { sanitizePublicAssetUrl, sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
 
 const DEFAULT_PROGRAM_IMAGE = '/SRDMS_OG.png';
 
@@ -12,6 +12,21 @@ const publicImageSchema = z
   .string()
   .min(1)
   .transform((value) => sanitizeRequiredPublicAssetUrl(value, DEFAULT_PROGRAM_IMAGE));
+
+const optionalPublicImageSchema = z.string().min(1).nullable().optional();
+
+const resolvePreferredProgramImageSrc = (...values: Array<string | null | undefined>): string => {
+  const sanitizedValues = values
+    .map((value) => sanitizePublicAssetUrl(value))
+    .filter((value): value is string => Boolean(value));
+  const preferredValue = sanitizedValues.find((value) => value !== DEFAULT_PROGRAM_IMAGE);
+
+  if (preferredValue) {
+    return preferredValue;
+  }
+
+  return sanitizedValues.length > 0 ? sanitizedValues[0] : DEFAULT_PROGRAM_IMAGE;
+};
 
 const programSearchItemSchema = z.object({
   id: z.string().min(1),
@@ -36,7 +51,8 @@ const backendProgramSearchItemSchema = z.object({
   title: z.string().min(1),
   slug: z.string().min(1),
   description: z.string().nullable().optional(),
-  thumbnailUrl: z.string().min(1).nullable().optional(),
+  thumbnailPreviewUrl: optionalPublicImageSchema,
+  thumbnailUrl: optionalPublicImageSchema,
   instructorName: z.string().nullable().optional(),
   catalogStatus: z.string().min(1),
   detailPath: z.string().min(1),
@@ -73,7 +89,7 @@ export const fetchProgramSearchIndex = async (): Promise<ProgramSearchIndexRespo
       title: item.title,
       description: item.description?.trim() || `${item.categoryName} 강의`,
       categoryLabel: item.categoryName,
-      thumbnailSrc: sanitizeRequiredPublicAssetUrl(item.thumbnailUrl, DEFAULT_PROGRAM_IMAGE),
+      thumbnailSrc: resolvePreferredProgramImageSrc(item.thumbnailPreviewUrl, item.thumbnailUrl),
       thumbnailAlt: `${item.title} 썸네일`,
     })),
   };

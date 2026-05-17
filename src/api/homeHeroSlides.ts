@@ -17,6 +17,7 @@ const optionalPublicImageSchema = z
   .min(1)
   .optional()
   .transform((value) => sanitizePublicAssetUrl(value) ?? undefined);
+const optionalCropValueSchema = z.number().nullable().optional();
 
 const homeHeroBannerSlideSchema = z.object({
   id: z.string().min(1),
@@ -32,6 +33,9 @@ const homeHeroLectureSlideSchema = z.object({
   description: z.string().min(1),
   thumbnailSrc: publicImageSchema,
   thumbnailAlt: z.string().min(1),
+  thumbnailCropOffsetX: optionalCropValueSchema,
+  thumbnailCropOffsetY: optionalCropValueSchema,
+  thumbnailCropZoom: optionalCropValueSchema,
   backgroundSrc: optionalPublicImageSchema,
 });
 

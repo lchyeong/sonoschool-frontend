@@ -152,11 +152,14 @@
 .contentSection {
   display: grid;
   gap: var(--space-5);
+  min-width: 0;
+  max-width: 100%;
 }
 .learningSection {
   gap: 0;
   width: 100%;
   max-width: 1094px;
+  min-width: 0;
 }
 .learningHeader {
   margin-bottom: 38px;
@@ -175,6 +178,7 @@
 .profileSection {
   width: 100%;
   max-width: 1094px;
+  min-width: 0;
 }
 .profileTitle {
   margin: 0;
@@ -812,6 +816,7 @@
 .questionSection {
   width: 100%;
   max-width: 1094px;
+  min-width: 0;
 }
 .questionTitle {
   margin: 0;
@@ -1250,6 +1255,7 @@
   align-items: flex-start;
   width: 100%;
   max-width: 1094px;
+  min-width: 0;
   padding-bottom: 0;
   border-bottom: 2px solid #d1d5db;
 }
@@ -2536,6 +2542,7 @@
   gap: 0;
   width: 100%;
   max-width: 1094px;
+  min-width: 0;
 }
 .paymentHeader {
   margin-bottom: 38px;
@@ -3138,7 +3145,12 @@
     grid-template-columns: 1fr;
   }
   .courseOverviewGrid {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .courseOverviewButton {
+    width: 100%;
+    min-width: 0;
   }
   .courseGrid {
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 342px));
@@ -3322,7 +3334,13 @@
     min-width: 0;
   }
   .courseOverviewGrid {
+    display: grid;
     grid-template-columns: 1fr;
+  }
+  .courseOverviewButton {
+    justify-content: flex-start;
+    min-height: 56px;
+    padding: 14px 20px;
   }
   .summaryGrid {
     grid-template-columns: 1fr;
@@ -3417,16 +3435,24 @@
     width: 100%;
   }
   .questionFilterRow {
-    overflow-x: auto;
+    width: 100%;
+    max-width: 100%;
   }
   .questionFilterButton {
-    flex: 0 0 120px;
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    font-size: 16px;
   }
   .questionStatusFilterRow {
-    overflow-x: auto;
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .questionStatusFilterButton {
-    flex: 0 0 127px;
+    min-width: 0;
+    padding: 0 8px;
+    font-size: 16px;
   }
   .questionCardHeader,
   .questionCardActions {
@@ -3458,6 +3484,15 @@
   }
   .courseGrid {
     grid-template-columns: 1fr;
+  }
+  .questionNotice {
+    grid-template-columns: 22px minmax(0, 1fr);
+    min-height: 0;
+    padding: 20px;
+  }
+  .questionNoticeIcon {
+    width: 22px;
+    height: 22px;
   }
   .certificateRow {
     flex-direction: column;

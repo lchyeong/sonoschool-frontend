@@ -27,10 +27,25 @@ const easeInOutProgress = (value: number) => {
   return value * value * (3 - 2 * value);
 };
 
+const getViewportRangeProgress = (
+  viewportPosition: number,
+  viewportHeight: number,
+  startRatio: number,
+  endRatio: number,
+) => {
+  const start = viewportHeight * startRatio;
+  const end = viewportHeight * endRatio;
+
+  return clamp((start - viewportPosition) / (start - end));
+};
+
 const DIRECTOR_BACKGROUND_RGB = {
   from: [255, 255, 255],
   to: [233, 251, 248],
 } as const;
+
+const DIRECTOR_BACKGROUND_EXIT_START_RATIO = 0.8;
+const DIRECTOR_BACKGROUND_EXIT_END_RATIO = 0.42;
 
 const getDirectorBackgroundColor = (progress: number) => {
   const [fromRed, fromGreen, fromBlue] = DIRECTOR_BACKGROUND_RGB.from;
@@ -105,6 +120,7 @@ const HomeHistoryTimelineSection = () => {
   useEffect(() => {
     const philosophyElement = philosophyRef.current;
     const directorPanelElement = directorPanelRef.current;
+    const noticeElement = document.querySelector<HTMLElement>('[data-home-notice-section]');
 
     if (!philosophyElement || !directorPanelElement) {
       return undefined;
@@ -128,6 +144,7 @@ const HomeHistoryTimelineSection = () => {
       const isStackedLayout = window.innerWidth < 1024;
       const isCompactLayout = window.innerWidth < 768;
       const philosophyRect = philosophyElement.getBoundingClientRect();
+      const noticeRect = noticeElement?.getBoundingClientRect();
       const philosophyTriggerY =
         viewportHeight * (isCompactLayout ? 0 : isStackedLayout ? 0.18 : 0.72);
       const philosophyDistance = Math.max(
@@ -167,12 +184,21 @@ const HomeHistoryTimelineSection = () => {
         ? Math.max(viewportHeight * 1.05, rect.height * 0.58)
         : Math.max(viewportHeight * 2.2, rect.height * 0.94);
       const progress = clamp((revealStart - rect.top) / revealDistance);
-      const backgroundExitProgress = easeInOutProgress(getRangeProgress(progress, 0.94, 1));
+      const backgroundExitProgress = noticeRect
+        ? easeInOutProgress(
+            getViewportRangeProgress(
+              noticeRect.top,
+              viewportHeight,
+              DIRECTOR_BACKGROUND_EXIT_START_RATIO,
+              DIRECTOR_BACKGROUND_EXIT_END_RATIO,
+            ),
+          )
+        : 0;
       const backgroundProgress = backgroundEnterProgress * (1 - backgroundExitProgress);
       const nextBackgroundColor = getDirectorBackgroundColor(backgroundProgress);
       const nextStep = getDirectorStep(progress);
       const currentStep = Number(directorPanelElement.dataset['directorStep'] ?? 0);
-      const nextTone = progress >= 0.96 ? 'light' : 'contrast';
+      const nextTone = backgroundExitProgress >= 0.72 ? 'light' : 'contrast';
 
       if (lastPhilosophyHeadingOpacity !== nextPhilosophyHeadingOpacity) {
         philosophyElement.style.setProperty(

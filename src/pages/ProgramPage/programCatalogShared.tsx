@@ -12,6 +12,7 @@ import type {
   ProgramStat,
 } from '@/types/programCatalog';
 import { classNames } from '@/utils/classNames';
+import { getProgramImageCropStyle } from '@/utils/programImageCrop';
 
 import styles from './programCatalogShared.module.scss';
 
@@ -385,13 +386,23 @@ export const ProgramLectureCardItem = ({
 }: ProgramLectureCardItemProps) => {
   const availability = resolveAvailability(item);
   const metaTags = buildProgramMetaTags(item);
+  const thumbnailCropStyle = getProgramImageCropStyle({
+    offsetX: item.thumbnailCropOffsetX,
+    offsetY: item.thumbnailCropOffsetY,
+    zoom: item.thumbnailCropZoom,
+  });
 
   return (
     <article className={styles['lectureCard']}>
       <Link aria-label={item.title} className={styles['cardLinkOverlay']} to={item.to} />
 
       <div className={styles['lectureImageFrame']}>
-        <img alt={item.thumbnailAlt} className={styles['lectureImage']} src={item.thumbnailSrc} />
+        <img
+          alt={item.thumbnailAlt}
+          className={styles['lectureImage']}
+          src={item.thumbnailSrc}
+          style={thumbnailCropStyle}
+        />
       </div>
 
       <div className={styles['lectureBody']}>
@@ -460,6 +471,11 @@ export const ProgramArchiveLectureCardItem = ({
   const metaTags = buildArchiveMetaTags(item);
   const hasDiscount = hasArchiveDiscount(item);
   const salePriceLabel = item.discountedPriceLabel ?? item.priceLabel;
+  const thumbnailCropStyle = getProgramImageCropStyle({
+    offsetX: item.thumbnailCropOffsetX,
+    offsetY: item.thumbnailCropOffsetY,
+    zoom: item.thumbnailCropZoom,
+  });
 
   return (
     <article className={styles['archiveLectureCard']}>
@@ -470,6 +486,7 @@ export const ProgramArchiveLectureCardItem = ({
           alt={item.thumbnailAlt}
           className={styles['archiveLectureImage']}
           src={item.thumbnailSrc}
+          style={thumbnailCropStyle}
         />
       </div>
 

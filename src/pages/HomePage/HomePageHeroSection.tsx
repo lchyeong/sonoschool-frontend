@@ -1,8 +1,9 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import homeHeroChevronIconSrc from '@/assets/icons/home-hero-chevron.svg';
-import type { HomeHeroSlide } from '@/types/homeHeroSlides';
+import type { HomeHeroLectureSlide, HomeHeroSlide } from '@/types/homeHeroSlides';
 import { classNames } from '@/utils/classNames';
+import { getProgramImageCropStyle, normalizeProgramImageCrop } from '@/utils/programImageCrop';
 
 import styles from './HomePage.module.scss';
 import { getHomeHeroSlideBackgroundImageSrc, isHomeHeroLectureSlide } from './homePageShared';
@@ -22,6 +23,22 @@ interface HomePageHeroControlBarProps {
   onProgressAnimationEnd: () => void;
   progressKey: string;
 }
+
+const getLectureSlideCrop = (slide: HomeHeroLectureSlide) => ({
+  offsetX: slide.thumbnailCropOffsetX,
+  offsetY: slide.thumbnailCropOffsetY,
+  zoom: slide.thumbnailCropZoom,
+});
+
+const getLectureBackdropStyle = (slide: HomeHeroLectureSlide): CSSProperties => {
+  const crop = normalizeProgramImageCrop(getLectureSlideCrop(slide));
+
+  return {
+    objectPosition: crop.objectPosition,
+    transform: `scale(${String(1.08 * crop.zoom)})`,
+    transformOrigin: crop.objectPosition,
+  };
+};
 
 const HomePageHeroControlBar = ({
   autoPlayDurationMs,
@@ -97,6 +114,8 @@ const HomePageHeroSection = ({
   slideCount,
 }: HomePageHeroSectionProps) => {
   const sliderSectionRef = useRef<HTMLElement | null>(null);
+  const lastActiveSlideRef = useRef(activeSlide);
+  const [previousVisualSlide, setPreviousVisualSlide] = useState<HomeHeroSlide | null>(null);
 
   useEffect(() => {
     const sliderSection = sliderSectionRef.current;
@@ -173,10 +192,58 @@ const HomePageHeroSection = ({
     };
   }, []);
 
-  // 강의형 슬라이드는 배경 이미지를 CSS background-image로 깔기 때문에 style 객체를 준비합니다.
-  const lectureBackgroundStyle = {
-    backgroundImage: `url(${getHomeHeroSlideBackgroundImageSrc(activeSlide)})`,
-  } as CSSProperties;
+  useEffect(() => {
+    const lastActiveSlide = lastActiveSlideRef.current;
+
+    if (lastActiveSlide.id === activeSlide.id) {
+      return undefined;
+    }
+
+    setPreviousVisualSlide(lastActiveSlide);
+    lastActiveSlideRef.current = activeSlide;
+
+    const timeoutId = window.setTimeout(() => {
+      setPreviousVisualSlide(null);
+    }, 1400);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeSlide]);
+
+  const renderHeroPhotoLayer = (slide: HomeHeroSlide, layerClassName: string) => {
+    if (isHomeHeroLectureSlide(slide)) {
+      return (
+        <img
+          alt=''
+          aria-hidden='true'
+          className={classNames(styles['lectureBackdrop'], layerClassName)}
+          key={`lecture-bg-${slide.id}-${layerClassName}`}
+          src={getHomeHeroSlideBackgroundImageSrc(slide)}
+          style={getLectureBackdropStyle(slide)}
+        />
+      );
+    }
+
+    return (
+      <img
+        alt=''
+        aria-hidden='true'
+        className={classNames(styles['bannerImage'], layerClassName)}
+        key={`banner-bg-${slide.id}-${layerClassName}`}
+        src={slide.imageSrc}
+      />
+    );
+  };
+
+  const previousLectureThumbnail =
+    previousVisualSlide && isHomeHeroLectureSlide(previousVisualSlide) ? previousVisualSlide : null;
+  const activeThumbnailCropStyle = isHomeHeroLectureSlide(activeSlide)
+    ? getProgramImageCropStyle(getLectureSlideCrop(activeSlide))
+    : undefined;
+  const previousThumbnailCropStyle = previousLectureThumbnail
+    ? getProgramImageCropStyle(getLectureSlideCrop(previousLectureThumbnail))
+    : undefined;
 
   return (
     <section
@@ -196,19 +263,19 @@ const HomePageHeroSection = ({
           styles['slideFrame'],
           isHomeHeroLectureSlide(activeSlide) ? styles['lectureSlide'] : styles['bannerSlide'],
         )}
-        key={activeSlide.id}
       >
+        <div aria-hidden='true' className={styles['heroPhotoStack']}>
+          {previousVisualSlide
+            ? renderHeroPhotoLayer(previousVisualSlide, styles['heroPhotoLayerPrevious'])
+            : null}
+          {renderHeroPhotoLayer(activeSlide, styles['heroPhotoLayerCurrent'])}
+        </div>
+
         {isHomeHeroLectureSlide(activeSlide) ? (
           <>
-            {/* 강의형 슬라이드는 흐릿한 배경 이미지와 오버레이를 겹쳐 분위기를 만듭니다. */}
-            <div
-              aria-hidden='true'
-              className={styles['lectureBackdrop']}
-              style={lectureBackgroundStyle}
-            />
             <div aria-hidden='true' className={styles['lectureOverlay']} />
 
-            <div className={styles['lectureLayout']}>
+            <div className={styles['lectureLayout']} key={`lecture-content-${activeSlide.id}`}>
               <div className={styles['lectureCopyColumn']}>
                 <div className={styles['lectureCopyBlock']}>
                   <h2 className={styles['lectureTitle']}>{activeSlide.title}</h2>
@@ -222,11 +289,27 @@ const HomePageHeroSection = ({
                   className={styles['thumbnailFrame']}
                   role='img'
                 >
+                  {previousLectureThumbnail ? (
+                    <img
+                      alt=''
+                      aria-hidden='true'
+                      className={classNames(
+                        styles['thumbnailImage'],
+                        styles['heroPhotoLayerPrevious'],
+                      )}
+                      src={previousLectureThumbnail.thumbnailSrc}
+                      style={previousThumbnailCropStyle}
+                    />
+                  ) : null}
                   <img
                     alt=''
                     aria-hidden='true'
-                    className={styles['thumbnailImage']}
+                    className={classNames(
+                      styles['thumbnailImage'],
+                      styles['heroPhotoLayerCurrent'],
+                    )}
                     src={activeSlide.thumbnailSrc}
+                    style={activeThumbnailCropStyle}
                   />
                 </div>
               </div>
@@ -243,12 +326,6 @@ const HomePageHeroSection = ({
           </>
         ) : (
           <>
-            {/* 배너형 슬라이드는 전체 이미지를 바로 출력합니다. */}
-            <img
-              alt={activeSlide.imageAlt}
-              className={styles['bannerImage']}
-              src={activeSlide.imageSrc}
-            />
             <div aria-hidden='true' className={styles['bannerOverlay']} />
 
             <div className={styles['bannerControlBar']}>

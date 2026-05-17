@@ -12,6 +12,9 @@ export interface HomeHeroLectureSlide {
   description: string;
   thumbnailSrc: string;
   thumbnailAlt: string;
+  thumbnailCropOffsetX?: number | null | undefined;
+  thumbnailCropOffsetY?: number | null | undefined;
+  thumbnailCropZoom?: number | null | undefined;
   backgroundSrc?: string | undefined;
   tags?: string[] | undefined;
 }
