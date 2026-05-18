@@ -291,6 +291,7 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
     },
     onSuccess: () => {
       closeAccountMenu();
+      closeMobileMenu();
       logout();
       showToast({
         message: '로그아웃되었습니다.',
@@ -574,11 +575,15 @@ export const CommonHeader = ({ logo, LinkComponent }: CommonHeaderProps) => {
               expandedMobileItemIds={expandedMobileItemIds}
               isAuthenticated={isAuthenticated}
               isError={isError}
+              isLogoutPending={logoutMutation.isPending}
               LinkComponent={LinkComponent}
               logo={logo}
               navigationItems={navigationItems}
               onCloseMenu={closeMobileMenu}
               onCloseMenuAndRestoreFocus={closeMobileMenuAndRestoreFocus}
+              onLogout={() => {
+                logoutMutation.mutate();
+              }}
               onToggleMobileItem={handleToggleMobileItem}
             />,
             mobileDrawerPortalRoot,

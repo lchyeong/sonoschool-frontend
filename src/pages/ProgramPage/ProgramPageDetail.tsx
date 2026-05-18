@@ -1,19 +1,17 @@
-import { useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { addMyCartItem, fetchMyCart } from '@/api/mypage';
 import {
-  subscribeMyProgramAvailabilityAlert,
-  type ProgramAvailabilityAlertStatusResponse,
-} from '@/api/programAvailabilityAlerts';
+  submitProgramReservationInquiry,
+  type ProgramReservationInquiryPayload,
+} from '@/api/programReservationInquiries';
+import closeIconSrc from '@/assets/icons/lucide_x.svg';
 import CartAddedModal from '@/components/cart/CartAddedModal/CartAddedModal';
+import Modal from '@/components/overlay/Modal/Modal';
 import { myCartQueryKey, useMyCartQuery, useMyEnrollmentsQuery } from '@/query/useMyPageQueries';
-import {
-  programAvailabilityAlertStatusQueryKey,
-  useProgramAvailabilityAlertStatusQuery,
-} from '@/query/useProgramAvailabilityAlertStatusQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
@@ -33,6 +31,19 @@ import { useProgramPageDetailViewModel } from './useProgramPageDetailViewModel';
 
 interface ProgramPageDetailProps {
   data: ProgramDetailPageResponse;
+}
+
+interface ReservationInquiryFormValues {
+  applicantName: string;
+  phoneNumber: string;
+  specialty: string;
+}
+
+interface ProgramReservationInquiryModalProps {
+  defaultName: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (values: ReservationInquiryFormValues) => void;
 }
 
 const inferProgramType = (data: ProgramDetailPageResponse): ProgramType => {
@@ -115,17 +126,14 @@ const resolveCatalogStatus = (data: ProgramDetailPageResponse): ProgramCatalogSt
   return isProgramSoldOut(data.remainingSeatsLabel) ? 'FULL' : 'OPEN';
 };
 
-const buildDefaultApplicationStatusLabel = (
-  catalogStatus: ProgramCatalogStatus,
-  remainingSeatsLabel: string | undefined,
-) => {
+const buildDefaultApplicationStatusLabel = (catalogStatus: ProgramCatalogStatus) => {
   switch (catalogStatus) {
     case 'OPEN':
-      return remainingSeatsLabel ?? '신청 가능';
+      return '수강 가능';
     case 'SCHEDULED':
       return '모집 예정';
     case 'STARTED':
-      return '운영 중';
+      return '과정 진행중';
     case 'CLOSED':
       return '모집 종료';
     case 'ENDED':
@@ -135,24 +143,8 @@ const buildDefaultApplicationStatusLabel = (
   }
 };
 
-const buildDefaultApplicationStatusDescription = (
-  catalogStatus: ProgramCatalogStatus,
-  registrationPeriodLabel: string,
-) => {
-  switch (catalogStatus) {
-    case 'OPEN':
-      return '지금 바로 장바구니 또는 결제로 이동할 수 있습니다.';
-    case 'SCHEDULED':
-      return `${registrationPeriodLabel} 일정에 맞춰 모집이 열립니다.`;
-    case 'STARTED':
-      return '이미 시작한 운영 중 과정으로 신청이 마감되었습니다.';
-    case 'CLOSED':
-      return '모집 기간이 종료되어 현재는 신청할 수 없습니다.';
-    case 'ENDED':
-      return '과정이 종료되어 현재는 신청할 수 없습니다.';
-    case 'FULL':
-      return '정원이 모두 마감되었습니다. 결원이 생기면 문자 알림을 받을 수 있습니다.';
-  }
+const isRemainingSeatsStatusLabel = (label: string) => {
+  return /(?:잔여석|인원|남음|\d+\s*명)/.test(label);
 };
 
 const buildAvailabilityActionLabel = (catalogStatus: ProgramCatalogStatus) => {
@@ -165,43 +157,138 @@ const buildAvailabilityActionLabel = (catalogStatus: ProgramCatalogStatus) => {
     case 'ENDED':
       return '과정 종료';
     case 'FULL':
-      return '알림 받기';
+      return '정원 마감';
     case 'OPEN':
-      return '수강 신청';
+      return '수강신청하기';
   }
 };
 
-const resolveProgramAvailability = (data: ProgramDetailPageResponse) => {
+const resolveProgramReservationAvailability = (data: ProgramDetailPageResponse) => {
   const catalogStatus = resolveCatalogStatus(data);
-  const enrollmentAvailable = data.enrollmentAvailable ?? catalogStatus === 'OPEN';
-  const availabilityAlertAvailable = data.availabilityAlertAvailable ?? catalogStatus === 'FULL';
+  const enrollmentAvailable = catalogStatus === 'OPEN' && data.enrollmentAvailable !== false;
 
   return {
-    actionKind: enrollmentAvailable
-      ? ('ENROLL' as const)
-      : availabilityAlertAvailable
-        ? ('ALERT' as const)
-        : ('DISABLED' as const),
+    actionKind: enrollmentAvailable ? ('ENROLL' as const) : ('DISABLED' as const),
     actionLabel: buildAvailabilityActionLabel(catalogStatus),
-    statusDescription:
-      data.applicationStatusDescription ??
-      buildDefaultApplicationStatusDescription(catalogStatus, data.registrationPeriodLabel),
+    reservationInquiryAvailable: catalogStatus === 'OPEN',
     statusLabel:
-      data.applicationStatusLabel ??
-      buildDefaultApplicationStatusLabel(catalogStatus, data.remainingSeatsLabel),
+      data.applicationStatusLabel && !isRemainingSeatsStatusLabel(data.applicationStatusLabel)
+        ? data.applicationStatusLabel
+        : buildDefaultApplicationStatusLabel(catalogStatus),
   };
 };
 
-const addSubscribedProgramId = (
-  current: ProgramAvailabilityAlertStatusResponse | undefined,
-  programId: number,
-): ProgramAvailabilityAlertStatusResponse => {
-  const subscribedProgramIds = new Set(current?.subscribedProgramIds ?? []);
-  subscribedProgramIds.add(programId);
+const normalizePhoneNumber = (value: string) => value.replaceAll(/\D/g, '');
 
-  return {
-    subscribedProgramIds: [...subscribedProgramIds].sort((left, right) => left - right),
+const ProgramReservationInquiryModal = ({
+  defaultName,
+  isSubmitting,
+  onClose,
+  onSubmit,
+}: ProgramReservationInquiryModalProps) => {
+  const [applicantName, setApplicantName] = useState(defaultName);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [specialty, setSpecialty] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedName = applicantName.trim();
+    const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+    const trimmedSpecialty = specialty.trim();
+
+    if (!trimmedName) {
+      setErrorMessage('이름을 입력해주세요.');
+      return;
+    }
+
+    if (normalizedPhoneNumber.length < 10 || normalizedPhoneNumber.length > 11) {
+      setErrorMessage('휴대폰번호를 숫자만 10~11자리로 입력해주세요.');
+      return;
+    }
+
+    setErrorMessage(null);
+    onSubmit({
+      applicantName: trimmedName,
+      phoneNumber: normalizedPhoneNumber,
+      specialty: trimmedSpecialty,
+    });
   };
+
+  return (
+    <Modal
+      bodyClassName={styles['reservationModalBody']}
+      closeButtonClassName={styles['reservationModalCloseButton']}
+      closeButtonContent={<img alt='' aria-hidden='true' src={closeIconSrc} />}
+      closeButtonLabel='예약 문의 닫기'
+      headerClassName={styles['reservationModalHeader']}
+      onClose={onClose}
+      panelClassName={styles['reservationModalPanel']}
+      title='예약 문의하기'
+      titleClassName={styles['reservationModalTitle']}
+    >
+      <form className={styles['reservationForm']} onSubmit={handleSubmit}>
+        <label className={styles['reservationField']}>
+          <span className={styles['reservationFieldLabel']}>이름</span>
+          <input
+            autoComplete='name'
+            className={styles['reservationInput']}
+            onChange={(event) => {
+              setApplicantName(event.target.value);
+            }}
+            placeholder='이름을 입력해주세요.'
+            value={applicantName}
+          />
+        </label>
+
+        <label className={styles['reservationField']}>
+          <span className={styles['reservationFieldLabel']}>휴대폰번호</span>
+          <input
+            autoComplete='tel'
+            className={styles['reservationInput']}
+            inputMode='numeric'
+            onChange={(event) => {
+              setPhoneNumber(event.target.value);
+            }}
+            placeholder='- 없이 숫자만 입력해주세요.'
+            value={phoneNumber}
+          />
+        </label>
+
+        <label className={styles['reservationField']}>
+          <span className={styles['reservationFieldLabel']}>전공분야</span>
+          <input
+            autoComplete='organization-title'
+            className={styles['reservationInput']}
+            onChange={(event) => {
+              setSpecialty(event.target.value);
+            }}
+            placeholder='전공분야를 입력해주세요. (선택)'
+            value={specialty}
+          />
+        </label>
+
+        {errorMessage ? (
+          <p className={styles['reservationError']} role='alert'>
+            {errorMessage}
+          </p>
+        ) : null}
+
+        <button className={styles['reservationSubmitButton']} disabled={isSubmitting} type='submit'>
+          {isSubmitting ? '제출 중...' : '제출하기'}
+        </button>
+
+        <div className={styles['reservationNoticeBlock']}>
+          <p className={styles['reservationNoticeTitle']}>유의사항</p>
+          <ul className={styles['reservationNoticeList']}>
+            <li>예약 문의 접수 후 담당자가 입력하신 휴대폰번호로 안내드립니다.</li>
+            <li>접수 순서와 운영 일정에 따라 안내까지 시간이 걸릴 수 있습니다.</li>
+          </ul>
+        </div>
+      </form>
+    </Modal>
+  );
 };
 
 const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
@@ -210,14 +297,19 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const selectSingleCartItem = useCartSelectionStore((state) => state.selectSingleItem);
   const showToast = useToastStore((state) => state.showToast);
+  const displayName = useAuthStore((state) => state.displayName);
   const [addedCartItem, setAddedCartItem] = useState<CartItem | null>(null);
+  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
+  const availability = resolveProgramReservationAvailability(data);
+  const viewModel = useProgramPageDetailViewModel(data);
+  const sourcePath = data.breadcrumbItems.at(-1)?.to ?? routePaths.programs;
+  const programId =
+    typeof data.programId === 'number' && data.programId > 0
+      ? data.programId
+      : deriveProgramId(sourcePath);
   const cartScope = resolveCartQueryScope(isAuthenticated);
   const cartQuery = useMyCartQuery();
-  const programId =
-    typeof data.programId === 'number' && data.programId > 0 ? data.programId : null;
-  const enrollmentsQuery = useMyEnrollmentsQuery(isAuthenticated && programId !== null);
-  const availability = resolveProgramAvailability(data);
-  const viewModel = useProgramPageDetailViewModel(data);
+  const enrollmentsQuery = useMyEnrollmentsQuery(isAuthenticated && programId > 0);
   const {
     activeSectionId,
     discountedPriceAmount,
@@ -231,6 +323,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     reviewCarouselRef,
     reviewSortOrder,
     sectionRefHandlers,
+    setAllCurriculumRowsOpen,
     setOpenFaqId,
     setReviewSortOrder,
     sortedReviews,
@@ -238,12 +331,18 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     totalPriceLabel,
     visiblePreviewReviewIds,
   } = viewModel;
+  const reservationInquiryMutation = useMutation({
+    mutationFn: submitProgramReservationInquiry,
+  });
+  const addToCartMutation = useMutation({
+    mutationFn: addMyCartItem,
+  });
   const cartPayload = buildAddToCartPayload(data, discountedPriceAmount, originalPriceAmount);
   const isCartAdded = (cartQuery.data?.items ?? []).some((item) => {
     return item.programId === cartPayload.programId;
   });
   const isEnrollmentOwned = useMemo(() => {
-    if (programId === null) {
+    if (programId <= 0) {
       return false;
     }
 
@@ -251,18 +350,6 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
       return enrollment.programId === programId && blocksProgramCartAction(enrollment);
     });
   }, [enrollmentsQuery.data, programId]);
-
-  const addToCartMutation = useMutation({
-    mutationFn: addMyCartItem,
-  });
-  const alertStatusQuery = useProgramAvailabilityAlertStatusQuery(
-    programId === null ? [] : [programId],
-  );
-  const subscribeAlertMutation = useMutation({
-    mutationFn: subscribeMyProgramAvailabilityAlert,
-  });
-  const isAlertSubscribed =
-    programId !== null && (alertStatusQuery.data?.subscribedProgramIds ?? []).includes(programId);
 
   const handleAddToCart = () => {
     const payload = cartPayload;
@@ -320,7 +407,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   };
 
   const handleEnrollNow = async () => {
-    const payload = buildAddToCartPayload(data, discountedPriceAmount, originalPriceAmount);
+    const payload = cartPayload;
 
     if (isEnrollmentOwned) {
       showToast({
@@ -387,37 +474,34 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
     void handleEnrollNow();
   };
 
-  const handleRequestAvailabilityAlert = () => {
-    if (!isAuthenticated) {
-      void navigate(routePaths.login);
-      return;
-    }
+  const handleRequestReservationInquiry = () => {
+    setIsReservationModalOpen(true);
+  };
 
-    if (programId === null) {
-      showToast({
-        message: '알림을 신청할 과정 정보를 찾지 못했습니다.',
-        variant: 'error',
-      });
-      return;
-    }
+  const handleSubmitReservationInquiry = (values: ReservationInquiryFormValues) => {
+    const payload: ProgramReservationInquiryPayload = {
+      applicantName: values.applicantName,
+      phoneNumber: values.phoneNumber,
+      programId,
+      programTitle: data.title,
+      sourcePath,
+      specialty: values.specialty,
+    };
 
-    subscribeAlertMutation.mutate(programId, {
+    reservationInquiryMutation.mutate(payload, {
       onError: (error: unknown) => {
         showToast({
           message:
             error instanceof Error
               ? error.message
-              : '알림 신청을 처리하지 못했습니다. 다시 시도해 주세요.',
+              : '예약 문의를 접수하지 못했습니다. 다시 시도해 주세요.',
           variant: 'error',
         });
       },
       onSuccess: () => {
-        queryClient.setQueryData<ProgramAvailabilityAlertStatusResponse>(
-          programAvailabilityAlertStatusQueryKey([programId]),
-          (current) => addSubscribedProgramId(current, programId),
-        );
+        setIsReservationModalOpen(false);
         showToast({
-          message: '마감 해제 알림을 신청했습니다.',
+          message: '예약 문의가 접수되었습니다.',
           variant: 'success',
         });
       },
@@ -447,6 +531,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
             reviewCarouselRef={reviewCarouselRef}
             reviewSortOrder={reviewSortOrder}
             sectionRefHandlers={sectionRefHandlers}
+            setAllCurriculumRowsOpen={setAllCurriculumRowsOpen}
             setOpenFaqId={setOpenFaqId}
             setReviewSortOrder={setReviewSortOrder}
             sortedReviews={sortedReviews}
@@ -457,20 +542,18 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
             <ProgramPageDetailSidebar
               availabilityActionKind={availability.actionKind}
               availabilityActionLabel={availability.actionLabel}
-              availabilityStatusDescription={availability.statusDescription}
               availabilityStatusLabel={availability.statusLabel}
               data={data}
               discountedPriceAmount={discountedPriceAmount}
               handleAddToCart={handleAddToCart}
               handleEnrollNow={handleEnrollNowClick}
-              handleRequestAvailabilityAlert={handleRequestAvailabilityAlert}
+              handleRequestReservationInquiry={handleRequestReservationInquiry}
               isAddingToCart={addToCartMutation.isPending}
-              isAlertPending={subscribeAlertMutation.isPending}
-              isAlertSubscribed={isAlertSubscribed}
               isCartAdded={isCartAdded}
               isEnrollmentOwned={isEnrollmentOwned}
-              isAuthenticated={isAuthenticated}
               isEnrollingNow={addToCartMutation.isPending}
+              isReservationInquiryAvailable={availability.reservationInquiryAvailable}
+              isReservationPending={reservationInquiryMutation.isPending}
               originalPriceAmount={originalPriceAmount}
               totalPriceLabel={totalPriceLabel}
             />
@@ -478,42 +561,56 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
         </div>
       </div>
 
-      <div className={styles['mobileBottomBar']}>
-        <button
-          className={styles['mobileApplyActionLink']}
-          disabled={
-            availability.actionKind === 'ALERT'
-              ? subscribeAlertMutation.isPending || isAlertSubscribed
-              : availability.actionKind === 'DISABLED'
-                ? true
-                : isEnrollmentOwned || addToCartMutation.isPending
-          }
-          onClick={
-            availability.actionKind === 'ALERT'
-              ? handleRequestAvailabilityAlert
-              : availability.actionKind === 'ENROLL'
-                ? handleEnrollNowClick
-                : undefined
-          }
-          type='button'
-        >
-          {availability.actionKind === 'ALERT'
-            ? !isAuthenticated
-              ? '로그인 후 알림 받기'
-              : isAlertSubscribed
-                ? '알림 신청 완료'
-                : subscribeAlertMutation.isPending
-                  ? '신청 중...'
-                  : '알림 받기'
-            : availability.actionKind === 'DISABLED'
+      {!isQnaTabOpen ? (
+        <div className={styles['mobileBottomBar']}>
+          {availability.actionKind === 'ENROLL' ? (
+            <button
+              className={
+                isCartAdded
+                  ? `${styles['mobileCartActionLink']} ${styles['mobileCartActionLinkAdded']}`
+                  : styles['mobileCartActionLink']
+              }
+              disabled={isEnrollmentOwned || addToCartMutation.isPending}
+              onClick={handleAddToCart}
+              type='button'
+            >
+              {isCartAdded
+                ? '장바구니 보기'
+                : addToCartMutation.isPending
+                  ? '담는 중...'
+                  : '장바구니 담기'}
+            </button>
+          ) : null}
+          {availability.reservationInquiryAvailable ? (
+            <button
+              className={styles['mobileReservationActionLink']}
+              disabled={reservationInquiryMutation.isPending}
+              onClick={handleRequestReservationInquiry}
+              type='button'
+            >
+              {reservationInquiryMutation.isPending ? '접수 중...' : '예약하기'}
+            </button>
+          ) : null}
+          <button
+            className={styles['mobileApplyActionLink']}
+            disabled={
+              availability.actionKind === 'DISABLED' ||
+              isEnrollmentOwned ||
+              addToCartMutation.isPending
+            }
+            onClick={availability.actionKind === 'ENROLL' ? handleEnrollNowClick : undefined}
+            type='button'
+          >
+            {availability.actionKind === 'DISABLED'
               ? availability.actionLabel
               : isEnrollmentOwned
                 ? '수강 중'
                 : addToCartMutation.isPending
                   ? '이동 중...'
-                  : '수강 신청'}
-        </button>
-      </div>
+                  : '수강신청하기'}
+          </button>
+        </div>
+      ) : null}
 
       {addedCartItem ? (
         <CartAddedModal
@@ -521,6 +618,19 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
           onClose={() => {
             setAddedCartItem(null);
           }}
+        />
+      ) : null}
+
+      {isReservationModalOpen ? (
+        <ProgramReservationInquiryModal
+          defaultName={displayName}
+          isSubmitting={reservationInquiryMutation.isPending}
+          onClose={() => {
+            if (!reservationInquiryMutation.isPending) {
+              setIsReservationModalOpen(false);
+            }
+          }}
+          onSubmit={handleSubmitReservationInquiry}
         />
       ) : null}
     </div>

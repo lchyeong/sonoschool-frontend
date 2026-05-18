@@ -2161,3 +2161,221 @@
     padding: 16px;
   }
 }
+
+@media (width <= 430px) {
+  .compactSearchBar {
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 4px 5px 4px 12px;
+  }
+
+  .compactSearchBar input {
+    min-width: 0;
+    font-size: 13px;
+  }
+
+  .compactSearchBar button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .compactSearchBar svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .compactFilterButton {
+    gap: 3px;
+    min-height: 32px;
+    padding-right: 4px;
+    padding-left: 4px;
+    font-size: 12px;
+  }
+
+  .boardToolbarCompact,
+  .stateBox {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .boardToolbarCompact {
+    overflow: hidden;
+  }
+
+  .compactBoardList {
+    margin-top: 12px;
+  }
+
+  .compactThreadButton {
+    gap: 10px;
+    min-height: 88px;
+    padding: 12px;
+  }
+
+  .compactThreadPrimary {
+    gap: 10px;
+  }
+
+  .compactThreadTopRow {
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .compactThreadAuthorGroup {
+    gap: 6px;
+  }
+
+  .compactStatusBadge {
+    min-width: 56px;
+    height: 22px;
+    padding: 3px 7px;
+    font-size: 11px;
+  }
+
+  .compactThreadAuthor {
+    font-size: 12px;
+  }
+
+  .compactThreadDate {
+    font-size: 11px;
+  }
+
+  .compactThreadTitle,
+  .compactDetailBody {
+    font-size: 13px;
+  }
+
+  .compactThreadDetail {
+    min-width: 0;
+  }
+
+  .detailInnerCompact {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .compactDetail {
+    min-width: 0;
+  }
+
+  .compactDetailScroll {
+    gap: 12px;
+    padding-right: 0;
+  }
+
+  .compactDetailProgramTitle {
+    font-size: 14px;
+  }
+
+  .compactDetailTitle {
+    font-size: 15px;
+  }
+
+  .compactDetailMeta {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .compactReplyHeader {
+    gap: 8px;
+  }
+
+  .compactReplyInstructor {
+    gap: 6px;
+    font-size: 14px;
+  }
+
+  .compactReplyInstructor svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .compactInstructorBadge {
+    min-height: 24px;
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  .compactReplyDate,
+  .compactDetailEmpty {
+    font-size: 12px;
+  }
+
+  .compactDetailEditor {
+    gap: 10px;
+  }
+
+  .compactDetailEditTitleInput {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  .compactDetailEditContentInput {
+    min-height: 170px;
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  .compactWrite {
+    min-width: 0;
+    padding-bottom: 96px;
+  }
+
+  .compactWriteTitle {
+    margin-bottom: 10px;
+    font-size: 18px;
+  }
+
+  .compactWriteFields {
+    grid-template-rows: auto 44px auto minmax(150px, 1fr);
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .compactWriteLabel {
+    font-size: 13px;
+  }
+
+  .compactWriteFields .compactWriteLabel:nth-of-type(2) {
+    margin-top: 8px;
+  }
+
+  .compactWriteTitleInput {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  .compactWriteContentInput {
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  .compactWriteCharacterCount {
+    right: 12px;
+    bottom: 68px;
+    font-size: 12px;
+  }
+
+  .compactWriteActionRow {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    gap: 8px;
+  }
+
+  .compactWriteCancelButton,
+  .compactWriteSubmitButton {
+    flex: 1 1 0;
+    width: auto;
+    height: 42px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+}

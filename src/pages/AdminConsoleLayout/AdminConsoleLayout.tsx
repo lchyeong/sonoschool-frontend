@@ -36,6 +36,10 @@ const adminNavigationItems = [
     to: routePaths.adminPracticum,
   },
   {
+    label: '예약문의',
+    to: routePaths.adminProgramReservations,
+  },
+  {
     label: '프로그램 관리',
     to: routePaths.adminPrograms,
   },

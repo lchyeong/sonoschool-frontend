@@ -74,7 +74,7 @@
 }
 
 .topBar {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 16px;
   align-items: center;
 }
@@ -166,6 +166,70 @@
   min-height: 34px;
   padding: 0 15px;
   font-size: 14px;
+}
+
+.mobileSidebarToggle,
+.mobileSidebarBackdrop,
+.mobileSidebarCloseButton {
+  display: none;
+}
+
+.mobileSidebarToggle {
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #ffffff;
+}
+
+.mobileSidebarToggleBars {
+  position: relative;
+  width: 19px;
+  height: 13px;
+}
+
+.mobileSidebarToggleBars::before,
+.mobileSidebarToggleBars::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: currentcolor;
+  content: '';
+}
+
+.mobileSidebarToggleBars::before {
+  top: 0;
+  box-shadow: 0 6px 0 currentcolor;
+}
+
+.mobileSidebarToggleBars::after {
+  bottom: 0;
+}
+
+.mobileSidebarCloseButton {
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.mobileSidebarCloseIcon {
+  width: 18px;
+  height: 18px;
+  background: currentcolor;
+  mask: var(--player-icon) center / contain no-repeat;
+  -webkit-mask: var(--player-icon) center / contain no-repeat;
 }
 
 .metaChip,
@@ -3674,10 +3738,10 @@
 .quizScorePanel {
   display: grid;
   grid-template-columns:
-    minmax(232px, 0.92fr) minmax(160px, 0.74fr) minmax(260px, 1.34fr)
-    minmax(188px, 0.76fr);
+    minmax(0, 255fr) minmax(0, 295fr) minmax(0, 476fr)
+    minmax(0, 218fr);
   min-height: 247px;
-  align-items: center;
+  align-items: stretch;
   min-width: 0;
   padding: clamp(26px, 2.8cqw, calc(36px * var(--quiz-result-scale)));
 }
@@ -3797,6 +3861,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(18px, 2.8cqw, calc(44px * var(--quiz-result-scale)));
+  align-content: center;
   min-width: 0;
   margin: 0;
   padding: 0 clamp(16px, 2.8cqw, calc(46px * var(--quiz-result-scale)));
@@ -3863,6 +3928,7 @@
 .quizResultButtonStack {
   display: grid;
   gap: calc(16px * var(--quiz-result-scale));
+  align-content: center;
 }
 
 .quizResultPrintButton,
@@ -4721,6 +4787,69 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .mobileSidebarToggle {
+    display: inline-flex;
+  }
+
+  .mobileSidebarBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: rgb(0 0 0 / 46%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+  }
+
+  .mobileSidebarBackdropVisible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .playerSidebarPanel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 21;
+    width: min(390px, calc(100vw - 48px));
+    height: 100dvh;
+    max-height: none;
+    padding: 22px;
+    border-radius: 20px 0 0 20px;
+    box-shadow: -18px 0 40px rgb(0 0 0 / 22%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(100%);
+    transition:
+      opacity 180ms ease,
+      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .playerSidebarPanelOpen {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .mobileSidebarCloseButton {
+    display: inline-flex;
+  }
+
+  .curriculumHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .panelSwitchRow {
+    grid-column: 1 / -1;
+  }
+
   .quizQuestionBody {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -4756,8 +4885,62 @@
 
   .curriculumPanel,
   .quizNavigatorPanel {
-    position: static;
     max-height: none;
+  }
+
+  .playerFrameControls {
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 12px;
+    gap: 12px;
+  }
+
+  .playerControlRow {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .playerPrimaryControls {
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .playerSecondaryControls {
+    flex: 0 0 auto;
+    gap: 8px;
+  }
+
+  .qualitySettingsAnchor {
+    display: none;
+  }
+
+  .playerIconButton {
+    width: 28px;
+    height: 28px;
+  }
+
+  .playerTextButton,
+  .playerTimeText {
+    font-size: 15px;
+  }
+
+  .speedSettingsAnchor .playerTextButton {
+    min-width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 10%);
+  }
+
+  .playerFullscreenButton {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 10%);
+  }
+
+  .playerFullscreenButton .playerControlIcon {
+    width: 22px;
+    height: 22px;
   }
 
   .resourcePlayerShell {
@@ -4806,6 +4989,21 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .topBar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .topBarMeta {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .mobileSidebarToggle {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
   .stageCard,
   .lessonPanel,
   .notesPanel,
@@ -4814,48 +5012,266 @@
     padding: 16px;
   }
 
+  .quizStageCard {
+    min-height: calc(100dvh - 120px);
+    padding: 14px 0 calc(92px + env(safe-area-inset-bottom));
+    border-radius: 18px;
+  }
+
+  .quizStageHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    min-height: 0;
+    align-items: start;
+    padding: 0 16px;
+  }
+
+  .quizStageCard .stageCopy {
+    min-width: 0;
+    padding-top: 0;
+    padding-left: 0;
+  }
+
+  .quizStageCard .lessonTitle {
+    font-size: 26px;
+    line-height: 1.18;
+  }
+
+  .quizTimerCard {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    width: auto;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 999px;
+  }
+
+  .quizTimerLabel {
+    gap: 5px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .quizTimerIcon {
+    width: 13px;
+    height: 13px;
+    border-width: 1.5px;
+  }
+
+  .quizTimerIcon::before {
+    top: 3px;
+    height: 4px;
+  }
+
+  .quizTimerIcon::after {
+    top: 4px;
+    height: 3px;
+  }
+
+  .quizTimerValue {
+    margin-top: 0;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .quizWorkspace {
+    min-height: auto;
+    padding: 18px 16px 0;
+    overflow: visible;
+    border-radius: 14px;
+  }
+
+  .quizQuestionCard {
+    grid-template-rows: auto auto auto;
+    min-height: auto;
+  }
+
+  .quizQuestionHeader {
+    padding-bottom: 18px;
+  }
+
+  .quizQuestionHeaderTop {
+    gap: 8px;
+  }
+
+  .quizQuestionEyebrow {
+    display: block;
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .quizQuestionTitle {
+    font-size: 22px;
+    line-height: 1.32;
+  }
+
+  .quizQuestionBody {
+    overflow: visible;
+    padding: 22px 0 calc(92px + env(safe-area-inset-bottom));
+  }
+
+  .quizOptionList {
+    gap: 16px;
+  }
+
+  .quizOptionRow {
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .quizOptionIndicator {
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border-width: 1.5px;
+  }
+
+  .quizOptionRow[data-checked='true'] .quizOptionIndicator::after {
+    inset: 5px;
+  }
+
+  .quizOptionRow[data-type='MULTIPLE'][data-checked='true'] .quizOptionIndicator::after {
+    top: 4px;
+    left: 7px;
+    width: 6px;
+    height: 10px;
+  }
+
+  .quizOptionLabel {
+    font-size: 18px;
+    line-height: 1.45;
+  }
+
+  .quizMediaImage {
+    justify-self: stretch;
+    max-width: 100%;
+    max-height: 260px;
+  }
+
+  .quizControlBar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 19;
+    grid-template-columns: minmax(84px, 1fr) auto minmax(84px, 1fr);
+    gap: 8px;
+    min-height: 56px;
+    margin: 0;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgb(209 213 219 / 84%);
+    background: #ffffff;
+    box-shadow: 0 -2px 8px rgb(97 97 97 / 20%);
+  }
+
+  .quizControlBar .quizFlaggedListButton,
+  .quizSubmitButton {
+    justify-self: stretch;
+    width: 100%;
+    min-height: 36px;
+    padding: 0 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .quizFlaggedListIcon {
+    width: 15px;
+    height: 15px;
+  }
+
+  .quizControlNavigation {
+    display: grid;
+    grid-template-columns: 28px auto 28px;
+    gap: 4px;
+    align-items: center;
+    width: auto;
+  }
+
+  .quizNavButton {
+    justify-content: center;
+    min-width: 0;
+    width: 28px;
+    min-height: 36px;
+    border: 0;
+    border-radius: 6px;
+    font-size: 0;
+    font-weight: var(--font-weight-regular);
+  }
+
+  .quizNavButton:first-child::before,
+  .quizNavButton:last-child::after {
+    width: auto;
+    height: auto;
+    border: 0;
+    color: currentcolor;
+    font-size: 18px;
+    line-height: 1;
+    transform: none;
+  }
+
+  .quizNavButton:first-child::before {
+    content: '<';
+  }
+
+  .quizNavButton:last-child::after {
+    content: '>';
+  }
+
+  .quizQuestionCounter {
+    min-width: 34px;
+    gap: 3px;
+    font-size: 12px;
+  }
+
   .playerFrameControls {
     right: 12px;
     bottom: max(14px, env(safe-area-inset-bottom));
     left: 12px;
-    gap: 14px;
+    gap: 10px;
   }
 
   .playerControlRow {
-    gap: 12px;
+    gap: 8px;
   }
 
   .playerPrimaryControls {
-    gap: 14px;
+    gap: 10px;
     min-width: 0;
   }
 
   .playerSecondaryControls {
-    gap: 10px;
-  }
-
-  .qualitySettingsAnchor {
-    display: none;
+    gap: 6px;
   }
 
   .speedSettingsAnchor .playerTextButton {
-    min-width: 44px;
-    height: 44px;
+    min-width: 36px;
+    height: 36px;
     border-radius: 999px;
     background: rgb(255 255 255 / 10%);
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .playerFullscreenButton {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     border-radius: 999px;
     background: rgb(255 255 255 / 10%);
   }
 
   .playerFullscreenButton .playerControlIcon {
-    width: 28px;
-    height: 28px;
+    width: 21px;
+    height: 21px;
+  }
+
+  .playerIconButton {
+    width: 27px;
+    height: 27px;
+  }
+
+  .playerTimeText {
+    font-size: 14px;
   }
 
   .playerLessonActions {
@@ -5064,6 +5480,85 @@
 }
 
 @media (width < 430px) {
+  .playerFrameControls {
+    right: 8px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 8px;
+    gap: 8px;
+  }
+
+  .playerTimeline {
+    height: 10px;
+  }
+
+  .playerTimelineTrack,
+  .playerTimelineBuffer,
+  .playerTimelineFill {
+    top: 3px;
+    height: 3px;
+  }
+
+  .playerTimelineThumb {
+    width: 10px;
+    height: 10px;
+  }
+
+  .playerControlRow,
+  .playerPrimaryControls,
+  .playerSecondaryControls {
+    gap: 6px;
+  }
+
+  .playerIconButton {
+    width: 24px;
+    height: 24px;
+  }
+
+  .playerPauseIcon {
+    width: 16px;
+    height: 18px;
+  }
+
+  .playerPauseIcon::before,
+  .playerPauseIcon::after {
+    width: 5px;
+  }
+
+  .playerTimeText {
+    font-size: 13px;
+  }
+
+  .speedSettingsAnchor .playerTextButton {
+    min-width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .playerFullscreenButton {
+    width: 32px;
+    height: 32px;
+  }
+
+  .playerFullscreenButton .playerControlIcon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .playerSidebarPanel {
+    width: min(366px, calc(100vw - 24px));
+    padding: 14px;
+  }
+
+  .curriculumPanelQna,
+  .quizNavigatorPanel.curriculumPanelQna {
+    gap: 12px;
+  }
+
+  .qnaPanelBody {
+    overflow-x: hidden;
+    padding-right: 0;
+  }
+
   .practicumReservationModal {
     --practicum-reservation-modal-header-height: 70px;
 

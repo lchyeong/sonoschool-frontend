@@ -31,7 +31,10 @@ interface AdminUserDetailViewProps {
   expandedEnrollmentIds: Set<number>;
   expandedProblemIds: Set<number>;
   expandedQuestionIds: Set<number>;
+  cancelEnrollmentLoading: boolean;
+  onCancelEnrollment: (enrollmentId: number) => void;
   onOpenReport: (attemptId: number) => void;
+  onOpenGrantEnrollment: () => void;
   onResetCertificateProfile: () => void;
   onToggleEnrollment: (enrollmentId: number) => void;
   onToggleProblem: (lectureId: number) => void;
@@ -42,11 +45,14 @@ interface AdminUserDetailViewProps {
 }
 
 const AdminUserDetailView = ({
+  cancelEnrollmentLoading,
   currentEnrollments,
   expandedEnrollmentIds,
   expandedProblemIds,
   expandedQuestionIds,
+  onCancelEnrollment,
   onOpenReport,
+  onOpenGrantEnrollment,
   onResetCertificateProfile,
   onToggleEnrollment,
   onToggleProblem,
@@ -63,6 +69,11 @@ const AdminUserDetailView = ({
           <p className={styles['pageDescription']}>
             {user.displayName} 회원의 결제, 수강, 실습, 문제 풀이 이력을 확인합니다.
           </p>
+        </div>
+        <div className={styles['pageTopActions']}>
+          <Button onClick={onOpenGrantEnrollment} size='sm' type='button' variant='primary'>
+            수강권 지급
+          </Button>
         </div>
       </div>
 
@@ -235,8 +246,10 @@ const AdminUserDetailView = ({
                 onToggleProblem,
                 expandedEnrollmentIds.has(enrollment.enrollmentId),
                 onToggleEnrollment,
+                onCancelEnrollment,
                 onOpenReport,
                 reportLoading,
+                cancelEnrollmentLoading,
               ),
             )
           ) : (
@@ -313,8 +326,10 @@ const renderEnrollmentCard = (
   onToggleProblem: (lectureId: number) => void,
   expanded: boolean,
   onToggleEnrollment: (enrollmentId: number) => void,
+  onCancelEnrollment: (enrollmentId: number) => void,
   onOpenReport: (attemptId: number) => void,
   reportLoading: boolean,
+  cancelEnrollmentLoading: boolean,
 ) => {
   return (
     <article
@@ -385,6 +400,22 @@ const renderEnrollmentCard = (
             </div>
           </div>
 
+          {canCancelManualEnrollment(enrollment) ? (
+            <div className={styles['actionRow']}>
+              <Button
+                disabled={cancelEnrollmentLoading}
+                onClick={() => {
+                  onCancelEnrollment(enrollment.enrollmentId);
+                }}
+                size='sm'
+                type='button'
+                variant='danger'
+              >
+                {cancelEnrollmentLoading ? '회수 중...' : '수강권 회수'}
+              </Button>
+            </div>
+          ) : null}
+
           <div className={`${styles['tableWrap']} ${styles['userDetailTableWrap']}`}>
             <table className={`${styles['table']} ${styles['userEnrollmentLectureTable']}`}>
               <thead>
@@ -412,6 +443,21 @@ const renderEnrollmentCard = (
         </div>
       ) : null}
     </article>
+  );
+};
+
+const canCancelManualEnrollment = (enrollment: AdminUserDetailEnrollmentItem): boolean => {
+  if (!enrollment.current || enrollment.enrollmentStatus !== 'ACTIVE') {
+    return false;
+  }
+  if (enrollment.payment === null) {
+    return true;
+  }
+  return (
+    enrollment.payment.orderType === 'PROGRAM' &&
+    enrollment.payment.paymentMethod === 'FREE' &&
+    enrollment.payment.paymentStatus === 'COMPLETED' &&
+    enrollment.payment.amount === 0
   );
 };
 

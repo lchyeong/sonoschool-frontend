@@ -15,6 +15,13 @@ export interface ProgramAvailabilityAlertResponse {
   notifiedAt?: string | null | undefined;
 }
 
+export interface ProgramAvailabilityAlertSubscribePayload {
+  applicantName?: string | undefined;
+  phoneNumber?: string | undefined;
+  programId: number;
+  specialty?: string | undefined;
+}
+
 const programAvailabilityAlertStatusResponseSchema = z.object({
   subscribedProgramIds: z.array(z.number().int().positive()),
 });
@@ -56,8 +63,9 @@ export const fetchMyProgramAvailabilityAlertStatus = async (
 };
 
 export const subscribeMyProgramAvailabilityAlert = async (
-  programId: number,
+  payload: number | ProgramAvailabilityAlertSubscribePayload,
 ): Promise<ProgramAvailabilityAlertResponse> => {
+  const programId = typeof payload === 'number' ? payload : payload.programId;
   const responseData = await http.post<unknown>('/api/v1/my/program-availability-alerts', {
     programId,
   });

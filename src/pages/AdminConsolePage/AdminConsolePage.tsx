@@ -8,6 +8,7 @@ import AdminPracticumSection from './AdminPracticumSection';
 import AdminProblemAreasSection from './AdminProblemAreasSection';
 import AdminProgramListSection from './AdminProgramListSection';
 import AdminProgramMenuSection from './AdminProgramMenuSection';
+import AdminProgramReservationsSection from './AdminProgramReservationsSection';
 import AdminQnaSection from './AdminQnaSection';
 import AdminResourcesSection from './AdminResourcesSection';
 
@@ -32,6 +33,7 @@ const AdminConsolePage = ({ section }: AdminConsolePageProps) => {
       {section === 'resources' ? <AdminResourcesSection /> : null}
       {section === 'enrollments' ? <AdminEnrollmentsSection /> : null}
       {section === 'practicum' ? <AdminPracticumSection /> : null}
+      {section === 'programReservations' ? <AdminProgramReservationsSection /> : null}
       {section === 'reviews' ? <AdminDeferredSection section={section} /> : null}
       {section === 'programMenus' ? <AdminProgramMenuSection /> : null}
       {section === 'problemAreas' ? <AdminProblemAreasSection /> : null}

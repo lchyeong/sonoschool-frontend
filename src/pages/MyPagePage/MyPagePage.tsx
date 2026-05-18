@@ -1542,7 +1542,12 @@ const MyPagePage = () => {
         ) : !filteredEnrollments.length ? (
           renderLearningEmptyState(courseTab)
         ) : (
-          <div className={styles['learningCoursesBody']}>
+          <div
+            className={classNames(
+              styles['learningCoursesBody'],
+              courseTab === 'EXPIRED' && styles['learningCoursesBodyExpired'],
+            )}
+          >
             <div className={styles['courseGrid']}>
               {paginatedEnrollments.map((enrollment) => {
                 const completionRate = getEnrollmentCompletionRate(
@@ -1665,7 +1670,13 @@ const MyPagePage = () => {
                 );
 
                 return (
-                  <article className={styles['courseCard']} key={enrollment.id}>
+                  <article
+                    className={classNames(
+                      styles['courseCard'],
+                      courseTab === 'EXPIRED' && styles['courseCardExpired'],
+                    )}
+                    key={enrollment.id}
+                  >
                     {cardBody}
                   </article>
                 );
@@ -2005,7 +2016,7 @@ const MyPagePage = () => {
                 setQuestionKeyword(questionSearchInput);
                 setQuestionPage(1);
               }}
-              placeholder='제목, 내용, 프로그램명, 강의명을 검색해 주세요.'
+              placeholder='제목, 내용, 강의명을 검색해 주세요.'
               value={questionSearchInput}
             />
           </div>
@@ -2036,8 +2047,7 @@ const MyPagePage = () => {
             {questions.map((question) => {
               const isExpanded = expandedQuestionId === question.id;
               const programLabel = question.programTitle ?? '운영 문의';
-              const replyCount = question.replies.length;
-              const hasAnswer = replyCount > 0;
+              const hasAnswer = question.replies.length > 0;
               const toggleIconStyle = isExpanded
                 ? questionChevronUpIconStyle
                 : questionChevronDownIconStyle;
@@ -2070,10 +2080,6 @@ const MyPagePage = () => {
 
                     <div className={styles['questionMetaRow']}>
                       <span>작성일 {formatQuestionDateTime(question.createdAt)}</span>
-                      <span aria-hidden='true' className={styles['questionMetaDot']} />
-                      <span>
-                        답글 <strong>{replyCount}</strong>개
-                      </span>
                     </div>
 
                     <p className={styles['questionContent']}>{question.content}</p>

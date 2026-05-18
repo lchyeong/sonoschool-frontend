@@ -41,6 +41,7 @@ interface FullReviewCardProps {
 }
 
 interface IntroductionBlockHeaderProps {
+  withIcon?: boolean;
   subtitle: string;
   title: string;
 }
@@ -79,6 +80,7 @@ interface ProgramPageDetailMainContentProps {
   reviewCarouselRef: ProgramPageDetailViewModel['reviewCarouselRef'];
   reviewSortOrder: ProgramPageDetailViewModel['reviewSortOrder'];
   sectionRefHandlers: ProgramPageDetailViewModel['sectionRefHandlers'];
+  setAllCurriculumRowsOpen: ProgramPageDetailViewModel['setAllCurriculumRowsOpen'];
   setOpenFaqId: ProgramPageDetailViewModel['setOpenFaqId'];
   setReviewSortOrder: ProgramPageDetailViewModel['setReviewSortOrder'];
   sortedReviews: ProgramPageDetailViewModel['sortedReviews'];
@@ -87,22 +89,20 @@ interface ProgramPageDetailMainContentProps {
 }
 
 interface ProgramPageDetailSidebarProps {
-  availabilityActionKind: 'ENROLL' | 'ALERT' | 'DISABLED';
+  availabilityActionKind: 'ENROLL' | 'DISABLED';
   availabilityActionLabel: string;
-  availabilityStatusDescription: string;
   availabilityStatusLabel: string;
   data: ProgramDetailPageResponse;
   discountedPriceAmount: ProgramPageDetailViewModel['discountedPriceAmount'];
   handleAddToCart: () => void;
   handleEnrollNow: () => void;
-  handleRequestAvailabilityAlert: () => void;
-  isAlertPending: boolean;
-  isAlertSubscribed: boolean;
+  handleRequestReservationInquiry: () => void;
+  isAddingToCart: boolean;
   isCartAdded?: boolean;
   isEnrollmentOwned?: boolean;
-  isAuthenticated: boolean;
   isEnrollingNow: boolean;
-  isAddingToCart: boolean;
+  isReservationInquiryAvailable: boolean;
+  isReservationPending: boolean;
   originalPriceAmount: ProgramPageDetailViewModel['originalPriceAmount'];
   totalPriceLabel: ProgramPageDetailViewModel['totalPriceLabel'];
 }
@@ -111,15 +111,24 @@ const curriculumDeliveryTypeLabelMap: Record<
   ProgramCurriculumSection['lessons'][number]['deliveryType'],
   string
 > = {
-  offline: '오프라인 강의',
-  online: '영상 강의',
-  practicum: '실습 강의',
-  problem: '문제풀이 강의',
-  resource: '자료 강의',
+  offline: '오프라인',
+  online: '영상강의',
+  practicum: '실습강의',
+  problem: '문제풀이',
+  resource: '자료강의',
 };
 
 const buildCurriculumLessonCapsules = (lesson: ProgramCurriculumSection['lessons'][number]) => {
   return [curriculumDeliveryTypeLabelMap[lesson.deliveryType]];
+};
+
+const curriculumFallbackDurationMinutes: Partial<
+  Record<ProgramCurriculumSection['lessons'][number]['deliveryType'], number>
+> = {
+  offline: 60,
+  practicum: 60,
+  problem: 45,
+  resource: 60,
 };
 
 const parseScheduleTimeToMinutes = (value: string | null | undefined) => {
@@ -136,6 +145,20 @@ const parseScheduleTimeToMinutes = (value: string | null | undefined) => {
   }
 
   return hours * 60 + minutes;
+};
+
+const parseDurationLabelToMinutes = (value: string | null | undefined) => {
+  if (!value) {
+    return null;
+  }
+
+  const hourMatch = value.match(/(\d+)\s*시간/);
+  const minuteMatch = value.match(/(\d+)\s*분/);
+  const hours = hourMatch ? Number(hourMatch[1]) : 0;
+  const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
+  const totalMinutes = hours * 60 + minutes;
+
+  return totalMinutes > 0 ? totalMinutes : null;
 };
 
 const getDisplayBreadcrumbItems = (data: ProgramDetailPageResponse) => {
@@ -162,37 +185,102 @@ const formatDurationLabel = (minutes: number, prefix: string | null = null) => {
   return prefix ? `${prefix} ${baseLabel}` : baseLabel;
 };
 
+const formatMinuteDurationLabel = (minutes: number, prefix: string | null = null) => {
+  if (minutes <= 0) {
+    return null;
+  }
+
+  const baseLabel = `${String(minutes)}분`;
+
+  return prefix ? `${prefix} ${baseLabel}` : baseLabel;
+};
+
+const getOfflineScheduleDurationMinutes = (lesson: ProgramCurriculumSection['lessons'][number]) => {
+  if (
+    lesson.deliveryType !== 'offline' ||
+    !lesson.offlineSchedules ||
+    lesson.offlineSchedules.length === 0
+  ) {
+    return 0;
+  }
+
+  return lesson.offlineSchedules.reduce((totalMinutes, schedule) => {
+    const startMinutes = parseScheduleTimeToMinutes(schedule.startTime);
+    const endMinutes = parseScheduleTimeToMinutes(schedule.endTime);
+
+    if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+      return totalMinutes;
+    }
+
+    return totalMinutes + (endMinutes - startMinutes);
+  }, 0);
+};
+
+const getCurriculumLessonDurationMinutes = (
+  lesson: ProgramCurriculumSection['lessons'][number],
+) => {
+  const durationLabelMinutes = parseDurationLabelToMinutes(lesson.durationLabel);
+
+  if (
+    lesson.deliveryType === 'problem' &&
+    lesson.problemTimeLimitSeconds &&
+    lesson.problemTimeLimitSeconds > 0
+  ) {
+    return Math.ceil(lesson.problemTimeLimitSeconds / 60);
+  }
+
+  const offlineScheduleMinutes = getOfflineScheduleDurationMinutes(lesson);
+
+  if (offlineScheduleMinutes > 0) {
+    return offlineScheduleMinutes;
+  }
+
+  if (lesson.durationMinutes && lesson.durationMinutes > 0) {
+    return lesson.durationMinutes;
+  }
+
+  if (durationLabelMinutes) {
+    return durationLabelMinutes;
+  }
+
+  return curriculumFallbackDurationMinutes[lesson.deliveryType] ?? 0;
+};
+
 const formatCurriculumLessonTime = (lesson: ProgramCurriculumSection['lessons'][number]) => {
-  const offlineScheduleMinutes =
-    lesson.deliveryType === 'offline' &&
-    lesson.offlineSchedules &&
-    lesson.offlineSchedules.length > 0
-      ? lesson.offlineSchedules.reduce((totalMinutes, schedule) => {
-          const startMinutes = parseScheduleTimeToMinutes(schedule.startTime);
-          const endMinutes = parseScheduleTimeToMinutes(schedule.endTime);
-
-          if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
-            return totalMinutes;
-          }
-
-          return totalMinutes + (endMinutes - startMinutes);
-        }, 0)
-      : 0;
-  const minutes = offlineScheduleMinutes > 0 ? offlineScheduleMinutes : lesson.durationMinutes;
+  const minutes = getCurriculumLessonDurationMinutes(lesson);
 
   if (!minutes || minutes <= 0) {
     return null;
   }
 
-  if (lesson.deliveryType === 'online' || lesson.deliveryType === 'problem') {
-    return formatDurationLabel(minutes);
-  }
+  return formatMinuteDurationLabel(minutes);
+};
 
-  if (lesson.deliveryType === 'offline') {
-    return formatDurationLabel(minutes, '총');
-  }
+const getCurriculumTotalDurationMinutes = (sections: readonly ProgramCurriculumSection[]) => {
+  return sections.reduce((sectionTotalMinutes, section) => {
+    return (
+      sectionTotalMinutes +
+      section.lessons.reduce((lessonTotalMinutes, lesson) => {
+        return lessonTotalMinutes + getCurriculumLessonDurationMinutes(lesson);
+      }, 0)
+    );
+  }, 0);
+};
 
-  return null;
+const renderCurriculumSummaryLabel = (label: string) => {
+  const parts = label.split(/(\d+)/g);
+
+  return parts.map((part, index) => {
+    if (!part) {
+      return null;
+    }
+
+    return /^\d+$/.test(part) ? (
+      <strong key={`${part}-${String(index)}`}>{part}</strong>
+    ) : (
+      <span key={`${part}-${String(index)}`}>{part}</span>
+    );
+  });
 };
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
@@ -208,6 +296,28 @@ const formatScheduleRangeLabel = (startDate: string, endDate: string | null) => 
   }
 
   return `${formatScheduleDateLabel(startDate)} ~ ${formatScheduleDateLabel(endDate)}`;
+};
+
+const formatRemainingSeatsValue = (
+  remainingSeatsLabel: string | undefined,
+  fallbackLabel: string,
+) => {
+  if (!remainingSeatsLabel) {
+    return fallbackLabel;
+  }
+
+  const normalizedLabel = remainingSeatsLabel
+    .replace(/^수강\s*가능\s*인원\s*/, '')
+    .replace(/^인원\s*/, '')
+    .replace(/^잔여석\s*/, '')
+    .replace(/\s*남음$/, '')
+    .trim();
+
+  if (!normalizedLabel || !/\d+\s*명/.test(normalizedLabel)) {
+    return fallbackLabel;
+  }
+
+  return `잔여석 ${normalizedLabel}`;
 };
 
 const buildOfflineScheduleEntries = (lesson: ProgramCurriculumLesson) => {
@@ -366,10 +476,19 @@ const FullReviewCard = ({ review }: FullReviewCardProps) => {
   );
 };
 
-const IntroductionBlockHeader = ({ subtitle, title }: IntroductionBlockHeaderProps) => {
+const IntroductionBlockHeader = ({
+  subtitle,
+  title,
+  withIcon = false,
+}: IntroductionBlockHeaderProps) => {
   return (
     <div className={styles['introductionBlockHeader']}>
-      <h3 className={styles['introductionBlockTitle']}>{title}</h3>
+      <h3 className={styles['introductionBlockTitle']}>
+        {withIcon ? (
+          <span aria-hidden='true' className={styles['introductionBlockTitleIcon']} />
+        ) : null}
+        <span>{title}</span>
+      </h3>
       <p className={styles['introductionBlockSubtitle']}>{subtitle}</p>
     </div>
   );
@@ -379,9 +498,10 @@ const IntroductionInfoBox = ({ content, title }: IntroductionInfoBoxProps) => {
   return (
     <article className={styles['infoBox']}>
       <p className={styles['infoBoxTitle']}>{title}</p>
-      <ul className={styles['infoBoxList']}>
-        <li className={styles['infoBoxItem']}>{content}</li>
-      </ul>
+      <div className={styles['infoBoxItemRow']}>
+        <span aria-hidden='true' className={styles['infoBoxCheckIcon']} />
+        <p className={styles['infoBoxItem']}>{content}</p>
+      </div>
     </article>
   );
 };
@@ -403,34 +523,49 @@ const CurriculumWeekRow = ({
   section,
   sectionIndex,
 }: CurriculumWeekRowProps) => {
+  const sectionDurationLabel = formatMinuteDurationLabel(
+    section.lessons.reduce((totalMinutes, lesson) => {
+      return totalMinutes + getCurriculumLessonDurationMinutes(lesson);
+    }, 0),
+  );
+
   return (
     <article className={styles['curriculumWeekRow']}>
       <button className={styles['curriculumWeekButton']} onClick={onToggle} type='button'>
         <div className={styles['curriculumWeekButtonLeft']}>
-          <div className={styles['curriculumWeekLabelGroup']}>
-            <span className={styles['curriculumWeekLabel']}>{String(sectionIndex + 1)}주차</span>
-            <span className={styles['curriculumWeekHours']}>
-              ({String(section.lessons.length)}강)
-            </span>
-          </div>
-          <span className={styles['curriculumWeekTitle']}>{section.title}</span>
+          <span className={styles['curriculumWeekTitle']}>
+            섹션 {String(sectionIndex + 1)}. <span>{section.title}</span>
+          </span>
         </div>
 
-        <ChevronDownIcon
-          aria-hidden='true'
-          className={classNames(
-            styles['curriculumWeekChevron'],
-            isOpen && styles['curriculumWeekChevronOpen'],
-          )}
-        />
+        <div className={styles['curriculumWeekButtonRight']}>
+          <span className={styles['curriculumWeekMeta']}>{String(section.lessons.length)}개</span>
+          {sectionDurationLabel ? (
+            <>
+              <span aria-hidden='true' className={styles['curriculumWeekMetaDot']} />
+              <span className={styles['curriculumWeekMeta']}>{sectionDurationLabel}</span>
+            </>
+          ) : null}
+          <ChevronDownIcon
+            aria-hidden='true'
+            className={classNames(
+              styles['curriculumWeekChevron'],
+              isOpen && styles['curriculumWeekChevronOpen'],
+            )}
+          />
+        </div>
       </button>
 
       {isOpen ? (
         <div className={styles['curriculumWeekContent']}>
           <p className={styles['curriculumWeekDescription']}>{section.description}</p>
           {section.lessons.map((lesson, lessonIndex) => {
-            const lessonCapsules = buildCurriculumLessonCapsules(lesson);
+            const [lessonTypeLabel] = buildCurriculumLessonCapsules(lesson);
             const lessonTime = formatCurriculumLessonTime(lesson);
+            const questionCountLabel =
+              lesson.deliveryType === 'problem' && lesson.questionCount && lesson.questionCount > 0
+                ? `${String(lesson.questionCount)}문항`
+                : null;
             const hasOfflineSchedules = buildOfflineScheduleEntries(lesson).length > 0;
 
             return (
@@ -442,17 +577,11 @@ const CurriculumWeekRow = ({
                 key={lesson.id}
               >
                 <div className={styles['curriculumLessonHeader']}>
+                  <span className={styles['curriculumLessonCapsule']}>{lessonTypeLabel}</span>
                   <div className={styles['curriculumLessonHeaderMain']}>
                     <span className={styles['curriculumLessonTitle']}>
                       {String(lessonIndex + 1)}. {lesson.title}
                     </span>
-                    {lesson.deliveryType === 'problem' &&
-                    lesson.questionCount &&
-                    lesson.questionCount > 0 ? (
-                      <span className={styles['curriculumLessonQuestionBadge']}>
-                        총 {String(lesson.questionCount)}문항
-                      </span>
-                    ) : null}
                   </div>
                   <div className={styles['curriculumLessonHeaderAside']}>
                     {lesson.deliveryType === 'offline' && hasOfflineSchedules ? (
@@ -466,29 +595,19 @@ const CurriculumWeekRow = ({
                         오프라인 일정 보기
                       </button>
                     ) : null}
-                    <div className={styles['curriculumLessonCapsuleList']}>
-                      {lessonCapsules.map((capsule) => {
-                        return (
-                          <span
-                            className={styles['curriculumLessonCapsule']}
-                            key={`${lesson.id}-${capsule}`}
-                          >
-                            {capsule}
-                          </span>
-                        );
-                      })}
-                    </div>
+                    {questionCountLabel ? (
+                      <span className={styles['curriculumLessonQuestionCount']}>
+                        {questionCountLabel}
+                      </span>
+                    ) : null}
+                    {questionCountLabel && lessonTime ? (
+                      <span aria-hidden='true' className={styles['curriculumLessonMetaDot']} />
+                    ) : null}
                     {lessonTime ? (
                       <span className={styles['curriculumLessonDuration']}>{lessonTime}</span>
                     ) : null}
                   </div>
                 </div>
-
-                <ul className={styles['curriculumLessonTopicList']}>
-                  <li className={styles['curriculumLessonTopicItem']}>
-                    {lesson.description || section.description}
-                  </li>
-                </ul>
               </div>
             );
           })}
@@ -582,6 +701,7 @@ export const ProgramPageDetailMainContent = ({
   reviewCarouselRef,
   reviewSortOrder,
   sectionRefHandlers,
+  setAllCurriculumRowsOpen,
   setOpenFaqId,
   setReviewSortOrder,
   sortedReviews,
@@ -589,6 +709,27 @@ export const ProgramPageDetailMainContent = ({
   visiblePreviewReviewIds,
 }: ProgramPageDetailMainContentProps) => {
   const curriculumTrack = data.curriculumTrack;
+  const hasReviews = sortedReviews.length > 0;
+  const curriculumSectionCount = curriculumTrack.sections.length;
+  const curriculumLessonCount = curriculumTrack.sections.reduce((total, section) => {
+    return total + section.lessons.length;
+  }, 0);
+  const curriculumTotalDurationLabel = formatDurationLabel(
+    getCurriculumTotalDurationMinutes(curriculumTrack.sections),
+    '총',
+  );
+  const curriculumSummaryLabels = [
+    `${String(curriculumSectionCount)}개 섹션`,
+    `${String(curriculumLessonCount)}개 학습 콘텐츠`,
+    ...(curriculumTotalDurationLabel ? [curriculumTotalDurationLabel] : []),
+  ];
+  const curriculumRowKeys = curriculumTrack.sections.map((_, sectionIndex) => {
+    return `${curriculumTrack.id}-${String(sectionIndex)}`;
+  });
+  const hasCurriculumSections = curriculumRowKeys.length > 0;
+  const areAllCurriculumRowsOpen =
+    hasCurriculumSections && curriculumRowKeys.every((rowKey) => openCurriculumRows[rowKey]);
+  const curriculumToggleAllLabel = areAllCurriculumRowsOpen ? '모두 접기' : '모두 펼치기';
   const [selectedOfflineLesson, setSelectedOfflineLesson] =
     useState<ProgramCurriculumLesson | null>(null);
 
@@ -642,76 +783,82 @@ export const ProgramPageDetailMainContent = ({
           </section>
         ) : (
           <>
-            <section className={styles['previewReviewSection']}>
-              <h2 className={styles['sectionTitle']}>먼저 경험한 수강생들 후기</h2>
+            {hasReviews ? (
+              <section className={styles['previewReviewSection']}>
+                <h2 className={styles['sectionTitle']}>먼저 경험한 수강생들 후기</h2>
 
-              <div className={styles['previewReviewCarousel']}>
-                <div className={styles['previewReviewTrack']} ref={reviewCarouselRef}>
-                  {sortedReviews.map((review) => {
-                    return (
-                      <ReviewPreviewCard
-                        isDimmed={!visiblePreviewReviewIds.includes(review.id)}
-                        key={review.id}
-                        review={review}
-                      />
-                    );
-                  })}
+                <div className={styles['previewReviewCarousel']}>
+                  <div className={styles['previewReviewTrack']} ref={reviewCarouselRef}>
+                    {sortedReviews.map((review) => {
+                      return (
+                        <ReviewPreviewCard
+                          isDimmed={!visiblePreviewReviewIds.includes(review.id)}
+                          key={review.id}
+                          review={review}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    aria-label='이전 후기'
+                    className={classNames(
+                      styles['carouselArrowButton'],
+                      styles['carouselArrowButtonLeft'],
+                    )}
+                    onClick={() => {
+                      handleReviewCarouselScroll('left');
+                    }}
+                    type='button'
+                  >
+                    <span
+                      aria-hidden='true'
+                      className={classNames(
+                        styles['carouselArrowIcon'],
+                        styles['carouselArrowIconLeft'],
+                      )}
+                    />
+                  </button>
+
+                  <button
+                    aria-label='다음 후기'
+                    className={classNames(
+                      styles['carouselArrowButton'],
+                      styles['carouselArrowButtonRight'],
+                    )}
+                    onClick={() => {
+                      handleReviewCarouselScroll('right');
+                    }}
+                    type='button'
+                  >
+                    <span
+                      aria-hidden='true'
+                      className={classNames(
+                        styles['carouselArrowIcon'],
+                        styles['carouselArrowIconRight'],
+                      )}
+                    />
+                  </button>
                 </div>
-
-                <button
-                  aria-label='이전 후기'
-                  className={classNames(
-                    styles['carouselArrowButton'],
-                    styles['carouselArrowButtonLeft'],
-                  )}
-                  onClick={() => {
-                    handleReviewCarouselScroll('left');
-                  }}
-                  type='button'
-                >
-                  <span
-                    aria-hidden='true'
-                    className={classNames(
-                      styles['carouselArrowIcon'],
-                      styles['carouselArrowIconLeft'],
-                    )}
-                  />
-                </button>
-
-                <button
-                  aria-label='다음 후기'
-                  className={classNames(
-                    styles['carouselArrowButton'],
-                    styles['carouselArrowButtonRight'],
-                  )}
-                  onClick={() => {
-                    handleReviewCarouselScroll('right');
-                  }}
-                  type='button'
-                >
-                  <span
-                    aria-hidden='true'
-                    className={classNames(
-                      styles['carouselArrowIcon'],
-                      styles['carouselArrowIconRight'],
-                    )}
-                  />
-                </button>
-              </div>
-            </section>
+              </section>
+            ) : null}
 
             <section
-              className={styles['contentSection']}
+              className={classNames(
+                styles['contentSection'],
+                hasReviews && styles['contentSectionSeparated'],
+              )}
               id='course-introduction'
               ref={sectionRefHandlers['course-introduction']}
             >
               <h2 className={styles['sectionTitle']}>강의 소개</h2>
 
               <div className={styles['introductionSectionGroup']}>
-                <section>
+                <section className={styles['corePointSection']}>
                   <IntroductionBlockHeader
                     subtitle='이론을 넘어 진단 사고력을 키우는 핵심 차별점을 정리했습니다.'
                     title='핵심 포인트'
+                    withIcon
                   />
 
                   <div className={styles['sectionBlockBody']}>
@@ -729,7 +876,7 @@ export const ProgramPageDetailMainContent = ({
                   </div>
                 </section>
 
-                <section>
+                <section className={styles['outcomeSection']}>
                   <IntroductionBlockHeader
                     subtitle='이 강의를 통해 기대할 수 있는 실전 변화와 성장 포인트를 정리했습니다.'
                     title='이 강의를 듣고 나면 이렇게 달라집니다'
@@ -761,7 +908,7 @@ export const ProgramPageDetailMainContent = ({
                   </div>
                 </section>
 
-                <section>
+                <section className={styles['targetSection']}>
                   <IntroductionBlockHeader
                     subtitle='현재 학습 단계와 고민에 맞는 추천 대상'
                     title='이런 고민을 가진 분들께 추천합니다'
@@ -790,7 +937,7 @@ export const ProgramPageDetailMainContent = ({
                   </div>
                 </section>
 
-                <section>
+                <section className={styles['preparationSection']}>
                   <IntroductionBlockHeader
                     subtitle='원활한 학습을 위해 미리 확인해야 할 안내 사항'
                     title='학습 효과를 높이기 위한 수강 전 체크리스트'
@@ -814,7 +961,7 @@ export const ProgramPageDetailMainContent = ({
             </section>
 
             <section
-              className={styles['contentSection']}
+              className={classNames(styles['contentSection'], styles['contentSectionSeparated'])}
               id='course-curriculum'
               ref={sectionRefHandlers['course-curriculum']}
             >
@@ -829,28 +976,37 @@ export const ProgramPageDetailMainContent = ({
                     </div>
                   ) : null}
 
-                  <div className={styles['curriculumSummaryPanel']}>
-                    {curriculumTrack.summaryKind === 'decimal' ? (
-                      <ol className={styles['curriculumSummaryListDecimal']}>
-                        {curriculumTrack.summaryItems.map((item) => {
-                          return (
-                            <li className={styles['curriculumSummaryItem']} key={item}>
-                              {item}
-                            </li>
-                          );
-                        })}
-                      </ol>
-                    ) : (
+                  <div className={styles['curriculumControlsRow']}>
+                    <div className={styles['curriculumSummaryPanel']}>
                       <ul className={styles['curriculumSummaryListDisc']}>
-                        {curriculumTrack.summaryItems.map((item) => {
+                        {curriculumSummaryLabels.map((item) => {
                           return (
                             <li className={styles['curriculumSummaryItem']} key={item}>
-                              {item}
+                              {renderCurriculumSummaryLabel(item)}
                             </li>
                           );
                         })}
                       </ul>
-                    )}
+                    </div>
+
+                    {hasCurriculumSections ? (
+                      <button
+                        className={styles['curriculumToggleAllButton']}
+                        onClick={() => {
+                          setAllCurriculumRowsOpen(!areAllCurriculumRowsOpen);
+                        }}
+                        type='button'
+                      >
+                        <ChevronDownIcon
+                          aria-hidden='true'
+                          className={classNames(
+                            styles['curriculumToggleAllIcon'],
+                            areAllCurriculumRowsOpen && styles['curriculumToggleAllIconOpen'],
+                          )}
+                        />
+                        <span>{curriculumToggleAllLabel}</span>
+                      </button>
+                    ) : null}
                   </div>
 
                   {curriculumTrack.sections.length > 0 ? (
@@ -885,11 +1041,20 @@ export const ProgramPageDetailMainContent = ({
             </section>
 
             <section
-              className={styles['contentSection']}
+              className={classNames(styles['contentSection'], styles['contentSectionSeparated'])}
               id='course-reviews'
               ref={sectionRefHandlers['course-reviews']}
             >
-              <h2 className={styles['sectionTitle']}>수강평</h2>
+              <div className={styles['reviewTitleRow']}>
+                <h2 className={styles['sectionTitle']}>수강평</h2>
+                <span className={styles['reviewTotalCount']}>
+                  전체{' '}
+                  <strong className={styles['reviewTotalCountValue']}>
+                    {data.reviewCount.toLocaleString()}
+                  </strong>
+                  개
+                </span>
+              </div>
 
               <div className={styles['reviewScoreSummary']}>
                 <span aria-hidden='true' className={styles['reviewScoreStar']}>
@@ -925,9 +1090,11 @@ export const ProgramPageDetailMainContent = ({
                 })}
               </div>
 
-              <button className={styles['moreReviewButton']} type='button'>
-                수강평 더보기
-              </button>
+              {hasReviews ? (
+                <button className={styles['moreReviewButton']} type='button'>
+                  수강평 더보기
+                </button>
+              ) : null}
             </section>
 
             <section
@@ -996,20 +1163,18 @@ export const ProgramPageDetailMainContent = ({
 export const ProgramPageDetailSidebar = ({
   availabilityActionKind,
   availabilityActionLabel,
-  availabilityStatusDescription,
   availabilityStatusLabel,
   data,
   discountedPriceAmount,
   handleAddToCart,
   handleEnrollNow,
-  handleRequestAvailabilityAlert,
-  isAlertPending,
-  isAlertSubscribed,
-  isCartAdded = false,
-  isEnrollmentOwned,
-  isAuthenticated,
-  isEnrollingNow,
+  handleRequestReservationInquiry,
   isAddingToCart,
+  isCartAdded = false,
+  isEnrollmentOwned = false,
+  isEnrollingNow,
+  isReservationInquiryAvailable,
+  isReservationPending,
   originalPriceAmount,
   totalPriceLabel,
 }: ProgramPageDetailSidebarProps) => {
@@ -1017,36 +1182,39 @@ export const ProgramPageDetailSidebar = ({
     originalPriceAmount > 0 &&
     discountedPriceAmount > 0 &&
     discountedPriceAmount < originalPriceAmount;
+  const discountAmount = hasDiscount ? originalPriceAmount - discountedPriceAmount : 0;
+  const statusLabel = availabilityStatusLabel;
+  const statusValue = formatRemainingSeatsValue(data.remainingSeatsLabel, availabilityStatusLabel);
 
   return (
     <aside className={styles['sidebar']}>
       <div className={styles['pricingCard']}>
-        {hasDiscount ? (
-          <div className={styles['pricingDiscountBlock']}>
-            <p className={styles['pricingDiscountedPrice']}>
-              {formatPriceLabel(discountedPriceAmount)}
-            </p>
+        <div className={styles['pricingStatusRow']}>
+          <span className={styles['pricingStatusLabel']}>{statusLabel}</span>
+          <span className={styles['pricingStatusValue']}>{statusValue}</span>
+        </div>
 
-            <div className={styles['pricingDiscountRow']}>
-              <span className={styles['pricingDiscountRate']}>{data.discountRateLabel}</span>
-              <span className={styles['pricingOriginalPrice']}>
-                {originalPriceAmount
-                  ? formatPriceLabel(originalPriceAmount)
-                  : data.originalPriceLabel}
+        <div className={styles['pricingInfoRows']}>
+          <div className={styles['pricingInfoRow']}>
+            <span className={styles['pricingInfoLabel']}>상품 금액</span>
+            <span className={styles['pricingInfoValue']}>
+              {originalPriceAmount
+                ? formatPriceLabel(originalPriceAmount)
+                : data.originalPriceLabel}
+            </span>
+          </div>
+
+          {hasDiscount ? (
+            <div className={styles['pricingInfoRow']}>
+              <span className={styles['pricingInfoLabel']}>강의 할인</span>
+              <span className={styles['pricingDiscountValue']}>
+                -{formatPriceLabel(discountAmount)}
               </span>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
-        {data.remainingSeatsLabel || availabilityActionKind !== 'ENROLL' ? (
-          <div className={styles['pricingAvailabilityBox']}>
-            <span className={styles['pricingAvailabilityLabel']}>
-              {availabilityActionKind === 'ENROLL' ? '현재 수강 가능' : '모집 상태'}
-            </span>
-            <span className={styles['pricingAvailabilityValue']}>{availabilityStatusLabel}</span>
-          </div>
-        ) : null}
-        <p className={styles['pricingAvailabilityDescription']}>{availabilityStatusDescription}</p>
+        <div className={styles['pricingDivider']} />
 
         <div className={styles['pricingTotalRow']}>
           <span className={styles['pricingTotalLabel']}>총 결제 금액</span>
@@ -1054,53 +1222,43 @@ export const ProgramPageDetailSidebar = ({
         </div>
 
         <div className={styles['pricingActionRow']}>
-          {availabilityActionKind === 'ALERT' ? (
-            <button
-              className={styles['applyActionLink']}
-              disabled={isAlertPending || isAlertSubscribed}
-              onClick={handleRequestAvailabilityAlert}
-              type='button'
-            >
-              {!isAuthenticated
-                ? '로그인 후 알림 받기'
-                : isAlertSubscribed
-                  ? '알림 신청 완료'
-                  : isAlertPending
-                    ? '신청 중...'
-                    : '알림 받기'}
-            </button>
-          ) : availabilityActionKind === 'DISABLED' ? (
-            <button className={styles['applyActionLink']} disabled type='button'>
-              {availabilityActionLabel}
-            </button>
-          ) : (
+          {availabilityActionKind === 'ENROLL' ? (
             <>
               <button
-                className={classNames(
-                  styles['cartActionLink'],
-                  (isCartAdded || isEnrollmentOwned) && styles['cartActionLinkAdded'],
-                )}
-                disabled={isAddingToCart || isEnrollmentOwned}
-                onClick={handleAddToCart}
-                type='button'
-              >
-                {isEnrollmentOwned
-                  ? '수강 중'
-                  : isCartAdded
-                    ? '장바구니 보기'
-                    : isAddingToCart
-                      ? '담는 중...'
-                      : '장바구니'}
-              </button>
-              <button
                 className={styles['applyActionLink']}
-                disabled={isEnrollingNow || isEnrollmentOwned}
+                disabled={isEnrollmentOwned || isEnrollingNow}
                 onClick={handleEnrollNow}
                 type='button'
               >
-                {isEnrollmentOwned ? '수강 중' : isEnrollingNow ? '이동 중...' : '수강 신청 하기'}
+                {isEnrollmentOwned ? '수강 중' : isEnrollingNow ? '이동 중...' : '수강신청하기'}
+              </button>
+              {isReservationInquiryAvailable ? (
+                <button
+                  className={styles['reservationActionLink']}
+                  disabled={isReservationPending}
+                  onClick={handleRequestReservationInquiry}
+                  type='button'
+                >
+                  {isReservationPending ? '접수 중...' : '예약하기'}
+                </button>
+              ) : null}
+              <button
+                className={
+                  isCartAdded
+                    ? `${styles['cartActionLink']} ${styles['cartActionLinkAdded']}`
+                    : styles['cartActionLink']
+                }
+                disabled={isEnrollmentOwned || isAddingToCart}
+                onClick={handleAddToCart}
+                type='button'
+              >
+                {isCartAdded ? '장바구니 보기' : isAddingToCart ? '담는 중...' : '장바구니 담기'}
               </button>
             </>
+          ) : (
+            <button className={styles['applyActionLink']} disabled type='button'>
+              {availabilityActionLabel}
+            </button>
           )}
         </div>
       </div>

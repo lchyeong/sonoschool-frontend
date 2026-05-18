@@ -163,6 +163,7 @@ const playerArrowDownToLineIconStyle = buildPlayerIconStyle(iconArrowDownToLine)
 const playerRefreshCcwIconStyle = buildPlayerIconStyle(iconRefreshCcw);
 const playerResultPassCheckIconStyle = buildPlayerIconStyle(iconResultPassCheck);
 const playerResultRetryNeededIconStyle = buildPlayerIconStyle(iconResultRetryNeeded);
+const playerCloseIconStyle = buildPlayerIconStyle(iconPracticumClose);
 
 const PLAYBACK_WATERMARK_POSITIONS = [
   'bottom-right',
@@ -446,6 +447,7 @@ const PlayerPage = () => {
   const [activeSidebarPanel, setActiveSidebarPanel] = useState<SidebarPanel>('curriculum');
   const [activeQuizSidebarPanel, setActiveQuizSidebarPanel] =
     useState<QuizSidebarPanel>('curriculum');
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isQnaDetailActive, setIsQnaDetailActive] = useState(false);
   const [isQuizQnaDetailActive, setIsQuizQnaDetailActive] = useState(false);
   const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
@@ -521,6 +523,10 @@ const PlayerPage = () => {
     ? playerItems.find((item) => item.id === resolvedItemId) || null
     : null;
   const selectedLesson = selectedItem?.lesson ?? null;
+
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [resolvedItemId]);
 
   const clearPlayerControlsHideTimer = useCallback(() => {
     if (playerControlsHideTimerRef.current !== null) {
@@ -3528,6 +3534,17 @@ const PlayerPage = () => {
               </span>
             </div>
           ) : null}
+          <button
+            aria-expanded={isMobileSidebarOpen}
+            aria-label={isMobileSidebarOpen ? '강의 패널 닫기' : '강의 패널 열기'}
+            className={styles['mobileSidebarToggle']}
+            onClick={() => {
+              setIsMobileSidebarOpen((current) => !current);
+            }}
+            type='button'
+          >
+            <span aria-hidden='true' className={styles['mobileSidebarToggleBars']} />
+          </button>
         </header>
 
         {!isValidEnrollmentId ? (
@@ -4259,9 +4276,23 @@ const PlayerPage = () => {
                 ) : null}
               </section>
 
+              <button
+                aria-label='강의 패널 닫기'
+                className={classNames(
+                  styles['mobileSidebarBackdrop'],
+                  isMobileSidebarOpen && styles['mobileSidebarBackdropVisible'],
+                )}
+                onClick={() => {
+                  setIsMobileSidebarOpen(false);
+                }}
+                type='button'
+              />
+
               {isQuizMode ? (
                 <aside
                   className={classNames(
+                    styles['playerSidebarPanel'],
+                    isMobileSidebarOpen && styles['playerSidebarPanelOpen'],
                     styles['quizNavigatorPanel'],
                     activeQuizSidebarPanel === 'qna' && styles['curriculumPanelQna'],
                     activeQuizSidebarPanel === 'qna' &&
@@ -4274,6 +4305,20 @@ const PlayerPage = () => {
                     <div className={styles['curriculumHeaderCopy']}>
                       <h2 className={styles['curriculumTitle']}>{curriculumPanelTitle}</h2>
                     </div>
+                    <button
+                      aria-label='강의 패널 닫기'
+                      className={styles['mobileSidebarCloseButton']}
+                      onClick={() => {
+                        setIsMobileSidebarOpen(false);
+                      }}
+                      type='button'
+                    >
+                      <span
+                        aria-hidden='true'
+                        className={styles['mobileSidebarCloseIcon']}
+                        style={playerCloseIconStyle}
+                      />
+                    </button>
                     {activeQuizSidebarPanel === 'qna' && isQuizQnaDetailActive ? null : (
                       <div
                         className={styles['panelSwitchRow']}
@@ -4649,6 +4694,8 @@ const PlayerPage = () => {
               ) : (
                 <aside
                   className={classNames(
+                    styles['playerSidebarPanel'],
+                    isMobileSidebarOpen && styles['playerSidebarPanelOpen'],
                     styles['curriculumPanel'],
                     activeSidebarPanel === 'qna' && styles['curriculumPanelQna'],
                     activeSidebarPanel === 'qna' &&
@@ -4660,6 +4707,20 @@ const PlayerPage = () => {
                     <div className={styles['curriculumHeaderCopy']}>
                       <h2 className={styles['curriculumTitle']}>{curriculumPanelTitle}</h2>
                     </div>
+                    <button
+                      aria-label='강의 패널 닫기'
+                      className={styles['mobileSidebarCloseButton']}
+                      onClick={() => {
+                        setIsMobileSidebarOpen(false);
+                      }}
+                      type='button'
+                    >
+                      <span
+                        aria-hidden='true'
+                        className={styles['mobileSidebarCloseIcon']}
+                        style={playerCloseIconStyle}
+                      />
+                    </button>
                     {activeSidebarPanel === 'qna' && isQnaDetailActive ? null : (
                       <div
                         className={styles['panelSwitchRow']}

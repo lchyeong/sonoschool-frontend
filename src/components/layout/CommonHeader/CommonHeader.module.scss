@@ -855,8 +855,8 @@
 .mobileDrawer {
   width: min(300px, 78vw);
   height: 100%;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
   overflow: auto;
@@ -906,6 +906,7 @@
 
 .mobileNav {
   min-height: 0;
+  flex: 1 1 auto;
 
   &List {
     display: grid;
@@ -979,6 +980,48 @@
       transform: rotate(180deg);
     }
   }
+}
+
+.mobileDrawerFooter {
+  margin-top: auto;
+  padding-top: var(--space-4);
+}
+
+.mobileLogoutButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 999px;
+  color: #374151;
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  background: #ffffff;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: #34b29f;
+    background: #ecf9f7;
+  }
+
+  &:disabled {
+    color: #9ca3af;
+    cursor: wait;
+  }
+}
+
+.mobileLogoutIcon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  object-fit: contain;
 }
 
 .srOnly {

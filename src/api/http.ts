@@ -43,4 +43,12 @@ export const http = {
       throw toApiError(error);
     }
   },
+  patch: async <T>(url: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> => {
+    try {
+      const response = await axiosInstance.patch<unknown>(url, body, config);
+      return unwrapApiResponse(response.data) as T;
+    } catch (error: unknown) {
+      throw toApiError(error);
+    }
+  },
 };

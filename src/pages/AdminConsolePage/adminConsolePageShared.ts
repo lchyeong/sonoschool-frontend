@@ -8,6 +8,7 @@ export type AdminConsoleSection =
   | 'problemAreas'
   | 'programs'
   | 'practicum'
+  | 'programReservations'
   | 'payments'
   | 'qna'
   | 'enrollments'
@@ -97,6 +98,11 @@ export const sectionContent = {
     description: '',
     eyebrow: '',
     title: '일정관리',
+  },
+  programReservations: {
+    description: '',
+    eyebrow: '',
+    title: '예약문의 관리',
   },
   payments: {
     description: '',

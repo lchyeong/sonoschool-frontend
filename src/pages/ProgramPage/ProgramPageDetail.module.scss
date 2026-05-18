@@ -258,14 +258,24 @@
   display: flex;
   gap: 0;
   align-items: center;
-  padding: 16px 19px;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 19px 0;
   background: #ffffff;
   transition: top 220ms ease;
+
+  &::after {
+    position: absolute;
+    right: 19px;
+    bottom: 0;
+    left: 19px;
+    height: 1px;
+    content: '';
+    background: #d1d5db;
+  }
 }
 
 .tabButton {
   position: relative;
+  z-index: 1;
   padding: 0 21px 17px;
   border: 0;
   color: #4b5563;
@@ -279,7 +289,7 @@
   &::after {
     position: absolute;
     right: 0;
-    bottom: -17px;
+    bottom: 0;
     left: 0;
     height: 2px;
     content: '';
@@ -411,14 +421,25 @@
 }
 
 .contentSection {
+  position: relative;
   padding: 32px 0 48px;
-  border-top: 1px solid #e5e7eb;
   scroll-margin-top: 152px;
+}
+
+.contentSectionSeparated {
+  &::before {
+    position: absolute;
+    top: 0;
+    right: 19px;
+    left: 19px;
+    height: 1px;
+    content: '';
+    background: #d1d5db;
+  }
 }
 
 .qnaTabSection {
   padding-top: 37px;
-  border-top: 0;
 }
 
 .introductionSectionGroup {
@@ -432,20 +453,108 @@
 }
 
 .introductionBlockTitle {
-  margin-bottom: 4px;
-  font-size: 20px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 13px;
+  color: #111827;
+  font-size: 22px;
   font-weight: 600;
+  line-height: 1.3;
+}
+
+.introductionBlockTitleIcon {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #ecf9f7;
+
+  &::after {
+    width: 8px;
+    height: 5px;
+    border-bottom: 2px solid #34b29f;
+    border-left: 2px solid #34b29f;
+    content: '';
+    transform: rotate(-45deg) translate(1px, -1px);
+  }
 }
 
 .introductionBlockSubtitle {
-  color: #9ca3af;
+  margin: 0;
+  color: #6b7280;
   font-size: 18px;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .sectionBlockBody {
   padding-top: 24px;
   border-top: 1px solid #e5e7eb;
+}
+
+.corePointSection {
+  .sectionBlockBody {
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
+.outcomeSection {
+  padding-top: 38px;
+  border-top: 1px solid #d1d5db;
+
+  .introductionBlockHeader {
+    margin-bottom: 38px;
+  }
+
+  .introductionBlockTitle {
+    margin-bottom: 20px;
+  }
+
+  .sectionBlockBody {
+    padding-top: 0;
+    padding-bottom: 38px;
+    border-top: 0;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .checkItemGroup {
+    gap: 38px;
+  }
+
+  .checkBlock {
+    gap: 16px;
+  }
+}
+
+.targetSection {
+  .sectionBlockBody {
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
+.preparationSection {
+  padding-top: 38px;
+  border-top: 1px solid #d1d5db;
+
+  .introductionBlockHeader {
+    margin-bottom: 36px;
+  }
+
+  .introductionBlockTitle {
+    margin-bottom: 20px;
+  }
+
+  .sectionBlockBody {
+    padding-top: 0;
+    border-top: 0;
+  }
 }
 
 .infoBoxListGroup,
@@ -462,16 +571,30 @@
   margin-top: 24px;
 }
 
+.curriculumWeekList {
+  gap: 0;
+  margin-top: 39px;
+}
+
 .infoBox {
-  padding: 24px;
+  display: grid;
+  gap: 22px;
+  padding: 28px;
   border-radius: 20px;
   background: #f9fafb;
 }
 
 .infoBoxTitle {
-  margin-bottom: 8px;
-  font-size: 16px;
-  font-weight: 700;
+  color: #34b29f;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.infoBoxItemRow {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
 }
 
 .infoBoxList,
@@ -487,8 +610,13 @@
 .checkBlockItem,
 .curriculumSummaryItem,
 .curriculumLessonTopicItem {
-  color: #000000;
-  font-size: 14px;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.infoBoxItem {
+  margin: 0;
 }
 
 .checkItemGroup {
@@ -526,33 +654,71 @@
   border-radius: 999px;
 }
 
-.checkIcon,
-.targetChecklistIcon {
-  background: #2ea995;
+.checkIcon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #ecf9f7;
 
   &::after {
     position: absolute;
-    inset: 0;
-    color: #ffffff;
-    font-size: 12px;
-    line-height: 20px;
-    text-align: center;
-    content: '✓';
+    top: 6px;
+    left: 6px;
+    width: 8px;
+    height: 5px;
+    border-bottom: 2px solid #34b29f;
+    border-left: 2px solid #34b29f;
+    content: '';
+    transform: rotate(-45deg);
   }
 }
 
+.infoBoxCheckIcon,
+.targetChecklistIcon {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #6b7280;
+  border-radius: 999px;
+}
+
+.targetChecklistIcon {
+  color: #ffffff;
+  background: #34b29f;
+}
+
+.infoBoxCheckIcon::after,
+.targetChecklistIcon::after {
+  width: 8px;
+  height: 5px;
+  border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  content: '';
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
 .checkBlockTitle {
-  font-size: 16px;
-  font-weight: 700;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.checkBlockItem {
+  margin: 0;
 }
 
 .targetCard {
   display: grid;
-  gap: 12px;
-  padding: 24px;
-  border: 1px solid #e5e7eb;
+  gap: 20px;
+  padding: 32px 28px;
+  border: 0;
   border-radius: 20px;
-  background: #ffffff;
+  background: #ecf9f7;
 }
 
 .targetCardContent {
@@ -562,13 +728,15 @@
 }
 
 .targetCardLabel {
-  font-size: 16px;
-  font-weight: 700;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .targetCardChecklist {
   display: grid;
-  gap: 8px;
+  gap: 18px;
 }
 
 .targetChecklistItem {
@@ -577,47 +745,60 @@
 }
 
 .targetChecklistText {
-  color: #000000;
-  font-size: 14px;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.3;
 }
 
 .featureCardGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 42px;
 }
 
 .featureCard {
-  padding: 24px;
-  border: 1px solid #e5e7eb;
-  border-radius: 20px;
-  background: #ffffff;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 22px 12px;
+  align-items: start;
 }
 
-.featureCardIcon,
-.stepCardIcon {
-  background: #314dcc;
+.featureCardIcon {
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #34b29f;
+  grid-row: 1;
 
   &::after {
-    position: absolute;
-    inset: 0;
-    color: #ffffff;
-    font-size: 12px;
-    line-height: 20px;
-    text-align: center;
-    content: '✓';
+    width: 8px;
+    height: 5px;
+    border-bottom: 2px solid #ffffff;
+    border-left: 2px solid #ffffff;
+    content: '';
+    transform: rotate(-45deg) translate(1px, -1px);
   }
 }
 
+.stepCardIcon {
+  background: #314dcc;
+}
+
 .featureCardTitle {
-  margin-top: 12px;
-  margin-bottom: 8px;
-  font-size: 16px;
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .featureCardDescription {
-  color: #000000;
-  font-size: 14px;
+  grid-column: 2;
+  margin: -2px 0 0;
+  color: #374151;
+  font-size: 18px;
+  line-height: 1.3;
 }
 
 .stepCard {
@@ -657,45 +838,109 @@
 
 .curriculumTrack {
   display: grid;
-  gap: 16px;
+  gap: 0;
 }
 
 .curriculumTrackHeader {
   justify-content: flex-start;
+  margin-bottom: 16px;
 }
 
 .curriculumTrackDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #000000;
+  display: none;
 }
 
 .curriculumTrackTitle {
-  font-size: 20px;
+  color: #111827;
+  font-size: 22px;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .curriculumSummaryPanel {
-  padding: 24px;
-  border-radius: 30px;
-  background: #f9fafb;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.curriculumControlsRow {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: space-between;
 }
 
 .curriculumSummaryListDecimal,
 .curriculumSummaryListDisc {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 0;
+  list-style: none;
 }
 
 .curriculumSummaryItem {
-  color: #9ca3af;
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 39px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 400;
+  background: #ffffff;
+
+  strong {
+    color: #111827;
+    font-weight: 500;
+  }
+}
+
+.curriculumToggleAllButton {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  min-width: 153px;
+  min-height: 52px;
+  padding: 0 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  color: #111827;
+  background: #ffffff;
+  cursor: pointer;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+}
+
+.curriculumToggleAllIcon {
+  display: block;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  color: #111827;
+  transition: transform 160ms ease;
+}
+
+.curriculumToggleAllIconOpen {
+  transform: rotate(180deg);
 }
 
 .curriculumWeekRow {
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #d1d5db;
   border-radius: 20px;
   background: #ffffff;
 }
@@ -732,7 +977,8 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 12px 24px;
+  min-height: 78px;
+  padding: 0 28px;
   border: 0;
   text-align: left;
   background: #f9fafb;
@@ -746,33 +992,47 @@
   min-width: 0;
 }
 
-.curriculumWeekLabelGroup {
+.curriculumWeekButtonRight {
   display: flex;
-  gap: 4px;
+  gap: 12px;
   align-items: center;
-  width: 160px;
-  padding-right: 16px;
-  border-right: 1px solid #e5e7eb;
+  justify-content: flex-end;
+  flex: 0 0 auto;
 }
 
-.curriculumWeekLabel,
-.curriculumWeekHours,
+.curriculumWeekMeta,
 .curriculumWeekTitle {
-  color: #000000;
-  font-size: 16px;
+  color: #111827;
+  font-size: 20px;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .curriculumWeekTitle {
   min-width: 0;
 }
 
+.curriculumWeekMeta {
+  color: #374151;
+  font-size: 18px;
+  font-weight: 400;
+}
+
+.curriculumWeekMetaDot {
+  display: block;
+  flex: 0 0 auto;
+  width: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: #374151;
+}
+
 .curriculumWeekChevron {
   display: block;
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  color: #000000;
+  width: 24px;
+  height: 24px;
+  color: #111827;
   transition: transform 160ms ease;
 }
 
@@ -782,32 +1042,37 @@
 
 .curriculumWeekContent {
   display: grid;
-  gap: 16px;
-  padding: 24px;
+  gap: 0;
+  padding: 0;
+  border-top: 1px solid #d1d5db;
 }
 
 .curriculumWeekDescription {
   margin: 0;
-  color: #4b5563;
-  font-size: 15px;
+  padding: 22px 28px;
+  border-bottom: 1px solid #d1d5db;
+  color: #111827;
+  font-size: 18px;
   line-height: 1.7;
 }
 
 .curriculumLessonBlock {
   display: grid;
-  gap: 8px;
+  gap: 0;
+  min-height: 81px;
+  padding: 0 20px;
 }
 
 .curriculumLessonBlockSeparated {
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid #d1d5db;
 }
 
 .curriculumLessonHeader {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px 16px;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  gap: 18px;
   align-items: center;
+  min-height: 81px;
 }
 
 .fullReviewHeader {
@@ -821,7 +1086,6 @@
 .curriculumLessonHeaderMain {
   display: flex;
   flex: 1 1 320px;
-  gap: 12px;
   align-items: center;
   min-width: 0;
 }
@@ -829,63 +1093,63 @@
 .curriculumLessonHeaderAside {
   display: flex;
   flex-wrap: nowrap;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   justify-content: flex-end;
   justify-self: end;
 }
 
 .curriculumLessonTitle,
+.curriculumLessonQuestionCount,
 .curriculumLessonDuration {
-  color: #9ca3af;
-  font-size: 16px;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.3;
 }
 
 .curriculumLessonDuration {
   flex: 0 0 auto;
+  color: #6b7280;
+  font-weight: 400;
   white-space: nowrap;
 }
 
 .curriculumLessonTitle {
   min-width: 0;
   color: #111827;
-  font-weight: 600;
+  font-weight: 500;
 }
 
-.curriculumLessonQuestionBadge {
-  display: inline-flex;
+.curriculumLessonQuestionCount {
   flex: 0 0 auto;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
+  color: #6b7280;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.curriculumLessonMetaDot {
+  flex: 0 0 auto;
+  width: 2px;
+  height: 2px;
   border-radius: 999px;
-  color: #0f766e;
-  font-size: 13px;
-  font-weight: 700;
-  background: rgba(94, 234, 212, 0.18);
-}
-
-.curriculumLessonCapsuleList {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: nowrap;
-  gap: 8px;
-  justify-content: flex-end;
+  background: #6b7280;
 }
 
 .curriculumLessonCapsule {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
+  justify-content: center;
+  width: 80px;
+  min-height: 29px;
   padding: 0 12px;
-  border: 1px solid rgba(190, 229, 225, 0.9);
-  border-radius: 999px;
-  color: #4d9b93;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  border: 0;
+  border-radius: 8px;
+  color: #34b29f;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
   white-space: nowrap;
-  background: linear-gradient(180deg, rgba(242, 251, 250, 0.96) 0%, rgba(233, 247, 245, 0.92) 100%);
+  background: #ecf9f7;
 }
 
 .curriculumLessonScheduleButton {
@@ -994,6 +1258,26 @@
   color: #000000;
   font-size: 32px;
   font-weight: 700;
+}
+
+.reviewTitleRow {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reviewTotalCount {
+  flex: 0 0 auto;
+  color: #374151;
+  font-size: 18px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.reviewTotalCountValue {
+  color: #111827;
+  font-weight: 500;
 }
 
 .reviewScoreCount {
@@ -1320,94 +1604,112 @@
 }
 
 .pricingCard {
-  padding: 24px;
-  border-radius: 30px;
-  background: #ffffff;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.1);
-}
-
-.pricingDiscountBlock {
   display: grid;
-  justify-items: end;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: 0;
+  padding: 40px 28px 28px;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(17, 24, 39, 0.08);
 }
 
-.pricingDiscountRow {
-  justify-content: flex-end;
-}
-
-.pricingOriginalPrice {
-  color: #6b7280;
-  font-size: 24px;
-  text-decoration: line-through;
-}
-
-.pricingDiscountRate,
-.pricingDiscountedPrice,
-.pricingTotalValue {
-  color: #000000;
-  font-weight: 600;
-}
-
-.pricingDiscountRate {
-  color: #33bda7;
-  font-size: 24px;
-}
-
-.pricingDiscountedPrice,
-.pricingTotalValue {
-  font-size: 36px;
-}
-
-.pricingAvailabilityBox {
+.pricingStatusRow,
+.pricingInfoRow,
+.pricingTotalRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  border: 1px solid var(--color-brand-lighten-30);
-  border-radius: 14px;
-  background: var(--color-brand-lighten-50);
+  gap: 20px;
 }
 
-.pricingAvailabilityLabel {
-  color: #4b5563;
-  font-size: 14px;
-  font-weight: 600;
+.pricingStatusRow {
+  margin-bottom: 36px;
 }
 
-.pricingAvailabilityValue {
-  color: var(--color-brand-darken-10);
-  font-size: 15px;
+.pricingStatusLabel {
+  color: #34b29f;
+  font-size: 22px;
   font-weight: 700;
+  line-height: 1.3;
+}
+
+.pricingStatusValue,
+.pricingInfoValue,
+.pricingDiscountValue {
+  color: #111827;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.3;
   text-align: right;
 }
 
-.pricingAvailabilityDescription {
-  margin: -4px 0 16px;
-  color: #4b5563;
-  font-size: 14px;
-  line-height: 1.6;
+.pricingDivider {
+  height: 1px;
+  margin-bottom: 28px;
+  background: #d1d5db;
 }
 
+.pricingInfoRows {
+  display: grid;
+  gap: 28px;
+  margin-bottom: 28px;
+}
+
+.pricingInfoLabel,
 .pricingTotalLabel {
-  color: #000000;
-  font-size: 16px;
-  font-weight: 600;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.pricingDiscountValue {
+  color: #34b29f;
 }
 
 .pricingTotalRow {
-  margin-bottom: 16px;
+  margin-bottom: 0;
+}
+
+.pricingTotalLabel,
+.pricingTotalValue {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.pricingTotalValue {
+  color: #111827;
+  line-height: 1.3;
+  text-align: right;
 }
 
 .pricingActionRow {
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 40px;
 }
 
 .cartActionLink,
-.applyActionLink,
+.reservationActionLink,
+.applyActionLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 74px;
+  padding: 0 12px;
+  border-radius: 16px;
+  border: 0;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mobileCartActionLink,
+.mobileReservationActionLink,
 .mobileApplyActionLink {
   display: inline-flex;
   flex: 1;
@@ -1415,7 +1717,7 @@
   justify-content: center;
   min-height: 52px;
   padding: 0 12px;
-  border-radius: 20px;
+  border-radius: 16px;
   border: 0;
   color: #ffffff;
   cursor: pointer;
@@ -1425,25 +1727,193 @@
 }
 
 .cartActionLink:disabled,
+.mobileCartActionLink:disabled,
+.reservationActionLink:disabled,
+.mobileReservationActionLink:disabled,
 .applyActionLink:disabled,
 .mobileApplyActionLink:disabled {
   cursor: default;
   opacity: 0.72;
 }
 
-.cartActionLink {
-  background: #374151;
+.cartActionLink,
+.mobileCartActionLink {
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
 }
 
-.cartActionLinkAdded {
+.cartActionLinkAdded,
+.mobileCartActionLinkAdded {
   color: #34b29f;
   border: 1px solid #34b29f;
   background: #ecf9f7;
 }
 
+.reservationActionLink,
+.mobileReservationActionLink {
+  color: #34b29f;
+  border: 1px solid #34b29f;
+  background: #ffffff;
+}
+
 .applyActionLink,
 .mobileApplyActionLink {
-  background: #33bda7;
+  background: #34b29f;
+}
+
+.applyActionLink {
+  font-weight: 700;
+}
+
+.reservationModalPanel {
+  position: relative;
+  width: min(100%, 780px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  border: 0;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 28px 72px rgba(15, 23, 42, 0.24);
+}
+
+.reservationModalHeader {
+  align-items: center;
+  padding: 36px 36px 26px;
+}
+
+.reservationModalTitle {
+  color: #111827;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
+.reservationModalCloseButton {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #111827;
+  background: transparent;
+
+  img {
+    display: block;
+    width: 30px;
+    height: 30px;
+  }
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+.reservationModalBody {
+  padding: 0 36px 40px;
+}
+
+.reservationForm {
+  display: grid;
+  gap: 25px;
+}
+
+.reservationField {
+  display: grid;
+  gap: 12px;
+}
+
+.reservationFieldLabel {
+  color: #111827;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.reservationInput {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  color: #111827;
+  background: #ffffff;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 18px;
+  font-weight: 600;
+  height: 59px;
+  line-height: 1.3;
+  padding: 0 18px;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
+  &:focus {
+    border-color: #34b29f;
+    outline: 3px solid rgba(52, 178, 159, 0.18);
+  }
+}
+
+.reservationError {
+  margin: -4px 0 0;
+  color: #dc2626;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.reservationSubmitButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 60px;
+  padding: 0 24px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff;
+  background: #34b29f;
+  cursor: pointer;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.72;
+  }
+}
+
+.reservationNoticeBlock {
+  padding-top: 24px;
+  margin-top: 1px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.reservationNoticeTitle {
+  margin: 0 0 13px;
+  color: #374151;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.reservationNoticeList {
+  display: grid;
+  gap: 4px;
+  padding-left: 27px;
+  margin: 0;
+  color: #374151;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .ratingStars {
@@ -1601,6 +2071,17 @@
     background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(10px);
   }
+
+  .mobileCartActionLink,
+  .mobileReservationActionLink,
+  .mobileApplyActionLink {
+    min-width: 0;
+    min-height: 48px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.2;
+    text-align: center;
+  }
 }
 
 @media (width < 768px) {
@@ -1711,6 +2192,16 @@
     grid-template-columns: 1fr;
   }
 
+  .curriculumControlsRow {
+    display: grid;
+    gap: 16px;
+  }
+
+  .curriculumToggleAllButton {
+    width: 100%;
+    min-width: 0;
+  }
+
   .curriculumLessonHeader {
     grid-template-columns: 1fr;
   }
@@ -1720,12 +2211,8 @@
     justify-self: stretch;
   }
 
-  .curriculumLessonCapsuleList {
-    flex-wrap: wrap;
-  }
-
   .curriculumWeekButton,
-  .curriculumWeekLabelGroup,
+  .reviewTitleRow,
   .fullReviewHeader,
   .reviewSectionHeaderRow,
   .faqQuestionContent,
@@ -1737,12 +2224,6 @@
     gap: 12px;
   }
 
-  .curriculumWeekLabelGroup {
-    width: auto;
-    padding-right: 0;
-    border-right: 0;
-  }
-
   .faqQuestionButton {
     gap: 12px;
     align-items: start;
@@ -1750,5 +2231,39 @@
 
   .faqQuestionContent {
     gap: 12px;
+  }
+
+  .reservationModalPanel {
+    width: min(100%, 420px);
+    max-height: calc(100vh - 24px);
+    border-radius: 22px;
+  }
+
+  .reservationModalHeader {
+    padding: 28px 22px 22px;
+  }
+
+  .reservationModalBody {
+    padding: 0 22px 28px;
+  }
+
+  .reservationForm {
+    gap: 20px;
+  }
+
+  .reservationFieldLabel,
+  .reservationSubmitButton,
+  .reservationNoticeTitle {
+    font-size: 18px;
+  }
+
+  .reservationInput {
+    font-size: 16px;
+    height: 54px;
+  }
+
+  .reservationNoticeList {
+    font-size: 15px;
+    white-space: normal;
   }
 }

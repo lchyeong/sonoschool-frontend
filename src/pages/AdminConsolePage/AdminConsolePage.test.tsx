@@ -850,6 +850,44 @@ describe('AdminConsolePage', () => {
     expect((await screen.findAllByText('이 결과에 해당하는 상태는?')).length).toBeGreaterThan(0);
   });
 
+  it('grants a program enrollment from the member detail page', async () => {
+    renderAdminConsoleRoute('/admin/enrollments/101');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '회원 상세' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '수강권 지급' }));
+
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('프로그램'), {
+      target: { value: '2004' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: '지급' }));
+
+    await waitFor(() => {
+      expect(
+        useToastStore.getState().toasts.some((toast) => toast.message === '수강권을 지급했습니다.'),
+      ).toBe(true);
+    });
+  });
+
+  it('revokes a manually granted enrollment from the member detail page', async () => {
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('운영자 회수');
+
+    renderAdminConsoleRoute('/admin/enrollments/101');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '회원 상세' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /복부 실전 실습예약 마스터/ }));
+    fireEvent.click(await screen.findByRole('button', { name: '수강권 회수' }));
+
+    await waitFor(() => {
+      expect(promptSpy).toHaveBeenCalledWith('수강권 회수 사유를 입력해 주세요.');
+      expect(
+        useToastStore.getState().toasts.some((toast) => toast.message === '수강권을 회수했습니다.'),
+      ).toBe(true);
+    });
+  });
+
   it('renders the dedicated practicum management section', async () => {
     renderAdminConsoleRoute('/admin/practicum');
 

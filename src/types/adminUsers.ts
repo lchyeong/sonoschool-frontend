@@ -93,6 +93,7 @@ export interface AdminUserDetailPaymentItem {
   paymentId: number;
   paymentMethod: string;
   paymentStatus: string;
+  orderType: string | null;
   programId: number | null;
   programTitle: string | null;
   requestedAt: string | null;

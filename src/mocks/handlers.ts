@@ -66,6 +66,11 @@ import {
   getMockProgramQna,
   updateMockProgramQnaThread,
 } from '@/mocks/data/programQna';
+import {
+  createMockProgramReservationInquiry,
+  getMockProgramReservationInquiries,
+  updateMockProgramReservationInquiryStatus,
+} from '@/mocks/data/programReservationInquiries';
 import { getMockProgramSearchIndex } from '@/mocks/data/programSearch';
 import {
   createMockAdminReply,
@@ -777,6 +782,43 @@ export const handlers = [
       }),
     );
   }),
+  http.post('*/api/v1/program-reservation-inquiries', async ({ request }) => {
+    const body = await request.json().catch(() => null);
+
+    if (!isRecord(body)) {
+      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
+    }
+
+    const applicantName = typeof body['applicantName'] === 'string' ? body['applicantName'] : '';
+    const content = typeof body['content'] === 'string' ? body['content'] : '예약 문의';
+    const phoneNumber = typeof body['phoneNumber'] === 'string' ? body['phoneNumber'] : '';
+    const programTitle = typeof body['programTitle'] === 'string' ? body['programTitle'] : '';
+    const sourcePath = typeof body['sourcePath'] === 'string' ? body['sourcePath'] : '';
+    const specialty = typeof body['specialty'] === 'string' ? body['specialty'] : undefined;
+    const programId = typeof body['programId'] === 'number' ? body['programId'] : null;
+
+    if (!applicantName.trim() || !phoneNumber.trim() || !programTitle.trim()) {
+      return HttpResponse.json({ message: 'Required field missing.' }, { status: 400 });
+    }
+
+    const inquiry = createMockProgramReservationInquiry({
+      applicantName,
+      content,
+      phoneNumber,
+      programId,
+      programTitle,
+      sourcePath: sourcePath || '/programs',
+      specialty,
+    });
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        id: inquiry.id,
+        status: inquiry.status,
+        submittedAt: inquiry.submittedAt,
+      }),
+    );
+  }),
   http.post('*/api/v1/cart/items', async ({ request }) => {
     const body = await request.json().catch(() => null);
 
@@ -918,6 +960,34 @@ export const handlers = [
   ...createAdminGetHandlers('/payments', () => {
     return HttpResponse.json(createApiEnvelope(getMockAdminPayments()));
   }),
+  ...createAdminGetHandlers('/program-reservation-inquiries', () => {
+    return HttpResponse.json(createApiEnvelope(getMockProgramReservationInquiries()));
+  }),
+  http.patch(
+    '*/api/v1/admin/program-reservation-inquiries/:inquiryId/status',
+    async ({ params, request }) => {
+      const inquiryId = Number(params['inquiryId']);
+      const body = await request.json().catch(() => null);
+
+      if (!Number.isInteger(inquiryId) || inquiryId <= 0 || !isRecord(body)) {
+        return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
+      }
+
+      const status = body['status'];
+
+      if (status !== 'NEW' && status !== 'CONTACTED' && status !== 'CLOSED') {
+        return HttpResponse.json({ message: 'Invalid status' }, { status: 400 });
+      }
+
+      const inquiry = updateMockProgramReservationInquiryStatus(inquiryId, status);
+
+      if (!inquiry) {
+        return HttpResponse.json({ message: 'Inquiry not found' }, { status: 404 });
+      }
+
+      return HttpResponse.json(createApiEnvelope(inquiry));
+    },
+  ),
   ...createAdminGetHandlers('/payments/:paymentId', ({ params }) => {
     const paymentId = Number(params['paymentId']);
 
@@ -1083,6 +1153,17 @@ export const handlers = [
     );
   }),
   ...createAdminPostHandlers('/program-drafts', () => {
+    return HttpResponse.json(createApiEnvelope(createMockAdminProgramDraftDetail()), {
+      status: 201,
+    });
+  }),
+  ...createAdminPostHandlers('/program-drafts/from-program/:programId', ({ params }) => {
+    const programId = Number(params['programId']);
+
+    if (!Number.isInteger(programId) || programId <= 0) {
+      return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
+    }
+
     return HttpResponse.json(createApiEnvelope(createMockAdminProgramDraftDetail()), {
       status: 201,
     });
@@ -1934,6 +2015,12 @@ export const handlers = [
       101: {
         active: true,
         activeEnrollmentCount: 2,
+        certificateProfile: {
+          englishName: null,
+          koreanName: null,
+          lockedAt: null,
+          registered: false,
+        },
         displayName: '김민지',
         email: 'minji@example.com',
         marketingConsent: {
@@ -2085,6 +2172,7 @@ export const handlers = [
               paymentId: 6001,
               paymentMethod: 'CARD',
               paymentStatus: 'COMPLETED',
+              orderType: 'PROGRAM',
               programId: 2001,
               programTitle: '복부초음파 기초',
               requestedAt: '2026-03-01T08:55:00Z',
@@ -2094,6 +2182,37 @@ export const handlers = [
             programType: 'HYBRID',
             totalLectureCount: 3,
             totalProblemLectureCount: 1,
+          },
+          {
+            attemptedProblemLectureCount: 0,
+            completedLectureCount: 0,
+            completionRate: 0,
+            current: true,
+            enrolledAt: '2026-03-08T09:00:00Z',
+            enrollmentId: 7002,
+            enrollmentStatus: 'ACTIVE',
+            expireAt: null,
+            firstLearningAt: null,
+            lastLearningAt: null,
+            lectures: [],
+            payment: {
+              amount: 0,
+              approvedAmount: 0,
+              cancelledAt: null,
+              paidAt: '2026-03-08T09:00:00Z',
+              paymentId: 70002,
+              paymentMethod: 'FREE',
+              paymentStatus: 'COMPLETED',
+              orderType: 'PROGRAM',
+              programId: 2003,
+              programTitle: '복부 실전 실습예약 마스터',
+              requestedAt: '2026-03-08T09:00:00Z',
+            },
+            programId: 2003,
+            programTitle: '복부 실전 실습예약 마스터',
+            programType: 'HYBRID',
+            totalLectureCount: 0,
+            totalProblemLectureCount: 0,
           },
         ],
         id: 101,
@@ -2117,6 +2236,7 @@ export const handlers = [
             paymentId: 6001,
             paymentMethod: 'CARD',
             paymentStatus: 'COMPLETED',
+            orderType: 'PROGRAM',
             programId: 2001,
             programTitle: '복부초음파 기초',
             requestedAt: '2026-03-01T08:55:00Z',
@@ -2129,9 +2249,23 @@ export const handlers = [
             paymentId: 6000,
             paymentMethod: 'CARD',
             paymentStatus: 'CANCELLED',
+            orderType: 'PROGRAM',
             programId: 1999,
             programTitle: '경부초음파 입문',
             requestedAt: '2026-01-22T09:55:00Z',
+          },
+          {
+            amount: 0,
+            approvedAmount: 0,
+            cancelledAt: null,
+            paidAt: '2026-03-08T09:00:00Z',
+            paymentId: 70002,
+            paymentMethod: 'FREE',
+            paymentStatus: 'COMPLETED',
+            orderType: 'PROGRAM',
+            programId: 2003,
+            programTitle: '복부 실전 실습예약 마스터',
+            requestedAt: '2026-03-08T09:00:00Z',
           },
         ],
         phoneNumber: '010-1111-2222',
@@ -2231,10 +2365,15 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(filteredEnrollments));
   }),
-  http.post('*/api/v1/admin/enrollments', ({ request }) => {
+  http.post('*/api/v1/admin/enrollments', async ({ request }) => {
     const requestUrl = new URL(request.url);
-    const programId = Number(requestUrl.searchParams.get('programId'));
-    const userId = Number(requestUrl.searchParams.get('userId'));
+    const body = await request.json().catch(() => null);
+    const bodyRecord =
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : {};
+    const programId = Number(bodyRecord['programId'] ?? requestUrl.searchParams.get('programId'));
+    const userId = Number(bodyRecord['userId'] ?? requestUrl.searchParams.get('userId'));
     const program = getMockAdminProgramsLive().find((item) => item.id === programId);
 
     if (!Number.isFinite(programId) || !Number.isFinite(userId) || !program) {
@@ -2253,6 +2392,9 @@ export const handlers = [
       }),
       { status: 201 },
     );
+  }),
+  http.post('*/api/v1/admin/enrollments/:enrollmentId/cancel', () => {
+    return HttpResponse.json(createApiEnvelope(null), { status: 204 });
   }),
   http.post('*/api/v1/admin/enrollments/expire', () => {
     return HttpResponse.json(

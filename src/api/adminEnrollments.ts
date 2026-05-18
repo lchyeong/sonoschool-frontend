@@ -1,8 +1,10 @@
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
 import type {
+  AdminEnrollmentCreatePayload,
   AdminEnrollmentListItem,
   AdminEnrollmentMaintenanceResult,
+  AdminEnrollmentResult,
 } from '@/types/adminEnrollments';
 import type { ApiEnvelope } from '@/types/auth';
 
@@ -28,6 +30,21 @@ export const fetchAdminEnrollments = async (
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '수강 목록을 불러오지 못했습니다.');
+  }
+};
+
+export const createAdminEnrollment = async (
+  payload: AdminEnrollmentCreatePayload,
+): Promise<AdminEnrollmentResult> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<AdminEnrollmentResult>>(
+      '/api/v1/admin/enrollments',
+      payload,
+    );
+
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '수강권 지급에 실패했습니다.');
   }
 };
 

@@ -3182,6 +3182,670 @@
   }
 }
 @media (width < 768px) {
+  .page {
+    padding-top: 3px;
+    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+  }
+  .shell {
+    width: min(100%, calc(100% - 32px));
+  }
+  .surface,
+  .panel,
+  .contentSection {
+    gap: 0;
+  }
+  .layout {
+    display: block;
+  }
+  .sidebar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: var(--z-index-fixed);
+    width: 100%;
+    padding: 2px max(8px, env(safe-area-inset-right)) calc(2px + env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+    border: 0;
+    border-radius: 12px 12px 0 0;
+    background: #ffffff;
+    box-shadow: 0 -2px 8px rgba(97, 97, 97, 0.2);
+  }
+  .sidebarHeader,
+  .sidebarFooter {
+    display: none;
+  }
+  .menuGroups {
+    width: 100%;
+  }
+  .menuList {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+  }
+  .menuButton {
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    height: 68px;
+    padding: 0;
+    border-radius: 10px;
+    color: #4b5563;
+    background: #ffffff;
+  }
+  .menuButton:hover,
+  .menuButton:focus-visible,
+  .menuButtonActive {
+    color: #34b29f;
+    background: #ffffff;
+  }
+  .menuIcon {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+  .menuLabel {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.3;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .learningHeader,
+  .paymentHeader,
+  .profileTitle,
+  .questionTitle {
+    display: none;
+  }
+  .learningSection,
+  .paymentSection,
+  .profileSection,
+  .questionSection {
+    max-width: none;
+  }
+  .courseOverviewGrid,
+  .paymentOverviewGrid,
+  .questionFilterRow {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    max-width: 100%;
+    height: 36px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .courseOverviewButton,
+  .paymentOverviewButton,
+  .questionFilterButton {
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    height: 36px;
+    padding: 6px 4px;
+  }
+  .courseOverviewButtonActive::after,
+  .paymentOverviewButtonActive::after,
+  .questionFilterButtonActive::after {
+    bottom: -1px;
+    height: 1px;
+  }
+  .courseOverviewLabel,
+  .paymentOverviewLabel,
+  .questionFilterButton {
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+  }
+  .courseOverviewCount,
+  .paymentOverviewCount {
+    min-width: 21px;
+    height: 17px;
+    padding: 1px 7px;
+    font-size: 11px;
+  }
+  .learningCoursesBody {
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .learningCoursesBodyExpired {
+    margin-top: 16px;
+  }
+  .courseGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .courseCard,
+  .courseCardLink {
+    position: relative;
+    grid-template-columns: 153px minmax(0, 1fr);
+    min-height: 170px;
+    padding: 10px;
+    overflow: hidden;
+    border-color: #e5e7eb;
+    border-radius: 12px;
+  }
+  .courseCardExpired {
+    grid-template-columns: 128px minmax(0, 1fr);
+    min-height: 142px;
+    padding: 8px;
+  }
+  .courseCardMedia {
+    width: 137px;
+    height: 91px;
+    min-height: 91px;
+    max-height: 91px;
+    border-radius: 10px;
+  }
+  .courseCardExpired .courseCardMedia {
+    width: 116px;
+    height: 77px;
+    min-height: 77px;
+    max-height: 77px;
+    border-radius: 8px;
+  }
+  .courseCardImage,
+  .courseCardFallback {
+    border-radius: inherit;
+  }
+  .courseCardBody {
+    display: grid;
+    grid-template-rows: auto auto auto 1fr;
+    gap: 6px;
+    min-width: 0;
+    padding: 0;
+  }
+  .courseCardHeader {
+    min-height: 0;
+  }
+  .courseCardTitle {
+    font-size: 14px;
+    line-height: 1.3;
+    -webkit-line-clamp: 2;
+  }
+  .courseCardExpired .courseCardTitle {
+    font-size: 13px;
+  }
+  .courseProgressSection {
+    gap: 5px;
+  }
+  .courseProgressMeta {
+    order: -1;
+  }
+  .courseProgressCountText,
+  .courseProgressSeparator,
+  .courseProgressPercent,
+  .courseMetaLabel,
+  .courseMetaValue {
+    font-size: 11px;
+  }
+  .courseCardExpired .courseProgressCountText,
+  .courseCardExpired .courseProgressSeparator,
+  .courseCardExpired .courseProgressPercent,
+  .courseCardExpired .courseMetaLabel,
+  .courseCardExpired .courseMetaValue {
+    font-size: 10px;
+  }
+  .courseProgressTrack {
+    height: 4px;
+  }
+  .courseCardExpired .courseProgressTrack {
+    height: 3px;
+  }
+  .courseMetaList {
+    gap: 5px;
+  }
+  .courseCardExpired .courseMetaList {
+    gap: 4px;
+  }
+  .courseMetaRow {
+    gap: 8px;
+  }
+  .courseCardExpired .courseMetaRow {
+    gap: 6px;
+  }
+  .courseCardFooter {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    padding-top: 0;
+  }
+  .courseCardExpired .courseCardFooter {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+  }
+  .learningActionLink,
+  .courseSecondaryAction,
+  .courseSecondaryActionPlaceholder {
+    width: min(154px, calc((100% - 16px) / 2));
+    min-width: 0;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+  }
+  .courseCardExpired .courseSecondaryAction {
+    height: 28px;
+    border-radius: 999px;
+    font-size: 12px;
+  }
+  .certificateNotice {
+    min-height: 36px;
+    margin-top: 10px;
+    padding: 9px 8px;
+    border-radius: 8px;
+  }
+  .certificateNoticeIcon {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+  }
+  .certificateNoticeText {
+    font-size: 12px;
+  }
+  .certificateCoursesBody {
+    margin-top: 16px;
+  }
+  .certificateList {
+    gap: 10px;
+  }
+  .certificateListItem {
+    min-height: 101px;
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+  }
+  .certificateListItem + .certificateListItem {
+    margin-top: 0;
+  }
+  .certificateRow {
+    display: grid;
+    grid-template-columns: 143px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+  .certificateMedia {
+    grid-row: 1 / span 2;
+    width: 137px;
+    min-width: 0;
+    height: 81px;
+    border-radius: 10px;
+  }
+  .certificateTitle {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  .certificateDownloadButton {
+    grid-column: 2;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+    height: 35px;
+    margin-top: 0;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .certificateDownloadButtonIcon {
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+  }
+  .certificateDivider {
+    display: none;
+  }
+  .paymentList {
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .paymentCard {
+    min-height: 108px;
+    padding: 12px;
+    border-color: #e5e7eb;
+    border-radius: 12px;
+  }
+  .paymentCardClickTarget {
+    border-radius: 12px;
+  }
+  .paymentCardHeader {
+    display: flex;
+    gap: 8px;
+  }
+  .paymentCardTitleGroup {
+    gap: 5px;
+    min-width: 0;
+  }
+  .paymentCardTitle {
+    font-size: 14px;
+  }
+  .paymentOrderNumber {
+    font-size: 12px;
+  }
+  .paymentCardActions {
+    flex-flow: row wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    max-width: 148px;
+  }
+  .paymentStatusChip,
+  .paymentReceiptLink,
+  .paymentCancelButton {
+    width: auto;
+    min-width: 57px;
+    height: 22px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+  .paymentCancelButton {
+    min-width: 66px;
+  }
+  .paymentMetaGrid {
+    grid-template-columns: minmax(0, 1.6fr) minmax(68px, 0.9fr) minmax(70px, 0.9fr);
+    gap: 12px;
+    max-width: none;
+    margin-top: 14px;
+  }
+  .paymentMetaItem {
+    gap: 6px;
+  }
+  .paymentMetaLabel,
+  .paymentMetaValue {
+    font-size: 11px;
+  }
+  .paymentMetaLabel {
+    color: #9ca3af;
+  }
+  .paymentPagination,
+  .learningPagination {
+    margin-top: 18px;
+  }
+  .profileSectionTitle {
+    font-size: 14px;
+  }
+  .profileAccountBlock {
+    gap: 24px;
+    margin-top: 0;
+  }
+  .profileFormRows {
+    gap: 14px;
+  }
+  .profileFormRow,
+  .profileStaticRow {
+    grid-template-columns: 91px minmax(0, 1fr);
+    gap: 0;
+    align-items: center;
+  }
+  .profileRowLabel {
+    font-size: 13px;
+  }
+  .profileInlineInput {
+    height: 37px;
+    padding: 0 12px;
+    border-color: #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .profileRowHint {
+    display: none;
+  }
+  .profileStaticValue {
+    font-size: 14px;
+  }
+  .profileVerifiedBadge,
+  .profileUnverifiedText {
+    font-size: 12px;
+  }
+  .profileVerifiedIcon {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+  }
+  .profilePasswordBlock,
+  .profilePhoneBlock,
+  .profileConsentBlock {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+  .profilePhoneFieldGroup {
+    max-width: none;
+  }
+  .profileOutlineButton,
+  .profileDisabledButton {
+    grid-column: 2;
+    width: 100%;
+    height: 38px;
+    margin-top: 8px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .profileConsentBlock {
+    gap: 18px;
+  }
+  .profileConsentList {
+    gap: 14px;
+  }
+  .profileConsentRow {
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .profileConsentBox {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+  }
+  .profileConsentAllText {
+    font-size: 16px;
+  }
+  .profileConsentText,
+  .profileConsentRequired,
+  .profileConsentOptional {
+    font-size: 14px;
+  }
+  .profileConsentDetailRows {
+    gap: 12px;
+  }
+  .profileConsentDetailRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .profileConsentViewButton {
+    justify-self: end;
+    margin-left: 0;
+    font-size: 12px;
+  }
+  .profileActionRow {
+    flex-direction: row;
+    gap: 15px;
+    align-items: center;
+    margin: 28px 0 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .profileCancelButton,
+  .profileSaveButton {
+    flex: 1 1 0;
+    width: auto;
+    height: 44px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .questionNotice {
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 6px;
+    min-height: 84px;
+    margin-top: 0;
+    padding: 12px;
+    border-radius: 10px;
+  }
+  .questionNoticeIcon {
+    width: 16px;
+    height: 16px;
+  }
+  .questionNoticeTitle {
+    font-size: 13px;
+  }
+  .questionNoticeText {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .questionFilters {
+    margin-top: 10px;
+  }
+  .questionControlRow {
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .questionStatusFilterRow {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    padding: 0;
+    background: transparent;
+  }
+  .questionStatusFilterRow::before {
+    display: none;
+  }
+  .questionStatusFilterButton {
+    width: 81px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid #d1d5db;
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    background: #ffffff;
+  }
+  .questionStatusFilterButtonActive {
+    border-color: #34b29f;
+    background: #ecf9f7;
+  }
+  .questionSearchBar {
+    min-height: 46px;
+    padding: 8px;
+    padding-left: 16px;
+    border-radius: 100px;
+  }
+  .questionSearchBar :global(input) {
+    font-size: 13px;
+  }
+  .questionSearchBar :global(button) {
+    width: 30px;
+    height: 30px;
+  }
+  .questionSearchBar :global(svg) {
+    width: 16px;
+    height: 16px;
+  }
+  .questionToolbar {
+    margin-top: 14px;
+  }
+  .questionTotalCount {
+    font-size: 12px;
+  }
+  .questionList {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .questionCard {
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+  }
+  .questionCard + .questionCard {
+    padding-top: 12px;
+  }
+  .questionCardHeader,
+  .questionCardActions {
+    display: flex;
+    gap: 10px;
+  }
+  .questionCardTitle {
+    font-size: 13px;
+  }
+  .questionStatusChip {
+    width: auto;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
+    font-size: 11px;
+    background: transparent;
+  }
+  .questionMetaRow {
+    gap: 7px;
+    margin-top: 8px;
+    font-size: 11px;
+  }
+  .questionMetaDot {
+    width: 2px;
+    height: 2px;
+  }
+  .questionContent {
+    margin-top: 18px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .questionCardActions {
+    justify-content: space-between;
+    margin-top: 14px;
+  }
+  .questionReplyToggleButton {
+    width: 99px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .questionReplyToggleIcon {
+    width: 18px;
+    height: 18px;
+  }
+  .questionManageActions {
+    gap: 10px;
+  }
+  .questionManageButton {
+    width: 70px;
+    height: 32px;
+    padding: 0 8px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .questionReplies {
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 14px;
+  }
+  .questionReply {
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 6px;
+  }
+  .questionReplyIcon {
+    width: 20px;
+    height: 20px;
+  }
+  .questionReplyBody {
+    gap: 8px;
+  }
+  .questionReplyAuthor {
+    font-size: 13px;
+  }
+  .questionReplyBadge {
+    height: auto;
+    padding: 0;
+    font-size: 11px;
+    background: transparent;
+  }
+  .questionReplyDate,
+  .questionReplyContent {
+    font-size: 11px;
+  }
+  .questionReplyContent {
+    line-height: 1.45;
+  }
   .profilePasswordModalPanel {
     width: min(100%, 456px);
     max-height: min(calc(100vh - 24px), 470px);
@@ -3210,78 +3874,6 @@
     min-width: 0;
     flex: 1 1 0;
     padding: 0 16px;
-  }
-  .profileTitle {
-    font-size: 30px;
-  }
-  .profileAccountBlock {
-    gap: 24px;
-    margin-top: 24px;
-  }
-  .profileFormRows {
-    gap: 24px;
-  }
-  .profileFormRow,
-  .profileStaticRow {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-  .profileRowHint {
-    justify-self: start;
-    margin-left: 0;
-    font-size: 14px;
-  }
-  .profilePhoneFieldGroup {
-    max-width: none;
-  }
-  .profileOutlineButton,
-  .profileDisabledButton {
-    width: 100%;
-  }
-  .profileConsentBlock {
-    gap: 22px;
-    margin-top: 32px;
-    padding-top: 28px;
-  }
-  .profileConsentList {
-    gap: 24px;
-  }
-  .profileConsentRow {
-    grid-template-columns: 32px minmax(0, 1fr);
-    gap: 16px;
-  }
-  .profileConsentBox {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-  }
-  .profileConsentDetailRows {
-    gap: 18px;
-  }
-  .profileConsentDetailRow {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-  .profileConsentText,
-  .profileConsentRequired,
-  .profileConsentOptional,
-  .profileConsentViewButton {
-    font-size: 16px;
-  }
-  .profileConsentViewButton {
-    justify-self: start;
-    margin-left: 48px;
-  }
-  .profileActionRow {
-    flex-direction: column;
-    align-items: stretch;
-    margin-top: 40px;
-  }
-  .profileCancelButton,
-  .profileSaveButton {
-    width: 100%;
-    height: 58px;
-    font-size: 22px;
   }
   .profileConsentModalPanel {
     width: min(100%, calc(100vw - 24px));
@@ -3333,48 +3925,11 @@
     width: 100%;
     min-width: 0;
   }
-  .courseOverviewGrid {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-  .courseOverviewButton {
-    justify-content: flex-start;
-    min-height: 56px;
-    padding: 14px 20px;
-  }
   .summaryGrid {
     grid-template-columns: 1fr;
   }
   .couponCardMetaGrid {
     grid-template-columns: 1fr;
-  }
-  .paymentOverviewGrid {
-    overflow-x: auto;
-  }
-  .paymentOverviewButton {
-    flex: 0 0 150px;
-    width: 150px;
-    padding-right: 20px;
-    padding-left: 20px;
-  }
-  .paymentCard {
-    min-height: 0;
-    padding: 22px 20px 70px;
-  }
-  .paymentCardHeader {
-    display: grid;
-    gap: 16px;
-  }
-  .paymentCardTitle {
-    white-space: normal;
-  }
-  .paymentCardActions {
-    justify-self: start;
-  }
-  .paymentMetaGrid {
-    gap: 18px;
-    grid-template-columns: 1fr;
-    margin-top: 28px;
   }
   .learningStartNoticeModalPanel {
     width: min(100%, calc(100vw - 24px));
@@ -3434,40 +3989,6 @@
   .paymentDetailCloseCta {
     width: 100%;
   }
-  .questionFilterRow {
-    width: 100%;
-    max-width: 100%;
-  }
-  .questionFilterButton {
-    flex: 1 1 0;
-    width: auto;
-    min-width: 0;
-    font-size: 16px;
-  }
-  .questionStatusFilterRow {
-    width: 100%;
-    max-width: 100%;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .questionStatusFilterButton {
-    min-width: 0;
-    padding: 0 8px;
-    font-size: 16px;
-  }
-  .questionCardHeader,
-  .questionCardActions {
-    display: grid;
-    gap: 16px;
-  }
-  .questionStatusChip {
-    justify-self: start;
-  }
-  .questionManageActions {
-    justify-content: flex-start;
-  }
-  .menuList {
-    grid-template-columns: 1fr;
-  }
   .orderCard {
     grid-template-columns: 1fr;
   }
@@ -3481,31 +4002,6 @@
   }
   .orderCardAmount {
     text-align: left;
-  }
-  .courseGrid {
-    grid-template-columns: 1fr;
-  }
-  .questionNotice {
-    grid-template-columns: 22px minmax(0, 1fr);
-    min-height: 0;
-    padding: 20px;
-  }
-  .questionNoticeIcon {
-    width: 22px;
-    height: 22px;
-  }
-  .certificateRow {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .certificateMedia {
-    width: 100%;
-    min-width: 0;
-    height: 180px;
-  }
-  .certificateDownloadButton {
-    width: 100%;
-    min-width: 0;
   }
 }
 @media (width < 420px) {

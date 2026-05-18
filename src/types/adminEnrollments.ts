@@ -8,6 +8,11 @@ export interface AdminEnrollmentResult {
   status: string;
 }
 
+export interface AdminEnrollmentCreatePayload {
+  programId: number;
+  userId: number;
+}
+
 export interface AdminEnrollmentMaintenanceResult {
   processedAt: string;
   processedCount: number;

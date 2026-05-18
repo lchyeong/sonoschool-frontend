@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -229,11 +229,11 @@ describe('ProgramPage', () => {
     expect(screen.getByRole('button', { name: 'Q&A' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '자주하는 질문' })).toBeInTheDocument();
     expect(screen.getByLabelText('운영기간 2026.03.01 - 2026.04.30')).toBeInTheDocument();
-    expect(screen.getAllByText('오프라인 강의').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('오프라인').length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByText('증례 적용과 복습').closest('button') as HTMLElement);
 
-    expect(screen.getByText('문제풀이 강의')).toBeInTheDocument();
+    expect(screen.getByText('문제풀이')).toBeInTheDocument();
   });
 
   it('renders a single-lecture detail page only on the /detail path', async () => {
@@ -249,8 +249,9 @@ describe('ProgramPage', () => {
     expect(screen.getByRole('button', { name: '강의 소개' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Q&A' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '자주하는 질문' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '예약하기' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '수강 신청 하기' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '예약하기' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: '장바구니 담기' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: '수강신청하기' }).length).toBeGreaterThan(0);
   });
 
   it('switches to a dedicated qna tab instead of keeping qna in the one-page scroll', async () => {
@@ -295,8 +296,7 @@ describe('ProgramPage', () => {
     expect(screen.queryByRole('columnheader', { name: '작성자' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: '작성일' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '작성 닫기' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '장바구니' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '수강 신청 하기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '장바구니 담기' })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: '먼저 경험한 수강생들 후기' }),
     ).not.toBeInTheDocument();
@@ -350,6 +350,38 @@ describe('ProgramPage', () => {
     expect(scrollToSpy).toHaveBeenCalledTimes(2);
   });
 
+  it('submits a reservation inquiry without requiring a login session', async () => {
+    renderProgramAndCartRoutes(
+      '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(screen.getByRole('complementary')).getByRole('button', {
+        name: '예약하기',
+      }),
+    );
+
+    const dialog = await screen.findByRole('dialog', { name: '예약 문의하기' });
+
+    fireEvent.change(within(dialog).getByLabelText('이름'), {
+      target: { value: '비회원 신청자' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('휴대폰번호'), {
+      target: { value: '01012345678' },
+    });
+    expect(within(dialog).queryByLabelText('문의 내용')).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '제출하기' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '예약 문의하기' })).not.toBeInTheDocument();
+    });
+  });
+
   it('adds the selected lecture to the cart and opens the cart confirmation modal', async () => {
     renderProgramAndCartRoutes(
       '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
@@ -359,7 +391,11 @@ describe('ProgramPage', () => {
       await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '장바구니' }));
+    fireEvent.click(
+      within(screen.getByRole('complementary')).getByRole('button', {
+        name: '장바구니 담기',
+      }),
+    );
 
     const dialog = await screen.findByRole('dialog');
 
@@ -371,7 +407,7 @@ describe('ProgramPage', () => {
     );
   });
 
-  it('moves directly to checkout when the apply action is clicked', async () => {
+  it('opens the reservation inquiry modal when the reservation action is clicked', async () => {
     renderProgramAndCartRoutes(
       '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
     );
@@ -380,10 +416,36 @@ describe('ProgramPage', () => {
       await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '수강 신청 하기' }));
+    fireEvent.click(
+      within(screen.getByRole('complementary')).getByRole('button', {
+        name: '예약하기',
+      }),
+    );
 
-    expect(await screen.findByRole('heading', { name: '결제하기' })).toBeInTheDocument();
-    expect(await screen.findByText('산과 1삼분기 스캔 4주')).toBeInTheDocument();
-    expect(screen.getByText('1개')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '예약 문의하기' })).toBeInTheDocument();
+    expect(screen.queryByText('일반과정은 방사선사만 신청 가능합니다.')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('예약 문의 접수 후 담당자가 입력하신 휴대폰번호로 안내드립니다.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('접수 순서와 운영 일정에 따라 안내까지 시간이 걸릴 수 있습니다.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('문의 내용')).not.toBeInTheDocument();
+  });
+
+  it('상세 가격 카드에서 신청 상태와 잔여석을 분리해서 보여준다', async () => {
+    renderProgramAndCartRoutes(
+      '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
+    ).toBeInTheDocument();
+
+    const pricingSidebar = screen.getByRole('complementary');
+
+    expect(within(pricingSidebar).getByText('수강 가능')).toBeInTheDocument();
+    expect(within(pricingSidebar).getByText(/잔여석 \d+명/)).toBeInTheDocument();
+    expect(within(pricingSidebar).queryByText(/수강 가능 인원 \d+명 남음/)).not.toBeInTheDocument();
   });
 });

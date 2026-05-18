@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import myPageIconSrc from '@/assets/icons/icon_my.svg';
 import headerCartIconSrc from '@/assets/icons/lucide_shopping-cart.svg';
+import logoutIconSrc from '@/assets/icons/mypage-menu-log-out.svg';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import CloseIcon from '@/components/ui/icons/CloseIcon';
 import { routePaths } from '@/routes/routeRegistry';
@@ -18,9 +19,11 @@ interface CommonHeaderMobileDrawerProps {
   logo: CommonHeaderLogoConfig;
   LinkComponent: CommonHeaderLinkComponent;
   navigationItems: HeaderNavigationItem[];
+  isLogoutPending: boolean;
   expandedMobileItemIds: string[];
   onCloseMenu: () => void;
   onCloseMenuAndRestoreFocus: () => void;
+  onLogout: () => void;
   onToggleMobileItem: (itemId: string) => void;
 }
 
@@ -42,8 +45,10 @@ const CommonHeaderMobileDrawer = ({
   LinkComponent,
   logo,
   navigationItems,
+  isLogoutPending,
   onCloseMenu,
   onCloseMenuAndRestoreFocus,
+  onLogout,
   onToggleMobileItem,
 }: CommonHeaderMobileDrawerProps) => {
   const renderMobileNavigation = (items: HeaderNavigationItem[], depth: number): ReactNode => {
@@ -168,6 +173,24 @@ const CommonHeaderMobileDrawer = ({
         <nav aria-label='Mobile primary' className={styles['mobileNav']}>
           {renderMobileNavigation(navigationItems, 1)}
         </nav>
+        {isAuthenticated ? (
+          <div className={styles['mobileDrawerFooter']}>
+            <button
+              className={styles['mobileLogoutButton']}
+              disabled={isLogoutPending}
+              onClick={onLogout}
+              type='button'
+            >
+              <img
+                alt=''
+                aria-hidden='true'
+                className={styles['mobileLogoutIcon']}
+                src={logoutIconSrc}
+              />
+              <span>{isLogoutPending ? '로그아웃 중...' : '로그아웃'}</span>
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -104,6 +104,10 @@ export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]
   const subscribeAlertMutation = useMutation({
     mutationFn: subscribeMyProgramAvailabilityAlert,
   });
+  const pendingAlertProgramId =
+    typeof subscribeAlertMutation.variables === 'number'
+      ? subscribeAlertMutation.variables
+      : subscribeAlertMutation.variables?.programId;
   const subscribedProgramIds = useMemo(() => {
     return new Set(alertStatusQuery.data?.subscribedProgramIds ?? []);
   }, [alertStatusQuery.data]);
@@ -245,7 +249,7 @@ export const useProgramCatalogActions = (lectures: readonly ProgramLectureCard[]
       return (
         subscribeAlertMutation.isPending &&
         typeof programId === 'number' &&
-        subscribeAlertMutation.variables === programId
+        pendingAlertProgramId === programId
       );
     },
     isAuthenticated,

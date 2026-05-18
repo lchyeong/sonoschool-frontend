@@ -30,6 +30,7 @@ export interface ProgramPageDetailViewModel {
   reviewSortOrder: ReviewSortOrder;
   sectionRefHandlers: Record<DetailSectionId, RefCallback<HTMLElement>>;
   setOpenFaqId: Dispatch<SetStateAction<string | null>>;
+  setAllCurriculumRowsOpen: (isOpen: boolean) => void;
   setReviewSortOrder: Dispatch<SetStateAction<ReviewSortOrder>>;
   sortedReviews: ProgramDetailPageResponse['reviews'];
   toggleCurriculumRow: (rowKey: string) => void;
@@ -55,6 +56,17 @@ const createInitialOpenCurriculumRows = (
   }
 
   return { [`${data.curriculumTrack.id}-0`]: true };
+};
+
+const createAllOpenCurriculumRows = (
+  data: ProgramDetailPageResponse,
+  isOpen: boolean,
+): Record<string, boolean> => {
+  return Object.fromEntries(
+    data.curriculumTrack.sections.map((_, sectionIndex) => {
+      return [`${data.curriculumTrack.id}-${String(sectionIndex)}`, isOpen];
+    }),
+  );
 };
 
 const scrollToSectionTop = (top: number) => {
@@ -326,6 +338,10 @@ export const useProgramPageDetailViewModel = (
     }));
   };
 
+  const setAllCurriculumRowsOpen = (isOpen: boolean) => {
+    setOpenCurriculumRows(createAllOpenCurriculumRows(data, isOpen));
+  };
+
   return {
     activeSectionId,
     activeTabId,
@@ -340,6 +356,7 @@ export const useProgramPageDetailViewModel = (
     reviewCarouselRef,
     reviewSortOrder,
     sectionRefHandlers,
+    setAllCurriculumRowsOpen,
     setOpenFaqId,
     setReviewSortOrder,
     sortedReviews,
