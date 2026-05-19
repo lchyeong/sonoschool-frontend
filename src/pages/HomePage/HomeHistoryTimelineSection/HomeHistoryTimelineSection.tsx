@@ -146,7 +146,7 @@ const HomeHistoryTimelineSection = () => {
       const philosophyRect = philosophyElement.getBoundingClientRect();
       const noticeRect = noticeElement?.getBoundingClientRect();
       const philosophyTriggerY =
-        viewportHeight * (isCompactLayout ? 0 : isStackedLayout ? 0.18 : 0.72);
+        viewportHeight * (isCompactLayout ? 0.36 : isStackedLayout ? 0.18 : 0.72);
       const philosophyDistance = Math.max(
         philosophyRect.height -
           viewportHeight * (isCompactLayout ? 0.56 : isStackedLayout ? 0.48 : 0.38),

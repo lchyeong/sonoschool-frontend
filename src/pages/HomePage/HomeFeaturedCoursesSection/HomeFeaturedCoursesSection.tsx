@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 
 import Pagination from '@/components/ui/Pagination/Pagination';
 import { useProgramLectureCatalogQuery } from '@/query/useProgramLectureCatalogQuery';
+import { getProgramImageCropStyle } from '@/utils/programImageCrop';
 
 import styles from './HomeFeaturedCoursesSection.module.scss';
 
@@ -58,6 +59,12 @@ const HomeFeaturedCoursesSection = () => {
   };
 
   const renderCourseCard = (course: (typeof courses)[number]) => {
+    const thumbnailCropStyle = getProgramImageCropStyle({
+      offsetX: course.thumbnailCropOffsetX,
+      offsetY: course.thumbnailCropOffsetY,
+      zoom: course.thumbnailCropZoom,
+    });
+
     return (
       <Link className={styles['cardLink']} to={course.to}>
         <article className={styles['courseCard']}>
@@ -67,6 +74,7 @@ const HomeFeaturedCoursesSection = () => {
               className={styles['courseImage']}
               loading='lazy'
               src={course.thumbnailSrc}
+              style={thumbnailCropStyle}
             />
           </div>
 

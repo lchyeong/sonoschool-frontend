@@ -9,39 +9,39 @@ const HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH = '/images/home/feature-showcase';
 
 const homeFeatureShowcaseCards = [
   {
-    description: '영상 해석과 진단 포인트 집중 학습',
+    category: 'Hands-on Class',
     id: 'home-feature-showcase-card-1',
     imageAlt: '초음파 판독 이론을 강의하는 소노스쿨 교육 현장',
     imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/ultrasound-reading-training.png`,
-    title: '초음파 판독 역량 강화',
+    title: '상복부 초음파 검사 전 준비와 기본 스캔 순서 수업',
   },
   {
-    description: '응급 POCUS 실습 · 반복 스캔 교육',
+    category: 'Hands-on Class',
     id: 'home-feature-showcase-card-2',
     imageAlt: '실전 케이스를 설명하는 소노스쿨 초음파 강의 현장',
     imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/case-based-ultrasound-lecture.png`,
-    title: 'FAST 핵심 Window 훈련',
+    title: 'FAST 핵심 Window 훈련 현장 실습 이미지',
   },
   {
-    description: '진료 현장 사례 기반 초음파 교육',
+    category: 'Hands-on Class',
     id: 'home-feature-showcase-card-3',
     imageAlt: '소수 인원으로 진행되는 소노스쿨 핸즈온 수업 현장',
     imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/small-group-hands-on-class.png`,
-    title: '실전 케이스 중심 강의',
+    title: '실전 케이스 중심 강의 및 소아 내분비 현장 실습형 강의 현장',
   },
   {
-    description: '개인별 자세 교정 및 즉각적인 피드백 교육',
+    category: 'Hands-on Class',
     id: 'home-feature-showcase-card-4',
     imageAlt: 'FAST 핵심 Window 훈련을 진행하는 소노스쿨 강의 현장',
     imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/fast-window-pocus-training.jpg`,
-    title: '소수정예 핸즈온 수업',
+    title: '소수 정예 핸즈온 수업 그룹형 진행 현장 이미지',
   },
   {
-    description: '서울 오프라인 강의 · 기초 이론 과정',
+    category: 'Hands-on Class',
     id: 'home-feature-showcase-card-5',
     imageAlt: '복부 초음파 기초 교육을 진행하는 소노스쿨 오프라인 강의 현장',
     imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/abdominal-ultrasound-basic-course.png`,
-    title: '복부 초음파 기초 교육',
+    title: '복부 초음파 기초 교육 및 소아 초음파 정규 과정',
   },
 ] as const;
 
@@ -59,7 +59,7 @@ const HERO_FADE_END_RATIO = 0.9;
 const INTRO_APPEAR_DELAY_PROGRESS = 0.18;
 const HOME_BACKGROUND_RGB = {
   from: [255, 255, 255],
-  to: [58, 197, 176],
+  to: [55, 186, 167],
 } as const;
 const SHOWCASE_BACKGROUND_ENTER_START_RATIO = 0.86;
 const SHOWCASE_BACKGROUND_ENTER_END_RATIO = -0.24;
@@ -242,6 +242,7 @@ const HomeFeatureShowcaseSection = () => {
     let lastCopyOpacity = '';
     let lastCopyToneProgress = '';
     let lastCopyY = '';
+    let lastCardScale = '';
     let lastCardScrollY = '';
     let lastFeaturedCoursesTone = '';
 
@@ -285,19 +286,36 @@ const HomeFeatureShowcaseSection = () => {
       const hasSettledShowcaseCopy = introRect ? introRect.bottom <= viewportHeight * 0.43 : false;
       const copyRevealProgress = isStackedLayout
         ? easeInOutProgress(clamp((progress - 0.02) / 0.16))
-        : backgroundProgress === 1 && hasSettledShowcaseCopy
-          ? 1
-          : 0;
-      const cardScrollProgress = cardProgress;
+        : easeInOutProgress(clamp((progress - 0.02) / 0.14));
+      const cardRevealProgress = isStackedLayout ? progress : clamp((progress - 0.18) / 0.82);
+      const cardScrollProgress = isStackedLayout
+        ? cardProgress
+        : clamp((cardProgress - 0.02) / 0.86);
+      const cardMotionProgress = isStackedLayout
+        ? cardScrollProgress
+        : clamp((cardProgress - 0.02) / 0.98);
+      const cardScaleProgress = isStackedLayout
+        ? 1
+        : easeInOutProgress(clamp((cardProgress - 0.1) / 0.38));
+      const desktopCardStartY = viewportHeight * 0.86;
+      const cardListElement = showcasePanelElement.querySelector<HTMLElement>(
+        '[data-showcase-card-list]',
+      );
+      const cardListHeight = cardListElement?.offsetHeight ?? viewportHeight * 2;
+      const cardListOffsetTop = cardListElement?.offsetTop ?? viewportHeight * 0.05;
+      const desktopCardEndY = Math.min(
+        viewportHeight * -0.78,
+        viewportHeight * 0.16 - cardListOffsetTop - cardListHeight,
+      );
       const cardScrollY = isStackedLayout
         ? isMobileCardStackLayout
           ? 0
-          : 36 - cardScrollProgress * 106
-        : 54 - cardScrollProgress * 154;
+          : viewportHeight * 0.36 - cardMotionProgress * viewportHeight * 1.06
+        : desktopCardStartY - cardMotionProgress * (desktopCardStartY - desktopCardEndY);
       const mobileStackPhase = isMobileCardStackLayout
         ? clamp((cardProgress - 0.08) / 0.82) * (homeFeatureShowcaseCards.length - 1)
         : 0;
-      const nextStep = getShowcaseStep(progress);
+      const nextStep = getShowcaseStep(cardRevealProgress);
       const currentStep = Number(showcasePanelElement.dataset['showcaseStep'] ?? 0);
       const nextBackgroundColor = getHomeBackgroundColor(backgroundProgress);
       const nextCopyOpacity =
@@ -307,11 +325,12 @@ const HomeFeatureShowcaseSection = () => {
       );
       const nextCopyY = isStackedLayout
         ? `${(24 * (1 - copyRevealProgress)).toFixed(2)}px`
-        : hasSettledShowcaseCopy
+        : hasSettledShowcaseCopy || copyRevealProgress > 0
           ? '0vh'
           : '15vh';
       const nextCopyToneProgress = copyToneProgress.toFixed(4);
-      const nextCardScrollY = `${cardScrollY.toFixed(2)}vh`;
+      const nextCardScale = isStackedLayout ? '1' : (0.965 + cardScaleProgress * 0.035).toFixed(4);
+      const nextCardScrollY = `${cardScrollY.toFixed(2)}px`;
       const nextFeaturedCoursesTone = backgroundExitProgress >= 0.72 ? 'light' : 'contrast';
 
       if (lastBackgroundColor !== nextBackgroundColor) {
@@ -337,6 +356,11 @@ const HomeFeatureShowcaseSection = () => {
         lastCopyY = nextCopyY;
       }
 
+      if (lastCardScale !== nextCardScale) {
+        showcasePanelElement.style.setProperty('--showcase-card-scale', nextCardScale);
+        lastCardScale = nextCardScale;
+      }
+
       if (lastCardScrollY !== nextCardScrollY) {
         showcasePanelElement.style.setProperty('--showcase-card-scroll-y', nextCardScrollY);
         lastCardScrollY = nextCardScrollY;
@@ -344,6 +368,23 @@ const HomeFeatureShowcaseSection = () => {
 
       homeFeatureShowcaseCards.forEach((_, index) => {
         const cardNumber = index + 1;
+        const followStart = isStackedLayout ? 0 : index === 0 ? -0.04 : 0.22 + (index - 1) * 0.105;
+        const followDuration = isStackedLayout
+          ? 1
+          : index === 0
+            ? 0.18
+            : Math.max(0.12, 0.19 - index * 0.014);
+        const sequentialCardProgress = isStackedLayout
+          ? 1
+          : easeInOutProgress(clamp((cardScrollProgress - followStart) / followDuration));
+        const sequentialCardOpacity =
+          sequentialCardProgress === 0 ? 0 : 0.12 + sequentialCardProgress * 0.88;
+        const sequentialCardBlur = 14 * (1 - sequentialCardProgress);
+        const revealOffset = 52 * (1 - sequentialCardProgress);
+        const catchupOffset = 22 * (1 - sequentialCardProgress);
+        const sequentialCardOffset = `calc(${catchupOffset.toFixed(2)}vh + ${revealOffset.toFixed(
+          2,
+        )}px)`;
         const enterProgress = index === 0 ? 1 : clamp(mobileStackPhase - (index - 1));
         const leaveProgress =
           index === homeFeatureShowcaseCards.length - 1 ? 0 : clamp(mobileStackPhase - index);
@@ -351,6 +392,18 @@ const HomeFeatureShowcaseSection = () => {
         const exitOffset = 560 * leaveProgress;
         const opacity = 1 - clamp((leaveProgress - 0.42) / 0.28);
 
+        showcasePanelElement.style.setProperty(
+          `--showcase-card-${String(cardNumber)}-opacity`,
+          sequentialCardOpacity.toFixed(4),
+        );
+        showcasePanelElement.style.setProperty(
+          `--showcase-card-${String(cardNumber)}-blur`,
+          `${sequentialCardBlur.toFixed(2)}px`,
+        );
+        showcasePanelElement.style.setProperty(
+          `--showcase-card-${String(cardNumber)}-y`,
+          sequentialCardOffset,
+        );
         showcasePanelElement.style.setProperty(
           `--showcase-mobile-card-${String(cardNumber)}-y`,
           `${(stackedOffset - exitOffset).toFixed(2)}px`,
@@ -437,7 +490,11 @@ const HomeFeatureShowcaseSection = () => {
               의사 교육 전문 국제 자격으로 증명된 차별화된 코칭을 경험하세요.
             </p>
 
-            <a className={styles['courseLink']} href={routePaths.homeFeaturedCourses}>
+            <a
+              className={styles['courseLink']}
+              data-showcase-course-link='true'
+              href={routePaths.homeFeaturedCourses}
+            >
               <span>과정 살펴보기</span>
               <span aria-hidden='true' className={styles['courseLinkArrow']}>
                 <svg
@@ -465,18 +522,20 @@ const HomeFeatureShowcaseSection = () => {
             </a>
           </div>
 
-          <ul aria-label='소노스쿨 교육 현장 이미지 5개' className={styles['cardList']}>
+          <ul
+            aria-label='소노스쿨 교육 현장 이미지 5개'
+            className={styles['cardList']}
+            data-showcase-card-list='true'
+          >
             {homeFeatureShowcaseCards.map((card) => (
-              <li className={styles['cardItem']} key={card.id}>
+              <li className={styles['cardItem']} data-showcase-card-item='true' key={card.id}>
                 <article className={styles['card']}>
                   <img alt={card.imageAlt} className={styles['cardImage']} src={card.imageSrc} />
-                  <div aria-hidden='true' className={styles['cardOverlay']} />
 
                   <div className={styles['cardCopy']}>
-                    <span aria-hidden='true' className={styles['cardDivider']} />
                     <div className={styles['cardTextBlock']}>
+                      <p className={styles['cardCategory']}>{card.category}</p>
                       <p className={styles['cardTitle']}>{card.title}</p>
-                      <p className={styles['cardDescription']}>{card.description}</p>
                     </div>
                   </div>
                 </article>

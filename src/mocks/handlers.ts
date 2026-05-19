@@ -1948,7 +1948,12 @@ export const handlers = [
     return HttpResponse.json(createApiEnvelope(filteredUsers));
   }),
   http.get('*/api/v1/admin/users', ({ request }) => {
-    const keyword = (new URL(request.url).searchParams.get('keyword') ?? '').trim().toLowerCase();
+    const requestUrl = new URL(request.url);
+    const keyword = (requestUrl.searchParams.get('keyword') ?? '').trim().toLowerCase();
+    const requestedPage = Number(requestUrl.searchParams.get('page') ?? '0');
+    const requestedSize = Number(requestUrl.searchParams.get('size') ?? '10');
+    const page = Number.isFinite(requestedPage) ? Math.max(0, requestedPage) : 0;
+    const size = Number.isFinite(requestedSize) ? Math.max(1, requestedSize) : 10;
 
     const users = [
       {
@@ -1996,6 +2001,22 @@ export const handlers = [
         phoneNumber: '010-3333-4444',
         upcomingPracticumCount: 0,
       },
+      ...Array.from({ length: 9 }, (_, index) => {
+        const id = 104 + index;
+        return {
+          active: true,
+          activeEnrollmentCount: index % 3,
+          displayName: `테스트회원${String(index + 1).padStart(2, '0')}`,
+          email: `test-user-${String(index + 1)}@example.com`,
+          id,
+          joinedAt: '2026-02-01T09:00:00Z',
+          loginId: `testuser${String(index + 1).padStart(2, '0')}`,
+          name: `테스트회원${String(index + 1).padStart(2, '0')}`,
+          nickname: null,
+          phoneNumber: `010-9000-${String(id).padStart(4, '0')}`,
+          upcomingPracticumCount: index % 2,
+        };
+      }),
     ];
 
     const filteredUsers = keyword
@@ -2006,7 +2027,21 @@ export const handlers = [
         )
       : users;
 
-    return HttpResponse.json(createApiEnvelope(filteredUsers));
+    const startIndex = page * size;
+    const content = filteredUsers.slice(startIndex, startIndex + size);
+    const totalPages = Math.ceil(filteredUsers.length / size);
+
+    return HttpResponse.json(
+      createApiEnvelope({
+        content,
+        first: page === 0,
+        last: totalPages === 0 || page >= totalPages - 1,
+        number: page,
+        size,
+        totalElements: filteredUsers.length,
+        totalPages,
+      }),
+    );
   }),
   http.get('*/api/v1/admin/users/:userId', ({ params }) => {
     const userId = Number(params['userId']);

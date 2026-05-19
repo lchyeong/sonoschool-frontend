@@ -17,11 +17,13 @@ const envSchema = z.object({
   VITE_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
   VITE_GTM_CONTAINER_ID: z.string().min(1).optional(),
   VITE_GA_ID: z.string().min(1).optional(),
+  VITE_KAKAO_MAP_API_KEY: z.string().min(1).optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema> & {
   apiBaseUrl: string | null;
   appName: string;
+  kakaoMapApiKey: string;
 };
 
 const toZodErrorMessage = (error: z.ZodError): string => {
@@ -39,6 +41,7 @@ export const env: AppEnv = (() => {
 
   const apiBaseUrl = parsed.data.VITE_API_URL ?? parsed.data.VITE_API_BASE_URL ?? null;
   const appName = parsed.data.VITE_APP_NAME ?? 'SONO SCHOOL';
+  const kakaoMapApiKey = parsed.data.VITE_KAKAO_MAP_API_KEY ?? '';
 
-  return { ...parsed.data, apiBaseUrl, appName };
+  return { ...parsed.data, apiBaseUrl, appName, kakaoMapApiKey };
 })();

@@ -1,0 +1,189 @@
+.quickMenu {
+  position: fixed;
+  right: clamp(18px, 3.34vw, 64px);
+  bottom: clamp(18px, 3.34vw, 64px);
+  z-index: var(--z-index-fixed);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 70px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 14px, 0);
+  transition:
+    opacity 260ms ease,
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 300ms;
+  visibility: hidden;
+  will-change: opacity, transform;
+}
+
+.quickMenuVisible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 260ms ease,
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s;
+  visibility: visible;
+}
+
+.menuPanel {
+  height: 0;
+  width: 70px;
+  overflow: hidden;
+  background: var(--color-brand-main);
+  border-radius: 100px 100px 0 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    height 220ms ease,
+    opacity 180ms ease,
+    transform 220ms ease;
+  pointer-events: none;
+}
+
+.menuPanelOpen {
+  height: 267px;
+  opacity: 0.86;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.menuList {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  padding: 33px 0 0;
+  margin: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+.menuItem {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.menuItem + .menuItem {
+  margin-top: 26px;
+}
+
+.menuLink {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 70px;
+  min-height: 44px;
+  color: #ffffff;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 999px;
+  opacity: 0.72;
+  transition:
+    color 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.menuLink:hover,
+.menuLink:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.menuIcon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.menuLabel {
+  display: block;
+  margin-top: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.quickMenuButton,
+.topButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.quickMenuButton {
+  position: relative;
+  z-index: 1;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: -37px;
+  color: #ffffff;
+  background: var(--color-brand-lighten-5);
+  border: 0;
+}
+
+.quickMenuButton:hover,
+.topButton:hover {
+  transform: translateY(-1px);
+}
+
+.quickMenuButton:focus-visible,
+.topButton:focus-visible,
+.menuLink:focus-visible {
+  outline: 3px solid rgba(17, 24, 39, 0.28);
+  outline-offset: 3px;
+}
+
+.quickMenuIcon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.quickMenuLabel {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.topButton {
+  margin-top: 10px;
+  background: #ffffff;
+  border: 1px solid var(--color-brand-lighten-5);
+}
+
+.topIcon {
+  display: block;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+@media (width <= 767px) {
+  .quickMenu {
+    right: 16px;
+    bottom: 18px;
+  }
+}

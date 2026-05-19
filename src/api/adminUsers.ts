@@ -2,7 +2,7 @@ import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
 import type {
   AdminUserDetail,
-  AdminUserManagementItem,
+  AdminUserManagementPage,
   AdminUserSearchItem,
 } from '@/types/adminUsers';
 import type { ApiEnvelope } from '@/types/auth';
@@ -29,19 +29,26 @@ export const searchAdminUsers = async (keyword: string): Promise<AdminUserSearch
   }
 };
 
-export const fetchAdminUsers = async (keyword?: string): Promise<AdminUserManagementItem[]> => {
+interface FetchAdminUsersParams {
+  keyword?: string | undefined;
+  page: number;
+  size: number;
+}
+
+export const fetchAdminUsers = async ({
+  keyword,
+  page,
+  size,
+}: FetchAdminUsersParams): Promise<AdminUserManagementPage> => {
   try {
-    const response = await axiosInstance.get<ApiEnvelope<AdminUserManagementItem[]>>(
+    const response = await axiosInstance.get<ApiEnvelope<AdminUserManagementPage>>(
       '/api/v1/admin/users',
       {
-        params: keyword?.trim()
-          ? {
-              keyword: keyword.trim(),
-              limit: 20,
-            }
-          : {
-              limit: 20,
-            },
+        params: {
+          ...(keyword?.trim() ? { keyword: keyword.trim() } : {}),
+          page,
+          size,
+        },
       },
     );
 

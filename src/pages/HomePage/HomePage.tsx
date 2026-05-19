@@ -8,12 +8,15 @@ import { routePaths } from '@/routes/routeRegistry';
 import HomeFeaturedCoursesSection from './HomeFeaturedCoursesSection/HomeFeaturedCoursesSection';
 import HomeFeatureShowcaseSection from './HomeFeatureShowcaseSection/HomeFeatureShowcaseSection';
 import HomeHistoryTimelineSection from './HomeHistoryTimelineSection/HomeHistoryTimelineSection';
+import HomeLocationSection from './HomeLocationSection/HomeLocationSection';
 import HomeNoticeSection from './HomeNoticeSection/HomeNoticeSection';
 import styles from './HomePage.module.scss';
 import HomePageHeroSection from './HomePageHeroSection';
 import { DEFAULT_HOME_HERO_AUTO_PLAY_DURATION_MS } from './homePageShared';
 import { useHomeLenisScroll } from './useHomeLenisScroll';
 import { useHomePageHeroCarousel } from './useHomePageHeroCarousel';
+
+const HOME_HASH_SCROLL_TARGET_IDS = new Set(['home-featured-courses', 'home-location']);
 
 const HomePage = () => {
   useHomeLenisScroll();
@@ -31,7 +34,12 @@ const HomePage = () => {
   const activeSlide = slides[displayedSlideIndex];
 
   useEffect(() => {
-    if (`${location.pathname}${location.hash}` !== routePaths.homeFeaturedCourses) {
+    if (location.pathname !== routePaths.home || !location.hash.startsWith('#')) {
+      return;
+    }
+
+    const targetId = decodeURIComponent(location.hash.slice(1));
+    if (!HOME_HASH_SCROLL_TARGET_IDS.has(targetId)) {
       return;
     }
 
@@ -40,9 +48,7 @@ const HomePage = () => {
 
     animationFrameId = window.requestAnimationFrame(() => {
       nestedAnimationFrameId = window.requestAnimationFrame(() => {
-        document
-          .getElementById('home-featured-courses')
-          ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        document.getElementById(targetId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       });
     });
 
@@ -88,6 +94,7 @@ const HomePage = () => {
       <HomeFeaturedCoursesSection />
       <HomeHistoryTimelineSection />
       <HomeNoticeSection />
+      <HomeLocationSection />
     </div>
   );
 };

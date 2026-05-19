@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
-import homeHeroChevronIconSrc from '@/assets/icons/home-hero-chevron.svg';
+import { Link } from 'react-router-dom';
+
+import { routePaths } from '@/routes/routeRegistry';
 import type { HomeHeroLectureSlide, HomeHeroSlide } from '@/types/homeHeroSlides';
 import { classNames } from '@/utils/classNames';
 import { getProgramImageCropStyle, normalizeProgramImageCrop } from '@/utils/programImageCrop';
@@ -64,12 +66,21 @@ const HomePageHeroControlBar = ({
           type='button'
         >
           <span className={classNames(styles['controlIconFrame'], styles['controlIconFramePrev'])}>
-            <img
-              alt=''
+            <svg
               aria-hidden='true'
               className={styles['controlIcon']}
-              src={homeHeroChevronIconSrc}
-            />
+              fill='none'
+              focusable='false'
+              viewBox='0 0 24 24'
+            >
+              <path
+                d='M15 18L9 12L15 6'
+                stroke='currentColor'
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth='2'
+              />
+            </svg>
           </span>
         </button>
 
@@ -82,12 +93,21 @@ const HomePageHeroControlBar = ({
           type='button'
         >
           <span className={classNames(styles['controlIconFrame'], styles['controlIconFrameNext'])}>
-            <img
-              alt=''
+            <svg
               aria-hidden='true'
               className={styles['controlIcon']}
-              src={homeHeroChevronIconSrc}
-            />
+              fill='none'
+              focusable='false'
+              viewBox='0 0 24 24'
+            >
+              <path
+                d='M9 18L15 12L9 6'
+                stroke='currentColor'
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth='2'
+              />
+            </svg>
           </span>
         </button>
       </div>
@@ -244,6 +264,9 @@ const HomePageHeroSection = ({
   const previousThumbnailCropStyle = previousLectureThumbnail
     ? getProgramImageCropStyle(getLectureSlideCrop(previousLectureThumbnail))
     : undefined;
+  const activeLectureDetailPath = isHomeHeroLectureSlide(activeSlide)
+    ? (activeSlide.detailPath ?? routePaths.homeFeaturedCourses)
+    : routePaths.homeFeaturedCourses;
 
   return (
     <section
@@ -278,8 +301,43 @@ const HomePageHeroSection = ({
             <div className={styles['lectureLayout']} key={`lecture-content-${activeSlide.id}`}>
               <div className={styles['lectureCopyColumn']}>
                 <div className={styles['lectureCopyBlock']}>
+                  <Link className={styles['lectureCourseLink']} to={activeLectureDetailPath}>
+                    <span>과정 자세히 보기</span>
+                    <span aria-hidden='true' className={styles['lectureCourseLinkIcon']}>
+                      <svg
+                        className={styles['lectureCourseLinkIconSvg']}
+                        fill='none'
+                        focusable='false'
+                        viewBox='0 0 24 24'
+                      >
+                        <path
+                          d='M5 12H19'
+                          stroke='currentColor'
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          strokeWidth='2'
+                        />
+                        <path
+                          d='M12 5L19 12L12 19'
+                          stroke='currentColor'
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          strokeWidth='2'
+                        />
+                      </svg>
+                    </span>
+                  </Link>
                   <h2 className={styles['lectureTitle']}>{activeSlide.title}</h2>
                   <p className={styles['lectureDescription']}>{activeSlide.description}</p>
+                </div>
+
+                <div className={styles['lectureControlBar']}>
+                  <HomePageHeroControlBar
+                    autoPlayDurationMs={autoPlayDurationMs}
+                    onMoveSlide={onMoveSlide}
+                    onProgressAnimationEnd={onProgressAnimationEnd}
+                    progressKey={activeSlide.id}
+                  />
                 </div>
               </div>
 
@@ -313,15 +371,6 @@ const HomePageHeroSection = ({
                   />
                 </div>
               </div>
-            </div>
-
-            <div className={styles['lectureControlBar']}>
-              <HomePageHeroControlBar
-                autoPlayDurationMs={autoPlayDurationMs}
-                onMoveSlide={onMoveSlide}
-                onProgressAnimationEnd={onProgressAnimationEnd}
-                progressKey={activeSlide.id}
-              />
             </div>
           </>
         ) : (

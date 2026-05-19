@@ -115,6 +115,38 @@ const resolveFriendlyApiErrorMessage = (
     return '문제풀이 강의에는 문제를 1개 이상 추가해야 합니다. 강의 구성에서 문제풀이 강의를 확인해 주세요.';
   }
 
+  if (code === 'CART_400_ENROLLED' || code === 'ENROLLMENT_400_EXISTS') {
+    return '이미 수강 중인 강의입니다. 내 강의실에서 확인해 주세요.';
+  }
+
+  if (code === 'ENROLLMENT_400_FULL') {
+    return '정원이 마감된 강의입니다. 잔여석 알림을 신청하거나 다른 강의를 선택해 주세요.';
+  }
+
+  if (code === 'CART_400_PROGRAM') {
+    return '현재 신청할 수 없는 강의가 장바구니에 포함되어 있습니다. 장바구니를 새로고침해 주세요.';
+  }
+
+  if (code === 'COUPON_400_ACTIVE' || code === 'COUPON_400_APPLICABLE') {
+    return '현재 결제에 사용할 수 없는 쿠폰입니다. 쿠폰 적용 상태를 다시 확인해 주세요.';
+  }
+
+  if (code === 'PAYMENT_400_AMOUNT') {
+    return '결제 금액이 일치하지 않습니다. 장바구니를 새로고침한 뒤 다시 결제해 주세요.';
+  }
+
+  if (code === 'PAYMENT_409_APPROVAL') {
+    return '이미 처리 중이거나 완료된 결제입니다. 결제 결과 화면에서 상태를 확인해 주세요.';
+  }
+
+  if (code === 'PAYMENT_409_FULFILLMENT_PENDING') {
+    return '결제 승인은 완료됐고 수강 등록을 확인 중입니다. 잠시 후 내 강의실을 확인해 주세요.';
+  }
+
+  if (code === 'PAYMENT_400_CANCEL_LEARNING_STARTED') {
+    return '수강 시작 동의가 완료된 강의가 있어 결제 취소 및 환불이 제한됩니다.';
+  }
+
   return serverMessage ?? fallbackUserMessage;
 };
 

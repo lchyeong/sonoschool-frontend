@@ -617,7 +617,7 @@ const AdminPopupsSection = () => {
                 onChange={(event) => {
                   setFormState((current) => ({ ...current, linkUrl: event.target.value }));
                 }}
-                placeholder='예: https://newzest.xyz/programs'
+                placeholder='예: https://sonoschool.kr/programs'
                 value={formState.linkUrl}
               />
               <p className={styles['metaText']}>

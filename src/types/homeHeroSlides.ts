@@ -16,6 +16,7 @@ export interface HomeHeroLectureSlide {
   thumbnailCropOffsetY?: number | null | undefined;
   thumbnailCropZoom?: number | null | undefined;
   backgroundSrc?: string | undefined;
+  detailPath?: string | undefined;
   tags?: string[] | undefined;
 }
 

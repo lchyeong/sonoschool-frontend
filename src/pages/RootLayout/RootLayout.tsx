@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 import { Link, Outlet, useLocation, useMatches } from 'react-router-dom';
 
 import CommonFooter from '@/components/layout/CommonFooter/CommonFooter';
 import CommonHeader from '@/components/layout/CommonHeader/CommonHeader';
+import QuickMenu from '@/components/layout/QuickMenu/QuickMenu';
 import GlobalNoticePopup from '@/components/notice/GlobalNoticePopup/GlobalNoticePopup';
 import { env } from '@/config/env';
 import { routePaths, type AppRouteHandle, type AppRouteKey } from '@/routes/routeRegistry';
@@ -14,7 +15,7 @@ import styles from './RootLayout.module.scss';
 const ScrollToTopOnPathChange = () => {
   const location = useLocation();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     try {
       window.scrollTo({
         behavior: 'auto',
@@ -51,7 +52,7 @@ const RootLayout = () => {
   const isHeaderless = matches.some((match) => {
     return Boolean(match.handle && headerlessRouteKeys.has(match.handle.routeKey));
   });
-  const shouldRenderNoticePopup = matches.some((match) => {
+  const isHomeRoute = matches.some((match) => {
     return Boolean(match.handle && match.handle.routeKey === 'home');
   });
 
@@ -71,7 +72,8 @@ const RootLayout = () => {
       </main>
 
       {!isHeaderless ? <CommonFooter /> : null}
-      {shouldRenderNoticePopup ? <GlobalNoticePopup /> : null}
+      {isHomeRoute ? <GlobalNoticePopup /> : null}
+      {isHomeRoute ? <QuickMenu /> : null}
     </div>
   );
 };

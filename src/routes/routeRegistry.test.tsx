@@ -77,6 +77,7 @@ describe('appRouteRegistry', () => {
     expect(routePaths.myEnrollmentPracticum('101')).toBe('/mypage/enrollments/101/practicum');
     expect(routePaths.checkout).toBe(appRouteRegistry.routes.checkout.absolutePath);
     expect(routePaths.paymentResult).toBe(appRouteRegistry.routes.paymentResult.absolutePath);
+    expect(routePaths.homeLocation).toBe('/#home-location');
     expect(routePaths.noticeDetail('notice-7')).toBe('/notices/notice-7');
     expect(routePaths.reviews).toBe(appRouteRegistry.routes.reviews.absolutePath);
     expect(routePaths.resources).toBe(appRouteRegistry.routes.resources.absolutePath);

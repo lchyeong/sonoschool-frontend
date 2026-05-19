@@ -37,6 +37,7 @@ const homeHeroLectureSlideSchema = z.object({
   thumbnailCropOffsetY: optionalCropValueSchema,
   thumbnailCropZoom: optionalCropValueSchema,
   backgroundSrc: optionalPublicImageSchema,
+  detailPath: z.string().min(1).optional(),
 });
 
 const homeHeroSlidesResponseSchema = z.object({

@@ -1,6 +1,6 @@
 .section {
   width: 100%;
-  margin-top: 185px;
+  margin-top: 184px;
   background: #ffffff;
 }
 
@@ -15,15 +15,16 @@
   gap: clamp(64px, 6.25vw, 120px);
   align-items: flex-start;
   justify-content: start;
+  height: 458px;
   min-width: 0;
 }
 
 .header {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 46px;
   align-items: flex-start;
-  width: min(100%, 565px);
+  width: min(100%, 665px);
   min-width: 0;
 }
 
@@ -56,19 +57,20 @@
 .heading {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  width: min(665px, 100%);
   margin: 0;
   color: #111827;
   font-family: Pretendard, var(--font-family-base);
-  font-size: 38px;
-  font-weight: var(--font-weight-semibold);
+  font-size: 44px;
+  font-weight: var(--font-weight-bold);
   letter-spacing: var(--letter-spacing-normal);
   line-height: 1.5;
+  word-break: keep-all;
 }
 
 .description {
   width: min(100%, 524px);
-  margin: 14px 0 0;
+  margin: 28px 0 0;
   color: #111827;
   font-family: Pretendard, var(--font-family-base);
   font-size: 20px;
@@ -133,6 +135,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  height: 458px;
   min-width: 0;
   max-width: 785px;
 }
@@ -147,7 +150,9 @@
 .noticeList {
   display: grid;
   gap: 0;
+  grid-template-rows: repeat(4, 114px);
   width: 100%;
+  height: 456px;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -161,6 +166,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  height: 100%;
   min-width: 0;
   min-height: 114px;
   padding: 36px 20px;
@@ -232,7 +238,7 @@
 
 @media (width < 1200px) {
   .section {
-    margin-top: 144px;
+    margin-top: 156px;
   }
 
   .layout {
@@ -256,21 +262,32 @@
   .layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 72px;
+    height: auto;
   }
 
-  .heading {
-    font-size: 34px;
-    line-height: 1.42;
+  .noticeRail,
+  .noticeList {
+    height: auto;
+  }
+
+  .noticeList {
+    grid-template-rows: none;
   }
 
   .noticeItemLink {
     gap: 24px;
+    height: auto;
+  }
+
+  .heading {
+    font-size: 36px;
+    line-height: 1.42;
   }
 }
 
 @media (width < 640px) {
   .section {
-    margin-top: 120px;
+    margin-top: 108px;
   }
 
   .inner {

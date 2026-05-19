@@ -70,6 +70,29 @@ describe('API errors', () => {
     );
   });
 
+  it('maps payment and enrollment domain failures into actionable messages', () => {
+    const apiError = toApiError(
+      {
+        isAxiosError: true,
+        message: 'Request failed with status code 409',
+        response: {
+          data: {
+            code: 'PAYMENT_409_FULFILLMENT_PENDING',
+            message: 'Payment was approved but enrollment fulfillment is pending.',
+          },
+          status: 409,
+        },
+      },
+      'PC 결제 승인에 실패했습니다.',
+    );
+
+    expect(apiError.code).toBe('PAYMENT_409_FULFILLMENT_PENDING');
+    expect(apiError.status).toBe(409);
+    expect(apiError.userMessage).toBe(
+      '결제 승인은 완료됐고 수강 등록을 확인 중입니다. 잠시 후 내 강의실을 확인해 주세요.',
+    );
+  });
+
   it('keeps invalid response diagnostics out of the user-facing message', () => {
     const parsed = z.object({ items: z.array(z.string()).min(1) }).safeParse({ items: [] });
 

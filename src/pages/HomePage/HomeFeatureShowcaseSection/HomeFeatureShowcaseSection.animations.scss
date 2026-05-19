@@ -13,21 +13,48 @@
 }
 
 .showcasePanelAnimationRoot {
-  .copyColumn,
-  .cardItem {
-    opacity: 0;
-    transition-duration: 860ms;
-    transition-property: opacity;
-    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: opacity;
-  }
-
   .copyColumn {
     opacity: var(--showcase-copy-opacity, 0);
     transform: translate3d(0, var(--showcase-copy-y, 46px), 0);
     transition-duration: 620ms;
     transition-property: opacity, transform;
     will-change: opacity, transform;
+  }
+
+  .cardItem {
+    filter: blur(14px);
+    opacity: 0;
+    will-change: opacity, filter, transform;
+  }
+
+  .cardItem:nth-child(1) {
+    opacity: var(--showcase-card-1-opacity, 0);
+    filter: blur(var(--showcase-card-1-blur, 14px));
+    transform: translate3d(0, var(--showcase-card-1-y, 52px), 0);
+  }
+
+  .cardItem:nth-child(2) {
+    opacity: var(--showcase-card-2-opacity, 0);
+    filter: blur(var(--showcase-card-2-blur, 14px));
+    transform: translate3d(0, var(--showcase-card-2-y, 52px), 0);
+  }
+
+  .cardItem:nth-child(3) {
+    opacity: var(--showcase-card-3-opacity, 0);
+    filter: blur(var(--showcase-card-3-blur, 14px));
+    transform: translate3d(0, var(--showcase-card-3-y, 52px), 0);
+  }
+
+  .cardItem:nth-child(4) {
+    opacity: var(--showcase-card-4-opacity, 0);
+    filter: blur(var(--showcase-card-4-blur, 14px));
+    transform: translate3d(0, var(--showcase-card-4-y, 52px), 0);
+  }
+
+  .cardItem:nth-child(5) {
+    opacity: var(--showcase-card-5-opacity, 0);
+    filter: blur(var(--showcase-card-5-blur, 14px));
+    transform: translate3d(0, var(--showcase-card-5-y, 52px), 0);
   }
 }
 
@@ -44,51 +71,6 @@
   }
 }
 
-.showcasePanel[data-showcase-step='2'],
-.showcasePanel[data-showcase-step='3'],
-.showcasePanel[data-showcase-step='4'],
-.showcasePanel[data-showcase-step='5'],
-.showcasePanel[data-showcase-step='6'],
-.showcasePanel[data-showcase-step='7'] {
-  .cardItem:nth-child(1) {
-    opacity: 1;
-  }
-}
-
-.showcasePanel[data-showcase-step='3'],
-.showcasePanel[data-showcase-step='4'],
-.showcasePanel[data-showcase-step='5'],
-.showcasePanel[data-showcase-step='6'],
-.showcasePanel[data-showcase-step='7'] {
-  .cardItem:nth-child(2) {
-    opacity: 1;
-  }
-}
-
-.showcasePanel[data-showcase-step='4'],
-.showcasePanel[data-showcase-step='5'],
-.showcasePanel[data-showcase-step='6'],
-.showcasePanel[data-showcase-step='7'] {
-  .cardItem:nth-child(3) {
-    opacity: 1;
-  }
-}
-
-.showcasePanel[data-showcase-step='5'],
-.showcasePanel[data-showcase-step='6'],
-.showcasePanel[data-showcase-step='7'] {
-  .cardItem:nth-child(4) {
-    opacity: 1;
-  }
-}
-
-.showcasePanel[data-showcase-step='6'],
-.showcasePanel[data-showcase-step='7'] {
-  .cardItem:nth-child(5) {
-    opacity: 1;
-  }
-}
-
 .showcasePanel[data-showcase-step='8'] {
   &::before {
     opacity: 1;
@@ -100,6 +82,7 @@
   .copyColumn,
   .cardItem {
     opacity: 1;
+    filter: blur(0);
   }
 }
 
@@ -110,6 +93,7 @@
 
   .showcasePanelAnimationRoot .cardItem,
   .showcasePanelAnimationRoot .cardItem:nth-child(n) {
+    opacity: 0;
     transform: translateY(28px);
   }
 
@@ -121,6 +105,7 @@
   .showcasePanel[data-showcase-step='7'],
   .showcasePanel[data-showcase-step='8'] {
     .cardItem:nth-child(1) {
+      opacity: 1;
       transform: none;
     }
   }
@@ -132,6 +117,7 @@
   .showcasePanel[data-showcase-step='7'],
   .showcasePanel[data-showcase-step='8'] {
     .cardItem:nth-child(2) {
+      opacity: 1;
       transform: none;
     }
   }
@@ -142,6 +128,7 @@
   .showcasePanel[data-showcase-step='7'],
   .showcasePanel[data-showcase-step='8'] {
     .cardItem:nth-child(3) {
+      opacity: 1;
       transform: none;
     }
   }
@@ -151,6 +138,7 @@
   .showcasePanel[data-showcase-step='7'],
   .showcasePanel[data-showcase-step='8'] {
     .cardItem:nth-child(4) {
+      opacity: 1;
       transform: none;
     }
   }
@@ -159,6 +147,7 @@
   .showcasePanel[data-showcase-step='7'],
   .showcasePanel[data-showcase-step='8'] {
     .cardItem:nth-child(5) {
+      opacity: 1;
       transform: none;
     }
   }
@@ -216,8 +205,10 @@
 
   .showcasePanel::before,
   .showcasePanelAnimationRoot .copyColumn,
+  .showcasePanelAnimationRoot .cardList,
   .showcasePanelAnimationRoot .cardItem {
     opacity: 1;
+    filter: none;
     transform: none;
     transition: none;
   }

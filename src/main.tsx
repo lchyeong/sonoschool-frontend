@@ -7,6 +7,10 @@ import '@/styles/globals.scss';
 import App from './App.tsx';
 
 const bootstrap = (): void => {
+  if ('scrollRestoration' in window.history) {
+    window.history.scrollRestoration = 'manual';
+  }
+
   const rootElement = document.getElementById('root');
   if (!rootElement) throw new Error('Root element (#root) not found');
 

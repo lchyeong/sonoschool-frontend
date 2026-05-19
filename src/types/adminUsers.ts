@@ -15,6 +15,16 @@ export interface AdminUserManagementItem extends AdminUserSearchItem {
   upcomingPracticumCount: number;
 }
 
+export interface AdminUserManagementPage {
+  content: AdminUserManagementItem[];
+  first: boolean;
+  last: boolean;
+  number: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export interface AdminUserDetailOptionItem {
   optionId: number;
   optionText: string;

@@ -23,6 +23,40 @@ afterEach(() => {
 });
 
 describe('RootLayout', () => {
+  it('does not render the quick menu on non-home pages', () => {
+    const queryClient = createTestQueryClient();
+    const router = createMemoryRouter(
+      [
+        {
+          children: [
+            {
+              element: <RootLayout />,
+              path: '/',
+              children: [
+                {
+                  element: <div>교육과정 화면</div>,
+                  handle: { access: 'public', routeKey: 'programs' },
+                  path: 'programs',
+                },
+              ],
+            },
+          ],
+          path: '/',
+        },
+      ],
+      { initialEntries: ['/programs'] },
+    );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.queryByRole('complementary', { name: '빠른 메뉴' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '페이지 상단으로 이동' })).not.toBeInTheDocument();
+  });
+
   it('resets window scroll to top when pathname changes', async () => {
     const scrollToSpy = vi.fn();
     const queryClient = createTestQueryClient();

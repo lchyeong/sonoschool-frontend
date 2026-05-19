@@ -26,6 +26,7 @@ import calendarIconSrc from '@/assets/icons/lucide_calendar.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
+import { adminProgramDraftsQueryKey } from '@/query/useAdminProgramDraftsQuery';
 import { useToastStore } from '@/stores/useToastStore';
 import type {
   AdminPracticumDailyOperationPayload,
@@ -1361,6 +1362,8 @@ const AdminPracticumSection = () => {
     onSuccess: async ({ nextDate }) => {
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineSchedules'] });
       await queryClient.invalidateQueries({ queryKey: ['adminPracticumOfflineScheduleDetail'] });
+      await queryClient.invalidateQueries({ queryKey: adminProgramDraftsQueryKey() });
+      await queryClient.invalidateQueries({ queryKey: ['adminProgramDraftDetail'] });
       setMonthValue(nextDate.slice(0, 7));
       setSelectedDate(nextDate);
       setMoveOfflineScheduleState(null);

@@ -32,9 +32,7 @@ export const fetchPaymentResult = async (paymentId: number): Promise<PaymentResu
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '결제 결과를 불러오지 못했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, '결제 결과를 불러오지 못했습니다.');
   }
 };
 
@@ -48,9 +46,7 @@ export const fetchPaymentResultByToken = async (token: string): Promise<PaymentR
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '결제 결과를 불러오지 못했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, '결제 결과를 불러오지 못했습니다.');
   }
 };
 
@@ -63,9 +59,7 @@ export const fetchPaymentHistory = async (): Promise<PaymentResult[]> => {
     const response = await axiosInstance.get<ApiEnvelope<PaymentResult[]>>('/api/v1/payments');
     return unwrapApiEnvelope(response.data).map(sanitizePaymentResult);
   } catch (error: unknown) {
-    throw toApiError(error, '결제 내역을 불러오지 못했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, '결제 내역을 불러오지 못했습니다.');
   }
 };
 
@@ -79,9 +73,7 @@ export const prepareKcpPcPayment = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, 'PC 결제 준비에 실패했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, 'PC 결제 준비에 실패했습니다.');
   }
 };
 
@@ -95,9 +87,7 @@ export const prepareKcpPcCheckoutPayment = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, 'PC 결제 준비에 실패했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, 'PC 결제 준비에 실패했습니다.');
   }
 };
 
@@ -111,9 +101,7 @@ export const registerKcpMobilePayment = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '모바일 결제 준비에 실패했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, '모바일 결제 준비에 실패했습니다.');
   }
 };
 
@@ -127,9 +115,7 @@ export const registerKcpMobileCheckoutPayment = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '모바일 결제 준비에 실패했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, '모바일 결제 준비에 실패했습니다.');
   }
 };
 
@@ -143,9 +129,7 @@ export const completeFreeCheckoutPayment = async (
     );
     return sanitizePaymentResult(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
-    throw toApiError(error, '무료 신청 처리에 실패했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, '무료 신청 처리에 실패했습니다.');
   }
 };
 
@@ -157,9 +141,7 @@ export const approveKcpPcPayment = async (payload: KcpPcApprovePayload): Promise
     );
     return sanitizePaymentResult(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
-    throw toApiError(error, 'PC 결제 승인에 실패했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, 'PC 결제 승인에 실패했습니다.');
   }
 };
 
@@ -174,8 +156,6 @@ export const cancelPayment = async (
     );
     return sanitizePaymentResult(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
-    throw toApiError(error, '결제 취소 처리에 실패했습니다.', {
-      preferFallbackUserMessage: true,
-    });
+    throw toApiError(error, '결제 취소 처리에 실패했습니다.');
   }
 };

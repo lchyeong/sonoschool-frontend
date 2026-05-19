@@ -1,6 +1,12 @@
 import type { ProgramType } from '@/types/mypage';
 
-export type PaymentStatus = 'PENDING' | 'REGISTERED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+export type PaymentStatus =
+  | 'PENDING'
+  | 'REGISTERED'
+  | 'APPROVED_PENDING_FULFILLMENT'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED';
 export type CheckoutPaymentMethod = 'CARD' | 'FREE';
 export type PaymentMethodValue =
   | CheckoutPaymentMethod
@@ -100,6 +106,7 @@ const legacyPaymentMethodLabels: Record<'BANK_TRANSFER' | 'VIRTUAL_ACCOUNT', str
 
 export const paymentStatusLabels: Record<PaymentStatus, string> = {
   CANCELLED: '결제 취소',
+  APPROVED_PENDING_FULFILLMENT: '수강 등록 확인 중',
   COMPLETED: '결제 완료',
   FAILED: '결제 실패',
   PENDING: '결제 대기',

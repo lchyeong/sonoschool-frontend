@@ -167,7 +167,7 @@
 .learningTitle {
   margin: 0;
   color: #111827;
-  font-size: 40px;
+  font-size: 34px;
   font-weight: 800;
   line-height: normal;
   letter-spacing: var(--letter-spacing-normal);
@@ -1222,10 +1222,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  min-width: 186px;
-  min-height: 63px;
-  padding: 16px 28px;
+  gap: 10px;
+  width: 180px;
+  min-height: 58px;
+  padding: 16px 36px;
   border: 0;
   border-radius: 0;
   text-align: left;
@@ -1242,9 +1242,9 @@
   &::after {
     position: absolute;
     right: 0;
-    bottom: -2px;
+    bottom: -1px;
     left: 0;
-    height: 3px;
+    height: 2px;
     content: '';
     background: #34b29f;
   }
@@ -1257,14 +1257,15 @@
   max-width: 1094px;
   min-width: 0;
   padding-bottom: 0;
-  border-bottom: 2px solid #d1d5db;
+  border-bottom: 1px solid #d1d5db;
 }
 .courseOverviewLabel {
   color: #4b5563;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: var(--font-weight-semibold);
   line-height: 1.3;
   letter-spacing: var(--letter-spacing-normal);
+  white-space: nowrap;
 }
 .courseOverviewLabelActive {
   color: #34b29f;
@@ -1274,11 +1275,11 @@
   align-items: center;
   justify-content: center;
   min-width: 34px;
-  height: 32px;
-  padding: 2px 14px;
+  height: 25px;
+  padding: 2px 12px;
   border-radius: 40px;
   color: #ffffff;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: var(--font-weight-medium);
   line-height: 1.3;
 }
@@ -3144,14 +3145,6 @@
   .detailSplit {
     grid-template-columns: 1fr;
   }
-  .courseOverviewGrid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .courseOverviewButton {
-    width: 100%;
-    min-width: 0;
-  }
   .courseGrid {
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 342px));
   }
@@ -3305,6 +3298,37 @@
     height: 17px;
     padding: 1px 7px;
     font-size: 11px;
+  }
+  @media (width < 360px) {
+    .courseOverviewButton,
+    .paymentOverviewButton {
+      gap: 4px;
+      padding-inline: 2px;
+    }
+    .courseOverviewLabel,
+    .paymentOverviewLabel {
+      font-size: 12px;
+    }
+    .courseOverviewCount,
+    .paymentOverviewCount {
+      min-width: 18px;
+      padding-inline: 5px;
+    }
+  }
+  @media (width < 320px) {
+    .courseOverviewButton,
+    .paymentOverviewButton {
+      gap: 3px;
+    }
+    .courseOverviewLabel,
+    .paymentOverviewLabel {
+      font-size: 11px;
+    }
+    .courseOverviewCount,
+    .paymentOverviewCount {
+      min-width: 16px;
+      padding-inline: 4px;
+    }
   }
   .learningCoursesBody {
     gap: 10px;

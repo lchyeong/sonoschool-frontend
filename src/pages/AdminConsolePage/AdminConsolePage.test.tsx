@@ -716,7 +716,7 @@ describe('AdminConsolePage', () => {
     expect(await screen.findByLabelText('팝업 이미지 파일')).toBeInTheDocument();
     expect(screen.getByLabelText('이동 URL')).toHaveAttribute(
       'placeholder',
-      '예: https://newzest.xyz/programs',
+      '예: https://sonoschool.kr/programs',
     );
     expect(screen.getByText(/도메인을 제외한 주소를 입력하세요/)).toBeInTheDocument();
     expect(screen.queryByText('노출기간')).not.toBeInTheDocument();
@@ -834,6 +834,7 @@ describe('AdminConsolePage', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: '회원관리' })).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: '김민지' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '2' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('link', { name: '김민지' }));
 
@@ -848,6 +849,17 @@ describe('AdminConsolePage', () => {
     fireEvent.click(await screen.findByText('혈액가스 문제 풀이'));
 
     expect((await screen.findAllByText('이 결과에 해당하는 상태는?')).length).toBeGreaterThan(0);
+  });
+
+  it('moves between member management pages', async () => {
+    renderAdminConsoleRoute('/admin/enrollments');
+
+    expect(await screen.findByRole('link', { name: '김민지' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+
+    expect(await screen.findByRole('link', { name: '테스트회원08' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '김민지' })).not.toBeInTheDocument();
   });
 
   it('grants a program enrollment from the member detail page', async () => {

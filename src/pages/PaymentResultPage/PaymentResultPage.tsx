@@ -19,10 +19,16 @@ const knownStatuses = new Set<PaymentStatus>([
   'PENDING',
   'REGISTERED',
   'COMPLETED',
+  'APPROVED_PENDING_FULFILLMENT',
   'FAILED',
   'CANCELLED',
 ]);
-const statusCheckStatuses = new Set<PaymentStatus>(['PENDING', 'REGISTERED', 'CANCELLED']);
+const statusCheckStatuses = new Set<PaymentStatus>([
+  'PENDING',
+  'REGISTERED',
+  'APPROVED_PENDING_FULFILLMENT',
+  'CANCELLED',
+]);
 
 const parsePaymentId = (value: string | null): number | null => {
   if (!value) return null;
@@ -47,6 +53,13 @@ const getStatusCopy = (status: PaymentStatus | null, fallbackMessage: string | n
         description:
           fallbackMessage ??
           '결제가 정상 승인되었습니다. 내 강의실과 결제 내역에서 이어서 확인할 수 있습니다.',
+      };
+    case 'APPROVED_PENDING_FULFILLMENT':
+      return {
+        title: '수강 등록을 확인 중입니다',
+        description:
+          fallbackMessage ??
+          '결제 승인은 완료됐고 수강 등록을 처리 중입니다. 잠시 후 내 강의실을 확인해 주세요.',
       };
     case 'FAILED':
       return {
@@ -158,6 +171,7 @@ const resolveProcessedAt = (
       return payment.failedAt ?? payment.requestedAt;
     case 'REGISTERED':
       return payment.registeredAt ?? payment.requestedAt;
+    case 'APPROVED_PENDING_FULFILLMENT':
     case 'PENDING':
       return payment.requestedAt;
     default:
@@ -168,6 +182,10 @@ const resolveProcessedAt = (
 const getStatusCheckLabel = (status: PaymentStatus | null) => {
   if (!status) {
     return '결제 결과 확인 중';
+  }
+
+  if (status === 'APPROVED_PENDING_FULFILLMENT') {
+    return paymentStatusLabels[status];
   }
 
   if (statusCheckStatuses.has(status)) {
@@ -187,6 +205,7 @@ const PaymentResultPage = () => {
   const payment = paymentQuery.data ?? null;
   const resolvedStatus = payment?.status ?? fallbackStatus;
   const isCompletedResult = resolvedStatus === 'COMPLETED';
+  const isFulfillmentPendingResult = resolvedStatus === 'APPROVED_PENDING_FULFILLMENT';
   const isStatusCheckResult = resolvedStatus !== null && !isCompletedResult;
   const statusCopy = getStatusCopy(resolvedStatus, fallbackMessage);
   const processedAt = resolveProcessedAt(payment, resolvedStatus);
@@ -230,8 +249,9 @@ const PaymentResultPage = () => {
               </Link>
             ) : null}
             {(paymentId !== null || resultToken !== null) && paymentQuery.isPending ? (
-              <div aria-live='polite'>
+              <div className={styles['resultLoadingState']} aria-live='polite'>
                 <LoadingSpinner />
+                <span>결제 승인과 수강 등록 결과를 확인 중입니다. 잠시만 기다려 주세요.</span>
               </div>
             ) : null}
             {(paymentId !== null || resultToken !== null) && paymentQuery.isError ? (
@@ -331,11 +351,14 @@ const PaymentResultPage = () => {
 
           <div className={isStatusCheckResult ? styles['statusActions'] : styles['actions']}>
             {isStatusCheckResult ? (
-              <Link className={styles['statusPrimaryAction']} to={routePaths.checkout}>
-                결제 다시 시도
+              <Link
+                className={styles['statusPrimaryAction']}
+                to={isFulfillmentPendingResult ? routePaths.mypage : routePaths.checkout}
+              >
+                {isFulfillmentPendingResult ? '내 강의로 이동' : '결제 다시 시도'}
               </Link>
             ) : null}
-            {isStatusCheckResult ? (
+            {isStatusCheckResult && !isFulfillmentPendingResult ? (
               <Link className={styles['statusSecondaryAction']} to={routePaths.cart}>
                 장바구니로 돌아가기
               </Link>

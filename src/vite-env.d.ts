@@ -32,6 +32,7 @@ interface ImportMetaEnv {
   readonly VITE_TURNSTILE_SITE_KEY?: string; // Cloudflare Turnstile Site Key
   readonly VITE_CONTACT_PHONE_NUMBER?: string; // (선택) CALL US 전화번호
   readonly VITE_SITE_URL?: string; // 사이트 URL (SEO/OG)
+  readonly VITE_KAKAO_MAP_API_KEY?: string; // Kakao Maps JavaScript API Key
 
   // 예시 - 필요에 따라 추가
   // readonly VITE_AUTH_DOMAIN?: string;

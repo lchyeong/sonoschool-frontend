@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ApiError } from '@/api/errors';
 import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
 import { resetCartSelectionState, useCartSelectionStore } from '@/stores/useCartSelectionStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -264,6 +265,36 @@ describe('CheckoutPage', () => {
     expect(prepareKcpPcCheckoutPaymentMock).not.toHaveBeenCalled();
   });
 
+  it('shows a fulfillment wait message while free checkout creates enrollments', async () => {
+    fetchMyCartMock.mockResolvedValueOnce({
+      ...testCart,
+      itemCount: 1,
+      items: [
+        {
+          ...testCart.items[0],
+          originalPrice: 0,
+          payablePrice: 0,
+          salePrice: 0,
+        },
+      ],
+      totalOriginalPrice: 0,
+      totalPayablePrice: 0,
+    });
+    completeFreeCheckoutPaymentMock.mockImplementation(() => new Promise(() => undefined));
+
+    renderCheckoutPage();
+
+    await agreePaymentTerms();
+    fireEvent.click(await screen.findByRole('button', { name: '무료 신청' }));
+
+    expect(
+      await screen.findByText(
+        '수강 등록을 처리 중입니다. 여러 신청이 동시에 들어오면 잠시 걸릴 수 있습니다.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '신청 처리 중...' })).toBeDisabled();
+  });
+
   it('waits for the delayed KCP executor before opening the payment layer', async () => {
     const delayedExecutor = vi.fn();
 
@@ -487,5 +518,75 @@ describe('CheckoutPage', () => {
     expect(useToastStore.getState().toasts.at(-1)?.message).toBe(
       '결제가 취소되었습니다. 다시 결제를 진행해 주세요.',
     );
+  });
+
+  it('shows approval wait copy and treats pending fulfillment as a non-retry result', async () => {
+    prepareKcpPcCheckoutPaymentMock.mockResolvedValue({
+      buyrMail: testProfile.email,
+      buyrName: testProfile.name,
+      buyrTel2: testProfile.phoneNumber,
+      currency: 'WON',
+      goodExpr: '0',
+      goodMny: 419000,
+      goodName: 'POCUS 워크숍 외 2건',
+      jsUrl: 'https://testspay.kcp.co.kr/plugin/kcp_spay_hub.js',
+      orderReference: 'checkout-draft-pending-fulfillment',
+      ordrIdxx: 'ORDER-PENDING-FULFILLMENT',
+      payMethod: 'CARD',
+      paymentId: 901,
+      shopUserId: '10',
+      siteCd: 'T0000',
+      siteName: 'SONOSCHOOL',
+    });
+    window.KCP_Pay_Execute_Web = vi.fn();
+    const rejectApprovalRef: { current: ((error: ApiError) => void) | null } = {
+      current: null,
+    };
+    approveKcpPcPaymentMock.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectApprovalRef.current = reject;
+        }),
+    );
+
+    renderCheckoutPage();
+
+    await agreePaymentTerms();
+    fireEvent.click(await screen.findByRole('button', { name: '결제하기' }));
+
+    await waitFor(() => {
+      expect(typeof window.m_Completepayment).toBe('function');
+    });
+
+    const completion = window.m_Completepayment?.(
+      {
+        enc_data: 'encrypted-data',
+        enc_info: 'encrypted-info',
+        res_cd: '0000',
+        res_msg: '정상처리',
+        tran_cd: '00100000',
+      },
+      undefined,
+    );
+
+    expect(
+      await screen.findByText(
+        '결제 승인을 확인하고 수강 등록을 처리 중입니다. 접속자가 많으면 잠시 걸릴 수 있습니다.',
+      ),
+    ).toBeInTheDocument();
+    expect(rejectApprovalRef.current).not.toBeNull();
+    rejectApprovalRef.current?.(
+      new ApiError({
+        code: 'PAYMENT_409_FULFILLMENT_PENDING',
+        status: 409,
+        userMessage:
+          '결제 승인은 완료됐고 수강 등록을 확인 중입니다. 잠시 후 내 강의실을 확인해 주세요.',
+      }),
+    );
+    await completion;
+    expect(useToastStore.getState().toasts.at(-1)).toMatchObject({
+      message: '결제 승인은 완료됐고 수강 등록을 확인 중입니다. 잠시 후 내 강의실을 확인해 주세요.',
+      variant: 'info',
+    });
   });
 });

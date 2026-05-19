@@ -134,6 +134,52 @@ describe('PaymentResultPage', () => {
     );
   });
 
+  it('shows a clear wait message while checking payment and enrollment result', () => {
+    mockedUsePaymentResultQuery.mockReturnValue({
+      data: undefined,
+      error: null,
+      isError: false,
+      isPending: true,
+    } as unknown as ReturnType<typeof usePaymentResultQuery>);
+
+    render(
+      <MemoryRouter initialEntries={['/payments/result?paymentId=401&status=PENDING']}>
+        <PaymentResultPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText('결제 승인과 수강 등록 결과를 확인 중입니다. 잠시만 기다려 주세요.'),
+    ).toBeInTheDocument();
+  });
+
+  it('renders fulfillment-pending results without retry actions', () => {
+    mockedUsePaymentResultQuery.mockReturnValue({
+      data: {
+        ...mockPendingPaymentResult,
+        approvedAmount: 100,
+        paidAt: '2026-03-18T10:02:00Z',
+        status: 'APPROVED_PENDING_FULFILLMENT',
+      },
+      error: null,
+      isError: false,
+      isPending: false,
+    } as ReturnType<typeof usePaymentResultQuery>);
+
+    render(
+      <MemoryRouter initialEntries={['/payments/result?paymentId=401']}>
+        <PaymentResultPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: '수강 등록을 확인 중입니다' })).toBeInTheDocument();
+    expect(screen.getByText('수강 등록 확인 중')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '내 강의로 이동' })).toHaveAttribute('href', '/mypage');
+    expect(screen.queryByRole('link', { name: '결제 다시 시도' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '장바구니로 돌아가기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '결제 정보' })).not.toBeInTheDocument();
+  });
+
   it('renders status details when the fetched payment is still pending', () => {
     mockedUsePaymentResultQuery.mockReturnValue({
       data: mockPendingPaymentResult,

@@ -1553,6 +1553,7 @@ const AdminProgramCreateWorkspace = ({
   const numericInputsInitializedForDraftRef = useRef<number | null>(null);
   const resumingVideoIdsRef = useRef<Set<number>>(new Set());
   const draftFocusHintTimerRef = useRef<number | null>(null);
+  const invalidatedDraftIdRef = useRef<number | null>(null);
 
   useEffect(
     () => () => {
@@ -1610,6 +1611,30 @@ const AdminProgramCreateWorkspace = ({
       setSearchParams({ draftId: String(detail.id) });
     },
   });
+
+  useEffect(() => {
+    const detail = detailQuery.data;
+    if (!detail || detail.status === 'ACTIVE' || invalidatedDraftIdRef.current === detail.id) {
+      return;
+    }
+
+    invalidatedDraftIdRef.current = detail.id;
+    clearCreateWorkspaceSnapshot(detail.id);
+    initializedDraftIdRef.current = null;
+    currentPayloadRef.current = null;
+    lastSavedPayloadRef.current = '';
+    numericInputsInitializedForDraftRef.current = null;
+    hasRequestedDraftRef.current = false;
+    setPayload(null);
+    setLastSavedAt(null);
+    setSaveState('saved');
+    setBasicInfoErrors({});
+    setSearchParams({}, { replace: true });
+    showToast({
+      message: '운영 일정이 변경되어 기존 수정 초안을 폐기했습니다. 최신 정보로 다시 불러옵니다.',
+      variant: 'info',
+    });
+  }, [detailQuery.data, setSearchParams, showToast]);
 
   const saveMutation = useMutation({
     mutationFn: ({
@@ -1806,7 +1831,7 @@ const AdminProgramCreateWorkspace = ({
 
   useEffect(() => {
     const detail = detailQuery.data ?? createDraftMutation.data;
-    if (!detail || initializedDraftIdRef.current === detail.id) {
+    if (!detail || detail.status !== 'ACTIVE' || initializedDraftIdRef.current === detail.id) {
       return;
     }
 

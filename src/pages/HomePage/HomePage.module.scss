@@ -166,8 +166,8 @@
 
   &CopyColumn {
     position: absolute;
-    bottom: clamp(120px, 18.5%, 178px);
-    left: 6.216%;
+    bottom: 60px;
+    left: 80px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -178,29 +178,33 @@
 
   &CopyBlock {
     display: grid;
-    gap: clamp(12px, 1.514cqw, 28px);
+    gap: 12px;
     min-width: 0;
   }
 
   &Title {
-    max-width: 36.054cqw;
-    min-height: auto;
+    --lecture-title-font-size: clamp(30px, 3.243cqw, 60px);
+
+    display: -webkit-box;
+    overflow: hidden;
+    max-width: 40cqw;
     margin: 0;
     color: #ffffff;
     font-family: Pretendard, var(--font-family-base);
-    font-size: clamp(30px, 3.243cqw, 60px);
+    font-size: var(--lecture-title-font-size);
     font-weight: var(--font-weight-bold);
     line-height: 1.3;
     letter-spacing: -1.2px;
-    animation: hero-copy-up 1000ms cubic-bezier(0.22, 1, 0.36, 1) 450ms both;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    animation: hero-copy-up 1000ms cubic-bezier(0.22, 1, 0.36, 1) 650ms both;
     will-change: opacity, transform;
   }
 
   &Description {
     display: -webkit-box;
     overflow: hidden;
-    max-width: 100%;
-    min-height: auto;
+    max-width: min(100%, 40cqw);
     margin: 0;
     color: #ffffff;
     font-family: Pretendard, var(--font-family-base);
@@ -210,16 +214,55 @@
     line-height: 1.5;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
-    animation: hero-copy-up 1000ms cubic-bezier(0.22, 1, 0.36, 1) 650ms both;
+    animation: hero-copy-up 1000ms cubic-bezier(0.22, 1, 0.36, 1) 750ms both;
     will-change: opacity, transform;
   }
 
+  &CourseLink {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    gap: 8px;
+    width: fit-content;
+    color: #ffffff;
+    font-family: Pretendard, var(--font-family-base);
+    font-size: clamp(16px, 1.081cqw, 20px);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--letter-spacing-normal);
+    line-height: 1.5;
+    text-decoration: none;
+    animation: hero-copy-up 1000ms cubic-bezier(0.22, 1, 0.36, 1) 450ms both;
+    transition:
+      color 180ms ease,
+      gap 180ms ease;
+    will-change: opacity, transform, gap;
+
+    &:hover,
+    &:focus-visible {
+      gap: 16px;
+      color: #9de2d8;
+    }
+  }
+
+  &CourseLinkIcon {
+    display: inline-flex;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+  }
+
+  &CourseLinkIconSvg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    color: currentColor;
+  }
+
   &ControlBar {
-    position: absolute;
-    right: 6.216%;
-    bottom: 8.83%;
-    left: 6.216%;
-    z-index: 2;
+    width: min(100%, 43.621cqw);
+    margin-top: 40px;
+    animation: hero-copy-up 1000ms cubic-bezier(0.22, 1, 0.36, 1) 850ms both;
+    will-change: opacity, transform;
   }
 }
 
@@ -254,7 +297,7 @@
     right: 5.297%;
     z-index: 1;
     display: flex;
-    width: 37.676%;
+    width: 40.2%;
     justify-content: flex-end;
     padding-top: 0;
   }
@@ -305,8 +348,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: clamp(28px, 1.946cqw, 36px);
-    height: clamp(28px, 1.946cqw, 36px);
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: 0;
     border-radius: 22px;
@@ -319,15 +362,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: clamp(18px, 1.946cqw, 36px);
-    height: clamp(18px, 1.946cqw, 36px);
+    width: 24px;
+    height: 24px;
 
     &Prev {
       transform: none;
     }
 
     &Next {
-      transform: scaleX(-1);
+      transform: none;
     }
   }
 
@@ -335,7 +378,7 @@
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    color: currentColor;
   }
 }
 
@@ -366,7 +409,7 @@
 .heroScroll {
   &Indicator {
     position: absolute;
-    right: 13.7%;
+    right: 7%;
     bottom: 0;
     z-index: 3;
     display: flex;
@@ -467,18 +510,21 @@
 @media (width < 1024px) {
   .lecture {
     &CopyColumn {
-      bottom: clamp(108px, 18%, 150px);
-      left: 5.4%;
       width: 50%;
     }
 
     &Title {
+      --lecture-title-font-size: clamp(28px, 3.6cqw, 44px);
+
       max-width: 100%;
-      font-size: clamp(28px, 3.6cqw, 44px);
     }
 
     &Description {
-      -webkit-line-clamp: 2;
+      max-width: 100%;
+    }
+
+    &CourseLink {
+      font-size: clamp(16px, 1.6cqw, 18px);
     }
   }
 
@@ -525,32 +571,32 @@
     }
 
     &CopyColumn {
-      bottom: clamp(232px, 34%, 286px);
-      left: 6.8%;
-      width: 86.4%;
+      width: min(calc(100% - 160px), 86.4%);
     }
 
     &CopyBlock {
-      gap: 10px;
+      gap: 12px;
     }
 
     &Title {
-      font-size: 24px;
+      --lecture-title-font-size: 24px;
+
       line-height: 1.24;
       letter-spacing: -0.4px;
     }
 
     &Description {
-      font-size: clamp(12px, 3.6cqw, 15px);
-      letter-spacing: 0;
+      font-size: 14px;
       line-height: 1.45;
-      -webkit-line-clamp: 3;
+    }
+
+    &CourseLink {
+      font-size: clamp(14px, 3.8cqw, 16px);
     }
 
     &ControlBar {
-      right: 6.8%;
-      bottom: 10.5%;
-      left: 6.8%;
+      width: min(100%, 420px);
+      margin-top: 40px;
     }
   }
 
@@ -609,6 +655,8 @@
   .lectureBackdrop,
   .lectureTitle,
   .lectureDescription,
+  .lectureControlBar,
+  .lectureCourseLink,
   .thumbnailImage {
     animation: none;
     will-change: auto;

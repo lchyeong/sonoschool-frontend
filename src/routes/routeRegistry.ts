@@ -562,6 +562,7 @@ export const routePaths = {
   checkout: routes.checkout.absolutePath,
   paymentResult: routes.paymentResult.absolutePath,
   homeFeaturedCourses: `${routes.home.absolutePath}#home-featured-courses`,
+  homeLocation: `${routes.home.absolutePath}#home-location`,
   notices: routes.notices.absolutePath,
   noticeDetail: (noticeSlug: string) => routes.noticeDetail.buildPath({ noticeSlug }),
   reviews: routes.reviews.absolutePath,

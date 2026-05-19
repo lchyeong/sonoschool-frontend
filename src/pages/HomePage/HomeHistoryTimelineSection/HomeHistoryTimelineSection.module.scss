@@ -135,12 +135,11 @@
 }
 
 .directorInner {
-  --director-ellipse-width: clamp(780px, 55vw, 1056px);
-  --director-image-group-left: clamp(-120px, -5vw, -72px);
-  --director-image-height: clamp(690px, 44vw, 845px);
-  --director-image-left: clamp(64px, 9.2vw, 178px);
-  --director-image-top-offset: clamp(305px, 28vw, 345px);
-  --director-image-width: clamp(515px, 34vw, 650px);
+  --director-image-group-right: max(24px, calc(50% - 780px));
+  --director-image-height: calc(var(--director-image-width) * 1.3333);
+  --director-image-left: calc(var(--director-image-width) * 0.345);
+  --director-image-width: clamp(300px, min(31vw, 55svh), 520px);
+  --director-ellipse-width: calc(var(--director-image-width) * 1.494);
 
   position: relative;
   z-index: 1;
@@ -234,13 +233,12 @@
 
 .directorImageWrap {
   position: absolute;
-  top: auto;
-  bottom: 0;
-  left: calc(50% + var(--director-image-group-left));
+  inset: auto var(--director-image-group-right) 0 auto;
   z-index: 1;
   width: var(--director-ellipse-width);
   height: var(--director-image-height);
-  overflow: hidden;
+  clip-path: inset(-160px -180px 0 -180px);
+  overflow: visible;
 }
 
 .directorImageWrap::before {
@@ -268,6 +266,12 @@
   height: auto;
   object-fit: contain;
   object-position: center top;
+}
+
+@media (width >= 1800px) {
+  .directorInner {
+    --director-image-left: calc(var(--director-image-width) * 0.345);
+  }
 }
 
 @media (width < 1024px) {
@@ -337,16 +341,16 @@
 
   .directorImageWrap {
     position: absolute;
-    inset: auto -5% 0 auto;
-    width: min(54%, 430px);
+    inset: auto 0 0 auto;
+    width: min(50%, 430px);
     height: auto;
     aspect-ratio: 548 / 730;
   }
 
   .directorImageWrap::before {
     bottom: -36px;
-    left: -18%;
-    width: 126%;
+    left: -8%;
+    width: 112%;
   }
 
   .directorImage {
@@ -382,7 +386,8 @@
   .philosophyStage {
     width: min(100%, calc(100% - 32px));
     gap: 84px;
-    align-content: start;
+    align-content: center;
+    transform: translateY(clamp(36px, 6svh, 64px));
   }
 
   .philosophyHeading {
@@ -415,9 +420,9 @@
   }
 
   .directorImageWrap {
-    right: -14%;
+    right: 0;
     bottom: 0;
-    width: min(88vw, 420px);
+    width: clamp(300px, 82vw, 420px);
     height: auto;
     aspect-ratio: 470 / 627;
   }
@@ -428,7 +433,7 @@
   }
 }
 
-@media (width < 1024px) and (height < 720px) {
+@media (768px <= width < 1024px) and (height < 720px) {
   .directorPanel {
     height: auto;
     min-height: 0;
@@ -499,6 +504,7 @@
   .philosophyStage {
     width: min(100%, calc(100% - 40px));
     gap: 72px;
+    transform: translateY(clamp(32px, 5svh, 52px));
   }
 
   .philosophyHeading {

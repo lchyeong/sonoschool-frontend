@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { ApiError } from '@/api/errors';
 import {
   approveKcpPcPayment,
   completeFreeCheckoutPayment,
@@ -42,6 +43,7 @@ const pcPaymentOpenErrorMessage = '결제창을 열지 못했습니다. 잠시 �
 const pcPaymentIncompleteMessage =
   '결제가 완료되지 않았습니다. 결제 정보를 확인한 뒤 다시 시도해 주세요.';
 const pcPaymentApproveErrorMessage = '결제 승인에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+const paymentFulfillmentPendingCode = 'PAYMENT_409_FULFILLMENT_PENDING';
 const pcPaymentCancelledMessage = '결제가 취소되었습니다. 다시 결제를 진행해 주세요.';
 const pcPaymentClosedMessage = '결제창이 닫혀 결제가 완료되지 않았습니다. 다시 시도해 주세요.';
 const pcPaymentReturnGraceMs = 1200;
@@ -328,6 +330,7 @@ const CheckoutPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPcPreparing, setIsPcPreparing] = useState(false);
   const [isPcPaymentReady, setIsPcPaymentReady] = useState(false);
+  const [paymentProgressMessage, setPaymentProgressMessage] = useState<string | null>(null);
   const [pcPrepareVersion, setPcPrepareVersion] = useState(0);
   const [isPolicyAgreed, setIsPolicyAgreed] = useState(false);
   const [activePolicyKey, setActivePolicyKey] = useState<CheckoutPolicyKey | null>(null);
@@ -389,6 +392,7 @@ const CheckoutPage = () => {
     isPcAttemptPendingRef.current = false;
     clearPcAttemptRecoveryTimer();
     setIsSubmitting(false);
+    setPaymentProgressMessage(null);
     setKcpPaymentVisibility(false);
   }, [clearPcAttemptRecoveryTimer]);
 
@@ -559,6 +563,7 @@ const CheckoutPage = () => {
         }
 
         if (resCd !== '0000') {
+          setPaymentProgressMessage(null);
           showToast({
             message: pcPaymentIncompleteMessage,
             variant: 'error',
@@ -573,6 +578,10 @@ const CheckoutPage = () => {
           );
           return;
         }
+
+        setPaymentProgressMessage(
+          '결제 승인을 확인하고 수강 등록을 처리 중입니다. 접속자가 많으면 잠시 걸릴 수 있습니다.',
+        );
 
         const payment = await approveKcpPcPayment({
           orderReference: latestPrepare.orderReference,
@@ -596,16 +605,25 @@ const CheckoutPage = () => {
             status: payment.status,
           })}`,
         );
-      } catch {
+      } catch (error: unknown) {
+        const isFulfillmentPending =
+          error instanceof ApiError && error.code === paymentFulfillmentPendingCode;
+        const message =
+          error instanceof ApiError
+            ? error.userMessage
+            : isFulfillmentPending
+              ? '결제 승인은 완료됐고 수강 등록을 확인 중입니다. 잠시 후 내 강의실을 확인해 주세요.'
+              : pcPaymentApproveErrorMessage;
+
         showToast({
-          message: pcPaymentApproveErrorMessage,
-          variant: 'error',
+          message,
+          variant: isFulfillmentPending ? 'info' : 'error',
         });
         void navigate(
           `${routePaths.paymentResult}?${buildResultSearch({
-            message: pcPaymentApproveErrorMessage,
+            message,
             paymentId: latestPrepare.paymentId,
-            status: 'FAILED',
+            status: isFulfillmentPending ? 'APPROVED_PENDING_FULFILLMENT' : 'FAILED',
           })}`,
         );
       } finally {
@@ -657,6 +675,10 @@ const CheckoutPage = () => {
 
     try {
       if (isFreeCheckout) {
+        setIsSubmitting(true);
+        setPaymentProgressMessage(
+          '수강 등록을 처리 중입니다. 여러 신청이 동시에 들어오면 잠시 걸릴 수 있습니다.',
+        );
         const payment = await completeFreeCheckoutPayment(checkoutPayload);
 
         await Promise.all([
@@ -680,6 +702,10 @@ const CheckoutPage = () => {
           throw new Error('모바일 결제 폼을 초기화하지 못했습니다.');
         }
 
+        setIsSubmitting(true);
+        setPaymentProgressMessage(
+          '모바일 결제창으로 이동 중입니다. 창이 열릴 때까지 기다려 주세요.',
+        );
         const register = await registerKcpMobileCheckoutPayment(checkoutPayload);
 
         applyMobileRegisterResponse(mobileForm, register);
@@ -704,6 +730,7 @@ const CheckoutPage = () => {
       clearPcAttemptRecoveryTimer();
       isPcAttemptPendingRef.current = true;
       setIsSubmitting(true);
+      setPaymentProgressMessage('결제창을 여는 중입니다. 창이 열릴 때까지 기다려 주세요.');
       setKcpPaymentVisibility(true);
       window.jsf__pay(form);
     } catch (error: unknown) {
@@ -912,7 +939,9 @@ const CheckoutPage = () => {
                       >
                         {isPolicyAgreed ? <img alt='' src={checkIconSrc} /> : null}
                       </span>
-                      <span>주문 내용, 결제 금액, 환불정책을 확인했습니다.</span>
+                      <span className={styles['agreementText']}>
+                        주문 내용, 결제 금액, 환불정책을 확인했습니다.
+                      </span>
                     </label>
 
                     <div className={styles['policyLinks']} aria-label='결제 약관 링크'>
@@ -924,6 +953,7 @@ const CheckoutPage = () => {
                       >
                         환불정책
                       </button>
+                      <span className={styles['policyLinkSeparator']} aria-hidden='true' />
                       <button
                         onClick={() => {
                           setActivePolicyKey('privacy');
@@ -935,7 +965,7 @@ const CheckoutPage = () => {
                     </div>
                   </div>
 
-                  <div className={styles['actionRow']}>
+                  <div className={`${styles['actionRow']} ${styles['paymentActionRow']}`}>
                     <button
                       className={styles['primaryActionButton']}
                       disabled={
@@ -956,6 +986,11 @@ const CheckoutPage = () => {
                             ? '무료 신청'
                             : '결제하기'}
                     </button>
+                    {paymentProgressMessage ? (
+                      <p className={styles['paymentProgressText']} aria-live='polite'>
+                        {paymentProgressMessage}
+                      </p>
+                    ) : null}
                   </div>
                   <Link className={styles['cartBackLink']} to={routePaths.cart}>
                     장바구니로 돌아가기

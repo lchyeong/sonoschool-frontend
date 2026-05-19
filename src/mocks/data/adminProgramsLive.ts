@@ -1,3 +1,4 @@
+import { routePaths } from '@/routes/routeRegistry';
 import type {
   AdminProgramCategoryTreeItem,
   AdminProgramDetail,
@@ -522,6 +523,7 @@ export const getMockHomeHeroSlides = (): HomeHeroSlidesResponse => {
     .slice(0, 5)
     .map((program) => ({
       description: program.description ?? `${program.categoryName} 최신 강의입니다.`,
+      detailPath: routePaths.program(program.slug),
       id: `program-${String(program.id)}`,
       thumbnailAlt: `${program.title} 썸네일`,
       thumbnailSrc:
