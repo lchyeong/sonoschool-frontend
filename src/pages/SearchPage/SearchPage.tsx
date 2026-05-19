@@ -11,6 +11,7 @@ import {
   type SearchScope,
 } from '@/search/programSearchShared';
 import type { ProgramSearchItem } from '@/types/programSearch';
+import { getProgramImageCropStyle } from '@/utils/programImageCrop';
 
 import styles from './SearchPage.module.scss';
 
@@ -101,6 +102,12 @@ const SearchPage = () => {
         <section aria-label='검색 결과 목록' className={styles['resultsGrid']}>
           {filteredItems.length > 0 ? (
             filteredItems.map((item) => {
+              const thumbnailCropStyle = getProgramImageCropStyle({
+                offsetX: item.thumbnailCropOffsetX,
+                offsetY: item.thumbnailCropOffsetY,
+                zoom: item.thumbnailCropZoom,
+              });
+
               return (
                 <article className={styles['resultCard']} key={item.id}>
                   <div className={styles['cardImageFrame']}>
@@ -108,6 +115,7 @@ const SearchPage = () => {
                       alt={item.thumbnailAlt}
                       className={styles['cardImage']}
                       src={item.thumbnailSrc}
+                      style={thumbnailCropStyle}
                     />
                   </div>
 

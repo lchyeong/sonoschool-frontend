@@ -3,7 +3,6 @@ export interface PopupItem {
   imageAssetId: number;
   imageUrl: string;
   altText: string;
-  linkUrl: string;
   published: boolean;
   visibleStartAt: string | null;
   visibleEndAt: string | null;
@@ -15,7 +14,6 @@ export interface PopupItem {
 export interface AdminPopupCreatePayload {
   imageAssetId: number;
   altText: string;
-  linkUrl: string;
   published: boolean;
   visibleStartAt: string | null;
   visibleEndAt: string | null;
@@ -25,7 +23,6 @@ export interface AdminPopupCreatePayload {
 export interface AdminPopupUpdatePayload {
   imageAssetId: number;
   altText: string;
-  linkUrl: string;
   visibleStartAt: string | null;
   visibleEndAt: string | null;
   sortOrder: number;

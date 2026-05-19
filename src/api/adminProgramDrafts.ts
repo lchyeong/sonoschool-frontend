@@ -31,6 +31,11 @@ const normalizeStructuredItems = (
   });
 };
 
+const normalizeBoolean = (value: boolean | null | undefined): boolean => value ?? false;
+
+const normalizeSortOrder = (value: number | null | undefined, fallback = 0): number =>
+  value ?? fallback;
+
 const normalizeDraftDetail = (detail: AdminProgramDraftDetail): AdminProgramDraftDetail => {
   return {
     ...detail,
@@ -92,14 +97,18 @@ const normalizeDraftPayload = (payload: AdminProgramDraftPayload) => {
     },
     sections: payload.sections.map((section) => ({
       ...section,
+      sortOrder: normalizeSortOrder(section.sortOrder),
       lectures: section.lectures.map((lecture) => ({
         ...lecture,
         durationSeconds: lecture.lectureType === 'PROBLEM' ? null : lecture.durationSeconds,
+        published: normalizeBoolean(lecture.published),
         preview: false,
+        sortOrder: normalizeSortOrder(lecture.sortOrder),
       })),
     })),
     problems: payload.problems.map((problem) => ({
       ...problem,
+      retakeAllowed: normalizeBoolean(problem.retakeAllowed),
       questions: problem.questions.map((question) => ({
         ...question,
         mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
@@ -107,7 +116,17 @@ const normalizeDraftPayload = (payload: AdminProgramDraftPayload) => {
         mediaUploadStatus:
           question.mediaUploadStatus ??
           (question.mediaAssetId || question.mediaVideoId ? 'READY' : null),
+        options: question.options.map((option, optionIndex) => ({
+          ...option,
+          correct: normalizeBoolean(option.correct),
+          sortOrder: normalizeSortOrder(option.sortOrder, optionIndex),
+        })),
+        sortOrder: normalizeSortOrder(question.sortOrder),
       })),
+    })),
+    resources: payload.resources.map((resource) => ({
+      ...resource,
+      sortOrder: normalizeSortOrder(resource.sortOrder),
     })),
   };
 };
@@ -290,11 +309,16 @@ export const updateDraftProblemQuestionMediaUploadState = async (
   },
 ): Promise<void> => {
   try {
+    const requestPayload = {
+      ...payload,
+      clearMedia: payload.clearMedia ?? false,
+    };
+
     await axiosInstance.post(
       `/api/v1/admin/program-drafts/${String(draftId)}/problems/${encodeURIComponent(
         lectureKey,
       )}/questions/${String(questionIndex)}/media-upload-state`,
-      payload,
+      requestPayload,
     );
   } catch (error: unknown) {
     throw toApiError(error, '문제 미디어 업로드 상태를 저장하지 못했습니다.');

@@ -29,25 +29,14 @@ import { useToastStore } from '@/stores/useToastStore';
 import type {
   AdminNoticeCreatePayload,
   AdminNoticeUpdatePayload,
-  NoticeAttachmentPayload,
   NoticeItem,
 } from '@/types/notice';
 import { hasRichTextContent } from '@/utils/htmlContent';
 
 import styles from './AdminConsolePage.module.scss';
-import { formatFileSizeLabel } from './adminConsolePageShared';
-import {
-  RESOURCE_DOCUMENT_POLICY_HINT,
-  validateResourceDocumentPolicy,
-} from './resourceDocumentPolicy';
-
-interface NoticeFormState {
-  attachments: NoticeAttachmentPayload[];
-  content: string;
-  pinned: boolean;
-  published: boolean;
-  title: string;
-}
+import AdminNoticeAttachmentPanel from './AdminNoticeAttachmentPanel';
+import { EMPTY_NOTICE_FORM, createNoticeFormState, type NoticeFormState } from './adminNoticeUtils';
+import { validateResourceDocumentPolicy } from './resourceDocumentPolicy';
 
 interface AdminNoticeWorkspaceProps {
   mode: 'create' | 'edit';
@@ -58,40 +47,6 @@ interface AdminNoticeWorkspaceFormProps extends AdminNoticeWorkspaceProps {
   initialFormState: NoticeFormState;
   resolvedNoticeId: number | null;
 }
-
-const EMPTY_FORM: NoticeFormState = {
-  attachments: [],
-  content: '',
-  pinned: false,
-  published: true,
-  title: '',
-};
-
-const NOTICE_ATTACHMENT_ACCEPT = '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
-
-const createFormState = (
-  notice:
-    | Pick<NoticeItem, 'attachments' | 'content' | 'pinned' | 'published' | 'title'>
-    | null
-    | undefined,
-): NoticeFormState => {
-  if (!notice) {
-    return EMPTY_FORM;
-  }
-
-  return {
-    attachments: (notice.attachments ?? []).map((attachment) => ({
-      fileName: attachment.fileName,
-      fileSize: attachment.fileSize,
-      fileUrl: attachment.fileUrl,
-      mimeType: attachment.mimeType,
-    })),
-    content: notice.content,
-    pinned: notice.pinned,
-    published: notice.published,
-    title: notice.title,
-  };
-};
 
 const AdminNoticeWorkspaceForm = ({
   editingNotice,
@@ -370,59 +325,14 @@ const AdminNoticeWorkspaceForm = ({
             value={formState.content}
           />
 
-          <section
-            className={styles['noticeAttachmentPanel']}
-            aria-labelledby='notice-attachments-label'
-          >
-            <div className={styles['noticeAttachmentHeader']}>
-              <div>
-                <h3 className={styles['noticeAttachmentTitle']} id='notice-attachments-label'>
-                  첨부파일
-                </h3>
-                <p className={styles['noticeAttachmentHint']}>{RESOURCE_DOCUMENT_POLICY_HINT}</p>
-              </div>
-              <label className={styles['noticeAttachmentButton']}>
-                <input
-                  accept={NOTICE_ATTACHMENT_ACCEPT}
-                  disabled={isUploadingAttachment}
-                  multiple
-                  onChange={(event) => {
-                    void handleAttachmentSelection(event);
-                  }}
-                  type='file'
-                />
-                {isUploadingAttachment ? '업로드 중...' : '파일 선택'}
-              </label>
-            </div>
-
-            {formState.attachments.length > 0 ? (
-              <ul className={styles['noticeAttachmentList']}>
-                {formState.attachments.map((attachment, index) => (
-                  <li
-                    className={styles['noticeAttachmentItem']}
-                    key={`${attachment.fileUrl}-${String(index)}`}
-                  >
-                    <span className={styles['noticeAttachmentName']}>{attachment.fileName}</span>
-                    <span className={styles['noticeAttachmentSize']}>
-                      {formatFileSizeLabel(attachment.fileSize)}
-                    </span>
-                    <Button
-                      onClick={() => {
-                        removeAttachment(index);
-                      }}
-                      size='sm'
-                      type='button'
-                      variant='secondary'
-                    >
-                      삭제
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className={styles['noticeAttachmentEmpty']}>등록된 첨부파일이 없습니다.</p>
-            )}
-          </section>
+          <AdminNoticeAttachmentPanel
+            attachments={formState.attachments}
+            isUploading={isUploadingAttachment}
+            onFileChange={(event) => {
+              void handleAttachmentSelection(event);
+            }}
+            onRemove={removeAttachment}
+          />
 
           <div className={styles['noticeEditorActionBar']}>
             <div className={styles['actionRow']}>
@@ -432,11 +342,11 @@ const AdminNoticeWorkspaceForm = ({
               <Button
                 onClick={() => {
                   if (mode === 'edit' && editingNotice) {
-                    setFormState(createFormState(editingNotice));
+                    setFormState(createNoticeFormState(editingNotice));
                     return;
                   }
 
-                  setFormState(EMPTY_FORM);
+                  setFormState(EMPTY_NOTICE_FORM);
                 }}
                 size='sm'
                 type='button'
@@ -559,7 +469,7 @@ const AdminNoticeWorkspace = ({ mode }: AdminNoticeWorkspaceProps) => {
   return (
     <AdminNoticeWorkspaceForm
       editingNotice={editingNotice}
-      initialFormState={createFormState(editingNotice)}
+      initialFormState={createNoticeFormState(editingNotice)}
       key={
         editingNotice
           ? `notice-${String(editingNotice.id)}-${editingNotice.updatedAt}`

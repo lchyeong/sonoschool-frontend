@@ -4,30 +4,6 @@ import { addGuestCartItem, getGuestCart, removeGuestCartItem } from '@/api/guest
 import { fetchPaymentHistory } from '@/api/payments';
 import { fetchProgramSearchIndex } from '@/api/programSearch';
 import { env } from '@/config/env';
-import { isMyPageMockModeEnabled } from '@/mocks/mypage/runtime';
-import {
-  createMockedMyEnrollmentReview,
-  createMockedMyGlobalQuestion,
-  deleteMockedMyQuestion,
-  getMockedMyEnrollmentDetail,
-  getMockedMyEnrollments,
-  getMockedMyPageProfile,
-  getMockedMyQuestions,
-  getMockedMyRefunds,
-  changeMockedMyPagePassword,
-  sendMockedMyPagePhoneVerification,
-  updateMockedMyEnrollmentReview,
-  updateMockedMyPageProfile,
-  updateMockedMyQuestion,
-  verifyMockedMyPagePhoneChange,
-  verifyMockedMyPagePassword,
-} from '@/mocks/mypage/state';
-import { isPlayerMockModeEnabled } from '@/mocks/player/runtime';
-import {
-  getMockedLearningPlayerSnapshot,
-  getMockedLectureStream,
-  saveMockedLectureProgress,
-} from '@/mocks/player/state';
 import { getStudentAccessToken, isStudentAuthenticated } from '@/stores/useAuthStore';
 import type { ApiEnvelope, SmsSendPayload, SmsSendResponse, SmsVerifyPayload } from '@/types/auth';
 import type {
@@ -76,22 +52,6 @@ interface BackendUserProfile {
   role: string;
 }
 
-const CERTIFICATE_PROFILE_STORAGE_KEY = 'sonoschool.mock.certificateProfile';
-const LEARNING_START_NOTICE_STORAGE_KEY_PREFIX = 'sonoschool.mock.learningStartNoticeAccepted';
-
-const DEFAULT_LEARNING_START_NOTICE: LearningStartNotice = {
-  accepted: false,
-  acceptedAt: null,
-  messages: [
-    '동의 후 강의 수강을 시작하면 취소 및 환불이 제한될 수 있습니다.',
-    '강의 영상, 자료, 문제 콘텐츠의 무단 복제, 녹화, 배포, 공유는 금지됩니다.',
-    '무단 복제 또는 배포 시 관련 법령에 따라 민형사상 법적 책임이 발생할 수 있습니다.',
-  ],
-  required: true,
-  title: '수강 시작 전 확인',
-  version: '2026-05-08',
-};
-
 interface MyQuestionsQueryOptions {
   answered?: boolean | undefined;
   keyword?: string | undefined;
@@ -110,117 +70,6 @@ const toUserProfile = (profile: BackendUserProfile): UserProfile => {
     phoneNumber: profile.phoneNumber,
     phoneVerifiedAt: profile.phoneVerifiedAt ?? null,
     role: profile.role,
-  };
-};
-
-const getMockedLearningStartNoticeStorageKey = (enrollmentId: number): string => {
-  return `${LEARNING_START_NOTICE_STORAGE_KEY_PREFIX}.${String(enrollmentId)}`;
-};
-
-const getMockedLearningStartNotice = (enrollmentId: number): LearningStartNotice => {
-  if (typeof window === 'undefined') {
-    return DEFAULT_LEARNING_START_NOTICE;
-  }
-
-  const acceptedAt = window.localStorage.getItem(
-    getMockedLearningStartNoticeStorageKey(enrollmentId),
-  );
-
-  return {
-    ...DEFAULT_LEARNING_START_NOTICE,
-    accepted: acceptedAt !== null,
-    acceptedAt,
-    required: acceptedAt === null,
-  };
-};
-
-const acceptMockedLearningStartNotice = (enrollmentId: number): LearningStartNotice => {
-  const acceptedAt = new Date().toISOString();
-
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(getMockedLearningStartNoticeStorageKey(enrollmentId), acceptedAt);
-  }
-
-  return {
-    ...DEFAULT_LEARNING_START_NOTICE,
-    accepted: true,
-    acceptedAt,
-    required: false,
-  };
-};
-
-const getMockedCertificateProfile = (): CertificateProfile => {
-  if (typeof window === 'undefined') {
-    return {
-      englishName: null,
-      koreanName: null,
-      lockedAt: null,
-      registered: false,
-    };
-  }
-
-  const storedValue = window.localStorage.getItem(CERTIFICATE_PROFILE_STORAGE_KEY);
-  if (!storedValue) {
-    return {
-      englishName: null,
-      koreanName: null,
-      lockedAt: null,
-      registered: false,
-    };
-  }
-
-  try {
-    return JSON.parse(storedValue) as CertificateProfile;
-  } catch {
-    window.localStorage.removeItem(CERTIFICATE_PROFILE_STORAGE_KEY);
-    return {
-      englishName: null,
-      koreanName: null,
-      lockedAt: null,
-      registered: false,
-    };
-  }
-};
-
-const saveMockedCertificateProfile = (
-  payload: CertificateProfileCreatePayload,
-): CertificateProfile => {
-  const profile: CertificateProfile = {
-    englishName: payload.englishName,
-    koreanName: payload.koreanName,
-    lockedAt: new Date().toISOString(),
-    registered: true,
-  };
-
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(CERTIFICATE_PROFILE_STORAGE_KEY, JSON.stringify(profile));
-  }
-
-  return profile;
-};
-
-const buildMockCertificateDownload = (
-  enrollmentId: number,
-  profile: CertificateProfile,
-): CertificateDownload => {
-  const enrollment = getMockedMyEnrollments().find((item) => item.id === enrollmentId);
-  if (!enrollment || !enrollment.certificateEligible) {
-    throw new Error('수료증 발급 대상 강의가 아닙니다.');
-  }
-
-  const content = [
-    'SONO SCHOOL 수료증',
-    '',
-    `수강생: ${profile.koreanName ?? ''}`,
-    `영문명: ${profile.englishName ?? ''}`,
-    `강의명: ${enrollment.programTitle}`,
-    `발급일: ${new Date().toISOString().slice(0, 10)}`,
-    `수료일: ${enrollment.completedAt?.slice(0, 10) ?? ''}`,
-  ].join('\n');
-
-  return {
-    blob: new Blob([content], { type: 'text/plain;charset=utf-8' }),
-    filename: `${enrollment.programTitle.replace(/[\\/:*?"<>|\s]+/g, '-')}-certificate.txt`,
   };
 };
 
@@ -310,26 +159,33 @@ const getProgramIdFromSearchItemId = (id: string): number | null => {
   return Number.isInteger(programId) && programId > 0 ? programId : null;
 };
 
+interface CartThumbnailOverride {
+  thumbnailCropOffsetX?: number | null | undefined;
+  thumbnailCropOffsetY?: number | null | undefined;
+  thumbnailCropZoom?: number | null | undefined;
+  thumbnailUrl: string | null;
+}
+
 const resolveCartSummaryThumbnailUrls = async (
   cart: CartSummary,
-  thumbnailOverrides: ReadonlyMap<number, string | null> = new Map(),
+  thumbnailOverrides: ReadonlyMap<number, CartThumbnailOverride> = new Map(),
 ): Promise<CartSummary> => {
   const hasResolvableThumbnail = cart.items.some((item) => {
-    const overrideThumbnailUrl = thumbnailOverrides.get(item.programId);
+    const overrideThumbnail = thumbnailOverrides.get(item.programId);
 
-    if (overrideThumbnailUrl !== undefined) {
-      return shouldResolveCartThumbnailUrl(overrideThumbnailUrl);
+    if (overrideThumbnail) {
+      return shouldResolveCartThumbnailUrl(overrideThumbnail.thumbnailUrl);
     }
 
     return shouldResolveCartThumbnailUrl(item.thumbnailUrl);
   });
 
-  let catalogThumbnailByProgramId = new Map<number, string>();
+  let catalogThumbnailByProgramId = new Map<number, CartThumbnailOverride>();
 
   if (hasResolvableThumbnail) {
     try {
       const searchIndex = await fetchProgramSearchIndex();
-      const thumbnailEntries: Array<readonly [number, string]> = [];
+      const thumbnailEntries: Array<readonly [number, CartThumbnailOverride]> = [];
 
       searchIndex.items.forEach((item) => {
         const programId = getProgramIdFromSearchItemId(item.id);
@@ -338,7 +194,15 @@ const resolveCartSummaryThumbnailUrls = async (
           return;
         }
 
-        thumbnailEntries.push([programId, item.thumbnailSrc]);
+        thumbnailEntries.push([
+          programId,
+          {
+            thumbnailCropOffsetX: item.thumbnailCropOffsetX,
+            thumbnailCropOffsetY: item.thumbnailCropOffsetY,
+            thumbnailCropZoom: item.thumbnailCropZoom,
+            thumbnailUrl: item.thumbnailSrc,
+          },
+        ]);
       });
 
       catalogThumbnailByProgramId = new Map(thumbnailEntries);
@@ -350,24 +214,27 @@ const resolveCartSummaryThumbnailUrls = async (
   return {
     ...cart,
     items: cart.items.map((item) => {
-      const overrideThumbnailUrl = thumbnailOverrides.get(item.programId);
+      const overrideThumbnail = thumbnailOverrides.get(item.programId);
 
-      if (
-        overrideThumbnailUrl !== undefined &&
-        !shouldResolveCartThumbnailUrl(overrideThumbnailUrl)
-      ) {
+      if (overrideThumbnail && !shouldResolveCartThumbnailUrl(overrideThumbnail.thumbnailUrl)) {
         return {
           ...item,
-          thumbnailUrl: overrideThumbnailUrl,
+          thumbnailCropOffsetX: overrideThumbnail.thumbnailCropOffsetX,
+          thumbnailCropOffsetY: overrideThumbnail.thumbnailCropOffsetY,
+          thumbnailCropZoom: overrideThumbnail.thumbnailCropZoom,
+          thumbnailUrl: overrideThumbnail.thumbnailUrl,
         };
       }
 
-      const catalogThumbnailUrl = catalogThumbnailByProgramId.get(item.programId);
+      const catalogThumbnail = catalogThumbnailByProgramId.get(item.programId);
 
-      if (catalogThumbnailUrl) {
+      if (catalogThumbnail) {
         return {
           ...item,
-          thumbnailUrl: catalogThumbnailUrl,
+          thumbnailCropOffsetX: catalogThumbnail.thumbnailCropOffsetX,
+          thumbnailCropOffsetY: catalogThumbnail.thumbnailCropOffsetY,
+          thumbnailCropZoom: catalogThumbnail.thumbnailCropZoom,
+          thumbnailUrl: catalogThumbnail.thumbnailUrl,
         };
       }
 
@@ -384,10 +251,6 @@ const resolveCartSummaryThumbnailUrls = async (
 };
 
 export const fetchMyProfile = async (): Promise<UserProfile> => {
-  if (isMyPageMockModeEnabled()) {
-    return getMockedMyPageProfile();
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<BackendUserProfile>>('/api/v1/users/me');
     return toUserProfile(unwrapApiEnvelope(response.data));
@@ -397,10 +260,6 @@ export const fetchMyProfile = async (): Promise<UserProfile> => {
 };
 
 export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promise<UserProfile> => {
-  if (isMyPageMockModeEnabled()) {
-    return updateMockedMyPageProfile(payload);
-  }
-
   try {
     const response = await axiosInstance.patch<ApiEnvelope<BackendUserProfile>>(
       '/api/v1/users/me',
@@ -418,14 +277,6 @@ export const updateMyProfile = async (payload: UserProfileUpdatePayload): Promis
 export const verifyMyProfilePassword = async (
   payload: UserPasswordVerifyPayload,
 ): Promise<void> => {
-  if (isMyPageMockModeEnabled()) {
-    if (!verifyMockedMyPagePassword(payload.password)) {
-      throw new Error('비밀번호가 일치하지 않습니다.');
-    }
-
-    return;
-  }
-
   try {
     await axiosInstance.post('/api/v1/users/me/password/verify', payload);
   } catch (error: unknown) {
@@ -434,11 +285,6 @@ export const verifyMyProfilePassword = async (
 };
 
 export const changeMyPassword = async (payload: UserPasswordChangePayload): Promise<void> => {
-  if (isMyPageMockModeEnabled()) {
-    changeMockedMyPagePassword(payload);
-    return;
-  }
-
   try {
     await axiosInstance.patch('/api/v1/users/me/password', payload);
   } catch (error: unknown) {
@@ -449,16 +295,6 @@ export const changeMyPassword = async (payload: UserPasswordChangePayload): Prom
 export const sendMyPhoneVerification = async (
   payload: SmsSendPayload,
 ): Promise<SmsSendResponse> => {
-  if (isMyPageMockModeEnabled()) {
-    const response = sendMockedMyPagePhoneVerification(payload);
-
-    if (!response) {
-      throw new Error('인증번호 발송에 실패했습니다.');
-    }
-
-    return response;
-  }
-
   try {
     const response = await axiosInstance.post<ApiEnvelope<SmsSendResponse>>(
       '/api/v1/users/me/phone/send',
@@ -471,16 +307,6 @@ export const sendMyPhoneVerification = async (
 };
 
 export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<UserProfile> => {
-  if (isMyPageMockModeEnabled()) {
-    const response = verifyMockedMyPagePhoneChange(payload);
-
-    if (!response) {
-      throw new Error('휴대폰 번호를 변경하지 못했습니다.');
-    }
-
-    return response;
-  }
-
   try {
     const response = await axiosInstance.post<ApiEnvelope<BackendUserProfile>>(
       '/api/v1/users/me/phone/verify',
@@ -493,10 +319,6 @@ export const verifyMyPhoneChange = async (payload: SmsVerifyPayload): Promise<Us
 };
 
 export const fetchMyCertificateProfile = async (): Promise<CertificateProfile> => {
-  if (isMyPageMockModeEnabled()) {
-    return getMockedCertificateProfile();
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<CertificateProfile>>(
       '/api/v1/users/me/certificate-profile',
@@ -510,14 +332,6 @@ export const fetchMyCertificateProfile = async (): Promise<CertificateProfile> =
 export const createMyCertificateProfile = async (
   payload: CertificateProfileCreatePayload,
 ): Promise<CertificateProfile> => {
-  if (isMyPageMockModeEnabled()) {
-    const currentProfile = getMockedCertificateProfile();
-    if (currentProfile.registered) {
-      throw new Error('이미 등록된 수료증 이름은 관리자에게 초기화를 요청해야 합니다.');
-    }
-    return saveMockedCertificateProfile(payload);
-  }
-
   try {
     const response = await axiosInstance.post<ApiEnvelope<CertificateProfile>>(
       '/api/v1/users/me/certificate-profile',
@@ -530,14 +344,6 @@ export const createMyCertificateProfile = async (
 };
 
 export const downloadMyCertificate = async (enrollmentId: number): Promise<CertificateDownload> => {
-  if (isMyPageMockModeEnabled()) {
-    const profile = getMockedCertificateProfile();
-    if (!profile.registered) {
-      throw new Error('수료증에 사용할 이름을 먼저 등록해 주세요.');
-    }
-    return buildMockCertificateDownload(enrollmentId, profile);
-  }
-
   try {
     const response = await axiosInstance.get<Blob>(
       `/api/v1/my/enrollments/${String(enrollmentId)}/certificate`,
@@ -578,10 +384,6 @@ const resolveDownloadFilename = (disposition: unknown, fallback: string): string
 };
 
 export const fetchMyEnrollments = async (): Promise<EnrollmentSummary[]> => {
-  if (isMyPageMockModeEnabled()) {
-    return getMockedMyEnrollments();
-  }
-
   try {
     const response =
       await axiosInstance.get<ApiEnvelope<EnrollmentSummary[]>>('/api/v1/my/enrollments');
@@ -592,16 +394,6 @@ export const fetchMyEnrollments = async (): Promise<EnrollmentSummary[]> => {
 };
 
 export const fetchMyEnrollmentDetail = async (enrollmentId: number): Promise<EnrollmentDetail> => {
-  if (isMyPageMockModeEnabled()) {
-    const detail = getMockedMyEnrollmentDetail(enrollmentId);
-
-    if (!detail) {
-      throw new Error('수강 상세 정보를 불러오지 못했습니다.');
-    }
-
-    return detail;
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<EnrollmentDetail>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}`,
@@ -615,10 +407,6 @@ export const fetchMyEnrollmentDetail = async (enrollmentId: number): Promise<Enr
 export const fetchLearningStartNotice = async (
   enrollmentId: number,
 ): Promise<LearningStartNotice> => {
-  if (isMyPageMockModeEnabled()) {
-    return getMockedLearningStartNotice(enrollmentId);
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<LearningStartNotice>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}/learning-start-notice`,
@@ -632,10 +420,6 @@ export const fetchLearningStartNotice = async (
 export const acceptLearningStartNotice = async (
   enrollmentId: number,
 ): Promise<LearningStartNotice> => {
-  if (isMyPageMockModeEnabled()) {
-    return acceptMockedLearningStartNotice(enrollmentId);
-  }
-
   try {
     const response = await axiosInstance.post<ApiEnvelope<LearningStartNotice>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}/learning-start-notice/accept`,
@@ -650,11 +434,6 @@ export const createMyEnrollmentReview = async (
   programId: number,
   payload: EnrollmentReviewPayload,
 ): Promise<void> => {
-  if (isMyPageMockModeEnabled()) {
-    createMockedMyEnrollmentReview(programId, payload);
-    return;
-  }
-
   try {
     await axiosInstance.post(`/api/v1/programs/${String(programId)}/reviews`, payload);
   } catch (error: unknown) {
@@ -666,11 +445,6 @@ export const updateMyEnrollmentReview = async (
   reviewId: number,
   payload: EnrollmentReviewPayload,
 ): Promise<void> => {
-  if (isMyPageMockModeEnabled()) {
-    updateMockedMyEnrollmentReview(reviewId, payload);
-    return;
-  }
-
   try {
     await axiosInstance.put(`/api/v1/reviews/${String(reviewId)}`, payload);
   } catch (error: unknown) {
@@ -681,16 +455,6 @@ export const updateMyEnrollmentReview = async (
 export const fetchMyLearningPlayerSnapshot = async (
   enrollmentId: number,
 ): Promise<LearningPlayerSnapshot> => {
-  if (isPlayerMockModeEnabled()) {
-    const snapshot = getMockedLearningPlayerSnapshot(enrollmentId);
-
-    if (!snapshot) {
-      throw new Error('플레이어 목데이터를 찾지 못했습니다.');
-    }
-
-    return snapshot;
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<LearningPlayerSnapshot>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}/player`,
@@ -718,16 +482,6 @@ export const fetchLectureStream = async (
   lectureId: number,
   deviceId: string,
 ): Promise<ProtectedLectureStream> => {
-  if (isPlayerMockModeEnabled()) {
-    const stream = getMockedLectureStream(lectureId, deviceId);
-
-    if (!stream) {
-      throw new Error('플레이어 스트림 목데이터를 찾지 못했습니다.');
-    }
-
-    return stream;
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<ProtectedLectureStream>>(
       `/api/v1/lectures/${String(lectureId)}/stream`,
@@ -770,10 +524,6 @@ export const saveLectureProgress = async (
   lectureId: number,
   watchedSeconds: number,
 ): Promise<LectureProgressSaveResponse> => {
-  if (isPlayerMockModeEnabled()) {
-    return saveMockedLectureProgress(lectureId, watchedSeconds);
-  }
-
   try {
     const response = await axiosInstance.post<ApiEnvelope<LectureProgressSaveResponse>>(
       `/api/v1/lectures/${String(lectureId)}/progress`,
@@ -874,10 +624,6 @@ export const sendLectureProgressBeacon = (
   lectureId: number,
   watchedSeconds: number,
 ) => {
-  if (isPlayerMockModeEnabled()) {
-    return false;
-  }
-
   if (typeof fetch !== 'function') {
     return false;
   }
@@ -946,7 +692,17 @@ export const addMyCartItem = async (payload: AddToCartPayload): Promise<CartSumm
     });
     return await resolveCartSummaryThumbnailUrls(
       unwrapApiEnvelope(response.data),
-      new Map([[payload.programId, payload.thumbnailUrl]]),
+      new Map([
+        [
+          payload.programId,
+          {
+            thumbnailCropOffsetX: payload.thumbnailCropOffsetX,
+            thumbnailCropOffsetY: payload.thumbnailCropOffsetY,
+            thumbnailCropZoom: payload.thumbnailCropZoom,
+            thumbnailUrl: payload.thumbnailUrl,
+          },
+        ],
+      ]),
     );
   } catch (error: unknown) {
     throw toApiError(error, '장바구니에 담지 못했습니다.');
@@ -1004,10 +760,6 @@ export const removeMyCartItem = async (cartItemId: number): Promise<CartSummary>
 };
 
 export const fetchMyRefunds = async (): Promise<RefundHistory[]> => {
-  if (isMyPageMockModeEnabled()) {
-    return getMockedMyRefunds();
-  }
-
   try {
     const payments = await fetchPaymentHistory();
     return payments
@@ -1021,10 +773,6 @@ export const fetchMyRefunds = async (): Promise<RefundHistory[]> => {
 export const fetchMyQuestions = async (
   options?: MyQuestionsQueryOptions,
 ): Promise<MyQuestionPage> => {
-  if (isMyPageMockModeEnabled()) {
-    return getMockedMyQuestions(options);
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<MyQuestionPage>>('/api/v1/my/questions', {
       params: {
@@ -1046,12 +794,12 @@ export const createMyGlobalQuestion = async (payload: {
   privateQuestion?: boolean;
   title: string;
 }): Promise<MyQuestionItem> => {
-  if (isMyPageMockModeEnabled()) {
-    return createMockedMyGlobalQuestion(payload);
-  }
-
   try {
-    const response = await axiosInstance.post<ApiEnvelope<MyQuestionItem>>('/api/v1/qna', payload);
+    const response = await axiosInstance.post<ApiEnvelope<MyQuestionItem>>('/api/v1/qna', {
+      content: payload.content,
+      privateQuestion: payload.privateQuestion ?? false,
+      title: payload.title,
+    });
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '운영 Q&A를 등록하지 못했습니다.');
@@ -1066,10 +814,6 @@ export const updateMyQuestion = async (
     title: string;
   },
 ): Promise<MyQuestionItem> => {
-  if (isMyPageMockModeEnabled()) {
-    return updateMockedMyQuestion(question, payload);
-  }
-
   try {
     if (question.scope === 'PROGRAM') {
       const response = await axiosInstance.put<ApiEnvelope<MyQuestionItem>>(
@@ -1100,11 +844,6 @@ export const updateMyQuestion = async (
 export const deleteMyQuestion = async (
   question: Pick<MyQuestionItem, 'id' | 'programId' | 'scope'>,
 ): Promise<void> => {
-  if (isMyPageMockModeEnabled()) {
-    deleteMockedMyQuestion(question);
-    return;
-  }
-
   try {
     if (question.scope === 'PROGRAM') {
       await axiosInstance.delete(

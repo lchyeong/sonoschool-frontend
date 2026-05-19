@@ -14,6 +14,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import { calculateSelectedCartPricing } from '@/utils/cartPricing';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 import { classNames } from '@/utils/classNames';
+import { getProgramImageCropStyle } from '@/utils/programImageCrop';
 import { getProgramTypeLabel } from '@/utils/programType';
 
 import styles from './CartPage.module.scss';
@@ -187,6 +188,11 @@ const CartPage = () => {
                     const isSelected = selectedItemIds.includes(item.id);
                     const discountAmount = item.originalPrice - item.payablePrice;
                     const discountRate = getDiscountRate(item.originalPrice, item.payablePrice);
+                    const thumbnailCropStyle = getProgramImageCropStyle({
+                      offsetX: item.thumbnailCropOffsetX,
+                      offsetY: item.thumbnailCropOffsetY,
+                      zoom: item.thumbnailCropZoom,
+                    });
 
                     return (
                       <article className={styles['itemRow']} key={item.id}>
@@ -216,6 +222,7 @@ const CartPage = () => {
                               className={styles['itemThumbnailImage']}
                               loading='lazy'
                               src={item.thumbnailUrl}
+                              style={thumbnailCropStyle}
                             />
                           ) : (
                             <div aria-hidden='true' className={styles['itemThumbnailFallback']}>

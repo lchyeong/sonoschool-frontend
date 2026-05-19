@@ -11,8 +11,6 @@ const envSchema = z.object({
   VITE_API_URL: z.url().optional(),
   VITE_API_BASE_URL: z.url().optional(),
   VITE_ENABLE_ANALYTICS: booleanString,
-  VITE_ENABLE_MYPAGE_MOCK: booleanString,
-  VITE_MYPAGE_MOCK_SCENARIO: z.enum(['all', 'certificate', 'expired', 'empty']).default('all'),
   VITE_SITE_URL: z.url().optional(),
   VITE_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
   VITE_GTM_CONTAINER_ID: z.string().min(1).optional(),

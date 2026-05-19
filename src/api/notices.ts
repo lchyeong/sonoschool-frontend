@@ -12,6 +12,23 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const normalizeBoolean = (value: boolean | null | undefined): boolean => value ?? false;
+
+const normalizeNoticeCreatePayload = (
+  payload: AdminNoticeCreatePayload,
+): AdminNoticeCreatePayload => ({
+  ...payload,
+  pinned: normalizeBoolean(payload.pinned),
+  published: normalizeBoolean(payload.published),
+});
+
+const normalizeNoticeUpdatePayload = (
+  payload: AdminNoticeUpdatePayload,
+): AdminNoticeUpdatePayload => ({
+  ...payload,
+  pinned: normalizeBoolean(payload.pinned),
+});
+
 export const fetchGlobalNotices = async (): Promise<NoticeItem[]> => {
   try {
     return await http.get<NoticeItem[]>('/api/v1/notices');
@@ -43,7 +60,7 @@ export const createAdminNoticeLive = async (
   try {
     const response = await axiosInstance.post<ApiEnvelope<NoticeItem>>(
       '/api/v1/admin/notices',
-      payload,
+      normalizeNoticeCreatePayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -58,7 +75,7 @@ export const updateAdminNoticeLive = async (
   try {
     const response = await axiosInstance.put<ApiEnvelope<NoticeItem>>(
       `/api/v1/admin/notices/${String(noticeId)}`,
-      payload,
+      normalizeNoticeUpdatePayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {

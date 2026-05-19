@@ -52,7 +52,6 @@ import ProblemReportModal from '@/components/problemReport/ProblemReportModal';
 import { resolveProblemTargetScore } from '@/components/problemReport/problemReportUtils';
 import ProgramQnaPanel from '@/components/qna/ProgramQnaPanel';
 import Button from '@/components/ui/Button/Button';
-import { getPlayerMockQueryKeySegment } from '@/mocks/player/runtime';
 import {
   myEnrollmentPracticumQueryKey,
   myLearningPlayerQueryKey,
@@ -236,13 +235,7 @@ const QuizProtectedVideo = ({
   const [watermarkPositionIndex, setWatermarkPositionIndex] = useState(0);
   const [isWatermarkEmphasized, setIsWatermarkEmphasized] = useState(false);
   const streamQuery = useQuery<ProtectedLectureStream>({
-    queryKey: [
-      'problem-video-stream',
-      lectureId,
-      videoId,
-      deviceId,
-      getPlayerMockQueryKeySegment(),
-    ],
+    queryKey: ['problem-video-stream', lectureId, videoId, deviceId],
     queryFn: () => fetchProblemVideoStream(lectureId, videoId, deviceId),
     retry: false,
   });
@@ -606,7 +599,7 @@ const PlayerPage = () => {
       ? selectedSource.lectureId
       : null;
   const lectureStreamQuery = useQuery<ProtectedLectureStream>({
-    queryKey: ['lecture-stream', activeLectureId, playbackDeviceId, getPlayerMockQueryKeySegment()],
+    queryKey: ['lecture-stream', activeLectureId, playbackDeviceId],
     queryFn: () => fetchLectureStream(activeLectureId as number, playbackDeviceId),
     enabled: activeLectureId !== null && supportsHlsPlayback,
     retry: false,

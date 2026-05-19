@@ -32,6 +32,7 @@ import {
 import { calculateSelectedCartPricing } from '@/utils/cartPricing';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 import { classNames } from '@/utils/classNames';
+import { getProgramImageCropStyle } from '@/utils/programImageCrop';
 import { getProgramTypeLabel } from '@/utils/programType';
 
 import styles from './CheckoutPage.module.scss';
@@ -857,19 +858,27 @@ const CheckoutPage = () => {
                     {pricing.selectedItems.map((item) => {
                       const discountAmount = item.originalPrice - item.payablePrice;
                       const discountRate = getDiscountRate(item.originalPrice, item.payablePrice);
+                      const thumbnailCropStyle = getProgramImageCropStyle({
+                        offsetX: item.thumbnailCropOffsetX,
+                        offsetY: item.thumbnailCropOffsetY,
+                        zoom: item.thumbnailCropZoom,
+                      });
 
                       return (
                         <article className={styles['itemRow']} key={item.id}>
-                          {item.thumbnailUrl ? (
-                            <img
-                              alt={`${item.title} 대표 이미지`}
-                              className={styles['itemThumbnailImage']}
-                              loading='lazy'
-                              src={item.thumbnailUrl}
-                            />
-                          ) : (
-                            <div aria-hidden='true' className={styles['itemThumbnailFallback']} />
-                          )}
+                          <div className={styles['itemThumbnailFrame']}>
+                            {item.thumbnailUrl ? (
+                              <img
+                                alt={`${item.title} 대표 이미지`}
+                                className={styles['itemThumbnailImage']}
+                                loading='lazy'
+                                src={item.thumbnailUrl}
+                                style={thumbnailCropStyle}
+                              />
+                            ) : (
+                              <div aria-hidden='true' className={styles['itemThumbnailFallback']} />
+                            )}
+                          </div>
                           <div className={styles['itemBody']}>
                             <span className={styles['itemTypeChip']}>
                               {getCheckoutProgramTypeLabel(item.programType)}

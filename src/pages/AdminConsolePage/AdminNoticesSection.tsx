@@ -17,23 +17,15 @@ import {
 } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
-import { summarizeHtmlContent } from '@/utils/htmlContent';
 
 import styles from './AdminConsolePage.module.scss';
-
-type NoticeFilter = 'all' | 'published' | 'private' | 'pinned';
-
-const formatDateTime = (value: string | null): string => {
-  if (!value) {
-    return '-';
-  }
-
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'medium',
-    hour12: false,
-    timeStyle: 'short',
-  }).format(new Date(value));
-};
+import AdminNoticeTable from './AdminNoticeTable';
+import {
+  filterNotices,
+  getGlobalNotices,
+  summarizeNotices,
+  type NoticeFilter,
+} from './adminNoticeUtils';
 
 const AdminNoticesSection = () => {
   const navigate = useNavigate();
@@ -43,23 +35,11 @@ const AdminNoticesSection = () => {
   const [noticeFilter, setNoticeFilter] = useState<NoticeFilter>('all');
 
   const globalNotices = useMemo(() => {
-    return (noticesQuery.data ?? []).filter((notice) => notice.scope === 'GLOBAL');
+    return getGlobalNotices(noticesQuery.data);
   }, [noticesQuery.data]);
 
   const filteredNotices = useMemo(() => {
-    if (noticeFilter === 'published') {
-      return globalNotices.filter((notice) => notice.published);
-    }
-
-    if (noticeFilter === 'private') {
-      return globalNotices.filter((notice) => !notice.published);
-    }
-
-    if (noticeFilter === 'pinned') {
-      return globalNotices.filter((notice) => notice.pinned);
-    }
-
-    return globalNotices;
+    return filterNotices(globalNotices, noticeFilter);
   }, [globalNotices, noticeFilter]);
 
   const refreshNotices = async () => {
@@ -120,12 +100,7 @@ const AdminNoticesSection = () => {
     },
   });
 
-  const summary = {
-    privateCount: globalNotices.filter((notice) => !notice.published).length,
-    pinnedCount: globalNotices.filter((notice) => notice.pinned).length,
-    publishedCount: globalNotices.filter((notice) => notice.published).length,
-    totalCount: globalNotices.length,
-  };
+  const summary = summarizeNotices(globalNotices);
 
   const noticeTabs = [
     { count: summary.totalCount, label: '전체', value: 'all' },
@@ -183,102 +158,25 @@ const AdminNoticesSection = () => {
             <h3 className={styles['stateTitle']}>표시할 공지가 없습니다.</h3>
           </section>
         ) : (
-          <div className={styles['tableWrap']}>
-            <table className={`${styles['table']} ${styles['noticeTable']}`}>
-              <thead>
-                <tr>
-                  <th scope='col'>제목</th>
-                  <th scope='col'>일시</th>
-                  <th scope='col'>관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredNotices.map((notice) => {
-                  return (
-                    <tr key={notice.id}>
-                      <td>
-                        <div className={styles['cellStack']}>
-                          <span className={styles['noticeTitleRow']}>
-                            <span className={styles['cellPrimary']}>{notice.title}</span>
-                            <span
-                              className={
-                                notice.published ? styles['badgeSuccess'] : styles['badge']
-                              }
-                            >
-                              {notice.published ? '게시 중' : '비공개'}
-                            </span>
-                            {notice.pinned ? (
-                              <span className={styles['badgeAccent']}>필독</span>
-                            ) : null}
-                          </span>
-                          <span className={styles['cellSecondary']}>
-                            {summarizeHtmlContent(notice.content, 110)}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className={styles['cellStack']}>
-                          <span className={styles['cellSecondary']}>
-                            등록 {formatDateTime(notice.createdAt)}
-                          </span>
-                          <span className={styles['cellSecondary']}>
-                            수정 {formatDateTime(notice.updatedAt)}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className={styles['tableActionGroup']}>
-                          <button
-                            className={styles['tableActionButton']}
-                            onClick={() => {
-                              void navigate(routePaths.adminNoticeEdit(String(notice.id)));
-                            }}
-                            type='button'
-                          >
-                            수정
-                          </button>
-                          {notice.published ? (
-                            <button
-                              className={styles['tableActionButton']}
-                              onClick={() => {
-                                unpublishMutation.mutate(notice.id);
-                              }}
-                              type='button'
-                            >
-                              중지
-                            </button>
-                          ) : (
-                            <button
-                              className={styles['tableActionButton']}
-                              onClick={() => {
-                                publishMutation.mutate(notice.id);
-                              }}
-                              type='button'
-                            >
-                              게시
-                            </button>
-                          )}
-                          <button
-                            className={styles['tableActionButtonDanger']}
-                            onClick={() => {
-                              if (!window.confirm('이 공지를 삭제하시겠습니까?')) {
-                                return;
-                              }
+          <AdminNoticeTable
+            notices={filteredNotices}
+            onDelete={(noticeId) => {
+              if (!window.confirm('이 공지를 삭제하시겠습니까?')) {
+                return;
+              }
 
-                              deleteMutation.mutate(notice.id);
-                            }}
-                            type='button'
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+              deleteMutation.mutate(noticeId);
+            }}
+            onEdit={(noticeId) => {
+              void navigate(routePaths.adminNoticeEdit(String(noticeId)));
+            }}
+            onPublish={(noticeId) => {
+              publishMutation.mutate(noticeId);
+            }}
+            onUnpublish={(noticeId) => {
+              unpublishMutation.mutate(noticeId);
+            }}
+          />
         )}
       </section>
     </section>

@@ -27,6 +27,10 @@ const normalizeMediaUrl = (value: string | null | undefined): string | null => {
   return trimmed ? trimmed : null;
 };
 
+const normalizeBoolean = (value: boolean | null | undefined): boolean => value ?? false;
+
+const normalizeSortOrder = (value: number | null | undefined): number => value ?? 0;
+
 const normalizePayload = (payload: AdminProblemUpsertPayload): AdminProblemUpsertPayload => {
   return {
     ...payload,
@@ -48,12 +52,16 @@ const normalizePayload = (payload: AdminProblemUpsertPayload): AdminProblemUpser
           : normalizeMediaUrl(question.mediaUrl),
       options: question.options.map((option) => ({
         ...option,
+        correct: normalizeBoolean(option.correct),
         mediaType: null,
         mediaUrl: null,
         optionText: option.optionText.trim(),
+        sortOrder: normalizeSortOrder(option.sortOrder),
       })),
       questionText: question.questionText.trim(),
+      sortOrder: normalizeSortOrder(question.sortOrder),
     })),
+    retakeAllowed: normalizeBoolean(payload.retakeAllowed),
     title: payload.title.trim(),
   };
 };

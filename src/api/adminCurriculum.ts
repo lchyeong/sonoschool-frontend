@@ -25,10 +25,15 @@ const normalizeDescription = (value: string | null | undefined): string | null =
   return trimmed ? trimmed : null;
 };
 
+const normalizeBoolean = (value: boolean | null | undefined): boolean => value ?? false;
+const normalizeSortOrder = (value: number | null | undefined, fallback = 0): number =>
+  value ?? fallback;
+
 const normalizeSectionPayload = (payload: AdminSectionUpsertPayload): AdminSectionUpsertPayload => {
   return {
     ...payload,
     description: normalizeDescription(payload.description),
+    sortOrder: normalizeSortOrder(payload.sortOrder),
   };
 };
 
@@ -39,8 +44,16 @@ const normalizeLecturePayload = (payload: AdminLectureUpsertPayload): AdminLectu
     ...restPayload,
     description: normalizeDescription(payload.description),
     lectureType: payload.lectureType,
+    preview: normalizeBoolean(payload.preview),
+    sortOrder: normalizeSortOrder(payload.sortOrder),
   };
 };
+
+const normalizeSortOrderItems = (items: readonly AdminSortOrderItem[]): AdminSortOrderItem[] =>
+  items.map((item, index) => ({
+    ...item,
+    sortOrder: normalizeSortOrder(item.sortOrder, index),
+  }));
 
 const normalizeOfflineSchedulePayload = (
   payload: AdminLectureOfflineScheduleUpsertPayload,
@@ -126,7 +139,7 @@ export const reorderAdminSections = async (
 ): Promise<void> => {
   try {
     await axiosInstance.put(`/api/v1/admin/programs/${String(programId)}/sections/reorder`, {
-      items,
+      items: normalizeSortOrderItems(items),
     });
   } catch (error: unknown) {
     throw toApiError(error, '섹션 순서를 변경하지 못했습니다.');
@@ -212,7 +225,7 @@ export const reorderAdminLectures = async (
 ): Promise<void> => {
   try {
     await axiosInstance.put(`/api/v1/admin/sections/${String(sectionId)}/lectures/reorder`, {
-      items,
+      items: normalizeSortOrderItems(items),
     });
   } catch (error: unknown) {
     throw toApiError(error, '강의 순서를 변경하지 못했습니다.');

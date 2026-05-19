@@ -1,5 +1,3 @@
-import { env } from '@/config/env';
-
 export const PLAYER_MOCK_SCENARIO_QUERY_PARAM = 'playerMock';
 
 export const PLAYER_MOCK_SCENARIO_LABELS = {
@@ -17,14 +15,8 @@ const PLAYER_MOCK_SCENARIOS = new Set<PlayerMockScenario>(
   Object.keys(PLAYER_MOCK_SCENARIO_LABELS) as PlayerMockScenario[],
 );
 
-const isPlayerPath = (pathname: string) => pathname.startsWith('/mypage/learning');
-
 export const isPlayerMockModeEnabled = (): boolean => {
-  if (!env.VITE_ENABLE_MYPAGE_MOCK || typeof window === 'undefined') {
-    return false;
-  }
-
-  return isPlayerPath(window.location.pathname);
+  return false;
 };
 
 export const getPlayerMockScenario = (): PlayerMockScenario => {

@@ -4,6 +4,7 @@ import closeIconSrc from '@/assets/icons/lucide_x.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import { routePaths } from '@/routes/routeRegistry';
 import type { CartItem } from '@/types/mypage';
+import { getProgramImageCropStyle } from '@/utils/programImageCrop';
 
 import styles from './CartAddedModal.module.scss';
 
@@ -18,6 +19,11 @@ const formatPrice = (value: number) => {
 
 const CartAddedModal = ({ item, onClose }: CartAddedModalProps) => {
   const hasDiscount = item.originalPrice > item.payablePrice;
+  const thumbnailCropStyle = getProgramImageCropStyle({
+    offsetX: item.thumbnailCropOffsetX,
+    offsetY: item.thumbnailCropOffsetY,
+    zoom: item.thumbnailCropZoom,
+  });
 
   return (
     <Modal
@@ -46,7 +52,12 @@ const CartAddedModal = ({ item, onClose }: CartAddedModalProps) => {
         <article className={styles['itemCard']}>
           <div className={styles['thumbnailFrame']}>
             {item.thumbnailUrl ? (
-              <img alt='' className={styles['thumbnail']} src={item.thumbnailUrl} />
+              <img
+                alt=''
+                className={styles['thumbnail']}
+                src={item.thumbnailUrl}
+                style={thumbnailCropStyle}
+              />
             ) : null}
           </div>
 

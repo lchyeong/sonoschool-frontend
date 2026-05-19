@@ -7,7 +7,6 @@ const initialPopups: PopupItem[] = [
     imageAssetId: 101,
     imageUrl: popupSonoBasicCourseSampleImageSrc,
     altText: '복부 Basic 스캔 과정 추천 교육 팝업',
-    linkUrl: '/programs',
     published: true,
     visibleStartAt: '2026-03-01T00:00:00Z',
     visibleEndAt: null,

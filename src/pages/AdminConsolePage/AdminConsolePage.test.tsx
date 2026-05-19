@@ -714,11 +714,7 @@ describe('AdminConsolePage', () => {
     fireEvent.click(await screen.findByRole('button', { name: '새 팝업 등록' }));
 
     expect(await screen.findByLabelText('팝업 이미지 파일')).toBeInTheDocument();
-    expect(screen.getByLabelText('이동 URL')).toHaveAttribute(
-      'placeholder',
-      '예: https://sonoschool.kr/programs',
-    );
-    expect(screen.getByText(/도메인을 제외한 주소를 입력하세요/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('이동 URL')).not.toBeInTheDocument();
     expect(screen.queryByText('노출기간')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '상시 노출' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('노출 우선순위')).not.toBeInTheDocument();

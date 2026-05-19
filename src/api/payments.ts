@@ -1,7 +1,5 @@
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import { isMyPageMockModeEnabled } from '@/mocks/mypage/runtime';
-import { getMockedMyPaymentHistory } from '@/mocks/mypage/state';
 import type { ApiEnvelope } from '@/types/auth';
 import type {
   CheckoutPaymentInitiatePayload,
@@ -51,10 +49,6 @@ export const fetchPaymentResultByToken = async (token: string): Promise<PaymentR
 };
 
 export const fetchPaymentHistory = async (): Promise<PaymentResult[]> => {
-  if (isMyPageMockModeEnabled()) {
-    return getMockedMyPaymentHistory();
-  }
-
   try {
     const response = await axiosInstance.get<ApiEnvelope<PaymentResult[]>>('/api/v1/payments');
     return unwrapApiEnvelope(response.data).map(sanitizePaymentResult);

@@ -55,6 +55,9 @@ const buildAddToCartPayload = (lecture: ProgramLectureCard): AddToCartPayload =>
     programType: inferProgramTypeFromLabel(lecture.formatLabel),
     salePrice: payablePriceAmount < originalPriceAmount ? payablePriceAmount : null,
     sourcePath: lecture.to,
+    thumbnailCropOffsetX: lecture.thumbnailCropOffsetX,
+    thumbnailCropOffsetY: lecture.thumbnailCropOffsetY,
+    thumbnailCropZoom: lecture.thumbnailCropZoom,
     thumbnailUrl: lecture.thumbnailSrc,
     title: lecture.title,
   };

@@ -102,7 +102,7 @@ describe('app API fallback', () => {
     useAuthStore.setState({
       accessToken: 'token',
       displayName: '홍길동',
-      expiresAt: '2026-03-30T00:00:00Z',
+      expiresAt: '2099-03-30T00:00:00Z',
       isAuthenticated: true,
       loginId: 'student01',
       role: 'ROLE_STUDENT',

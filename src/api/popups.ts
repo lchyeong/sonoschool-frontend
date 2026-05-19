@@ -10,7 +10,24 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => response.data;
 const sanitizePopupItem = (popup: PopupItem): PopupItem => ({
   ...popup,
   imageUrl: sanitizePublicAssetUrl(popup.imageUrl, '') ?? '',
-  linkUrl: typeof popup.linkUrl === 'string' ? popup.linkUrl.trim() : '',
+});
+
+const normalizeBoolean = (value: boolean | null | undefined): boolean => value ?? false;
+const normalizeSortOrder = (value: number | null | undefined): number => value ?? 0;
+
+const normalizePopupCreatePayload = (
+  payload: AdminPopupCreatePayload,
+): AdminPopupCreatePayload => ({
+  ...payload,
+  published: normalizeBoolean(payload.published),
+  sortOrder: normalizeSortOrder(payload.sortOrder),
+});
+
+const normalizePopupUpdatePayload = (
+  payload: AdminPopupUpdatePayload,
+): AdminPopupUpdatePayload => ({
+  ...payload,
+  sortOrder: normalizeSortOrder(payload.sortOrder),
 });
 
 export const fetchGlobalPopups = async (): Promise<PopupItem[]> => {
@@ -47,7 +64,7 @@ export const createAdminPopupLive = async (
   try {
     const response = await axiosInstance.post<ApiEnvelope<PopupItem>>(
       '/api/v1/admin/popups',
-      payload,
+      normalizePopupCreatePayload(payload),
     );
     return sanitizePopupItem(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
@@ -62,7 +79,7 @@ export const updateAdminPopupLive = async (
   try {
     const response = await axiosInstance.put<ApiEnvelope<PopupItem>>(
       `/api/v1/admin/popups/${String(popupId)}`,
-      payload,
+      normalizePopupUpdatePayload(payload),
     );
     return sanitizePopupItem(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {

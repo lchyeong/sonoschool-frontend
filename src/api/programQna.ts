@@ -29,6 +29,14 @@ const normalizeNullableString = (value: string | null | undefined) => {
   return normalized.length > 0 ? normalized : null;
 };
 
+const normalizeThreadPayload = (
+  payload: ProgramQnaThreadCreatePayload,
+): Required<ProgramQnaThreadCreatePayload> => ({
+  content: payload.content,
+  privateQuestion: payload.privateQuestion ?? false,
+  title: payload.title,
+});
+
 const replyItemSchema = z.object({
   adminReply: z.boolean(),
   authorName: nullableStringSchema,
@@ -162,7 +170,7 @@ export const createProgramQnaThread = async (
   try {
     const response = await axiosInstance.post<ApiEnvelope<ProgramQnaThreadItem>>(
       `/api/v1/programs/${String(programId)}/qna`,
-      payload,
+      normalizeThreadPayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -178,7 +186,7 @@ export const updateProgramQnaThread = async (
   try {
     const response = await axiosInstance.put<ApiEnvelope<ProgramQnaThreadItem>>(
       `/api/v1/programs/${String(programId)}/qna/${String(questionId)}`,
-      payload,
+      normalizeThreadPayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {

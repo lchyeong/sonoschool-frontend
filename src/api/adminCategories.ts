@@ -14,6 +14,31 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const normalizeSortOrder = (value: number | null | undefined, fallback = 0): number =>
+  value ?? fallback;
+
+const normalizeCategoryCreatePayload = (
+  payload: AdminCategoryCreatePayload,
+): AdminCategoryCreatePayload => ({
+  ...payload,
+  sortOrder: normalizeSortOrder(payload.sortOrder),
+});
+
+const normalizeCategoryUpsertPayload = (
+  payload: AdminCategoryUpsertPayload,
+): AdminCategoryUpsertPayload => ({
+  ...payload,
+  sortOrder: normalizeSortOrder(payload.sortOrder),
+});
+
+const normalizeCategoryReorderItems = (
+  items: readonly AdminCategoryReorderItem[],
+): AdminCategoryReorderItem[] =>
+  items.map((item, index) => ({
+    ...item,
+    sortOrder: normalizeSortOrder(item.sortOrder, index),
+  }));
+
 export const fetchAdminCategoriesTree = async (): Promise<AdminCategoryTreeItem[]> => {
   try {
     return await http.get<AdminCategoryTreeItem[]>('/api/v1/admin/categories/tree');
@@ -28,7 +53,7 @@ export const createAdminCategory = async (
   try {
     const response = await axiosInstance.post<ApiEnvelope<AdminCategoryRecord>>(
       '/api/v1/admin/categories',
-      payload,
+      normalizeCategoryCreatePayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -43,7 +68,7 @@ export const updateAdminCategory = async (
   try {
     const response = await axiosInstance.put<ApiEnvelope<AdminCategoryRecord>>(
       `/api/v1/admin/categories/${String(categoryId)}`,
-      payload,
+      normalizeCategoryUpsertPayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -63,7 +88,9 @@ export const reorderAdminCategories = async (
   items: readonly AdminCategoryReorderItem[],
 ): Promise<void> => {
   try {
-    await axiosInstance.put('/api/v1/admin/categories/reorder', { items });
+    await axiosInstance.put('/api/v1/admin/categories/reorder', {
+      items: normalizeCategoryReorderItems(items),
+    });
   } catch (error: unknown) {
     throw toApiError(error, '카테고리 순서를 변경하지 못했습니다.');
   }

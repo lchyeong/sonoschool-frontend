@@ -11,6 +11,22 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const normalizeDiscountValue = (value: number | null | undefined): number => value ?? 0;
+
+const normalizeCouponCreatePayload = (
+  payload: AdminCouponCreatePayload,
+): AdminCouponCreatePayload => ({
+  ...payload,
+  discountValue: normalizeDiscountValue(payload.discountValue),
+});
+
+const normalizeCouponUpdatePayload = (
+  payload: AdminCouponUpdatePayload,
+): AdminCouponUpdatePayload => ({
+  ...payload,
+  discountValue: normalizeDiscountValue(payload.discountValue),
+});
+
 export const fetchAdminCoupons = async (): Promise<AdminCoupon[]> => {
   try {
     const response = await axiosInstance.get<ApiEnvelope<AdminCoupon[]>>('/api/v1/admin/coupons');
@@ -26,7 +42,7 @@ export const createAdminCoupon = async (
   try {
     const response = await axiosInstance.post<ApiEnvelope<AdminCoupon>>(
       '/api/v1/admin/coupons',
-      payload,
+      normalizeCouponCreatePayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -41,7 +57,7 @@ export const updateAdminCoupon = async (
   try {
     const response = await axiosInstance.put<ApiEnvelope<AdminCoupon>>(
       `/api/v1/admin/coupons/${String(couponId)}`,
-      payload,
+      normalizeCouponUpdatePayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {

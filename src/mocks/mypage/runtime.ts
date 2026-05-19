@@ -1,5 +1,3 @@
-import { env } from '@/config/env';
-
 export const MYPAGE_MOCK_SCENARIO_QUERY_PARAM = 'mypageMock';
 
 export const MYPAGE_MOCK_SCENARIO_LABELS = {
@@ -15,19 +13,13 @@ const MYPAGE_MOCK_SCENARIOS = new Set<MyPageMockScenario>(
   Object.keys(MYPAGE_MOCK_SCENARIO_LABELS) as MyPageMockScenario[],
 );
 
-const isMyPagePath = (pathname: string) => pathname.startsWith('/mypage');
-
 export const isMyPageMockModeEnabled = (): boolean => {
-  if (!env.VITE_ENABLE_MYPAGE_MOCK || typeof window === 'undefined') {
-    return false;
-  }
-
-  return isMyPagePath(window.location.pathname);
+  return false;
 };
 
 export const getMyPageMockScenario = (): MyPageMockScenario => {
   if (typeof window === 'undefined') {
-    return env.VITE_MYPAGE_MOCK_SCENARIO;
+    return 'all';
   }
 
   const queryValue = new URLSearchParams(window.location.search).get(
@@ -38,7 +30,7 @@ export const getMyPageMockScenario = (): MyPageMockScenario => {
     return queryValue as MyPageMockScenario;
   }
 
-  return env.VITE_MYPAGE_MOCK_SCENARIO;
+  return 'all';
 };
 
 export const getMyPageMockQueryKeySegment = (): string => {

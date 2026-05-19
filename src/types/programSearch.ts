@@ -12,6 +12,9 @@ export interface ProgramSearchItem {
   tags?: string[] | undefined;
   thumbnailSrc: string;
   thumbnailAlt: string;
+  thumbnailCropOffsetX?: number | null | undefined;
+  thumbnailCropOffsetY?: number | null | undefined;
+  thumbnailCropZoom?: number | null | undefined;
 }
 
 export interface ProgramSearchIndexResponse {

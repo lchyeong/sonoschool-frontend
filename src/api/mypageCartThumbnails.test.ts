@@ -93,6 +93,9 @@ describe('mypage cart thumbnails', () => {
           id: 'lecture-24',
           scope: 'lecture',
           thumbnailAlt: '복부 Advance 스캔 6주 썸네일',
+          thumbnailCropOffsetX: 24,
+          thumbnailCropOffsetY: -18,
+          thumbnailCropZoom: 1.35,
           thumbnailSrc: signedThumbnailUrl,
           title: '복부 Advance 스캔 6주',
           to: '/programs/general-course/abdomen/abdomen-basic-6-weeks/advance-6',
@@ -103,6 +106,9 @@ describe('mypage cart thumbnails', () => {
     const cart = await fetchMyCart();
 
     expect(cart.items[0]?.thumbnailUrl).toBe(signedThumbnailUrl);
+    expect(cart.items[0]?.thumbnailCropOffsetX).toBe(24);
+    expect(cart.items[0]?.thumbnailCropOffsetY).toBe(-18);
+    expect(cart.items[0]?.thumbnailCropZoom).toBe(1.35);
   });
 
   it('replaces expired cart presigned thumbnail URLs with fresh catalog thumbnail URLs', async () => {
@@ -149,11 +155,17 @@ describe('mypage cart thumbnails', () => {
       programType: 'ONLINE',
       salePrice: 90000,
       sourcePath: '/programs/general-course/abdomen/abdomen-basic-6-weeks/advance-6',
+      thumbnailCropOffsetX: -10,
+      thumbnailCropOffsetY: 12,
+      thumbnailCropZoom: 1.2,
       thumbnailUrl: signedThumbnailUrl,
       title: '복부 Advance 스캔 6주',
     });
 
     expect(cart.items[0]?.thumbnailUrl).toBe(signedThumbnailUrl);
+    expect(cart.items[0]?.thumbnailCropOffsetX).toBe(-10);
+    expect(cart.items[0]?.thumbnailCropOffsetY).toBe(12);
+    expect(cart.items[0]?.thumbnailCropZoom).toBe(1.2);
     expect(httpGetMock).not.toHaveBeenCalled();
   });
 

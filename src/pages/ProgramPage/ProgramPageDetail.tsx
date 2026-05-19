@@ -105,6 +105,9 @@ const buildAddToCartPayload = (
     programType: inferProgramType(data),
     salePrice: discountedPriceAmount < originalPriceAmount ? discountedPriceAmount : null,
     sourcePath,
+    thumbnailCropOffsetX: data.heroImageCropOffsetX,
+    thumbnailCropOffsetY: data.heroImageCropOffsetY,
+    thumbnailCropZoom: data.heroImageCropZoom,
     thumbnailUrl: data.heroImageSrc,
     title: data.title,
   };

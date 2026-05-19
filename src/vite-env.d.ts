@@ -23,8 +23,6 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string; // (레거시/대안) API 서버 URL
   readonly VITE_APP_TITLE?: string; // 앱 제목
   readonly VITE_ENABLE_ANALYTICS?: string; // Analytics 활성화 ('true' | 'false')
-  readonly VITE_ENABLE_MYPAGE_MOCK?: string; // 마이페이지 UI 목데이터 모드 ('true' | 'false')
-  readonly VITE_MYPAGE_MOCK_SCENARIO?: 'all' | 'certificate' | 'expired' | 'empty';
   readonly VITE_GA_ID?: string; // Google Analytics ID
   readonly VITE_GTM_CONTAINER_ID?: string; // Google Tag Manager Container ID (GTM-XXXXXXX)
   readonly VITE_SENTRY_DSN?: string; // Sentry DSN

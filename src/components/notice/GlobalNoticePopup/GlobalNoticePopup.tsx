@@ -37,8 +37,6 @@ const dismissForToday = (popupId: number) => {
   window.localStorage.setItem(buildStorageKey(popupId), buildTodayLabel());
 };
 
-const isPopupLinkExternal = (linkUrl: string): boolean => /^https?:\/\//i.test(linkUrl);
-
 const GlobalNoticePopup = () => {
   const popupsQuery = useGlobalPopupsQuery();
   const [closedPopupIds, setClosedPopupIds] = useState<number[]>([]);
@@ -142,18 +140,6 @@ const GlobalNoticePopup = () => {
         {visiblePopups.map((popup, index) => {
           const isDismissForTodayChecked =
             dismissSelection.popupId === popup.id && dismissSelection.checked;
-          const linkUrl = popup.linkUrl.trim();
-          const imageElement = (
-            <img
-              alt={popup.altText || '홈 팝업'}
-              className={styles['image']}
-              decoding='async'
-              fetchPriority={index === 0 ? 'high' : 'auto'}
-              loading='eager'
-              src={popup.imageUrl}
-            />
-          );
-
           return (
             <section
               aria-label={popup.altText || '홈 팝업'}
@@ -163,18 +149,14 @@ const GlobalNoticePopup = () => {
               role='dialog'
             >
               <div className={styles['imageWrap']}>
-                {linkUrl ? (
-                  <a
-                    className={styles['imageLink']}
-                    href={linkUrl}
-                    rel={isPopupLinkExternal(linkUrl) ? 'noopener noreferrer' : undefined}
-                    target={isPopupLinkExternal(linkUrl) ? '_blank' : undefined}
-                  >
-                    {imageElement}
-                  </a>
-                ) : (
-                  imageElement
-                )}
+                <img
+                  alt={popup.altText || '홈 팝업'}
+                  className={styles['image']}
+                  decoding='async'
+                  fetchPriority={index === 0 ? 'high' : 'auto'}
+                  loading='eager'
+                  src={popup.imageUrl}
+                />
               </div>
               <div className={styles['actionRow']}>
                 <label className={styles['dismissControl']}>

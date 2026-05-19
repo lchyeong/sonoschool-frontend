@@ -116,8 +116,8 @@
 
 .itemCard {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: 27px;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 34px;
   align-items: center;
   width: 100%;
   min-height: 170px;
@@ -130,8 +130,9 @@
 
 .thumbnailFrame {
   overflow: hidden;
-  width: 120px;
-  height: 120px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  height: auto;
   border-radius: 12px;
   background: #f3f4f6;
 }
@@ -140,7 +141,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .itemCopy {
@@ -258,8 +259,7 @@
   }
 
   .thumbnailFrame {
-    width: 120px;
-    height: 120px;
+    width: min(100%, 160px);
   }
 
   .actionRow {

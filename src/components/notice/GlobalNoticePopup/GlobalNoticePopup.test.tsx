@@ -14,7 +14,6 @@ const createPopup = (overrides: Partial<PopupItem> = {}): PopupItem => ({
   id: 9001,
   imageAssetId: 7001,
   imageUrl: 'https://cdn.example.com/popups/custom-popup.webp',
-  linkUrl: '',
   published: true,
   sortOrder: 0,
   updatedAt: '2026-05-04T00:00:00Z',

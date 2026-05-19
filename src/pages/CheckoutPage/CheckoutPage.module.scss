@@ -134,18 +134,25 @@
   border-top: 1px solid #e5e7eb;
 }
 
-.itemThumbnailImage,
-.itemThumbnailFallback {
+.itemThumbnailFrame {
   display: block;
   width: 172px;
   aspect-ratio: 4 / 3;
   height: auto;
   border-radius: 12px;
+  overflow: hidden;
+  background: #e5e7eb;
+}
+
+.itemThumbnailImage,
+.itemThumbnailFallback {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .itemThumbnailImage {
-  object-fit: contain;
-  background: #e5e7eb;
+  object-fit: cover;
 }
 
 .itemThumbnailFallback {
@@ -533,8 +540,7 @@
     min-height: auto;
   }
 
-  .itemThumbnailImage,
-  .itemThumbnailFallback {
+  .itemThumbnailFrame {
     width: min(100%, 220px);
     height: auto;
   }

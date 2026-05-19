@@ -1,4 +1,3 @@
-type AdminNoticeCategory = '운영' | '학사' | '이벤트';
 type AdminResourceVisibility = 'public' | 'students-only';
 
 export type AdminConsoleSection =
@@ -15,12 +14,6 @@ export type AdminConsoleSection =
   | 'resources'
   | 'reviews';
 
-export interface NoticeFormState {
-  category: AdminNoticeCategory;
-  isPinned: boolean;
-  title: string;
-}
-
 export interface ResourceFormState {
   attachmentFile: File | null;
   description: string;
@@ -32,12 +25,6 @@ export interface ReviewFormState {
   summary: string;
   title: string;
 }
-
-export const INITIAL_NOTICE_FORM: NoticeFormState = {
-  category: '운영',
-  isPinned: false,
-  title: '',
-};
 
 export const INITIAL_RESOURCE_FORM: ResourceFormState = {
   attachmentFile: null,

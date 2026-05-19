@@ -228,7 +228,7 @@ describe('program data API fallback', () => {
 
   it('hides home hero response validation details behind a friendly message', async () => {
     httpGetMock.mockResolvedValue({
-      autoPlayDurationMs: 5000,
+      autoPlayDurationMs: 0,
       items: [],
     });
 

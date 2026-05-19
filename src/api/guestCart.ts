@@ -94,6 +94,9 @@ const toGuestCartItem = (payload: AddToCartPayload, nextId: number): CartItem =>
     saleEndAt: null,
     salePrice: payload.salePrice,
     saleStartAt: null,
+    thumbnailCropOffsetX: payload.thumbnailCropOffsetX,
+    thumbnailCropOffsetY: payload.thumbnailCropOffsetY,
+    thumbnailCropZoom: payload.thumbnailCropZoom,
     thumbnailUrl: payload.thumbnailUrl,
     title: payload.title,
   };

@@ -17,6 +17,9 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const normalizeNumber = (value: number | null | undefined, fallback: number): number =>
+  value ?? fallback;
+
 const VIDEO_UPLOAD_API_TIMEOUT_MS = 30 * 60 * 1000;
 
 interface PageResponse<TItem> {
@@ -97,7 +100,11 @@ export const createAdminVideoUploadSession = async (
   try {
     const response = await axiosInstance.post<ApiEnvelope<AdminVideoUploadSessionResponse>>(
       '/api/v1/admin/videos/upload-sessions',
-      payload,
+      {
+        ...payload,
+        fileSize: normalizeNumber(payload.fileSize, 0),
+        partCount: normalizeNumber(payload.partCount, 1),
+      },
       {
         timeout: VIDEO_UPLOAD_API_TIMEOUT_MS,
       },
@@ -113,9 +120,19 @@ export const completeAdminVideoUpload = async (
   payload: AdminVideoUploadCompleteRequest,
 ): Promise<void> => {
   try {
-    await axiosInstance.post(`/api/v1/admin/videos/${String(videoId)}/uploads/complete`, payload, {
-      timeout: VIDEO_UPLOAD_API_TIMEOUT_MS,
-    });
+    await axiosInstance.post(
+      `/api/v1/admin/videos/${String(videoId)}/uploads/complete`,
+      {
+        ...payload,
+        parts: payload.parts.map((part, index) => ({
+          ...part,
+          partNumber: normalizeNumber(part.partNumber, index + 1),
+        })),
+      },
+      {
+        timeout: VIDEO_UPLOAD_API_TIMEOUT_MS,
+      },
+    );
   } catch (error: unknown) {
     throw toApiError(error, '영상 업로드 완료를 확정하지 못했습니다.');
   }

@@ -16,6 +16,14 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const normalizeQuestionPayload = (
+  payload: QuestionCreatePayload,
+): Required<QuestionCreatePayload> => ({
+  content: payload.content,
+  privateQuestion: payload.privateQuestion ?? false,
+  title: payload.title,
+});
+
 export const fetchGlobalQuestions = async (): Promise<QuestionItem[]> => {
   try {
     return await http.get<QuestionItem[]>('/api/v1/qna');
@@ -30,7 +38,7 @@ export const createAdminQuestionNotice = async (
   try {
     const response = await axiosInstance.post<ApiEnvelope<QuestionItem>>(
       '/api/v1/admin/qna/notices',
-      payload,
+      { ...payload, privateQuestion: false },
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
@@ -52,7 +60,10 @@ export const createGlobalQuestion = async (
   payload: QuestionCreatePayload,
 ): Promise<QuestionItem> => {
   try {
-    const response = await axiosInstance.post<ApiEnvelope<QuestionItem>>('/api/v1/qna', payload);
+    const response = await axiosInstance.post<ApiEnvelope<QuestionItem>>(
+      '/api/v1/qna',
+      normalizeQuestionPayload(payload),
+    );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '운영 Q&A 등록에 실패했습니다.');
@@ -66,7 +77,7 @@ export const updateGlobalQuestion = async (
   try {
     const response = await axiosInstance.put<ApiEnvelope<QuestionItem>>(
       `/api/v1/questions/${String(questionId)}`,
-      payload,
+      normalizeQuestionPayload(payload),
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {

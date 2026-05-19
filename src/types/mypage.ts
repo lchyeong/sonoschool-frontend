@@ -14,6 +14,9 @@ export interface AddToCartPayload {
   programType: ProgramType;
   salePrice: number | null;
   sourcePath: string;
+  thumbnailCropOffsetX?: number | null | undefined;
+  thumbnailCropOffsetY?: number | null | undefined;
+  thumbnailCropZoom?: number | null | undefined;
   thumbnailUrl: string | null;
   title: string;
 }
@@ -217,6 +220,9 @@ export interface CartItem {
   title: string;
   detailPath: string;
   thumbnailUrl: string | null;
+  thumbnailCropOffsetX?: number | null | undefined;
+  thumbnailCropOffsetY?: number | null | undefined;
+  thumbnailCropZoom?: number | null | undefined;
   programType: ProgramType;
   instructorName: string | null;
   originalPrice: number;

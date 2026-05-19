@@ -214,8 +214,6 @@
 }
 
 .collectionImage,
-.lectureImage,
-.archiveLectureImage,
 .educatorImage {
   display: block;
   width: 100%;
@@ -223,8 +221,15 @@
   object-fit: contain;
 }
 
+.lectureImage,
 .archiveLectureImage {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+}
+
+.archiveLectureImage {
   transition: transform 220ms ease;
 }
 
