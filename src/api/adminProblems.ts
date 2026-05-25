@@ -2,7 +2,11 @@ import axios from 'axios';
 
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import type { AdminProblem, AdminProblemUpsertPayload } from '@/types/adminProblems';
+import type {
+  AdminProblem,
+  AdminProblemQuestionReorderItem,
+  AdminProblemUpsertPayload,
+} from '@/types/adminProblems';
 import type { ApiEnvelope } from '@/types/auth';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
@@ -29,7 +33,8 @@ const normalizeMediaUrl = (value: string | null | undefined): string | null => {
 
 const normalizeBoolean = (value: boolean | null | undefined): boolean => value ?? false;
 
-const normalizeSortOrder = (value: number | null | undefined): number => value ?? 0;
+const normalizeSortOrder = (value: number | null | undefined, fallback = 0): number =>
+  value ?? fallback;
 
 const normalizePayload = (payload: AdminProblemUpsertPayload): AdminProblemUpsertPayload => {
   return {
@@ -108,6 +113,22 @@ export const updateAdminProblem = async (
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '문제를 수정하지 못했습니다.');
+  }
+};
+
+export const reorderAdminProblemQuestions = async (
+  problemId: number,
+  items: AdminProblemQuestionReorderItem[],
+): Promise<void> => {
+  try {
+    await axiosInstance.put(`/api/v1/admin/problems/${String(problemId)}/questions/reorder`, {
+      items: items.map((item, index) => ({
+        id: item.id,
+        sortOrder: normalizeSortOrder(item.sortOrder, index),
+      })),
+    });
+  } catch (error: unknown) {
+    throw toApiError(error, '문항 순서를 저장하지 못했습니다.');
   }
 };
 

@@ -349,6 +349,11 @@ const calculatePassCorrectCount = (passScore: number, questionCount: number) => 
   return Math.ceil((questionCount * Math.min(passScore, 100)) / 100);
 };
 
+const summarizeProblemQuestionText = (value: string | null | undefined): string => {
+  const normalized = (value ?? '').replace(/\s+/g, ' ').trim();
+  return normalized || '문제 내용을 입력해 주세요.';
+};
+
 const createEmptyLecture = (
   sortOrder: number,
   lectureType: AdminLectureType = 'VIDEO',
@@ -395,6 +400,69 @@ const moveArrayItem = <T,>(items: readonly T[], fromIndex: number, toIndex: numb
   }
 
   next.splice(toIndex, 0, movedItem);
+  return next;
+};
+
+const resolveMovedQuestionIndex = (index: number, fromIndex: number, toIndex: number): number => {
+  if (index === fromIndex) {
+    return toIndex;
+  }
+
+  if (fromIndex < toIndex && index > fromIndex && index <= toIndex) {
+    return index - 1;
+  }
+
+  if (toIndex < fromIndex && index >= toIndex && index < fromIndex) {
+    return index + 1;
+  }
+
+  return index;
+};
+
+const remapQuestionIndexedKeys = (
+  keys: readonly string[],
+  lectureKey: string,
+  fromIndex: number,
+  toIndex: number,
+): string[] => {
+  const prefix = `${lectureKey}:`;
+
+  return keys.map((key) => {
+    if (!key.startsWith(prefix)) {
+      return key;
+    }
+
+    const currentIndex = Number(key.slice(prefix.length));
+    if (!Number.isInteger(currentIndex)) {
+      return key;
+    }
+
+    return `${prefix}${String(resolveMovedQuestionIndex(currentIndex, fromIndex, toIndex))}`;
+  });
+};
+
+const remapQuestionIndexedRecord = <T,>(
+  record: Record<string, T>,
+  lectureKey: string,
+  fromIndex: number,
+  toIndex: number,
+): Record<string, T> => {
+  const prefix = `${lectureKey}:`;
+  const next: Record<string, T> = {};
+
+  for (const [key, value] of Object.entries(record)) {
+    if (!key.startsWith(prefix)) {
+      next[key] = value;
+      continue;
+    }
+
+    const currentIndex = Number(key.slice(prefix.length));
+    const nextIndex = Number.isInteger(currentIndex)
+      ? resolveMovedQuestionIndex(currentIndex, fromIndex, toIndex)
+      : currentIndex;
+    next[Number.isInteger(nextIndex) ? `${prefix}${String(nextIndex)}` : key] = value;
+  }
+
   return next;
 };
 
@@ -1531,6 +1599,10 @@ const AdminProgramCreateWorkspace = ({
   const [expandedSectionKeys, setExpandedSectionKeys] = useState<string[]>([]);
   const [expandedLectureKeys, setExpandedLectureKeys] = useState<string[]>([]);
   const [collapsedProblemQuestionKeys, setCollapsedProblemQuestionKeys] = useState<string[]>([]);
+  const [draggedProblemQuestion, setDraggedProblemQuestion] = useState<{
+    lectureKey: string;
+    questionIndex: number;
+  } | null>(null);
   const [draftFocusHint, setDraftFocusHint] = useState<{
     message: string;
     x: number;
@@ -2658,6 +2730,60 @@ const AdminProgramCreateWorkspace = ({
     });
   };
 
+  const moveProblemQuestion = (lectureKey: string, fromIndex: number, toIndex: number) => {
+    const targetProblem =
+      currentPayloadRef.current?.problems.find((problem) => problem.lectureKey === lectureKey) ??
+      null;
+
+    if (
+      !targetProblem ||
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= targetProblem.questions.length ||
+      toIndex >= targetProblem.questions.length
+    ) {
+      return;
+    }
+
+    upsertProblem(lectureKey, (problem) => ({
+      ...problem,
+      questions: moveArrayItem(problem.questions, fromIndex, toIndex).map((question, index) => ({
+        ...question,
+        sortOrder: index,
+      })),
+    }));
+    setCollapsedProblemQuestionKeys((current) =>
+      remapQuestionIndexedKeys(current, lectureKey, fromIndex, toIndex),
+    );
+    setQuestionUploadStatus((current) =>
+      remapQuestionIndexedRecord(current, lectureKey, fromIndex, toIndex),
+    );
+    setPendingQuestionMediaSelections((current) =>
+      remapQuestionIndexedRecord(current, lectureKey, fromIndex, toIndex),
+    );
+  };
+
+  const setAllProblemQuestionsCollapsed = (lectureKey: string, collapsed: boolean) => {
+    const questionCount =
+      currentPayloadRef.current?.problems.find((problem) => problem.lectureKey === lectureKey)
+        ?.questions.length ?? 0;
+    const prefix = `${lectureKey}:`;
+
+    setCollapsedProblemQuestionKeys((current) => {
+      const withoutLectureQuestions = current.filter((key) => !key.startsWith(prefix));
+
+      if (!collapsed) {
+        return withoutLectureQuestions;
+      }
+
+      return [
+        ...withoutLectureQuestions,
+        ...Array.from({ length: questionCount }, (_, index) => `${prefix}${String(index)}`),
+      ];
+    });
+  };
+
   const updateProblemOption = (
     lectureKey: string,
     questionIndex: number,
@@ -2716,11 +2842,33 @@ const AdminProgramCreateWorkspace = ({
 
   const renderLectureProblemWorkspace = (lectureKey: string) => {
     const problem = payload?.problems.find((item) => item.lectureKey === lectureKey) ?? null;
+    const allProblemQuestionsCollapsed = problem
+      ? problem.questions.every((_, questionIndex) =>
+          collapsedProblemQuestionKeys.includes(`${lectureKey}:${String(questionIndex)}`),
+        )
+      : false;
 
     return (
       <div className={styles['lectureWorkspaceSection']}>
         {problem ? (
-          <div className={styles['stackListCompact']}>
+          <div className={classNames(styles['stackListCompact'], styles['problemQuestionList'])}>
+            <div className={styles['problemQuestionListToolbar']}>
+              <div>
+                <h5 className={styles['panelTitle']}>문제 문항</h5>
+                <p className={styles['metaText']}>
+                  접은 상태에서 오른쪽 이동 핸들을 드래그하면 문항 순서를 바꿀 수 있습니다.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setAllProblemQuestionsCollapsed(lectureKey, !allProblemQuestionsCollapsed);
+                }}
+                type='button'
+                variant='secondary'
+              >
+                {allProblemQuestionsCollapsed ? '문제 모두 펼치기' : '문제 모두 접기'}
+              </Button>
+            </div>
             {problem.questions.map((question, questionIndex) => {
               const uploadKey = `${lectureKey}:${String(questionIndex)}`;
               const pendingQuestionMediaSelection =
@@ -2744,17 +2892,88 @@ const AdminProgramCreateWorkspace = ({
 
               return (
                 <article
-                  className={classNames(styles['panel'], styles['problemQuestionCard'])}
+                  className={classNames(
+                    styles['panel'],
+                    styles['problemQuestionCard'],
+                    questionCollapsed ? styles['problemQuestionCardCollapsed'] : null,
+                  )}
+                  data-dragging={
+                    draggedProblemQuestion?.lectureKey === lectureKey &&
+                    draggedProblemQuestion.questionIndex === questionIndex
+                  }
                   key={`problem-question-${lectureKey}-${String(questionIndex)}`}
+                  onDragOver={(event) => {
+                    if (
+                      draggedProblemQuestion === null ||
+                      draggedProblemQuestion.lectureKey !== lectureKey ||
+                      draggedProblemQuestion.questionIndex === questionIndex
+                    ) {
+                      return;
+                    }
+
+                    event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (
+                      draggedProblemQuestion === null ||
+                      draggedProblemQuestion.lectureKey !== lectureKey
+                    ) {
+                      return;
+                    }
+
+                    moveProblemQuestion(
+                      lectureKey,
+                      draggedProblemQuestion.questionIndex,
+                      questionIndex,
+                    );
+                    setDraggedProblemQuestion(null);
+                  }}
                 >
                   <div className={styles['panelToolbar']}>
-                    <div>
-                      <h6 className={styles['panelTitle']}>문제 {String(questionIndex + 1)}</h6>
-                      <p className={styles['metaText']}>
-                        {question.mediaType ? questionMediaStatusLabel : '미디어 없음'}
-                      </p>
+                    <div className={styles['problemQuestionSummaryBlock']}>
+                      <div className={styles['problemQuestionTitleStack']}>
+                        <h6 className={styles['panelTitle']}>문제 {String(questionIndex + 1)}</h6>
+                        <p className={styles['metaText']}>
+                          {question.mediaType ? questionMediaStatusLabel : '미디어 없음'}
+                        </p>
+                      </div>
+                      {questionCollapsed ? (
+                        <p
+                          className={styles['problemQuestionCollapsedSummary']}
+                          title={summarizeProblemQuestionText(question.questionText)}
+                        >
+                          {summarizeProblemQuestionText(question.questionText)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className={styles['problemQuestionToolbarActions']}>
+                      {questionCollapsed ? (
+                        <div className={styles['problemQuestionOrderControls']}>
+                          <button
+                            aria-label={`${String(questionIndex + 1)}번 문제 드래그 이동`}
+                            className={classNames(
+                              styles['problemQuestionOrderButton'],
+                              styles['problemQuestionDragHandle'],
+                            )}
+                            draggable
+                            onDragEnd={() => {
+                              setDraggedProblemQuestion(null);
+                            }}
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = 'move';
+                              setDraggedProblemQuestion({ lectureKey, questionIndex });
+                            }}
+                            title='드래그해서 문제 순서 변경'
+                            type='button'
+                          >
+                            <span
+                              className={styles['problemQuestionGripIcon']}
+                              aria-hidden='true'
+                            />
+                          </button>
+                        </div>
+                      ) : null}
                       <Button
                         onClick={() => {
                           toggleProblemQuestionCollapsed(lectureKey, questionIndex);

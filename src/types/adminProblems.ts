@@ -53,6 +53,11 @@ export interface AdminProblemQuestionUpsertPayload extends AdminProblemMedia {
   sortOrder: number;
 }
 
+export interface AdminProblemQuestionReorderItem {
+  id: number;
+  sortOrder: number;
+}
+
 export interface AdminProblemUpsertPayload {
   passScore: number;
   retakeAllowed?: boolean | null;

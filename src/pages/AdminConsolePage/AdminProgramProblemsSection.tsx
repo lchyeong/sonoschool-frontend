@@ -7,7 +7,12 @@ import {
   createAdminProblemMediaUploadTarget,
   uploadAdminProblemMediaFile,
 } from '@/api/adminProblemMedia';
-import { createAdminProblem, deleteAdminProblem, updateAdminProblem } from '@/api/adminProblems';
+import {
+  createAdminProblem,
+  deleteAdminProblem,
+  reorderAdminProblemQuestions,
+  updateAdminProblem,
+} from '@/api/adminProblems';
 import checkIconSrc from '@/assets/icons/lucide_check.svg';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import Button from '@/components/ui/Button/Button';
@@ -50,6 +55,7 @@ interface ProblemOptionFormState {
 
 interface ProblemQuestionFormState {
   explanation: string;
+  id: number | null;
   mediaAssetId: number | null;
   mediaFile: File | null;
   mediaPreviewUrl: string;
@@ -106,6 +112,7 @@ const createEmptyOption = (correct = false): ProblemOptionFormState => ({
 
 const createEmptyQuestion = (): ProblemQuestionFormState => ({
   explanation: '',
+  id: null,
   mediaAssetId: null,
   mediaFile: null,
   mediaPreviewUrl: '',
@@ -134,6 +141,27 @@ const moveItem = <T,>(items: readonly T[], index: number, direction: 'up' | 'dow
 
   const nextItems = [...items];
   const [item] = nextItems.splice(index, 1);
+  nextItems.splice(targetIndex, 0, item);
+  return nextItems;
+};
+
+const moveItemToIndex = <T,>(
+  items: readonly T[],
+  sourceIndex: number,
+  targetIndex: number,
+): T[] => {
+  if (
+    sourceIndex === targetIndex ||
+    sourceIndex < 0 ||
+    targetIndex < 0 ||
+    sourceIndex >= items.length ||
+    targetIndex >= items.length
+  ) {
+    return [...items];
+  }
+
+  const nextItems = [...items];
+  const [item] = nextItems.splice(sourceIndex, 1);
   nextItems.splice(targetIndex, 0, item);
   return nextItems;
 };
@@ -236,6 +264,7 @@ const createFormState = (problem: AdminProblem | null): ProblemFormState => {
       .sort((left, right) => left.sortOrder - right.sortOrder)
       .map((question) => ({
         explanation: question.explanation ?? '',
+        id: question.id,
         mediaAssetId: question.mediaAssetId ?? null,
         mediaFile: null,
         mediaPreviewUrl: question.mediaPreviewUrl ?? question.mediaUrl ?? '',
@@ -460,6 +489,7 @@ const ProblemEditor = ({
   const [formState, setFormState] = useState<ProblemFormState>(() => createFormState(problem));
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
+  const [draggedQuestionIndex, setDraggedQuestionIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setFormState(createFormState(problem));
@@ -555,6 +585,82 @@ const ProblemEditor = ({
       });
     },
   });
+
+  const reorderMutation = useMutation({
+    mutationFn: ({
+      items,
+      problemId,
+    }: {
+      items: Array<{ id: number; sortOrder: number }>;
+      problemId: number;
+    }) => reorderAdminProblemQuestions(problemId, items),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '문항 순서를 저장하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+  });
+
+  const persistQuestionOrder = async (
+    nextQuestions: ProblemQuestionFormState[],
+    previousQuestions: ProblemQuestionFormState[],
+  ) => {
+    if (!problem || nextQuestions.some((question) => question.id === null)) {
+      return;
+    }
+
+    try {
+      await reorderMutation.mutateAsync({
+        problemId: problem.id,
+        items: nextQuestions.map((question, index) => ({
+          id: question.id as number,
+          sortOrder: index,
+        })),
+      });
+    } catch {
+      setFormState((current) => ({
+        ...current,
+        questions: previousQuestions,
+      }));
+    }
+  };
+
+  const moveQuestion = (sourceIndex: number, targetIndex: number) => {
+    if (
+      sourceIndex === targetIndex ||
+      sourceIndex < 0 ||
+      targetIndex < 0 ||
+      sourceIndex >= formState.questions.length ||
+      targetIndex >= formState.questions.length
+    ) {
+      return;
+    }
+
+    const previousQuestions = formState.questions;
+    const nextQuestions = moveItemToIndex(previousQuestions, sourceIndex, targetIndex);
+
+    setFormState((current) => ({
+      ...current,
+      questions: nextQuestions,
+    }));
+    setSelectedQuestionIndex((current) => {
+      if (current === sourceIndex) {
+        return targetIndex;
+      }
+
+      if (sourceIndex < current && current <= targetIndex) {
+        return current - 1;
+      }
+
+      if (targetIndex <= current && current < sourceIndex) {
+        return current + 1;
+      }
+
+      return current;
+    });
+    void persistQuestionOrder(nextQuestions, previousQuestions);
+  };
 
   const preparePayload = async (): Promise<AdminProblemUpsertPayload> => {
     const nextQuestions = await Promise.all(
@@ -764,37 +870,77 @@ const ProblemEditor = ({
                 const summaryText = question.questionText.trim() || '문항 내용을 입력하세요.';
 
                 return (
-                  <button
-                    className={styles['quizQuestionButton']}
+                  <article
+                    className={styles['quizQuestionListItem']}
+                    data-dragging={draggedQuestionIndex === questionIndex}
                     data-selected={isSelected}
                     key={`question-nav-${String(questionIndex)}`}
-                    onClick={() => {
-                      setSelectedQuestionIndex(questionIndex);
+                    onDragOver={(event) => {
+                      if (draggedQuestionIndex === null || draggedQuestionIndex === questionIndex) {
+                        return;
+                      }
+
+                      event.preventDefault();
                     }}
-                    type='button'
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      if (draggedQuestionIndex === null) {
+                        return;
+                      }
+
+                      moveQuestion(draggedQuestionIndex, questionIndex);
+                      setDraggedQuestionIndex(null);
+                    }}
                   >
-                    <div className={styles['searchResultHeader']}>
-                      <strong className={styles['cellPrimary']}>
-                        문항 {String(questionIndex + 1)}
-                      </strong>
-                      <div className={styles['metaRow']}>
-                        <span className={styles['badge']}>
-                          {questionTypeLabel[question.questionType]}
-                        </span>
-                        {question.mediaType ? (
-                          <span className={styles['badgeAccent']}>
-                            {question.mediaType === 'IMAGE' ? '이미지' : '영상'}
+                    <button
+                      className={styles['quizQuestionButton']}
+                      data-selected={isSelected}
+                      onClick={() => {
+                        setSelectedQuestionIndex(questionIndex);
+                      }}
+                      type='button'
+                    >
+                      <div className={styles['searchResultHeader']}>
+                        <strong className={styles['cellPrimary']}>
+                          문항 {String(questionIndex + 1)}
+                        </strong>
+                        <div className={styles['metaRow']}>
+                          <span className={styles['badge']}>
+                            {questionTypeLabel[question.questionType]}
                           </span>
-                        ) : null}
+                          {question.mediaType ? (
+                            <span className={styles['badgeAccent']}>
+                              {question.mediaType === 'IMAGE' ? '이미지' : '영상'}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
+                      <div className={styles['cellStack']}>
+                        <span className={styles['cellSecondary']}>{summaryText}</span>
+                        <span className={styles['cellSecondary']}>
+                          보기 {String(question.options.length)}개
+                        </span>
+                      </div>
+                    </button>
+                    <div className={styles['quizQuestionOrderControls']}>
+                      <button
+                        aria-label={`${String(questionIndex + 1)}번 문항 드래그 이동`}
+                        className={`${styles['quizQuestionOrderButton']} ${styles['quizQuestionDragHandle']}`}
+                        draggable
+                        onDragEnd={() => {
+                          setDraggedQuestionIndex(null);
+                        }}
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = 'move';
+                          setDraggedQuestionIndex(questionIndex);
+                        }}
+                        title='드래그해서 순서 변경'
+                        type='button'
+                      >
+                        <span className={styles['quizQuestionGripIcon']} aria-hidden='true' />
+                      </button>
                     </div>
-                    <div className={styles['cellStack']}>
-                      <span className={styles['cellSecondary']}>{summaryText}</span>
-                      <span className={styles['cellSecondary']}>
-                        보기 {String(question.options.length)}개
-                      </span>
-                    </div>
-                  </button>
+                  </article>
                 );
               })}
             </div>
@@ -817,11 +963,7 @@ const ProblemEditor = ({
                     <Button
                       disabled={selectedQuestionIndex === 0}
                       onClick={() => {
-                        setFormState((current) => ({
-                          ...current,
-                          questions: moveItem(current.questions, selectedQuestionIndex, 'up'),
-                        }));
-                        setSelectedQuestionIndex((current) => Math.max(0, current - 1));
+                        moveQuestion(selectedQuestionIndex, selectedQuestionIndex - 1);
                       }}
                       size='sm'
                       type='button'
@@ -832,13 +974,7 @@ const ProblemEditor = ({
                     <Button
                       disabled={selectedQuestionIndex === formState.questions.length - 1}
                       onClick={() => {
-                        setFormState((current) => ({
-                          ...current,
-                          questions: moveItem(current.questions, selectedQuestionIndex, 'down'),
-                        }));
-                        setSelectedQuestionIndex((current) =>
-                          Math.min(formState.questions.length - 1, current + 1),
-                        );
+                        moveQuestion(selectedQuestionIndex, selectedQuestionIndex + 1);
                       }}
                       size='sm'
                       type='button'
