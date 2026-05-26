@@ -10,21 +10,21 @@ const homeFeatureShowcaseCards = [
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-1',
     imageAlt: '내과 의국에서 진행된 현장 중심 초음파 실습 교육',
-    imageSrc: '/그림1-1 1.png',
+    imageSrc: '/images/home/feature-showcase/internal-medicine-hands-on-ultrasound.png',
     titleLines: ['내과 의국에서 진행된', '현장 중심 초음파 실습 교육'],
   },
   {
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-2',
     imageAlt: '대학병원 교수진과 함께한 실전 초음파 교육의 시간',
-    imageSrc: '/그림1-2 1.png',
+    imageSrc: '/images/home/feature-showcase/university-hospital-ultrasound-training.png',
     titleLines: ['대학병원 교수진과 함께한', '실전 초음파 교육의 시간'],
   },
   {
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-3',
     imageAlt: '전문의를 대상으로 진행한 장초음파 강의 현장',
-    imageSrc: '/그림1-3 1.png',
+    imageSrc: '/images/home/feature-showcase/specialist-intestinal-ultrasound-lecture.png',
     titleLines: ['전문의를 대상으로 진행한', '장초음파 강의 현장'],
   },
   {
@@ -38,7 +38,7 @@ const homeFeatureShowcaseCards = [
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-5',
     imageAlt: '임상 질환 중심의 실전 초음파 교육 현장',
-    imageSrc: '/그림5 1.png',
+    imageSrc: '/images/home/feature-showcase/clinical-disease-ultrasound-training.png',
     titleLines: ['임상 질환 중심의', '실전 초음파 교육 현장'],
   },
 ] as const;
