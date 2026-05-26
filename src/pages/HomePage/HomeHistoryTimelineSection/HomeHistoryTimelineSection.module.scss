@@ -186,12 +186,12 @@
 .careerList,
 .certificationList {
   padding-left: 22px;
-  margin: 28px 0 0;
+  margin: 10px 0 0;
   color: #111827;
   font-family: Pretendard, var(--font-family-base);
-  font-size: 20px;
+  font-size: clamp(15px, 1.08vw, 18px);
   font-weight: var(--font-weight-normal);
-  line-height: 1.5;
+  line-height: 1.45;
   list-style-position: outside;
   list-style-type: disc;
 
@@ -205,12 +205,12 @@
   }
 }
 
-.certificationTitle {
-  margin: 30px 0 0 22px;
+.directorSectionTitle {
+  margin: 18px 0 0;
   color: #111827;
   font-family: Pretendard, var(--font-family-base);
-  font-size: 20px;
-  font-weight: var(--font-weight-medium);
+  font-size: clamp(16px, 1.16vw, 20px);
+  font-weight: var(--font-weight-semibold);
   line-height: 1.5;
 }
 
@@ -219,15 +219,29 @@
 }
 
 .certificationList {
-  margin-top: 0;
-
-  span {
-    margin-left: 10px;
-    color: #4b5563;
+  > li {
+    display: list-item;
+    margin-top: 3px;
+    clear: both;
   }
 
   li::marker {
     color: #111827;
+  }
+}
+
+.nestedList {
+  padding-left: 18px;
+  margin: 4px 0 0;
+  color: #374151;
+  font-size: 0.94em;
+  line-height: 1.42;
+  list-style-position: outside;
+  list-style-type: disc;
+
+  li::marker {
+    color: #6b7280;
+    font-size: 0.68em;
   }
 }
 
@@ -494,7 +508,7 @@
   }
 
   .careerList,
-  .certificationTitle,
+  .directorSectionTitle,
   .certificationList {
     font-size: 15px;
   }

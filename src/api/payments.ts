@@ -11,6 +11,8 @@ import type {
 } from '@/types/payment';
 import { sanitizePublicAssetUrl } from '@/utils/publicAssetUrl';
 
+const KCP_PC_APPROVE_TIMEOUT_MS = 60000;
+
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
@@ -132,6 +134,9 @@ export const approveKcpPcPayment = async (payload: KcpPcApprovePayload): Promise
     const response = await axiosInstance.post<ApiEnvelope<PaymentResult>>(
       '/api/v1/payments/kcp/pc/approve',
       payload,
+      {
+        timeout: KCP_PC_APPROVE_TIMEOUT_MS,
+      },
     );
     return sanitizePaymentResult(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {

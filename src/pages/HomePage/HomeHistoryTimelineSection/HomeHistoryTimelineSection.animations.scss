@@ -26,9 +26,9 @@
   .directorInner::before,
   .directorInner::after,
   .directorNameRow,
-  .careerList li,
-  .certificationTitle,
-  .certificationList li,
+  .careerList > li,
+  .directorSectionTitle,
+  .certificationList > li,
   .directorImageWrap {
     opacity: 0;
     transition-duration: 1250ms;
@@ -49,9 +49,9 @@
     transform: translateY(24px);
   }
 
-  .careerList li,
-  .certificationTitle,
-  .certificationList li {
+  .careerList > li,
+  .directorSectionTitle,
+  .certificationList > li {
     transform: translateY(26px);
   }
 
@@ -108,7 +108,8 @@
 .directorPanelAnimationRoot[data-director-step='11'],
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
-  .careerList li:nth-child(1) {
+  .directorCopy > .directorSectionTitle:first-of-type,
+  .careerList > li:nth-child(1) {
     opacity: 1;
     transform: translateY(0);
   }
@@ -124,7 +125,7 @@
 .directorPanelAnimationRoot[data-director-step='11'],
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
-  .careerList li:nth-child(2) {
+  .careerList > li:nth-child(2) {
     opacity: 1;
     transform: translateY(0);
   }
@@ -139,7 +140,7 @@
 .directorPanelAnimationRoot[data-director-step='11'],
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
-  .careerList li:nth-child(3) {
+  .careerList > li:nth-child(3) {
     opacity: 1;
     transform: translateY(0);
   }
@@ -153,7 +154,7 @@
 .directorPanelAnimationRoot[data-director-step='11'],
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
-  .careerList li:nth-child(4) {
+  .careerList > li:nth-child(4) {
     opacity: 1;
     transform: translateY(0);
   }
@@ -166,7 +167,7 @@
 .directorPanelAnimationRoot[data-director-step='11'],
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
-  .careerList li:nth-child(5) {
+  .careerList > li:nth-child(5) {
     opacity: 1;
     transform: translateY(0);
   }
@@ -178,7 +179,12 @@
 .directorPanelAnimationRoot[data-director-step='11'],
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
-  .certificationTitle {
+  .directorSectionTitle {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .careerList > li:nth-child(n + 6) {
     opacity: 1;
     transform: translateY(0);
   }
@@ -189,7 +195,7 @@
 .directorPanelAnimationRoot[data-director-step='11'],
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
-  .certificationList li:nth-child(1) {
+  .certificationList > li:nth-child(1) {
     opacity: 1;
     transform: translateY(0);
   }
@@ -199,7 +205,7 @@
 .directorPanelAnimationRoot[data-director-step='11'],
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
-  .certificationList li:nth-child(2) {
+  .certificationList > li:nth-child(2) {
     opacity: 1;
     transform: translateY(0);
   }
@@ -208,7 +214,7 @@
 .directorPanelAnimationRoot[data-director-step='11'],
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
-  .certificationList li:nth-child(3) {
+  .certificationList > li:nth-child(3) {
     opacity: 1;
     transform: translateY(0);
   }
@@ -216,6 +222,11 @@
 
 .directorPanelAnimationRoot[data-director-step='12'],
 .directorPanelAnimationRoot[data-director-step='13'] {
+  .certificationList > li:nth-child(4) {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
   .directorInner::after,
   .directorImageWrap {
     opacity: 1;
@@ -224,6 +235,13 @@
 
   .directorInner::after {
     transform: translateY(0) rotate(-25.62deg);
+  }
+}
+
+.directorPanelAnimationRoot[data-director-step='13'] {
+  .certificationList > li:nth-child(5) {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -253,9 +271,9 @@
     .directorInner::before,
     .directorInner::after,
     .directorNameRow,
-    .careerList li,
-    .certificationTitle,
-    .certificationList li,
+    .careerList > li,
+    .directorSectionTitle,
+    .certificationList > li,
     .directorImageWrap {
       opacity: 1;
       transform: none;

@@ -48,7 +48,7 @@ const footerInformationLines: readonly (readonly FooterInfoItem[])[] = [
     { label: '사업자 등록번호', value: '139-17-02906' },
   ],
   [
-    { label: '대표 번호', value: '031-934-6224' },
+    { label: '대표 번호', value: '010-3859-8070' },
     { label: '이메일', value: 'sonoschool@naver.com' },
   ],
 ] as const;

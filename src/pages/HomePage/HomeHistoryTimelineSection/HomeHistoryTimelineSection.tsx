@@ -6,18 +6,35 @@ import { classNames } from '@/utils/classNames';
 import styles from './HomeHistoryTimelineSection.module.scss';
 
 const certifications = [
-  { id: 'rdms', name: 'RDMS', detail: 'AB, OB/GYN, PS, BS(Breast)' },
-  { id: 'rdcs', name: 'RDCS', detail: 'AE' },
-  { id: 'rvt', name: 'RVT', detail: 'Vascular' },
+  {
+    children: ['ABDOMEN', 'BREAST', 'OB/GYN', 'PEDIATRIC'],
+    label: 'RDMS',
+  },
+  { label: 'RDCS : ADULT ECHO' },
+  { label: 'RVT : VASTULAR' },
+  { label: 'CSRT 임상초음파사(상복부)' },
+  { label: 'CSRT 임상초음파사(심장)' },
 ] as const;
 
 const careers = [
-  '현) 소노스쿨 국제초음파연수원(SRDMS) 소장',
-  '현) 내과·소아과 근무',
-  'KAIS 대한초음파국제교류협회 학술위원',
-  'KRDMS 한국의료초음파연수원 수석강사',
-  'RDMS / PS PART 전임강사',
+  { label: '현) 소노스쿨 국제초음파연수원(SRDMS) 소장' },
+  { label: '현) 내과, 소아과에서 근무' },
+  { label: '현) HRD 사업단 교육강사' },
+  { label: '전) KAIS 대한초음파국제교류협회 학술위원' },
+  { label: '전) KRDMS 한국의료초음파연수원 수석강사' },
+  {
+    children: [
+      '대학병원 의국 교육',
+      '(주)제서 파트너십을 통한 전문의 대상 교육',
+      '동아ST 파트너십을 통한 전문의 교육',
+    ],
+    label: '대학병원 의국 및 의사 초음파 교육 (2003~)',
+  },
 ] as const;
+
+const getCareerStatusPrefix = (career: string) => {
+  return career.startsWith('현)') || career.startsWith('전)') ? career.slice(0, 2) : '';
+};
 
 const clamp = (value: number, min = 0, max = 1) => {
   return Math.min(Math.max(value, min), max);
@@ -305,22 +322,40 @@ const HomeHistoryTimelineSection = () => {
                 <p className={styles['directorRole']}>소장</p>
               </div>
 
+              <p className={styles['directorSectionTitle']}>소속 및 주요 활동</p>
               <ul className={styles['careerList']}>
-                {careers.map((career) => (
-                  <li key={career}>
-                    <span>{career.slice(0, 2) === '현)' ? career.slice(0, 2) : ''}</span>
-                    {career.slice(0, 2) === '현)' ? career.slice(2) : career}
-                  </li>
-                ))}
+                {careers.map((career) => {
+                  const statusPrefix = getCareerStatusPrefix(career.label);
+
+                  return (
+                    <li key={career.label}>
+                      <span>{statusPrefix}</span>
+                      {statusPrefix ? career.label.slice(2) : career.label}
+                      {'children' in career ? (
+                        <ul className={styles['nestedList']}>
+                          {career.children.map((child) => (
+                            <li key={child}>{child}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
 
               <div className={styles['certificationBlock']}>
-                <p className={styles['certificationTitle']}>보유 국제 자격</p>
+                <p className={styles['directorSectionTitle']}>보유 자격 (International Registry)</p>
                 <ul className={styles['certificationList']}>
                   {certifications.map((certification) => (
-                    <li key={certification.id}>
-                      {certification.name}
-                      <span>{certification.detail}</span>
+                    <li key={certification.label}>
+                      {certification.label}
+                      {'children' in certification ? (
+                        <ul className={styles['nestedList']}>
+                          {certification.children.map((child) => (
+                            <li key={child}>{child}</li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

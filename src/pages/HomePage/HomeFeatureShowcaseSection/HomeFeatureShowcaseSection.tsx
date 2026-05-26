@@ -5,43 +5,41 @@ import { classNames } from '@/utils/classNames';
 
 import styles from './HomeFeatureShowcaseSection.module.scss';
 
-const HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH = '/images/home/feature-showcase';
-
 const homeFeatureShowcaseCards = [
   {
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-1',
-    imageAlt: '초음파 판독 이론을 강의하는 소노스쿨 교육 현장',
-    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/ultrasound-reading-training.png`,
-    title: '상복부 초음파 검사 전 준비와 기본 스캔 순서 수업',
+    imageAlt: '내과 의국에서 진행된 현장 중심 초음파 실습 교육',
+    imageSrc: '/그림1-1 1.png',
+    titleLines: ['내과 의국에서 진행된', '현장 중심 초음파 실습 교육'],
   },
   {
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-2',
-    imageAlt: '실전 케이스를 설명하는 소노스쿨 초음파 강의 현장',
-    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/case-based-ultrasound-lecture.png`,
-    title: 'FAST 핵심 Window 훈련 현장 실습 이미지',
+    imageAlt: '대학병원 교수진과 함께한 실전 초음파 교육의 시간',
+    imageSrc: '/그림1-2 1.png',
+    titleLines: ['대학병원 교수진과 함께한', '실전 초음파 교육의 시간'],
   },
   {
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-3',
-    imageAlt: '소수 인원으로 진행되는 소노스쿨 핸즈온 수업 현장',
-    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/small-group-hands-on-class.png`,
-    title: '실전 케이스 중심 강의 및 소아 내분비 현장 실습형 강의 현장',
+    imageAlt: '전문의를 대상으로 진행한 장초음파 강의 현장',
+    imageSrc: '/그림1-3 1.png',
+    titleLines: ['전문의를 대상으로 진행한', '장초음파 강의 현장'],
   },
   {
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-4',
-    imageAlt: 'FAST 핵심 Window 훈련을 진행하는 소노스쿨 강의 현장',
-    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/fast-window-pocus-training.jpg`,
-    title: '소수 정예 핸즈온 수업 그룹형 진행 현장 이미지',
+    imageAlt: '지역의사회와 함께한 Head & Neck 초음파 강의',
+    imageSrc: '/images/home/feature-showcase/fast-window-pocus-training.jpg',
+    titleLines: ['지역의사회와 함께한', 'Head & Neck 초음파 강의'],
   },
   {
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-5',
-    imageAlt: '복부 초음파 기초 교육을 진행하는 소노스쿨 오프라인 강의 현장',
-    imageSrc: `${HOME_FEATURE_SHOWCASE_IMAGE_BASE_PATH}/abdominal-ultrasound-basic-course.png`,
-    title: '복부 초음파 기초 교육 및 소아 초음파 정규 과정',
+    imageAlt: '임상 질환 중심의 실전 초음파 교육 현장',
+    imageSrc: '/그림5 1.png',
+    titleLines: ['임상 질환 중심의', '실전 초음파 교육 현장'],
   },
 ] as const;
 
@@ -130,6 +128,7 @@ type IntroRevealStyle = CSSProperties & {
   '--intro-heading-line-1-position': string;
   '--intro-heading-line-2-position': string;
   '--intro-heading-line-3-position': string;
+  '--intro-heading-line-4-position': string;
   '--intro-heading-progress': number;
   '--intro-heading-y': string;
 };
@@ -170,9 +169,10 @@ const HomeFeatureShowcaseSection = () => {
       const exitProgress = easeInOutProgress(
         clamp((viewportHeight * 0.82 - rect.bottom) / (viewportHeight * 0.42)),
       );
-      const line1Progress = easeInOutProgress(clamp(fillProgress * 3));
-      const line2Progress = easeInOutProgress(clamp(fillProgress * 3 - 1));
-      const line3Progress = easeInOutProgress(clamp(fillProgress * 3 - 2));
+      const line1Progress = easeInOutProgress(clamp(fillProgress * 4));
+      const line2Progress = easeInOutProgress(clamp(fillProgress * 4 - 1));
+      const line3Progress = easeInOutProgress(clamp(fillProgress * 4 - 2));
+      const line4Progress = easeInOutProgress(clamp(fillProgress * 4 - 3));
       const translateY = (1 - easedAppearProgress) * 34;
 
       introSceneElement.style.setProperty('--intro-heading-blur', '0px');
@@ -195,6 +195,10 @@ const HomeFeatureShowcaseSection = () => {
       introSceneElement.style.setProperty(
         '--intro-heading-line-3-position',
         `${(100 - line3Progress * 100).toFixed(2)}%`,
+      );
+      introSceneElement.style.setProperty(
+        '--intro-heading-line-4-position',
+        `${(100 - line4Progress * 100).toFixed(2)}%`,
       );
       introSceneElement.style.setProperty(
         '--intro-heading-progress',
@@ -457,6 +461,7 @@ const HomeFeatureShowcaseSection = () => {
     '--intro-heading-line-1-position': '100%',
     '--intro-heading-line-2-position': '100%',
     '--intro-heading-line-3-position': '100%',
+    '--intro-heading-line-4-position': '100%',
     '--intro-heading-progress': 0,
     '--intro-heading-y': '34px',
   };
@@ -467,9 +472,10 @@ const HomeFeatureShowcaseSection = () => {
         <div className={styles['intro']}>
           <h2 className={styles['introHeading']} id='home-feature-showcase-heading'>
             <span className={styles['introHeadingText']}>
-              <span>의료진의 성장을 위한</span>
-              <span>선명한 초음파 교육,</span>
-              <span>소노스쿨입니다.</span>
+              <span>실전 중심 초음파 교육</span>
+              <span>증상에서 청구까지</span>
+              <span>삭감 ZERO 임상 프로세스</span>
+              <span>초음파는 소노스쿨입니다.</span>
             </span>
           </h2>
         </div>
@@ -535,7 +541,14 @@ const HomeFeatureShowcaseSection = () => {
                   <div className={styles['cardCopy']}>
                     <div className={styles['cardTextBlock']}>
                       <p className={styles['cardCategory']}>{card.category}</p>
-                      <p className={styles['cardTitle']}>{card.title}</p>
+                      <p className={styles['cardTitle']}>
+                        {card.titleLines.map((line, index) => (
+                          <span key={line}>
+                            {index > 0 ? <br /> : null}
+                            {line}
+                          </span>
+                        ))}
+                      </p>
                     </div>
                   </div>
                 </article>

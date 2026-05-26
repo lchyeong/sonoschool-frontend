@@ -3650,45 +3650,131 @@
   min-width: 0;
 }
 
-.programTable th:nth-child(1),
-.programTable td:nth-child(1) {
-  width: 18%;
+.table.programTable {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
 }
 
-.programTable th:nth-child(2),
-.programTable td:nth-child(2) {
-  width: 12%;
+.table.programTable th,
+.table.programTable td {
+  padding: var(--space-3);
 }
 
-.programTable th:nth-child(3),
-.programTable td:nth-child(3) {
+.table.programTable th:nth-child(1),
+.table.programTable td:nth-child(1) {
+  width: 25%;
+  overflow-wrap: anywhere;
+}
+
+.table.programTable th:nth-child(2),
+.table.programTable td:nth-child(2) {
+  width: 11%;
+  overflow-wrap: anywhere;
+}
+
+.table.programTable th:nth-child(3),
+.table.programTable td:nth-child(3) {
+  width: 10%;
+  overflow-wrap: anywhere;
+}
+
+.table.programTable th:nth-child(4),
+.table.programTable td:nth-child(4) {
+  width: 10%;
+}
+
+.table.programTable th:nth-child(5),
+.table.programTable td:nth-child(5) {
   width: 8%;
 }
 
-.programTable th:nth-child(4),
-.programTable td:nth-child(4) {
-  width: 10%;
+.table.programTable th:nth-child(6),
+.table.programTable td:nth-child(6) {
+  width: 16%;
 }
 
-.programTable th:nth-child(5),
-.programTable td:nth-child(5) {
-  width: 9%;
-}
-
-.programTable th:nth-child(6),
-.programTable td:nth-child(6) {
-  width: 15%;
-}
-
-.programTable th:nth-child(7),
-.programTable td:nth-child(7) {
-  width: 10%;
+.table.programTable th:nth-child(7),
+.table.programTable td:nth-child(7) {
+  width: 8%;
   white-space: nowrap;
 }
 
-.programTable th:nth-child(8),
-.programTable td:nth-child(8) {
-  width: 18%;
+.table.programTable th:nth-child(8),
+.table.programTable td:nth-child(8) {
+  width: 12%;
+}
+
+.programTable .tableActionGroup {
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.programTable .tableActionButton,
+.programTable .tableActionButtonDanger {
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+}
+
+.programTable .cellPrimary,
+.programTable .cellSecondary {
+  overflow-wrap: anywhere;
+}
+
+.programTable .badge,
+.programTable .badgeAccent,
+.programTable .badgeDanger,
+.programTable .badgeSuccess {
+  white-space: normal;
+}
+
+.programTable .programFeatureCheckbox {
+  gap: 6px;
+  white-space: normal;
+}
+
+.programTable .noticeCheckboxBox {
+  flex: 0 0 auto;
+}
+
+.table.programTable td:nth-child(8) {
+  padding-right: calc(var(--space-3) + 10px);
+}
+
+@media (width >= 1280px) {
+  .table.programTable th:nth-child(1),
+  .table.programTable td:nth-child(1) {
+    width: 27%;
+  }
+
+  .table.programTable th:nth-child(6),
+  .table.programTable td:nth-child(6) {
+    width: 14%;
+  }
+
+  .table.programTable th:nth-child(8),
+  .table.programTable td:nth-child(8) {
+    width: 10%;
+  }
+}
+
+@media (width < 1180px) {
+  .table.programTable th,
+  .table.programTable td {
+    padding: 10px;
+  }
+
+  .table.programTable {
+    font-size: var(--font-size-xs);
+  }
+
+  .programTable .tableActionButton,
+  .programTable .tableActionButtonDanger {
+    padding: 0 6px;
+  }
 }
 
 .table th:nth-child(1),

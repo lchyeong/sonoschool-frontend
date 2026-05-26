@@ -467,7 +467,6 @@ const AdminProgramListSection = () => {
                     <th className={styles['programFeatureHeader']} scope='col'>
                       메인 슬라이드
                     </th>
-                    <th scope='col'>공개 상태</th>
                     <th scope='col'>관리</th>
                   </tr>
                 </thead>
@@ -485,16 +484,23 @@ const AdminProgramListSection = () => {
                       >
                         <td>
                           <div className={styles['cellStack']}>
-                            {warning ? (
-                              <div className={styles['metaRow']}>
+                            <div className={styles['metaRow']}>
+                              <span
+                                className={
+                                  item.published ? styles['badgeSuccess'] : styles['badge']
+                                }
+                              >
+                                {buildProgramVisibilityLabel(item)}
+                              </span>
+                              {warning ? (
                                 <span
                                   className={styles['badgeDanger']}
                                   title={warning.reason ?? undefined}
                                 >
                                   {warning.label}
                                 </span>
-                              </div>
-                            ) : null}
+                              ) : null}
+                            </div>
                             <strong className={styles['cellPrimary']}>{item.title}</strong>
                             {warning?.reason ? (
                               <span className={styles['cellSecondary']}>{warning.reason}</span>
@@ -559,13 +565,6 @@ const AdminProgramListSection = () => {
                             </span>
                             <span>노출</span>
                           </label>
-                        </td>
-                        <td>
-                          <span
-                            className={item.published ? styles['badgeSuccess'] : styles['badge']}
-                          >
-                            {buildProgramVisibilityLabel(item)}
-                          </span>
                         </td>
                         <td>
                           <div className={styles['tableActionGroup']}>

@@ -13,6 +13,7 @@
   --intro-heading-line-1-position: 100%;
   --intro-heading-line-2-position: 100%;
   --intro-heading-line-3-position: 100%;
+  --intro-heading-line-4-position: 100%;
   --intro-heading-progress: 0;
   --intro-heading-y: 34px;
 
@@ -67,6 +68,10 @@
 
     &:nth-child(3) {
       background-position-x: var(--intro-heading-line-3-position);
+    }
+
+    &:nth-child(4) {
+      background-position-x: var(--intro-heading-line-4-position);
     }
   }
 }
@@ -260,6 +265,10 @@
   width: 100%;
   height: 71.664%;
   object-fit: cover;
+}
+
+.cardItem:nth-child(1) .cardImage {
+  object-position: right center;
 }
 
 .cardCopy {

@@ -33,9 +33,9 @@ describe('CommonFooter', () => {
       'https://blog.naver.com/sonoschool',
     );
     expect(screen.getByText('139-17-02906')).toBeInTheDocument();
-    expect(screen.getByText('031-934-6224')).toBeInTheDocument();
+    expect(screen.getByText('010-3859-8070')).toBeInTheDocument();
     expect(screen.getByText('sonoschool@naver.com')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '031-934-6224' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '010-3859-8070' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'sonoschool@naver.com' })).not.toBeInTheDocument();
     expect(screen.getByText('2018-성남분당B-0062')).toBeInTheDocument();
     expect(
