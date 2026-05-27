@@ -109,7 +109,7 @@
 }
 
 .inputWithTimer {
-  padding-right: 106px;
+  padding-right: 128px;
 }
 
 .checkButton,
@@ -225,15 +225,30 @@
   }
 }
 
-.timerText {
+.timerGroup {
   position: absolute;
   top: 50%;
   right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: #34b29f;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.timerIcon {
+  display: block;
+  width: 19px;
+  height: 19px;
+}
+
+.timerText {
   font-size: 18px;
   font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
   line-height: 1.3;
-  transform: translateY(-50%);
+  white-space: nowrap;
 }
 
 .consentGroup {
@@ -418,6 +433,11 @@
   .loginLink,
   .timerText {
     font-size: 16px;
+  }
+
+  .timerIcon {
+    width: 17px;
+    height: 17px;
   }
 
   .checkboxRow {

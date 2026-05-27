@@ -15,6 +15,7 @@ import {
 import { ApiError } from '@/api/errors';
 import checkIconSrc from '@/assets/icons/lucide_check_white_20.svg';
 import circleCheckIconSrc from '@/assets/icons/lucide_circle-check.svg';
+import clockIconSrc from '@/assets/icons/lucide_clock_sono.svg';
 import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
 import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
 import LegalPolicyModal from '@/components/policy/LegalPolicyModal';
@@ -66,6 +67,11 @@ interface AvailabilityCheckState {
   isAvailable: boolean | null;
 }
 
+interface StoredSignupSmsVerification {
+  phoneNumber: string;
+  expiresAt: string;
+}
+
 const INITIAL_FORM_VALUES: SignupFormValues = {
   loginId: '',
   email: '',
@@ -92,6 +98,7 @@ const INITIAL_AVAILABILITY_STATE: AvailabilityCheckState = {
 
 const PHONE_ALREADY_EXISTS_ERROR_MESSAGE = '이미 등록된 휴대폰 번호입니다.';
 const SIGNUP_FAILED_TOAST_MESSAGE = '회원가입을 완료하지 못했습니다.\n잠시 후 다시 시도해 주세요.';
+const SIGNUP_SMS_STORAGE_KEY = 'sonoschool:signup:sms-verification';
 
 const normalizePhoneNumber = (value: string): string => {
   let digits = value.replaceAll(/\D/g, '');
@@ -144,6 +151,57 @@ const getRemainingSeconds = (expiresAt: string | null): number => {
   return remainingMilliseconds > 0 ? Math.ceil(remainingMilliseconds / 1000) : 0;
 };
 
+const readStoredSignupSmsVerification = (): StoredSignupSmsVerification | null => {
+  if (typeof window === 'undefined') return null;
+
+  const removeStoredValue = () => {
+    try {
+      window.sessionStorage.removeItem(SIGNUP_SMS_STORAGE_KEY);
+    } catch {
+      // Storage failures should not block SMS verification.
+    }
+  };
+
+  try {
+    const serialized = window.sessionStorage.getItem(SIGNUP_SMS_STORAGE_KEY);
+    if (!serialized) return null;
+
+    const parsed = JSON.parse(serialized) as Partial<StoredSignupSmsVerification>;
+    if (!parsed.phoneNumber || !parsed.expiresAt || getRemainingSeconds(parsed.expiresAt) === 0) {
+      removeStoredValue();
+      return null;
+    }
+
+    return {
+      phoneNumber: parsed.phoneNumber,
+      expiresAt: parsed.expiresAt,
+    };
+  } catch {
+    removeStoredValue();
+    return null;
+  }
+};
+
+const saveSignupSmsVerification = (verification: StoredSignupSmsVerification): void => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.setItem(SIGNUP_SMS_STORAGE_KEY, JSON.stringify(verification));
+  } catch {
+    // Storage failures should not block SMS verification.
+  }
+};
+
+const clearStoredSignupSmsVerification = (): void => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.removeItem(SIGNUP_SMS_STORAGE_KEY);
+  } catch {
+    // Storage failures should not block SMS verification.
+  }
+};
+
 const formatRemainingTimeLabel = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
@@ -173,10 +231,24 @@ const SignupPage = () => {
   const setSession = useAuthStore((state) => state.setSession);
   const showToast = useToastStore((state) => state.showToast);
   const firstInvalidInputRef = useRef<HTMLInputElement | null>(null);
+  const [restoredSmsVerification] = useState(readStoredSignupSmsVerification);
 
-  const [formValues, setFormValues] = useState<SignupFormValues>(INITIAL_FORM_VALUES);
+  const [formValues, setFormValues] = useState<SignupFormValues>(() => ({
+    ...INITIAL_FORM_VALUES,
+    phoneNumber: restoredSmsVerification?.phoneNumber ?? '',
+  }));
   const [formErrors, setFormErrors] = useState<SignupFormErrors>({});
-  const [smsState, setSmsState] = useState<SmsVerificationState>(INITIAL_SMS_STATE);
+  const [smsState, setSmsState] = useState<SmsVerificationState>(() => {
+    if (!restoredSmsVerification) return INITIAL_SMS_STATE;
+
+    return {
+      sentPhoneNumber: restoredSmsVerification.phoneNumber,
+      expiresAt: restoredSmsVerification.expiresAt,
+      verifiedPhoneNumber: null,
+      verifiedAt: null,
+      verificationToken: null,
+    };
+  });
   const [acceptedTermKeys, setAcceptedTermKeys] = useState<string[]>([]);
   const [loginIdAvailability, setLoginIdAvailability] = useState<AvailabilityCheckState>(
     INITIAL_AVAILABILITY_STATE,
@@ -184,7 +256,9 @@ const SignupPage = () => {
   const [emailAvailability, setEmailAvailability] = useState<AvailabilityCheckState>(
     INITIAL_AVAILABILITY_STATE,
   );
-  const [smsCountdownSeconds, setSmsCountdownSeconds] = useState(0);
+  const [smsCountdownSeconds, setSmsCountdownSeconds] = useState(() =>
+    getRemainingSeconds(restoredSmsVerification?.expiresAt ?? null),
+  );
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isPasswordConfirmVisible, setIsPasswordConfirmVisible] = useState(false);
   const [activePolicyType, setActivePolicyType] = useState<LegalPolicyType | null>(null);
@@ -244,6 +318,7 @@ const SignupPage = () => {
       setSmsCountdownSeconds(() => {
         if (nextRemainingSeconds === 0) {
           window.clearInterval(intervalId);
+          clearStoredSignupSmsVerification();
         }
 
         return nextRemainingSeconds;
@@ -291,6 +366,10 @@ const SignupPage = () => {
         verifiedAt: null,
         verificationToken: null,
       });
+      saveSignupSmsVerification({
+        phoneNumber: response.phoneNumber,
+        expiresAt: response.expiresAt,
+      });
       setSmsCountdownSeconds(getRemainingSeconds(response.expiresAt));
       showToast({
         message: `${formatPhoneNumberLabel(response.phoneNumber)} 번호로 인증번호를 보냈습니다.`,
@@ -330,6 +409,7 @@ const SignupPage = () => {
         verifiedAt: response.verifiedAt,
         verificationToken: response.verificationToken,
       }));
+      clearStoredSignupSmsVerification();
       setSmsCountdownSeconds(0);
       showToast({
         message: '휴대폰 인증이 완료되었습니다.',
@@ -468,6 +548,7 @@ const SignupPage = () => {
       ) {
         setSmsState(INITIAL_SMS_STATE);
         setSmsCountdownSeconds(0);
+        clearStoredSignupSmsVerification();
       }
 
       if (fieldName === 'loginId' && formValues.loginId !== nextValue) {
@@ -1047,8 +1128,12 @@ const SignupPage = () => {
                   {sendSmsMutation.isPending
                     ? '발송 중...'
                     : smsState.verifiedAt
-                      ? '발송 완료'
-                      : '인증번호 받기'}
+                      ? '인증 완료'
+                      : isSmsCodeVisible && !isSmsExpired
+                        ? '발송 완료'
+                        : isSmsExpired
+                          ? '재발송'
+                          : '인증번호 받기'}
                 </Button>
               </div>
             </div>
@@ -1077,8 +1162,11 @@ const SignupPage = () => {
                     !isPhoneVerified &&
                     smsCountdownSeconds > 0 &&
                     !hasFieldError('smsCode') ? (
-                      <span className={styles['timerText']}>
-                        {formatRemainingTimeLabel(smsCountdownSeconds)}
+                      <span className={styles['timerGroup']}>
+                        <img alt='' className={styles['timerIcon']} src={clockIconSrc} />
+                        <span className={styles['timerText']}>
+                          {formatRemainingTimeLabel(smsCountdownSeconds)}
+                        </span>
                       </span>
                     ) : null}
                     {hasFieldError('smsCode') ? (
