@@ -52,14 +52,21 @@ const formatFileSize = (bytes: number): string => {
   return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
 };
 
-const getFileExtensionLabel = (fileName: string, mimeType: string): string => {
-  const extension = fileName.split('.').pop()?.trim().toUpperCase();
+const getFileExtensionLabel = (fileName: string, mimeType: string | null): string => {
+  const extensionSeparatorIndex = fileName.lastIndexOf('.');
+  const extension =
+    extensionSeparatorIndex >= 0 && extensionSeparatorIndex < fileName.length - 1
+      ? fileName
+          .slice(extensionSeparatorIndex + 1)
+          .trim()
+          .toUpperCase()
+      : '';
 
   if (extension) {
     return extension.length <= 6 ? extension : extension.slice(0, 6);
   }
 
-  if (mimeType.includes('pdf')) {
+  if (mimeType?.includes('pdf')) {
     return 'PDF';
   }
 
@@ -205,7 +212,9 @@ const ResourceDetailPage = () => {
         </header>
 
         <section className={styles['contentPanel']} aria-label='자료실 본문'>
-          <p className={styles['resourceDescription']}>{resource.description}</p>
+          <p className={styles['resourceDescription']}>
+            {resource.description?.trim() || '등록된 설명이 없습니다.'}
+          </p>
         </section>
 
         <section className={styles['attachmentPanel']} aria-labelledby='resource-attachment-title'>

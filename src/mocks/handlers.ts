@@ -1354,7 +1354,7 @@ export const handlers = [
     return new HttpResponse(`mock content for ${attachment.fileName}`, {
       headers: {
         'Content-Disposition': `attachment; filename="${attachment.fileName}"`,
-        'Content-Type': attachment.mimeType,
+        'Content-Type': attachment.mimeType ?? 'application/octet-stream',
       },
       status: 200,
     });

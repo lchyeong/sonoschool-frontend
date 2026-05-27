@@ -58,6 +58,10 @@ const ResourcesPage = () => {
       ];
 
       return searchableFields.some((field) => {
+        if (typeof field !== 'string') {
+          return false;
+        }
+
         return field.toLowerCase().includes(normalizedSearchTerm);
       });
     });

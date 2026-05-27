@@ -112,6 +112,11 @@ const infoItemSchema = z.object({
   value: z.string().min(1),
 });
 
+const optionalNullableTextSchema = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z.string().trim().optional(),
+);
+
 const faqItemSchema = z.object({
   answer: z.string().min(1),
   id: z.string().min(1),
@@ -142,7 +147,7 @@ const curriculumScheduleItemSchema = z.object({
 
 const curriculumLessonSchema = z.object({
   deliveryType: z.enum(['online', 'offline', 'practicum', 'problem', 'resource']),
-  description: z.string().trim().optional(),
+  description: optionalNullableTextSchema,
   durationLabel: z.string().min(1),
   durationMinutes: z.number().int().nonnegative().nullable(),
   endDate: z.string().min(1).nullable(),

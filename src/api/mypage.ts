@@ -147,6 +147,27 @@ const sanitizeEnrollmentSummary = (enrollment: EnrollmentSummary): EnrollmentSum
   programThumbnailUrl: sanitizePublicAssetUrl(enrollment.programThumbnailUrl),
 });
 
+const normalizeOptionalText = (value: unknown): string | undefined => {
+  return typeof value === 'string' ? value : undefined;
+};
+
+const normalizeLearningPlayerSnapshot = (
+  snapshot: LearningPlayerSnapshot,
+): LearningPlayerSnapshot => ({
+  ...snapshot,
+  curriculumTrack: {
+    ...snapshot.curriculumTrack,
+    sections: snapshot.curriculumTrack.sections.map((section) => ({
+      ...section,
+      description: normalizeOptionalText(section.description) ?? '',
+      lessons: section.lessons.map((lesson) => ({
+        ...lesson,
+        description: normalizeOptionalText(lesson.description),
+      })),
+    })),
+  },
+});
+
 const getProgramIdFromSearchItemId = (id: string): number | null => {
   const match = /^lecture-(\d+)$/.exec(id);
 
@@ -459,7 +480,7 @@ export const fetchMyLearningPlayerSnapshot = async (
     const response = await axiosInstance.get<ApiEnvelope<LearningPlayerSnapshot>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}/player`,
     );
-    return unwrapApiEnvelope(response.data);
+    return normalizeLearningPlayerSnapshot(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
     throw toApiError(error, '온라인 수강 정보를 불러오지 못했습니다.');
   }

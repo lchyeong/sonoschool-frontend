@@ -6,7 +6,7 @@ export interface ResourceAttachmentItem {
   publicSlug: string;
   fileName: string;
   fileSize: number;
-  mimeType: string;
+  mimeType: string | null;
   sortOrder: number;
 }
 
@@ -18,7 +18,7 @@ export interface ResourceItem {
   programId: number | null;
   programTitle: string | null;
   title: string;
-  description: string;
+  description: string | null;
   createdAt: string;
   attachments: ResourceAttachmentItem[];
 }

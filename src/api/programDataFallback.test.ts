@@ -116,6 +116,117 @@ describe('program data API fallback', () => {
     });
   });
 
+  it('accepts nullable curriculum lesson descriptions from deployed program page responses', async () => {
+    httpGetMock.mockResolvedValue({
+      applicationStatusDescription: '지금 바로 장바구니 또는 결제로 이동할 수 있습니다.',
+      applicationStatusLabel: '신청 가능',
+      availabilityAlertAvailable: false,
+      breadcrumbItems: [
+        { label: '교육과정', to: '/programs' },
+        { label: 'ARDMS', to: '/programs/online-course' },
+        { label: 'SPI', to: '/programs/online-course/spi' },
+        { label: '최신 시험 완벽 대비 프로그램', to: '/programs/online-course/spi/course-1' },
+      ],
+      catalogStatus: 'OPEN',
+      categoryLabel: '핵심이론',
+      curriculumTrack: {
+        id: 'program-9-track',
+        sections: [
+          {
+            description: 'SPI 시험 대비 섹션입니다.',
+            durationLabel: '1강',
+            id: '13',
+            lessons: [
+              {
+                deliveryType: 'resource',
+                description: null,
+                durationLabel: '-',
+                durationMinutes: null,
+                endDate: null,
+                id: '28',
+                offlineSchedules: [],
+                questionCount: 0,
+                startDate: null,
+                title: '자료입니다',
+              },
+            ],
+            title: 'INTRO',
+          },
+        ],
+        summaryItems: ['섹션 1개', '강의 1개'],
+        summaryKind: 'decimal',
+        title: '최신 시험 완벽 대비 프로그램 커리큘럼',
+      },
+      description: 'SPI 최신 출제 경향을 반영한 실전 중심 강의입니다.',
+      difficultyLabel: '입문',
+      discountRateLabel: '할인 없음',
+      discountedPriceLabel: '200,000원',
+      durationLabel: '상시 수강',
+      enrollmentAvailable: true,
+      faqItems: [
+        {
+          answer: 'A. 기본 개념부터 단계적으로 설명합니다.',
+          id: 'faq-1',
+          question: 'Q. 초보자도 수강이 가능한가요?',
+        },
+      ],
+      formatLabel: '온라인 강의',
+      heroImageAlt: '최신 시험 완벽 대비 프로그램 대표 이미지',
+      heroImageCropOffsetX: 0,
+      heroImageCropOffsetY: 0,
+      heroImageCropZoom: 1,
+      heroImageSrc: 'https://media.sonoschool.kr/assets/programs/thumbnails/SPI.png',
+      instructor: {
+        careerHighlights: ['임상 및 문제 적용능력 향상'],
+        headline: '소노스쿨 강사의 실제 운영 강의',
+        introduction: '최신 시험 완벽 대비 프로그램 강의의 핵심을 중심으로 운영합니다.',
+        name: '소노스쿨',
+        profileImageAlt: '소노스쿨 프로필 이미지',
+        profileImageSrc: '/SRDMS_OG.png',
+      },
+      kicker: '핵심이론 | 온라인 강의',
+      learningOutcomes: [{ label: '임상 및 문제 적용능력 향상', value: '문제 적용 능력 향상' }],
+      monthlyInstallmentLabel: '월 33,333원 (6개월 기준)',
+      originalPriceLabel: '200,000원',
+      overallRating: 0,
+      pageKind: 'detail',
+      preparationChecklist: ['SPI 시험 대비를 시작하려는 경우'],
+      programId: 9,
+      qnaSummary: {
+        answeredThreadCount: 0,
+        totalThreadCount: 0,
+      },
+      recommendedFor: ['SPI 시험을 준비하는 수험자'],
+      registrationPeriodLabel: '상시 모집',
+      relatedLectures: [],
+      reviewCount: 0,
+      reviews: [],
+      scheduleLabel: '상시 수강',
+      stats: [{ label: '최신 SPI 시험 경향 반영', value: '최근 SPI 출제 경향 반영' }],
+      title: '최신 시험 완벽 대비 프로그램',
+      tuitionLabel: '200,000원',
+    });
+
+    await expect(
+      fetchProgramPage('/programs/online-course/spi/cat-2a34c8511902/course-eb4b750f165b'),
+    ).resolves.toMatchObject({
+      curriculumTrack: {
+        sections: [
+          {
+            lessons: [
+              {
+                description: undefined,
+                title: '자료입니다',
+              },
+            ],
+          },
+        ],
+      },
+      pageKind: 'detail',
+      title: '최신 시험 완벽 대비 프로그램',
+    });
+  });
+
   it('keeps rejecting when the navigation API fails', async () => {
     const error = new Error('navigation failed');
 

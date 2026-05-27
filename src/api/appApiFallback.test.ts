@@ -35,7 +35,13 @@ vi.mock('@/api/axiosInstance', () => {
 
 import { fetchRegistrationTerms, loginStudent } from '@/api/auth';
 import { fetchAdminProgramsLive } from '@/api/adminProgramsLive';
-import { addMyCartItem, fetchMyProfile, removeMyCartItem, updateMyProfile } from '@/api/mypage';
+import {
+  addMyCartItem,
+  fetchMyLearningPlayerSnapshot,
+  fetchMyProfile,
+  removeMyCartItem,
+  updateMyProfile,
+} from '@/api/mypage';
 import { createAdminNoticeLive } from '@/api/notices';
 import { fetchPaymentResult, fetchPaymentResultByToken } from '@/api/payments';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -133,6 +139,66 @@ describe('app API fallback', () => {
     ).rejects.toBeTruthy();
 
     await expect(removeMyCartItem(55)).rejects.toBeTruthy();
+  });
+
+  it('normalizes nullable curriculum descriptions in my learning player snapshots', async () => {
+    axiosGetMock.mockResolvedValueOnce({
+      data: {
+        data: {
+          completedLessonIds: [],
+          currentLessonId: null,
+          curriculumTrack: {
+            id: 'track-1',
+            sections: [
+              {
+                description: null,
+                durationLabel: '1강',
+                id: 'section-1',
+                lessons: [
+                  {
+                    deliveryType: 'resource',
+                    description: null,
+                    durationLabel: '-',
+                    durationMinutes: null,
+                    endDate: null,
+                    id: 'lesson-1',
+                    offlineSchedules: [],
+                    questionCount: 0,
+                    startDate: null,
+                    title: '자료',
+                  },
+                ],
+                summaryItems: [],
+                title: 'INTRO',
+              },
+            ],
+            summaryItems: ['1강'],
+            summaryKind: 'decimal',
+            title: '커리큘럼',
+          },
+          lastPlaybackAt: null,
+          lessonPlaybackById: {},
+          nextLessonId: null,
+          resumeAtSeconds: 0,
+        },
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    await expect(fetchMyLearningPlayerSnapshot(101)).resolves.toMatchObject({
+      curriculumTrack: {
+        sections: [
+          {
+            description: '',
+            lessons: [
+              {
+                description: undefined,
+              },
+            ],
+          },
+        ],
+      },
+    });
   });
 
   it('keeps admin read requests failing when live endpoints are unavailable', async () => {

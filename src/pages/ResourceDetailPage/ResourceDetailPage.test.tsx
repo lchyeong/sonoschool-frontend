@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { server } from '@/mocks/server';
 import ResourceDetailPage from '@/pages/ResourceDetailPage/ResourceDetailPage';
 
 const createTestQueryClient = () => {
@@ -67,5 +69,58 @@ describe('ResourceDetailPage', () => {
     expect(
       screen.queryByRole('dialog', { name: '자료를 다운로드하시겠어요?' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('renders nullable resource descriptions and attachment mime types safely', async () => {
+    server.use(
+      http.get('*/api/v1/resources/resource-null-fields', () => {
+        return HttpResponse.json({
+          data: {
+            attachments: [
+              {
+                documentId: 901,
+                fileName: 'resource-without-extension',
+                fileSize: 2048,
+                mimeType: null,
+                publicSlug: 'resource-null-fields-file',
+                sortOrder: 1,
+              },
+            ],
+            createdAt: '2026-03-04T09:00:00Z',
+            description: null,
+            id: 901,
+            programId: null,
+            programTitle: null,
+            publicSlug: 'resource-null-fields',
+            scope: 'GLOBAL',
+            title: 'null 필드 자료',
+            visibility: 'PUBLIC',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }),
+    );
+
+    const queryClient = createTestQueryClient();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/resources/resource-null-fields']}>
+          <Routes>
+            <Route element={<ResourceDetailPage />} path='/resources/:resourceSlug' />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'null 필드 자료' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('등록된 설명이 없습니다.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'resource-without-extension 다운로드' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '자료를 다운로드하시겠어요?' });
+    expect(within(dialog).getByText('FILE')).toBeInTheDocument();
   });
 });
