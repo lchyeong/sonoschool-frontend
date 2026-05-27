@@ -4229,16 +4229,26 @@ const AdminProgramCreateWorkspace = ({
     const { file } = pendingSelection;
 
     try {
+      if (draftId === null) {
+        throw new Error('프로그램 초안을 먼저 저장해 주세요.');
+      }
+
+      setQuestionUploadStatus((current) => ({
+        ...current,
+        [uploadKey]: '초안 저장 중',
+      }));
+
+      const saved = await flushPendingDraftSave({ force: true });
+      if (!saved) {
+        throw new Error('강의 정보를 임시저장한 뒤 다시 업로드해 주세요.');
+      }
+
       setQuestionUploadStatus((current) => ({
         ...current,
         [uploadKey]: '문제 미디어 업로드 중',
       }));
 
       if (file.type.startsWith('video/')) {
-        if (draftId === null) {
-          throw new Error('프로그램 초안을 먼저 저장해 주세요.');
-        }
-
         const encodedVideo = await uploadAndEncodeVideo(file, {
           onEncodingProgress: (progressPercent) => {
             setQuestionUploadStatus((current) => ({
