@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -9,6 +9,7 @@ import {
   deleteAdminResource,
   updateAdminResource,
 } from '@/api/adminResources';
+import AdminFileDropZone from '@/components/admin/AdminFileDropZone';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { adminCurriculumQueryKey, useAdminCurriculumQuery } from '@/query/useAdminCurriculumQuery';
@@ -21,6 +22,7 @@ import type { AdminResourceUpsertPayload, AdminResourceVisibility } from '@/type
 import styles from './AdminConsolePage.module.scss';
 import { formatFileSizeLabel } from './adminConsolePageShared';
 import {
+  RESOURCE_DOCUMENT_ACCEPT,
   RESOURCE_DOCUMENT_POLICY_HINT,
   validateResourceDocumentPolicy,
 } from './resourceDocumentPolicy';
@@ -99,6 +101,10 @@ const formatFileSizeInMb = (bytes: number): string => {
   return `${Math.max(0.01, bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
+const getTitleFromFileName = (fileName: string): string => {
+  return fileName.replace(/\.[^.]+$/, '');
+};
+
 const validateForm = (formState: ResourceFormState): string | null => {
   if (!formState.title.trim()) {
     return '자료 게시글 제목을 입력해 주세요.';
@@ -135,9 +141,33 @@ const AdminProgramResourcesSection = ({
   const curriculumQuery = useAdminCurriculumQuery(programId, enabled && programId !== null);
   const [editForms, setEditForms] = useState<Record<number, ResourceFormState>>({});
   const [createForms, setCreateForms] = useState<Record<number, ResourceFormState>>({});
+  const [pendingResourceFiles, setPendingResourceFiles] = useState<
+    Record<string, File | undefined>
+  >({});
   const [uploadingFormKey, setUploadingFormKey] = useState<string | null>(null);
   const requestedLectureParam = searchParams.get('lectureId');
   const requestedLectureId = requestedLectureParam === null ? null : Number(requestedLectureParam);
+  const hasUploadedResourcePendingSave =
+    Object.values(editForms).some((form) => form.mediaAssetId !== null) ||
+    Object.values(createForms).some((form) => form.mediaAssetId !== null);
+  const hasSelectedResourcePendingUpload = Object.keys(pendingResourceFiles).length > 0;
+
+  useEffect(() => {
+    const shouldWarnBeforeUnload =
+      hasSelectedResourcePendingUpload || hasUploadedResourcePendingSave;
+    if (!shouldWarnBeforeUnload) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasSelectedResourcePendingUpload, hasUploadedResourcePendingSave]);
 
   const lectureOptions = useMemo<LectureOption[]>(() => {
     const options = (curriculumQuery.data ?? []).flatMap((section) =>
@@ -253,6 +283,7 @@ const AdminProgramResourcesSection = ({
       });
       await uploadAdminResourceFile(uploadTarget.uploadUrl, file);
       applyUploadedFile(file, uploadTarget.assetId);
+      setPendingResourceFiles(({ [formKey]: _removed, ...next }) => next);
       showToast({ message: '자료 파일을 업로드했습니다.', variant: 'success' });
     } catch (error: unknown) {
       showToast({
@@ -262,6 +293,37 @@ const AdminProgramResourcesSection = ({
     } finally {
       setUploadingFormKey(null);
     }
+  };
+
+  const selectResourceFile = (
+    file: File | null,
+    formKey: string,
+    applySelectedFile: (file: File) => void,
+  ) => {
+    if (!file) {
+      return;
+    }
+
+    const validationMessage = validateResourceDocumentPolicy({
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    });
+
+    if (validationMessage) {
+      showToast({ message: validationMessage, variant: 'error' });
+      return;
+    }
+
+    setPendingResourceFiles((current) => ({
+      ...current,
+      [formKey]: file,
+    }));
+    applySelectedFile(file);
+  };
+
+  const clearPendingResourceFile = (formKey: string) => {
+    setPendingResourceFiles(({ [formKey]: _removed, ...next }) => next);
   };
 
   const createMutation = useMutation({
@@ -372,6 +434,8 @@ const AdminProgramResourcesSection = ({
               (document) => document.lectureId === lecture.id,
             );
             const createForm = createForms[lecture.id] ?? createEmptyForm(lectureDocuments.length);
+            const createFormKey = `create-${String(lecture.id)}`;
+            const pendingCreateFile = pendingResourceFiles[createFormKey] ?? null;
             const isRequestedLecture = lecture.id === requestedLectureId;
 
             return (
@@ -395,6 +459,8 @@ const AdminProgramResourcesSection = ({
                   {lectureDocuments.length ? (
                     lectureDocuments.map((document) => {
                       const formState = editForms[document.id] ?? createFormState(document);
+                      const editFormKey = `edit-${String(document.id)}`;
+                      const pendingEditFile = pendingResourceFiles[editFormKey] ?? null;
 
                       return (
                         <article
@@ -416,6 +482,13 @@ const AdminProgramResourcesSection = ({
                                   const validationMessage = validateForm(formState);
                                   if (validationMessage) {
                                     showToast({ message: validationMessage, variant: 'error' });
+                                    return;
+                                  }
+                                  if (pendingEditFile) {
+                                    showToast({
+                                      message: '선택한 자료 파일은 업로드 시작을 먼저 눌러 주세요.',
+                                      variant: 'error',
+                                    });
                                     return;
                                   }
                                   updateMutation.mutate({
@@ -493,48 +566,87 @@ const AdminProgramResourcesSection = ({
                                   자료 파일
                                 </h6>
                                 <p className={styles['noticeAttachmentHint']}>
-                                  파일을 선택하면 원본 파일명과 파일 크기가 자동으로 저장됩니다.
+                                  선택한 파일은 업로드 시작을 누를 때 업로드됩니다.
                                 </p>
                               </div>
-                              <label className={styles['noticeAttachmentButton']}>
-                                <input
-                                  disabled={uploadingFormKey === `edit-${String(document.id)}`}
-                                  onChange={(event) => {
-                                    void uploadResourceFile(
-                                      event.target.files?.[0] ?? null,
-                                      (file, assetId) => {
+                            </div>
+                            <AdminFileDropZone
+                              actions={
+                                pendingEditFile ? (
+                                  <>
+                                    <Button
+                                      disabled={uploadingFormKey === editFormKey}
+                                      onClick={() => {
+                                        void uploadResourceFile(
+                                          pendingEditFile,
+                                          (file, assetId) => {
+                                            updateEditForm(document.id, (current) => ({
+                                              ...current,
+                                              fileSize: file.size,
+                                              mediaAssetId: assetId,
+                                              mimeType: file.type || 'application/octet-stream',
+                                              originalFileName: file.name,
+                                            }));
+                                          },
+                                          editFormKey,
+                                        );
+                                      }}
+                                      type='button'
+                                      variant='secondary'
+                                    >
+                                      업로드 시작
+                                    </Button>
+                                    <Button
+                                      disabled={uploadingFormKey === editFormKey}
+                                      onClick={() => {
+                                        clearPendingResourceFile(editFormKey);
                                         updateEditForm(document.id, (current) => ({
                                           ...current,
-                                          fileName: current.fileName.trim()
-                                            ? current.fileName
-                                            : file.name,
-                                          fileSize: file.size,
-                                          mediaAssetId: assetId,
-                                          mimeType: file.type || 'application/octet-stream',
-                                          originalFileName: file.name,
+                                          fileName: document.fileName,
+                                          fileSize: document.fileSize,
+                                          mediaAssetId: null,
+                                          mimeType: document.mimeType ?? '',
+                                          originalFileName: document.fileName,
                                         }));
-                                      },
-                                      `edit-${String(document.id)}`,
-                                    );
-                                    event.currentTarget.value = '';
-                                  }}
-                                  type='file'
-                                />
-                                {uploadingFormKey === `edit-${String(document.id)}`
-                                  ? '업로드 중...'
-                                  : '파일 변경'}
-                              </label>
-                            </div>
-                            <ul className={styles['noticeAttachmentList']}>
-                              <li className={styles['noticeAttachmentItem']}>
-                                <span className={styles['noticeAttachmentName']}>
-                                  {formState.originalFileName}
-                                </span>
-                                <span className={styles['noticeAttachmentSize']}>
-                                  {formatFileSizeInMb(formState.fileSize)}
-                                </span>
-                              </li>
-                            </ul>
+                                      }}
+                                      type='button'
+                                      variant='secondary'
+                                    >
+                                      선택 취소
+                                    </Button>
+                                  </>
+                                ) : null
+                              }
+                              accept={RESOURCE_DOCUMENT_ACCEPT}
+                              buttonLabel={
+                                uploadingFormKey === editFormKey ? '업로드 중...' : '파일 변경'
+                              }
+                              disabled={uploadingFormKey === editFormKey}
+                              hint='선택한 파일은 업로드 시작을 누를 때 업로드됩니다.'
+                              label='자료 파일 업로드'
+                              onFilesSelected={(files) => {
+                                selectResourceFile(files[0] ?? null, editFormKey, (file) => {
+                                  updateEditForm(document.id, (current) => ({
+                                    ...current,
+                                    fileName:
+                                      !current.fileName.trim() ||
+                                      current.fileName === current.originalFileName
+                                        ? file.name
+                                        : current.fileName,
+                                    fileSize: file.size,
+                                    mediaAssetId: null,
+                                    mimeType: file.type || 'application/octet-stream',
+                                    originalFileName: file.name,
+                                  }));
+                                });
+                              }}
+                              selectedLabel={formState.originalFileName}
+                              selectedMeta={
+                                formState.fileSize > 0
+                                  ? formatFileSizeInMb(formState.fileSize)
+                                  : null
+                              }
+                            />
                           </section>
 
                           <div className={styles['inlineFieldGrid']}>
@@ -635,64 +747,102 @@ const AdminProgramResourcesSection = ({
                             자료 파일
                           </h6>
                           <p className={styles['noticeAttachmentHint']}>
-                            파일을 선택하면 원본 파일명과 파일 크기가 자동으로 저장됩니다.
+                            선택한 파일은 업로드 시작을 누를 때 업로드됩니다.
                           </p>
                         </div>
-                        <label className={styles['noticeAttachmentButton']}>
-                          <input
-                            disabled={uploadingFormKey === `create-${String(lecture.id)}`}
-                            onChange={(event) => {
-                              void uploadResourceFile(
-                                event.target.files?.[0] ?? null,
-                                (file, assetId) => {
+                      </div>
+
+                      <AdminFileDropZone
+                        actions={
+                          pendingCreateFile ? (
+                            <>
+                              <Button
+                                disabled={uploadingFormKey === createFormKey}
+                                onClick={() => {
+                                  void uploadResourceFile(
+                                    pendingCreateFile,
+                                    (file, assetId) => {
+                                      updateCreateForm(
+                                        lecture.id,
+                                        lectureDocuments.length,
+                                        (current) => ({
+                                          ...current,
+                                          fileSize: file.size,
+                                          mediaAssetId: assetId,
+                                          mimeType: file.type || 'application/octet-stream',
+                                          originalFileName: file.name,
+                                        }),
+                                      );
+                                    },
+                                    createFormKey,
+                                  );
+                                }}
+                                type='button'
+                                variant='secondary'
+                              >
+                                업로드 시작
+                              </Button>
+                              <Button
+                                disabled={uploadingFormKey === createFormKey}
+                                onClick={() => {
+                                  clearPendingResourceFile(createFormKey);
                                   updateCreateForm(
                                     lecture.id,
                                     lectureDocuments.length,
                                     (current) => ({
                                       ...current,
-                                      fileName: current.fileName.trim()
-                                        ? current.fileName
-                                        : file.name,
-                                      fileSize: file.size,
-                                      mediaAssetId: assetId,
-                                      mimeType: file.type || 'application/octet-stream',
-                                      originalFileName: file.name,
-                                      title: current.title.trim()
-                                        ? current.title
-                                        : file.name.replace(/\.[^.]+$/, ''),
+                                      fileName: '',
+                                      fileSize: 0,
+                                      mediaAssetId: null,
+                                      mimeType: '',
+                                      originalFileName: '',
+                                      title:
+                                        current.title ===
+                                        getTitleFromFileName(pendingCreateFile.name)
+                                          ? ''
+                                          : current.title,
                                     }),
                                   );
-                                },
-                                `create-${String(lecture.id)}`,
-                              );
-                              event.currentTarget.value = '';
-                            }}
-                            type='file'
-                          />
-                          {uploadingFormKey === `create-${String(lecture.id)}`
+                                }}
+                                type='button'
+                                variant='secondary'
+                              >
+                                선택 취소
+                              </Button>
+                            </>
+                          ) : null
+                        }
+                        accept={RESOURCE_DOCUMENT_ACCEPT}
+                        buttonLabel={
+                          uploadingFormKey === createFormKey
                             ? '업로드 중...'
                             : createForm.originalFileName
                               ? '파일 변경'
-                              : '파일 선택'}
-                        </label>
-                      </div>
-
-                      {createForm.originalFileName ? (
-                        <ul className={styles['noticeAttachmentList']}>
-                          <li className={styles['noticeAttachmentItem']}>
-                            <span className={styles['noticeAttachmentName']}>
-                              {createForm.originalFileName}
-                            </span>
-                            <span className={styles['noticeAttachmentSize']}>
-                              {formatFileSizeInMb(createForm.fileSize)}
-                            </span>
-                          </li>
-                        </ul>
-                      ) : (
-                        <p className={styles['noticeAttachmentEmpty']}>
-                          등록된 첨부파일이 없습니다.
-                        </p>
-                      )}
+                              : '파일 선택'
+                        }
+                        disabled={uploadingFormKey === createFormKey}
+                        hint='선택한 파일은 업로드 시작을 누를 때 업로드됩니다.'
+                        label='자료 파일 업로드'
+                        onFilesSelected={(files) => {
+                          selectResourceFile(files[0] ?? null, createFormKey, (file) => {
+                            updateCreateForm(lecture.id, lectureDocuments.length, (current) => ({
+                              ...current,
+                              fileName: current.fileName.trim() ? current.fileName : file.name,
+                              fileSize: file.size,
+                              mediaAssetId: null,
+                              mimeType: file.type || 'application/octet-stream',
+                              originalFileName: file.name,
+                              title: current.title.trim()
+                                ? current.title
+                                : getTitleFromFileName(file.name),
+                            }));
+                          });
+                        }}
+                        selectedLabel={createForm.originalFileName || undefined}
+                        selectedMeta={
+                          createForm.fileSize > 0 ? formatFileSizeInMb(createForm.fileSize) : null
+                        }
+                      />
                     </section>
 
                     <div className={styles['inlineFieldGrid']}>
@@ -740,7 +890,9 @@ const AdminProgramResourcesSection = ({
                           }
                           if (!createForm.mediaAssetId) {
                             showToast({
-                              message: '자료 파일을 먼저 업로드해 주세요.',
+                              message: pendingCreateFile
+                                ? '선택한 자료 파일은 업로드 시작을 먼저 눌러 주세요.'
+                                : '자료 파일을 먼저 업로드해 주세요.',
                               variant: 'error',
                             });
                             return;

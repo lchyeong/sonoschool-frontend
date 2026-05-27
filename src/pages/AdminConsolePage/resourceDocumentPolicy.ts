@@ -1,5 +1,8 @@
 const MAX_RESOURCE_DOCUMENT_FILE_SIZE_BYTES = 300 * 1024 * 1024;
 
+export const RESOURCE_DOCUMENT_ACCEPT =
+  '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
+
 const SUPPORTED_RESOURCE_DOCUMENT_EXTENSIONS = new Set([
   'pdf',
   'hwp',

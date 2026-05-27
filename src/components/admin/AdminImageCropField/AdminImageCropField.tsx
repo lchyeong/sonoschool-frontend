@@ -1,5 +1,6 @@
 import { useId, useRef, type CSSProperties, type PointerEvent } from 'react';
 
+import AdminFileDropZone from '@/components/admin/AdminFileDropZone';
 import Button from '@/components/ui/Button/Button';
 import { classNames } from '@/utils/classNames';
 
@@ -57,6 +58,9 @@ interface AdminImageCropFieldProps {
   onChange: (value: AdminImageCropValue) => void;
   onRemove?: () => void;
   onSelectFile: (file: File | null) => void;
+  onUploadStart?: () => void;
+  uploadButtonDisabled?: boolean;
+  uploadButtonLabel?: string;
   value: AdminImageCropValue;
 }
 
@@ -71,10 +75,12 @@ const AdminImageCropField = ({
   onChange,
   onRemove,
   onSelectFile,
+  onUploadStart,
+  uploadButtonDisabled = false,
+  uploadButtonLabel = '업로드 시작',
   value,
 }: AdminImageCropFieldProps) => {
   const fieldId = useId();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dragStateRef = useRef<{
     crop: AdminImageCropValue;
     pointerId: number;
@@ -139,17 +145,6 @@ const AdminImageCropField = ({
 
   return (
     <div className={styles['field']}>
-      <input
-        accept={accept}
-        className={styles['fileInput']}
-        onChange={(event) => {
-          onSelectFile(event.target.files?.[0] ?? null);
-          event.currentTarget.value = '';
-        }}
-        ref={fileInputRef}
-        type='file'
-      />
-
       <div className={styles['previewShell']}>
         {hasImage ? (
           <div
@@ -174,121 +169,137 @@ const AdminImageCropField = ({
         )}
       </div>
 
-      <div className={styles['controlPanel']}>
-        <div className={styles['controlHeader']}>
-          <p className={styles['title']}>{label}</p>
-          <button
-            className={styles['resetButton']}
-            disabled={disabled || !hasImage}
-            onClick={() => {
-              onChange(DEFAULT_ADMIN_IMAGE_CROP);
-            }}
-            type='button'
-          >
-            위치 초기화
-          </button>
-        </div>
-
-        {fileCaption ? <p className={styles['caption']}>{fileCaption}</p> : null}
-
-        <div className={styles['rangeControlGroup']}>
-          <div className={styles['rangeControl']}>
-            <div className={styles['rangeLabelRow']}>
-              <label className={styles['rangeLabel']} htmlFor={zoomInputId}>
-                확대/축소
-              </label>
-            </div>
-            <input
-              className={styles['rangeInput']}
+      <div className={styles['controlStack']}>
+        <div className={styles['controlPanel']}>
+          <div className={styles['controlHeader']}>
+            <p className={styles['title']}>{label}</p>
+            <button
+              className={styles['resetButton']}
               disabled={disabled || !hasImage}
-              id={zoomInputId}
-              max='100'
-              min='-100'
-              onChange={(event) => {
-                updateCrop({ zoom: toZoomValue(Number(event.target.value)) });
+              onClick={() => {
+                onChange(DEFAULT_ADMIN_IMAGE_CROP);
               }}
-              step='1'
-              style={createRangeProgressStyle(zoomSliderValue, -100, 100)}
-              type='range'
-              value={zoomSliderValue}
-            />
-          </div>
-
-          <div className={styles['rangeGrid']}>
-            <div className={styles['rangeControl']}>
-              <div className={styles['rangeLabelRow']}>
-                <label className={styles['rangeLabel']} htmlFor={offsetXInputId}>
-                  가로 위치
-                </label>
-              </div>
-              <input
-                className={styles['rangeInput']}
-                disabled={disabled || !hasImage}
-                id={offsetXInputId}
-                max='100'
-                min='-100'
-                onChange={(event) => {
-                  updateCrop({ offsetX: Number(event.target.value) });
-                }}
-                step='1'
-                style={createRangeProgressStyle(crop.offsetX, -100, 100)}
-                type='range'
-                value={crop.offsetX}
-              />
-            </div>
-
-            <div className={styles['rangeControl']}>
-              <div className={styles['rangeLabelRow']}>
-                <label className={styles['rangeLabel']} htmlFor={offsetYInputId}>
-                  세로 위치
-                </label>
-              </div>
-              <input
-                className={styles['rangeInput']}
-                disabled={disabled || !hasImage}
-                id={offsetYInputId}
-                max='100'
-                min='-100'
-                onChange={(event) => {
-                  updateCrop({ offsetY: Number(event.target.value) });
-                }}
-                step='1'
-                style={createRangeProgressStyle(crop.offsetY, -100, 100)}
-                type='range'
-                value={crop.offsetY}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className={styles['actions']}>
-          <Button
-            disabled={disabled}
-            onClick={() => {
-              fileInputRef.current?.click();
-            }}
-            size='sm'
-            type='button'
-            variant='primary'
-          >
-            파일 선택
-          </Button>
-          {hasImage && onRemove ? (
-            <Button
-              disabled={disabled}
-              onClick={onRemove}
-              size='sm'
               type='button'
-              variant='secondary'
             >
-              이미지 제거
-            </Button>
-          ) : null}
+              위치 초기화
+            </button>
+          </div>
+
+          <div className={styles['rangeControlGroup']}>
+            <div className={styles['rangeControl']}>
+              <div className={styles['rangeLabelRow']}>
+                <label className={styles['rangeLabel']} htmlFor={zoomInputId}>
+                  확대/축소
+                </label>
+              </div>
+              <input
+                className={styles['rangeInput']}
+                disabled={disabled || !hasImage}
+                id={zoomInputId}
+                max='100'
+                min='-100'
+                onChange={(event) => {
+                  updateCrop({ zoom: toZoomValue(Number(event.target.value)) });
+                }}
+                step='1'
+                style={createRangeProgressStyle(zoomSliderValue, -100, 100)}
+                type='range'
+                value={zoomSliderValue}
+              />
+            </div>
+
+            <div className={styles['rangeGrid']}>
+              <div className={styles['rangeControl']}>
+                <div className={styles['rangeLabelRow']}>
+                  <label className={styles['rangeLabel']} htmlFor={offsetXInputId}>
+                    가로 위치
+                  </label>
+                </div>
+                <input
+                  className={styles['rangeInput']}
+                  disabled={disabled || !hasImage}
+                  id={offsetXInputId}
+                  max='100'
+                  min='-100'
+                  onChange={(event) => {
+                    updateCrop({ offsetX: Number(event.target.value) });
+                  }}
+                  step='1'
+                  style={createRangeProgressStyle(crop.offsetX, -100, 100)}
+                  type='range'
+                  value={crop.offsetX}
+                />
+              </div>
+
+              <div className={styles['rangeControl']}>
+                <div className={styles['rangeLabelRow']}>
+                  <label className={styles['rangeLabel']} htmlFor={offsetYInputId}>
+                    세로 위치
+                  </label>
+                </div>
+                <input
+                  className={styles['rangeInput']}
+                  disabled={disabled || !hasImage}
+                  id={offsetYInputId}
+                  max='100'
+                  min='-100'
+                  onChange={(event) => {
+                    updateCrop({ offsetY: Number(event.target.value) });
+                  }}
+                  step='1'
+                  style={createRangeProgressStyle(crop.offsetY, -100, 100)}
+                  type='range'
+                  value={crop.offsetY}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles['actions']}>
+            {hasImage && onRemove ? (
+              <Button
+                disabled={disabled}
+                onClick={onRemove}
+                size='sm'
+                type='button'
+                variant='secondary'
+              >
+                이미지 제거
+              </Button>
+            ) : null}
+          </div>
         </div>
 
-        <p className={classNames(styles['caption'], styles['formatCaption'])}>
-          허용 형식 · {accept.replaceAll(',', ', ')}
-        </p>
+        <div className={styles['uploadPanel']}>
+          <AdminFileDropZone
+            accept={accept}
+            buttonLabel='파일 선택'
+            disabled={disabled}
+            label='대표 이미지 파일'
+            onFilesSelected={(files) => {
+              onSelectFile(files[0] ?? null);
+            }}
+            onClear={fileCaption && onRemove ? onRemove : undefined}
+            selectedLabel={fileCaption}
+          />
+
+          {fileCaption && onUploadStart ? (
+            <div className={styles['uploadActions']}>
+              <Button
+                disabled={disabled || uploadButtonDisabled}
+                onClick={onUploadStart}
+                size='sm'
+                type='button'
+              >
+                {uploadButtonLabel}
+              </Button>
+            </div>
+          ) : null}
+
+          <p className={classNames(styles['caption'], styles['formatCaption'])}>
+            허용 형식 · {accept.replaceAll(',', ', ')}
+          </p>
+        </div>
       </div>
     </div>
   );

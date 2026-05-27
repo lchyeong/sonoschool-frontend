@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MouseEvent as ReactMouseEvent } from 'react';
+import type { DragEvent, MouseEvent as ReactMouseEvent } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Blocker } from 'react-router';
@@ -40,6 +40,7 @@ import checkIconSrc from '@/assets/icons/lucide_check.svg';
 import AdminCategoryPicker from '@/components/admin/AdminCategoryPicker/AdminCategoryPicker';
 import AdminDropdownField from '@/components/admin/AdminDropdownField/AdminDropdownField';
 import AdminFieldArray from '@/components/admin/AdminFieldArray/AdminFieldArray';
+import AdminFileDropZone from '@/components/admin/AdminFileDropZone';
 import AdminImageCropField, {
   DEFAULT_ADMIN_IMAGE_CROP,
   normalizeAdminImageCrop,
@@ -87,21 +88,22 @@ import {
   toMonthValue,
 } from '@/utils/practicumCalendar';
 import { isUnsafeStorageAssetUrl } from '@/utils/publicAssetUrl';
+import { formatQuizOptionLabel } from '@/utils/quizOptionLabel';
 
 import styles from './AdminConsolePage.module.scss';
 import {
   PROGRAM_THUMBNAIL_FILE_ACCEPT,
+  createViewportDragAutoScroller,
   validateProgramThumbnailFile,
 } from './adminConsolePageShared';
 import OfflineSchedulePlanner from './components/OfflineSchedulePlanner/OfflineSchedulePlanner';
 import type { OfflineSchedulePlannerItem } from './components/OfflineSchedulePlanner/OfflineSchedulePlanner';
+import { RESOURCE_DOCUMENT_ACCEPT, validateResourceDocumentPolicy } from './resourceDocumentPolicy';
 
 const TARGET_PART_SIZE_BYTES = 32 * 1024 * 1024;
 const VIDEO_PART_UPLOAD_CONCURRENCY = 4;
 const VIDEO_ENCODING_POLL_INTERVAL_MS = 15000;
 const VIDEO_ENCODING_MAX_POLL_ATTEMPTS = 360;
-const RESOURCE_FILE_ACCEPT = '.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
-
 type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
 type AdminProgramCreateView = 'details' | 'curriculum' | 'problems' | 'resources';
 type NumericBasicInfoField = 'maxStudents' | 'price';
@@ -218,6 +220,12 @@ const createClientKey = (prefix: string): string => {
   }
 
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const asDraftArray = <T,>(items: readonly T[] | null | undefined): T[] => {
+  return Array.isArray(items)
+    ? (items as readonly T[]).filter((item) => item !== null && item !== undefined)
+    : [];
 };
 
 const IDLE_NAVIGATION_BLOCKER: Pick<Blocker, 'proceed' | 'reset' | 'state'> = {
@@ -520,24 +528,39 @@ const isValidDateRange = (startAt: string | null, endAt: string | null): boolean
 };
 
 const normalizeDraftBasicInfo = (
-  basicInfo: AdminProgramDraftPayload['basicInfo'],
+  basicInfo: AdminProgramDraftPayload['basicInfo'] | null | undefined,
 ): AdminProgramDraftPayload['basicInfo'] => {
+  const safeBasicInfo = {
+    ...createEmptyBasicInfo(),
+    ...basicInfo,
+    checklists: asDraftArray(basicInfo?.checklists),
+    faqs: asDraftArray(basicInfo?.faqs),
+    learningOutcomes: asDraftArray(basicInfo?.learningOutcomes),
+    learningPoints: asDraftArray(basicInfo?.learningPoints),
+    recommendedFor: asDraftArray(basicInfo?.recommendedFor),
+    summaryItems: asDraftArray(basicInfo?.summaryItems),
+  };
   const thumbnailCrop = normalizeAdminImageCrop({
-    offsetX: basicInfo.thumbnailCropOffsetX ?? DEFAULT_ADMIN_IMAGE_CROP.offsetX,
-    offsetY: basicInfo.thumbnailCropOffsetY ?? DEFAULT_ADMIN_IMAGE_CROP.offsetY,
-    zoom: basicInfo.thumbnailCropZoom ?? DEFAULT_ADMIN_IMAGE_CROP.zoom,
+    offsetX: safeBasicInfo.thumbnailCropOffsetX ?? DEFAULT_ADMIN_IMAGE_CROP.offsetX,
+    offsetY: safeBasicInfo.thumbnailCropOffsetY ?? DEFAULT_ADMIN_IMAGE_CROP.offsetY,
+    zoom: safeBasicInfo.thumbnailCropZoom ?? DEFAULT_ADMIN_IMAGE_CROP.zoom,
   });
 
   return {
-    ...basicInfo,
+    ...safeBasicInfo,
     accessDays:
-      basicInfo.accessPolicy === 'FIXED_DURATION'
-        ? calculateAccessDaysFromLearningRange(basicInfo.learningStartAt, basicInfo.learningEndAt)
-        : basicInfo.accessPolicy === 'ROLLING_DAYS'
-          ? basicInfo.accessDays
+      safeBasicInfo.accessPolicy === 'FIXED_DURATION'
+        ? calculateAccessDaysFromLearningRange(
+            safeBasicInfo.learningStartAt,
+            safeBasicInfo.learningEndAt,
+          )
+        : safeBasicInfo.accessPolicy === 'ROLLING_DAYS'
+          ? safeBasicInfo.accessDays
           : null,
-    learningEndAt: basicInfo.accessPolicy === 'ROLLING_DAYS' ? null : basicInfo.learningEndAt,
-    learningStartAt: basicInfo.accessPolicy === 'ROLLING_DAYS' ? null : basicInfo.learningStartAt,
+    learningEndAt:
+      safeBasicInfo.accessPolicy === 'ROLLING_DAYS' ? null : safeBasicInfo.learningEndAt,
+    learningStartAt:
+      safeBasicInfo.accessPolicy === 'ROLLING_DAYS' ? null : safeBasicInfo.learningStartAt,
     thumbnailCropOffsetX: thumbnailCrop.offsetX,
     thumbnailCropOffsetY: thumbnailCrop.offsetY,
     thumbnailCropZoom: thumbnailCrop.zoom,
@@ -555,7 +578,7 @@ const normalizeLegacyOfflineSchedules = (
     } | null;
   },
 ): AdminProgramDraftLectureOfflineSchedule[] => {
-  const currentSchedules = Array.isArray(lecture.offlineSchedules) ? lecture.offlineSchedules : [];
+  const currentSchedules = asDraftArray(lecture.offlineSchedules);
   if (currentSchedules.length > 0) {
     return [currentSchedules[0]];
   }
@@ -587,42 +610,70 @@ const normalizeLegacyOfflineSchedules = (
 };
 
 const normalizeDraftPayloadShape = (
-  payload: AdminProgramDraftPayload,
-): AdminProgramDraftPayload => ({
-  ...payload,
-  basicInfo: normalizeDraftBasicInfo(payload.basicInfo),
-  problems: payload.problems.map((problem) => {
-    const matchedLecture = payload.sections
-      .flatMap((section) => section.lectures)
-      .find((lecture) => lecture.key === problem.lectureKey);
-    const lectureTitle = matchedLecture?.title?.trim();
-
-    return {
-      ...problem,
-      passScore: problem.passScore ?? 80,
-      retakeAllowed: problem.retakeAllowed ?? false,
-      timeLimitSeconds: problem.timeLimitSeconds ?? matchedLecture?.durationSeconds ?? null,
-      title: problem.title?.trim() || lectureTitle || '문제',
-      questions: problem.questions.map((question) => ({
-        ...question,
-        problemAreaId: question.problemAreaId ?? null,
-        mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
-        mediaUploadFileName: question.mediaUploadFileName ?? null,
-        mediaUploadStatus: normalizeQuestionMediaUploadStatus(question),
-        mediaVideoId: question.mediaVideoId ?? null,
-      })),
-    };
-  }),
-  sections: payload.sections.map((section) => ({
+  payload: AdminProgramDraftPayload | null | undefined,
+): AdminProgramDraftPayload => {
+  const basicInfo = normalizeDraftBasicInfo(payload?.basicInfo);
+  const sections = asDraftArray(payload?.sections).map((section, sectionIndex) => ({
     ...section,
-    lectures: section.lectures.map((lecture) =>
+    key: section.key || createClientKey('section'),
+    lectures: asDraftArray(section.lectures).map((lecture, lectureIndex) =>
       normalizeLectureByType({
         ...lecture,
+        key: lecture.key || createClientKey('lecture'),
+        lectureType: lecture.lectureType ?? getDefaultLectureType(basicInfo.programType),
         offlineSchedules: normalizeLegacyOfflineSchedules(lecture),
+        preview: lecture.preview ?? false,
+        published: lecture.published ?? true,
+        sortOrder: lecture.sortOrder ?? lectureIndex,
+        videoUploadErrorMessage: lecture.videoUploadErrorMessage ?? null,
+        videoUploadFileName: lecture.videoUploadFileName ?? null,
+        videoUploadStatus: lecture.videoUploadStatus ?? null,
       }),
     ),
-  })),
-});
+    sortOrder: section.sortOrder ?? sectionIndex,
+  }));
+  const lectures = sections.flatMap((section) => section.lectures);
+
+  return {
+    ...(payload ?? createEmptyPayload()),
+    basicInfo,
+    problems: asDraftArray(payload?.problems)
+      .filter((problem) => Boolean(problem.lectureKey))
+      .map((problem) => {
+        const matchedLecture = lectures.find((lecture) => lecture.key === problem.lectureKey);
+        const lectureTitle = matchedLecture?.title?.trim();
+
+        return {
+          ...problem,
+          passScore: problem.passScore ?? 80,
+          retakeAllowed: problem.retakeAllowed ?? false,
+          timeLimitSeconds: problem.timeLimitSeconds ?? matchedLecture?.durationSeconds ?? null,
+          title: problem.title?.trim() || lectureTitle || '문제',
+          questions: asDraftArray(problem.questions).map((question, questionIndex) => ({
+            ...question,
+            mediaUploadErrorMessage: question.mediaUploadErrorMessage ?? null,
+            mediaUploadFileName: question.mediaUploadFileName ?? null,
+            mediaUploadStatus: normalizeQuestionMediaUploadStatus(question),
+            mediaVideoId: question.mediaVideoId ?? null,
+            options: asDraftArray(question.options),
+            problemAreaId: question.problemAreaId ?? null,
+            questionText: question.questionText ?? '',
+            sortOrder: question.sortOrder ?? questionIndex,
+          })),
+        };
+      }),
+    resources: asDraftArray(payload?.resources)
+      .filter((resource) => Boolean(resource.lectureKey))
+      .map((resource, resourceIndex) => ({
+        ...resource,
+        key: resource.key || createClientKey('resource'),
+        sortOrder: resource.sortOrder ?? resourceIndex,
+        uploadErrorMessage: resource.uploadErrorMessage ?? null,
+        uploadStatus: resource.uploadStatus ?? null,
+      })),
+    sections,
+  };
+};
 
 const mergeServerUploadStateIntoSnapshot = (
   snapshotPayload: AdminProgramDraftPayload,
@@ -1632,6 +1683,7 @@ const AdminProgramCreateWorkspace = ({
     null,
   );
   const [navigationDecisionState, setNavigationDecisionState] = useState<'idle' | 'saving'>('idle');
+  const problemQuestionDragAutoScroller = useMemo(() => createViewportDragAutoScroller(), []);
   const hasRequestedDraftRef = useRef(false);
   const initializedDraftIdRef = useRef<number | null>(null);
   const lastSavedPayloadRef = useRef<string>('');
@@ -1644,9 +1696,11 @@ const AdminProgramCreateWorkspace = ({
   const draftAutoSaveTimerRef = useRef<number | null>(null);
   const draftSaveChainRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const invalidatedDraftIdRef = useRef<number | null>(null);
+  const problemQuestionDragMovedRef = useRef(false);
 
   useEffect(
     () => () => {
+      problemQuestionDragAutoScroller.stop();
       if (draftFocusHintTimerRef.current !== null) {
         window.clearTimeout(draftFocusHintTimerRef.current);
       }
@@ -1654,7 +1708,7 @@ const AdminProgramCreateWorkspace = ({
         window.clearTimeout(draftAutoSaveTimerRef.current);
       }
     },
-    [],
+    [problemQuestionDragAutoScroller],
   );
 
   const createDraftMutation = useMutation({
@@ -1918,7 +1972,7 @@ const AdminProgramCreateWorkspace = ({
     learningStartDate,
     learningEndDate,
   );
-  const addLectureTriggerLabel = mode === 'edit' ? '수정 초안에 강의 추가' : '새 강의 추가';
+  const addLectureTriggerLabel = mode === 'edit' ? '강의 추가' : '새 강의 추가';
   const offlineScheduleMinDate = toDateInputValue(payload?.basicInfo.learningStartAt ?? null);
   const offlineScheduleMaxDate = toDateInputValue(payload?.basicInfo.learningEndAt ?? null);
   const hasOfflineSchedulePeriod =
@@ -2210,7 +2264,7 @@ const AdminProgramCreateWorkspace = ({
 
       await uploadAdminProgramThumbnailFile(uploadTarget.uploadUrl, file);
 
-      updatePayload((current) => ({
+      const nextPayload = updatePayload((current) => ({
         ...current,
         basicInfo: {
           ...current.basicInfo,
@@ -2218,7 +2272,25 @@ const AdminProgramCreateWorkspace = ({
           thumbnailUrl: uploadTarget.storageUrl,
         },
       }));
+      if (!nextPayload) {
+        throw new Error('대표 이미지를 초안에 반영하지 못했습니다.');
+      }
       setPendingThumbnailSelection(null);
+
+      const saved = await saveCurrentDraftPayload({ force: true });
+      if (!saved) {
+        showToast({
+          message:
+            '대표 이미지는 업로드됐지만 초안 저장에 실패했습니다. 저장 상태를 확인해 주세요.',
+          variant: 'error',
+        });
+        return false;
+      }
+
+      showToast({
+        message: '대표 이미지를 업로드하고 초안에 저장했습니다.',
+        variant: 'success',
+      });
       return true;
     } catch (error: unknown) {
       showToast({
@@ -2836,7 +2908,17 @@ const AdminProgramCreateWorkspace = ({
     });
   };
 
-  const moveProblemQuestion = (lectureKey: string, fromIndex: number, toIndex: number) => {
+  const hasActiveProblemQuestionMediaUpload = (lectureKey: string) =>
+    Object.entries(questionUploadStatus).some(
+      ([key, status]) => key.startsWith(`${lectureKey}:`) && status.includes('중'),
+    );
+
+  const moveProblemQuestion = (
+    lectureKey: string,
+    fromIndex: number,
+    toIndex: number,
+    options: { scheduleSave?: boolean } = {},
+  ) => {
     const targetProblem =
       currentPayloadRef.current?.problems.find((problem) => problem.lectureKey === lectureKey) ??
       null;
@@ -2852,10 +2934,7 @@ const AdminProgramCreateWorkspace = ({
       return;
     }
 
-    const hasActiveQuestionMediaUpload = Object.entries(questionUploadStatus).some(
-      ([key, status]) => key.startsWith(`${lectureKey}:`) && status.includes('중'),
-    );
-    if (hasActiveQuestionMediaUpload) {
+    if (hasActiveProblemQuestionMediaUpload(lectureKey)) {
       showToast({
         message: '문제 미디어 업로드가 끝난 뒤 문제 순서를 변경해 주세요.',
         variant: 'error',
@@ -2879,7 +2958,62 @@ const AdminProgramCreateWorkspace = ({
     setPendingQuestionMediaSelections((current) =>
       remapQuestionIndexedRecord(current, lectureKey, fromIndex, toIndex),
     );
-    scheduleDraftAutoSave(0);
+    if (options.scheduleSave ?? true) {
+      scheduleDraftAutoSave(0);
+    }
+  };
+
+  const handleProblemQuestionDragStart = (
+    event: DragEvent<HTMLButtonElement>,
+    lectureKey: string,
+    questionIndex: number,
+  ) => {
+    if (hasActiveProblemQuestionMediaUpload(lectureKey)) {
+      event.preventDefault();
+      showToast({
+        message: '문제 미디어 업로드가 끝난 뒤 문제 순서를 변경해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = 'move';
+    problemQuestionDragMovedRef.current = false;
+    setDraggedProblemQuestion({ lectureKey, questionIndex });
+  };
+
+  const handleProblemQuestionDragOver = (
+    event: DragEvent<HTMLElement>,
+    lectureKey: string,
+    questionIndex: number,
+  ) => {
+    if (draggedProblemQuestion === null || draggedProblemQuestion.lectureKey !== lectureKey) {
+      return;
+    }
+
+    event.preventDefault();
+    problemQuestionDragAutoScroller.update(event.clientY);
+
+    if (draggedProblemQuestion.questionIndex === questionIndex) {
+      return;
+    }
+
+    moveProblemQuestion(lectureKey, draggedProblemQuestion.questionIndex, questionIndex, {
+      scheduleSave: false,
+    });
+    problemQuestionDragMovedRef.current = true;
+    setDraggedProblemQuestion({ lectureKey, questionIndex });
+  };
+
+  const handleProblemQuestionDragEnd = () => {
+    problemQuestionDragAutoScroller.stop();
+
+    if (problemQuestionDragMovedRef.current) {
+      scheduleDraftAutoSave(0);
+    }
+
+    problemQuestionDragMovedRef.current = false;
+    setDraggedProblemQuestion(null);
   };
 
   const setAllProblemQuestionsCollapsed = (lectureKey: string, collapsed: boolean) => {
@@ -2969,7 +3103,20 @@ const AdminProgramCreateWorkspace = ({
     return (
       <div className={styles['lectureWorkspaceSection']}>
         {problem ? (
-          <div className={classNames(styles['stackListCompact'], styles['problemQuestionList'])}>
+          <div
+            className={classNames(styles['stackListCompact'], styles['problemQuestionList'])}
+            onDragOver={(event) => {
+              if (
+                draggedProblemQuestion === null ||
+                draggedProblemQuestion.lectureKey !== lectureKey
+              ) {
+                return;
+              }
+
+              event.preventDefault();
+              problemQuestionDragAutoScroller.update(event.clientY);
+            }}
+          >
             <div className={styles['problemQuestionListToolbar']}>
               <div>
                 <h5 className={styles['panelTitle']}>문제 문항</h5>
@@ -3000,13 +3147,34 @@ const AdminProgramCreateWorkspace = ({
                   question.mediaAssetId || question.mediaVideoId ? '업로드 완료' : '파일 미선택',
                   question.mediaUploadErrorMessage,
                 );
-              const questionMediaFileLabel =
-                pendingQuestionMediaSelection?.file.name ??
-                question.mediaUploadFileName ??
-                (question.mediaAssetId || question.mediaVideoId
-                  ? '업로드된 미디어'
-                  : '아직 선택한 파일이 없습니다.');
               const questionCollapsed = collapsedProblemQuestionKeys.includes(uploadKey);
+              const cancelPendingQuestionMediaSelection = () => {
+                if (!pendingQuestionMediaSelection) {
+                  return;
+                }
+
+                setPendingQuestionMediaSelections((current) => {
+                  const next = { ...current };
+                  delete next[uploadKey];
+                  return next;
+                });
+                setQuestionUploadStatus((current) => {
+                  const next = { ...current };
+                  delete next[uploadKey];
+                  return next;
+                });
+                updateProblemQuestion(lectureKey, questionIndex, (current) => ({
+                  ...current,
+                  mediaAssetId: pendingQuestionMediaSelection.previousMediaAssetId,
+                  mediaType: pendingQuestionMediaSelection.previousMediaType,
+                  mediaUploadErrorMessage:
+                    pendingQuestionMediaSelection.previousMediaUploadErrorMessage,
+                  mediaUploadFileName: pendingQuestionMediaSelection.previousMediaUploadFileName,
+                  mediaUploadStatus: pendingQuestionMediaSelection.previousMediaUploadStatus,
+                  mediaUrl: pendingQuestionMediaSelection.previousMediaUrl,
+                  mediaVideoId: pendingQuestionMediaSelection.previousMediaVideoId,
+                }));
+              };
 
               return (
                 <article
@@ -3021,31 +3189,11 @@ const AdminProgramCreateWorkspace = ({
                   }
                   key={`problem-question-${lectureKey}-${String(questionIndex)}`}
                   onDragOver={(event) => {
-                    if (
-                      draggedProblemQuestion === null ||
-                      draggedProblemQuestion.lectureKey !== lectureKey ||
-                      draggedProblemQuestion.questionIndex === questionIndex
-                    ) {
-                      return;
-                    }
-
-                    event.preventDefault();
+                    handleProblemQuestionDragOver(event, lectureKey, questionIndex);
                   }}
                   onDrop={(event) => {
                     event.preventDefault();
-                    if (
-                      draggedProblemQuestion === null ||
-                      draggedProblemQuestion.lectureKey !== lectureKey
-                    ) {
-                      return;
-                    }
-
-                    moveProblemQuestion(
-                      lectureKey,
-                      draggedProblemQuestion.questionIndex,
-                      questionIndex,
-                    );
-                    setDraggedProblemQuestion(null);
+                    handleProblemQuestionDragEnd();
                   }}
                 >
                   <div className={styles['panelToolbar']}>
@@ -3075,12 +3223,9 @@ const AdminProgramCreateWorkspace = ({
                               styles['problemQuestionDragHandle'],
                             )}
                             draggable
-                            onDragEnd={() => {
-                              setDraggedProblemQuestion(null);
-                            }}
+                            onDragEnd={handleProblemQuestionDragEnd}
                             onDragStart={(event) => {
-                              event.dataTransfer.effectAllowed = 'move';
-                              setDraggedProblemQuestion({ lectureKey, questionIndex });
+                              handleProblemQuestionDragStart(event, lectureKey, questionIndex);
                             }}
                             title='드래그해서 문제 순서 변경'
                             type='button'
@@ -3153,128 +3298,112 @@ const AdminProgramCreateWorkspace = ({
                           <span>문제 이해에 필요한 자료가 있을 때만 연결합니다.</span>
                         </div>
                         <div className={styles['questionMediaRow']}>
-                          <input
+                          <AdminFileDropZone
+                            actions={
+                              <>
+                                {pendingQuestionMediaSelection ? (
+                                  <Button
+                                    onClick={() => {
+                                      void handleQuestionMediaUpload(lectureKey, questionIndex);
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    업로드 시작
+                                  </Button>
+                                ) : null}
+                                {pendingQuestionMediaSelection ? (
+                                  <Button
+                                    onClick={cancelPendingQuestionMediaSelection}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    선택 취소
+                                  </Button>
+                                ) : null}
+                                {(question.mediaAssetId || question.mediaVideoId) &&
+                                !pendingQuestionMediaSelection ? (
+                                  <Button
+                                    onClick={() => {
+                                      updateProblemQuestion(
+                                        lectureKey,
+                                        questionIndex,
+                                        (current) => ({
+                                          ...current,
+                                          mediaAssetId: null,
+                                          mediaType: null,
+                                          mediaUploadErrorMessage: null,
+                                          mediaUploadFileName: null,
+                                          mediaUploadStatus: null,
+                                          mediaUrl: null,
+                                          mediaVideoId: null,
+                                        }),
+                                      );
+                                      if (draftId !== null) {
+                                        void persistProblemQuestionMediaUploadState(
+                                          draftId,
+                                          lectureKey,
+                                          questionIndex,
+                                          {
+                                            clearMedia: true,
+                                            errorMessage: null,
+                                            fileName: null,
+                                            mediaAssetId: null,
+                                            mediaType: null,
+                                            mediaUrl: null,
+                                            mediaVideoId: null,
+                                            status: null,
+                                          },
+                                        );
+                                      }
+                                      setQuestionUploadStatus((current) => {
+                                        const next = { ...current };
+                                        delete next[uploadKey];
+                                        return next;
+                                      });
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    미디어 제거
+                                  </Button>
+                                ) : null}
+                              </>
+                            }
                             accept='image/*,video/*'
-                            hidden
+                            buttonLabel={
+                              pendingQuestionMediaSelection ||
+                              question.mediaAssetId ||
+                              question.mediaVideoId
+                                ? '파일 변경'
+                                : '파일 선택'
+                            }
                             id={questionMediaInputId}
-                            onChange={(event) => {
-                              const file = event.target.files?.[0];
+                            label='문제 미디어 파일'
+                            onFilesSelected={(files) => {
+                              const file = files[0];
                               if (!file) {
                                 return;
                               }
                               handleQuestionMediaSelection(lectureKey, questionIndex, file);
-                              event.currentTarget.value = '';
                             }}
-                            type='file'
+                            onClear={
+                              pendingQuestionMediaSelection
+                                ? cancelPendingQuestionMediaSelection
+                                : undefined
+                            }
+                            selectedLabel={
+                              pendingQuestionMediaSelection?.file.name ??
+                              question.mediaUploadFileName ??
+                              (question.mediaAssetId || question.mediaVideoId
+                                ? '업로드된 미디어'
+                                : undefined)
+                            }
+                            selectedMeta={pendingQuestionMediaSelection?.sizeLabel}
                           />
-                          <div className={styles['questionMediaActions']}>
-                            <Button
-                              onClick={() => {
-                                document.getElementById(questionMediaInputId)?.click();
-                              }}
-                              size='sm'
-                              type='button'
-                              variant='secondary'
-                            >
-                              {pendingQuestionMediaSelection ||
-                              question.mediaAssetId ||
-                              question.mediaVideoId
-                                ? '파일 변경'
-                                : '파일 선택'}
-                            </Button>
-                            {pendingQuestionMediaSelection ? (
-                              <Button
-                                onClick={() => {
-                                  void handleQuestionMediaUpload(lectureKey, questionIndex);
-                                }}
-                                size='sm'
-                                type='button'
-                                variant='secondary'
-                              >
-                                업로드 시작
-                              </Button>
-                            ) : null}
-                            {pendingQuestionMediaSelection ? (
-                              <Button
-                                onClick={() => {
-                                  setPendingQuestionMediaSelections((current) => {
-                                    const next = { ...current };
-                                    delete next[uploadKey];
-                                    return next;
-                                  });
-                                  setQuestionUploadStatus((current) => {
-                                    const next = { ...current };
-                                    delete next[uploadKey];
-                                    return next;
-                                  });
-                                  updateProblemQuestion(lectureKey, questionIndex, (current) => ({
-                                    ...current,
-                                    mediaAssetId:
-                                      pendingQuestionMediaSelection.previousMediaAssetId,
-                                    mediaType: pendingQuestionMediaSelection.previousMediaType,
-                                    mediaUploadErrorMessage:
-                                      pendingQuestionMediaSelection.previousMediaUploadErrorMessage,
-                                    mediaUploadFileName:
-                                      pendingQuestionMediaSelection.previousMediaUploadFileName,
-                                    mediaUploadStatus:
-                                      pendingQuestionMediaSelection.previousMediaUploadStatus,
-                                    mediaUrl: pendingQuestionMediaSelection.previousMediaUrl,
-                                    mediaVideoId:
-                                      pendingQuestionMediaSelection.previousMediaVideoId,
-                                  }));
-                                }}
-                                size='sm'
-                                type='button'
-                                variant='secondary'
-                              >
-                                선택 취소
-                              </Button>
-                            ) : null}
-                            {(question.mediaAssetId || question.mediaVideoId) &&
-                            !pendingQuestionMediaSelection ? (
-                              <Button
-                                onClick={() => {
-                                  updateProblemQuestion(lectureKey, questionIndex, (current) => ({
-                                    ...current,
-                                    mediaAssetId: null,
-                                    mediaType: null,
-                                    mediaUploadErrorMessage: null,
-                                    mediaUploadFileName: null,
-                                    mediaUploadStatus: null,
-                                    mediaUrl: null,
-                                    mediaVideoId: null,
-                                  }));
-                                  if (draftId !== null) {
-                                    void persistProblemQuestionMediaUploadState(
-                                      draftId,
-                                      lectureKey,
-                                      questionIndex,
-                                      {
-                                        clearMedia: true,
-                                        errorMessage: null,
-                                        fileName: null,
-                                        mediaAssetId: null,
-                                        mediaType: null,
-                                        mediaUrl: null,
-                                        mediaVideoId: null,
-                                        status: null,
-                                      },
-                                    );
-                                  }
-                                  setQuestionUploadStatus((current) => {
-                                    const next = { ...current };
-                                    delete next[uploadKey];
-                                    return next;
-                                  });
-                                }}
-                                size='sm'
-                                type='button'
-                                variant='secondary'
-                              >
-                                미디어 제거
-                              </Button>
-                            ) : null}
-                          </div>
                         </div>
 
                         {question.mediaType ? (
@@ -3283,18 +3412,6 @@ const AdminProgramCreateWorkspace = ({
                               <span className={styles['curriculumStatLabel']}>현재 상태</span>
                               <strong className={styles['curriculumStatValue']}>
                                 {questionMediaStatusLabel}
-                              </strong>
-                            </div>
-                            <div className={styles['curriculumStatCard']}>
-                              <span className={styles['curriculumStatLabel']}>선택 파일</span>
-                              <strong className={styles['curriculumStatValue']}>
-                                {questionMediaFileLabel}
-                              </strong>
-                            </div>
-                            <div className={styles['curriculumStatCard']}>
-                              <span className={styles['curriculumStatLabel']}>파일 크기</span>
-                              <strong className={styles['curriculumStatValue']}>
-                                {pendingQuestionMediaSelection?.sizeLabel ?? '미확인'}
                               </strong>
                             </div>
                           </div>
@@ -3341,7 +3458,7 @@ const AdminProgramCreateWorkspace = ({
                             >
                               <TextField
                                 data-draft-focus-key={`${lectureKey}:${String(questionIndex)}:option-${String(optionIndex)}`}
-                                label={`보기 ${String(optionIndex + 1)}`}
+                                label={formatQuizOptionLabel(optionIndex)}
                                 name={`problem-option-${lectureKey}-${String(questionIndex)}-${String(optionIndex)}`}
                                 onChange={(event) => {
                                   updateProblemOption(
@@ -3358,7 +3475,7 @@ const AdminProgramCreateWorkspace = ({
                               />
                               <label className={styles['quizOptionCheckbox']}>
                                 <input
-                                  aria-label={`${String(optionIndex + 1)}번 보기 정답 선택`}
+                                  aria-label={`${formatQuizOptionLabel(optionIndex)} 보기 정답 선택`}
                                   checked={option.correct}
                                   onChange={(event) => {
                                     updateProblemQuestion(lectureKey, questionIndex, (current) => {
@@ -3489,6 +3606,13 @@ const AdminProgramCreateWorkspace = ({
                     resource.fileName?.trim() ? '업로드 완료' : '파일 미선택',
                     resource.uploadErrorMessage,
                   );
+              const cancelPendingResourceSelection = () => {
+                setPendingResourceSelections((current) => {
+                  const next = { ...current };
+                  delete next[resource.key];
+                  return next;
+                });
+              };
 
               return (
                 <article
@@ -3515,78 +3639,47 @@ const AdminProgramCreateWorkspace = ({
                     </Button>
                   </div>
 
-                  <input
-                    accept={RESOURCE_FILE_ACCEPT}
+                  <AdminFileDropZone
+                    actions={
+                      pendingSelection ? (
+                        <>
+                          <Button
+                            onClick={(event) => {
+                              void handleLectureResourceUpload(resourceIndex, event);
+                            }}
+                            type='button'
+                            variant='secondary'
+                          >
+                            업로드 시작
+                          </Button>
+                          <Button
+                            onClick={cancelPendingResourceSelection}
+                            type='button'
+                            variant='secondary'
+                          >
+                            선택 취소
+                          </Button>
+                        </>
+                      ) : null
+                    }
+                    accept={RESOURCE_DOCUMENT_ACCEPT}
+                    buttonLabel={pendingSelection || resource.fileName ? '파일 변경' : '파일 선택'}
                     id={fileInputId}
-                    onChange={(event) => {
-                      const file = event.currentTarget.files?.[0];
+                    label='첨부자료 파일'
+                    onFilesSelected={(files) => {
+                      const file = files[0];
                       if (!file) {
                         return;
                       }
                       handleLectureResourceSelection(resource.key, file);
-                      event.currentTarget.value = '';
                     }}
-                    style={{ display: 'none' }}
-                    type='file'
+                    onClear={pendingSelection ? cancelPendingResourceSelection : undefined}
+                    selectedLabel={pendingSelection?.file.name ?? resource.fileName ?? undefined}
+                    selectedMeta={
+                      pendingSelection?.sizeLabel ||
+                      (resource.fileSize ? `${formatFileSizeInMb(resource.fileSize)} MB` : null)
+                    }
                   />
-
-                  <div className={styles['actionRow']}>
-                    <Button
-                      onClick={() => {
-                        document.getElementById(fileInputId)?.click();
-                      }}
-                      type='button'
-                      variant='secondary'
-                    >
-                      {pendingSelection || resource.fileName ? '파일 변경' : '파일 선택'}
-                    </Button>
-                    {pendingSelection ? (
-                      <>
-                        <Button
-                          onClick={(event) => {
-                            void handleLectureResourceUpload(resourceIndex, event);
-                          }}
-                          type='button'
-                          variant='secondary'
-                        >
-                          업로드 시작
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setPendingResourceSelections((current) => {
-                              const next = { ...current };
-                              delete next[resource.key];
-                              return next;
-                            });
-                          }}
-                          type='button'
-                          variant='secondary'
-                        >
-                          선택 취소
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-
-                  <div className={styles['curriculumStatGrid']}>
-                    <div className={styles['curriculumStatCard']}>
-                      <span className={styles['curriculumStatLabel']}>업로드 파일</span>
-                      <strong className={styles['curriculumStatValue']}>
-                        {pendingSelection?.file.name ||
-                          resource.fileName?.trim() ||
-                          '선택된 파일 없음'}
-                      </strong>
-                    </div>
-                    <div className={styles['curriculumStatCard']}>
-                      <span className={styles['curriculumStatLabel']}>파일 크기</span>
-                      <strong className={styles['curriculumStatValue']}>
-                        {pendingSelection?.sizeLabel ||
-                          (resource.fileSize
-                            ? `${formatFileSizeInMb(resource.fileSize)} MB`
-                            : '미확인')}
-                      </strong>
-                    </div>
-                  </div>
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
@@ -3648,10 +3741,11 @@ const AdminProgramCreateWorkspace = ({
     }
 
     if (pendingThumbnailSelection) {
-      const uploaded = await uploadPendingProgramThumbnail();
-      if (!uploaded) {
-        return false;
-      }
+      showToast({
+        message: '선택한 대표 이미지는 업로드 시작을 먼저 눌러 주세요.',
+        variant: 'error',
+      });
+      return false;
     }
 
     return options?.force === undefined
@@ -4447,6 +4541,17 @@ const AdminProgramCreateWorkspace = ({
   };
 
   const handleLectureResourceSelection = (resourceKey: string, file: File) => {
+    const validationMessage = validateResourceDocumentPolicy({
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    });
+
+    if (validationMessage) {
+      showToast({ message: validationMessage, variant: 'error' });
+      return;
+    }
+
     setPendingResourceSelections((current) => ({
       ...current,
       [resourceKey]: {
@@ -4777,7 +4882,7 @@ const AdminProgramCreateWorkspace = ({
           if (!option.optionText.trim()) {
             issues.push({
               focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:option-${String(optionIndex)}`,
-              message: `${lectureLabel} / ${questionLabel}: 보기 ${String(optionIndex + 1)} 내용을 입력해 주세요.`,
+              message: `${lectureLabel} / ${questionLabel}: ${formatQuizOptionLabel(optionIndex)} 보기 내용을 입력해 주세요.`,
             });
           }
         });
@@ -5354,10 +5459,8 @@ const AdminProgramCreateWorkspace = ({
                       <div className={styles['mediaFieldCopy']}>
                         <p className={styles['fieldLabel']}>대표 이미지</p>
                         <p className={styles['mediaFieldHint']}>
-                          프로그램 카드와 상세 상단에 노출될 이미지를 선택합니다. 실제 업로드는
-                          {mode === 'edit'
-                            ? ' 수정 완료 시 진행됩니다.'
-                            : ' 임시저장 또는 등록 완료 시 진행됩니다.'}
+                          프로그램 카드와 상세 상단에 노출될 이미지를 선택합니다. 선택한 이미지는
+                          업로드 시작을 누를 때 업로드됩니다.
                         </p>
                       </div>
                     </div>
@@ -5403,6 +5506,11 @@ const AdminProgramCreateWorkspace = ({
                         setPendingThumbnailSelection(null);
                       }}
                       onSelectFile={handleProgramThumbnailFileChange}
+                      onUploadStart={() => {
+                        void uploadPendingProgramThumbnail();
+                      }}
+                      uploadButtonDisabled={!pendingThumbnailSelection || isUploadingThumbnail}
+                      uploadButtonLabel={isUploadingThumbnail ? '업로드 중...' : '업로드 시작'}
                       value={normalizeAdminImageCrop({
                         offsetX:
                           payload.basicInfo.thumbnailCropOffsetX ??
@@ -5944,14 +6052,22 @@ const AdminProgramCreateWorkspace = ({
                                 const isLectureVideoInProgress = isUploadInProgress(
                                   lecture.videoUploadStatus,
                                 );
-                                const uploadedVideoName =
-                                  pendingVideoSelection?.file.name ??
-                                  lecture.videoUploadFileName ??
-                                  null;
                                 const videoFileSizeLabel =
                                   pendingVideoSelection?.sizeLabel ??
                                   lectureVideoSizeLabels[lecture.key] ??
                                   null;
+                                const cancelPendingVideoSelection = () => {
+                                  setPendingVideoSelections((current) => {
+                                    const next = { ...current };
+                                    delete next[lecture.key];
+                                    return next;
+                                  });
+                                  setLectureVideoSizeLabels((current) => {
+                                    const next = { ...current };
+                                    delete next[lecture.key];
+                                    return next;
+                                  });
+                                };
                                 return (
                                   <article
                                     className={styles['curriculumLectureCard']}
@@ -6177,23 +6293,6 @@ const AdminProgramCreateWorkspace = ({
                                                 </div>
                                                 <div className={styles['curriculumStatCard']}>
                                                   <span className={styles['curriculumStatLabel']}>
-                                                    영상 파일
-                                                  </span>
-                                                  <strong className={styles['curriculumStatValue']}>
-                                                    {uploadedVideoName ??
-                                                      '아직 업로드한 파일이 없습니다.'}
-                                                  </strong>
-                                                </div>
-                                                <div className={styles['curriculumStatCard']}>
-                                                  <span className={styles['curriculumStatLabel']}>
-                                                    파일 크기
-                                                  </span>
-                                                  <strong className={styles['curriculumStatValue']}>
-                                                    {videoFileSizeLabel ?? '미확인'}
-                                                  </strong>
-                                                </div>
-                                                <div className={styles['curriculumStatCard']}>
-                                                  <span className={styles['curriculumStatLabel']}>
                                                     영상 길이
                                                   </span>
                                                   <strong className={styles['curriculumStatValue']}>
@@ -6203,99 +6302,90 @@ const AdminProgramCreateWorkspace = ({
                                                   </strong>
                                                 </div>
                                               </div>
-                                              <input
-                                                hidden
+                                              <AdminFileDropZone
+                                                actions={
+                                                  <>
+                                                    {pendingVideoSelection ? (
+                                                      <Button
+                                                        onClick={(event) => {
+                                                          void handleLectureVideoUpload(
+                                                            section.key,
+                                                            lecture.key,
+                                                            event,
+                                                          );
+                                                        }}
+                                                        type='button'
+                                                        variant='secondary'
+                                                      >
+                                                        업로드 시작
+                                                      </Button>
+                                                    ) : null}
+                                                    {pendingVideoSelection ? (
+                                                      <Button
+                                                        onClick={cancelPendingVideoSelection}
+                                                        type='button'
+                                                        variant='secondary'
+                                                      >
+                                                        선택 취소
+                                                      </Button>
+                                                    ) : null}
+                                                    {lecture.videoId && !pendingVideoSelection ? (
+                                                      <Button
+                                                        onClick={() => {
+                                                          updateLecture(
+                                                            section.key,
+                                                            lecture.key,
+                                                            (current) => ({
+                                                              ...current,
+                                                              durationSeconds: null,
+                                                              videoId: null,
+                                                              videoUploadErrorMessage: null,
+                                                              videoUploadFileName: null,
+                                                              videoUploadStatus: null,
+                                                            }),
+                                                          );
+                                                          setLectureVideoSizeLabels((current) => {
+                                                            const next = { ...current };
+                                                            delete next[lecture.key];
+                                                            return next;
+                                                          });
+                                                        }}
+                                                        type='button'
+                                                        variant='secondary'
+                                                      >
+                                                        영상 연결 해제
+                                                      </Button>
+                                                    ) : null}
+                                                  </>
+                                                }
+                                                accept='video/*'
+                                                buttonLabel={
+                                                  pendingVideoSelection ||
+                                                  lecture.videoUploadFileName
+                                                    ? '파일 변경'
+                                                    : '파일 선택'
+                                                }
                                                 id={`lecture-video-upload-${lecture.key}`}
-                                                onChange={(event) => {
-                                                  const file = event.target.files?.[0];
+                                                label='강의 영상 파일'
+                                                onFilesSelected={(files) => {
+                                                  const file = files[0];
                                                   if (!file) {
                                                     return;
                                                   }
                                                   handleLectureVideoSelection(lecture.key, file);
-                                                  event.currentTarget.value = '';
                                                 }}
-                                                type='file'
+                                                onClear={
+                                                  pendingVideoSelection
+                                                    ? cancelPendingVideoSelection
+                                                    : undefined
+                                                }
+                                                selectedLabel={
+                                                  pendingVideoSelection?.file.name ??
+                                                  lecture.videoUploadFileName ??
+                                                  undefined
+                                                }
+                                                selectedMeta={videoFileSizeLabel}
                                               />
-                                              <div className={styles['actionRow']}>
-                                                <Button
-                                                  onClick={() => {
-                                                    document
-                                                      .getElementById(
-                                                        `lecture-video-upload-${lecture.key}`,
-                                                      )
-                                                      ?.click();
-                                                  }}
-                                                  type='button'
-                                                  variant='primary'
-                                                >
-                                                  {pendingVideoSelection ||
-                                                  lecture.videoUploadFileName
-                                                    ? '파일 변경'
-                                                    : '파일 선택'}
-                                                </Button>
-                                                {pendingVideoSelection ? (
-                                                  <Button
-                                                    onClick={(event) => {
-                                                      void handleLectureVideoUpload(
-                                                        section.key,
-                                                        lecture.key,
-                                                        event,
-                                                      );
-                                                    }}
-                                                    type='button'
-                                                    variant='secondary'
-                                                  >
-                                                    업로드 시작
-                                                  </Button>
-                                                ) : null}
-                                                {pendingVideoSelection ? (
-                                                  <Button
-                                                    onClick={() => {
-                                                      setPendingVideoSelections((current) => {
-                                                        const next = { ...current };
-                                                        delete next[lecture.key];
-                                                        return next;
-                                                      });
-                                                      setLectureVideoSizeLabels((current) => {
-                                                        const next = { ...current };
-                                                        delete next[lecture.key];
-                                                        return next;
-                                                      });
-                                                    }}
-                                                    type='button'
-                                                    variant='secondary'
-                                                  >
-                                                    선택 취소
-                                                  </Button>
-                                                ) : null}
-                                                {lecture.videoId && !pendingVideoSelection ? (
-                                                  <Button
-                                                    onClick={() => {
-                                                      updateLecture(
-                                                        section.key,
-                                                        lecture.key,
-                                                        (current) => ({
-                                                          ...current,
-                                                          durationSeconds: null,
-                                                          videoId: null,
-                                                          videoUploadErrorMessage: null,
-                                                          videoUploadFileName: null,
-                                                          videoUploadStatus: null,
-                                                        }),
-                                                      );
-                                                      setLectureVideoSizeLabels((current) => {
-                                                        const next = { ...current };
-                                                        delete next[lecture.key];
-                                                        return next;
-                                                      });
-                                                    }}
-                                                    type='button'
-                                                    variant='secondary'
-                                                  >
-                                                    영상 연결 해제
-                                                  </Button>
-                                                ) : null}
-                                              </div>
                                             </div>
                                           ) : null}
 

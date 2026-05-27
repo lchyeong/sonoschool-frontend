@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -9,6 +9,7 @@ import {
   deleteAdminResource,
   updateAdminResource,
 } from '@/api/adminResources';
+import AdminFileDropZone from '@/components/admin/AdminFileDropZone';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { adminResourcesQueryKey, useAdminResourcesQuery } from '@/query/useAdminResourcesQuery';
@@ -18,6 +19,7 @@ import type { AdminResourceItem, AdminResourceUpsertPayload } from '@/types/admi
 
 import styles from './AdminConsolePage.module.scss';
 import {
+  RESOURCE_DOCUMENT_ACCEPT,
   RESOURCE_DOCUMENT_POLICY_HINT,
   validateResourceDocumentPolicy,
 } from './resourceDocumentPolicy';
@@ -79,6 +81,10 @@ const formatFileSizeInMb = (bytes: number): string => {
   return `${Math.max(0.01, bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
+const getTitleFromFileName = (fileName: string): string => {
+  return fileName.replace(/\.[^.]+$/, '');
+};
+
 const validateForm = (formState: ResourceFormState): string | null => {
   if (!formState.title.trim()) {
     return '자료 게시글 제목을 입력해 주세요.';
@@ -113,18 +119,37 @@ const AdminResourceWorkspaceForm = ({
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const [formState, setFormState] = useState<ResourceFormState>(initialFormState);
+  const [selectedResourceFile, setSelectedResourceFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const hasUploadedFilePendingSave =
+    formState.mediaAssetId !== null && formState.mediaAssetId !== initialFormState.mediaAssetId;
+
+  useEffect(() => {
+    const shouldWarnBeforeUnload = selectedResourceFile !== null || hasUploadedFilePendingSave;
+    if (!shouldWarnBeforeUnload) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUploadedFilePendingSave, selectedResourceFile]);
 
   const refreshResources = async () => {
     await queryClient.invalidateQueries({ queryKey: adminResourcesQueryKey() });
   };
 
-  const buildPayload = (): AdminResourceUpsertPayload => {
+  const buildPayload = (mediaAssetId: number | null): AdminResourceUpsertPayload => {
     return {
       description: formState.description.trim() || null,
       fileName: formState.fileName.trim(),
       lectureId: null,
-      mediaAssetId: formState.mediaAssetId,
+      mediaAssetId,
       programId: null,
       scope: 'GLOBAL',
       sortOrder: Number(formState.sortOrder),
@@ -133,7 +158,7 @@ const AdminResourceWorkspaceForm = ({
     };
   };
 
-  const handleResourceFileChange = async (file: File | null) => {
+  const handleResourceFileChange = (file: File | null) => {
     if (!file) {
       return;
     }
@@ -149,27 +174,72 @@ const AdminResourceWorkspaceForm = ({
       return;
     }
 
+    setSelectedResourceFile(file);
+    setFormState((current) => {
+      const previousGeneratedTitle = current.originalFileName
+        ? getTitleFromFileName(current.originalFileName)
+        : '';
+      const shouldReplaceFileName =
+        !current.fileName.trim() || current.fileName === current.originalFileName;
+      const shouldReplaceTitle =
+        !current.title.trim() ||
+        (previousGeneratedTitle && current.title === previousGeneratedTitle);
+
+      return {
+        ...current,
+        fileName: shouldReplaceFileName ? file.name : current.fileName,
+        fileSize: file.size,
+        mediaAssetId: null,
+        mimeType: file.type || 'application/octet-stream',
+        originalFileName: file.name,
+        title: shouldReplaceTitle ? getTitleFromFileName(file.name) : current.title,
+      };
+    });
+  };
+
+  const clearSelectedResourceFile = () => {
+    setSelectedResourceFile(null);
+    setFormState((current) => {
+      const generatedTitle = current.originalFileName
+        ? getTitleFromFileName(current.originalFileName)
+        : '';
+      const nextTitle = current.title === generatedTitle ? initialFormState.title : current.title;
+
+      return {
+        ...current,
+        fileName: initialFormState.fileName,
+        fileSize: initialFormState.fileSize,
+        mediaAssetId: initialFormState.mediaAssetId,
+        mimeType: initialFormState.mimeType,
+        originalFileName: initialFormState.originalFileName,
+        title: nextTitle,
+      };
+    });
+  };
+
+  const uploadSelectedResourceFile = async () => {
+    if (!selectedResourceFile) {
+      showToast({
+        message: '업로드할 자료 파일을 선택해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
     setIsUploading(true);
     try {
       const uploadTarget = await createAdminResourceUploadTarget({
-        contentType: file.type || 'application/octet-stream',
-        fileSize: file.size,
-        filename: file.name,
+        contentType: selectedResourceFile.type || 'application/octet-stream',
+        fileSize: selectedResourceFile.size,
+        filename: selectedResourceFile.name,
       });
-      await uploadAdminResourceFile(uploadTarget.uploadUrl, file);
+      await uploadAdminResourceFile(uploadTarget.uploadUrl, selectedResourceFile);
       setFormState((current) => ({
         ...current,
-        fileName: current.fileName.trim() ? current.fileName : file.name,
-        fileSize: file.size,
         mediaAssetId: uploadTarget.assetId,
-        mimeType: file.type || 'application/octet-stream',
-        originalFileName: file.name,
-        title: current.title.trim() ? current.title : file.name.replace(/\.[^.]+$/, ''),
       }));
-      showToast({
-        message: '자료 파일을 업로드했습니다.',
-        variant: 'success',
-      });
+      setSelectedResourceFile(null);
+      showToast({ message: '자료 파일을 업로드했습니다.', variant: 'success' });
     } catch (error: unknown) {
       showToast({
         message: error instanceof Error ? error.message : '자료 파일 업로드에 실패했습니다.',
@@ -251,15 +321,23 @@ const AdminResourceWorkspaceForm = ({
       return;
     }
 
-    if (mode === 'create' && !formState.mediaAssetId) {
+    if (selectedResourceFile) {
       showToast({
-        message: '자료 파일을 먼저 업로드해 주세요.',
+        message: '선택한 자료 파일은 업로드 시작을 먼저 눌러 주세요.',
         variant: 'error',
       });
       return;
     }
 
-    const payload = buildPayload();
+    if (mode === 'create' && !formState.mediaAssetId) {
+      showToast({
+        message: '자료 파일을 선택한 뒤 업로드 시작을 눌러 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const payload = buildPayload(formState.mediaAssetId);
 
     if (mode === 'create') {
       createMutation.mutate(payload);
@@ -354,40 +432,54 @@ const AdminResourceWorkspaceForm = ({
                   자료 파일
                 </h3>
                 <p className={styles['noticeAttachmentHint']}>
-                  파일을 선택하면 원본 파일명과 파일 크기가 자동으로 저장됩니다.
+                  선택한 파일은 업로드 시작을 누를 때 업로드됩니다.
                 </p>
               </div>
-              <label className={styles['noticeAttachmentButton']}>
-                <input
-                  disabled={isUploading}
-                  onChange={(event) => {
-                    void handleResourceFileChange(event.target.files?.[0] ?? null);
-                    event.currentTarget.value = '';
-                  }}
-                  type='file'
-                />
-                {isUploading
+            </div>
+
+            <AdminFileDropZone
+              actions={
+                selectedResourceFile ? (
+                  <>
+                    <Button
+                      disabled={isUploading}
+                      onClick={() => {
+                        void uploadSelectedResourceFile();
+                      }}
+                      type='button'
+                      variant='secondary'
+                    >
+                      업로드 시작
+                    </Button>
+                    <Button
+                      disabled={isUploading}
+                      onClick={clearSelectedResourceFile}
+                      type='button'
+                      variant='secondary'
+                    >
+                      선택 취소
+                    </Button>
+                  </>
+                ) : null
+              }
+              accept={RESOURCE_DOCUMENT_ACCEPT}
+              buttonLabel={
+                isUploading
                   ? '업로드 중...'
                   : formState.originalFileName
                     ? '파일 변경'
-                    : '파일 선택'}
-              </label>
-            </div>
-
-            {formState.originalFileName ? (
-              <ul className={styles['noticeAttachmentList']}>
-                <li className={styles['noticeAttachmentItem']}>
-                  <span className={styles['noticeAttachmentName']}>
-                    {formState.originalFileName}
-                  </span>
-                  <span className={styles['noticeAttachmentSize']}>
-                    {formatFileSizeInMb(formState.fileSize)}
-                  </span>
-                </li>
-              </ul>
-            ) : (
-              <p className={styles['noticeAttachmentEmpty']}>등록된 첨부파일이 없습니다.</p>
-            )}
+                    : '파일 선택'
+              }
+              disabled={isSubmitting}
+              hint='선택한 파일은 업로드 시작을 누를 때 업로드됩니다.'
+              label='자료 파일 업로드'
+              onFilesSelected={(files) => {
+                handleResourceFileChange(files[0] ?? null);
+              }}
+              onClear={selectedResourceFile ? clearSelectedResourceFile : undefined}
+              selectedLabel={formState.originalFileName || undefined}
+              selectedMeta={formState.fileSize > 0 ? formatFileSizeInMb(formState.fileSize) : null}
+            />
           </section>
 
           <div className={styles['compactFieldRow']}>
@@ -417,6 +509,8 @@ const AdminResourceWorkspaceForm = ({
             </Button>
             <Button
               onClick={() => {
+                setSelectedResourceFile(null);
+
                 if (mode === 'edit' && editingResource) {
                   setFormState(createFormState(editingResource));
                   return;

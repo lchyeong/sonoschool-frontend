@@ -82,6 +82,7 @@ import {
   toDateInputValue,
   toMonthValue,
 } from '@/utils/practicumCalendar';
+import { formatQuizOptionLabel } from '@/utils/quizOptionLabel';
 
 import {
   flattenLessons,
@@ -2295,7 +2296,7 @@ const PlayerPage = () => {
     const optionLabelById = new Map(
       question.options.map((option, optionIndex) => [
         option.id,
-        `${String(optionIndex + 1)}. ${option.optionText}`,
+        `${formatQuizOptionLabel(optionIndex)}. ${option.optionText}`,
       ]),
     );
 
@@ -4107,7 +4108,7 @@ const PlayerPage = () => {
                                       >
                                         <input
                                           checked={checked}
-                                          aria-label={`${String(optionIndex + 1)}. ${option.optionText}`}
+                                          aria-label={`${formatQuizOptionLabel(optionIndex)}. ${option.optionText}`}
                                           disabled={quizReviewMode}
                                           name={`problem-question-${String(currentQuizQuestion.id)}`}
                                           onChange={() => {
@@ -4129,14 +4130,15 @@ const PlayerPage = () => {
                                         />
                                         <div className={styles['quizOptionContent']}>
                                           <span className={styles['quizOptionLabel']}>
-                                            {optionIndex + 1}. {option.optionText}
+                                            {formatQuizOptionLabel(optionIndex)}.{' '}
+                                            {option.optionText}
                                           </span>
                                           {renderQuizMedia(
                                             option.mediaType,
                                             option.mediaVideoId,
                                             option.mediaPreviewUrl,
                                             option.mediaUrl,
-                                            `${String(resolvedQuizQuestionIndex + 1)}번 문항 ${String(optionIndex + 1)}번 보기 미디어`,
+                                            `${String(resolvedQuizQuestionIndex + 1)}번 문항 ${formatQuizOptionLabel(optionIndex)} 보기 미디어`,
                                             styles['quizOptionMedia'],
                                           )}
                                         </div>

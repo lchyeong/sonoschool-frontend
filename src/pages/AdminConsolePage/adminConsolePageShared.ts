@@ -133,6 +133,58 @@ export const formatFileSizeLabel = (size: number): string => {
   return `${String(Math.max(1, Math.round(size / 1024)))} KB`;
 };
 
+const VIEWPORT_DRAG_SCROLL_EDGE = 96;
+const VIEWPORT_DRAG_SCROLL_MAX_DELTA = 52;
+
+export const createViewportDragAutoScroller = () => {
+  let animationFrameId: number | null = null;
+  let scrollDelta = 0;
+
+  const stop = () => {
+    if (animationFrameId !== null) {
+      window.cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+
+    scrollDelta = 0;
+  };
+
+  const scroll = () => {
+    if (scrollDelta === 0) {
+      animationFrameId = null;
+      return;
+    }
+
+    window.scrollBy(0, scrollDelta);
+    animationFrameId = window.requestAnimationFrame(scroll);
+  };
+
+  const update = (clientY: number) => {
+    const viewportHeight = window.innerHeight;
+
+    if (clientY < VIEWPORT_DRAG_SCROLL_EDGE) {
+      scrollDelta = -Math.ceil(
+        ((VIEWPORT_DRAG_SCROLL_EDGE - clientY) / VIEWPORT_DRAG_SCROLL_EDGE) *
+          VIEWPORT_DRAG_SCROLL_MAX_DELTA,
+      );
+    } else if (clientY > viewportHeight - VIEWPORT_DRAG_SCROLL_EDGE) {
+      scrollDelta = Math.ceil(
+        ((clientY - (viewportHeight - VIEWPORT_DRAG_SCROLL_EDGE)) / VIEWPORT_DRAG_SCROLL_EDGE) *
+          VIEWPORT_DRAG_SCROLL_MAX_DELTA,
+      );
+    } else {
+      stop();
+      return;
+    }
+
+    if (animationFrameId === null) {
+      animationFrameId = window.requestAnimationFrame(scroll);
+    }
+  };
+
+  return { stop, update };
+};
+
 export const PROGRAM_THUMBNAIL_FILE_ACCEPT = '.jpg,.jpeg,.png,.webp';
 
 const PROGRAM_THUMBNAIL_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);

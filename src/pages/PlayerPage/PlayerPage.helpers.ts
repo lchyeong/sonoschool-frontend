@@ -18,6 +18,7 @@ import {
   getSlotDateKey,
   toMonthValue,
 } from '@/utils/practicumCalendar';
+import { formatQuizOptionLabel } from '@/utils/quizOptionLabel';
 
 import { formatSeconds } from '../LearningPage/learningShared';
 
@@ -605,19 +606,18 @@ export const formatSelectedQuizAnswerLabel = (
     return null;
   }
 
-  const optionNumberById = new Map(
-    question.options.map((option, optionIndex) => [option.id, optionIndex + 1]),
+  const optionLabelById = new Map(
+    question.options.map((option, optionIndex) => [option.id, formatQuizOptionLabel(optionIndex)]),
   );
-  const selectedOptionNumbers = selectedOptionIds
-    .map((optionId) => optionNumberById.get(optionId))
-    .filter((optionNumber): optionNumber is number => optionNumber !== undefined)
-    .sort((left, right) => left - right);
+  const selectedOptionLabels = selectedOptionIds
+    .map((optionId) => optionLabelById.get(optionId))
+    .filter((optionLabel): optionLabel is string => optionLabel !== undefined);
 
-  if (!selectedOptionNumbers.length) {
+  if (!selectedOptionLabels.length) {
     return null;
   }
 
-  return `${selectedOptionNumbers.join(', ')}번`;
+  return selectedOptionLabels.join(', ');
 };
 
 export const formatQuizQuestionLabel = (index: number) => {

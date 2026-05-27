@@ -1,5 +1,6 @@
 import type {
   ChangeEvent,
+  DragEvent as ReactDragEvent,
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
@@ -111,6 +112,14 @@ const HIDDEN_TABLE_CONTROLS: TableInlineControlsState = {
 const HIDDEN_TABLE_ADD_PREVIEW: TableAddPreviewState = {
   column: false,
   row: false,
+};
+
+const isImageFile = (file: File): boolean => {
+  if (file.type.trim().toLowerCase().startsWith('image/')) {
+    return true;
+  }
+
+  return /\.(avif|gif|jpe?g|png|webp)$/i.test(file.name);
 };
 
 const FontSize = Extension.create({
@@ -654,11 +663,14 @@ const AdminRichTextEditor = ({
       .run();
   };
 
-  const handleImageSelection = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
+  const insertImageFiles = async (files: File[]) => {
+    if (files.length === 0 || !editor || !onImageUpload) {
+      return;
+    }
 
-    if (!file || !editor || !onImageUpload) {
+    const invalidFile = files.find((file) => !isImageFile(file));
+    if (invalidFile) {
+      setUploadErrorMessage(`${invalidFile.name} 파일은 이미지 형식이 아닙니다.`);
       return;
     }
 
@@ -666,19 +678,21 @@ const AdminRichTextEditor = ({
     setUploadErrorMessage(null);
 
     try {
-      const uploadedImage = await onImageUpload(file);
-      editor
-        .chain()
-        .focus()
-        .insertContent({
-          attrs: {
-            alt: uploadedImage.alt ?? file.name,
-            src: uploadedImage.url,
-            storageUrl: uploadedImage.storageUrl ?? null,
-          },
-          type: 'image',
-        })
-        .run();
+      for (const file of files) {
+        const uploadedImage = await onImageUpload(file);
+        editor
+          .chain()
+          .focus()
+          .insertContent({
+            attrs: {
+              alt: uploadedImage.alt ?? file.name,
+              src: uploadedImage.url,
+              storageUrl: uploadedImage.storageUrl ?? null,
+            },
+            type: 'image',
+          })
+          .run();
+      }
     } catch (error: unknown) {
       setUploadErrorMessage(
         error instanceof Error ? error.message : '이미지 업로드에 실패했습니다.',
@@ -686,6 +700,34 @@ const AdminRichTextEditor = ({
     } finally {
       setIsUploadingImage(false);
     }
+  };
+
+  const handleImageSelection = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    await insertImageFiles(files);
+  };
+
+  const handleEditorDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+    const hasFile = Array.from(event.dataTransfer.items).some((item) => item.kind === 'file');
+
+    if (!hasFile || !onImageUpload || isUploadingImage) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleEditorDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+    const files = Array.from(event.dataTransfer.files);
+
+    if (files.length === 0 || !onImageUpload || isUploadingImage) {
+      return;
+    }
+
+    event.preventDefault();
+    void insertImageFiles(files);
   };
 
   return (
@@ -946,6 +988,8 @@ const AdminRichTextEditor = ({
 
         <div
           className={styles['editor']}
+          onDragOver={handleEditorDragOver}
+          onDrop={handleEditorDrop}
           onMouseLeave={() => {
             clearTableAddPreviewHideTimer();
             updateTableAddPreview(HIDDEN_TABLE_ADD_PREVIEW);
@@ -1085,6 +1129,7 @@ const AdminRichTextEditor = ({
       <input
         accept='image/*'
         hidden
+        multiple
         onChange={(event) => {
           void handleImageSelection(event);
         }}

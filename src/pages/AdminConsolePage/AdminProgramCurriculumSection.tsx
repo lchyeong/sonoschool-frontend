@@ -25,6 +25,7 @@ import {
   startAdminVideoEncoding,
 } from '@/api/adminVideos';
 import checkIconSrc from '@/assets/icons/lucide_check.svg';
+import AdminFileDropZone from '@/components/admin/AdminFileDropZone';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { adminCurriculumQueryKey, useAdminCurriculumQuery } from '@/query/useAdminCurriculumQuery';
@@ -582,7 +583,6 @@ const LectureCard = ({
   );
   const [expanded, setExpanded] = useState(false);
   const [activePanel, setActivePanel] = useState<LectureWorkspacePanel | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const showToast = useToastStore((state) => state.showToast);
   const offlineScheduleMinDate = allowPastOfflineScheduleDates
     ? ''
@@ -750,20 +750,6 @@ const LectureCard = ({
           </Button>
         </div>
       </div>
-
-      <input
-        hidden
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (!file) {
-            return;
-          }
-          onUploadVideo(lecture.id, file);
-          event.currentTarget.value = '';
-        }}
-        ref={fileInputRef}
-        type='file'
-      />
 
       {expanded ? (
         <div className={styles['cardBody']}>
@@ -951,17 +937,18 @@ const LectureCard = ({
               <div className={styles['panelHeader']}>
                 <h5 className={styles['subsectionTitle']}>영상 연결</h5>
               </div>
+              <AdminFileDropZone
+                accept='video/*'
+                buttonLabel={lecture.videoId === null ? '강의 영상 업로드' : '강의 영상 교체'}
+                disabled={isVideoUploadStatusInProgress(videoUploadStatus)}
+                label='강의 영상 파일'
+                onFilesSelected={(files) => {
+                  const file = files[0];
+                  onUploadVideo(lecture.id, file);
+                }}
+                selectedLabel={videoUploadStatus ?? undefined}
+              />
               <div className={styles['buttonRow']}>
-                <Button
-                  onClick={() => {
-                    fileInputRef.current?.click();
-                  }}
-                  size='sm'
-                  type='button'
-                  variant='secondary'
-                >
-                  {lecture.videoId === null ? '강의 영상 업로드' : '강의 영상 교체'}
-                </Button>
                 <Button
                   onClick={() => {
                     setActivePanel(null);

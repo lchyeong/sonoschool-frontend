@@ -20,7 +20,8 @@ vi.mock('@/api/axiosInstance', () => {
   };
 });
 
-import { reorderAdminProblemQuestions } from '@/api/adminProblems';
+import { createAdminProblem, reorderAdminProblemQuestions } from '@/api/adminProblems';
+import type { AdminProblemUpsertPayload } from '@/types/adminProblems';
 
 describe('admin problems API', () => {
   beforeEach(() => {
@@ -44,5 +45,55 @@ describe('admin problems API', () => {
         { id: 101, sortOrder: 1 },
       ],
     });
+  });
+
+  it('normalizes nullable question and option collections before create', async () => {
+    const payload = {
+      passScore: 80,
+      questions: [
+        null,
+        {
+          explanation: ' 설명 ',
+          mediaAssetId: null,
+          mediaType: null,
+          mediaUrl: '',
+          mediaVideoId: null,
+          options: [
+            null,
+            {
+              correct: null,
+              mediaType: null,
+              mediaUrl: null,
+              optionText: null,
+              sortOrder: null,
+            },
+          ],
+          problemAreaId: 3,
+          questionText: null,
+          questionType: 'SINGLE',
+          sortOrder: null,
+        },
+      ],
+      retakeAllowed: null,
+      title: null,
+    } as unknown as AdminProblemUpsertPayload;
+    axiosPostMock.mockResolvedValue({ data: { data: {} } });
+
+    await createAdminProblem(15, payload);
+
+    const requestPayload = axiosPostMock.mock.calls[0]?.[1] as AdminProblemUpsertPayload;
+    expect(requestPayload.title).toBe('');
+    expect(requestPayload.retakeAllowed).toBe(false);
+    expect(requestPayload.questions).toHaveLength(1);
+    expect(requestPayload.questions[0]?.questionText).toBe('');
+    expect(requestPayload.questions[0]?.options).toEqual([
+      {
+        correct: false,
+        mediaType: null,
+        mediaUrl: null,
+        optionText: '',
+        sortOrder: 0,
+      },
+    ]);
   });
 });

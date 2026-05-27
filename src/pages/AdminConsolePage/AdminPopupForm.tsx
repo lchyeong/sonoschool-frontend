@@ -1,7 +1,9 @@
+import AdminFileDropZone from '@/components/admin/AdminFileDropZone';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 
 import styles from './AdminConsolePage.module.scss';
+import { formatFileSizeLabel } from './adminConsolePageShared';
 import type { PopupFormState } from './adminPopupUtils';
 
 interface AdminPopupFormProps {
@@ -32,28 +34,27 @@ const AdminPopupForm = ({
       <div className={styles['form']}>
         <div className={styles['popupMediaField']}>
           <div className={styles['popupFileField']}>
-            <p className={styles['fieldLabel']}>팝업 이미지</p>
-            <label className={styles['popupFilePicker']} data-disabled={isUploadingImage}>
-              <input
-                aria-label='팝업 이미지 파일'
-                accept='image/*'
-                className={styles['srOnly']}
-                disabled={isUploadingImage}
-                name='popupImageFile'
-                onChange={(event) => {
-                  onImageFileChange(event.target.files?.[0] ?? null);
-                  event.currentTarget.value = '';
-                }}
-                type='file'
-              />
-              <span className={styles['popupFileButton']}>
-                {isUploadingImage ? '업로드 중' : '파일 선택'}
-              </span>
-              <span className={styles['popupFileName']}>
-                {formState.pendingImageFile?.name ??
-                  (formState.imageUrl ? '등록된 이미지' : '선택된 파일 없음')}
-              </span>
-            </label>
+            <AdminFileDropZone
+              accept='image/*'
+              buttonLabel={isUploadingImage ? '업로드 중' : '파일 선택'}
+              disabled={isUploadingImage}
+              inputLabel='팝업 이미지 파일'
+              label='팝업 이미지'
+              name='popupImageFile'
+              onFilesSelected={(files) => {
+                onImageFileChange(files[0] ?? null);
+              }}
+              onClear={formState.pendingImageFile ? onRemoveImage : undefined}
+              selectedLabel={
+                formState.pendingImageFile?.name ??
+                (formState.imageUrl ? '등록된 이미지' : undefined)
+              }
+              selectedMeta={
+                formState.pendingImageFile
+                  ? formatFileSizeLabel(formState.pendingImageFile.size)
+                  : null
+              }
+            />
           </div>
 
           {formState.imageUrl ? (

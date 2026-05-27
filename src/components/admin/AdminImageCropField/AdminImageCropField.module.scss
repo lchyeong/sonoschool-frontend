@@ -63,22 +63,41 @@
   background: color-mix(in srgb, var(--color-brand-main) 4%, #ffffff);
 }
 
-.controlPanel {
+.controlStack {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.controlPanel,
+.uploadPanel {
   display: grid;
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-4);
   border: 1px solid var(--admin-border);
+}
+
+.controlPanel {
   background: color-mix(in srgb, var(--color-brand-main) 4%, #ffffff);
 }
 
+.uploadPanel {
+  background: #ffffff;
+}
+
 .controlHeader,
-.actions {
+.actions,
+.uploadActions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+.uploadActions {
+  justify-content: flex-start;
 }
 
 .title {

@@ -60,6 +60,7 @@ import { paymentStatusLabels } from '@/types/payment';
 import styles from './AdminConsolePage.module.scss';
 import {
   PROGRAM_THUMBNAIL_FILE_ACCEPT,
+  formatFileSizeLabel,
   validateProgramThumbnailFile,
 } from './adminConsolePageShared';
 
@@ -81,6 +82,14 @@ interface AdminProgramFaqFormItem {
 interface UploadProgressModalState {
   description: string;
   title: string;
+}
+
+interface PendingThumbnailSelection {
+  file: File;
+  previousPreviewUrl: string;
+  previousThumbnailUrl: string;
+  previewObjectUrl: string;
+  sizeLabel: string;
 }
 
 interface AdminProgramFormState {
@@ -692,6 +701,8 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     mode === 'edit',
   );
   const [formState, setFormState] = useState<AdminProgramFormState>(INITIAL_FORM_STATE);
+  const [pendingThumbnailSelection, setPendingThumbnailSelection] =
+    useState<PendingThumbnailSelection | null>(null);
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [uploadProgressModal, setUploadProgressModal] = useState<UploadProgressModalState | null>(
     null,
@@ -715,8 +726,18 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
 
     queueMicrotask(() => {
       setFormState(normalizeFormState(duplicatedState));
+      setPendingThumbnailSelection(null);
     });
   }, [detailQuery.data, mode]);
+
+  useEffect(
+    () => () => {
+      if (pendingThumbnailSelection?.previewObjectUrl) {
+        URL.revokeObjectURL(pendingThumbnailSelection.previewObjectUrl);
+      }
+    },
+    [pendingThumbnailSelection?.previewObjectUrl],
+  );
 
   const openLectureWorkspace = (lectureId: number, target: 'problem' | 'resource') => {
     const nextSearchParams = new URLSearchParams(searchParams);
@@ -1011,7 +1032,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     }));
   };
 
-  const handleThumbnailFileChange = async (file: File | null) => {
+  const handleThumbnailFileChange = (file: File | null) => {
     if (!file) {
       return;
     }
@@ -1025,11 +1046,60 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       return;
     }
 
+    const previewObjectUrl =
+      typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : '';
+    setPendingThumbnailSelection((current) => ({
+      file,
+      previousPreviewUrl: current?.previousPreviewUrl ?? formState.thumbnailPreviewUrl,
+      previousThumbnailUrl: current?.previousThumbnailUrl ?? formState.thumbnailUrl,
+      previewObjectUrl,
+      sizeLabel: formatFileSizeLabel(file.size),
+    }));
+    setFormState((current) => ({
+      ...current,
+      thumbnailCrop: DEFAULT_ADMIN_IMAGE_CROP,
+      thumbnailPreviewUrl: previewObjectUrl,
+      thumbnailUrl: '',
+    }));
+  };
+
+  const cancelPendingThumbnailSelection = () => {
+    if (!pendingThumbnailSelection) {
+      setFormState((current) => ({
+        ...current,
+        thumbnailCrop: DEFAULT_ADMIN_IMAGE_CROP,
+        thumbnailPreviewUrl: '',
+        thumbnailUrl: '',
+      }));
+      return;
+    }
+
+    setFormState((current) => ({
+      ...current,
+      thumbnailCrop: DEFAULT_ADMIN_IMAGE_CROP,
+      thumbnailPreviewUrl: pendingThumbnailSelection.previousPreviewUrl,
+      thumbnailUrl: pendingThumbnailSelection.previousThumbnailUrl,
+    }));
+    setPendingThumbnailSelection(null);
+  };
+
+  const uploadPendingThumbnailSelection = async () => {
+    if (!pendingThumbnailSelection) {
+      showToast({
+        message: '대표 이미지 파일을 선택한 뒤 업로드 시작을 눌러 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const file = pendingThumbnailSelection.file;
     setIsUploadingThumbnail(true);
     setUploadProgressModal({
       description: '대표 이미지 업로드가 끝날 때까지 잠시 기다려 주세요.',
       title: '대표 이미지 업로드 중',
     });
+
+    let fileUploaded = false;
 
     try {
       const uploadTarget = await createAdminProgramThumbnailUploadTarget({
@@ -1039,20 +1109,37 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       });
 
       await uploadAdminProgramThumbnailFile(uploadTarget.uploadUrl, file);
+      fileUploaded = true;
 
-      setFormState((current) => ({
-        ...current,
+      const nextFormState = {
+        ...formState,
         thumbnailPreviewUrl: uploadTarget.previewUrl,
         thumbnailUrl: uploadTarget.storageUrl,
-      }));
+      };
+
+      setFormState(nextFormState);
+      setPendingThumbnailSelection(null);
+
+      if (mode === 'edit' && editingProgramId !== null && Number.isFinite(editingProgramId)) {
+        await updateAdminProgramLive(editingProgramId, toProgramPayload(nextFormState));
+        await invalidateProgramQueries(editingProgramId);
+      }
 
       showToast({
-        message: '대표 이미지를 업로드했습니다.',
+        message:
+          mode === 'edit'
+            ? '대표 이미지를 업로드하고 프로그램에 반영했습니다.'
+            : '대표 이미지를 업로드했습니다.',
         variant: 'success',
       });
     } catch (error: unknown) {
       showToast({
-        message: error instanceof Error ? error.message : '대표 이미지 업로드에 실패했습니다.',
+        message:
+          error instanceof Error
+            ? error.message
+            : fileUploaded
+              ? '대표 이미지는 업로드됐지만 프로그램 반영에 실패했습니다.'
+              : '대표 이미지 업로드에 실패했습니다.',
         variant: 'error',
       });
     } finally {
@@ -1067,6 +1154,14 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     if (validationMessage) {
       showToast({
         message: validationMessage,
+        variant: 'error',
+      });
+      return;
+    }
+
+    if (pendingThumbnailSelection) {
+      showToast({
+        message: '선택한 대표 이미지는 업로드 시작을 먼저 눌러 주세요.',
         variant: 'error',
       });
       return;
@@ -1329,7 +1424,8 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                       <div className={styles['mediaFieldCopy']}>
                         <p className={styles['fieldLabel']}>대표 이미지</p>
                         <p className={styles['mediaFieldHint']}>
-                          프로그램 카드와 상세 상단에 노출될 이미지를 업로드합니다.
+                          프로그램 카드와 상세 상단에 노출될 이미지를 선택합니다. 선택한 이미지는
+                          업로드 시작을 누를 때 업로드됩니다.
                         </p>
                       </div>
                     </div>
@@ -1340,22 +1436,23 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                       }
                       aspectRatio={4 / 3}
                       disabled={isUploadingThumbnail}
+                      fileCaption={
+                        pendingThumbnailSelection
+                          ? `업로드 대기 중 · ${pendingThumbnailSelection.file.name} · ${pendingThumbnailSelection.sizeLabel}`
+                          : null
+                      }
                       imageUrl={formState.thumbnailPreviewUrl}
                       label='대표 이미지 미리보기'
                       onChange={(nextCrop) => {
                         updateField('thumbnailCrop', nextCrop);
                       }}
-                      onRemove={() => {
-                        setFormState((current) => ({
-                          ...current,
-                          thumbnailCrop: DEFAULT_ADMIN_IMAGE_CROP,
-                          thumbnailPreviewUrl: '',
-                          thumbnailUrl: '',
-                        }));
+                      onRemove={cancelPendingThumbnailSelection}
+                      onSelectFile={handleThumbnailFileChange}
+                      onUploadStart={() => {
+                        void uploadPendingThumbnailSelection();
                       }}
-                      onSelectFile={(file) => {
-                        void handleThumbnailFileChange(file);
-                      }}
+                      uploadButtonDisabled={!pendingThumbnailSelection || isUploadingThumbnail}
+                      uploadButtonLabel={isUploadingThumbnail ? '업로드 중...' : '업로드 시작'}
                       value={formState.thumbnailCrop}
                     />
                   </div>

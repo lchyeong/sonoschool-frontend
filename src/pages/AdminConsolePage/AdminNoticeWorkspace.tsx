@@ -1,5 +1,4 @@
-import type { ChangeEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -58,7 +57,26 @@ const AdminNoticeWorkspaceForm = ({
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const [formState, setFormState] = useState<NoticeFormState>(initialFormState);
+  const [selectedAttachmentFiles, setSelectedAttachmentFiles] = useState<File[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [hasUploadedMediaPendingSave, setHasUploadedMediaPendingSave] = useState(false);
+
+  useEffect(() => {
+    const shouldWarnBeforeUnload =
+      selectedAttachmentFiles.length > 0 || hasUploadedMediaPendingSave;
+    if (!shouldWarnBeforeUnload) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUploadedMediaPendingSave, selectedAttachmentFiles.length]);
 
   const refreshNotices = async () => {
     await Promise.all([
@@ -77,6 +95,7 @@ const AdminNoticeWorkspaceForm = ({
     },
     onSuccess: async () => {
       await refreshNotices();
+      setHasUploadedMediaPendingSave(false);
       showToast({
         message: '공지사항을 등록했습니다.',
         variant: 'success',
@@ -101,6 +120,7 @@ const AdminNoticeWorkspaceForm = ({
     },
     onSuccess: async () => {
       await refreshNotices();
+      setHasUploadedMediaPendingSave(false);
       showToast({
         message: '공지사항을 수정했습니다.',
         variant: 'success',
@@ -157,6 +177,14 @@ const AdminNoticeWorkspaceForm = ({
       return;
     }
 
+    if (selectedAttachmentFiles.length > 0) {
+      showToast({
+        message: '선택한 첨부파일은 업로드 시작을 먼저 눌러 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
     if (mode === 'create') {
       createMutation.mutate({
         attachments: formState.attachments,
@@ -192,6 +220,7 @@ const AdminNoticeWorkspaceForm = ({
     });
 
     await uploadAdminNoticeMediaFile(uploadTarget.uploadUrl, file);
+    setHasUploadedMediaPendingSave(true);
 
     return {
       alt: file.name,
@@ -200,10 +229,7 @@ const AdminNoticeWorkspaceForm = ({
     };
   };
 
-  const handleAttachmentSelection = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = '';
-
+  const handleAttachmentSelection = (files: File[]) => {
     if (files.length === 0) {
       return;
     }
@@ -227,11 +253,23 @@ const AdminNoticeWorkspaceForm = ({
       return;
     }
 
+    setSelectedAttachmentFiles(files);
+  };
+
+  const uploadSelectedAttachments = async () => {
+    if (selectedAttachmentFiles.length === 0) {
+      showToast({
+        message: '업로드할 첨부파일을 선택해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
     setIsUploadingAttachment(true);
 
     try {
       const uploadedAttachments = await Promise.all(
-        files.map(async (file) => {
+        selectedAttachmentFiles.map(async (file) => {
           const uploadTarget = await createAdminNoticeAttachmentUploadTarget({
             contentType: file.type || 'application/octet-stream',
             domain: 'NOTICE',
@@ -254,6 +292,8 @@ const AdminNoticeWorkspaceForm = ({
         ...current,
         attachments: [...current.attachments, ...uploadedAttachments],
       }));
+      setHasUploadedMediaPendingSave(true);
+      setSelectedAttachmentFiles([]);
       showToast({ message: '첨부파일을 업로드했습니다.', variant: 'success' });
     } catch (error: unknown) {
       showToast({
@@ -328,10 +368,17 @@ const AdminNoticeWorkspaceForm = ({
           <AdminNoticeAttachmentPanel
             attachments={formState.attachments}
             isUploading={isUploadingAttachment}
-            onFileChange={(event) => {
-              void handleAttachmentSelection(event);
+            onClearSelected={() => {
+              setSelectedAttachmentFiles([]);
+            }}
+            onFilesSelected={(files) => {
+              handleAttachmentSelection(files);
             }}
             onRemove={removeAttachment}
+            onUploadSelected={() => {
+              void uploadSelectedAttachments();
+            }}
+            selectedFiles={selectedAttachmentFiles}
           />
 
           <div className={styles['noticeEditorActionBar']}>

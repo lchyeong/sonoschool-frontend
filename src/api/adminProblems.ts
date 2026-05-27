@@ -13,6 +13,16 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const asArray = <T>(items: readonly T[] | null | undefined): T[] => {
+  return Array.isArray(items) ? [...(items as readonly T[])] : [];
+};
+
+const isPresent = <T>(item: T | null | undefined): item is T => item !== null && item !== undefined;
+
+const normalizeText = (value: string | null | undefined): string => {
+  return typeof value === 'string' ? value.trim() : '';
+};
+
 const normalizeDescription = (value: string | null | undefined): string | null => {
   if (typeof value !== 'string') {
     return null;
@@ -39,35 +49,39 @@ const normalizeSortOrder = (value: number | null | undefined, fallback = 0): num
 const normalizePayload = (payload: AdminProblemUpsertPayload): AdminProblemUpsertPayload => {
   return {
     ...payload,
-    questions: payload.questions.map((question) => ({
-      ...question,
-      problemAreaId: question.problemAreaId,
-      explanation: normalizeDescription(question.explanation),
-      mediaAssetId: question.mediaAssetId ?? null,
-      mediaVideoId: question.mediaVideoId ?? null,
-      mediaType:
-        (question.mediaAssetId ?? null) !== null ||
-        (question.mediaVideoId ?? null) !== null ||
-        normalizeMediaUrl(question.mediaUrl)
-          ? question.mediaType
-          : null,
-      mediaUrl:
-        (question.mediaAssetId ?? null) !== null || (question.mediaVideoId ?? null) !== null
-          ? null
-          : normalizeMediaUrl(question.mediaUrl),
-      options: question.options.map((option) => ({
-        ...option,
-        correct: normalizeBoolean(option.correct),
-        mediaType: null,
-        mediaUrl: null,
-        optionText: option.optionText.trim(),
-        sortOrder: normalizeSortOrder(option.sortOrder),
+    questions: asArray(payload.questions)
+      .filter(isPresent)
+      .map((question) => ({
+        ...question,
+        problemAreaId: question.problemAreaId,
+        explanation: normalizeDescription(question.explanation),
+        mediaAssetId: question.mediaAssetId ?? null,
+        mediaVideoId: question.mediaVideoId ?? null,
+        mediaType:
+          (question.mediaAssetId ?? null) !== null ||
+          (question.mediaVideoId ?? null) !== null ||
+          normalizeMediaUrl(question.mediaUrl)
+            ? question.mediaType
+            : null,
+        mediaUrl:
+          (question.mediaAssetId ?? null) !== null || (question.mediaVideoId ?? null) !== null
+            ? null
+            : normalizeMediaUrl(question.mediaUrl),
+        options: asArray(question.options)
+          .filter(isPresent)
+          .map((option) => ({
+            ...option,
+            correct: normalizeBoolean(option.correct),
+            mediaType: null,
+            mediaUrl: null,
+            optionText: normalizeText(option.optionText),
+            sortOrder: normalizeSortOrder(option.sortOrder),
+          })),
+        questionText: normalizeText(question.questionText),
+        sortOrder: normalizeSortOrder(question.sortOrder),
       })),
-      questionText: question.questionText.trim(),
-      sortOrder: normalizeSortOrder(question.sortOrder),
-    })),
     retakeAllowed: normalizeBoolean(payload.retakeAllowed),
-    title: payload.title.trim(),
+    title: normalizeText(payload.title),
   };
 };
 
