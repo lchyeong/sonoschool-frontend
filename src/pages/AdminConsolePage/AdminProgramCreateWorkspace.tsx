@@ -533,7 +533,11 @@ const normalizeDraftBasicInfo = (
     accessDays:
       basicInfo.accessPolicy === 'FIXED_DURATION'
         ? calculateAccessDaysFromLearningRange(basicInfo.learningStartAt, basicInfo.learningEndAt)
-        : null,
+        : basicInfo.accessPolicy === 'ROLLING_DAYS'
+          ? basicInfo.accessDays
+          : null,
+    learningEndAt: basicInfo.accessPolicy === 'ROLLING_DAYS' ? null : basicInfo.learningEndAt,
+    learningStartAt: basicInfo.accessPolicy === 'ROLLING_DAYS' ? null : basicInfo.learningStartAt,
     thumbnailCropOffsetX: thumbnailCrop.offsetX,
     thumbnailCropOffsetY: thumbnailCrop.offsetY,
     thumbnailCropZoom: thumbnailCrop.zoom,
@@ -899,7 +903,8 @@ const levelOptions = [
 
 const accessPolicyOptions = [
   { value: 'UNLIMITED', label: '무제한' },
-  { value: 'FIXED_DURATION', label: '고정 기간' },
+  { value: 'FIXED_DURATION', label: '지정 기간' },
+  { value: 'ROLLING_DAYS', label: '결제일 기준' },
 ] as const;
 
 const PROGRAM_CREATE_WORKSPACE_PATH_PREFIX = routePaths.adminProgramCreate;
@@ -1302,7 +1307,7 @@ const buildBasicInfoInputValidationIssues = (
     issues.push({
       errorKey: 'recruitmentRange',
       focusKey: 'basic-recruitment-range',
-      message: '고정 기간 수강은 모집 시작일과 종료일을 입력해 주세요.',
+      message: '지정 기간 수강은 모집 시작일과 종료일을 입력해 주세요.',
     });
   }
 
@@ -1314,7 +1319,18 @@ const buildBasicInfoInputValidationIssues = (
     issues.push({
       errorKey: 'learningRange',
       focusKey: 'basic-learning-range',
-      message: '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.',
+      message: '지정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.',
+    });
+  }
+
+  if (
+    basicInfo.accessPolicy === 'ROLLING_DAYS' &&
+    (basicInfo.accessDays === null || basicInfo.accessDays < 1)
+  ) {
+    issues.push({
+      errorKey: 'accessDays',
+      focusKey: 'basic-access-days',
+      message: '결제일 기준 수강일수는 1일 이상 입력해 주세요.',
     });
   }
 
@@ -2262,6 +2278,33 @@ const AdminProgramCreateWorkspace = ({
         accessPolicy: 'FIXED_DURATION',
         learningEndAt: endDate ? toEndOfDayMinuteIsoStringOrNull(endDate) : null,
         learningStartAt: toStartOfDayIsoStringOrNull(startDate),
+      }),
+    }));
+  };
+
+  const handleRollingAccessDaysChange = (value: string) => {
+    const normalizedValue = value.trim();
+    const parsedValue = normalizedValue ? Number(normalizedValue) : null;
+    const nextAccessDays =
+      parsedValue !== null && Number.isInteger(parsedValue) && parsedValue >= 1
+        ? parsedValue
+        : null;
+
+    setBasicInfoErrors((current) => ({
+      ...current,
+      accessDays:
+        normalizedValue && nextAccessDays === null
+          ? '결제일 기준 수강일수는 1 이상의 정수로 입력해 주세요.'
+          : undefined,
+    }));
+    updatePayload((current) => ({
+      ...current,
+      basicInfo: normalizeDraftBasicInfo({
+        ...current.basicInfo,
+        accessDays: nextAccessDays,
+        accessPolicy: 'ROLLING_DAYS',
+        learningEndAt: null,
+        learningStartAt: null,
       }),
     }));
   };
@@ -5230,32 +5273,6 @@ const AdminProgramCreateWorkspace = ({
                       options={levelOptions}
                       value={payload.basicInfo.level ?? ''}
                     />
-                    <AdminDropdownField
-                      compact
-                      label='수강 정책'
-                      onChange={(nextValue) => {
-                        updatePayload((current) => ({
-                          ...current,
-                          basicInfo: {
-                            ...current.basicInfo,
-                            accessDays:
-                              nextValue === 'FIXED_DURATION'
-                                ? calculateAccessDaysFromLearningRange(
-                                    current.basicInfo.learningStartAt,
-                                    current.basicInfo.learningEndAt,
-                                  )
-                                : null,
-                            accessPolicy: nextValue as AdminProgramAccessPolicy,
-                            learningEndAt:
-                              nextValue === 'UNLIMITED' ? null : current.basicInfo.learningEndAt,
-                            learningStartAt:
-                              nextValue === 'UNLIMITED' ? null : current.basicInfo.learningStartAt,
-                          },
-                        }));
-                      }}
-                      options={accessPolicyOptions}
-                      value={payload.basicInfo.accessPolicy ?? 'UNLIMITED'}
-                    />
                   </div>
 
                   <TextAreaField
@@ -5400,21 +5417,85 @@ const AdminProgramCreateWorkspace = ({
                       : '모집 종료일을 비워 두면 상시 모집으로 운영할 수 있습니다.'}
                   </p>
 
-                  <div data-draft-focus-key='basic-learning-range'>
-                    <DateRangePickerField
-                      endDate={learningEndDate}
+                  <div className={styles['accessPeriodRow']}>
+                    <AdminDropdownField
+                      compact
                       label='수강 기간'
-                      onChange={handleLearningRangeChange}
-                      onReset={resetLearningRange}
-                      resetLabel='기간 초기화'
-                      startDate={learningStartDate}
-                      valueText={visibleLearningRangeText}
+                      onChange={(nextValue) => {
+                        const nextPolicy = nextValue as AdminProgramAccessPolicy;
+                        updatePayload((current) => ({
+                          ...current,
+                          basicInfo: normalizeDraftBasicInfo({
+                            ...current.basicInfo,
+                            accessDays:
+                              nextPolicy === 'FIXED_DURATION'
+                                ? calculateAccessDaysFromLearningRange(
+                                    current.basicInfo.learningStartAt,
+                                    current.basicInfo.learningEndAt,
+                                  )
+                                : nextPolicy === 'ROLLING_DAYS'
+                                  ? current.basicInfo.accessDays
+                                  : null,
+                            accessPolicy: nextPolicy,
+                            learningEndAt:
+                              nextPolicy === 'FIXED_DURATION'
+                                ? current.basicInfo.learningEndAt
+                                : null,
+                            learningStartAt:
+                              nextPolicy === 'FIXED_DURATION'
+                                ? current.basicInfo.learningStartAt
+                                : null,
+                          }),
+                        }));
+                      }}
+                      options={accessPolicyOptions}
+                      value={payload.basicInfo.accessPolicy ?? 'UNLIMITED'}
                     />
-                    {basicInfoErrors['learningRange'] ? (
-                      <p className={styles['fieldErrorText']} role='alert'>
-                        {basicInfoErrors['learningRange']}
-                      </p>
-                    ) : null}
+
+                    <div className={styles['accessPeriodControl']}>
+                      {payload.basicInfo.accessPolicy === 'FIXED_DURATION' ? (
+                        <div data-draft-focus-key='basic-learning-range'>
+                          <DateRangePickerField
+                            endDate={learningEndDate}
+                            label='지정 기간'
+                            onChange={handleLearningRangeChange}
+                            onReset={resetLearningRange}
+                            resetLabel='기간 초기화'
+                            startDate={learningStartDate}
+                            valueText={visibleLearningRangeText}
+                          />
+                          {basicInfoErrors['learningRange'] ? (
+                            <p className={styles['fieldErrorText']} role='alert'>
+                              {basicInfoErrors['learningRange']}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {payload.basicInfo.accessPolicy === 'ROLLING_DAYS' ? (
+                        <div data-draft-focus-key='basic-access-days'>
+                          <TextField
+                            errorMessage={basicInfoErrors['accessDays']}
+                            inputMode='numeric'
+                            label='결제일 기준 수강일수'
+                            min={1}
+                            name='draft-access-days'
+                            onChange={(event) => {
+                              handleRollingAccessDaysChange(event.target.value);
+                            }}
+                            placeholder='예: 90'
+                            type='number'
+                            value={payload.basicInfo.accessDays ?? ''}
+                          />
+                        </div>
+                      ) : null}
+
+                      {payload.basicInfo.accessPolicy === 'UNLIMITED' ? (
+                        <p className={styles['policyHint']}>
+                          무제한 수강은 지정 수강기간이나 결제일 기준 수강일수를 사용하지 않습니다.
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
 
                   <AdminFieldArray

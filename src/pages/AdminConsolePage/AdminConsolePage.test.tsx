@@ -507,7 +507,7 @@ describe('AdminConsolePage', () => {
     fireEvent.click(screen.getByRole('button', { name: '등록 완료' }));
 
     expect(
-      (await screen.findAllByText('고정 기간 수강은 모집 시작일과 종료일을 입력해 주세요.')).length,
+      (await screen.findAllByText('지정 기간 수강은 모집 시작일과 종료일을 입력해 주세요.')).length,
     ).toBeGreaterThan(0);
 
     await waitFor(() => {
@@ -522,10 +522,41 @@ describe('AdminConsolePage', () => {
     expect(
       (
         await screen.findAllByText(
-          '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.',
+          '지정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.',
         )
       ).length,
     ).toBeGreaterThan(0);
+  });
+
+  it('warns when rolling-days registration is missing access days', async () => {
+    const draftDetail = createAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.accessPolicy = 'ROLLING_DAYS';
+    draftDetail.payload.basicInfo.accessDays = null;
+    draftDetail.payload.basicInfo.categoryId = 1101;
+    draftDetail.payload.basicInfo.price = 100000;
+    draftDetail.payload.basicInfo.title = '결제일 기준 테스트 과정';
+
+    renderAdminConsoleRoute('/admin/programs/new?draftId=91001', {
+      draftDetail,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    expect(screen.getByLabelText('수강 기간')).toBeInTheDocument();
+    expect(screen.getByLabelText('결제일 기준 수강일수')).toBeInTheDocument();
+    expect(screen.queryByLabelText('지정 기간')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '등록 완료' }));
+
+    expect(
+      (await screen.findAllByText('결제일 기준 수강일수는 1일 이상 입력해 주세요.')).length,
+    ).toBeGreaterThan(0);
+
+    await waitFor(() => {
+      expect(document.activeElement).toHaveAccessibleName('결제일 기준 수강일수');
+    });
   });
 
   it('treats offline lecture duration as schedule-driven and hides legacy prelearning video metadata', async () => {

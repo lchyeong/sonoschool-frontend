@@ -1695,12 +1695,35 @@
   max-width: 760px;
 }
 
+.accessPeriodRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  max-width: 760px;
+  padding-top: calc(var(--space-4) + 1px);
+}
+
+.accessPeriodRow::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(15, 23, 42, 0.18);
+  content: '';
+}
+
+.accessPeriodControl {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
 .dateTimeGroup {
   display: grid;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--admin-border-strong);
-  background: var(--admin-surface);
 }
 
 .dateTimeGroupTitle {
@@ -5626,6 +5649,7 @@
   .shortcutGrid,
   .salesSummaryGrid,
   .salesChartGrid,
+  .accessPeriodRow,
   .inlineFieldGrid,
   .programFieldGrid,
   .userEnrollmentMetrics,

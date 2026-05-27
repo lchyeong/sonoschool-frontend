@@ -84,6 +84,7 @@ interface UploadProgressModalState {
 }
 
 interface AdminProgramFormState {
+  accessDays: string;
   accessPolicy: AdminProgramAccessPolicy;
   categoryId: string;
   checklists: string[];
@@ -108,6 +109,7 @@ interface AdminProgramFormState {
 }
 
 const INITIAL_FORM_STATE: AdminProgramFormState = {
+  accessDays: '',
   accessPolicy: 'UNLIMITED',
   categoryId: '',
   checklists: [],
@@ -358,6 +360,7 @@ const DateTimeSplitField = ({
 
 const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormState => {
   return {
+    accessDays: detail.accessDays === null ? '' : String(detail.accessDays),
     accessPolicy: detail.accessPolicy ?? 'UNLIMITED',
     categoryId: String(detail.categoryId),
     checklists: [...detail.checklists],
@@ -451,7 +454,9 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
   const resolvedAccessDays =
     formState.accessPolicy === 'FIXED_DURATION'
       ? calculateAccessDaysFromLearningRange(formState.learningStartAt, formState.learningEndAt)
-      : null;
+      : formState.accessPolicy === 'ROLLING_DAYS'
+        ? Number(formState.accessDays)
+        : null;
 
   return {
     accessDays: resolvedAccessDays,
@@ -460,10 +465,16 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
     checklists: sanitizeStringList(formState.checklists),
     description: formState.description.trim() || null,
     faqs: sanitizeFaqs(formState.faqs),
-    learningEndAt: toIsoStringOrNull(formState.learningEndAt),
+    learningEndAt:
+      formState.accessPolicy === 'FIXED_DURATION'
+        ? toIsoStringOrNull(formState.learningEndAt)
+        : null,
     learningOutcomes: sanitizeSummaryItems(formState.learningOutcomes),
     learningPoints: [],
-    learningStartAt: toIsoStringOrNull(formState.learningStartAt),
+    learningStartAt:
+      formState.accessPolicy === 'FIXED_DURATION'
+        ? toIsoStringOrNull(formState.learningStartAt)
+        : null,
     level: formState.level || null,
     maxStudents: formState.maxStudents.trim() ? Number(formState.maxStudents) : null,
     price: Number(formState.price),
@@ -514,7 +525,13 @@ const validateFormState = (formState: AdminProgramFormState): string | null => {
     calculateAccessDaysFromLearningRange(formState.learningStartAt, formState.learningEndAt) ===
       null
   ) {
-    return '고정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
+    return '지정 기간 수강은 수강 시작일과 종료일을 올바르게 입력해 주세요.';
+  }
+  if (formState.accessPolicy === 'ROLLING_DAYS') {
+    const accessDays = Number(formState.accessDays);
+    if (!Number.isInteger(accessDays) || accessDays < 1) {
+      return '결제일 기준 수강일수는 1일 이상 입력해 주세요.';
+    }
   }
 
   const faqErrors = formState.faqs.some((item) => {
@@ -589,7 +606,8 @@ const levelOptions = [
 
 const accessPolicyOptions = [
   { value: 'UNLIMITED', label: '무제한' },
-  { value: 'FIXED_DURATION', label: '고정 기간' },
+  { value: 'FIXED_DURATION', label: '지정 기간' },
+  { value: 'ROLLING_DAYS', label: '결제일 기준' },
 ] as const;
 
 const programTypeLabel: Record<AdminProgramType, string> = {
@@ -600,7 +618,8 @@ const programTypeLabel: Record<AdminProgramType, string> = {
 };
 
 const accessPolicyLabel: Record<AdminProgramAccessPolicy, string> = {
-  FIXED_DURATION: '고정 기간',
+  FIXED_DURATION: '지정 기간',
+  ROLLING_DAYS: '결제일 기준',
   UNLIMITED: '무제한',
 };
 
@@ -1294,21 +1313,6 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                       options={levelOptions}
                       value={formState.level}
                     />
-                    <AdminDropdownField
-                      compact
-                      label='수강 정책'
-                      onChange={(nextValue) => {
-                        const policy = nextValue as AdminProgramAccessPolicy;
-                        setFormState((current) => ({
-                          ...current,
-                          accessPolicy: policy,
-                          learningEndAt: policy === 'UNLIMITED' ? '' : current.learningEndAt,
-                          learningStartAt: policy === 'UNLIMITED' ? '' : current.learningStartAt,
-                        }));
-                      }}
-                      options={accessPolicyOptions}
-                      value={formState.accessPolicy}
-                    />
                   </div>
 
                   <TextAreaField
@@ -1390,9 +1394,9 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
 
                   <div className={styles['dateTimeRow']}>
                     <div className={styles['dateTimeGroup']}>
-                      <p className={styles['dateTimeGroupTitle']}>판매 기간</p>
+                      <p className={styles['dateTimeGroupTitle']}>모집 기간</p>
                       <DateTimeSplitField
-                        dateLabel='판매 시작일'
+                        dateLabel='모집 시작일'
                         onChange={(nextValue) => {
                           updateField('saleStartAt', nextValue);
                         }}
@@ -1400,7 +1404,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                         value={formState.saleStartAt}
                       />
                       <DateTimeSplitField
-                        dateLabel='판매 종료일'
+                        dateLabel='모집 종료일'
                         onChange={(nextValue) => {
                           updateField('saleEndAt', nextValue);
                         }}
@@ -1408,49 +1412,103 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                         value={formState.saleEndAt}
                       />
                     </div>
-                    <div className={styles['dateTimeGroup']}>
-                      <p className={styles['dateTimeGroupTitle']}>수강 기간</p>
-                      <DateTimeSplitField
-                        dateLabel='수강 시작일'
-                        onChange={(nextValue) => {
-                          setFormState((current) => ({
-                            ...current,
-                            accessPolicy: 'FIXED_DURATION',
-                            learningStartAt: nextValue,
-                          }));
-                        }}
-                        timeLabel='시작 시간'
-                        value={formState.learningStartAt}
-                      />
-                      <DateTimeSplitField
-                        dateLabel='수강 종료일'
-                        onChange={(nextValue) => {
-                          setFormState((current) => ({
-                            ...current,
-                            accessPolicy: 'FIXED_DURATION',
-                            learningEndAt: nextValue,
-                          }));
-                        }}
-                        timeLabel='종료 시간'
-                        value={formState.learningEndAt}
-                      />
+                  </div>
+
+                  <div className={styles['accessPeriodRow']}>
+                    <AdminDropdownField
+                      compact
+                      label='수강 기간'
+                      onChange={(nextValue) => {
+                        const policy = nextValue as AdminProgramAccessPolicy;
+                        setFormState((current) => ({
+                          ...current,
+                          accessDays: policy === 'ROLLING_DAYS' ? current.accessDays : '',
+                          accessPolicy: policy,
+                          learningEndAt: policy === 'FIXED_DURATION' ? current.learningEndAt : '',
+                          learningStartAt:
+                            policy === 'FIXED_DURATION' ? current.learningStartAt : '',
+                        }));
+                      }}
+                      options={accessPolicyOptions}
+                      value={formState.accessPolicy}
+                    />
+
+                    <div className={styles['accessPeriodControl']}>
+                      {formState.accessPolicy === 'FIXED_DURATION' ? (
+                        <>
+                          <DateTimeSplitField
+                            dateLabel='수강 시작일'
+                            onChange={(nextValue) => {
+                              setFormState((current) => ({
+                                ...current,
+                                accessDays: '',
+                                accessPolicy: 'FIXED_DURATION',
+                                learningStartAt: nextValue,
+                              }));
+                            }}
+                            timeLabel='시작 시간'
+                            value={formState.learningStartAt}
+                          />
+                          <DateTimeSplitField
+                            dateLabel='수강 종료일'
+                            onChange={(nextValue) => {
+                              setFormState((current) => ({
+                                ...current,
+                                accessDays: '',
+                                accessPolicy: 'FIXED_DURATION',
+                                learningEndAt: nextValue,
+                              }));
+                            }}
+                            timeLabel='종료 시간'
+                            value={formState.learningEndAt}
+                          />
+                        </>
+                      ) : null}
+
+                      {formState.accessPolicy === 'ROLLING_DAYS' ? (
+                        <TextField
+                          inputMode='numeric'
+                          label='결제일 기준 수강일수'
+                          min={1}
+                          name='accessDays'
+                          onChange={(event) => {
+                            setFormState((current) => ({
+                              ...current,
+                              accessDays: event.target.value,
+                              accessPolicy: 'ROLLING_DAYS',
+                              learningEndAt: '',
+                              learningStartAt: '',
+                            }));
+                          }}
+                          placeholder='예: 90'
+                          type='number'
+                          value={formState.accessDays}
+                        />
+                      ) : null}
+
+                      {formState.accessPolicy === 'UNLIMITED' ? (
+                        <p className={styles['policyHint']}>
+                          무제한 수강은 지정 수강기간이나 결제일 기준 수강일수를 사용하지 않습니다.
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
                   <p className={styles['policyHint']}>
                     {formState.programType === 'OFFLINE'
                       ? '오프라인 프로그램은 개강일이 지나면 관리자 화면에서 개강됨 상태로 표시됩니다.'
-                      : '온라인·실습예약 프로그램은 판매 종료일을 비워 두면 상시 판매로 운영할 수 있습니다.'}
+                      : '온라인·실습예약 프로그램은 모집 종료일을 비워 두면 상시 모집으로 운영할 수 있습니다.'}
                   </p>
 
-                  {formState.accessPolicy === 'UNLIMITED' ? (
-                    <p className={styles['policyHint']}>
-                      무제한 수강은 수강 가능일수 제한을 두지 않습니다.
-                    </p>
-                  ) : null}
                   {formState.accessPolicy === 'FIXED_DURATION' ? (
                     <p className={styles['policyHint']}>
-                      고정 기간 수강 가능일수는 수강 시작일과 종료일 기준으로 자동 계산합니다.
+                      지정 기간 수강 가능일수는 수강 시작일과 종료일 기준으로 자동 계산합니다.
+                    </p>
+                  ) : null}
+                  {formState.accessPolicy === 'ROLLING_DAYS' ? (
+                    <p className={styles['policyHint']}>
+                      결제일 기준 수강은 결제 완료 또는 수강권 지급 시점부터 입력한 일수만큼 수강할
+                      수 있습니다.
                     </p>
                   ) : null}
                   <AdminFieldArray
