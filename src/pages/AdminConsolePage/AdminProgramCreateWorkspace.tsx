@@ -1641,12 +1641,17 @@ const AdminProgramCreateWorkspace = ({
   const numericInputsInitializedForDraftRef = useRef<number | null>(null);
   const resumingVideoIdsRef = useRef<Set<number>>(new Set());
   const draftFocusHintTimerRef = useRef<number | null>(null);
+  const draftAutoSaveTimerRef = useRef<number | null>(null);
+  const draftSaveChainRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const invalidatedDraftIdRef = useRef<number | null>(null);
 
   useEffect(
     () => () => {
       if (draftFocusHintTimerRef.current !== null) {
         window.clearTimeout(draftFocusHintTimerRef.current);
+      }
+      if (draftAutoSaveTimerRef.current !== null) {
+        window.clearTimeout(draftAutoSaveTimerRef.current);
       }
     },
     [],
@@ -1746,7 +1751,7 @@ const AdminProgramCreateWorkspace = ({
     },
     onSuccess: (detail, variables) => {
       const serverPayload = normalizePayloadFromDetail(detail);
-      const savedPayload = mergeServerThumbnailPreview(
+      const savedPayload = mergeServerUploadStateIntoSnapshot(
         normalizeDraftPayloadShape(variables.nextPayload),
         serverPayload,
       );
@@ -1754,12 +1759,10 @@ const AdminProgramCreateWorkspace = ({
       lastSavedPayloadRef.current = savedSerializedPayload;
       setLastSavedAt(detail.updatedAt);
       const latestPayload = currentPayloadRef.current
-        ? mergeServerThumbnailPreview(currentPayloadRef.current, serverPayload)
-        : null;
-      if (latestPayload) {
-        currentPayloadRef.current = latestPayload;
-        setPayload(latestPayload);
-      }
+        ? mergeServerUploadStateIntoSnapshot(currentPayloadRef.current, serverPayload)
+        : savedPayload;
+      currentPayloadRef.current = latestPayload;
+      setPayload(latestPayload);
       const latestSerializedPayload = latestPayload
         ? JSON.stringify(latestPayload)
         : lastSavedPayloadRef.current;
@@ -1773,6 +1776,64 @@ const AdminProgramCreateWorkspace = ({
       void queryClient.invalidateQueries({ queryKey: adminProgramDraftDetailQueryKey(detail.id) });
     },
   });
+
+  const saveCurrentDraftPayload = useCallback(
+    (options?: { force?: boolean }): Promise<boolean> => {
+      const runSave = async (): Promise<boolean> => {
+        if (draftId === null || currentPayloadRef.current === null) {
+          return true;
+        }
+
+        const nextPayload = normalizeDraftPayloadShape(currentPayloadRef.current);
+        if (nextPayload === null) {
+          return false;
+        }
+
+        if (nextPayload !== currentPayloadRef.current) {
+          currentPayloadRef.current = nextPayload;
+          setPayload(nextPayload);
+        }
+
+        if (!options?.force && JSON.stringify(nextPayload) === lastSavedPayloadRef.current) {
+          setSaveState('saved');
+          return true;
+        }
+
+        setSaveState('saving');
+
+        try {
+          await saveMutation.mutateAsync({ draftId, nextPayload });
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      const savePromise = draftSaveChainRef.current.then(runSave, runSave);
+      draftSaveChainRef.current = savePromise.catch(() => false);
+      return savePromise;
+    },
+    [draftId, saveMutation],
+  );
+
+  const scheduleDraftAutoSave = useCallback(
+    (delayMs = 300) => {
+      if (draftId === null) {
+        return;
+      }
+
+      if (draftAutoSaveTimerRef.current !== null) {
+        window.clearTimeout(draftAutoSaveTimerRef.current);
+      }
+
+      draftAutoSaveTimerRef.current = window.setTimeout(() => {
+        draftAutoSaveTimerRef.current = null;
+
+        void saveCurrentDraftPayload();
+      }, delayMs);
+    },
+    [draftId, saveCurrentDraftPayload],
+  );
 
   const finalizeMutation = useMutation({
     mutationFn: async (targetDraftId: number) => {
@@ -1857,6 +1918,7 @@ const AdminProgramCreateWorkspace = ({
     learningStartDate,
     learningEndDate,
   );
+  const addLectureTriggerLabel = mode === 'edit' ? '수정 초안에 강의 추가' : '새 강의 추가';
   const offlineScheduleMinDate = toDateInputValue(payload?.basicInfo.learningStartAt ?? null);
   const offlineScheduleMaxDate = toDateInputValue(payload?.basicInfo.learningEndAt ?? null);
   const hasOfflineSchedulePeriod =
@@ -2515,6 +2577,7 @@ const AdminProgramCreateWorkspace = ({
     );
     setExpandedLectureKeys((current) => [...current, nextLecture.key]);
     setOpenLectureTypeMenuSectionKey(null);
+    scheduleDraftAutoSave(0);
   };
 
   const updateLecture = (
@@ -2789,6 +2852,17 @@ const AdminProgramCreateWorkspace = ({
       return;
     }
 
+    const hasActiveQuestionMediaUpload = Object.entries(questionUploadStatus).some(
+      ([key, status]) => key.startsWith(`${lectureKey}:`) && status.includes('중'),
+    );
+    if (hasActiveQuestionMediaUpload) {
+      showToast({
+        message: '문제 미디어 업로드가 끝난 뒤 문제 순서를 변경해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
     upsertProblem(lectureKey, (problem) => ({
       ...problem,
       questions: moveArrayItem(problem.questions, fromIndex, toIndex).map((question, index) => ({
@@ -2805,6 +2879,7 @@ const AdminProgramCreateWorkspace = ({
     setPendingQuestionMediaSelections((current) =>
       remapQuestionIndexedRecord(current, lectureKey, fromIndex, toIndex),
     );
+    scheduleDraftAutoSave(0);
   };
 
   const setAllProblemQuestionsCollapsed = (lectureKey: string, collapsed: boolean) => {
@@ -3579,30 +3654,9 @@ const AdminProgramCreateWorkspace = ({
       }
     }
 
-    const nextPayload = normalizeDraftPayloadShape(currentPayloadRef.current);
-    if (nextPayload === null) {
-      return false;
-    }
-
-    if (nextPayload !== currentPayloadRef.current) {
-      currentPayloadRef.current = nextPayload;
-      setPayload(nextPayload);
-    }
-
-    const serializedPayload = JSON.stringify(nextPayload);
-    if (!options?.force && serializedPayload === lastSavedPayloadRef.current) {
-      setSaveState('saved');
-      return true;
-    }
-
-    setSaveState('saving');
-
-    try {
-      await saveMutation.mutateAsync({ draftId, nextPayload });
-      return true;
-    } catch {
-      return false;
-    }
+    return options?.force === undefined
+      ? saveCurrentDraftPayload()
+      : saveCurrentDraftPayload({ force: options.force });
   };
 
   const handleManualSave = async (event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -4751,6 +4805,7 @@ const AdminProgramCreateWorkspace = ({
         if (
           question.mediaUploadStatus === 'READY' &&
           question.mediaAssetId === null &&
+          question.mediaVideoId === null &&
           !question.mediaUrl
         ) {
           issues.push({
@@ -5815,7 +5870,7 @@ const AdminProgramCreateWorkspace = ({
                                   }}
                                   type='button'
                                 >
-                                  새 강의 추가
+                                  {addLectureTriggerLabel}
                                 </button>
                                 {openLectureTypeMenuSectionKey === section.key ? (
                                   <div
