@@ -34,10 +34,12 @@ const {
   fetchMyEnrollmentPracticumOverviewMock,
   fetchMyLearningPlayerSnapshotMock,
   fetchProgramQnaMock,
+  fetchProblemVideoStreamMock,
   moveMyLecturePracticumMock,
   reserveMyLecturePracticumMock,
   fetchStudentProblemAttemptReportMock,
   fetchStudentProblemMock,
+  refreshProblemVideoStreamCookiesMock,
   saveStudentProblemSessionMock,
   saveLectureProgressMock,
   sendLectureProgressBeaconMock,
@@ -80,6 +82,10 @@ const {
         options?: { page?: number; size?: number },
       ) => Promise<ProgramQnaPageResponse>
     >(),
+  fetchProblemVideoStreamMock:
+    vi.fn<
+      (lectureId: number, videoId: number, deviceId: string) => Promise<ProtectedLectureStream>
+    >(),
   moveMyLecturePracticumMock:
     vi.fn<
       (
@@ -95,6 +101,15 @@ const {
   fetchStudentProblemAttemptReportMock:
     vi.fn<(attemptId: number) => Promise<StudentProblemAttemptReport>>(),
   fetchStudentProblemMock: vi.fn<(lectureId: number) => Promise<StudentProblem | null>>(),
+  refreshProblemVideoStreamCookiesMock:
+    vi.fn<
+      (
+        lectureId: number,
+        videoId: number,
+        deviceId: string,
+        playbackSessionToken: string,
+      ) => Promise<Pick<ProtectedLectureStream, 'expiresAt'>>
+    >(),
   saveStudentProblemSessionMock:
     vi.fn<
       (problemId: number, payload: Record<string, unknown>) => Promise<StudentProblemSession>
@@ -194,6 +209,14 @@ vi.mock('@/api/studentProblems', () => ({
   fetchStudentProblemAttemptReport: (attemptId: number) =>
     fetchStudentProblemAttemptReportMock(attemptId),
   fetchStudentProblem: (lectureId: number) => fetchStudentProblemMock(lectureId),
+  fetchProblemVideoStream: (lectureId: number, videoId: number, deviceId: string) =>
+    fetchProblemVideoStreamMock(lectureId, videoId, deviceId),
+  refreshProblemVideoStreamCookies: (
+    lectureId: number,
+    videoId: number,
+    deviceId: string,
+    playbackSessionToken: string,
+  ) => refreshProblemVideoStreamCookiesMock(lectureId, videoId, deviceId, playbackSessionToken),
   saveStudentProblemSession: (problemId: number, payload: Record<string, unknown>) =>
     saveStudentProblemSessionMock(problemId, payload),
   startStudentProblemSession: (problemId: number) => startStudentProblemSessionMock(problemId),
@@ -741,6 +764,10 @@ beforeEach(() => {
   createProgramQnaThreadMock.mockResolvedValue(testProgramQnaResponse.content[0]);
   downloadProgramResourceFileMock.mockResolvedValue(undefined);
   fetchStudentProblemMock.mockResolvedValue(null);
+  fetchProblemVideoStreamMock.mockResolvedValue(testStreamResponse);
+  refreshProblemVideoStreamCookiesMock.mockResolvedValue({
+    expiresAt: testStreamResponse.expiresAt,
+  });
   fetchMyEnrollmentPracticumOverviewMock.mockResolvedValue(testPracticumOverview);
   moveMyLecturePracticumMock.mockResolvedValue(practicumReservation);
   reserveMyLecturePracticumMock.mockResolvedValue(practicumReservation);
@@ -1440,6 +1467,44 @@ describe('PlayerPage', () => {
     expect(screen.getAllByText('첫 번째 질문').length).toBeGreaterThan(0);
     expect(screen.queryByText('선택 답안: 정답')).not.toBeInTheDocument();
     expect(screen.queryByText(/^정답:/)).not.toBeInTheDocument();
+  });
+
+  it('keeps protected problem videos in the question media column', async () => {
+    const problemLectureSnapshot = createProblemLectureSnapshot();
+    const protectedVideoQuiz: StudentProblem = {
+      ...testQuiz,
+      questions: [
+        {
+          ...testQuiz.questions[0],
+          mediaPreviewUrl: null,
+          mediaType: 'VIDEO',
+          mediaUrl: null,
+          mediaVideoId: 701,
+          options: testQuiz.questions[0].options.map((option) => ({
+            ...option,
+            mediaPreviewUrl: null,
+            mediaType: null,
+            mediaUrl: null,
+          })),
+        },
+      ],
+    };
+
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(problemLectureSnapshot);
+    fetchStudentProblemMock.mockResolvedValue(protectedVideoQuiz);
+
+    renderPlayerPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: '시작하기' }));
+
+    const videoElement = await screen.findByLabelText('1번 문항 미디어');
+    const questionBody = videoElement.closest('[class*="quizQuestionBody"]');
+
+    expect(questionBody).not.toBeNull();
+    expect(questionBody?.className).not.toContain('quizQuestionBodyTextOnly');
+    await waitFor(() => {
+      expect(fetchProblemVideoStreamMock).toHaveBeenCalledWith(2, 701, 'test-device-id');
+    });
   });
 
   it('shows flagged questions in the expanded problem list and moves to the selected question', async () => {

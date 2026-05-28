@@ -2246,6 +2246,15 @@ const PlayerPage = () => {
     });
   };
 
+  const hasQuizMedia = (
+    mediaType: StudentProblem['questions'][number]['mediaType'],
+    mediaVideoId: number | null | undefined,
+    mediaPreviewUrl: string | null | undefined,
+    mediaUrl: string | null,
+  ) => {
+    return Boolean(mediaType && (mediaPreviewUrl || mediaUrl || mediaVideoId));
+  };
+
   const renderQuizMedia = (
     mediaType: StudentProblem['questions'][number]['mediaType'],
     mediaVideoId: number | null | undefined,
@@ -4079,10 +4088,11 @@ const PlayerPage = () => {
                               <div
                                 className={classNames(
                                   styles['quizQuestionBody'],
-                                  !(
-                                    currentQuizQuestion.mediaType &&
-                                    (currentQuizQuestion.mediaPreviewUrl ||
-                                      currentQuizQuestion.mediaUrl)
+                                  !hasQuizMedia(
+                                    currentQuizQuestion.mediaType,
+                                    currentQuizQuestion.mediaVideoId,
+                                    currentQuizQuestion.mediaPreviewUrl,
+                                    currentQuizQuestion.mediaUrl,
                                   ) && styles['quizQuestionBodyTextOnly'],
                                 )}
                               >
