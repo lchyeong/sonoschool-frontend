@@ -68,16 +68,6 @@
   word-break: keep-all;
 }
 
-.description {
-  width: min(100%, 524px);
-  margin: 28px 0 0;
-  color: #111827;
-  font-family: Pretendard, var(--font-family-base);
-  font-size: 20px;
-  font-weight: var(--font-weight-medium);
-  line-height: 1.5;
-}
-
 .boardLink {
   box-sizing: border-box;
   display: inline-flex;
@@ -303,12 +293,6 @@
     line-height: 1.42;
   }
 
-  .description {
-    margin-top: 10px;
-    font-size: 16px;
-    line-height: 1.5;
-  }
-
   .boardLink {
     width: 100%;
   }
@@ -338,10 +322,6 @@
 
   .heading {
     font-size: 25px;
-  }
-
-  .description {
-    font-size: 15px;
   }
 
   .boardLinkLabel {

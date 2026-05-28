@@ -159,15 +159,23 @@ const HomeFeaturedCoursesSection = () => {
       <div className={styles['inner']}>
         <div className={styles['headingBlock']}>
           <h2 className={styles['heading']} id='home-featured-courses-heading'>
-            <span>진료의 확신을 완성하는</span>
-            <span>초음파 교육, 소노스쿨</span>
+            소노스쿨이 약속하는 초음파 교육의 기준
           </h2>
-          <p className={styles['description']}>
-            단순 반복을 넘어선 초밀착 핸즈온으로 잘못된 루틴을 바로잡습니다.
-            <br />
-            진료실의 막막함이 자신감으로 바뀌는 실전 교육을 경험하세요.
-          </p>
-          <p className={styles['supportText']}>소노스쿨의 검증된 대표 과정을 소개합니다.</p>
+          <ul className={styles['promiseList']}>
+            <li>
+              <strong>완벽한 스캔:</strong>
+              <span>단 하나의 장기도 빠트리지 않는 체계적인 검사</span>
+            </li>
+            <li>
+              <strong>글로벌 스탠다드:</strong>
+              <span>국제·국내 기준을 모두 만족하는 가이드라인</span>
+            </li>
+            <li>
+              <strong>안심 청구:</strong>
+              <span>심평원 기준에 맞춘 정확한 결과와 청구 프로세스</span>
+            </li>
+          </ul>
+          <p className={styles['supportText']}>소노스쿨의 대표과정을 소개합니다.</p>
         </div>
 
         {isPending ? (

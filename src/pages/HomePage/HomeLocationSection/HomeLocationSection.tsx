@@ -59,9 +59,8 @@ interface KakaoWindow extends Window {
 
 const KAKAO_MAP_SCRIPT_ID = 'sonoschool-kakao-map-sdk';
 const SONOSCHOOL_ADDRESS = '경기도 화성시 동탄구 동탄지성로 17';
-const SONOSCHOOL_ADDRESS_DETAIL = 'B1층 101호 (반송동, 동탄 위버폴리스)';
-const SONOSCHOOL_MAP_SEARCH_ADDRESS = `${SONOSCHOOL_ADDRESS} ${SONOSCHOOL_ADDRESS_DETAIL}`;
-const SONOSCHOOL_PHONE = '010-3859-8070';
+const SONOSCHOOL_ADDRESS_DETAIL = 'B1층 101호 (반송동, 동탄 위버폴리스) 지하 1층 에스컬레이터 뒷편';
+const SONOSCHOOL_MAP_SEARCH_ADDRESS = SONOSCHOOL_ADDRESS;
 const FALLBACK_LATITUDE = 37.204188;
 const FALLBACK_LONGITUDE = 127.073304;
 
@@ -208,7 +207,7 @@ const HomeLocationSection = () => {
     >
       <div className={styles['inner']}>
         <h2 className={styles['heading']} id='home-location-heading'>
-          더 정확한 진단을 향한 소노스쿨 오시는 길
+          소노스쿨 국제초음파연수원 오시는길
         </h2>
 
         <div className={styles['contentGrid']}>
@@ -233,25 +232,15 @@ const HomeLocationSection = () => {
               <span>{SONOSCHOOL_ADDRESS_DETAIL}</span>
             </address>
 
-            <dl className={styles['detailList']}>
-              <div className={styles['detailRow']}>
-                <dt>전화번호</dt>
-                <dd>
-                  <a href={`tel:${SONOSCHOOL_PHONE.replaceAll('-', '')}`}>{SONOSCHOOL_PHONE}</a>
-                </dd>
-              </div>
-            </dl>
-
-            <dl className={styles['hoursList']}>
-              <div className={styles['detailRow']}>
-                <dt>평일</dt>
-                <dd>09:00 ~ 18:00</dd>
-              </div>
-              <div className={styles['detailRow']}>
-                <dt>점심시간</dt>
-                <dd>12:00 ~ 13:00</dd>
-              </div>
-            </dl>
+            <div className={styles['parkingInfo']}>
+              <p className={styles['buildingParkingText']}>건물내 주차장 2시간 무료</p>
+              <div className={styles['parkingDivider']} aria-hidden='true' />
+              <p className={styles['nearbyParkingTitle']}>주변 주차 이용안내</p>
+              <ol className={styles['nearbyParkingList']}>
+                <li>한빛공영주차장(경기 화성시 동탄구 반송동)</li>
+                <li>노작홍사용문학주차장(경기 화성시 동탄구)</li>
+              </ol>
+            </div>
           </div>
         </div>
       </div>

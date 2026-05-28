@@ -2,7 +2,7 @@
   .philosophyHeadingBlock,
   .philosophyCopy {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     opacity: var(--philosophy-heading-opacity);
     transition-duration: 180ms;
     transition-property: opacity, transform;

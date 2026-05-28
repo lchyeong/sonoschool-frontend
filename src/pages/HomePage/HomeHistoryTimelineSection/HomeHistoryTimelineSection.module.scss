@@ -35,8 +35,8 @@
 .philosophyStage {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 665px) minmax(0, 620px);
-  gap: 151px;
+  grid-template-columns: minmax(0, 520px) minmax(0, 876px);
+  gap: 40px;
   align-items: start;
   width: min(1436px, calc(100% - 48px));
   min-height: 420px;
@@ -53,14 +53,16 @@
 .philosophyHeading {
   display: flex;
   flex-direction: column;
-  width: 665px;
-  max-width: 100%;
+  width: max-content;
+  max-width: none;
   font-size: var(--philosophy-heading-font-size);
   font-weight: var(--font-weight-semibold);
   line-height: 1.5;
 
   span {
-    white-space: nowrap;
+    overflow-wrap: break-word;
+    white-space: normal;
+    word-break: keep-all;
   }
 }
 
@@ -69,7 +71,9 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  padding-top: calc((var(--philosophy-heading-font-size) * 1.5 * 2) + 104px);
+  width: max-content;
+  max-width: none;
+  padding-top: calc((var(--philosophy-heading-font-size) * 1.5 * 3) + 72px);
   font-size: clamp(18px, 1.55vw, 22px);
   font-weight: var(--font-weight-medium);
   line-height: 1.5;
@@ -83,6 +87,14 @@
 
 .desktopLineBreak {
   display: block;
+}
+
+.nowrapDesktop {
+  white-space: nowrap;
+}
+
+.philosophyHeading .nowrapDesktop {
+  white-space: nowrap;
 }
 
 .directorPanel {
@@ -410,6 +422,7 @@
 
   .philosophyHeading {
     width: 100%;
+    max-width: 100%;
     font-size: 30px;
 
     span {
@@ -422,6 +435,7 @@
   .philosophyCopy {
     gap: 16px;
     width: 100%;
+    max-width: 100%;
     padding-top: 0;
     margin-left: auto;
     font-size: 20px;
@@ -435,6 +449,10 @@
 
   .philosophyLead {
     font-size: 20px;
+  }
+
+  .nowrapDesktop {
+    white-space: normal;
   }
 
   .directorImageWrap {

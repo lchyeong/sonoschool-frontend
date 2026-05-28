@@ -50,15 +50,12 @@ const CommonHeaderDesktopDropdownPanel = ({
             >
               {item.label}
             </LinkComponent>
-            <p className={styles['dropdownDescription']}>{item.label}을 살펴보세요.</p>
           </div>
           <div className={styles['dropdownDepthLayout']}>
             <div className={styles['dropdownSecondLevelColumn']}>
               {sections.map((section) => {
                 const hasGrandChildren = hasNavigationChildren(section);
                 const isActive = activeSection.id === section.id;
-                const sectionDescription =
-                  section.description?.trim() || `${section.label} 과정을 살펴보세요.`;
 
                 return (
                   <LinkComponent
@@ -78,9 +75,6 @@ const CommonHeaderDesktopDropdownPanel = ({
                   >
                     <span className={styles['dropdownDepthCopy']}>
                       <span className={styles['dropdownDepthTitle']}>{section.label}</span>
-                      <span className={styles['dropdownDepthDescription']}>
-                        {sectionDescription}
-                      </span>
                     </span>
                     {hasGrandChildren ? (
                       <svg
@@ -107,8 +101,6 @@ const CommonHeaderDesktopDropdownPanel = ({
             {activeSectionChildren.length ? (
               <div className={styles['dropdownGrandchildGrid']}>
                 {activeSectionChildren.map((child) => {
-                  const childDescription =
-                    child.description?.trim() || `${child.label} 온라인과정을 살펴보세요.`;
                   const fourthDepthItems = child.children ?? [];
 
                   return (
@@ -119,9 +111,6 @@ const CommonHeaderDesktopDropdownPanel = ({
                         to={child.to}
                       >
                         <span className={styles['dropdownGrandchildTitle']}>{child.label}</span>
-                        <span className={styles['dropdownGrandchildDescription']}>
-                          {childDescription}
-                        </span>
                       </LinkComponent>
 
                       {fourthDepthItems.length ? (

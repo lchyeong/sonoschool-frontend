@@ -10,7 +10,7 @@ const certifications = [
     children: ['ABDOMEN', 'BREAST', 'OB/GYN', 'PEDIATRIC'],
     label: 'RDMS',
   },
-  { label: 'RDCS : ADULT ECHO' },
+  { label: 'RDCS : ECHO' },
   { label: 'RVT : VASTULAR' },
   { label: 'CSRT 임상초음파사(상복부)' },
   { label: 'CSRT 임상초음파사(심장)' },
@@ -174,8 +174,8 @@ const HomeHistoryTimelineSection = () => {
       );
       const headingEnterProgress = getRangeProgress(
         philosophyProgress,
-        0.02,
-        isCompactLayout ? 0.28 : 0.18,
+        isCompactLayout ? 0.18 : 0.26,
+        isCompactLayout ? 0.34 : 0.38,
       );
       const headingExitProgress = getRangeProgress(philosophyProgress, 0.82, 0.96);
       const copyEnterProgress = getRangeProgress(
@@ -290,19 +290,24 @@ const HomeHistoryTimelineSection = () => {
           <div className={styles['philosophyStage']}>
             <div className={styles['philosophyHeadingBlock']}>
               <h2 className={styles['philosophyHeading']} id='home-philosophy-heading'>
-                <span>진료 현장에서 즉각 발휘되는</span>
-                <span>실전 중심의 초음파 기술을 지향합니다.</span>
+                <span>현장 중심의 생생한 교육으로,</span>
+                <span className={styles['nowrapDesktop']}>
+                  진료 현장에서 바로 응용할 수 있는 실전 초음파 기술을 구현합니다.
+                </span>
               </h2>
             </div>
 
             <div className={styles['philosophyCopy']}>
-              <p className={styles['philosophyLead']}>선명한 스캔, 명확한 진단.</p>
-              <p>
-                소노스쿨은 장은희 강사가 직접 설계한 엄격한 학습 기준과
-                <br className={styles['desktopLineBreak']} />
-                1:1 피드백 시스템을 모든 과정에 일관되게 적용합니다.
+              <p className={styles['philosophyLead']}>
+                정확한 진단의 시작, 장기를 빠트리지 않는 체계적인 검사
               </p>
-              <p>기술을 넘어, 더 정확하고 안전한 초음파 문화를 만들어갑니다.</p>
+              <p>
+                국내외 ARDMS 자격을 겸비한 소노그래퍼의 설계 아래,
+                <br className={styles['desktopLineBreak']} />
+                <span className={styles['nowrapDesktop']}>
+                  글로벌 가이드라인을 바탕으로 원장님의 확실한 초음파 검사 기준을 세워드립니다.
+                </span>
+              </p>
             </div>
           </div>
         </div>

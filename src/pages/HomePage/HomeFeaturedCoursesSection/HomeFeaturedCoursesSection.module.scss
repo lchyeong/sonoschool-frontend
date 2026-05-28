@@ -15,6 +15,7 @@
     }
 
     .description,
+    .promiseList,
     .supportText {
       color: #111827;
     }
@@ -40,8 +41,6 @@
 }
 
 .heading {
-  display: flex;
-  flex-direction: column;
   margin: 0;
   color: #ffffff;
   font-family: Pretendard, var(--font-family-base);
@@ -53,6 +52,7 @@
 }
 
 .description,
+.promiseList,
 .supportText {
   margin: 0;
   color: rgba(255, 255, 255, 0.88);
@@ -60,6 +60,31 @@
   font-size: 26px;
   font-weight: var(--font-weight-medium);
   line-height: 1.5;
+}
+
+.promiseList {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.promiseList li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.promiseList li::before {
+  flex: 0 0 auto;
+  content: '•';
+}
+
+.promiseList strong {
+  flex: 0 0 auto;
+  font-weight: var(--font-weight-semibold);
 }
 
 .supportText {
@@ -318,14 +343,19 @@
     max-width: 100%;
     font-size: 46px;
     line-height: 1.32;
-    white-space: normal;
+    white-space: nowrap;
   }
 
   .description,
+  .promiseList,
   .supportText {
     max-width: 660px;
     font-size: 20px;
     line-height: 1.55;
+  }
+
+  .promiseList li {
+    justify-content: flex-start;
   }
 
   .supportText {
@@ -353,6 +383,7 @@
   }
 
   .description,
+  .promiseList,
   .supportText {
     max-width: 100%;
     font-size: 17px;
@@ -503,6 +534,7 @@
   }
 
   .description,
+  .promiseList,
   .supportText {
     max-width: min(100%, 520px);
     font-size: clamp(15px, 4vw, 18px);
@@ -515,8 +547,17 @@
     margin-top: 28px;
   }
 
-  .description br {
-    display: none;
+  .promiseList {
+    margin-top: 22px;
+  }
+
+  .promiseList li {
+    flex-wrap: wrap;
+    gap: 0 7px;
+  }
+
+  .promiseList li::before {
+    padding-right: 2px;
   }
 
   .supportText {

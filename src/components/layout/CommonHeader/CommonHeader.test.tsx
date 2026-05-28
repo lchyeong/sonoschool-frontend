@@ -185,7 +185,7 @@ describe('CommonHeader', () => {
     expect(document.body).toContainElement(mobileDrawer);
   });
 
-  it('renders menu descriptions from navigation data in the desktop dropdown', async () => {
+  it('omits descriptive copy in the desktop dropdown', async () => {
     renderCommonHeader();
 
     const topLevelMenuLink = await screen.findByRole('link', { name: '의사과정' });
@@ -193,15 +193,16 @@ describe('CommonHeader', () => {
     fireEvent.focus(topLevelMenuLink);
 
     await waitFor(() => {
-      expect(screen.getByText('의사과정을 살펴보세요.')).toBeInTheDocument();
+      expect(screen.getByText('심장과정')).toBeInTheDocument();
     });
 
+    expect(screen.queryByText('의사과정을 살펴보세요.')).not.toBeInTheDocument();
     expect(
-      screen.getByText('심초음파 기본부터 임상 판단까지 단계적으로 익히는 의사 대상 과정입니다.'),
-    ).toBeInTheDocument();
+      screen.queryByText('심초음파 기본부터 임상 판단까지 단계적으로 익히는 의사 대상 과정입니다.'),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText('근골격 초음파 스캔 실습을 짧은 기간에 집중적으로 훈련하는 과정입니다.'),
-    ).toBeInTheDocument();
+      screen.queryByText('근골격 초음파 스캔 실습을 짧은 기간에 집중적으로 훈련하는 과정입니다.'),
+    ).not.toBeInTheDocument();
   });
 
   it('shows ultrasound domains and the fixed online course grouping in the desktop dropdowns', async () => {

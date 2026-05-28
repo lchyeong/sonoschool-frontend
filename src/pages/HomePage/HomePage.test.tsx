@@ -66,8 +66,25 @@ describe('HomePage', () => {
       ),
     ).toHaveLength(5);
     expect(
-      screen.getByRole('heading', { name: '진료의 확신을 완성하는초음파 교육, 소노스쿨' }),
+      screen.getByRole('heading', {
+        name: '현장 중심의 생생한 교육으로,진료 현장에서 바로 응용할 수 있는 실전 초음파 기술을 구현합니다.',
+      }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('정확한 진단의 시작, 장기를 빠트리지 않는 체계적인 검사'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/국내외 ARDMS 자격을 겸비한 소노그래퍼의 설계 아래,/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: '진료의 확신을 완성하는초음파 교육, 소노스쿨' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '소노스쿨이 약속하는 초음파 교육의 기준' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('완벽한 스캔:')).toBeInTheDocument();
+    expect(screen.getByText('심평원 기준에 맞춘 정확한 결과와 청구 프로세스')).toBeInTheDocument();
+    expect(screen.getByText('소노스쿨의 대표과정을 소개합니다.')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '1' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -75,6 +92,13 @@ describe('HomePage', () => {
     expect(
       within(screen.getByRole('list', { name: '최신 공지 4개' })).getAllByRole('listitem'),
     ).toHaveLength(3);
+    expect(
+      screen.getByRole('heading', { name: '소노스쿨 국제초음파연수원 오시는길' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('건물내 주차장 2시간 무료')).toBeInTheDocument();
+    expect(screen.getByText('주변 주차 이용안내')).toBeInTheDocument();
+    expect(screen.queryByText('전화번호')).not.toBeInTheDocument();
+    expect(screen.queryByText('점심시간')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '다음 메인 슬라이드' }));
 

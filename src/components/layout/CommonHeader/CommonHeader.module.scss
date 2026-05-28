@@ -636,7 +636,6 @@
   &Header {
     display: grid;
     align-content: start;
-    gap: 10px;
     width: 300px;
     min-width: 300px;
     min-height: 624px;
@@ -657,14 +656,6 @@
     &:hover {
       color: var(--color-primary);
     }
-  }
-
-  &Description {
-    color: #6b7280;
-    font-family: Pretendard, var(--font-family-base);
-    font-size: 18px;
-    font-weight: var(--font-weight-normal);
-    line-height: 1.3;
   }
 
   &DepthLayout {
@@ -735,8 +726,8 @@
   }
 
   &DepthCopy {
-    display: grid;
-    gap: 10px;
+    display: flex;
+    align-items: center;
     min-width: 0;
   }
 
@@ -754,19 +745,6 @@
   &DepthTitle {
     color: currentColor;
     font-weight: var(--font-weight-semibold);
-  }
-
-  &DepthDescription,
-  &GrandchildDescription {
-    overflow: hidden;
-    color: #6b7280;
-    font-family: Pretendard, var(--font-family-base);
-    font-size: 16px;
-    font-weight: var(--font-weight-normal);
-    letter-spacing: var(--letter-spacing-normal);
-    line-height: 1.3;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   &DepthArrow {
@@ -790,9 +768,8 @@
   }
 
   &GrandchildCard {
-    display: grid;
-    align-content: center;
-    gap: 10px;
+    display: flex;
+    align-items: center;
     width: 355px;
     min-height: 104px;
     padding: 25px 28px;
