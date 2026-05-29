@@ -32,7 +32,7 @@ const defaultFeaturedReviewCards = [
     badgeLabel: '대표 후기',
     thumbnailSrc: homeReviewAbdomenImageSrc,
     thumbnailAlt: '복부 초음파 실습이 진행되는 소노스쿨 교육 현장',
-    to: routePaths.program('doctor-course-internal-medicine-abdomen-practice'),
+    to: routePaths.programCatalog('doctor-course', 'internal-medicine', 'abdomen-practice'),
     isPrimary: true,
   },
   {
@@ -44,7 +44,7 @@ const defaultFeaturedReviewCards = [
     badgeLabel: '강사 작성',
     thumbnailSrc: homeReviewFastImageSrc,
     thumbnailAlt: '응급 POCUS 실습이 진행되는 소노스쿨 교육 현장',
-    to: routePaths.program('doctor-course-emergency-pocus-fast'),
+    to: routePaths.programCatalog('doctor-course', 'pocus', 'fast', 'fast-intensive-workshop'),
   },
   {
     id: 'home-featured-review-thyroid-reading',
@@ -55,7 +55,12 @@ const defaultFeaturedReviewCards = [
     badgeLabel: '강사 작성',
     thumbnailSrc: homeReviewThyroidImageSrc,
     thumbnailAlt: '갑상선 초음파 판독 교육이 진행되는 소노스쿨 교육 현장',
-    to: routePaths.program('hybrid-course-head-neck-master'),
+    to: routePaths.programCatalog(
+      'general-course',
+      'neck-course',
+      'thyroid-basic-scan-6-weeks',
+      'thyroid-nodule-reading-practice-4-weeks',
+    ),
   },
   {
     id: 'home-featured-review-msk-lab',
@@ -66,7 +71,11 @@ const defaultFeaturedReviewCards = [
     badgeLabel: '강사 작성',
     thumbnailSrc: homeReviewMskImageSrc,
     thumbnailAlt: '근골격 초음파 실습이 진행되는 소노스쿨 교육 현장',
-    to: routePaths.program('general-course-shoulder-basic-6-weeks'),
+    to: routePaths.programCatalog(
+      'general-course',
+      'musculoskeletal',
+      'shoulder-ultrasound-basic-6-weeks',
+    ),
   },
 ] as const satisfies readonly HomeFeaturedReviewCard[];
 

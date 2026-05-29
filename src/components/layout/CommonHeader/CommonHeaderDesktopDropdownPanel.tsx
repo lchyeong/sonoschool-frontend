@@ -101,8 +101,6 @@ const CommonHeaderDesktopDropdownPanel = ({
             {activeSectionChildren.length ? (
               <div className={styles['dropdownGrandchildGrid']}>
                 {activeSectionChildren.map((child) => {
-                  const fourthDepthItems = child.children ?? [];
-
                   return (
                     <div className={styles['dropdownGrandchildGroup']} key={child.id}>
                       <LinkComponent
@@ -112,23 +110,6 @@ const CommonHeaderDesktopDropdownPanel = ({
                       >
                         <span className={styles['dropdownGrandchildTitle']}>{child.label}</span>
                       </LinkComponent>
-
-                      {fourthDepthItems.length ? (
-                        <div className={styles['dropdownFourthDepthList']}>
-                          {fourthDepthItems.map((fourthDepthItem) => {
-                            return (
-                              <LinkComponent
-                                className={styles['dropdownFourthDepthLink']}
-                                key={fourthDepthItem.id}
-                                onClick={onCloseMenu}
-                                to={fourthDepthItem.to}
-                              >
-                                {fourthDepthItem.label}
-                              </LinkComponent>
-                            );
-                          })}
-                        </div>
-                      ) : null}
                     </div>
                   );
                 })}

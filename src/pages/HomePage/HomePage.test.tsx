@@ -57,7 +57,7 @@ describe('HomePage', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '과정 자세히 보기' })).toHaveAttribute(
       'href',
-      '/programs/abdomen-ultrasound-basic',
+      '/programs/doctor-course/internal-medicine/abdomen-ultrasound-basic',
     );
     expect(screen.getByRole('heading', { name: 'SINCE 2003' })).toBeInTheDocument();
     expect(
@@ -110,7 +110,7 @@ describe('HomePage', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '과정 자세히 보기' })).toHaveAttribute(
       'href',
-      '/programs/abdomen-hybrid-master',
+      '/programs/doctor-course/internal-medicine/abdomen-hybrid-master',
     );
   });
 

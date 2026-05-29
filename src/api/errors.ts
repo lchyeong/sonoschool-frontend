@@ -115,6 +115,14 @@ const resolveFriendlyApiErrorMessage = (
     return '문제풀이 강의에는 문제를 1개 이상 추가해야 합니다. 강의 구성에서 문제풀이 강의를 확인해 주세요.';
   }
 
+  if (code === 'CATEGORY_400_DEPTH') {
+    return '카테고리는 3차까지만 만들 수 있습니다.';
+  }
+
+  if (code === 'CATEGORY_400_NAME') {
+    return '같은 상위 카테고리 안에 이미 같은 이름의 카테고리가 있습니다.';
+  }
+
   if (code === 'CART_400_ENROLLED' || code === 'ENROLLMENT_400_EXISTS') {
     return '이미 수강 중인 강의입니다. 내 강의실에서 확인해 주세요.';
   }

@@ -36,6 +36,7 @@ export interface AdminProgramListItem {
   categoryName: string;
   title: string;
   slug: string;
+  publicPath?: string | null;
   thumbnailUrl: string | null;
   thumbnailPreviewUrl?: string | null;
   programType: AdminProgramType;
@@ -104,6 +105,7 @@ export interface AdminProgramDetail {
   categoryName: string;
   title: string;
   slug: string;
+  publicPath?: string | null;
   description: string | null;
   thumbnailUrl: string | null;
   thumbnailPreviewUrl?: string | null;

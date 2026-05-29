@@ -4,7 +4,7 @@ import { toApiResponseValidationError } from '@/api/errors';
 import { http } from '@/api/http';
 import type { SiteNavigationResponse } from '@/types/siteNavigation';
 
-const MAX_SITE_NAVIGATION_DEPTH = 4;
+const MAX_SITE_NAVIGATION_DEPTH = 3;
 
 interface SiteNavigationItemPayload {
   id: string;
@@ -64,7 +64,7 @@ const getMaxNavigationDepth = (items: SiteNavigationItemPayload[], depth = 1): n
 // 1. API 요청
 // 2. Zod로 기본 구조 검증
 // 3. 중복 id 검사
-// 4. 최대 깊이 4 검사
+// 4. 최대 깊이 3 검사
 // 5. 모두 통과하면 안전한 데이터 반환
 export const fetchSiteNavigation = async (): Promise<SiteNavigationResponse> => {
   const responseData = await http.get<unknown>('/api/v1/navigation/programs');

@@ -71,6 +71,40 @@ const CATEGORY_TREE: AdminProgramCategoryTreeItem[] = [
   },
 ];
 
+const findCategoryPathSegments = (
+  categoryId: number,
+  categories: readonly AdminProgramCategoryTreeItem[] = CATEGORY_TREE,
+  parentSegments: readonly string[] = [],
+): string[] | null => {
+  for (const category of categories) {
+    const nextSegments = [...parentSegments, category.slug];
+
+    if (category.id === categoryId) {
+      return nextSegments;
+    }
+
+    const childMatch = findCategoryPathSegments(categoryId, category.children, nextSegments);
+    if (childMatch) {
+      return childMatch;
+    }
+  }
+
+  return null;
+};
+
+const buildAdminProgramPublicPath = (
+  program: Pick<AdminProgramStateItem, 'categoryId' | 'publicPath' | 'slug'>,
+): string => {
+  const explicitPublicPath = program.publicPath?.trim();
+  if (explicitPublicPath) {
+    return explicitPublicPath;
+  }
+
+  const categoryPathSegments = findCategoryPathSegments(program.categoryId) ?? [];
+
+  return routePaths.programCatalog(...categoryPathSegments, program.slug);
+};
+
 const INITIAL_PROGRAMS: AdminProgramStateItem[] = [
   {
     id: 2001,
@@ -329,6 +363,7 @@ const toListItem = (program: AdminProgramStateItem): AdminProgramListItem => ({
   categoryName: program.categoryName,
   title: program.title,
   slug: program.slug,
+  publicPath: buildAdminProgramPublicPath(program),
   thumbnailUrl: program.thumbnailUrl,
   thumbnailPreviewUrl:
     program.thumbnailPreviewUrl ?? resolveMockThumbnailPreviewUrl(program.thumbnailUrl),
@@ -358,6 +393,7 @@ const toListItem = (program: AdminProgramStateItem): AdminProgramListItem => ({
 const toDetail = (program: AdminProgramStateItem): AdminProgramDetail =>
   clone({
     ...program,
+    publicPath: buildAdminProgramPublicPath(program),
     catalogStatus: deriveCatalogStatus({
       learningStartAt: program.learningStartAt,
       currentStudents: program.currentStudents,
@@ -391,7 +427,7 @@ const toStateItem = (
   featured = false,
 ): AdminProgramStateItem => {
   const maxStudents = payload.maxStudents;
-  return {
+  const program = {
     id,
     categoryId: payload.categoryId,
     categoryName: findCategoryName(payload.categoryId),
@@ -433,6 +469,11 @@ const toStateItem = (
     documents: [],
     deletable: true,
     deleteBlockedReason: null,
+  };
+
+  return {
+    ...program,
+    publicPath: buildAdminProgramPublicPath(program),
   };
 };
 
@@ -523,7 +564,7 @@ export const getMockHomeHeroSlides = (): HomeHeroSlidesResponse => {
     .slice(0, 5)
     .map((program) => ({
       description: program.description ?? `${program.categoryName} 최신 강의입니다.`,
-      detailPath: routePaths.program(program.slug),
+      detailPath: buildAdminProgramPublicPath(program),
       id: `program-${String(program.id)}`,
       thumbnailAlt: `${program.title} 썸네일`,
       thumbnailSrc:

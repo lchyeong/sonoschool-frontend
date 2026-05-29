@@ -50,7 +50,7 @@ const INITIAL_FORM_STATE: CategoryFormState = {
   name: '',
 };
 
-const MAX_DEPTH = 4;
+const MAX_DEPTH = 3;
 
 const sortCategoryTree = (items: readonly AdminCategoryTreeItem[]): AdminCategoryTreeItem[] => {
   return [...items]
@@ -503,16 +503,9 @@ const AdminProgramMenuSection = () => {
         onSelect={(categoryId) => {
           if (detailTab === 'create') {
             const clickedCategory = categoryMap.get(categoryId) ?? null;
-            const createBaseCategory =
-              clickedCategory?.depth === MAX_DEPTH && clickedCategory.parentId !== null
-                ? (categoryMap.get(clickedCategory.parentId) ?? null)
-                : clickedCategory;
-
-            selectCategory(createBaseCategory?.id ?? categoryId);
+            selectCategory(categoryId);
             setCreateParentId(
-              createBaseCategory && createBaseCategory.depth < MAX_DEPTH
-                ? createBaseCategory.id
-                : null,
+              clickedCategory && clickedCategory.depth < MAX_DEPTH ? clickedCategory.id : null,
             );
             return;
           }
@@ -607,18 +600,9 @@ const AdminProgramMenuSection = () => {
                 detailTab === 'create' && styles['detailTabActive'],
               )}
               onClick={() => {
-                const createBaseCategory =
-                  selectedCategory?.depth === MAX_DEPTH && selectedCategory.parentId !== null
-                    ? (categoryMap.get(selectedCategory.parentId) ?? null)
-                    : selectedCategory;
-
-                if (createBaseCategory) {
-                  selectCategory(createBaseCategory.id);
-                }
-
                 setCreateParentId(
-                  createBaseCategory && createBaseCategory.depth < MAX_DEPTH
-                    ? createBaseCategory.id
+                  selectedCategory && selectedCategory.depth < MAX_DEPTH
+                    ? selectedCategory.id
                     : null,
                 );
                 setDetailTab('create');

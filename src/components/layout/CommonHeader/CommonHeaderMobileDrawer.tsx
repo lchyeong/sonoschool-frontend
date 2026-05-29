@@ -51,12 +51,14 @@ const CommonHeaderMobileDrawer = ({
   onLogout,
   onToggleMobileItem,
 }: CommonHeaderMobileDrawerProps) => {
+  const maxNavigationDepth = 3;
+
   const renderMobileNavigation = (items: HeaderNavigationItem[], depth: number): ReactNode => {
     return (
       <ul className={classNames(styles['mobileNavList'], getMobileNavigationDepthClassName(depth))}>
         {items.map((item) => {
           const isExpanded = expandedMobileItemIds.includes(item.id);
-          const isExpandable = hasNavigationChildren(item);
+          const isExpandable = depth < maxNavigationDepth && hasNavigationChildren(item);
 
           return (
             <li className={styles['mobileNavItem']} key={item.id}>

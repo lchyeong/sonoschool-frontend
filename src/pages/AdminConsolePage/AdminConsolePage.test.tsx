@@ -1516,6 +1516,59 @@ describe('AdminConsolePage', () => {
     expect(screen.queryByLabelText('카테고리 코드')).not.toBeInTheDocument();
   });
 
+  it('hides the create-under action when a third-depth category is selected', async () => {
+    server.use(
+      http.get('*/api/v1/admin/categories/tree', () => {
+        return HttpResponse.json({
+          data: [
+            {
+              active: true,
+              children: [
+                {
+                  active: true,
+                  children: [
+                    {
+                      active: true,
+                      children: [],
+                      depth: 3,
+                      id: 103,
+                      name: '소아내분비',
+                      slug: 'pediatric-endocrinology',
+                      sortOrder: 0,
+                    },
+                  ],
+                  depth: 2,
+                  id: 102,
+                  name: '소아내과',
+                  slug: 'pediatrics',
+                  sortOrder: 0,
+                },
+              ],
+              depth: 1,
+              id: 101,
+              name: '의사과정',
+              slug: 'doctor-course',
+              sortOrder: 0,
+            },
+          ],
+          timestamp: '2026-05-29T00:00:00Z',
+        });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/program-menus');
+
+    fireEvent.click(await screen.findByRole('button', { name: '소아내과 카테고리 선택' }));
+    fireEvent.click(await screen.findByRole('button', { name: '소아내분비 카테고리 선택' }));
+    fireEvent.click(screen.getByRole('tab', { name: '새 카테고리' }));
+
+    expect(screen.getAllByText('의사과정 > 소아내과 > 소아내분비').length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole('button', { name: '이 카테고리 하위로 만들기' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '최상위 카테고리로 만들기' })).toBeInTheDocument();
+  });
+
   it('shows only global resources in the resource library and uses dedicated create and edit pages', async () => {
     server.use(
       http.get('*/api/v1/admin/resources', () => {

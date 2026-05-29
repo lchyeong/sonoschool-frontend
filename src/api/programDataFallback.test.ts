@@ -235,7 +235,7 @@ describe('program data API fallback', () => {
     await expect(fetchSiteNavigation()).rejects.toBe(error);
   });
 
-  it('accepts site navigation up to four category depths', async () => {
+  it('rejects site navigation deeper than three category depths', async () => {
     httpGetMock.mockResolvedValue({
       items: [
         {
@@ -267,35 +267,9 @@ describe('program data API fallback', () => {
       ],
     });
 
-    await expect(fetchSiteNavigation()).resolves.toEqual({
-      items: [
-        {
-          id: '1',
-          label: '의사과정',
-          to: '/programs/doctor-course',
-          children: [
-            {
-              id: '2',
-              label: '내과과정',
-              to: '/programs/doctor-course/internal-medicine',
-              children: [
-                {
-                  id: '3',
-                  label: '복부',
-                  to: '/programs/doctor-course/internal-medicine/abdomen',
-                  children: [
-                    {
-                      id: '4',
-                      label: '심화',
-                      to: '/programs/doctor-course/internal-medicine/abdomen/advanced',
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
+    await expect(fetchSiteNavigation()).rejects.toMatchObject({
+      code: 'API_INVALID_RESPONSE',
+      userMessage: '교육과정 메뉴를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
     });
   });
 
