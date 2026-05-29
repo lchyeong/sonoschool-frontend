@@ -294,6 +294,8 @@
   height: auto;
   object-fit: contain;
   object-position: center top;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 @media (width >= 1800px) {

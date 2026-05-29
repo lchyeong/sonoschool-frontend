@@ -106,14 +106,20 @@ const isSmsCooldownApiError = (error: unknown): boolean => {
   return error instanceof ApiError && error.code === 'AUTH_429_SMS_SEND';
 };
 
+const isSmsSendLimitApiError = (error: unknown): boolean => {
+  return error instanceof ApiError && error.code === 'AUTH_429_SMS_SEND_LIMIT';
+};
+
 const getFindIdApiErrorMessage = (error: unknown): string => {
-  if (isSmsCooldownApiError(error)) return getErrorMessage(error, FIND_ID_IDENTITY_CHECK_MESSAGE);
+  if (isSmsCooldownApiError(error) || isSmsSendLimitApiError(error)) {
+    return getErrorMessage(error, FIND_ID_IDENTITY_CHECK_MESSAGE);
+  }
   if (isPhoneNumberApiError(error)) return PHONE_NUMBER_CHECK_MESSAGE;
   return FIND_ID_IDENTITY_CHECK_MESSAGE;
 };
 
 const getPasswordResetApiErrorMessage = (error: unknown): string => {
-  if (isSmsCooldownApiError(error)) {
+  if (isSmsCooldownApiError(error) || isSmsSendLimitApiError(error)) {
     return getErrorMessage(error, PASSWORD_RESET_IDENTITY_CHECK_MESSAGE);
   }
   if (isPhoneNumberApiError(error)) return PHONE_NUMBER_CHECK_MESSAGE;

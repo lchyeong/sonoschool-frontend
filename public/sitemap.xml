@@ -1,2 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://sonoschool.kr/</loc>
+  </url>
+  <url>
+    <loc>https://sonoschool.kr/programs</loc>
+  </url>
+  <url>
+    <loc>https://sonoschool.kr/notices</loc>
+  </url>
+  <url>
+    <loc>https://sonoschool.kr/qna</loc>
+  </url>
+  <url>
+    <loc>https://sonoschool.kr/resources</loc>
+  </url>
+</urlset>

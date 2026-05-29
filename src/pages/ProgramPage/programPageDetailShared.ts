@@ -8,7 +8,6 @@ export const detailTabItems = [
   { id: 'course-qna', label: 'Q&A' },
 ] as const;
 
-export const featureCardTitles = ['학습 준비', '복습 자료', '시청 환경', '수료 기준'] as const;
 export const detailTabScrollOffsetPx = 152;
 export const reviewCarouselScrollAmountPx = 360;
 export const reviewPreviewVisibilityTolerancePx = 1;

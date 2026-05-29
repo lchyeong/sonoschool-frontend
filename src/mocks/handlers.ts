@@ -1976,7 +1976,7 @@ export const handlers = [
       {
         active: true,
         activeEnrollmentCount: 1,
-        displayName: '박수현',
+        displayName: '수현',
         email: 'soohyun@example.com',
         id: 102,
         joinedAt: '2026-01-22T09:00:00Z',
@@ -2838,19 +2838,5 @@ export const handlers = [
     }
 
     return HttpResponse.json(response);
-  }),
-  http.post('*/api/v1/contact', async ({ request }) => {
-    const body = await request.json().catch(() => null);
-
-    if (!isRecord(body)) {
-      return HttpResponse.json({ message: '요청 형식이 올바르지 않습니다.' }, { status: 400 });
-    }
-
-    const title = body['title'];
-    if (typeof title === 'string' && title.toLowerCase().includes('error')) {
-      return HttpResponse.json({ message: '제목을 입력해주세요.' }, { status: 400 });
-    }
-
-    return HttpResponse.json(createApiEnvelope({ ok: true }));
   }),
 ];

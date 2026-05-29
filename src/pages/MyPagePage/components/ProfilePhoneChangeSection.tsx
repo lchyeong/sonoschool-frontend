@@ -32,6 +32,8 @@ const PHONE_CHANGE_REQUEST_INVALID_ERROR_MESSAGE = '휴대폰 인증을 다시 �
 const PHONE_VERIFICATION_CODE_ERROR_MESSAGE = '인증번호를 확인해주세요.';
 const PHONE_VERIFICATION_SEND_COOLDOWN_MESSAGE =
   '인증번호는 3분에 한 번만 요청할 수 있습니다. 잠시 후 다시 시도해 주세요.';
+const PHONE_VERIFICATION_SEND_LIMIT_MESSAGE =
+  '인증번호 요청 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.';
 const PHONE_VERIFICATION_LIMIT_SECONDS = 180;
 
 const getRemainingSeconds = (expiresAt: string | null): number => {
@@ -96,6 +98,11 @@ const resolvePhoneFormApiError = (
       return {
         fieldErrors: { phoneNumber: PHONE_VERIFICATION_SEND_COOLDOWN_MESSAGE },
         message: PHONE_VERIFICATION_SEND_COOLDOWN_MESSAGE,
+      };
+    case 'AUTH_429_SMS_SEND_LIMIT':
+      return {
+        fieldErrors: { phoneNumber: PHONE_VERIFICATION_SEND_LIMIT_MESSAGE },
+        message: PHONE_VERIFICATION_SEND_LIMIT_MESSAGE,
       };
     case 'GLOBAL_400':
       return step === 'send'

@@ -362,12 +362,6 @@ const appLeafRouteDefinitions = {
       return generatePath('/notices/:noticeSlug', { noticeSlug });
     },
   }),
-  reviews: defineStaticRoute({
-    key: 'reviews',
-    access: 'public',
-    routePath: 'reviews',
-    absolutePath: '/reviews',
-  }),
   qna: defineStaticRoute({
     key: 'qna',
     access: 'public',
@@ -425,12 +419,6 @@ const appLeafRouteDefinitions = {
     routePath: 'programs/*',
     absolutePath: '/programs/*',
   }),
-  contact: defineStaticRoute({
-    key: 'contact',
-    access: 'public',
-    routePath: 'contact',
-    absolutePath: '/contact',
-  }),
   notFound: defineCatchAllRoute({
     key: 'notFound',
     access: 'public',
@@ -483,7 +471,6 @@ const appChildRouteKeys = [
   'paymentResult',
   'notices',
   'noticeDetail',
-  'reviews',
   'qna',
   'resources',
   'resourceDetail',
@@ -492,7 +479,6 @@ const appChildRouteKeys = [
   'program',
   'programSection',
   'programCatalogDeep',
-  'contact',
   'notFound',
 ] as const satisfies readonly AppRouteKey[];
 
@@ -565,13 +551,11 @@ export const routePaths = {
   homeLocation: `${routes.home.absolutePath}#home-location`,
   notices: routes.notices.absolutePath,
   noticeDetail: (noticeSlug: string) => routes.noticeDetail.buildPath({ noticeSlug }),
-  reviews: routes.reviews.absolutePath,
   qna: routes.qna.absolutePath,
   resources: routes.resources.absolutePath,
   resourceDetail: (resourceSlug: string) => routes.resourceDetail.buildPath({ resourceSlug }),
   programs: routes.programs.absolutePath,
   search: routes.search.absolutePath,
-  contact: routes.contact.absolutePath,
   programCatalog: (...pathSegments: string[]) => buildProgramCatalogPath(...pathSegments),
   program: (programSlug: string) => routes.program.buildPath({ programSlug }),
   programSection: (programSlug: string, sectionSlug: string) =>

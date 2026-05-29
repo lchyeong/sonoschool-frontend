@@ -25,10 +25,26 @@ interface KakaoGeocoderResult {
   y: string;
 }
 
+interface KakaoPlaceSearchResult {
+  address_name?: string;
+  id?: string;
+  place_name?: string;
+  road_address_name?: string;
+  x: string;
+  y: string;
+}
+
 interface KakaoGeocoder {
   addressSearch: (
     address: string,
     callback: (result: KakaoGeocoderResult[], status: string) => void,
+  ) => void;
+}
+
+interface KakaoPlaces {
+  keywordSearch: (
+    keyword: string,
+    callback: (result: KakaoPlaceSearchResult[], status: string) => void,
   ) => void;
 }
 
@@ -45,6 +61,7 @@ interface KakaoMapsApi {
   Marker: new (options: { position: KakaoLatLng }) => KakaoMarker;
   services: {
     Geocoder: new () => KakaoGeocoder;
+    Places: new () => KakaoPlaces;
     Status: {
       OK: string;
     };
@@ -57,12 +74,29 @@ interface KakaoWindow extends Window {
   };
 }
 
+interface NearbyParkingLot {
+  address: string;
+  name: string;
+  searchKeyword?: string;
+}
+
 const KAKAO_MAP_SCRIPT_ID = 'sonoschool-kakao-map-sdk';
 const SONOSCHOOL_ADDRESS = '경기도 화성시 동탄구 동탄지성로 17';
 const SONOSCHOOL_ADDRESS_DETAIL = 'B1층 101호 (반송동, 동탄 위버폴리스) 지하 1층 에스컬레이터 뒷편';
 const SONOSCHOOL_MAP_SEARCH_ADDRESS = SONOSCHOOL_ADDRESS;
 const FALLBACK_LATITUDE = 37.204188;
 const FALLBACK_LONGITUDE = 127.073304;
+const NEARBY_PARKING_LOTS: NearbyParkingLot[] = [
+  {
+    name: '한빛공영주차장',
+    address: '경기 화성시 동탄구 동탄중심상가2길 21',
+  },
+  {
+    name: '노작홍사용문학관 공영주차장',
+    address: '경기 화성시 동탄구 노작로 206',
+    searchKeyword: '노작홍사용문학관 공영주차장',
+  },
+] as const;
 
 const loadKakaoMapsSdk = (appKey: string): Promise<KakaoMapsApi> => {
   return new Promise((resolve, reject) => {
@@ -118,7 +152,75 @@ const HomeLocationSection = () => {
   const [mapErrorMessage, setMapErrorMessage] = useState('');
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const kakaoMapRef = useRef<KakaoMap | null>(null);
+  const kakaoMapsRef = useRef<KakaoMapsApi | null>(null);
+  const kakaoMarkerRef = useRef<KakaoMarker | null>(null);
+  const kakaoGeocoderRef = useRef<KakaoGeocoder | null>(null);
+  const kakaoPlacesRef = useRef<KakaoPlaces | null>(null);
   const hasKakaoMapApiKey = Boolean(env.kakaoMapApiKey);
+
+  const moveMapToCoordinates = (longitude: string, latitude: string) => {
+    const kakaoMaps = kakaoMapsRef.current;
+    const map = kakaoMapRef.current;
+    const marker = kakaoMarkerRef.current;
+
+    if (!kakaoMaps || !map || !marker) {
+      return false;
+    }
+
+    const parsedLatitude = Number(latitude);
+    const parsedLongitude = Number(longitude);
+    if (!Number.isFinite(parsedLatitude) || !Number.isFinite(parsedLongitude)) {
+      setMapErrorMessage('지도 좌표 변환에 실패해 현재 위치를 유지하고 있습니다.');
+      return false;
+    }
+
+    const position = new kakaoMaps.LatLng(parsedLatitude, parsedLongitude);
+    marker.setPosition(position);
+    map.setCenter(position);
+    map.setLevel(3);
+    setMapErrorMessage('');
+    return true;
+  };
+
+  const moveMapToAddress = (address: string) => {
+    const kakaoMaps = kakaoMapsRef.current;
+    const geocoder = kakaoGeocoderRef.current;
+
+    if (!kakaoMaps || !geocoder) {
+      return;
+    }
+
+    geocoder.addressSearch(address, (result, status) => {
+      if (status !== kakaoMaps.services.Status.OK || result.length === 0) {
+        setMapErrorMessage('주소를 지도에서 찾지 못해 현재 위치를 유지하고 있습니다.');
+        return;
+      }
+
+      const first = result[0];
+      moveMapToCoordinates(first.x, first.y);
+    });
+  };
+
+  const moveMapToParkingLot = (parkingLot: (typeof NEARBY_PARKING_LOTS)[number]) => {
+    const kakaoMaps = kakaoMapsRef.current;
+    const places = kakaoPlacesRef.current;
+
+    if (!parkingLot.searchKeyword || !kakaoMaps || !places) {
+      moveMapToAddress(parkingLot.address);
+      return;
+    }
+
+    places.keywordSearch(parkingLot.searchKeyword, (result, status) => {
+      if (status !== kakaoMaps.services.Status.OK || result.length === 0) {
+        moveMapToAddress(parkingLot.address);
+        return;
+      }
+
+      const exactPlace =
+        result.find((place) => place.place_name === parkingLot.searchKeyword) ?? result[0];
+      moveMapToCoordinates(exactPlace.x, exactPlace.y);
+    });
+  };
 
   useEffect(() => {
     if (!hasKakaoMapApiKey) {
@@ -141,9 +243,13 @@ const HomeLocationSection = () => {
         const marker = new kakaoMaps.Marker({ position: initialPosition });
 
         marker.setMap(map);
+        kakaoMapsRef.current = kakaoMaps;
         kakaoMapRef.current = map;
+        kakaoMarkerRef.current = marker;
 
         const geocoder = new kakaoMaps.services.Geocoder();
+        kakaoGeocoderRef.current = geocoder;
+        kakaoPlacesRef.current = new kakaoMaps.services.Places();
         geocoder.addressSearch(SONOSCHOOL_MAP_SEARCH_ADDRESS, (result, status) => {
           if (disposed) {
             return;
@@ -181,6 +287,11 @@ const HomeLocationSection = () => {
 
     return () => {
       disposed = true;
+      kakaoMapsRef.current = null;
+      kakaoMapRef.current = null;
+      kakaoMarkerRef.current = null;
+      kakaoGeocoderRef.current = null;
+      kakaoPlacesRef.current = null;
     };
   }, [hasKakaoMapApiKey]);
 
@@ -228,7 +339,17 @@ const HomeLocationSection = () => {
 
           <div className={styles['informationPanel']}>
             <address className={styles['addressBlock']}>
-              <strong>{SONOSCHOOL_ADDRESS}</strong>
+              <strong>
+                <button
+                  className={styles['addressMapButton']}
+                  onClick={() => {
+                    moveMapToAddress(SONOSCHOOL_MAP_SEARCH_ADDRESS);
+                  }}
+                  type='button'
+                >
+                  {SONOSCHOOL_ADDRESS}
+                </button>
+              </strong>
               <span>{SONOSCHOOL_ADDRESS_DETAIL}</span>
             </address>
 
@@ -237,8 +358,20 @@ const HomeLocationSection = () => {
               <div className={styles['parkingDivider']} aria-hidden='true' />
               <p className={styles['nearbyParkingTitle']}>주변 주차 이용안내</p>
               <ol className={styles['nearbyParkingList']}>
-                <li>한빛공영주차장(경기 화성시 동탄구 반송동)</li>
-                <li>노작홍사용문학주차장(경기 화성시 동탄구)</li>
+                {NEARBY_PARKING_LOTS.map((parkingLot) => (
+                  <li key={parkingLot.name}>
+                    <button
+                      className={styles['parkingMapButton']}
+                      onClick={() => {
+                        moveMapToParkingLot(parkingLot);
+                      }}
+                      type='button'
+                    >
+                      {parkingLot.name}
+                    </button>
+                    <span>({parkingLot.address})</span>
+                  </li>
+                ))}
               </ol>
             </div>
           </div>

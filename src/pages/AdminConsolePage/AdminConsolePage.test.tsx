@@ -349,6 +349,26 @@ describe('AdminConsolePage', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows program visibility action buttons as the current visibility state', async () => {
+    renderAdminConsoleRoute('/admin/programs');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 관리' }),
+    ).toBeInTheDocument();
+
+    const publishedProgramRow = (await screen.findByText('복부초음파 기초')).closest('tr');
+    const hiddenProgramRow = (await screen.findByText('FAST 집중 실습')).closest('tr');
+
+    expect(publishedProgramRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(hiddenProgramRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(
+      within(publishedProgramRow as HTMLTableRowElement).getByRole('button', { name: '공개' }),
+    ).toBeInTheDocument();
+    expect(
+      within(hiddenProgramRow as HTMLTableRowElement).getByRole('button', { name: '숨김' }),
+    ).toBeInTheDocument();
+  });
+
   it('shows the blocked delete reason without sending a delete request', async () => {
     let deleteRequested = false;
     const confirmSpy = vi.spyOn(window, 'confirm');
@@ -861,6 +881,8 @@ describe('AdminConsolePage', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: '회원관리' })).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: '김민지' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: '박수현' })).toBeInTheDocument();
+    expect(screen.getByText('닉네임 수현 · 아이디 shpark')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '2' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('link', { name: '김민지' }));

@@ -24,10 +24,7 @@ describe('CommonFooter', () => {
     );
 
     expect(screen.getByRole('link', { name: '소노스쿨' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: '교육후기' })).toHaveAttribute(
-      'href',
-      routePaths.reviews,
-    );
+    expect(screen.queryByRole('link', { name: '교육후기' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '네이버블로그' })).toHaveAttribute(
       'href',
       'https://blog.naver.com/sonoschool',
@@ -59,7 +56,7 @@ describe('CommonFooter', () => {
     );
 
     const adminTriggerButton = screen.getByRole('button', {
-      name: 'Copyright 2026 소노스쿨 국제초음파연수원. All right reserved. Built by newzest studio.',
+      name: 'Copyright 2026 소노스쿨 국제초음파연수원. All rights reserved.',
     });
 
     fireEvent.click(adminTriggerButton);

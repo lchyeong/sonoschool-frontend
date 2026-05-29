@@ -5,30 +5,6 @@ import { getMockProgramSearchLectureItems } from './programCatalog';
 
 const communityProgramSearchItems: ProgramSearchIndexResponse['items'] = [
   {
-    categoryLabel: '교육후기',
-    description:
-      '실습 밀도와 피드백 만족도가 높았다는 후기를 중심으로 대표 수강 경험을 정리한 리뷰 콘텐츠입니다.',
-    id: 'review-best-2026',
-    scope: 'review',
-    tags: ['후기', '복부', '실습 만족도'],
-    thumbnailAlt: '복부 초음파 과정 후기 썸네일',
-    thumbnailSrc: '/example.png',
-    title: '복부 초음파 과정 수강 후기 모음',
-    to: routePaths.reviews,
-  },
-  {
-    categoryLabel: '교육후기',
-    description:
-      '응급실 현장에서 실제로 어떤 변화가 있었는지 수료생 경험을 중심으로 정리한 인터뷰형 후기입니다.',
-    id: 'review-pocus-story',
-    scope: 'review',
-    tags: ['응급', '수강후기', '인터뷰'],
-    thumbnailAlt: '응급 POCUS 수료생 인터뷰 썸네일',
-    thumbnailSrc: '/SRDMS_OG.png',
-    title: '응급 POCUS 수료생 인터뷰',
-    to: routePaths.reviews,
-  },
-  {
     categoryLabel: '공지사항',
     description: '복부, 갑상선, 근골격 주요 과정의 모집 일정과 신청 안내를 포함한 공지사항입니다.',
     id: 'notice-schedule-open',

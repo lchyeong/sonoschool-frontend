@@ -373,6 +373,9 @@ describe('ProgramPage', () => {
     fireEvent.change(within(dialog).getByLabelText('휴대폰번호'), {
       target: { value: '01012345678' },
     });
+    fireEvent.change(within(dialog).getByLabelText('전공분야'), {
+      target: { value: '방사선사' },
+    });
     expect(within(dialog).queryByLabelText('문의 내용')).not.toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('button', { name: '제출하기' }));
@@ -380,6 +383,39 @@ describe('ProgramPage', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: '예약 문의하기' })).not.toBeInTheDocument();
     });
+  });
+
+  it('requires a specialty before submitting a reservation inquiry', async () => {
+    renderProgramAndCartRoutes(
+      '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(screen.getByRole('complementary')).getByRole('button', {
+        name: '예약하기',
+      }),
+    );
+
+    const dialog = await screen.findByRole('dialog', { name: '예약 문의하기' });
+
+    expect(within(dialog).getByLabelText('전공분야')).toBeRequired();
+    expect(within(dialog).getByPlaceholderText('전공분야를 입력해주세요.')).toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText('이름'), {
+      target: { value: '비회원 신청자' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('휴대폰번호'), {
+      target: { value: '01012345678' },
+    });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '제출하기' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('전공분야를 입력해주세요.');
+    expect(screen.getByRole('dialog', { name: '예약 문의하기' })).toBeInTheDocument();
   });
 
   it('adds the selected lecture to the cart and opens the cart confirmation modal', async () => {

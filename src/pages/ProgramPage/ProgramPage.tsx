@@ -50,9 +50,6 @@ const ProgramPage = () => {
           <Link className={styles['primaryActionLink']} to={routePaths.homeFeaturedCourses}>
             전체 교육과정 보기
           </Link>
-          <Link className={styles['secondaryActionLink']} to={routePaths.contact}>
-            수강 문의하기
-          </Link>
         </div>
       </section>
     );

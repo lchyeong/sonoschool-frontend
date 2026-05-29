@@ -26,7 +26,6 @@ const ADMIN_LOGIN_TRIGGER_WINDOW_MS = 2400;
 const footerNavigationItems: readonly FooterNavigationItem[] = [
   { label: '소노스쿨', to: routePaths.home, width: 62 },
   { label: '교육과정', to: routePaths.homeFeaturedCourses, width: 62 },
-  { label: '교육후기', to: routePaths.reviews, width: 62 },
   { label: '공지사항', to: routePaths.notices, width: 62 },
   { label: 'Q&A', to: routePaths.qna, width: 38 },
   { label: '자료실', to: routePaths.resources, width: 46 },
@@ -57,8 +56,7 @@ const footerLegalItems = [
   { text: '이용약관', modalType: 'terms' },
   { text: '개인정보처리방침', modalType: 'privacy' },
 ] as const;
-const footerCopyrightText =
-  'Copyright 2026 소노스쿨 국제초음파연수원. All right reserved. Built by newzest studio.';
+const footerCopyrightText = 'Copyright 2026 소노스쿨 국제초음파연수원. All rights reserved.';
 
 const footerCompanyInformationItems = footerInformationLines[0];
 const footerBusinessInformationItems = footerInformationLines.slice(1).flat();

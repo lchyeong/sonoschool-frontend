@@ -592,9 +592,10 @@ const AdminProgramListSection = () => {
                                 onClick={() => {
                                   hideMutation.mutate(item.id);
                                 }}
+                                title='클릭하면 숨김 처리합니다.'
                                 type='button'
                               >
-                                숨김
+                                공개
                               </button>
                             ) : (
                               <button
@@ -602,9 +603,10 @@ const AdminProgramListSection = () => {
                                 onClick={() => {
                                   publishMutation.mutate(item.id);
                                 }}
+                                title='클릭하면 공개 처리합니다.'
                                 type='button'
                               >
-                                공개
+                                숨김
                               </button>
                             )}
                             <button

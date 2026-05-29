@@ -97,6 +97,8 @@ describe('HomePage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('건물내 주차장 2시간 무료')).toBeInTheDocument();
     expect(screen.getByText('주변 주차 이용안내')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '노작홍사용문학관 공영주차장' })).toBeInTheDocument();
+    expect(screen.getByText('(경기 화성시 동탄구 노작로 206)')).toBeInTheDocument();
     expect(screen.queryByText('전화번호')).not.toBeInTheDocument();
     expect(screen.queryByText('점심시간')).not.toBeInTheDocument();
 

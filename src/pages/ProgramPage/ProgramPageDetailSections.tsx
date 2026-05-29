@@ -20,7 +20,6 @@ import styles from './ProgramPageDetail.module.scss';
 import {
   buildAdminReplyExample,
   detailTabItems,
-  featureCardTitles,
   formatPriceLabel,
   type ReviewSortOrder,
 } from './programPageDetailShared';
@@ -42,16 +41,11 @@ interface FullReviewCardProps {
 
 interface IntroductionBlockHeaderProps {
   withIcon?: boolean;
-  subtitle: string;
+  subtitle?: string;
   title: string;
 }
 
 interface IntroductionInfoBoxProps {
-  content: string;
-  title: string;
-}
-
-interface IntroductionFeatureCardProps {
   content: string;
   title: string;
 }
@@ -482,14 +476,19 @@ const IntroductionBlockHeader = ({
   withIcon = false,
 }: IntroductionBlockHeaderProps) => {
   return (
-    <div className={styles['introductionBlockHeader']}>
+    <div
+      className={classNames(
+        styles['introductionBlockHeader'],
+        !subtitle && styles['introductionBlockHeaderWithoutSubtitle'],
+      )}
+    >
       <h3 className={styles['introductionBlockTitle']}>
         {withIcon ? (
           <span aria-hidden='true' className={styles['introductionBlockTitleIcon']} />
         ) : null}
         <span>{title}</span>
       </h3>
-      <p className={styles['introductionBlockSubtitle']}>{subtitle}</p>
+      {subtitle ? <p className={styles['introductionBlockSubtitle']}>{subtitle}</p> : null}
     </div>
   );
 };
@@ -506,11 +505,10 @@ const IntroductionInfoBox = ({ content, title }: IntroductionInfoBoxProps) => {
   );
 };
 
-const IntroductionFeatureCard = ({ content, title }: IntroductionFeatureCardProps) => {
+const IntroductionChecklistItem = ({ content }: { content: string }) => {
   return (
     <article className={styles['featureCard']}>
       <span aria-hidden='true' className={styles['featureCardIcon']} />
-      <p className={styles['featureCardTitle']}>{title}</p>
       <p className={styles['featureCardDescription']}>{content}</p>
     </article>
   );
@@ -855,11 +853,7 @@ export const ProgramPageDetailMainContent = ({
 
               <div className={styles['introductionSectionGroup']}>
                 <section className={styles['corePointSection']}>
-                  <IntroductionBlockHeader
-                    subtitle='이론을 넘어 진단 사고력을 키우는 핵심 차별점을 정리했습니다.'
-                    title='핵심 포인트'
-                    withIcon
-                  />
+                  <IntroductionBlockHeader title='핵심 포인트' withIcon />
 
                   <div className={styles['sectionBlockBody']}>
                     <div className={styles['infoBoxListGroup']}>
@@ -877,10 +871,7 @@ export const ProgramPageDetailMainContent = ({
                 </section>
 
                 <section className={styles['outcomeSection']}>
-                  <IntroductionBlockHeader
-                    subtitle='이 강의를 통해 기대할 수 있는 실전 변화와 성장 포인트를 정리했습니다.'
-                    title='이 강의를 듣고 나면 이렇게 달라집니다'
-                  />
+                  <IntroductionBlockHeader title='이 강의를 듣고 나면 이렇게 달라집니다' />
 
                   <div className={styles['sectionBlockBody']}>
                     <div className={styles['checkItemGroup']}>
@@ -909,10 +900,7 @@ export const ProgramPageDetailMainContent = ({
                 </section>
 
                 <section className={styles['targetSection']}>
-                  <IntroductionBlockHeader
-                    subtitle='현재 학습 단계와 고민에 맞는 추천 대상'
-                    title='이런 고민을 가진 분들께 추천합니다'
-                  />
+                  <IntroductionBlockHeader title='이런 고민을 가진 분들께 추천합니다' />
 
                   <div className={styles['sectionBlockBody']}>
                     <article className={styles['targetCard']}>
@@ -938,19 +926,15 @@ export const ProgramPageDetailMainContent = ({
                 </section>
 
                 <section className={styles['preparationSection']}>
-                  <IntroductionBlockHeader
-                    subtitle='원활한 학습을 위해 미리 확인해야 할 안내 사항'
-                    title='학습 효과를 높이기 위한 수강 전 체크리스트'
-                  />
+                  <IntroductionBlockHeader title='학습 효과를 높이기 위한 수강 전 체크리스트' />
 
                   <div className={styles['sectionBlockBody']}>
                     <div className={styles['featureCardGrid']}>
                       {data.preparationChecklist.map((item, index) => {
                         return (
-                          <IntroductionFeatureCard
+                          <IntroductionChecklistItem
                             content={item}
-                            key={item}
-                            title={featureCardTitles[index] ?? `체크 포인트 ${String(index + 1)}`}
+                            key={`${item}-${String(index)}`}
                           />
                         );
                       })}

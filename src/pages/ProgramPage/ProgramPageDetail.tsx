@@ -211,6 +211,11 @@ const ProgramReservationInquiryModal = ({
       return;
     }
 
+    if (!trimmedSpecialty) {
+      setErrorMessage('전공분야를 입력해주세요.');
+      return;
+    }
+
     setErrorMessage(null);
     onSubmit({
       applicantName: trimmedName,
@@ -231,7 +236,7 @@ const ProgramReservationInquiryModal = ({
       title='예약 문의하기'
       titleClassName={styles['reservationModalTitle']}
     >
-      <form className={styles['reservationForm']} onSubmit={handleSubmit}>
+      <form className={styles['reservationForm']} noValidate onSubmit={handleSubmit}>
         <label className={styles['reservationField']}>
           <span className={styles['reservationFieldLabel']}>이름</span>
           <input
@@ -267,7 +272,8 @@ const ProgramReservationInquiryModal = ({
             onChange={(event) => {
               setSpecialty(event.target.value);
             }}
-            placeholder='전공분야를 입력해주세요. (선택)'
+            placeholder='전공분야를 입력해주세요.'
+            required
             value={specialty}
           />
         </label>

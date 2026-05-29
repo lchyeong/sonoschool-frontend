@@ -16,15 +16,15 @@ const homeFeatureShowcaseCards = [
   {
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-2',
-    imageAlt: '대학병원 교수진과 함께한 실전 초음파 교육의 시간',
+    imageAlt: '대학병원 교수진과 함께한 실전 초음파 교육',
     imageSrc: '/images/home/feature-showcase/showcase-card-2.png',
-    titleLines: ['대학병원 교수진과 함께한', '실전 초음파 교육의 시간'],
+    titleLines: ['대학병원 교수진과 함께한', '실전 초음파 교육'],
   },
   {
     category: 'Hands-on Class',
     id: 'home-feature-showcase-card-3',
     imageAlt: '전문의를 대상으로 진행한 장초음파 강의 현장',
-    imageSrc: '/images/home/feature-showcase/showcase-card-3.png',
+    imageSrc: '/images/home/feature-showcase/intestine-ultrasound-lecture.png',
     titleLines: ['전문의를 대상으로 진행한', '장초음파 강의 현장'],
   },
   {

@@ -1,4 +1,4 @@
-export const searchScopeValues = ['lecture', 'review', 'notice', 'qna', 'resource'] as const;
+export const searchScopeValues = ['lecture', 'notice', 'qna', 'resource'] as const;
 
 export type SearchScope = (typeof searchScopeValues)[number];
 
@@ -44,13 +44,6 @@ const searchScopeMetadataMap = {
     inputLabel: '자료실 검색',
     label: '자료실',
     placeholder: '체크리스트, 템플릿, 가이드처럼 찾고 싶은 자료명을 입력해 주세요.',
-  },
-  review: {
-    browseDescription:
-      '교육후기 영역의 제목, 후기 설명, 카테고리, 키워드를 기준으로 실제 수강 경험을 찾아보실 수 있습니다.',
-    inputLabel: '교육후기 검색',
-    label: '교육후기',
-    placeholder: '후기 제목, 과정명, 만족도 키워드처럼 찾고 싶은 후기를 입력해 주세요.',
   },
 } as const satisfies Record<SearchScope, SearchScopeMetadata>;
 

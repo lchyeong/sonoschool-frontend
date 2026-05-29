@@ -61,13 +61,15 @@ const AdminUserDetailView = ({
   resetCertificateProfileLoading,
   user,
 }: AdminUserDetailViewProps) => {
+  const nickname = user.nickname?.trim();
+
   return (
     <>
       <div className={styles['pageHeader']}>
         <div>
           <h1 className={styles['pageTitle']}>회원 상세</h1>
           <p className={styles['pageDescription']}>
-            {user.displayName} 회원의 결제, 수강, 실습, 문제 풀이 이력을 확인합니다.
+            {user.name} 회원의 결제, 수강, 실습, 문제 풀이 이력을 확인합니다.
           </p>
         </div>
         <div className={styles['pageTopActions']}>
@@ -80,9 +82,10 @@ const AdminUserDetailView = ({
       <section className={styles['userDetailSection']}>
         <div className={styles['userDetailSummaryHeader']}>
           <div>
-            <h2 className={styles['panelTitle']}>{user.displayName}</h2>
+            <h2 className={styles['panelTitle']}>{user.name}</h2>
             <p className={styles['metaText']}>
-              아이디 {user.loginId} · 가입일 {formatDate(user.joinedAt)}
+              {nickname ? `닉네임 ${nickname} · ` : ''}아이디 {user.loginId} · 가입일{' '}
+              {formatDate(user.joinedAt)}
             </p>
           </div>
         </div>

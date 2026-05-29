@@ -371,6 +371,13 @@ const HomeHistoryTimelineSection = () => {
               <img
                 alt='소노스쿨 장은희 소장'
                 className={styles['directorImage']}
+                draggable={false}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                }}
+                onDragStart={(event) => {
+                  event.preventDefault();
+                }}
                 src={homeDirectorImageSrc}
               />
             </div>

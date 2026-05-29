@@ -15,22 +15,22 @@ describe('SiteSearchBar', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '강의' }));
 
-    expect(screen.getByRole('button', { name: '교육후기' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '교육후기' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '교육후기' }));
+    fireEvent.click(screen.getByRole('button', { name: '공지사항' }));
 
-    const reviewSearchInput = screen.getByRole('searchbox', { name: '교육후기 검색' });
+    const noticeSearchInput = screen.getByRole('searchbox', { name: '공지사항 검색' });
 
-    expect(reviewSearchInput).toHaveAttribute(
+    expect(noticeSearchInput).toHaveAttribute(
       'placeholder',
-      '후기 제목, 과정명, 만족도 키워드처럼 찾고 싶은 후기를 입력해 주세요.',
+      '모집 일정, 준비물, 신청 안내처럼 확인하고 싶은 내용을 입력해 주세요.',
     );
 
-    fireEvent.change(reviewSearchInput, {
-      target: { value: '후기' },
+    fireEvent.change(noticeSearchInput, {
+      target: { value: '모집' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '교육후기 검색' }));
+    fireEvent.click(screen.getByRole('button', { name: '공지사항 검색' }));
 
-    expect(handleSubmitSearch).toHaveBeenCalledWith('review', '후기');
+    expect(handleSubmitSearch).toHaveBeenCalledWith('notice', '모집');
   });
 });

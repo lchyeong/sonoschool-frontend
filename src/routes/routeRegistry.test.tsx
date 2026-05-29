@@ -79,7 +79,6 @@ describe('appRouteRegistry', () => {
     expect(routePaths.paymentResult).toBe(appRouteRegistry.routes.paymentResult.absolutePath);
     expect(routePaths.homeLocation).toBe('/#home-location');
     expect(routePaths.noticeDetail('notice-7')).toBe('/notices/notice-7');
-    expect(routePaths.reviews).toBe(appRouteRegistry.routes.reviews.absolutePath);
     expect(routePaths.resources).toBe(appRouteRegistry.routes.resources.absolutePath);
     expect(routePaths.resourceDetail('resource-7')).toBe('/resources/resource-7');
     expect(routePaths.programCatalog()).toBe('/programs');

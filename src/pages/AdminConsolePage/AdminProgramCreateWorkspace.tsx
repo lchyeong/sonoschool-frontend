@@ -2353,7 +2353,7 @@ const AdminProgramCreateWorkspace = ({
         thumbnailCropOffsetY: DEFAULT_ADMIN_IMAGE_CROP.offsetY,
         thumbnailCropZoom: DEFAULT_ADMIN_IMAGE_CROP.zoom,
         thumbnailPreviewUrl: previewObjectUrl,
-        thumbnailUrl: null,
+        thumbnailUrl: current.basicInfo.thumbnailUrl,
       },
     }));
   };
@@ -3711,6 +3711,7 @@ const AdminProgramCreateWorkspace = ({
     event?: ReactMouseEvent<HTMLButtonElement>;
     force?: boolean;
     hintMessage?: string;
+    pendingThumbnailAction?: 'block' | 'upload';
   }): Promise<boolean> => {
     if (draftId === null || currentPayloadRef.current === null) {
       return true;
@@ -3741,11 +3742,25 @@ const AdminProgramCreateWorkspace = ({
     }
 
     if (pendingThumbnailSelection) {
-      showToast({
-        message: '선택한 대표 이미지는 업로드 시작을 먼저 눌러 주세요.',
-        variant: 'error',
-      });
-      return false;
+      if (isUploadingThumbnail) {
+        showToast({
+          message: '대표 이미지 업로드가 끝난 뒤 다시 시도해 주세요.',
+          variant: 'error',
+        });
+        return false;
+      }
+      if (options?.pendingThumbnailAction !== 'block') {
+        const uploaded = await uploadPendingProgramThumbnail();
+        if (!uploaded) {
+          return false;
+        }
+      } else {
+        showToast({
+          message: '선택한 대표 이미지는 업로드 시작을 먼저 눌러 주세요.',
+          variant: 'error',
+        });
+        return false;
+      }
     }
 
     return options?.force === undefined
@@ -4139,6 +4154,7 @@ const AdminProgramCreateWorkspace = ({
       !(await flushPendingDraftSave({
         event,
         hintMessage: '영상 업로드 전에 입력값을 확인해 주세요.',
+        pendingThumbnailAction: 'upload',
       }))
     ) {
       return;
@@ -4386,7 +4402,10 @@ const AdminProgramCreateWorkspace = ({
         [uploadKey]: '초안 저장 중',
       }));
 
-      const saved = await flushPendingDraftSave({ force: true });
+      const saved = await flushPendingDraftSave({
+        force: true,
+        pendingThumbnailAction: 'upload',
+      });
       if (!saved) {
         throw new Error('강의 정보를 임시저장한 뒤 다시 업로드해 주세요.');
       }
@@ -4590,6 +4609,7 @@ const AdminProgramCreateWorkspace = ({
         !(await flushPendingDraftSave({
           event,
           hintMessage: '자료 업로드 전에 입력값을 확인해 주세요.',
+          pendingThumbnailAction: 'upload',
         }))
       ) {
         return;

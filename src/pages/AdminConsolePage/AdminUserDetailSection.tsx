@@ -289,7 +289,7 @@ const AdminUserDetailSection = () => {
           }
           programsLoading={programsQuery.isPending}
           selectedProgramId={selectedGrantProgramId}
-          userName={detailQuery.data.displayName}
+          userName={detailQuery.data.name}
           onProgramChange={setSelectedGrantProgramId}
         />
       ) : null}

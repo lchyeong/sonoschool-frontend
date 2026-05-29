@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "deploy:prod": "bash scripts/deploy-prod.sh",
     "preview": "vite preview",
     "prepare": "husky",
     "lint": "eslint .",

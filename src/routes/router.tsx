@@ -16,14 +16,23 @@ import {
   routePaths,
   type AppRouteKey,
 } from '@/routes/routeRegistry';
+import { reloadOnceForDynamicImportFailure } from '@/utils/dynamicImportRecovery';
 
 type AppRouteLazy = () => Promise<{ element: ReactElement }>;
 
 const createLazyRoute = (loadElement: () => Promise<ReactElement>): AppRouteLazy => {
   return async () => {
-    return {
-      element: await loadElement(),
-    };
+    try {
+      return {
+        element: await loadElement(),
+      };
+    } catch (error) {
+      if (reloadOnceForDynamicImportFailure(error)) {
+        await new Promise<never>(() => {});
+      }
+
+      throw error;
+    }
   };
 };
 
@@ -236,7 +245,6 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     const { default: NoticeDetailPage } = await import('@/pages/NoticeDetailPage/NoticeDetailPage');
     return <NoticeDetailPage />;
   }),
-  reviews: createStaticElementRoute(<Navigate replace to={routePaths.homeFeaturedCourses} />),
   qna: createLazyRoute(async () => {
     const { default: QnaPage } = await import('@/pages/QnaPage/QnaPage');
     return <QnaPage />;
@@ -267,10 +275,6 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
   programCatalogDeep: createLazyRoute(async () => {
     const { default: ProgramPage } = await import('@/pages/ProgramPage/ProgramPage');
     return <ProgramPage />;
-  }),
-  contact: createLazyRoute(async () => {
-    const { default: ContactPage } = await import('@/pages/ContactPage/ContactPage');
-    return <ContactPage />;
   }),
   notFound: createLazyRoute(async () => {
     const { default: NotFoundPage } = await import('@/pages/NotFoundPage/NotFoundPage');

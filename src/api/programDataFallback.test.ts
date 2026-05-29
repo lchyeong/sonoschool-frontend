@@ -227,6 +227,128 @@ describe('program data API fallback', () => {
     });
   });
 
+  it('accepts ten-section curriculum tracks from deployed regular course responses', async () => {
+    httpGetMock.mockResolvedValue({
+      applicationStatusDescription: '운영 중인 과정으로 신청이 마감되었습니다.',
+      applicationStatusLabel: '과정진행중',
+      availabilityAlertAvailable: false,
+      breadcrumbItems: [
+        { label: '교육과정', to: '/programs' },
+        { label: '일반과정', to: '/programs/general-course' },
+        { label: '상하갑경', to: '/programs/general-course/cat-8175cc9f9321' },
+        {
+          label: '검진초음파 10주 완성',
+          to: '/programs/general-course/cat-8175cc9f9321/cat-3ef3ff569171',
+        },
+        {
+          label: '검진초음파 10주완성',
+          to: '/programs/general-course/cat-8175cc9f9321/cat-3ef3ff569171/course-88aae06e3fa7',
+        },
+      ],
+      catalogStatus: 'STARTED',
+      categoryLabel: '검진초음파 10주 완성',
+      curriculumTrack: {
+        id: 'program-37-track',
+        sections: Array.from({ length: 10 }, (_, index) => {
+          const sectionNumber = index + 1;
+
+          return {
+            description: `${String(sectionNumber)}주차 설명`,
+            durationLabel: '1강',
+            id: String(160 + sectionNumber),
+            lessons: [
+              {
+                deliveryType: 'offline',
+                description: `${String(sectionNumber)}주차 이론 및 실습`,
+                durationLabel: '총 4시간',
+                durationMinutes: 240,
+                endDate: '2026-08-23',
+                id: String(180 + sectionNumber),
+                offlineSchedules: [
+                  {
+                    date: '2026-08-23',
+                    endTime: '12:00',
+                    location: '소노스쿨',
+                    notes: null,
+                    startTime: '08:00',
+                  },
+                ],
+                questionCount: 0,
+                startDate: '2026-08-23',
+                title: '이론+실습',
+              },
+            ],
+            title: `${String(sectionNumber)}주차`,
+          };
+        }),
+        summaryItems: ['섹션 10개', '강의 13개', '실제 수강 커리큘럼 기준'],
+        summaryKind: 'decimal',
+        title: '검진초음파 10주완성 커리큘럼',
+      },
+      description: '검진센터 취업 및 실무 적응을 목표로 구성된 이론·실습 통합 과정입니다.',
+      difficultyLabel: '중급',
+      discountRateLabel: '할인 없음',
+      discountedPriceLabel: '2,200,000원',
+      durationLabel: '2026.06.02 - 2026.08.23',
+      enrollmentAvailable: false,
+      faqItems: [
+        {
+          answer: '10주 과정으로 진행됩니다.',
+          id: 'faq-1',
+          question: '몇 주 과정인가요?',
+        },
+      ],
+      formatLabel: '오프라인 과정',
+      heroImageAlt: '검진초음파 10주완성 대표 이미지',
+      heroImageCropOffsetX: 0,
+      heroImageCropOffsetY: 0,
+      heroImageCropZoom: 1,
+      heroImageSrc: 'https://media.sonoschool.kr/assets/programs/thumbnails/checkup.jpg',
+      instructor: {
+        careerHighlights: ['검진실무 완성'],
+        headline: '소노스쿨 강사의 실제 운영 강의',
+        introduction: '검진초음파 10주완성 강의의 핵심을 중심으로 운영합니다.',
+        name: '소노스쿨',
+        profileImageAlt: '소노스쿨 프로필 이미지',
+        profileImageSrc: '/SRDMS_OG.png',
+      },
+      kicker: '검진초음파 10주 완성 | 오프라인 과정',
+      learningOutcomes: [{ label: '검진실무 완성', value: '검진센터 실무 역량 향상' }],
+      monthlyInstallmentLabel: '월 366,666원 (6개월 기준)',
+      operationPeriodLabel: '2026.06.02 - 2026.08.23',
+      originalPriceLabel: '2,200,000원',
+      overallRating: 0,
+      pageKind: 'detail',
+      preparationChecklist: ['신속하고 정확한 검사 순서를 익힐 수 있습니다.'],
+      programId: 37,
+      qnaSummary: {
+        answeredThreadCount: 0,
+        totalThreadCount: 0,
+      },
+      recommendedFor: ['검진센터 실무 프로토콜을 배우고 싶은 분'],
+      registrationPeriodLabel: '2026.06.02 - 2026.06.04',
+      relatedLectures: [],
+      reviewCount: 0,
+      reviews: [],
+      scheduleLabel: '2026.06.02 - 2026.08.23',
+      stats: [{ label: '취업실무 집중과정', value: '표준 검사 프로토콜을 학습합니다.' }],
+      title: '검진초음파 10주완성',
+      tuitionLabel: '2,200,000원',
+    });
+
+    const page = await fetchProgramPage(
+      '/programs/general-course/cat-8175cc9f9321/cat-3ef3ff569171/course-88aae06e3fa7',
+    );
+
+    if (page.pageKind !== 'detail') {
+      throw new Error('Expected detail program page response.');
+    }
+
+    expect(page.title).toBe('검진초음파 10주완성');
+    expect(page.curriculumTrack.sections).toHaveLength(10);
+    expect(page.curriculumTrack.sections.at(-1)?.title).toBe('10주차');
+  });
+
   it('keeps rejecting when the navigation API fails', async () => {
     const error = new Error('navigation failed');
 

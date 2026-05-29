@@ -10,6 +10,7 @@ import type {
 import { sanitizePublicAssetUrl, sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
 
 const DEFAULT_PROGRAM_IMAGE = '/SRDMS_OG.png';
+const MAX_CURRICULUM_SECTION_COUNT = 20;
 
 const publicImageSchema = z
   .string()
@@ -173,7 +174,7 @@ const curriculumSectionSchema = z.object({
 
 const curriculumTrackSchema = z.object({
   id: z.string().min(1),
-  sections: z.array(curriculumSectionSchema).max(8),
+  sections: z.array(curriculumSectionSchema).max(MAX_CURRICULUM_SECTION_COUNT),
   summaryItems: z.array(z.string().trim().min(1)).min(1).max(8),
   summaryKind: z.enum(['decimal', 'disc']),
   title: z.string().min(1).optional(),

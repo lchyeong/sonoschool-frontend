@@ -47,6 +47,29 @@ describe('API errors', () => {
     expect(apiError.userMessage).toBe('아이디 및 비밀번호를 확인해주세요.');
   });
 
+  it('maps SMS send limit errors into a user-friendly message', () => {
+    const apiError = toApiError(
+      {
+        isAxiosError: true,
+        message: 'Request failed with status code 429',
+        response: {
+          data: {
+            code: 'AUTH_429_SMS_SEND_LIMIT',
+            message: 'SMS verification send limit exceeded.',
+          },
+          status: 429,
+        },
+      },
+      '인증번호 발송에 실패했습니다.',
+    );
+
+    expect(apiError.code).toBe('AUTH_429_SMS_SEND_LIMIT');
+    expect(apiError.status).toBe(429);
+    expect(apiError.userMessage).toBe(
+      '인증번호 요청 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+    );
+  });
+
   it('maps video worker dispatch failures into an admin-friendly message', () => {
     const apiError = toApiError(
       {

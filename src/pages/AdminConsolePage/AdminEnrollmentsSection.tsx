@@ -23,6 +23,14 @@ const formatDate = (value: string | null): string => {
   }).format(new Date(value));
 };
 
+const formatMemberMeta = (user: AdminUserManagementItem): string => {
+  const nickname = user.nickname?.trim();
+
+  return [nickname ? `닉네임 ${nickname}` : null, `아이디 ${user.loginId}`]
+    .filter(Boolean)
+    .join(' · ');
+};
+
 const AdminEnrollmentsSection = () => {
   const [memberKeyword, setMemberKeyword] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -113,9 +121,9 @@ const renderMembersTable = (items: AdminUserManagementItem[]) => {
                       className={styles['cellPrimary']}
                       to={routePaths.adminUserDetail(String(user.id))}
                     >
-                      {user.displayName}
+                      {user.name}
                     </Link>
-                    <span className={styles['cellSecondary']}>아이디 {user.loginId}</span>
+                    <span className={styles['cellSecondary']}>{formatMemberMeta(user)}</span>
                   </div>
                 </td>
                 <td>

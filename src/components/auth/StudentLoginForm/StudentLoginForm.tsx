@@ -26,6 +26,7 @@ import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { StudentLoginChallenge } from '@/types/auth';
+import { getOrCreateAuthDeviceId } from '@/utils/authDeviceId';
 import { resolveCartQueryScope } from '@/utils/cartQueryScope';
 import { classNames } from '@/utils/classNames';
 import { mergeGuestCartIntoServer } from '@/utils/mergeGuestCartIntoServer';
@@ -78,6 +79,14 @@ const INITIAL_FORM_VALUES: LoginFormValues = {
 };
 const LOGIN_AUTH_ERROR_MESSAGE = '아이디 및 비밀번호를 확인해주세요.';
 const SMS_CODE_LENGTH = 6;
+const LOGIN_SMS_CHALLENGE_STORAGE_KEY = 'sonoschool:login:sms-challenge';
+
+type LoginChallengeOrigin = 'issued' | 'restored';
+
+interface StoredLoginSmsChallenge {
+  challenge: StudentLoginChallenge;
+  deviceId: string;
+}
 
 const getRemainingSeconds = (expiresAt: string | null): number => {
   if (!expiresAt) return 0;
@@ -91,6 +100,69 @@ const formatRemainingTimeLabel = (seconds: number): string => {
   const remainingSeconds = seconds % 60;
 
   return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
+const isStudentLoginChallenge = (value: unknown): value is StudentLoginChallenge => {
+  if (!value || typeof value !== 'object') return false;
+
+  const record = value as Record<string, unknown>;
+  return (
+    record['status'] === 'SMS_REQUIRED' &&
+    typeof record['challengeToken'] === 'string' &&
+    typeof record['challengeExpiresAt'] === 'string' &&
+    typeof record['maskedPhoneNumber'] === 'string' &&
+    typeof record['loginId'] === 'string' &&
+    typeof record['displayName'] === 'string' &&
+    typeof record['role'] === 'string'
+  );
+};
+
+const readStoredLoginSmsChallenge = (deviceId: string): StudentLoginChallenge | null => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const serialized = window.sessionStorage.getItem(LOGIN_SMS_CHALLENGE_STORAGE_KEY);
+    if (!serialized) return null;
+
+    const parsed = JSON.parse(serialized) as Partial<StoredLoginSmsChallenge>;
+    if (parsed.deviceId !== deviceId || !isStudentLoginChallenge(parsed.challenge)) {
+      window.sessionStorage.removeItem(LOGIN_SMS_CHALLENGE_STORAGE_KEY);
+      return null;
+    }
+
+    if (getRemainingSeconds(parsed.challenge.challengeExpiresAt) === 0) {
+      window.sessionStorage.removeItem(LOGIN_SMS_CHALLENGE_STORAGE_KEY);
+      return null;
+    }
+
+    return parsed.challenge;
+  } catch {
+    window.sessionStorage.removeItem(LOGIN_SMS_CHALLENGE_STORAGE_KEY);
+    return null;
+  }
+};
+
+const saveLoginSmsChallenge = (challenge: StudentLoginChallenge, deviceId: string): void => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.setItem(
+      LOGIN_SMS_CHALLENGE_STORAGE_KEY,
+      JSON.stringify({ challenge, deviceId } satisfies StoredLoginSmsChallenge),
+    );
+  } catch {
+    // Storage failures should not block login SMS verification.
+  }
+};
+
+const clearStoredLoginSmsChallenge = (): void => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.removeItem(LOGIN_SMS_CHALLENGE_STORAGE_KEY);
+  } catch {
+    // Storage failures should not block login SMS verification.
+  }
 };
 
 const StudentLoginForm = ({
@@ -114,6 +186,8 @@ const StudentLoginForm = ({
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
   const codeBoxRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const authDeviceIdRef = useRef<string | null>(null);
+  const initialLoginIdRef = useRef((initialValues?.loginId ?? '').trim());
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -127,6 +201,7 @@ const StudentLoginForm = ({
   const [formErrors, setFormErrors] = useState<LoginFormErrors>({});
   const [verificationCode, setVerificationCode] = useState('');
   const [loginChallenge, setLoginChallenge] = useState<StudentLoginChallenge | null>(null);
+  const [loginChallengeOrigin, setLoginChallengeOrigin] = useState<LoginChallengeOrigin>('issued');
   const [challengeCountdownSeconds, setChallengeCountdownSeconds] = useState(0);
   const [rememberLoginId, setRememberLoginId] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -136,6 +211,14 @@ const StudentLoginForm = ({
     () => Array.from({ length: SMS_CODE_LENGTH }, (_, index) => verificationCode[index] ?? ''),
     [verificationCode],
   );
+
+  const getAuthDeviceId = () => {
+    if (!authDeviceIdRef.current) {
+      authDeviceIdRef.current = getOrCreateAuthDeviceId();
+    }
+
+    return authDeviceIdRef.current;
+  };
 
   const resolvePostLoginPath = () => {
     const redirectState = location.state as LoginRedirectState | null;
@@ -156,6 +239,7 @@ const StudentLoginForm = ({
     displayName: string;
     role: string;
   }) => {
+    clearStoredLoginSmsChallenge();
     setSession(session);
 
     const cartScope = resolveCartQueryScope(true);
@@ -189,8 +273,29 @@ const StudentLoginForm = ({
   const loginMutation = useMutation({
     mutationFn: loginStudent,
     onError: (error: unknown) => {
+      if (error instanceof ApiError && error.code === 'AUTH_429_SMS_SEND') {
+        const storedChallenge = readStoredLoginSmsChallenge(getAuthDeviceId());
+        if (storedChallenge && storedChallenge.loginId === formValues.loginId.trim()) {
+          setLoginChallenge(storedChallenge);
+          setLoginChallengeOrigin('restored');
+          setVerificationCode('');
+          setChallengeCountdownSeconds(getRemainingSeconds(storedChallenge.challengeExpiresAt));
+          showToast({
+            message: '이미 발송된 인증번호가 아직 유효합니다. 문자함을 확인해 주세요.',
+            variant: 'info',
+          });
+          window.setTimeout(() => {
+            codeBoxRefs.current[0]?.focus();
+          }, 0);
+          return;
+        }
+      }
+
       if (isPageVariant) {
-        if (error instanceof ApiError && error.code === 'AUTH_429_SMS_SEND') {
+        if (
+          error instanceof ApiError &&
+          (error.code === 'AUTH_429_SMS_SEND' || error.code === 'AUTH_429_SMS_SEND_LIMIT')
+        ) {
           setAuthErrorMessage(error.userMessage);
           return;
         }
@@ -207,12 +312,20 @@ const StudentLoginForm = ({
     },
     onSuccess: async (session) => {
       if (session.status === 'SMS_REQUIRED') {
+        const authDeviceId = getAuthDeviceId();
+        const storedChallenge = readStoredLoginSmsChallenge(authDeviceId);
+        const isStoredChallengeReused = storedChallenge?.challengeToken === session.challengeToken;
+
         setLoginChallenge(session);
+        setLoginChallengeOrigin(isStoredChallengeReused ? 'restored' : 'issued');
         setVerificationCode('');
         setChallengeCountdownSeconds(getRemainingSeconds(session.challengeExpiresAt));
+        saveLoginSmsChallenge(session, authDeviceId);
         showToast({
-          message: `${session.maskedPhoneNumber} 번호로 인증번호를 보냈습니다.`,
-          variant: 'success',
+          message: isStoredChallengeReused
+            ? '이미 발송된 인증번호가 아직 유효합니다. 문자함을 확인해 주세요.'
+            : `${session.maskedPhoneNumber} 번호로 인증번호를 보냈습니다.`,
+          variant: isStoredChallengeReused ? 'info' : 'success',
         });
         window.setTimeout(() => {
           codeBoxRefs.current[0]?.focus();
@@ -236,12 +349,39 @@ const StudentLoginForm = ({
       });
     },
     onSuccess: async (session) => {
+      clearStoredLoginSmsChallenge();
       setLoginChallenge(null);
+      setLoginChallengeOrigin('issued');
       setVerificationCode('');
       setChallengeCountdownSeconds(0);
       await finalizeAuthenticatedLogin(session);
     },
   });
+
+  useEffect(() => {
+    const storedChallenge = readStoredLoginSmsChallenge(getAuthDeviceId());
+    if (!storedChallenge) {
+      return;
+    }
+
+    const currentLoginId = initialLoginIdRef.current;
+    if (currentLoginId && currentLoginId !== storedChallenge.loginId) {
+      clearStoredLoginSmsChallenge();
+      return;
+    }
+
+    setLoginChallenge(storedChallenge);
+    setLoginChallengeOrigin('restored');
+    setVerificationCode('');
+    setChallengeCountdownSeconds(getRemainingSeconds(storedChallenge.challengeExpiresAt));
+    setFormValues((current) => ({
+      ...current,
+      loginId: storedChallenge.loginId,
+    }));
+    window.setTimeout(() => {
+      codeBoxRefs.current[0]?.focus();
+    }, 0);
+  }, []);
 
   useEffect(() => {
     if (!loginChallenge || challengeCountdownSeconds === 0) {
@@ -267,6 +407,12 @@ const StudentLoginForm = ({
   const handleFieldChange =
     (fieldName: keyof LoginFormValues) => (event: ChangeEvent<HTMLInputElement>) => {
       const nextValue = event.target.value;
+      if (fieldName === 'loginId') {
+        const storedChallenge = readStoredLoginSmsChallenge(getAuthDeviceId());
+        if (storedChallenge && storedChallenge.loginId !== nextValue.trim()) {
+          clearStoredLoginSmsChallenge();
+        }
+      }
 
       setAuthErrorMessage(null);
       setFormValues((current) => ({
@@ -389,6 +535,7 @@ const StudentLoginForm = ({
 
   const resetLoginChallenge = () => {
     setLoginChallenge(null);
+    setLoginChallengeOrigin('issued');
     setVerificationCode('');
     setChallengeCountdownSeconds(0);
     setFormErrors((current) => ({
@@ -398,16 +545,37 @@ const StudentLoginForm = ({
   };
 
   const handleResendChallenge = () => {
+    if (challengeCountdownSeconds > 0) {
+      return;
+    }
+
+    clearStoredLoginSmsChallenge();
+    setLoginChallengeOrigin('issued');
     setVerificationCode('');
     setFormErrors((current) => ({
       ...current,
       code: '',
     }));
+
+    if (!formValues.password.trim()) {
+      setLoginChallenge(null);
+      setChallengeCountdownSeconds(0);
+      setFormErrors((current) => ({
+        ...current,
+        password: '인증번호를 다시 받으려면 비밀번호를 입력해주세요.',
+      }));
+      passwordInputRef.current?.focus();
+      return;
+    }
+
     loginMutation.mutate({
       loginId: formValues.loginId.trim(),
       password: formValues.password,
     });
   };
+
+  const isLoginChallengeRestored = loginChallengeOrigin === 'restored';
+  const isChallengeActive = loginChallenge !== null && challengeCountdownSeconds > 0;
 
   return (
     <form
@@ -538,8 +706,15 @@ const StudentLoginForm = ({
               새 환경 로그인으로 확인되어 {loginChallenge.maskedPhoneNumber} 번호로 문자 인증이
               필요합니다.
             </p>
-            <p className={styles['smsModalDescription']}>
-              문자로 전송된 6자리 인증번호를 입력해 주세요.
+            <p className={styles['challengeSummary']}>
+              {isLoginChallengeRestored
+                ? '이미 발송된 인증번호가 아직 유효합니다.'
+                : '문자로 전송된 6자리 인증번호를 입력해 주세요.'}
+            </p>
+            <p className={styles['challengeHint']}>
+              {isChallengeActive
+                ? '화면을 닫아도 남은 시간 동안 같은 인증번호를 입력할 수 있습니다.'
+                : '인증 시간이 만료되었습니다. 다시 전송해 주세요.'}
             </p>
             <div className={styles['smsModalCodeHeader']}>
               <label className={styles['smsModalCodeLabel']} htmlFor='login_sms_code_0'>
@@ -555,11 +730,11 @@ const StudentLoginForm = ({
                 <span aria-hidden='true' className={styles['smsModalDivider']} />
                 <button
                   className={styles['smsModalResendButton']}
-                  disabled={loginMutation.isPending}
+                  disabled={loginMutation.isPending || challengeCountdownSeconds > 0}
                   onClick={handleResendChallenge}
                   type='button'
                 >
-                  재전송
+                  {challengeCountdownSeconds > 0 ? '재전송 대기' : '재전송'}
                 </button>
               </div>
             </div>

@@ -208,6 +208,58 @@ describe('ProgramPageDetailSidebar', () => {
 });
 
 describe('ProgramPageDetailMainContent', () => {
+  it('강의 소개 보조 문구와 수강 전 체크리스트 고정 제목을 렌더링하지 않는다', () => {
+    const sectionRefHandlers = {
+      'course-curriculum': vi.fn(),
+      'course-faq': vi.fn(),
+      'course-introduction': vi.fn(),
+      'course-qna': vi.fn(),
+      'course-reviews': vi.fn(),
+    };
+
+    render(
+      <MemoryRouter>
+        <ProgramPageDetailMainContent
+          activeSectionId='course-introduction'
+          data={createDetailData({
+            preparationChecklist: ['관리자가 입력한 첫 번째 안내', '관리자가 입력한 두 번째 안내'],
+          })}
+          handleReviewCarouselScroll={vi.fn()}
+          handleTabClick={vi.fn()}
+          isQnaTabOpen={false}
+          openCurriculumRows={{}}
+          openFaqId={null}
+          reviewCarouselRef={createRef<HTMLDivElement>()}
+          reviewSortOrder='recommended'
+          sectionRefHandlers={sectionRefHandlers}
+          setAllCurriculumRowsOpen={vi.fn()}
+          setOpenFaqId={vi.fn()}
+          setReviewSortOrder={vi.fn()}
+          sortedReviews={createDetailData().reviews}
+          toggleCurriculumRow={vi.fn()}
+          visiblePreviewReviewIds={[]}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByText('이론을 넘어 진단 사고력을 키우는 핵심 차별점을 정리했습니다.'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('이 강의를 통해 기대할 수 있는 실전 변화와 성장 포인트를 정리했습니다.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('현재 학습 단계와 고민에 맞는 추천 대상')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('원활한 학습을 위해 미리 확인해야 할 안내 사항'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('학습 준비')).not.toBeInTheDocument();
+    expect(screen.queryByText('복습 자료')).not.toBeInTheDocument();
+    expect(screen.queryByText('시청 환경')).not.toBeInTheDocument();
+    expect(screen.queryByText('수료 기준')).not.toBeInTheDocument();
+    expect(screen.getByText('관리자가 입력한 첫 번째 안내')).toBeInTheDocument();
+    expect(screen.getByText('관리자가 입력한 두 번째 안내')).toBeInTheDocument();
+  });
+
   it('수강평 제목 오른쪽에 전체 수강평 개수를 렌더링한다', () => {
     const sectionRefHandlers = {
       'course-curriculum': vi.fn(),

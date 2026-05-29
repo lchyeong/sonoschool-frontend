@@ -44,13 +44,10 @@ describe('SearchPage', () => {
     expect(screen.queryByRole('heading', { name: '복부 Basic 스캔 6주' })).not.toBeInTheDocument();
   });
 
-  it('filters search results by selected scope', async () => {
+  it('falls back to lecture search when the selected scope is no longer supported', () => {
     renderSearchPage('/search?scope=review&q=후기');
 
-    expect(screen.getByRole('searchbox', { name: '교육후기 검색' })).toBeInTheDocument();
-    expect(
-      await screen.findByRole('heading', { name: '복부 초음파 과정 수강 후기 모음' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: '강의 프로그램 검색' })).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: '응급실 POCUS FAST 집중 마스터 클래스' }),
     ).not.toBeInTheDocument();
