@@ -148,7 +148,7 @@ export interface ProgramQnaSummary {
 
 export interface ProgramReviewItem {
   id: string;
-  authorName: string;
+  authorLoginId: string;
   rating: number;
   content: string;
   dateLabel: string;

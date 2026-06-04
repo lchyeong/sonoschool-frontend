@@ -227,7 +227,7 @@ describe('program data API fallback', () => {
     });
   });
 
-  it('accepts ten-section curriculum tracks from deployed regular course responses', async () => {
+  it('accepts deployed regular course responses with ten sections and long guidance lists', async () => {
     httpGetMock.mockResolvedValue({
       applicationStatusDescription: '운영 중인 과정으로 신청이 마감되었습니다.',
       applicationStatusLabel: '과정진행중',
@@ -319,13 +319,16 @@ describe('program data API fallback', () => {
       originalPriceLabel: '2,200,000원',
       overallRating: 0,
       pageKind: 'detail',
-      preparationChecklist: ['신속하고 정확한 검사 순서를 익힐 수 있습니다.'],
+      preparationChecklist: Array.from(
+        { length: 9 },
+        (_, index) => `수강 전 준비사항 ${String(index + 1)}`,
+      ),
       programId: 37,
       qnaSummary: {
         answeredThreadCount: 0,
         totalThreadCount: 0,
       },
-      recommendedFor: ['검진센터 실무 프로토콜을 배우고 싶은 분'],
+      recommendedFor: Array.from({ length: 9 }, (_, index) => `추천 대상 ${String(index + 1)}`),
       registrationPeriodLabel: '2026.06.02 - 2026.06.04',
       relatedLectures: [],
       reviewCount: 0,
@@ -347,6 +350,90 @@ describe('program data API fallback', () => {
     expect(page.title).toBe('검진초음파 10주완성');
     expect(page.curriculumTrack.sections).toHaveLength(10);
     expect(page.curriculumTrack.sections.at(-1)?.title).toBe('10주차');
+    expect(page.preparationChecklist).toHaveLength(9);
+    expect(page.recommendedFor).toHaveLength(9);
+  });
+
+  it('masks review author login IDs from program page API responses', async () => {
+    httpGetMock.mockResolvedValue({
+      breadcrumbItems: [{ label: '교육과정', to: '/programs' }],
+      categoryLabel: '일반과정',
+      curriculumTrack: {
+        id: 'track-1',
+        sections: [
+          {
+            description: '섹션 설명',
+            durationLabel: '1강',
+            id: 'section-1',
+            lessons: [
+              {
+                deliveryType: 'online',
+                durationLabel: '30분',
+                durationMinutes: 30,
+                endDate: null,
+                id: 'lesson-1',
+                startDate: null,
+                title: '레슨 1',
+              },
+            ],
+            title: '섹션 1',
+          },
+        ],
+        summaryItems: ['요약 1'],
+        summaryKind: 'disc',
+      },
+      description: '강의 설명',
+      difficultyLabel: '입문',
+      discountRateLabel: '0%',
+      discountedPriceLabel: '100,000원',
+      durationLabel: '4주',
+      faqItems: [{ answer: '답변', id: 'faq-1', question: '질문' }],
+      formatLabel: '온라인',
+      heroImageAlt: '대표 이미지',
+      heroImageSrc: '/SRDMS_OG.png',
+      instructor: {
+        careerHighlights: ['경력 1'],
+        headline: '전문 강사',
+        introduction: '소개',
+        name: '강사',
+        profileImageAlt: '강사 이미지',
+        profileImageSrc: '/SRDMS_OG.png',
+      },
+      kicker: '테스트',
+      monthlyInstallmentLabel: '월 8,334원 × 12개월',
+      originalPriceLabel: '100,000원',
+      overallRating: 5,
+      pageKind: 'detail',
+      preparationChecklist: ['준비물 1'],
+      recommendedFor: ['초보자'],
+      registrationPeriodLabel: '상시 모집',
+      relatedLectures: [],
+      reviewCount: 2,
+      reviews: [
+        {
+          authorLoginId: 'student01',
+          content: '좋아요',
+          dateLabel: '2026.04.01',
+          id: 'review-1',
+          rating: 5,
+        },
+        {
+          loginId: 'sono2026',
+          content: '만족합니다',
+          dateLabel: '2026.04.02',
+          id: 'review-2',
+          rating: 5,
+        },
+      ],
+      scheduleLabel: '온라인 상시 수강',
+      stats: [{ label: '강의 수', value: '1개' }],
+      title: '테스트 강의',
+      tuitionLabel: '100,000원',
+    });
+
+    await expect(fetchProgramPage('/programs/test-course')).resolves.toMatchObject({
+      reviews: [{ authorLoginId: 'studen***' }, { authorLoginId: 'sono2***' }],
+    });
   });
 
   it('keeps rejecting when the navigation API fails', async () => {

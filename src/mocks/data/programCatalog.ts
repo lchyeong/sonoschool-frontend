@@ -622,14 +622,14 @@ const getManagedRemainingSeats = (
 const createDefaultReviews = (label: string): ProgramReviewItem[] => {
   return [
     {
-      authorName: '박지현',
+      authorLoginId: 'jhyun***',
       content: `${label} 수업은 처음부터 끝까지 스캔 순서를 반복해서 정리해 주셔서, 임상에서 바로 적용할 수 있었습니다. 특히 프로브 각도 잡는 부분이 가장 도움이 됐습니다.`,
       dateLabel: '2026.01.15',
       id: `${label}-review-1`,
       rating: 5,
     },
     {
-      authorName: '김태우',
+      authorLoginId: 'taew***',
       content:
         '강의 구성이 체계적이고, 복습할 때 다시 확인하기 좋은 포인트가 명확하게 정리되어 있어서 만족합니다. 다음 심화 과정도 이어서 수강할 예정입니다.',
       dateLabel: '2026.02.03',
@@ -637,7 +637,7 @@ const createDefaultReviews = (label: string): ProgramReviewItem[] => {
       rating: 5,
     },
     {
-      authorName: '이수아',
+      authorLoginId: 'sua2***',
       content:
         '실습 위주로 진행되어 실제 검사 상황과 비슷하게 연습할 수 있었습니다. 피드백도 세세하게 해주셔서 부족한 부분을 바로 교정할 수 있었습니다.',
       dateLabel: '2026.02.20',

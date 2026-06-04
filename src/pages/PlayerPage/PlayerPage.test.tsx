@@ -1266,7 +1266,7 @@ describe('PlayerPage', () => {
     expect(screen.getByLabelText('오프라인 일정 요약')).toHaveTextContent('2026. 5. 9.');
     expect(screen.getByLabelText('오프라인 일정 요약')).toHaveTextContent('10:00~13:00');
     expect(screen.getAllByText('서울 강남 교육장').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('일정 없음').length).toBeGreaterThan(0);
+    expect(screen.queryByText('일정 없음')).not.toBeInTheDocument();
     expect(screen.getByText('참석 예정')).toBeInTheDocument();
     expect(screen.getByText('불참 표시 없으면 자동 참석')).toBeInTheDocument();
     expect(
@@ -1695,6 +1695,7 @@ describe('PlayerPage', () => {
     expect(
       screen.queryByText(/운영 일정과 오프라인 강의를 반영한 시간만 달력에 노출합니다/),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText('일정 없음')).not.toBeInTheDocument();
     expect((await screen.findAllByText(/예약됨/)).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: '2026년 5월' })).toBeInTheDocument();
 
@@ -1794,6 +1795,7 @@ describe('PlayerPage', () => {
     renderPlayerPage();
 
     expect(await screen.findAllByText('복부초음파 기초 2강 실습')).not.toHaveLength(0);
+    expect(screen.queryByText('일정 없음')).not.toBeInTheDocument();
 
     const noShowCalendarDay = screen
       .getAllByText('11:00 - 12:00')

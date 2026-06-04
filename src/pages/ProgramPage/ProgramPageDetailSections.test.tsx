@@ -70,7 +70,7 @@ const createDetailData = (
   reviews: [
     {
       id: 'review-1',
-      authorName: '수강생',
+      authorLoginId: 'stude***',
       rating: 5,
       content: '좋아요',
       dateLabel: '2026.04.01',
@@ -302,7 +302,7 @@ describe('ProgramPageDetailMainContent', () => {
     ).toBeInTheDocument();
   });
 
-  it('커리큘럼 섹션 헤더와 강의 행에 실제 분 단위 시간을 렌더링한다', () => {
+  it('온라인 및 문제풀이 커리큘럼에는 섹션 헤더와 강의 행에 시간을 렌더링한다', () => {
     const setAllCurriculumRowsOpen = vi.fn();
     const sectionRefHandlers = {
       'course-curriculum': vi.fn(),
@@ -342,40 +342,7 @@ describe('ProgramPageDetailMainContent', () => {
                       durationLabel: '문제 풀이',
                       durationMinutes: null,
                       questionCount: 4,
-                      startDate: null,
-                      endDate: null,
-                    },
-                    {
-                      id: 'lesson-offline',
-                      title: '현장 실습',
-                      deliveryType: 'offline',
-                      durationLabel: '120분',
-                      durationMinutes: 120,
-                      offlineSchedules: [
-                        {
-                          date: '2026-06-01',
-                          startTime: '10:00',
-                          endTime: '11:00',
-                        },
-                      ],
-                      startDate: null,
-                      endDate: null,
-                    },
-                    {
-                      id: 'lesson-resource',
-                      title: '복습 자료',
-                      deliveryType: 'resource',
-                      durationLabel: '첨부자료',
-                      durationMinutes: null,
-                      startDate: null,
-                      endDate: null,
-                    },
-                    {
-                      id: 'lesson-practicum',
-                      title: '예약 실습',
-                      deliveryType: 'practicum',
-                      durationLabel: '실습 예약',
-                      durationMinutes: null,
+                      problemTimeLimitSeconds: 1800,
                       startDate: null,
                       endDate: null,
                     },
@@ -406,24 +373,118 @@ describe('ProgramPageDetailMainContent', () => {
 
     const curriculumButton = screen.getByRole('button', { name: /섹션 1\. 기본 루틴/ });
 
-    expect(within(curriculumButton).getByText('5개')).toBeInTheDocument();
-    expect(within(curriculumButton).getByText('255분')).toBeInTheDocument();
+    expect(within(curriculumButton).getByText('2개')).toBeInTheDocument();
+    expect(within(curriculumButton).getByText('60분')).toBeInTheDocument();
     expect(within(curriculumButton).queryByText('4강')).toBeNull();
     expect(screen.getByText('영상강의')).toBeInTheDocument();
     expect(screen.getByText('문제풀이')).toBeInTheDocument();
-    expect(screen.getByText('오프라인')).toBeInTheDocument();
-    expect(screen.getByText('실습강의')).toBeInTheDocument();
-    expect(screen.getByText('자료강의')).toBeInTheDocument();
-    expect(screen.getByText('30분')).toBeInTheDocument();
     expect(screen.getByText('4문항')).toBeInTheDocument();
-    expect(screen.getByText('45분')).toBeInTheDocument();
-    expect(screen.getAllByText('60분')).toHaveLength(3);
+    expect(screen.getAllByText('30분')).toHaveLength(2);
     expect(screen.queryByText('999분')).toBeNull();
     expect(screen.queryByText('총 60분')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /모두 접기/ }));
 
     expect(setAllCurriculumRowsOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('오프라인 및 실습예약형 커리큘럼에는 섹션과 강의 시간을 렌더링하지 않는다', () => {
+    const sectionRefHandlers = {
+      'course-curriculum': vi.fn(),
+      'course-faq': vi.fn(),
+      'course-introduction': vi.fn(),
+      'course-qna': vi.fn(),
+      'course-reviews': vi.fn(),
+    };
+
+    render(
+      <MemoryRouter>
+        <ProgramPageDetailMainContent
+          activeSectionId='course-curriculum'
+          data={createDetailData({
+            curriculumTrack: {
+              id: 'track-1',
+              sections: [
+                {
+                  id: 'section-1',
+                  title: '현장 실습',
+                  description: '섹션 설명',
+                  durationLabel: '3강',
+                  lessons: [
+                    {
+                      id: 'lesson-offline',
+                      title: '현장 강의',
+                      deliveryType: 'offline',
+                      durationLabel: '120분',
+                      durationMinutes: 120,
+                      offlineSchedules: [
+                        {
+                          date: '2026-06-01',
+                          startTime: '10:00',
+                          endTime: '12:00',
+                        },
+                      ],
+                      startDate: null,
+                      endDate: null,
+                    },
+                    {
+                      id: 'lesson-problem',
+                      title: '실습 전 문제풀이',
+                      deliveryType: 'problem',
+                      durationLabel: '문제 풀이',
+                      durationMinutes: null,
+                      questionCount: 5,
+                      problemTimeLimitSeconds: 1800,
+                      startDate: null,
+                      endDate: null,
+                    },
+                    {
+                      id: 'lesson-practicum',
+                      title: '예약 실습',
+                      deliveryType: 'practicum',
+                      durationLabel: '실습 예약',
+                      durationMinutes: null,
+                      startDate: null,
+                      endDate: null,
+                    },
+                  ],
+                },
+              ],
+              summaryItems: [],
+              summaryKind: 'disc',
+            },
+          })}
+          handleReviewCarouselScroll={vi.fn()}
+          handleTabClick={vi.fn()}
+          isQnaTabOpen={false}
+          openCurriculumRows={{ 'track-1-0': true }}
+          openFaqId={null}
+          reviewCarouselRef={createRef<HTMLDivElement>()}
+          reviewSortOrder='recommended'
+          sectionRefHandlers={sectionRefHandlers}
+          setAllCurriculumRowsOpen={vi.fn()}
+          setOpenFaqId={vi.fn()}
+          setReviewSortOrder={vi.fn()}
+          sortedReviews={createDetailData().reviews}
+          toggleCurriculumRow={vi.fn()}
+          visiblePreviewReviewIds={[]}
+        />
+      </MemoryRouter>,
+    );
+
+    const curriculumButton = screen.getByRole('button', { name: /섹션 1\. 현장 실습/ });
+
+    expect(within(curriculumButton).getByText('3개')).toBeInTheDocument();
+    expect(within(curriculumButton).queryByText('210분')).toBeNull();
+    expect(screen.getByText('오프라인')).toBeInTheDocument();
+    expect(screen.getByText('문제풀이')).toBeInTheDocument();
+    expect(screen.getByText('실습강의')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '오프라인 일정 보기' })).toBeInTheDocument();
+    expect(screen.getByText('5문항')).toBeInTheDocument();
+    expect(screen.getByText('30분')).toBeInTheDocument();
+    expect(screen.queryByText('120분')).toBeNull();
+    expect(screen.queryByText('60분')).toBeNull();
+    expect(screen.queryByText('총 210분')).toBeNull();
   });
 
   it('후기가 없으면 상단 후기 프리뷰 섹션을 렌더링하지 않는다', () => {

@@ -7,10 +7,10 @@ import type {
   ProgramPageResponse,
   ProgramsOverviewResponse,
 } from '@/types/programCatalog';
+import { maskReviewAuthorLoginId } from '@/utils/maskReviewAuthorLoginId';
 import { sanitizePublicAssetUrl, sanitizeRequiredPublicAssetUrl } from '@/utils/publicAssetUrl';
 
 const DEFAULT_PROGRAM_IMAGE = '/SRDMS_OG.png';
-const MAX_CURRICULUM_SECTION_COUNT = 20;
 
 const publicImageSchema = z
   .string()
@@ -44,7 +44,7 @@ const breadcrumbItemSchema = z.object({
 });
 
 const instructorSchema = z.object({
-  careerHighlights: z.array(z.string().trim().min(1)).min(1).max(8),
+  careerHighlights: z.array(z.string().trim().min(1)).min(1),
   headline: z.string().min(1),
   introduction: z.string().min(1),
   name: z.string().min(1),
@@ -90,7 +90,7 @@ const collectionCardSchema = z
     coverImageSrc: optionalPublicImageSchema,
     coverImageUrl: optionalPublicImageSchema,
     description: z.string().min(1),
-    formatLabels: z.array(z.string().trim().min(1)).max(4),
+    formatLabels: z.array(z.string().trim().min(1)),
     id: z.string().min(1),
     lectureCount: z.number().int().nonnegative(),
     thumbnailPreviewUrl: optionalPublicImageSchema,
@@ -130,13 +130,20 @@ const qnaSummarySchema = z.object({
   totalThreadCount: z.number().int().nonnegative(),
 });
 
-const reviewItemSchema = z.object({
-  authorName: z.string().min(1),
-  content: z.string().min(1),
-  dateLabel: z.string().min(1),
-  id: z.string().min(1),
-  rating: z.number().min(1).max(5),
-});
+const reviewItemSchema = z
+  .object({
+    authorLoginId: z.string().trim().min(1).optional(),
+    authorName: z.string().min(1).optional(),
+    content: z.string().min(1),
+    dateLabel: z.string().min(1),
+    id: z.string().min(1),
+    loginId: z.string().trim().min(1).optional(),
+    rating: z.number().min(1).max(5),
+  })
+  .transform(({ authorLoginId, authorName: _authorName, loginId, ...review }) => ({
+    ...review,
+    authorLoginId: maskReviewAuthorLoginId(authorLoginId ?? loginId),
+  }));
 
 const curriculumScheduleItemSchema = z.object({
   date: z.string().min(1).nullable(),
@@ -168,48 +175,48 @@ const curriculumSectionSchema = z.object({
   description: z.string().min(1),
   durationLabel: z.string().min(1),
   id: z.string().min(1),
-  lessons: z.array(curriculumLessonSchema).max(16),
+  lessons: z.array(curriculumLessonSchema),
   title: z.string().min(1),
 });
 
 const curriculumTrackSchema = z.object({
   id: z.string().min(1),
-  sections: z.array(curriculumSectionSchema).max(MAX_CURRICULUM_SECTION_COUNT),
-  summaryItems: z.array(z.string().trim().min(1)).min(1).max(8),
+  sections: z.array(curriculumSectionSchema),
+  summaryItems: z.array(z.string().trim().min(1)).min(1),
   summaryKind: z.enum(['decimal', 'disc']),
   title: z.string().min(1).optional(),
 });
 
 const programsOverviewResponseSchema = z.object({
-  categories: z.array(collectionCardSchema).min(1).max(10),
+  categories: z.array(collectionCardSchema).min(1),
   description: z.string().min(1),
-  featuredLectures: z.array(lectureCardSchema).max(8),
+  featuredLectures: z.array(lectureCardSchema),
   instructor: instructorSchema,
-  stats: z.array(programStatSchema).min(1).max(6),
+  stats: z.array(programStatSchema).min(1),
   title: z.string().min(1),
 });
 
 const programLectureCatalogResponseSchema = z.object({
-  items: z.array(lectureCardSchema).min(1).max(200),
+  items: z.array(lectureCardSchema).min(1),
 });
 
 const programCollectionPageResponseSchema = z.object({
-  breadcrumbItems: z.array(breadcrumbItemSchema).min(1).max(6),
-  childCollections: z.array(collectionCardSchema).max(20),
+  breadcrumbItems: z.array(breadcrumbItemSchema).min(1),
+  childCollections: z.array(collectionCardSchema),
   curatorNote: z.string().min(1),
   description: z.string().min(1),
   heroImageAlt: z.string().min(1),
   heroImageSrc: publicImageSchema,
   instructor: instructorSchema,
   kicker: z.string().min(1),
-  lectures: z.array(lectureCardSchema).max(120),
+  lectures: z.array(lectureCardSchema),
   pageKind: z.literal('collection'),
-  stats: z.array(programStatSchema).min(1).max(6),
+  stats: z.array(programStatSchema).min(1),
   title: z.string().min(1),
 });
 
 const programDetailPageResponseSchema = z.object({
-  breadcrumbItems: z.array(breadcrumbItemSchema).min(1).max(6),
+  breadcrumbItems: z.array(breadcrumbItemSchema).min(1),
   categoryLabel: z.string().min(1),
   curriculumTrack: curriculumTrackSchema,
   description: z.string().min(1),
@@ -217,7 +224,7 @@ const programDetailPageResponseSchema = z.object({
   discountRateLabel: z.string().min(1),
   discountedPriceLabel: z.string().min(1),
   durationLabel: z.string().min(1),
-  faqItems: z.array(faqItemSchema).min(1).max(8),
+  faqItems: z.array(faqItemSchema).min(1),
   qnaSummary: qnaSummarySchema.optional(),
   formatLabel: z.string().min(1),
   heroImageAlt: z.string().min(1),
@@ -227,8 +234,8 @@ const programDetailPageResponseSchema = z.object({
   heroImageSrc: publicImageSchema,
   instructor: instructorSchema,
   kicker: z.string().min(1),
-  learningOutcomes: z.array(infoItemSchema).min(1).max(8).optional(),
-  learningPoints: z.array(z.string().trim().min(1)).min(1).max(8).optional(),
+  learningOutcomes: z.array(infoItemSchema).min(1).optional(),
+  learningPoints: z.array(z.string().trim().min(1)).min(1).optional(),
   monthlyInstallmentLabel: z.string().min(1),
   operationPeriodLabel: z.string().min(1).optional(),
   originalPriceLabel: z.string().min(1),
@@ -240,15 +247,15 @@ const programDetailPageResponseSchema = z.object({
   applicationStatusDescription: z.string().min(1).optional(),
   enrollmentAvailable: z.boolean().optional(),
   availabilityAlertAvailable: z.boolean().optional(),
-  preparationChecklist: z.array(z.string().trim().min(1)).min(1).max(8),
+  preparationChecklist: z.array(z.string().trim().min(1)).min(1),
   remainingSeatsLabel: z.string().min(1).optional(),
   registrationPeriodLabel: z.string().min(1),
-  recommendedFor: z.array(z.string().trim().min(1)).min(1).max(8),
-  relatedLectures: z.array(lectureCardSchema).max(6),
+  recommendedFor: z.array(z.string().trim().min(1)).min(1),
+  relatedLectures: z.array(lectureCardSchema),
   reviewCount: z.number().int().nonnegative(),
-  reviews: z.array(reviewItemSchema).max(20),
+  reviews: z.array(reviewItemSchema),
   scheduleLabel: z.string().min(1),
-  stats: z.array(infoItemSchema).min(1).max(8),
+  stats: z.array(infoItemSchema).min(1),
   title: z.string().min(1),
   tuitionLabel: z.string().min(1),
 });

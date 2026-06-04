@@ -40,7 +40,7 @@ export const formatPriceLabel = (amount: number): string => {
 };
 
 export const buildAdminReplyExample = (review: ProgramReviewItem): string => {
-  return `안녕하세요, ${review.authorName}님. 남겨주신 수강 후기를 꼼꼼히 확인했습니다. 실제 학습과 임상 적용에 도움이 되었다는 말씀 감사드리며, 이후 과정에서도 복습 자료와 피드백 품질을 더 촘촘하게 보강하겠습니다.`;
+  return `안녕하세요, ${review.authorLoginId}님. 남겨주신 수강 후기를 꼼꼼히 확인했습니다. 실제 학습과 임상 적용에 도움이 되었다는 말씀 감사드리며, 이후 과정에서도 복습 자료와 피드백 품질을 더 촘촘하게 보강하겠습니다.`;
 };
 
 export const buildHeroInfoPills = (

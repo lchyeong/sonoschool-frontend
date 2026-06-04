@@ -1655,6 +1655,7 @@
 .courseCardFooter {
   display: flex;
   flex-wrap: nowrap;
+  gap: 8px;
   align-items: center;
   justify-content: stretch;
   align-self: end;
@@ -2324,6 +2325,7 @@
 }
 .learningActionLink {
   display: inline-flex;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
   width: 100%;
@@ -2350,6 +2352,7 @@
   cursor: not-allowed;
 }
 .courseSecondaryAction {
+  flex: 0 0 133px;
   width: 133px;
   min-width: 133px;
   height: 43px;
@@ -2377,6 +2380,7 @@
   pointer-events: none;
 }
 .courseSecondaryActionWide {
+  flex-basis: auto;
   width: 100%;
   min-width: 0;
   border-radius: 100px;

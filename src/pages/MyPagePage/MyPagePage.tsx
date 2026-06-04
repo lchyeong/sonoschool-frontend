@@ -1558,7 +1558,9 @@ const MyPagePage = () => {
                 const reviewAction =
                   courseTab === 'EXPIRED'
                     ? renderReviewAction(enrollment, styles['courseSecondaryActionWide'])
-                    : null;
+                    : enrollment.reviewAction !== 'NONE'
+                      ? renderReviewAction(enrollment)
+                      : null;
                 const learningActionLabel = getLearningActionLabel(enrollment);
 
                 const cardBody = (
@@ -1650,18 +1652,21 @@ const MyPagePage = () => {
                               {learningActionLabel}
                             </span>
                           ) : (
-                            <button
-                              className={styles['learningActionLink']}
-                              disabled={checkingLearningStartEnrollmentId === enrollment.id}
-                              onClick={() => {
-                                void handleLearningActionClick(enrollment);
-                              }}
-                              type='button'
-                            >
-                              {checkingLearningStartEnrollmentId === enrollment.id
-                                ? '확인 중'
-                                : learningActionLabel}
-                            </button>
+                            <>
+                              <button
+                                className={styles['learningActionLink']}
+                                disabled={checkingLearningStartEnrollmentId === enrollment.id}
+                                onClick={() => {
+                                  void handleLearningActionClick(enrollment);
+                                }}
+                                type='button'
+                              >
+                                {checkingLearningStartEnrollmentId === enrollment.id
+                                  ? '확인 중'
+                                  : learningActionLabel}
+                              </button>
+                              {reviewAction}
+                            </>
                           )}
                         </div>
                       )}

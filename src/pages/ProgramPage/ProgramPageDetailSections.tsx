@@ -56,6 +56,7 @@ interface CurriculumWeekRowProps {
   onToggle: () => void;
   section: ProgramCurriculumSection;
   sectionIndex: number;
+  showDurationLabels: boolean;
 }
 
 interface ProgramPageDetailHeroProps {
@@ -250,6 +251,28 @@ const formatCurriculumLessonTime = (lesson: ProgramCurriculumSection['lessons'][
   return formatMinuteDurationLabel(minutes);
 };
 
+const shouldShowCurriculumDurationLabels = (sections: readonly ProgramCurriculumSection[]) => {
+  const lessons = sections.flatMap((section) => section.lessons);
+  const hasOfflineOrPracticumLesson = lessons.some(
+    (lesson) => lesson.deliveryType === 'offline' || lesson.deliveryType === 'practicum',
+  );
+
+  if (hasOfflineOrPracticumLesson) {
+    return false;
+  }
+
+  return lessons.some(
+    (lesson) => lesson.deliveryType === 'online' || lesson.deliveryType === 'problem',
+  );
+};
+
+const shouldShowCurriculumLessonTime = (
+  lesson: ProgramCurriculumSection['lessons'][number],
+  showDurationLabels: boolean,
+) => {
+  return showDurationLabels || lesson.deliveryType === 'problem';
+};
+
 const getCurriculumTotalDurationMinutes = (sections: readonly ProgramCurriculumSection[]) => {
   return sections.reduce((sectionTotalMinutes, section) => {
     return (
@@ -429,7 +452,7 @@ const ReviewPreviewCard = ({ isDimmed = false, review }: ReviewPreviewCardProps)
       )}
       data-review-id={review.id}
     >
-      <p className={styles['reviewPreviewAuthor']}>{review.authorName}</p>
+      <p className={styles['reviewPreviewAuthor']}>{review.authorLoginId}</p>
 
       <div className={styles['reviewMetaRow']}>
         <RatingStars rating={review.rating} />
@@ -446,7 +469,7 @@ const FullReviewCard = ({ review }: FullReviewCardProps) => {
   return (
     <article className={styles['fullReviewCard']}>
       <div className={styles['fullReviewHeader']}>
-        <span className={styles['fullReviewAuthor']}>{review.authorName}</span>
+        <span className={styles['fullReviewAuthor']}>{review.authorLoginId}</span>
         <span className={styles['fullReviewDate']}>{review.dateLabel}</span>
       </div>
 
@@ -520,12 +543,15 @@ const CurriculumWeekRow = ({
   onToggle,
   section,
   sectionIndex,
+  showDurationLabels,
 }: CurriculumWeekRowProps) => {
-  const sectionDurationLabel = formatMinuteDurationLabel(
-    section.lessons.reduce((totalMinutes, lesson) => {
-      return totalMinutes + getCurriculumLessonDurationMinutes(lesson);
-    }, 0),
-  );
+  const sectionDurationLabel = showDurationLabels
+    ? formatMinuteDurationLabel(
+        section.lessons.reduce((totalMinutes, lesson) => {
+          return totalMinutes + getCurriculumLessonDurationMinutes(lesson);
+        }, 0),
+      )
+    : null;
 
   return (
     <article className={styles['curriculumWeekRow']}>
@@ -559,7 +585,9 @@ const CurriculumWeekRow = ({
           <p className={styles['curriculumWeekDescription']}>{section.description}</p>
           {section.lessons.map((lesson, lessonIndex) => {
             const [lessonTypeLabel] = buildCurriculumLessonCapsules(lesson);
-            const lessonTime = formatCurriculumLessonTime(lesson);
+            const lessonTime = shouldShowCurriculumLessonTime(lesson, showDurationLabels)
+              ? formatCurriculumLessonTime(lesson)
+              : null;
             const questionCountLabel =
               lesson.deliveryType === 'problem' && lesson.questionCount && lesson.questionCount > 0
                 ? `${String(lesson.questionCount)}문항`
@@ -712,10 +740,10 @@ export const ProgramPageDetailMainContent = ({
   const curriculumLessonCount = curriculumTrack.sections.reduce((total, section) => {
     return total + section.lessons.length;
   }, 0);
-  const curriculumTotalDurationLabel = formatDurationLabel(
-    getCurriculumTotalDurationMinutes(curriculumTrack.sections),
-    '총',
-  );
+  const showCurriculumDurationLabels = shouldShowCurriculumDurationLabels(curriculumTrack.sections);
+  const curriculumTotalDurationLabel = showCurriculumDurationLabels
+    ? formatDurationLabel(getCurriculumTotalDurationMinutes(curriculumTrack.sections), '총')
+    : null;
   const curriculumSummaryLabels = [
     `${String(curriculumSectionCount)}개 섹션`,
     `${String(curriculumLessonCount)}개 학습 콘텐츠`,
@@ -1008,6 +1036,7 @@ export const ProgramPageDetailMainContent = ({
                             }}
                             section={section}
                             sectionIndex={sectionIndex}
+                            showDurationLabels={showCurriculumDurationLabels}
                           />
                         );
                       })}

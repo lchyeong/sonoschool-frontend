@@ -2557,9 +2557,7 @@ const PlayerPage = () => {
                           <span className={styles['practicumCalendarPreviewUnavailable']}>
                             예약불가
                           </span>
-                        ) : (
-                          <span className={styles['practicumCalendarPreviewEmpty']}>일정 없음</span>
-                        )}
+                        ) : null}
                       </div>
                     </button>
                   );
@@ -3032,17 +3030,15 @@ const PlayerPage = () => {
                   </div>
 
                   <div className={styles['practicumCalendarPreviewList']}>
-                    {previewEntries.length ? (
-                      previewEntries.map((entry) => (
-                        <span className={styles['offlineCalendarPreviewItem']} key={entry.id}>
-                          <span className={styles['offlineCalendarPreviewTime']}>
-                            {entry.timeLabel ?? '오프라인 수업'}
+                    {previewEntries.length
+                      ? previewEntries.map((entry) => (
+                          <span className={styles['offlineCalendarPreviewItem']} key={entry.id}>
+                            <span className={styles['offlineCalendarPreviewTime']}>
+                              {entry.timeLabel ?? '오프라인 수업'}
+                            </span>
                           </span>
-                        </span>
-                      ))
-                    ) : (
-                      <span className={styles['practicumCalendarPreviewEmpty']}>일정 없음</span>
-                    )}
+                        ))
+                      : null}
                   </div>
                 </div>
               );

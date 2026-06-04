@@ -8,7 +8,7 @@ import { useProgramSearchIndexQuery } from '@/query/useProgramSearchIndexQuery';
 import { programPageQueryKey } from './useProgramPageQuery';
 
 export interface ReviewBoardItem {
-  authorName: string;
+  authorLoginId: string;
   categoryLabel: string;
   content: string;
   dateLabel: string;
@@ -74,7 +74,7 @@ export const useReviewBoardQuery = () => {
 
       detailPage.reviews.forEach((review) => {
         items.push({
-          authorName: review.authorName,
+          authorLoginId: review.authorLoginId,
           categoryLabel: detailPage.categoryLabel,
           content: review.content,
           dateLabel: review.dateLabel,
