@@ -56,6 +56,8 @@ export interface KcpMobileRegisterResponse {
   currency: string;
   approvalKey: string;
   payUrl: string;
+  formActionUrl: string;
+  encodingTrans: string;
   retUrl: string;
   ordrIdxx: string;
   goodName: string;

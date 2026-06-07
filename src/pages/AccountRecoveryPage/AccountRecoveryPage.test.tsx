@@ -78,7 +78,7 @@ describe('AccountRecoveryPage', () => {
     expect(screen.getByLabelText('아이디')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '인증번호 받기' })).toBeEnabled();
   });
-  it('moves directly to password reset after finding the login id with phone verification', async () => {
+  it('requires the password reset SMS code after finding the login id', async () => {
     renderAccountRecoveryPage();
 
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '홍길동' } });
@@ -104,10 +104,47 @@ describe('AccountRecoveryPage', () => {
         phoneNumber: '01011112222',
       });
     });
+    expect(await screen.findByRole('tab', { name: '비밀번호 찾기' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByLabelText('인증번호')).toHaveValue('');
+    expect(screen.queryByLabelText('새 비밀번호')).not.toBeInTheDocument();
+  });
+
+  it('submits the entered password reset SMS code to the reset API', async () => {
+    renderAccountRecoveryPage();
+
+    fireEvent.click(screen.getByRole('tab', { name: '비밀번호 찾기' }));
+    fireEvent.change(screen.getByLabelText('아이디'), { target: { value: 'student01' } });
+    fireEvent.change(screen.getByLabelText('휴대폰번호'), {
+      target: { value: '01011112222' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '인증번호 받기' }));
+
+    expect(await screen.findByText('인증번호를 발송했습니다.')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('인증번호'), { target: { value: '654321' } });
+    fireEvent.click(screen.getByRole('button', { name: '인증 확인' }));
+
     expect(
       await screen.findByRole('heading', { level: 1, name: '비밀번호 재설정' }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText('새 비밀번호')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: '비밀번호 찾기' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('새 비밀번호'), { target: { value: 'Newpass1!' } });
+    fireEvent.change(screen.getByLabelText('비밀번호 확인'), {
+      target: { value: 'Newpass1!' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '비밀번호 변경' }));
+
+    await waitFor(() => {
+      expect(resetPasswordMock.mock.calls[0]?.[0]).toEqual({
+        loginId: 'student01',
+        phoneNumber: '01011112222',
+        code: '654321',
+        password: 'Newpass1!',
+        passwordConfirm: 'Newpass1!',
+      });
+    });
   });
 });

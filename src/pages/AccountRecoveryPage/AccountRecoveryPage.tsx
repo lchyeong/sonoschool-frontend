@@ -126,6 +126,22 @@ const getPasswordResetApiErrorMessage = (error: unknown): string => {
   return PASSWORD_RESET_IDENTITY_CHECK_MESSAGE;
 };
 
+const getPasswordResetCodeApiErrorMessage = (error: unknown): string => {
+  if (error instanceof ApiError) {
+    if (error.code === 'AUTH_400_SMS_EXPIRED') {
+      return '인증번호가 만료되었습니다. 다시 발송해주세요.';
+    }
+    if (error.code === 'AUTH_429_SMS_ATTEMPTS') {
+      return '인증번호 입력 횟수를 초과했습니다. 다시 발송해주세요.';
+    }
+    if (error.code === 'AUTH_400_SMS_CODE') {
+      return '인증번호를 확인해주세요.';
+    }
+  }
+
+  return getErrorMessage(error, '인증번호 또는 비밀번호를 확인해주세요.');
+};
+
 const FieldRow = ({
   action,
   errorMessage,
@@ -375,8 +391,17 @@ const AccountRecoveryPage = () => {
   const resetPasswordMutation = useMutation({
     mutationFn: resetPassword,
     onError: (error: unknown) => {
+      if (
+        error instanceof ApiError &&
+        error.code !== null &&
+        ['AUTH_400_SMS_CODE', 'AUTH_400_SMS_EXPIRED', 'AUTH_429_SMS_ATTEMPTS'].includes(error.code)
+      ) {
+        setStep('recover');
+        setMode('resetPassword');
+        setPasswordResetCodeVerified(false);
+      }
       setFormErrors({
-        resetPasswordCode: getErrorMessage(error, '인증번호 또는 비밀번호를 확인해주세요.'),
+        resetPasswordCode: getPasswordResetCodeApiErrorMessage(error),
       });
     },
     onSuccess: () => {
@@ -529,7 +554,7 @@ const AccountRecoveryPage = () => {
       }));
       return;
     }
-    if (formValues.resetPasswordCode.trim() !== '123456') {
+    if (!/^\d{6}$/.test(formValues.resetPasswordCode.trim())) {
       setPasswordResetCodeVerified(false);
       setFormErrors((current) => ({
         ...current,
@@ -584,7 +609,6 @@ const AccountRecoveryPage = () => {
   const handleGoPasswordResetFromIdResult = () => {
     const resolvedLoginId = foundLoginId ?? findIdCandidate ?? '';
     const resolvedPhoneNumber = normalizePhoneNumber(formValues.findIdPhoneNumber);
-    const resolvedCode = formValues.findIdCode.trim();
 
     sendPasswordResetSmsMutation.mutate(
       {
@@ -592,20 +616,22 @@ const AccountRecoveryPage = () => {
         phoneNumber: resolvedPhoneNumber,
       },
       {
-        onSuccess: () => {
+        onSuccess: (response) => {
           setMode('resetPassword');
           setFormValues((current) => ({
             ...current,
             resetPasswordLoginId: resolvedLoginId,
             resetPasswordPhoneNumber: resolvedPhoneNumber,
-            resetPasswordCode: resolvedCode,
+            resetPasswordCode: '',
             resetPassword: '',
             resetPasswordConfirm: '',
           }));
           setPasswordResetSmsSent(true);
-          setPasswordResetCodeVerified(true);
-          setPasswordResetCountdownSeconds(0);
-          setStep('passwordReset');
+          setPasswordResetCodeVerified(false);
+          setPasswordResetCountdownSeconds(
+            Math.min(SMS_COUNTDOWN_SECONDS, getRemainingSeconds(response.expiresAt)),
+          );
+          setStep('recover');
           setFormErrors({});
           clearResultState();
         },

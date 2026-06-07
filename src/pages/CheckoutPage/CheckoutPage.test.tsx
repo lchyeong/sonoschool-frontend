@@ -63,11 +63,13 @@ const {
   fetchMyCartMock,
   fetchMyProfileMock,
   prepareKcpPcCheckoutPaymentMock,
+  registerKcpMobileCheckoutPaymentMock,
 } = vi.hoisted(() => ({
   completeFreeCheckoutPaymentMock: vi.fn(),
   fetchMyCartMock: vi.fn(),
   fetchMyProfileMock: vi.fn(),
   prepareKcpPcCheckoutPaymentMock: vi.fn(),
+  registerKcpMobileCheckoutPaymentMock: vi.fn(),
 }));
 const approveKcpPcPaymentMock = vi.hoisted(() => vi.fn());
 
@@ -89,7 +91,7 @@ vi.mock('@/api/payments', () => ({
   fetchPaymentResultByToken: vi.fn(),
   prepareKcpPcCheckoutPayment: prepareKcpPcCheckoutPaymentMock,
   prepareKcpPcPayment: vi.fn(),
-  registerKcpMobileCheckoutPayment: vi.fn(),
+  registerKcpMobileCheckoutPayment: registerKcpMobileCheckoutPaymentMock,
   registerKcpMobilePayment: vi.fn(),
 }));
 
@@ -122,12 +124,18 @@ const agreePaymentTerms = async () => {
   fireEvent.click(await screen.findByRole('checkbox', { name: /주문 내용, 결제 금액, 환불정책/ }));
 };
 
+const getFormValue = (form: HTMLFormElement, name: string) => {
+  const field = form.elements.namedItem(name);
+  return field instanceof HTMLInputElement ? field.value : '';
+};
+
 afterEach(() => {
   cleanup();
   resetCartSelectionState();
   useToastStore.getState().clearToasts();
   window.localStorage.clear();
   delete window.KCP_Pay_Execute_Web;
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -139,6 +147,7 @@ beforeEach(() => {
   prepareKcpPcCheckoutPaymentMock.mockReset();
   completeFreeCheckoutPaymentMock.mockReset();
   approveKcpPcPaymentMock.mockReset();
+  registerKcpMobileCheckoutPaymentMock.mockReset();
   fetchMyCartMock.mockResolvedValue(testCart);
   fetchMyProfileMock.mockResolvedValue(testProfile);
 });
@@ -214,6 +223,68 @@ describe('CheckoutPage', () => {
     });
 
     expect(window.KCP_Pay_Execute_Web).toHaveBeenCalledTimes(1);
+  });
+
+  it('submits mobile checkout through the KCP UTF-8 encoding filter', async () => {
+    useCartSelectionStore.setState({
+      selectedItemIds: [55],
+    });
+    const userAgentSpy = vi
+      .spyOn(window.navigator, 'userAgent', 'get')
+      .mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile');
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {
+      return;
+    });
+
+    registerKcpMobileCheckoutPaymentMock.mockResolvedValue({
+      approvalKey: 'approval-key',
+      buyrMail: testProfile.email,
+      buyrName: testProfile.name,
+      currency: '410',
+      encodingTrans: 'UTF-8',
+      formActionUrl: 'https://rsmpay.kcp.co.kr/pay/jsp/encodingFilter/encodingFilter.jsp',
+      goodMny: 419000,
+      goodName: '상복부비뇨기 이론+실습',
+      hashData: 'hash',
+      ordrIdxx: 'KCP-ORDER-1',
+      payMethod: 'CARD',
+      payUrl: 'https://rsmpay.kcp.co.kr/pay/mobileGW.kcp',
+      paymentId: 900,
+      paymentMethodCode: 'CARD',
+      retUrl: 'https://api.sonoschool.kr/api/v1/payments/kcp/return',
+      shopUserId: '10',
+      siteCd: 'T0000',
+      traceNo: 'trace',
+    });
+
+    renderCheckoutPage();
+
+    await agreePaymentTerms();
+    fireEvent.click(await screen.findByRole('button', { name: '결제하기' }));
+
+    await waitFor(() => {
+      expect(registerKcpMobileCheckoutPaymentMock).toHaveBeenCalledWith({
+        cartItemIds: [55],
+        paymentMethod: 'CARD',
+      });
+    });
+
+    const mobileForm = document.querySelector<HTMLFormElement>(
+      'form[action="https://rsmpay.kcp.co.kr/pay/jsp/encodingFilter/encodingFilter.jsp"]',
+    );
+
+    expect(mobileForm).not.toBeNull();
+    expect(mobileForm?.method).toBe('post');
+    expect(mobileForm?.acceptCharset).toBe('UTF-8');
+    expect(mobileForm ? getFormValue(mobileForm, 'PayUrl') : '').toBe(
+      'https://rsmpay.kcp.co.kr/pay/mobileGW.kcp',
+    );
+    expect(mobileForm ? getFormValue(mobileForm, 'encoding_trans') : '').toBe('UTF-8');
+    expect(mobileForm ? getFormValue(mobileForm, 'good_name') : '').toBe('상복부비뇨기 이론+실습');
+    expect(submitSpy).toHaveBeenCalledTimes(1);
+
+    userAgentSpy.mockRestore();
+    submitSpy.mockRestore();
   });
 
   it('uses the free checkout API when the total payable price is zero', async () => {

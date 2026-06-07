@@ -147,12 +147,13 @@ const applyMobileRegisterResponse = (
   form: HTMLFormElement,
   register: KcpMobileRegisterResponse,
 ) => {
-  form.action = register.payUrl;
+  form.action = register.formActionUrl || register.payUrl;
   setHiddenFieldValue(form, 'site_cd', register.siteCd);
   setHiddenFieldValue(form, 'pay_method', register.payMethod);
   setHiddenFieldValue(form, 'approval_key', register.approvalKey);
   setHiddenFieldValue(form, 'Ret_URL', register.retUrl);
   setHiddenFieldValue(form, 'PayUrl', register.payUrl);
+  setHiddenFieldValue(form, 'encoding_trans', register.encodingTrans || 'UTF-8');
   setHiddenFieldValue(form, 'currency', register.currency);
   setHiddenFieldValue(form, 'good_mny', register.goodMny);
   setHiddenFieldValue(form, 'ordr_idxx', register.ordrIdxx);
@@ -778,6 +779,7 @@ const CheckoutPage = () => {
             <input name='approval_key' type='hidden' />
             <input name='Ret_URL' type='hidden' />
             <input name='PayUrl' type='hidden' />
+            <input name='encoding_trans' type='hidden' />
             <input name='currency' type='hidden' />
             <input name='good_mny' type='hidden' />
             <input name='ordr_idxx' type='hidden' />
