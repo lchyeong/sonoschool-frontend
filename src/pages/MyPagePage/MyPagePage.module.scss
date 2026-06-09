@@ -2277,6 +2277,7 @@
   margin-top: 34px;
 }
 .reviewCancelButton,
+.reviewDeleteButton,
 .reviewSubmitButton {
   display: inline-flex;
   align-items: center;
@@ -2305,6 +2306,17 @@
   border-color: #9ca3af;
   background: #ffffff;
 }
+.reviewDeleteButton {
+  border: 1px solid #ef4444;
+  color: #dc2626;
+  background: #ffffff;
+}
+.reviewDeleteButton:hover,
+.reviewDeleteButton:focus-visible {
+  border-color: #dc2626;
+  color: #b91c1c;
+  background: #fef2f2;
+}
 .reviewSubmitButton {
   border: 0;
   color: #ffffff;
@@ -2322,6 +2334,18 @@
 .reviewSubmitButtonDisabled:hover,
 .reviewSubmitButtonDisabled:focus-visible {
   background: #e5e7eb;
+}
+.reviewDeleteButtonDisabled {
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  background: #f9fafb;
+  cursor: not-allowed;
+}
+.reviewDeleteButtonDisabled:hover,
+.reviewDeleteButtonDisabled:focus-visible {
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  background: #f9fafb;
 }
 .learningActionLink {
   display: inline-flex;
@@ -3949,6 +3973,7 @@
     flex-direction: column;
   }
   .reviewCancelButton,
+  .reviewDeleteButton,
   .reviewSubmitButton {
     width: 100%;
     min-width: 0;

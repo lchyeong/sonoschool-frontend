@@ -634,6 +634,62 @@ describe('AdminConsolePage', () => {
     expect(screen.queryByText('실습 강의')).not.toBeInTheDocument();
   });
 
+  it('saves the draft payload when a lecture is removed from the curriculum workspace', async () => {
+    const draftDetail = createAdminProgramDraftDetailFixture();
+    draftDetail.payload.sections[0].title = '1주차';
+    draftDetail.payload.sections[0].lectures = [
+      {
+        ...draftDetail.payload.sections[0].lectures[0],
+        key: 'lecture-keep',
+        sortOrder: 0,
+        title: '유지할 강의',
+      },
+      {
+        ...draftDetail.payload.sections[0].lectures[0],
+        key: 'lecture-remove',
+        sortOrder: 1,
+        title: '삭제할 강의',
+        videoId: 119,
+      },
+    ];
+
+    let savedPayload: unknown = null;
+
+    server.use(
+      http.put('*/api/v1/admin/program-drafts/:draftId', async ({ request }) => {
+        savedPayload = await request.json();
+        return HttpResponse.json({ data: { ...draftDetail, payload: savedPayload } });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/programs/new/curriculum?draftId=91001', {
+      draftDetail,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '섹션 펼치기' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '강의 삭제' })[1]);
+
+    await waitFor(() => {
+      expect(savedPayload).toMatchObject({
+        sections: [
+          {
+            lectures: [
+              {
+                key: 'lecture-keep',
+                sortOrder: 0,
+              },
+            ],
+          },
+        ],
+      });
+    });
+    expect(JSON.stringify(savedPayload)).not.toContain('lecture-remove');
+  });
+
   it('limits lecture types in the create workspace for problem solving programs', async () => {
     const draftDetail = createAdminProgramDraftDetailFixture();
     draftDetail.payload.basicInfo.programType = 'PROBLEM_SOLVING';

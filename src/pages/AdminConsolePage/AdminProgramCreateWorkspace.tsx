@@ -2708,6 +2708,7 @@ const AdminProgramCreateWorkspace = ({
       }
       return next;
     });
+    scheduleDraftAutoSave(0);
   };
 
   const moveLecture = (sectionKey: string, lectureKey: string, direction: 'up' | 'down') => {
@@ -2725,6 +2726,7 @@ const AdminProgramCreateWorkspace = ({
         ),
       };
     });
+    scheduleDraftAutoSave(0);
   };
 
   const upsertProblem = useCallback(

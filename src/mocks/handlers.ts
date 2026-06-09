@@ -94,11 +94,16 @@ import {
   sendMockSmsVerification,
   verifyMockSmsCode,
 } from '@/mocks/data/studentAuth';
+import {
+  createMockedMyEnrollmentReview,
+  deleteMockedMyEnrollmentReview,
+  updateMockedMyEnrollmentReview,
+} from '@/mocks/mypage/state';
 import type { AdminProgramDraftDetail } from '@/types/adminProgramDrafts';
 import type { ApiEnvelope, StudentSession } from '@/types/auth';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 import type { HomeHistoryTimelineResponse } from '@/types/homeHistoryTimeline';
-import type { AddToCartPayload } from '@/types/mypage';
+import type { AddToCartPayload, EnrollmentReviewPayload } from '@/types/mypage';
 import type { NoticeItem } from '@/types/notice';
 import type { KcpPcPrepareResponse } from '@/types/payment';
 import type { PopupItem } from '@/types/popup';
@@ -768,6 +773,64 @@ export const handlers = [
     }
 
     return HttpResponse.json(createApiEnvelope(response));
+  }),
+  http.post('*/api/v1/programs/:programId/reviews', async ({ params, request }) => {
+    const programId = Number(params['programId']);
+    const body = (await request.json().catch(() => null)) as EnrollmentReviewPayload | null;
+
+    if (
+      !Number.isInteger(programId) ||
+      programId <= 0 ||
+      !body ||
+      !Number.isInteger(body.rating) ||
+      body.rating < 1 ||
+      body.rating > 5 ||
+      typeof body.content !== 'string' ||
+      body.content.trim().length === 0
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    createMockedMyEnrollmentReview(programId, body);
+    return HttpResponse.json(createApiEnvelope(null), { status: 201 });
+  }),
+  http.put('*/api/v1/reviews/:reviewId', async ({ params, request }) => {
+    const reviewId = Number(params['reviewId']);
+    const body = (await request.json().catch(() => null)) as EnrollmentReviewPayload | null;
+
+    if (
+      !Number.isInteger(reviewId) ||
+      reviewId <= 0 ||
+      !body ||
+      !Number.isInteger(body.rating) ||
+      body.rating < 1 ||
+      body.rating > 5 ||
+      typeof body.content !== 'string' ||
+      body.content.trim().length === 0
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    try {
+      updateMockedMyEnrollmentReview(reviewId, body);
+    } catch {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(null), { status: 200 });
+  }),
+  http.delete('*/api/v1/reviews/:reviewId', ({ params }) => {
+    const reviewId = Number(params['reviewId']);
+
+    if (!Number.isInteger(reviewId) || reviewId <= 0) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    if (!deleteMockedMyEnrollmentReview(reviewId)) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
   }),
   http.get('*/api/v1/cart', () => {
     return HttpResponse.json(createApiEnvelope(getMockMyCart()));

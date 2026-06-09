@@ -412,6 +412,23 @@ export const updateMockedMyEnrollmentReview = (
   };
 };
 
+export const deleteMockedMyEnrollmentReview = (reviewId: number): boolean => {
+  ensureMockScenarioState();
+
+  const targetEntry = getReviewStateByReviewId(reviewId);
+
+  if (!targetEntry) {
+    return false;
+  }
+
+  const [enrollmentId] = targetEntry;
+  mockReviewStateByEnrollmentId[enrollmentId] = {
+    review: null,
+  };
+
+  return true;
+};
+
 export const getMockedMyQuestions = (options?: {
   answered?: boolean | undefined;
   keyword?: string | undefined;

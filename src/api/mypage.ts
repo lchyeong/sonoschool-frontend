@@ -473,6 +473,14 @@ export const updateMyEnrollmentReview = async (
   }
 };
 
+export const deleteMyEnrollmentReview = async (reviewId: number): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/api/v1/reviews/${String(reviewId)}`);
+  } catch (error: unknown) {
+    throw toApiError(error, '후기를 삭제하지 못했습니다.');
+  }
+};
+
 export const fetchMyLearningPlayerSnapshot = async (
   enrollmentId: number,
 ): Promise<LearningPlayerSnapshot> => {

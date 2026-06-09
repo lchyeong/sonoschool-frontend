@@ -10,6 +10,7 @@ import {
   acceptLearningStartNotice,
   createMyCertificateProfile,
   createMyEnrollmentReview,
+  deleteMyEnrollmentReview,
   fetchLearningStartNotice,
   fetchMyCertificateProfile,
   updateMyEnrollmentReview,
@@ -1148,6 +1149,32 @@ const MyPagePage = () => {
     },
   });
 
+  const deleteReviewMutation = useMutation({
+    mutationFn: (reviewId: number) => deleteMyEnrollmentReview(reviewId),
+    onError: (error: unknown) => {
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : '후기를 삭제하지 못했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: myEnrollmentsQueryKey });
+      if (selectedEnrollmentId !== null) {
+        await queryClient.invalidateQueries({
+          queryKey: myEnrollmentDetailQueryKey(selectedEnrollmentId),
+        });
+      }
+      closeReviewModal();
+      showToast({
+        message: '후기를 삭제했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
   const createCertificateProfileMutation = useMutation({
     mutationFn: createMyCertificateProfile,
     onError: (error: unknown) => {
@@ -1243,6 +1270,22 @@ const MyPagePage = () => {
       },
       programId: detail.programId,
     });
+  };
+
+  const handleReviewDelete = () => {
+    const reviewId = enrollmentDetailQuery.data?.review?.id;
+
+    if (reviewId === undefined) {
+      setReviewFormError('삭제할 후기를 찾지 못했습니다.');
+      return;
+    }
+
+    if (!window.confirm('후기를 삭제하면 복구할 수 없습니다.\n계속하시겠습니까?')) {
+      return;
+    }
+
+    setReviewFormError(null);
+    deleteReviewMutation.mutate(reviewId);
   };
 
   const handleCertificateProfileSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -2869,8 +2912,13 @@ const MyPagePage = () => {
     const reviewSubmitLabel = isEditingReview ? '후기 수정' : '후기 등록';
     const isReviewSubmitDisabled =
       reviewMutation.isPending ||
+      deleteReviewMutation.isPending ||
       normalizedRating === 0 ||
       reviewFormValues.content.trim().length === 0;
+    const isReviewDeleteDisabled =
+      deleteReviewMutation.isPending ||
+      reviewMutation.isPending ||
+      detail?.review?.id === undefined;
 
     return (
       <Modal
@@ -2997,6 +3045,19 @@ const MyPagePage = () => {
               {reviewFormError ? <p className={styles['errorText']}>{reviewFormError}</p> : null}
 
               <div className={styles['reviewActionRow']}>
+                {isEditingReview ? (
+                  <button
+                    className={classNames(
+                      styles['reviewDeleteButton'],
+                      isReviewDeleteDisabled && styles['reviewDeleteButtonDisabled'],
+                    )}
+                    disabled={isReviewDeleteDisabled}
+                    onClick={handleReviewDelete}
+                    type='button'
+                  >
+                    {deleteReviewMutation.isPending ? '삭제 중...' : '후기 삭제'}
+                  </button>
+                ) : null}
                 <button
                   className={styles['reviewCancelButton']}
                   onClick={closeReviewModal}
