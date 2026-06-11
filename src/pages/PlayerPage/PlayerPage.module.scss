@@ -4001,17 +4001,28 @@
 .quizReviewQuestionTitle {
   display: flex;
   gap: calc(16px * var(--quiz-result-scale));
-  align-items: center;
+  align-items: flex-start;
   margin: calc(24px * var(--quiz-result-scale)) 0 0;
   color: #4b5563;
   font-size: calc(26px * var(--quiz-result-scale));
   font-weight: var(--font-weight-semibold);
   line-height: 1.25;
-  overflow-wrap: anywhere;
 }
 
-.quizReviewQuestionTitle span {
+.quizReviewQuestionNumber {
+  flex: 0 0 calc(44px * var(--quiz-result-scale));
+  min-width: calc(44px * var(--quiz-result-scale));
   color: #34b29f;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.quizReviewQuestionText {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .quizReviewPager {

@@ -675,6 +675,45 @@ const normalizeDraftPayloadShape = (
   };
 };
 
+const hasActiveVideoUpload = (lecture: AdminProgramDraftLecture): boolean =>
+  lecture.videoUploadStatus === 'UPLOADING' || lecture.videoUploadStatus === 'PROCESSING';
+
+const isVideoLectureMissingUpload = (lecture: AdminProgramDraftLecture): boolean =>
+  supportsLectureVideo(lecture) && lecture.videoId === null && !hasActiveVideoUpload(lecture);
+
+const shouldAutoHideVideoLectureOnFinalize = (lecture: AdminProgramDraftLecture): boolean =>
+  isVideoLectureMissingUpload(lecture) && lecture.published;
+
+const countVideoLecturesToAutoHideOnFinalize = (payload: AdminProgramDraftPayload): number =>
+  payload.sections.reduce(
+    (count, section) =>
+      count +
+      section.lectures.filter((lecture) => shouldAutoHideVideoLectureOnFinalize(lecture)).length,
+    0,
+  );
+
+const preparePayloadForFinalize = (payload: AdminProgramDraftPayload): AdminProgramDraftPayload =>
+  normalizeDraftPayloadShape({
+    ...payload,
+    sections: payload.sections.map((section) => ({
+      ...section,
+      lectures: section.lectures.map((lecture) => {
+        if (!isVideoLectureMissingUpload(lecture)) {
+          return lecture;
+        }
+
+        return {
+          ...lecture,
+          durationSeconds: null,
+          published: false,
+          videoUploadErrorMessage: null,
+          videoUploadFileName: null,
+          videoUploadStatus: null,
+        };
+      }),
+    })),
+  });
+
 const mergeServerUploadStateIntoSnapshot = (
   snapshotPayload: AdminProgramDraftPayload,
   serverPayload: AdminProgramDraftPayload,
@@ -1695,6 +1734,7 @@ const AdminProgramCreateWorkspace = ({
   const draftFocusHintTimerRef = useRef<number | null>(null);
   const draftAutoSaveTimerRef = useRef<number | null>(null);
   const draftSaveChainRef = useRef<Promise<boolean>>(Promise.resolve(true));
+  const finalizeAutoHiddenVideoCountRef = useRef(0);
   const invalidatedDraftIdRef = useRef<number | null>(null);
   const problemQuestionDragMovedRef = useRef(false);
 
@@ -1832,13 +1872,17 @@ const AdminProgramCreateWorkspace = ({
   });
 
   const saveCurrentDraftPayload = useCallback(
-    (options?: { force?: boolean }): Promise<boolean> => {
+    (options?: {
+      force?: boolean;
+      payloadOverride?: AdminProgramDraftPayload | undefined;
+    }): Promise<boolean> => {
       const runSave = async (): Promise<boolean> => {
-        if (draftId === null || currentPayloadRef.current === null) {
+        const sourcePayload = options?.payloadOverride ?? currentPayloadRef.current;
+        if (draftId === null || sourcePayload === null) {
           return true;
         }
 
-        const nextPayload = normalizeDraftPayloadShape(currentPayloadRef.current);
+        const nextPayload = normalizeDraftPayloadShape(sourcePayload);
         if (nextPayload === null) {
           return false;
         }
@@ -1891,7 +1935,17 @@ const AdminProgramCreateWorkspace = ({
 
   const finalizeMutation = useMutation({
     mutationFn: async (targetDraftId: number) => {
-      const saved = await flushPendingDraftSave();
+      const payloadForFinalize =
+        currentPayloadRef.current === null
+          ? null
+          : preparePayloadForFinalize(currentPayloadRef.current);
+      finalizeAutoHiddenVideoCountRef.current =
+        currentPayloadRef.current === null
+          ? 0
+          : countVideoLecturesToAutoHideOnFinalize(currentPayloadRef.current);
+      const saved = await flushPendingDraftSave({
+        payloadOverride: payloadForFinalize ?? undefined,
+      });
       if (!saved) {
         throw new Error('입력값 또는 업로드 항목을 확인해 주세요.');
       }
@@ -1913,11 +1967,16 @@ const AdminProgramCreateWorkspace = ({
         queryClient.invalidateQueries({ queryKey: adminProgramsLiveQueryKey() }),
         queryClient.invalidateQueries({ queryKey: adminProgramDraftsQueryKey() }),
       ]);
+      const autoHiddenVideoCount = finalizeAutoHiddenVideoCountRef.current;
       showToast({
         message:
-          mode === 'edit'
-            ? '프로그램 수정을 완료했습니다.'
-            : '프로그램 등록을 완료했습니다. 숨김 상태로 생성되었습니다.',
+          autoHiddenVideoCount > 0
+            ? mode === 'edit'
+              ? '프로그램 수정을 완료했습니다. 영상이 없는 영상 강의는 비공개로 저장되었습니다.'
+              : '프로그램 등록을 완료했습니다. 영상이 없는 영상 강의는 비공개로 저장되었습니다.'
+            : mode === 'edit'
+              ? '프로그램 수정을 완료했습니다.'
+              : '프로그램 등록을 완료했습니다. 숨김 상태로 생성되었습니다.',
         variant: 'success',
       });
       clearCreateWorkspaceSnapshot(targetDraftId);
@@ -3714,6 +3773,7 @@ const AdminProgramCreateWorkspace = ({
     force?: boolean;
     hintMessage?: string;
     pendingThumbnailAction?: 'block' | 'upload';
+    payloadOverride?: AdminProgramDraftPayload | undefined;
   }): Promise<boolean> => {
     if (draftId === null || currentPayloadRef.current === null) {
       return true;
@@ -3766,8 +3826,11 @@ const AdminProgramCreateWorkspace = ({
     }
 
     return options?.force === undefined
-      ? saveCurrentDraftPayload()
-      : saveCurrentDraftPayload({ force: options.force });
+      ? saveCurrentDraftPayload({ payloadOverride: options?.payloadOverride })
+      : saveCurrentDraftPayload({
+          force: options.force,
+          payloadOverride: options.payloadOverride,
+        });
   };
 
   const handleManualSave = async (event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -4825,12 +4888,6 @@ const AdminProgramCreateWorkspace = ({
           message: `${lectureLabel}: 영상 업로드 또는 인코딩이 아직 진행 중입니다.`,
         });
       }
-      if (lecture.videoId === null && lecture.videoUploadStatus === 'FAILED') {
-        issues.push({
-          focusKey: `curriculum-lecture-${lecture.key}`,
-          message: `${lectureLabel}: 영상 업로드가 실패했습니다.`,
-        });
-      }
 
       const lectureResources = payload.resources.filter(
         (resource) => resource.lectureKey === lecture.key,
@@ -4955,6 +5012,16 @@ const AdminProgramCreateWorkspace = ({
   const blockingUploadMessages = allFinalizeIssues
     .filter((issue) => !issue.focusKey)
     .map((issue) => issue.message);
+  const autoHiddenVideoMessages = payload.sections.flatMap((section) =>
+    section.lectures.flatMap((lecture) => {
+      if (!shouldAutoHideVideoLectureOnFinalize(lecture)) {
+        return [];
+      }
+
+      const lectureLabel = lecture.title?.trim() || '미제목 강의';
+      return [`${lectureLabel}: 영상이 없어 비공개로 저장됩니다.`];
+    }),
+  );
   const applyBasicInfoValidationErrors = (issues: DraftValidationIssue[]) => {
     const nextErrors: Record<string, string | undefined> = {};
     for (const issue of issues) {
@@ -5278,6 +5345,9 @@ const AdminProgramCreateWorkspace = ({
                 {mode === 'edit' ? '확인 항목 처리 후 수정 가능' : '확인 항목 처리 후 등록 가능'}
               </span>
             ) : null}
+            {autoHiddenVideoMessages.length ? (
+              <span className={styles['badge']}>영상 없는 강의는 비공개 저장</span>
+            ) : null}
           </div>
         </div>
 
@@ -5288,6 +5358,22 @@ const AdminProgramCreateWorkspace = ({
             </strong>
             <div className={styles['stackListCompact']}>
               {blockingUploadMessages.map((message) => (
+                <p className={styles['metaText']} key={message}>
+                  {message}
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {autoHiddenVideoMessages.length ? (
+          <div className={styles['uploadBlockingSummary']}>
+            <strong className={styles['panelTitle']}>
+              {mode === 'edit'
+                ? '수정 완료 시 비공개로 저장되는 강의'
+                : '등록 완료 시 비공개로 저장되는 강의'}
+            </strong>
+            <div className={styles['stackListCompact']}>
+              {autoHiddenVideoMessages.map((message) => (
                 <p className={styles['metaText']} key={message}>
                   {message}
                 </p>

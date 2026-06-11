@@ -122,7 +122,6 @@ const curriculumFallbackDurationMinutes: Partial<
 > = {
   offline: 60,
   practicum: 60,
-  problem: 45,
   resource: 60,
 };
 

@@ -690,6 +690,69 @@ describe('AdminConsolePage', () => {
     expect(JSON.stringify(savedPayload)).not.toContain('lecture-remove');
   });
 
+  it('auto-hides video lectures without videos when finalizing a draft', async () => {
+    const draftDetail = createAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.categoryId = 1101;
+    draftDetail.payload.basicInfo.price = 100000;
+    draftDetail.payload.basicInfo.title = '영상 없는 강의 저장 테스트';
+    draftDetail.payload.sections[0].title = '1주차';
+    draftDetail.payload.sections[0].lectures[0] = {
+      ...draftDetail.payload.sections[0].lectures[0],
+      key: 'lecture-without-video',
+      published: true,
+      title: '영상 준비 중 강의',
+      videoUploadErrorMessage: '영상 업로드가 실패했습니다.',
+      videoUploadFileName: 'failed-video.mp4',
+      videoUploadStatus: 'FAILED',
+    };
+
+    let savedPayload: unknown = null;
+    let finalized = false;
+
+    server.use(
+      http.put('*/api/v1/admin/program-drafts/:draftId', async ({ request }) => {
+        savedPayload = await request.json();
+        return HttpResponse.json({ data: { ...draftDetail, payload: savedPayload } });
+      }),
+      http.post('*/api/v1/admin/program-drafts/:draftId/finalize', () => {
+        finalized = true;
+        return HttpResponse.json({ data: { draftId: 91001, programId: 2001 } });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/programs/new/curriculum?draftId=91001', {
+      draftDetail,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('영상 준비 중 강의: 영상이 없어 비공개로 저장됩니다.'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '등록 완료' }));
+
+    await waitFor(() => {
+      expect(finalized).toBe(true);
+    });
+    expect(savedPayload).toMatchObject({
+      sections: [
+        {
+          lectures: [
+            {
+              key: 'lecture-without-video',
+              published: false,
+              videoUploadErrorMessage: null,
+              videoUploadFileName: null,
+              videoUploadStatus: null,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('limits lecture types in the create workspace for problem solving programs', async () => {
     const draftDetail = createAdminProgramDraftDetailFixture();
     draftDetail.payload.basicInfo.programType = 'PROBLEM_SOLVING';

@@ -3442,8 +3442,12 @@ const PlayerPage = () => {
             <div>
               <h3 className={styles['quizReviewTitle']}>문항 리뷰</h3>
               <p className={styles['quizReviewQuestionTitle']}>
-                <span>{String(quizResultReviewIndex + 1).padStart(2, '0')}</span>
-                {reviewResult?.questionText ?? reviewQuestion?.questionText ?? '문항 정보 없음'}
+                <span className={styles['quizReviewQuestionNumber']}>
+                  {String(quizResultReviewIndex + 1).padStart(2, '0')}
+                </span>
+                <span className={styles['quizReviewQuestionText']}>
+                  {reviewResult?.questionText ?? reviewQuestion?.questionText ?? '문항 정보 없음'}
+                </span>
               </p>
             </div>
 
