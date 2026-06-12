@@ -1663,15 +1663,39 @@ const AdminProgramCreateWorkspace = ({
       : null;
   const detailQuery = useAdminProgramDraftDetailQuery(draftId, draftId !== null);
   const categoriesQuery = useAdminCategoriesTreeQuery(true);
-  const problemAreasQuery = useAdminProblemAreasQuery(true);
+  const problemAreasQuery = useAdminProblemAreasQuery(false);
   const problemAreaOptions = useMemo(
     () =>
-      (problemAreasQuery.data ?? []).map((area) => ({
-        label: area.name,
-        value: String(area.id),
-      })),
+      (problemAreasQuery.data ?? [])
+        .filter((area) => area.active)
+        .map((area) => ({
+          label: area.name,
+          value: String(area.id),
+        })),
     [problemAreasQuery.data],
   );
+  const buildProblemAreaOptions = (selectedProblemAreaId: number | null) => {
+    const options = [{ label: '영역 선택', value: '' }, ...problemAreaOptions];
+    if (
+      selectedProblemAreaId === null ||
+      options.some((option) => option.value === String(selectedProblemAreaId))
+    ) {
+      return options;
+    }
+
+    const selectedArea = (problemAreasQuery.data ?? []).find(
+      (area) => area.id === selectedProblemAreaId,
+    );
+
+    return [
+      ...options,
+      {
+        disabled: true,
+        label: `${selectedArea?.name ?? String(selectedProblemAreaId)} (미사용)`,
+        value: String(selectedProblemAreaId),
+      },
+    ];
+  };
   const [payload, setPayload] = useState<AdminProgramDraftPayload | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
@@ -3339,7 +3363,7 @@ const AdminProgramCreateWorkspace = ({
                                 problemAreaId: nextValue ? Number(nextValue) : null,
                               }));
                             }}
-                            options={[{ label: '영역 선택', value: '' }, ...problemAreaOptions]}
+                            options={buildProblemAreaOptions(question.problemAreaId)}
                             value={
                               question.problemAreaId === null ? '' : String(question.problemAreaId)
                             }
@@ -3517,9 +3541,15 @@ const AdminProgramCreateWorkspace = ({
                               className={styles['quizOptionRow']}
                               key={`problem-option-${String(optionIndex)}`}
                             >
+                              <span className={styles['quizOptionLabel']}>
+                                {formatQuizOptionLabel(optionIndex)}
+                              </span>
                               <TextField
                                 data-draft-focus-key={`${lectureKey}:${String(questionIndex)}:option-${String(optionIndex)}`}
-                                label={formatQuizOptionLabel(optionIndex)}
+                                errorClassName={styles['quizOptionFieldError']}
+                                fieldClassName={styles['quizOptionField']}
+                                label={`${formatQuizOptionLabel(optionIndex)} 보기`}
+                                labelClassName={styles['srOnly']}
                                 name={`problem-option-${lectureKey}-${String(questionIndex)}-${String(optionIndex)}`}
                                 onChange={(event) => {
                                   updateProblemOption(

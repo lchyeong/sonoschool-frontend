@@ -67,6 +67,7 @@ interface ProblemQuestionFormState {
   mediaUrl: string;
   options: ProblemOptionFormState[];
   problemAreaId: string;
+  problemAreaName: string | null;
   questionText: string;
   questionType: AdminProblemQuestionType;
 }
@@ -124,6 +125,7 @@ const createEmptyQuestion = (): ProblemQuestionFormState => ({
   mediaUrl: '',
   options: [createEmptyOption(true), createEmptyOption(false)],
   problemAreaId: '',
+  problemAreaName: null,
   questionText: '',
   questionType: 'SINGLE',
 });
@@ -281,6 +283,7 @@ const createFormState = (problem: AdminProblem | null): ProblemFormState => {
             optionText: option.optionText,
           })),
         problemAreaId: String(question.problemAreaId),
+        problemAreaName: question.problemAreaName,
         questionText: question.questionText,
         questionType: question.questionType,
       })),
@@ -489,7 +492,7 @@ const ProblemEditor = ({
 }) => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
-  const problemAreasQuery = useAdminProblemAreasQuery(true);
+  const problemAreasQuery = useAdminProblemAreasQuery(false);
   const [formState, setFormState] = useState<ProblemFormState>(() => createFormState(problem));
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [draggedQuestionIndex, setDraggedQuestionIndex] = useState<number | null>(null);
@@ -520,12 +523,40 @@ const ProblemEditor = ({
     : 0;
   const problemAreaOptions = useMemo(
     () =>
-      (problemAreasQuery.data ?? []).map((area) => ({
-        label: area.name,
-        value: String(area.id),
-      })),
+      (problemAreasQuery.data ?? [])
+        .filter((area) => area.active)
+        .map((area) => ({
+          label: area.name,
+          value: String(area.id),
+        })),
     [problemAreasQuery.data],
   );
+  const buildProblemAreaOptions = (
+    selectedProblemAreaId: string,
+    selectedProblemAreaName: string | null,
+  ) => {
+    const options = [{ label: '영역 선택', value: '' }, ...problemAreaOptions];
+    if (
+      !selectedProblemAreaId ||
+      options.some((option) => option.value === selectedProblemAreaId)
+    ) {
+      return options;
+    }
+
+    const selectedArea = (problemAreasQuery.data ?? []).find(
+      (area) => String(area.id) === selectedProblemAreaId,
+    );
+    const selectedAreaName = selectedArea?.name ?? selectedProblemAreaName ?? selectedProblemAreaId;
+
+    return [
+      ...options,
+      {
+        disabled: true,
+        label: `${selectedAreaName} (미사용)`,
+        value: selectedProblemAreaId,
+      },
+    ];
+  };
 
   const refreshProblem = async () => {
     await Promise.all([
@@ -1035,12 +1066,15 @@ const ProblemEditor = ({
                             ...current,
                             questions: current.questions.map((item, index) =>
                               index === selectedQuestionIndex
-                                ? { ...item, problemAreaId: nextValue }
+                                ? { ...item, problemAreaId: nextValue, problemAreaName: null }
                                 : item,
                             ),
                           }));
                         }}
-                        options={[{ label: '영역 선택', value: '' }, ...problemAreaOptions]}
+                        options={buildProblemAreaOptions(
+                          selectedQuestion.problemAreaId,
+                          selectedQuestion.problemAreaName,
+                        )}
                         value={selectedQuestion.problemAreaId}
                       />
                     </div>

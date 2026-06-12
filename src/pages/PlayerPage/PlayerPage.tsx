@@ -4,6 +4,7 @@ import type {
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
+  SyntheticEvent as ReactSyntheticEvent,
 } from 'react';
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
@@ -59,6 +60,7 @@ import {
   useMyLearningPlayerSnapshotQuery,
 } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type {
   LearningPlayerLessonProgress,
@@ -176,6 +178,10 @@ const PLAYBACK_WATERMARK_POSITION_INTERVAL_MS = 37_000;
 const PLAYBACK_WATERMARK_CLOCK_INTERVAL_MS = 30_000;
 const PLAYBACK_WATERMARK_EMPHASIS_INTERVAL_MS = 120_000;
 const PLAYBACK_WATERMARK_EMPHASIS_DURATION_MS = 2_600;
+const QUIZ_SOLVE_BACKGROUND_WATERMARK_TILE_INDEXES = Array.from(
+  { length: 14 },
+  (_, index) => index,
+);
 const formatPlaybackWatermarkTimestamp = (date: Date) => {
   const padTwoDigits = (value: number) => String(value).padStart(2, '0');
 
@@ -404,6 +410,8 @@ const PlayerPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
+  const authDisplayName = useAuthStore((state) => state.displayName);
+  const authLoginId = useAuthStore((state) => state.loginId);
   const params = useParams<{ enrollmentId: string; lessonId: string }>();
   const resolvedEnrollmentId = Number(params.enrollmentId ?? '');
   const isValidEnrollmentId = Number.isInteger(resolvedEnrollmentId) && resolvedEnrollmentId > 0;
@@ -453,6 +461,9 @@ const PlayerPage = () => {
   const [playbackWatermarkPositionIndex, setPlaybackWatermarkPositionIndex] = useState(0);
   const [playbackWatermarkClock, setPlaybackWatermarkClock] = useState(() => new Date());
   const [isPlaybackWatermarkEmphasized, setIsPlaybackWatermarkEmphasized] = useState(false);
+  const [quizSolveBackgroundWatermarkClock, setQuizSolveBackgroundWatermarkClock] = useState(
+    () => new Date(),
+  );
   const [lecturePlaybackCookieExpiresAt, setLecturePlaybackCookieExpiresAt] = useState<
     number | null
   >(null);
@@ -612,6 +623,19 @@ const PlayerPage = () => {
     ? `${playbackWatermarkText} · ${playbackWatermarkTimestamp}`
     : '';
   const playbackWatermarkDetailText = playbackWatermarkCompactText;
+  const quizSolveBackgroundWatermarkIdentity = useMemo(() => {
+    const identityParts = [authDisplayName.trim(), authLoginId.trim()].filter(
+      (value) => value.length > 0,
+    );
+
+    return Array.from(new Set(identityParts)).join(' · ');
+  }, [authDisplayName, authLoginId]);
+  const quizSolveBackgroundWatermarkTimestamp = formatPlaybackWatermarkTimestamp(
+    quizSolveBackgroundWatermarkClock,
+  );
+  const quizSolveBackgroundWatermarkText = quizSolveBackgroundWatermarkIdentity
+    ? `SONOSCHOOL · ${quizSolveBackgroundWatermarkIdentity} · ${quizSolveBackgroundWatermarkTimestamp}`
+    : '';
   const playbackWatermarkPosition =
     PLAYBACK_WATERMARK_POSITIONS[
       playbackWatermarkPositionIndex % PLAYBACK_WATERMARK_POSITIONS.length
@@ -1766,6 +1790,22 @@ const PlayerPage = () => {
   }, [protectedStream?.playbackSessionToken, protectedStream?.playbackWatermarkText]);
 
   useEffect(() => {
+    setQuizSolveBackgroundWatermarkClock(new Date());
+
+    if (!isQuizMode) {
+      return;
+    }
+
+    const clockTimer = window.setInterval(() => {
+      setQuizSolveBackgroundWatermarkClock(new Date());
+    }, PLAYBACK_WATERMARK_CLOCK_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(clockTimer);
+    };
+  }, [isQuizMode]);
+
+  useEffect(() => {
     const videoElement = videoRef.current;
     const playbackSessionToken = protectedStream?.playbackSessionToken ?? '';
     const selectedHlsKeyUrl = normalizeProtectedHlsKeyUrl(protectedStream?.hlsKeyUrl ?? '');
@@ -2108,6 +2148,10 @@ const PlayerPage = () => {
     revealPlayerControls();
     togglePlayback();
   };
+
+  const preventQuizContentTransfer = useCallback((event: ReactSyntheticEvent<HTMLElement>) => {
+    event.preventDefault();
+  }, []);
 
   const handlePlayerFrameMouseLeave = () => {
     hidePlayerControlsForPlayback();
@@ -2798,6 +2842,20 @@ const PlayerPage = () => {
     );
   };
 
+  const renderQuizSolveBackgroundWatermark = () => {
+    if (!quizSolveBackgroundWatermarkText) {
+      return null;
+    }
+
+    return (
+      <div aria-hidden='true' className={styles['quizSolveBackgroundWatermark']}>
+        {QUIZ_SOLVE_BACKGROUND_WATERMARK_TILE_INDEXES.map((index) => (
+          <span key={index}>{quizSolveBackgroundWatermarkText}</span>
+        ))}
+      </div>
+    );
+  };
+
   const renderOfflineSchedulePanel = () => {
     if (!selectedLesson || selectedLesson.deliveryType !== 'offline') {
       return null;
@@ -3327,9 +3385,21 @@ const PlayerPage = () => {
       reviewResult?.submittedOptionIds ?? [],
     );
     const explanation = reviewResult?.explanation ?? reviewQuestion?.explanation ?? null;
+    const reviewStudentName = authDisplayName.trim();
+    const reviewStudentLoginId = authLoginId.trim();
+    const reviewStudentInfoText = [reviewStudentName, reviewStudentLoginId]
+      .filter((value) => value.length > 0)
+      .join(' · ');
 
     return (
-      <div className={styles['quizResultPage']}>
+      <div
+        className={styles['quizResultPage']}
+        onContextMenu={preventQuizContentTransfer}
+        onCopy={preventQuizContentTransfer}
+        onCut={preventQuizContentTransfer}
+        onDragStart={preventQuizContentTransfer}
+        onPaste={preventQuizContentTransfer}
+      >
         <h2 className={styles['quizResultPageTitle']}>채점 결과</h2>
 
         <section className={styles['quizScorePanel']} aria-label='채점 결과 요약'>
@@ -3476,37 +3546,43 @@ const PlayerPage = () => {
             </div>
           </div>
 
-          <div className={styles['quizReviewTable']}>
-            <div className={styles['quizReviewRow']}>
-              <div className={styles['quizReviewCellLabel']}>정답</div>
-              <div className={styles['quizReviewCellValue']} data-tone='correct'>
-                {correctAnswerLabel}
+          <div className={styles['quizReviewTableBlock']}>
+            {reviewStudentInfoText ? (
+              <p className={styles['quizReviewStudentInfo']}>{reviewStudentInfoText}</p>
+            ) : null}
+
+            <div className={styles['quizReviewTable']}>
+              <div className={styles['quizReviewRow']} data-paired='true'>
+                <div className={styles['quizReviewCellLabel']}>정답</div>
+                <div className={styles['quizReviewCellValue']} data-tone='correct'>
+                  {correctAnswerLabel}
+                </div>
+                <div className={styles['quizReviewCellLabel']}>선택 답안</div>
+                <div className={styles['quizReviewCellValue']}>{submittedAnswerLabel}</div>
               </div>
-              <div className={styles['quizReviewCellLabel']}>선택 답안</div>
-              <div className={styles['quizReviewCellValue']}>{submittedAnswerLabel}</div>
-            </div>
-            <div className={styles['quizReviewRow']}>
-              <div className={styles['quizReviewCellLabel']}>문제 유형</div>
-              <div className={styles['quizReviewCellValue']} data-span='3'>
-                {reviewResult?.problemAreaName ??
-                  reviewQuestion?.problemAreaName ??
-                  formatQuizQuestionTypeLabel(reviewQuestion?.questionType)}
+              <div className={styles['quizReviewRow']}>
+                <div className={styles['quizReviewCellLabel']}>문제 유형</div>
+                <div className={styles['quizReviewCellValue']} data-span='3'>
+                  {reviewResult?.problemAreaName ??
+                    reviewQuestion?.problemAreaName ??
+                    formatQuizQuestionTypeLabel(reviewQuestion?.questionType)}
+                </div>
               </div>
-            </div>
-            <div className={styles['quizReviewExplanationRow']}>
-              <div className={styles['quizReviewCellLabel']}>해설</div>
-              <div className={styles['quizReviewExplanationBody']}>
-                <p>{explanation || '등록된 해설이 없습니다.'}</p>
-                {reviewQuestion
-                  ? renderQuizMedia(
-                      reviewQuestion.mediaType,
-                      reviewQuestion.mediaVideoId,
-                      reviewQuestion.mediaPreviewUrl,
-                      reviewQuestion.mediaUrl,
-                      `${String(quizResultReviewIndex + 1)}번 문항 해설 미디어`,
-                      styles['quizReviewMedia'],
-                    )
-                  : null}
+              <div className={styles['quizReviewExplanationRow']}>
+                <div className={styles['quizReviewCellLabel']}>해설</div>
+                <div className={styles['quizReviewExplanationBody']}>
+                  <p>{explanation || '등록된 해설이 없습니다.'}</p>
+                  {reviewQuestion
+                    ? renderQuizMedia(
+                        reviewQuestion.mediaType,
+                        reviewQuestion.mediaVideoId,
+                        reviewQuestion.mediaPreviewUrl,
+                        reviewQuestion.mediaUrl,
+                        `${String(quizResultReviewIndex + 1)}번 문항 해설 미디어`,
+                        styles['quizReviewMedia'],
+                      )
+                    : null}
+                </div>
               </div>
             </div>
           </div>
@@ -4063,7 +4139,15 @@ const PlayerPage = () => {
                           ) : null}
 
                           {shouldShowQuizQuestion && currentQuizQuestion ? (
-                            <section className={styles['quizQuestionCard']}>
+                            <section
+                              className={styles['quizQuestionCard']}
+                              onContextMenu={preventQuizContentTransfer}
+                              onCopy={preventQuizContentTransfer}
+                              onCut={preventQuizContentTransfer}
+                              onDragStart={preventQuizContentTransfer}
+                              onPaste={preventQuizContentTransfer}
+                            >
+                              {renderQuizSolveBackgroundWatermark()}
                               <div className={styles['quizQuestionHeader']}>
                                 <div className={styles['quizQuestionHeaderTop']}>
                                   <span className={styles['quizQuestionEyebrow']}>
