@@ -34,6 +34,8 @@ export interface AdminProblem {
   passCorrectCount: number;
   retakeAllowed: boolean;
   timeLimitSeconds: number | null;
+  problemAreaId: number | null;
+  problemAreaName: string | null;
   questions: AdminProblemQuestion[];
   title: string;
 }
@@ -60,6 +62,7 @@ export interface AdminProblemQuestionReorderItem {
 
 export interface AdminProblemUpsertPayload {
   passScore: number;
+  problemAreaId: number;
   retakeAllowed?: boolean | null;
   timeLimitSeconds?: number | null;
   questions: AdminProblemQuestionUpsertPayload[];

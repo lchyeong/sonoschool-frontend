@@ -118,6 +118,7 @@ const normalizeDraftPayloadForClient = (
         ...problem,
         lectureKey: problem.lectureKey,
         passScore: problem.passScore ?? null,
+        problemAreaId: problem.problemAreaId ?? null,
         questions: asArray(problem.questions)
           .filter(isPresent)
           .map((question, questionIndex) => ({

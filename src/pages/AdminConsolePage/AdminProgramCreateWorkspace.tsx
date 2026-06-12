@@ -343,6 +343,7 @@ const createEmptyQuestion = (): AdminProgramDraftProblemQuestion => ({
 const createEmptyProblem = (lectureKey: string): AdminProgramDraftProblem => ({
   lectureKey,
   passScore: 80,
+  problemAreaId: null,
   questions: [createEmptyQuestion()],
   retakeAllowed: false,
   timeLimitSeconds: null,
@@ -646,6 +647,7 @@ const normalizeDraftPayloadShape = (
         return {
           ...problem,
           passScore: problem.passScore ?? 80,
+          problemAreaId: problem.problemAreaId ?? null,
           retakeAllowed: problem.retakeAllowed ?? false,
           timeLimitSeconds: problem.timeLimitSeconds ?? matchedLecture?.durationSeconds ?? null,
           title: problem.title?.trim() || lectureTitle || '문제',
@@ -1664,18 +1666,19 @@ const AdminProgramCreateWorkspace = ({
   const detailQuery = useAdminProgramDraftDetailQuery(draftId, draftId !== null);
   const categoriesQuery = useAdminCategoriesTreeQuery(true);
   const problemAreasQuery = useAdminProblemAreasQuery(false);
-  const problemAreaOptions = useMemo(
+  const problemAreas = useMemo(() => problemAreasQuery.data ?? [], [problemAreasQuery.data]);
+  const rootProblemAreaOptions = useMemo(
     () =>
-      (problemAreasQuery.data ?? [])
-        .filter((area) => area.active)
+      problemAreas
+        .filter((area) => area.active && area.parentId === null)
         .map((area) => ({
           label: area.name,
           value: String(area.id),
         })),
-    [problemAreasQuery.data],
+    [problemAreas],
   );
-  const buildProblemAreaOptions = (selectedProblemAreaId: number | null) => {
-    const options = [{ label: '영역 선택', value: '' }, ...problemAreaOptions];
+  const buildRootProblemAreaOptions = (selectedProblemAreaId: number | null) => {
+    const options = rootProblemAreaOptions;
     if (
       selectedProblemAreaId === null ||
       options.some((option) => option.value === String(selectedProblemAreaId))
@@ -1683,15 +1686,46 @@ const AdminProgramCreateWorkspace = ({
       return options;
     }
 
-    const selectedArea = (problemAreasQuery.data ?? []).find(
-      (area) => area.id === selectedProblemAreaId,
-    );
+    const selectedArea = problemAreas.find((area) => area.id === selectedProblemAreaId);
 
     return [
       ...options,
       {
         disabled: true,
         label: `${selectedArea?.name ?? String(selectedProblemAreaId)} (미사용)`,
+        value: String(selectedProblemAreaId),
+      },
+    ];
+  };
+  const buildProblemAreaOptions = (
+    rootProblemAreaId: number | null | undefined,
+    selectedProblemAreaId: number | null,
+  ) => {
+    const childOptions = rootProblemAreaId
+      ? problemAreas
+          .filter((area) => area.active && area.parentId === rootProblemAreaId)
+          .map((area) => ({
+            label: area.name,
+            value: String(area.id),
+          }))
+      : [];
+    const options = childOptions;
+    if (
+      selectedProblemAreaId === null ||
+      options.some((option) => option.value === String(selectedProblemAreaId))
+    ) {
+      return options;
+    }
+
+    const selectedArea = problemAreas.find((area) => area.id === selectedProblemAreaId);
+    const isOutsideRoot =
+      selectedArea?.parentId !== null && selectedArea?.parentId !== rootProblemAreaId;
+
+    return [
+      ...options,
+      {
+        disabled: true,
+        label: `${selectedArea?.name ?? String(selectedProblemAreaId)} (${isOutsideRoot ? '대표 영역 불일치' : '미사용'})`,
         value: String(selectedProblemAreaId),
       },
     ];
@@ -2889,6 +2923,35 @@ const AdminProgramCreateWorkspace = ({
     }));
   };
 
+  const updateProblemRootArea = (lectureKey: string, nextProblemAreaId: number | null) => {
+    upsertProblem(lectureKey, (problem) => {
+      if (problem.problemAreaId === nextProblemAreaId) {
+        return problem;
+      }
+
+      const hasSelectedQuestionArea = problem.questions.some(
+        (question) => question.problemAreaId !== null,
+      );
+      if (
+        hasSelectedQuestionArea &&
+        !window.confirm(
+          '대표 문제 영역을 변경하면 문항에 선택된 세부 문제 영역이 모두 미선택으로 변경됩니다. 계속하시겠습니까?',
+        )
+      ) {
+        return problem;
+      }
+
+      return {
+        ...problem,
+        problemAreaId: nextProblemAreaId,
+        questions: problem.questions.map((question) => ({
+          ...question,
+          problemAreaId: null,
+        })),
+      };
+    });
+  };
+
   const updateProblemQuestion = useCallback(
     (
       lectureKey: string,
@@ -3202,6 +3265,7 @@ const AdminProgramCreateWorkspace = ({
               problemQuestionDragAutoScroller.update(event.clientY);
             }}
           >
+            <div className={styles['problemQuestionDivider']} aria-hidden='true' />
             <div className={styles['problemQuestionListToolbar']}>
               <div>
                 <h5 className={styles['panelTitle']}>문제 문항</h5>
@@ -3347,7 +3411,7 @@ const AdminProgramCreateWorkspace = ({
                     <div className={styles['problemQuestionBody']}>
                       <div className={styles['problemQuestionSectionBlock']}>
                         <div className={styles['problemQuestionSectionHeader']}>
-                          <strong>문제 영역</strong>
+                          <strong>세부 문제 영역</strong>
                           <span>문제가 속한 영역을 선택합니다.</span>
                         </div>
                         <div
@@ -3356,17 +3420,22 @@ const AdminProgramCreateWorkspace = ({
                           <AdminDropdownField
                             className={styles['problemQuestionFieldWithoutLabel']}
                             compact
-                            label='문제 영역'
+                            label='세부 문제 영역'
                             onChange={(nextValue) => {
                               updateProblemQuestion(lectureKey, questionIndex, (current) => ({
                                 ...current,
                                 problemAreaId: nextValue ? Number(nextValue) : null,
                               }));
                             }}
-                            options={buildProblemAreaOptions(question.problemAreaId)}
+                            options={buildProblemAreaOptions(
+                              problem?.problemAreaId,
+                              question.problemAreaId,
+                            )}
+                            placeholder='세부 영역 선택'
                             value={
                               question.problemAreaId === null ? '' : String(question.problemAreaId)
                             }
+                            disabled={!problem?.problemAreaId}
                           />
                         </div>
                       </div>
@@ -4972,13 +5041,19 @@ const AdminProgramCreateWorkspace = ({
           message: `${lectureLabel}: 합격 점수를 입력해 주세요.`,
         });
       }
+      if (lectureProblem && lectureProblem.problemAreaId === null) {
+        issues.push({
+          focusKey: `curriculum-lecture-${lecture.key}`,
+          message: `${lectureLabel}: 대표 문제 영역을 선택해 주세요.`,
+        });
+      }
       lectureProblem?.questions.forEach((question, questionIndex) => {
         const questionUploadKey = `${lecture.key}:${String(questionIndex)}`;
         const questionLabel = question.questionText.trim() || `문제 ${String(questionIndex + 1)}`;
         if (question.problemAreaId === null) {
           issues.push({
             focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:problemArea`,
-            message: `${lectureLabel} / ${questionLabel}: 문제 영역을 선택해 주세요.`,
+            message: `${lectureLabel} / ${questionLabel}: 세부 문제 영역을 선택해 주세요.`,
           });
         }
         if (!question.questionText.trim()) {
@@ -6289,6 +6364,27 @@ const AdminProgramCreateWorkspace = ({
                                       <div className={styles['curriculumBody']}>
                                         <div className={styles['curriculumWorkspace']}>
                                           <div className={styles['lectureWorkspaceSection']}>
+                                            {supportsProblem ? (
+                                              <AdminDropdownField
+                                                className={styles['problemRootAreaField']}
+                                                label='대표 문제 영역'
+                                                onChange={(nextValue) => {
+                                                  updateProblemRootArea(
+                                                    lecture.key,
+                                                    nextValue ? Number(nextValue) : null,
+                                                  );
+                                                }}
+                                                options={buildRootProblemAreaOptions(
+                                                  lectureQuiz?.problemAreaId ?? null,
+                                                )}
+                                                placeholder='대표 영역 선택'
+                                                value={
+                                                  lectureQuiz?.problemAreaId
+                                                    ? String(lectureQuiz.problemAreaId)
+                                                    : ''
+                                                }
+                                              />
+                                            ) : null}
                                             <TextField
                                               data-draft-focus-key={`lectureTitle-${lecture.key}`}
                                               label='강의명'

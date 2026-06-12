@@ -37,6 +37,7 @@ export const createAdminProblemArea = async (
       {
         ...payload,
         description: normalizeDescription(payload.description),
+        parentId: payload.parentId ?? null,
       },
     );
     return unwrapApiEnvelope(response.data);
@@ -55,6 +56,7 @@ export const updateAdminProblemArea = async (
       {
         ...payload,
         description: normalizeDescription(payload.description),
+        parentId: payload.parentId ?? null,
       },
     );
     return unwrapApiEnvelope(response.data);

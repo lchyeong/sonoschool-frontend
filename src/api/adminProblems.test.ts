@@ -50,6 +50,7 @@ describe('admin problems API', () => {
   it('normalizes nullable question and option collections before create', async () => {
     const payload = {
       passScore: 80,
+      problemAreaId: 1,
       questions: [
         null,
         {

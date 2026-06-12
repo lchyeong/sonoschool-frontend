@@ -99,6 +99,7 @@ export interface AdminProgramDraftProblemQuestion {
 export interface AdminProgramDraftProblem {
   lectureKey: string;
   passScore?: number | null;
+  problemAreaId?: number | null;
   retakeAllowed?: boolean | null;
   questions: AdminProgramDraftProblemQuestion[];
   timeLimitSeconds?: number | null;

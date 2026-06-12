@@ -2,6 +2,8 @@ export interface AdminProblemArea {
   id: number;
   name: string;
   description: string | null;
+  parentId: number | null;
+  parentName: string | null;
   sortOrder: number;
   active: boolean;
   createdAt: string | null;
@@ -11,6 +13,7 @@ export interface AdminProblemArea {
 export interface AdminProblemAreaCreatePayload {
   name: string;
   description: string | null;
+  parentId: number | null;
   sortOrder: number;
 }
 

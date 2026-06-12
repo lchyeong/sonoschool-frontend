@@ -1592,13 +1592,15 @@ describe('AdminConsolePage', () => {
             passCorrectCount: 1,
             retakeAllowed: false,
             timeLimitSeconds: 1800,
+            problemAreaId: 1,
+            problemAreaName: '복부 초음파',
             questions: [
               {
                 explanation: '프로그램 개요를 다시 확인해 주세요.',
                 id: 9901,
                 mediaType: null,
                 mediaUrl: null,
-                problemAreaId: 1,
+                problemAreaId: 2,
                 problemAreaName: '단순 계산',
                 options: [
                   {

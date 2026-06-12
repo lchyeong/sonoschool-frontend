@@ -74,6 +74,8 @@ interface ProblemQuestionFormState {
 
 interface ProblemFormState {
   passScore: string;
+  problemAreaId: string;
+  problemAreaName: string | null;
   questions: ProblemQuestionFormState[];
   retakeAllowed: boolean;
   timeLimitMinutes: string;
@@ -132,6 +134,8 @@ const createEmptyQuestion = (): ProblemQuestionFormState => ({
 
 const EMPTY_FORM: ProblemFormState = {
   passScore: '80',
+  problemAreaId: '',
+  problemAreaName: null,
   questions: [createEmptyQuestion()],
   retakeAllowed: false,
   timeLimitMinutes: '30',
@@ -266,6 +270,8 @@ const createFormState = (problem: AdminProblem | null): ProblemFormState => {
 
   return {
     passScore: String(problem.passScore),
+    problemAreaId: problem.problemAreaId === null ? '' : String(problem.problemAreaId),
+    problemAreaName: problem.problemAreaName,
     questions: [...problem.questions]
       .sort((left, right) => left.sortOrder - right.sortOrder)
       .map((question) => ({
@@ -300,6 +306,7 @@ const toPayload = (
   fallbackTitle: string,
 ): AdminProblemUpsertPayload => ({
   passScore: Number(formState.passScore),
+  problemAreaId: Number(formState.problemAreaId),
   retakeAllowed: formState.retakeAllowed,
   timeLimitSeconds: formState.timeLimitMinutes.trim()
     ? Math.max(1, Math.floor(Number(formState.timeLimitMinutes) * 60))
@@ -344,13 +351,17 @@ const validateForm = (formState: ProblemFormState): string | null => {
     return '문항을 하나 이상 추가해 주세요.';
   }
 
+  if (!formState.problemAreaId.trim()) {
+    return '대표 문제 영역을 선택해 주세요.';
+  }
+
   for (const [questionIndex, question] of formState.questions.entries()) {
     if (!question.questionText.trim()) {
       return `${String(questionIndex + 1)}번 문항 내용을 입력해 주세요.`;
     }
 
     if (!question.problemAreaId.trim()) {
-      return `${String(questionIndex + 1)}번 문항의 문제 영역을 선택해 주세요.`;
+      return `${String(questionIndex + 1)}번 문항의 세부 문제 영역을 선택해 주세요.`;
     }
 
     if (question.options.length < 2) {
@@ -521,21 +532,34 @@ const ProblemEditor = ({
   const passCorrectCountPreview = Number.isFinite(passScoreNumber)
     ? calculatePassCorrectCount(passScoreNumber, formState.questions.length)
     : 0;
-  const problemAreaOptions = useMemo(
+  const problemAreas = useMemo(() => problemAreasQuery.data ?? [], [problemAreasQuery.data]);
+  const rootProblemAreaOptions = useMemo(
     () =>
-      (problemAreasQuery.data ?? [])
-        .filter((area) => area.active)
+      problemAreas
+        .filter((area) => area.active && area.parentId === null)
         .map((area) => ({
           label: area.name,
           value: String(area.id),
         })),
-    [problemAreasQuery.data],
+    [problemAreas],
   );
-  const buildProblemAreaOptions = (
+  const childProblemAreaOptions = useMemo(() => {
+    if (!formState.problemAreaId) {
+      return [];
+    }
+
+    return problemAreas
+      .filter((area) => area.active && area.parentId === Number(formState.problemAreaId))
+      .map((area) => ({
+        label: area.name,
+        value: String(area.id),
+      }));
+  }, [formState.problemAreaId, problemAreas]);
+  const buildRootProblemAreaOptions = (
     selectedProblemAreaId: string,
     selectedProblemAreaName: string | null,
   ) => {
-    const options = [{ label: '영역 선택', value: '' }, ...problemAreaOptions];
+    const options = rootProblemAreaOptions;
     if (
       !selectedProblemAreaId ||
       options.some((option) => option.value === selectedProblemAreaId)
@@ -543,9 +567,7 @@ const ProblemEditor = ({
       return options;
     }
 
-    const selectedArea = (problemAreasQuery.data ?? []).find(
-      (area) => String(area.id) === selectedProblemAreaId,
-    );
+    const selectedArea = problemAreas.find((area) => String(area.id) === selectedProblemAreaId);
     const selectedAreaName = selectedArea?.name ?? selectedProblemAreaName ?? selectedProblemAreaId;
 
     return [
@@ -553,6 +575,32 @@ const ProblemEditor = ({
       {
         disabled: true,
         label: `${selectedAreaName} (미사용)`,
+        value: selectedProblemAreaId,
+      },
+    ];
+  };
+  const buildProblemAreaOptions = (
+    selectedProblemAreaId: string,
+    selectedProblemAreaName: string | null,
+  ) => {
+    const options = childProblemAreaOptions;
+    if (
+      !selectedProblemAreaId ||
+      options.some((option) => option.value === selectedProblemAreaId)
+    ) {
+      return options;
+    }
+
+    const selectedArea = problemAreas.find((area) => String(area.id) === selectedProblemAreaId);
+    const selectedAreaName = selectedArea?.name ?? selectedProblemAreaName ?? selectedProblemAreaId;
+    const isOutsideRoot =
+      selectedArea?.parentId !== null && String(selectedArea?.parentId) !== formState.problemAreaId;
+
+    return [
+      ...options,
+      {
+        disabled: true,
+        label: `${selectedAreaName} (${isOutsideRoot ? '대표 영역 불일치' : '미사용'})`,
         value: selectedProblemAreaId,
       },
     ];
@@ -812,6 +860,34 @@ const ProblemEditor = ({
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending || isUploadingMedia;
+  const handleProblemRootAreaChange = (nextValue: string) => {
+    if (nextValue === formState.problemAreaId) {
+      return;
+    }
+
+    const hasSelectedQuestionArea = formState.questions.some((question) =>
+      question.problemAreaId.trim(),
+    );
+    if (
+      hasSelectedQuestionArea &&
+      !window.confirm(
+        '대표 문제 영역을 변경하면 문항에 선택된 세부 문제 영역이 모두 미선택으로 변경됩니다. 계속하시겠습니까?',
+      )
+    ) {
+      return;
+    }
+
+    setFormState((current) => ({
+      ...current,
+      problemAreaId: nextValue,
+      problemAreaName: null,
+      questions: current.questions.map((question) => ({
+        ...question,
+        problemAreaId: '',
+        problemAreaName: null,
+      })),
+    }));
+  };
 
   return (
     <div className={styles['stackList']}>
@@ -854,6 +930,17 @@ const ProblemEditor = ({
         </div>
 
         <div className={styles['stackListCompact']}>
+          <AdminDropdownField
+            className={styles['problemRootAreaField']}
+            label='대표 문제 영역'
+            onChange={handleProblemRootAreaChange}
+            options={buildRootProblemAreaOptions(
+              formState.problemAreaId,
+              formState.problemAreaName,
+            )}
+            placeholder='대표 영역 선택'
+            value={formState.problemAreaId}
+          />
           <div className={`${styles['compactFieldRow']} ${styles['problemSettingsRow']}`}>
             <div className={styles['compactTextField']}>
               <TextField
@@ -907,6 +994,8 @@ const ProblemEditor = ({
           </label>
         </div>
       </div>
+
+      <div className={styles['problemQuestionDivider']} aria-hidden='true' />
 
       <section className={styles['panel']}>
         <div className={styles['panelToolbar']}>
@@ -1060,7 +1149,8 @@ const ProblemEditor = ({
                       />
                       <AdminDropdownField
                         compact
-                        label='문제 영역'
+                        label='세부 문제 영역'
+                        disabled={!formState.problemAreaId}
                         onChange={(nextValue) => {
                           setFormState((current) => ({
                             ...current,
@@ -1075,6 +1165,7 @@ const ProblemEditor = ({
                           selectedQuestion.problemAreaId,
                           selectedQuestion.problemAreaName,
                         )}
+                        placeholder='세부 영역 선택'
                         value={selectedQuestion.problemAreaId}
                       />
                     </div>

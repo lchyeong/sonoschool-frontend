@@ -49,6 +49,7 @@ const normalizeSortOrder = (value: number | null | undefined, fallback = 0): num
 const normalizePayload = (payload: AdminProblemUpsertPayload): AdminProblemUpsertPayload => {
   return {
     ...payload,
+    problemAreaId: payload.problemAreaId,
     questions: asArray(payload.questions)
       .filter(isPresent)
       .map((question) => ({

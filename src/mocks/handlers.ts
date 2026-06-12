@@ -1074,8 +1074,10 @@ export const handlers = [
       createApiEnvelope([
         {
           id: 1,
-          name: '단순 계산',
-          description: '기본 계산 문항',
+          name: '복부 초음파',
+          description: '복부 문제 강의 묶음',
+          parentId: null,
+          parentName: null,
           sortOrder: 0,
           active: true,
           createdAt: '2026-05-01T00:00:00Z',
@@ -1083,8 +1085,10 @@ export const handlers = [
         },
         {
           id: 2,
-          name: '도플러',
-          description: '도플러 판독 문항',
+          name: '단순 계산',
+          description: '기본 계산 문항',
+          parentId: 1,
+          parentName: '복부 초음파',
           sortOrder: 1,
           active: true,
           createdAt: '2026-05-01T00:00:00Z',
@@ -1102,6 +1106,8 @@ export const handlers = [
         name: isRecord(body) && typeof body['name'] === 'string' ? body['name'] : '새 영역',
         description:
           isRecord(body) && typeof body['description'] === 'string' ? body['description'] : null,
+        parentId: isRecord(body) && typeof body['parentId'] === 'number' ? body['parentId'] : null,
+        parentName: null,
         sortOrder: isRecord(body) && typeof body['sortOrder'] === 'number' ? body['sortOrder'] : 0,
         active: true,
         createdAt: '2026-05-01T00:00:00Z',
@@ -1119,6 +1125,8 @@ export const handlers = [
         name: isRecord(body) && typeof body['name'] === 'string' ? body['name'] : '수정 영역',
         description:
           isRecord(body) && typeof body['description'] === 'string' ? body['description'] : null,
+        parentId: isRecord(body) && typeof body['parentId'] === 'number' ? body['parentId'] : null,
+        parentName: null,
         sortOrder: isRecord(body) && typeof body['sortOrder'] === 'number' ? body['sortOrder'] : 0,
         active: isRecord(body) && typeof body['active'] === 'boolean' ? body['active'] : true,
         createdAt: '2026-05-01T00:00:00Z',
@@ -1149,7 +1157,7 @@ export const handlers = [
         score: 100,
         areaStats: [
           {
-            problemAreaId: 1,
+            problemAreaId: 2,
             problemAreaName: '단순 계산',
             totalCount: 1,
             correctCount: 1,
@@ -1159,7 +1167,7 @@ export const handlers = [
         questionResults: [
           {
             questionId: 5001,
-            problemAreaId: 1,
+            problemAreaId: 2,
             problemAreaName: '단순 계산',
             questionText: '이 결과에 해당하는 상태는?',
             correct: true,

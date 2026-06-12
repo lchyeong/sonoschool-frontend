@@ -70,6 +70,11 @@
   min-width: 720px;
 }
 
+.browserGridTwoColumn {
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  min-width: 560px;
+}
+
 .browserColumn,
 .detailCard,
 .stateCard {
@@ -221,6 +226,15 @@
 .detailTab:hover,
 .detailTab:focus-visible {
   color: #34b29f;
+}
+
+.detailTab:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.detailTab:disabled:hover {
+  color: #9ca3af;
 }
 
 .selectionSummaryRow {
