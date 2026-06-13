@@ -24,7 +24,7 @@ export const fetchAdminProblemAreas = async (activeOnly = false): Promise<AdminP
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '문제 영역을 불러오지 못했습니다.');
+    throw toApiError(error, '문제영역을 불러오지 못했습니다.');
   }
 };
 
@@ -42,7 +42,7 @@ export const createAdminProblemArea = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '문제 영역을 추가하지 못했습니다.');
+    throw toApiError(error, '문제영역을 추가하지 못했습니다.');
   }
 };
 
@@ -61,7 +61,7 @@ export const updateAdminProblemArea = async (
     );
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
-    throw toApiError(error, '문제 영역을 수정하지 못했습니다.');
+    throw toApiError(error, '문제영역을 수정하지 못했습니다.');
   }
 };
 
@@ -69,6 +69,6 @@ export const deleteAdminProblemArea = async (areaId: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/api/v1/admin/problem-areas/${String(areaId)}`);
   } catch (error: unknown) {
-    throw toApiError(error, '문제 영역을 삭제하지 못했습니다.');
+    throw toApiError(error, '문제영역을 삭제하지 못했습니다.');
   }
 };

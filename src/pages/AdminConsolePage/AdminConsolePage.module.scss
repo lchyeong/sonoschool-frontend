@@ -3171,6 +3171,15 @@
   border-bottom: 0;
 }
 
+.problemQuestionBulkToolbar.problemQuestionBulkToolbar {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.problemQuestionBulkToolbar .problemQuestionTitleStack {
+  transform: translateY(3px);
+}
+
 .problemQuestionSummaryBlock {
   display: grid;
   min-width: 0;
@@ -3181,6 +3190,13 @@
   grid-template-columns: minmax(112px, max-content) minmax(220px, 1fr);
   align-items: center;
   column-gap: clamp(var(--space-7), 8vw, 160px);
+}
+
+.problemQuestionCardCollapsed .problemQuestionBulkToolbar .problemQuestionSummaryBlock {
+  grid-template-columns:
+    minmax(112px, max-content) minmax(180px, 1fr)
+    minmax(120px, max-content);
+  column-gap: clamp(var(--space-5), 5vw, 72px);
 }
 
 .problemQuestionTitleStack {
@@ -3200,6 +3216,32 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.problemQuestionCurrentArea {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  justify-items: end;
+  text-align: right;
+}
+
+.problemQuestionCurrentArea span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.problemQuestionCurrentArea strong {
+  max-width: min(28vw, 220px);
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
   line-height: var(--line-height-normal);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3225,6 +3267,91 @@
   gap: var(--space-2);
   align-items: center;
   justify-content: flex-end;
+}
+
+.bulkProblemAreaBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--admin-border);
+  background: color-mix(in srgb, var(--color-brand-main) 5%, #ffffff);
+}
+
+.bulkProblemAreaInfo {
+  display: grid;
+  gap: 4px;
+}
+
+.bulkProblemAreaInfo strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.bulkProblemAreaInfo span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bulkProblemAreaControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.bulkProblemAreaSelect.bulkProblemAreaSelect {
+  width: min(100%, 220px);
+  flex: 0 0 220px;
+}
+
+.bulkProblemAreaCheckbox {
+  position: relative;
+  display: inline-flex;
+  min-width: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.bulkProblemAreaCheckbox input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.bulkProblemAreaCheckboxBox {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #7a9ab1;
+  background: #ffffff;
+}
+
+.bulkProblemAreaCheckbox input:checked + .bulkProblemAreaCheckboxBox {
+  border-color: var(--color-brand-main);
+  background: var(--color-brand-main);
+}
+
+.bulkProblemAreaCheckbox input:focus-visible + .bulkProblemAreaCheckboxBox {
+  outline: 2px solid color-mix(in srgb, var(--color-brand-main) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.bulkProblemAreaCheckboxBox img {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1) drop-shadow(0.45px 0 0 #ffffff) drop-shadow(-0.45px 0 0 #ffffff)
+    drop-shadow(0 0.45px 0 #ffffff);
 }
 
 .problemQuestionOrderControls {
@@ -5686,6 +5813,20 @@
 
   .problemSettingsRow {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .problemQuestionCardCollapsed .problemQuestionBulkToolbar .problemQuestionSummaryBlock {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-2);
+  }
+
+  .problemQuestionCurrentArea {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .problemQuestionCurrentArea strong {
+    max-width: 100%;
   }
 }
 

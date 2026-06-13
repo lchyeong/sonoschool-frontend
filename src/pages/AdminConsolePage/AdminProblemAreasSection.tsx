@@ -61,7 +61,7 @@ const toFormState = (area: AdminProblemArea | null): ProblemAreaFormState => {
 
 const getProblemAreaPathLabel = (area: AdminProblemArea | null): string => {
   if (!area) {
-    return '문제 영역 선택';
+    return '문제영역 선택';
   }
 
   return area.parentName ? `${area.parentName} > ${area.name}` : area.name;
@@ -118,7 +118,7 @@ const ProblemAreaBrowser = ({
     <div className={menuStyles['browserShell']}>
       <div className={classNames(menuStyles['browserGrid'], menuStyles['browserGridTwoColumn'])}>
         {columns.map((columnItems, columnIndex) => {
-          const columnLabel = columnIndex === 0 ? '대표 영역' : '세부 영역';
+          const columnLabel = columnIndex === 0 ? '문제영역 카테고리' : '문제영역';
 
           return (
             <section
@@ -138,7 +138,7 @@ const ProblemAreaBrowser = ({
 
                     return (
                       <button
-                        aria-label={`${area.name} 문제 영역 선택`}
+                        aria-label={`${area.name} 문제영역 선택`}
                         className={classNames(
                           menuStyles['browserOption'],
                           isActive && menuStyles['browserOptionActive'],
@@ -164,7 +164,7 @@ const ProblemAreaBrowser = ({
                 </div>
               ) : (
                 <div className={menuStyles['columnEmpty']}>
-                  {columnIndex === 0 ? '대표 영역 없음' : '세부 영역 없음'}
+                  {columnIndex === 0 ? '문제영역 카테고리 없음' : '문제영역 없음'}
                 </div>
               )}
             </section>
@@ -224,11 +224,12 @@ const AdminProblemAreasSection = () => {
     : -1;
   const editFormState = editDraftState ?? toFormState(selectedArea);
   const isCreateTab = detailTab === 'createRoot' || detailTab === 'createChild';
-  const createAreaKindLabel = detailTab === 'createChild' ? '세부 영역' : '대표 영역';
+  const createAreaKindLabel = detailTab === 'createChild' ? '문제영역' : '문제영역 카테고리';
+  const createAreaObjectParticle = detailTab === 'createChild' ? '을' : '를';
   const createPositionLabel =
     detailTab === 'createChild' && selectedRoot
-      ? `${selectedRoot.name} > 세부 영역`
-      : '대표 영역 목록';
+      ? `${selectedRoot.name} > 문제영역`
+      : '문제영역 카테고리 목록';
 
   const invalidateAreas = async () => {
     await Promise.all([
@@ -240,7 +241,7 @@ const AdminProblemAreasSection = () => {
   const createMutation = useMutation({
     mutationFn: async (state: ProblemAreaFormState) => {
       if (detailTab === 'createChild' && resolvedCreateParentId === null) {
-        throw new Error('세부 영역을 추가할 대표 영역을 먼저 선택해 주세요.');
+        throw new Error('문제영역을 추가할 문제영역 카테고리를 먼저 선택해 주세요.');
       }
 
       const name = state.name.trim();
@@ -259,7 +260,7 @@ const AdminProblemAreasSection = () => {
     },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '문제 영역을 추가하지 못했습니다.',
+        message: error instanceof Error ? error.message : '문제영역을 추가하지 못했습니다.',
         variant: 'error',
       });
     },
@@ -269,19 +270,22 @@ const AdminProblemAreasSection = () => {
       setCreateFormState(INITIAL_FORM_STATE);
       setDetailTab('edit');
       setEditDraftState(null);
-      showToast({ message: `${createAreaKindLabel}을 추가했습니다.`, variant: 'success' });
+      showToast({
+        message: `${createAreaKindLabel}${createAreaObjectParticle} 추가했습니다.`,
+        variant: 'success',
+      });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async (state: ProblemAreaFormState) => {
       if (!selectedArea) {
-        throw new Error('수정할 문제 영역을 선택해 주세요.');
+        throw new Error('수정할 문제영역을 선택해 주세요.');
       }
 
       const name = state.name.trim();
       if (!name) {
-        throw new Error('문제 영역명을 입력해 주세요.');
+        throw new Error('문제영역명을 입력해 주세요.');
       }
 
       return updateAdminProblemArea(selectedArea.id, {
@@ -294,7 +298,7 @@ const AdminProblemAreasSection = () => {
     },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '문제 영역을 수정하지 못했습니다.',
+        message: error instanceof Error ? error.message : '문제영역을 수정하지 못했습니다.',
         variant: 'error',
       });
     },
@@ -302,14 +306,14 @@ const AdminProblemAreasSection = () => {
       await invalidateAreas();
       setSelectedAreaId(area.id);
       setEditDraftState(null);
-      showToast({ message: '문제 영역을 수정했습니다.', variant: 'success' });
+      showToast({ message: '문제영역을 수정했습니다.', variant: 'success' });
     },
   });
 
   const reorderMutation = useMutation({
     mutationFn: async (direction: 'up' | 'down') => {
       if (!selectedArea) {
-        throw new Error('이동할 문제 영역을 선택해 주세요.');
+        throw new Error('이동할 문제영역을 선택해 주세요.');
       }
 
       const currentIndex = selectedSiblingAreas.findIndex((area) => area.id === selectedArea.id);
@@ -335,21 +339,21 @@ const AdminProblemAreasSection = () => {
     },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '문제 영역 순서를 변경하지 못했습니다.',
+        message: error instanceof Error ? error.message : '문제영역 순서를 변경하지 못했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
       await invalidateAreas();
       setEditDraftState(null);
-      showToast({ message: '문제 영역 순서를 변경했습니다.', variant: 'success' });
+      showToast({ message: '문제영역 순서를 변경했습니다.', variant: 'success' });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!selectedArea) {
-        throw new Error('삭제할 문제 영역을 선택해 주세요.');
+        throw new Error('삭제할 문제영역을 선택해 주세요.');
       }
 
       await deleteAdminProblemArea(selectedArea.id);
@@ -357,7 +361,7 @@ const AdminProblemAreasSection = () => {
     },
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '문제 영역을 삭제하지 못했습니다.',
+        message: error instanceof Error ? error.message : '문제영역을 삭제하지 못했습니다.',
         variant: 'error',
       });
     },
@@ -365,7 +369,7 @@ const AdminProblemAreasSection = () => {
       await invalidateAreas();
       setSelectedAreaId(parentId);
       setEditDraftState(null);
-      showToast({ message: '문제 영역을 삭제했습니다.', variant: 'success' });
+      showToast({ message: '문제영역을 삭제했습니다.', variant: 'success' });
     },
   });
 
@@ -389,7 +393,7 @@ const AdminProblemAreasSection = () => {
     if (areasQuery.isPending) {
       return (
         <div className={menuStyles['stateCard']}>
-          <p className={menuStyles['stateTitle']}>문제 영역을 불러오는 중입니다.</p>
+          <p className={menuStyles['stateTitle']}>문제영역을 불러오는 중입니다.</p>
         </div>
       );
     }
@@ -397,7 +401,7 @@ const AdminProblemAreasSection = () => {
     if (areasQuery.isError) {
       return (
         <div className={menuStyles['stateCard']}>
-          <p className={menuStyles['stateTitle']}>문제 영역을 불러오지 못했습니다.</p>
+          <p className={menuStyles['stateTitle']}>문제영역을 불러오지 못했습니다.</p>
           <p className={menuStyles['stateDescription']}>서버 응답을 다시 확인해 주세요.</p>
         </div>
       );
@@ -406,9 +410,9 @@ const AdminProblemAreasSection = () => {
     if (!areas.length) {
       return (
         <div className={menuStyles['stateCard']}>
-          <p className={menuStyles['stateTitle']}>등록된 문제 영역이 없습니다.</p>
+          <p className={menuStyles['stateTitle']}>등록된 문제영역이 없습니다.</p>
           <p className={menuStyles['stateDescription']}>
-            대표 영역 추가 탭에서 먼저 추가해 주세요.
+            문제영역 카테고리 추가 탭에서 먼저 추가해 주세요.
           </p>
         </div>
       );
@@ -428,7 +432,7 @@ const AdminProblemAreasSection = () => {
   return (
     <div className={menuStyles['workspace']}>
       <section className={menuStyles['currentCategoryBar']}>
-        <p className={menuStyles['currentCategoryLabel']}>현재 문제 영역</p>
+        <p className={menuStyles['currentCategoryLabel']}>현재 문제영역</p>
         <div className={menuStyles['currentCategoryValue']}>
           <AdminHierarchyPath path={getProblemAreaPathLabel(selectedArea)} />
         </div>
@@ -438,7 +442,7 @@ const AdminProblemAreasSection = () => {
         <section className={menuStyles['browserPanel']}>{renderBrowserContent()}</section>
 
         <section className={menuStyles['detailPanel']}>
-          <div className={menuStyles['detailTabs']} role='tablist' aria-label='문제 영역 작업'>
+          <div className={menuStyles['detailTabs']} role='tablist' aria-label='문제영역 작업'>
             <button
               aria-selected={detailTab === 'edit'}
               className={classNames(
@@ -451,7 +455,7 @@ const AdminProblemAreasSection = () => {
               role='tab'
               type='button'
             >
-              문제 영역 수정
+              문제영역 수정
             </button>
             <button
               aria-selected={detailTab === 'createRoot'}
@@ -465,7 +469,7 @@ const AdminProblemAreasSection = () => {
               role='tab'
               type='button'
             >
-              대표 영역 추가
+              문제영역 카테고리 추가
             </button>
             <button
               aria-selected={detailTab === 'createChild'}
@@ -480,20 +484,20 @@ const AdminProblemAreasSection = () => {
               role='tab'
               type='button'
             >
-              세부 영역 추가
+              문제영역 추가
             </button>
           </div>
 
           {detailTab === 'edit' ? (
             <article className={menuStyles['detailCard']}>
               <div className={menuStyles['cardHeader']}>
-                <h3 className={menuStyles['cardTitle']}>선택한 문제 영역 수정</h3>
+                <h3 className={menuStyles['cardTitle']}>선택한 문제영역 수정</h3>
               </div>
 
               {selectedArea ? (
                 <>
                   <div className={menuStyles['selectionSummaryRow']}>
-                    <p className={menuStyles['selectionSummaryLabel']}>현재 선택된 문제 영역</p>
+                    <p className={menuStyles['selectionSummaryLabel']}>현재 선택된 문제영역</p>
                     <div className={menuStyles['selectionSummaryValueInline']}>
                       <AdminHierarchyPath path={getProblemAreaPathLabel(selectedArea)} />
                     </div>
@@ -541,7 +545,7 @@ const AdminProblemAreasSection = () => {
                         }}
                         type='button'
                       >
-                        {updateMutation.isPending ? '저장 중...' : '문제 영역 수정 저장'}
+                        {updateMutation.isPending ? '저장 중...' : '문제영역 수정 저장'}
                       </Button>
                       <Button
                         disabled={reorderMutation.isPending || selectedSiblingIndex <= 0}
@@ -581,7 +585,7 @@ const AdminProblemAreasSection = () => {
                   </div>
                 </>
               ) : (
-                <div className={menuStyles['inlineState']}>수정할 문제 영역을 선택해 주세요.</div>
+                <div className={menuStyles['inlineState']}>수정할 문제영역을 선택해 주세요.</div>
               )}
             </article>
           ) : isCreateTab ? (

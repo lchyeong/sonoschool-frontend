@@ -74,7 +74,7 @@ export const sectionContent = {
   problemAreas: {
     description: '',
     eyebrow: '',
-    title: '문제 영역 관리',
+    title: '문제영역 관리',
   },
   programs: {
     description: '',

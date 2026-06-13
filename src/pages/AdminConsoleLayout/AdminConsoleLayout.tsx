@@ -48,7 +48,7 @@ const adminNavigationItems = [
     to: routePaths.adminProgramMenus,
   },
   {
-    label: '문제 영역 관리',
+    label: '문제영역 관리',
     to: routePaths.adminProblemAreas,
   },
   {

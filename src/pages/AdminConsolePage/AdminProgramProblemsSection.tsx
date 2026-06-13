@@ -39,6 +39,7 @@ import type {
   AdminProblemQuestionType,
   AdminProblemUpsertPayload,
 } from '@/types/adminProblems';
+import { classNames } from '@/utils/classNames';
 import { formatQuizOptionLabel } from '@/utils/quizOptionLabel';
 
 import styles from './AdminConsolePage.module.scss';
@@ -263,6 +264,11 @@ const hasQuestionMedia = (
   return question.mediaAssetId !== null || Boolean(question.mediaUrl.trim());
 };
 
+const summarizeProblemQuestionText = (value: string | null | undefined): string => {
+  const normalized = (value ?? '').replace(/\s+/g, ' ').trim();
+  return normalized || '문항 내용을 입력해 주세요.';
+};
+
 const createFormState = (problem: AdminProblem | null): ProblemFormState => {
   if (!problem) {
     return EMPTY_FORM;
@@ -352,7 +358,7 @@ const validateForm = (formState: ProblemFormState): string | null => {
   }
 
   if (!formState.problemAreaId.trim()) {
-    return '대표 문제 영역을 선택해 주세요.';
+    return '문제영역 카테고리를 선택해 주세요.';
   }
 
   for (const [questionIndex, question] of formState.questions.entries()) {
@@ -361,7 +367,7 @@ const validateForm = (formState: ProblemFormState): string | null => {
     }
 
     if (!question.problemAreaId.trim()) {
-      return `${String(questionIndex + 1)}번 문항의 세부 문제 영역을 선택해 주세요.`;
+      return `${String(questionIndex + 1)}번 문항의 문제영역을 선택해 주세요.`;
     }
 
     if (question.options.length < 2) {
@@ -507,6 +513,11 @@ const ProblemEditor = ({
   const [formState, setFormState] = useState<ProblemFormState>(() => createFormState(problem));
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [draggedQuestionIndex, setDraggedQuestionIndex] = useState<number | null>(null);
+  const [isBulkProblemAreaMode, setIsBulkProblemAreaMode] = useState(false);
+  const [bulkProblemAreaQuestionIndexes, setBulkProblemAreaQuestionIndexes] = useState<number[]>(
+    [],
+  );
+  const [bulkProblemAreaValue, setBulkProblemAreaValue] = useState('');
   const dragStartQuestionsRef = useRef<ProblemQuestionFormState[] | null>(null);
   const latestQuestionsRef = useRef(formState.questions);
   const dragAutoScroller = useMemo(() => createViewportDragAutoScroller(), []);
@@ -514,6 +525,9 @@ const ProblemEditor = ({
   useEffect(() => {
     setFormState(createFormState(problem));
     setDraggedQuestionIndex(null);
+    setIsBulkProblemAreaMode(false);
+    setBulkProblemAreaQuestionIndexes([]);
+    setBulkProblemAreaValue('');
     dragStartQuestionsRef.current = null;
   }, [problem]);
 
@@ -600,11 +614,18 @@ const ProblemEditor = ({
       ...options,
       {
         disabled: true,
-        label: `${selectedAreaName} (${isOutsideRoot ? '대표 영역 불일치' : '미사용'})`,
+        label: `${selectedAreaName} (${isOutsideRoot ? '문제영역 카테고리 불일치' : '미사용'})`,
         value: selectedProblemAreaId,
       },
     ];
   };
+  const bulkProblemAreaSelectedQuestionIndexes = bulkProblemAreaQuestionIndexes
+    .filter((questionIndex) => questionIndex >= 0 && questionIndex < formState.questions.length)
+    .sort((left, right) => left - right);
+  const bulkProblemAreaSelectedQuestionIndexSet = new Set(bulkProblemAreaSelectedQuestionIndexes);
+  const allBulkProblemAreaQuestionsSelected =
+    formState.questions.length > 0 &&
+    bulkProblemAreaSelectedQuestionIndexes.length === formState.questions.length;
 
   const refreshProblem = async () => {
     await Promise.all([
@@ -860,6 +881,65 @@ const ProblemEditor = ({
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending || isUploadingMedia;
+  const enterBulkProblemAreaMode = () => {
+    if (!formState.problemAreaId) {
+      showToast({ message: '문제영역 카테고리를 먼저 선택해 주세요.', variant: 'error' });
+      return;
+    }
+
+    setIsBulkProblemAreaMode(true);
+    setBulkProblemAreaQuestionIndexes([]);
+    setBulkProblemAreaValue('');
+  };
+
+  const cancelBulkProblemAreaMode = () => {
+    setIsBulkProblemAreaMode(false);
+    setBulkProblemAreaQuestionIndexes([]);
+    setBulkProblemAreaValue('');
+  };
+
+  const toggleBulkProblemAreaQuestion = (questionIndex: number) => {
+    setBulkProblemAreaQuestionIndexes((current) =>
+      current.includes(questionIndex)
+        ? current.filter((index) => index !== questionIndex)
+        : [...current, questionIndex].sort((left, right) => left - right),
+    );
+  };
+
+  const applyBulkProblemArea = () => {
+    const targetProblemAreaId = bulkProblemAreaValue.trim();
+
+    if (!formState.problemAreaId) {
+      showToast({ message: '문제영역 카테고리를 먼저 선택해 주세요.', variant: 'error' });
+      return;
+    }
+
+    if (!bulkProblemAreaSelectedQuestionIndexes.length) {
+      showToast({ message: '변경할 문항을 선택해 주세요.', variant: 'error' });
+      return;
+    }
+
+    if (!targetProblemAreaId) {
+      showToast({ message: '적용할 문제영역을 선택해 주세요.', variant: 'error' });
+      return;
+    }
+
+    const selectedQuestionIndexSet = new Set(bulkProblemAreaSelectedQuestionIndexes);
+    setFormState((current) => ({
+      ...current,
+      questions: current.questions.map((question, questionIndex) =>
+        selectedQuestionIndexSet.has(questionIndex)
+          ? { ...question, problemAreaId: targetProblemAreaId, problemAreaName: null }
+          : question,
+      ),
+    }));
+    setBulkProblemAreaQuestionIndexes([]);
+    showToast({
+      message: `선택한 문항 ${String(bulkProblemAreaSelectedQuestionIndexes.length)}개의 문제영역을 변경했습니다.`,
+      variant: 'success',
+    });
+  };
+
   const handleProblemRootAreaChange = (nextValue: string) => {
     if (nextValue === formState.problemAreaId) {
       return;
@@ -871,7 +951,7 @@ const ProblemEditor = ({
     if (
       hasSelectedQuestionArea &&
       !window.confirm(
-        '대표 문제 영역을 변경하면 문항에 선택된 세부 문제 영역이 모두 미선택으로 변경됩니다. 계속하시겠습니까?',
+        '문제영역 카테고리를 변경하면 문항에 선택된 문제영역이 모두 미선택으로 변경됩니다. 계속하시겠습니까?',
       )
     ) {
       return;
@@ -887,6 +967,7 @@ const ProblemEditor = ({
         problemAreaName: null,
       })),
     }));
+    cancelBulkProblemAreaMode();
   };
 
   return (
@@ -932,13 +1013,13 @@ const ProblemEditor = ({
         <div className={styles['stackListCompact']}>
           <AdminDropdownField
             className={styles['problemRootAreaField']}
-            label='대표 문제 영역'
+            label='문제영역 카테고리'
             onChange={handleProblemRootAreaChange}
             options={buildRootProblemAreaOptions(
               formState.problemAreaId,
               formState.problemAreaName,
             )}
-            placeholder='대표 영역 선택'
+            placeholder='문제영역 카테고리 선택'
             value={formState.problemAreaId}
           />
           <div className={`${styles['compactFieldRow']} ${styles['problemSettingsRow']}`}>
@@ -1001,24 +1082,52 @@ const ProblemEditor = ({
         <div className={styles['panelToolbar']}>
           <div>
             <h3 className={styles['panelTitle']}>문항 편집</h3>
-            <p className={styles['metaText']}>전체 문항을 아래로 펼쳐서 한 번에 편집합니다.</p>
+            <p className={styles['metaText']}>
+              {isBulkProblemAreaMode
+                ? '체크한 문항의 문제영역을 한 번에 변경합니다.'
+                : '전체 문항을 아래로 펼쳐서 한 번에 편집합니다.'}
+            </p>
           </div>
-          <Button
-            onClick={() => {
-              setFormState((current) => {
-                const nextQuestions = [...current.questions, createEmptyQuestion()];
-                return {
-                  ...current,
-                  questions: nextQuestions,
-                };
-              });
-            }}
-            size='sm'
-            type='button'
-            variant='secondary'
-          >
-            문항 추가
-          </Button>
+          <div className={styles['actionRow']}>
+            {!isBulkProblemAreaMode ? (
+              <>
+                <Button
+                  disabled={!formState.problemAreaId}
+                  onClick={enterBulkProblemAreaMode}
+                  size='sm'
+                  type='button'
+                  variant='secondary'
+                >
+                  영역 일괄 변경
+                </Button>
+                <Button
+                  onClick={() => {
+                    setFormState((current) => {
+                      const nextQuestions = [...current.questions, createEmptyQuestion()];
+                      return {
+                        ...current,
+                        questions: nextQuestions,
+                      };
+                    });
+                  }}
+                  size='sm'
+                  type='button'
+                  variant='secondary'
+                >
+                  문항 추가
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={cancelBulkProblemAreaMode}
+                size='sm'
+                type='button'
+                variant='secondary'
+              >
+                일괄 변경 취소
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className={styles['quizQuestionWorkspace']}>
@@ -1035,233 +1144,413 @@ const ProblemEditor = ({
                   dragAutoScroller.update(event.clientY);
                 }}
               >
-                {formState.questions.map((selectedQuestion, selectedQuestionIndex) => (
-                  <article
-                    className={styles['quizQuestionEditCard']}
-                    data-dragging={draggedQuestionIndex === selectedQuestionIndex}
-                    key={`question-editor-${String(selectedQuestionIndex)}`}
-                    onDragOver={(event) => {
-                      handleQuestionDragOver(event, selectedQuestionIndex);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      handleQuestionDragEnd();
-                    }}
-                  >
-                    <div className={styles['panelToolbar']}>
-                      <div>
-                        <h4 className={styles['itemTitle']}>
-                          문항 {String(selectedQuestionIndex + 1)} 상세 편집
-                        </h4>
-                        <p className={styles['metaText']}>
-                          {questionTypeLabel[selectedQuestion.questionType]} · 보기{' '}
-                          {String(selectedQuestion.options.length)}개
-                        </p>
+                {isBulkProblemAreaMode ? (
+                  <div className={styles['bulkProblemAreaBar']}>
+                    <div className={styles['bulkProblemAreaInfo']}>
+                      <strong>
+                        선택 {String(bulkProblemAreaSelectedQuestionIndexes.length)}개
+                      </strong>
+                      <span>선택한 문항에 적용할 문제영역을 고르세요.</span>
+                    </div>
+                    <div className={styles['bulkProblemAreaControls']}>
+                      <Button
+                        onClick={() => {
+                          setBulkProblemAreaQuestionIndexes(
+                            Array.from({ length: formState.questions.length }, (_, index) => index),
+                          );
+                        }}
+                        size='sm'
+                        type='button'
+                        variant='secondary'
+                      >
+                        {allBulkProblemAreaQuestionsSelected ? '전체 선택됨' : '전체 선택'}
+                      </Button>
+                      <Button
+                        disabled={!bulkProblemAreaSelectedQuestionIndexes.length}
+                        onClick={() => {
+                          setBulkProblemAreaQuestionIndexes([]);
+                        }}
+                        size='sm'
+                        type='button'
+                        variant='secondary'
+                      >
+                        선택 해제
+                      </Button>
+                      <AdminDropdownField
+                        className={styles['bulkProblemAreaSelect']}
+                        compact
+                        disabled={!formState.problemAreaId}
+                        label='변경할 문제영역'
+                        onChange={setBulkProblemAreaValue}
+                        options={buildProblemAreaOptions(bulkProblemAreaValue, null)}
+                        placeholder='문제영역 선택'
+                        value={bulkProblemAreaValue}
+                      />
+                      <Button
+                        disabled={
+                          !bulkProblemAreaSelectedQuestionIndexes.length || !bulkProblemAreaValue
+                        }
+                        onClick={applyBulkProblemArea}
+                        size='sm'
+                        type='button'
+                      >
+                        선택 문항에 적용
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                {formState.questions.map((selectedQuestion, selectedQuestionIndex) => {
+                  const isBulkProblemAreaQuestionSelected =
+                    bulkProblemAreaSelectedQuestionIndexSet.has(selectedQuestionIndex);
+                  const currentQuestionProblemAreaLabel = selectedQuestion.problemAreaId
+                    ? (problemAreas.find(
+                        (area) => String(area.id) === selectedQuestion.problemAreaId,
+                      )?.name ??
+                      selectedQuestion.problemAreaName ??
+                      selectedQuestion.problemAreaId)
+                    : '미선택';
+
+                  if (isBulkProblemAreaMode) {
+                    return (
+                      <article
+                        className={classNames(
+                          styles['panel'],
+                          styles['problemQuestionCard'],
+                          styles['problemQuestionCardCollapsed'],
+                        )}
+                        key={`question-bulk-editor-${String(selectedQuestionIndex)}`}
+                      >
+                        <div
+                          className={classNames(
+                            styles['panelToolbar'],
+                            styles['problemQuestionBulkToolbar'],
+                          )}
+                        >
+                          <label className={styles['bulkProblemAreaCheckbox']}>
+                            <input
+                              aria-label={`문항 ${String(selectedQuestionIndex + 1)} 선택`}
+                              checked={isBulkProblemAreaQuestionSelected}
+                              onChange={() => {
+                                toggleBulkProblemAreaQuestion(selectedQuestionIndex);
+                              }}
+                              type='checkbox'
+                            />
+                            <span
+                              aria-hidden='true'
+                              className={styles['bulkProblemAreaCheckboxBox']}
+                            >
+                              {isBulkProblemAreaQuestionSelected ? (
+                                <img alt='' src={checkIconSrc} />
+                              ) : null}
+                            </span>
+                          </label>
+                          <div className={styles['problemQuestionSummaryBlock']}>
+                            <div className={styles['problemQuestionTitleStack']}>
+                              <h4 className={styles['panelTitle']}>
+                                문항 {String(selectedQuestionIndex + 1)}
+                              </h4>
+                              <p className={styles['metaText']}>
+                                {questionTypeLabel[selectedQuestion.questionType]} · 보기{' '}
+                                {String(selectedQuestion.options.length)}개
+                              </p>
+                            </div>
+                            <p
+                              className={styles['problemQuestionCollapsedSummary']}
+                              title={summarizeProblemQuestionText(selectedQuestion.questionText)}
+                            >
+                              {summarizeProblemQuestionText(selectedQuestion.questionText)}
+                            </p>
+                            <div
+                              className={styles['problemQuestionCurrentArea']}
+                              title={`현재 문제영역: ${currentQuestionProblemAreaLabel}`}
+                            >
+                              <span>현재 문제영역</span>
+                              <strong>{currentQuestionProblemAreaLabel}</strong>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  }
+
+                  return (
+                    <article
+                      className={styles['quizQuestionEditCard']}
+                      data-dragging={draggedQuestionIndex === selectedQuestionIndex}
+                      key={`question-editor-${String(selectedQuestionIndex)}`}
+                      onDragOver={(event) => {
+                        handleQuestionDragOver(event, selectedQuestionIndex);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        handleQuestionDragEnd();
+                      }}
+                    >
+                      <div className={styles['panelToolbar']}>
+                        <div>
+                          <h4 className={styles['itemTitle']}>
+                            문항 {String(selectedQuestionIndex + 1)} 상세 편집
+                          </h4>
+                          <p className={styles['metaText']}>
+                            {questionTypeLabel[selectedQuestion.questionType]} · 보기{' '}
+                            {String(selectedQuestion.options.length)}개
+                          </p>
+                        </div>
+                        <div className={styles['actionRow']}>
+                          <Button
+                            disabled={selectedQuestionIndex === 0}
+                            onClick={() => {
+                              moveQuestion(selectedQuestionIndex, selectedQuestionIndex - 1);
+                            }}
+                            size='sm'
+                            type='button'
+                            variant='secondary'
+                          >
+                            위로
+                          </Button>
+                          <Button
+                            disabled={selectedQuestionIndex === formState.questions.length - 1}
+                            onClick={() => {
+                              moveQuestion(selectedQuestionIndex, selectedQuestionIndex + 1);
+                            }}
+                            size='sm'
+                            type='button'
+                            variant='secondary'
+                          >
+                            아래로
+                          </Button>
+                          <Button
+                            disabled={formState.questions.length === 1}
+                            onClick={() => {
+                              setFormState((current) => ({
+                                ...current,
+                                questions: current.questions.filter(
+                                  (_, index) => index !== selectedQuestionIndex,
+                                ),
+                              }));
+                            }}
+                            size='sm'
+                            type='button'
+                            variant='danger'
+                          >
+                            문항 삭제
+                          </Button>
+                          <button
+                            aria-label={`${String(selectedQuestionIndex + 1)}번 문항 드래그 이동`}
+                            className={`${styles['quizQuestionOrderButton']} ${styles['quizQuestionDragHandle']}`}
+                            draggable
+                            onDragEnd={handleQuestionDragEnd}
+                            onDragStart={(event) => {
+                              handleQuestionDragStart(event, selectedQuestionIndex);
+                            }}
+                            title='드래그해서 문항 순서 변경'
+                            type='button'
+                          >
+                            <span className={styles['quizQuestionGripIcon']} aria-hidden='true' />
+                          </button>
+                        </div>
                       </div>
-                      <div className={styles['actionRow']}>
-                        <Button
-                          disabled={selectedQuestionIndex === 0}
-                          onClick={() => {
-                            moveQuestion(selectedQuestionIndex, selectedQuestionIndex - 1);
-                          }}
-                          size='sm'
-                          type='button'
-                          variant='secondary'
-                        >
-                          위로
-                        </Button>
-                        <Button
-                          disabled={selectedQuestionIndex === formState.questions.length - 1}
-                          onClick={() => {
-                            moveQuestion(selectedQuestionIndex, selectedQuestionIndex + 1);
-                          }}
-                          size='sm'
-                          type='button'
-                          variant='secondary'
-                        >
-                          아래로
-                        </Button>
-                        <Button
-                          disabled={formState.questions.length === 1}
-                          onClick={() => {
+
+                      <TextAreaField
+                        label='문항 내용'
+                        name={`problem-question-text-${String(selectedQuestionIndex)}`}
+                        onChange={(event) => {
+                          setFormState((current) => ({
+                            ...current,
+                            questions: current.questions.map((item, index) =>
+                              index === selectedQuestionIndex
+                                ? { ...item, questionText: event.target.value }
+                                : item,
+                            ),
+                          }));
+                        }}
+                        rows={3}
+                        value={selectedQuestion.questionText}
+                      />
+
+                      <div className={styles['compactFieldRow']}>
+                        <AdminDropdownField
+                          compact
+                          label='문항 유형'
+                          onChange={(nextValue) => {
                             setFormState((current) => ({
                               ...current,
-                              questions: current.questions.filter(
-                                (_, index) => index !== selectedQuestionIndex,
+                              questions: current.questions.map((item, index) =>
+                                index === selectedQuestionIndex
+                                  ? { ...item, questionType: nextValue as AdminProblemQuestionType }
+                                  : item,
                               ),
                             }));
                           }}
-                          size='sm'
-                          type='button'
-                          variant='danger'
-                        >
-                          문항 삭제
-                        </Button>
-                        <button
-                          aria-label={`${String(selectedQuestionIndex + 1)}번 문항 드래그 이동`}
-                          className={`${styles['quizQuestionOrderButton']} ${styles['quizQuestionDragHandle']}`}
-                          draggable
-                          onDragEnd={handleQuestionDragEnd}
-                          onDragStart={(event) => {
-                            handleQuestionDragStart(event, selectedQuestionIndex);
+                          options={questionTypeOptions}
+                          value={selectedQuestion.questionType}
+                        />
+                        <AdminDropdownField
+                          compact
+                          label='문제영역'
+                          disabled={!formState.problemAreaId}
+                          onChange={(nextValue) => {
+                            setFormState((current) => ({
+                              ...current,
+                              questions: current.questions.map((item, index) =>
+                                index === selectedQuestionIndex
+                                  ? { ...item, problemAreaId: nextValue, problemAreaName: null }
+                                  : item,
+                              ),
+                            }));
                           }}
-                          title='드래그해서 문항 순서 변경'
-                          type='button'
-                        >
-                          <span className={styles['quizQuestionGripIcon']} aria-hidden='true' />
-                        </button>
+                          options={buildProblemAreaOptions(
+                            selectedQuestion.problemAreaId,
+                            selectedQuestion.problemAreaName,
+                          )}
+                          placeholder='문제영역 선택'
+                          value={selectedQuestion.problemAreaId}
+                        />
                       </div>
-                    </div>
 
-                    <TextAreaField
-                      label='문항 내용'
-                      name={`problem-question-text-${String(selectedQuestionIndex)}`}
-                      onChange={(event) => {
-                        setFormState((current) => ({
-                          ...current,
-                          questions: current.questions.map((item, index) =>
-                            index === selectedQuestionIndex
-                              ? { ...item, questionText: event.target.value }
-                              : item,
-                          ),
-                        }));
-                      }}
-                      rows={3}
-                      value={selectedQuestion.questionText}
-                    />
+                      <div className={styles['cellStack']}>
+                        <span className={styles['cellPrimary']}>문항 미디어</span>
+                        <span className={styles['cellSecondary']}>
+                          이미지 또는 짧은 영상을 선택하면 저장 시 S3에 업로드됩니다.
+                        </span>
+                        <AdminFileDropZone
+                          accept='image/*,video/*'
+                          id={`problem-question-media-${String(selectedQuestionIndex)}`}
+                          label='문항 미디어 파일'
+                          name={`problem-question-media-${String(selectedQuestionIndex)}`}
+                          onFilesSelected={(files) => {
+                            const file = files[0];
 
-                    <div className={styles['compactFieldRow']}>
-                      <AdminDropdownField
-                        compact
-                        label='문항 유형'
-                        onChange={(nextValue) => {
-                          setFormState((current) => ({
-                            ...current,
-                            questions: current.questions.map((item, index) =>
-                              index === selectedQuestionIndex
-                                ? { ...item, questionType: nextValue as AdminProblemQuestionType }
-                                : item,
-                            ),
-                          }));
-                        }}
-                        options={questionTypeOptions}
-                        value={selectedQuestion.questionType}
-                      />
-                      <AdminDropdownField
-                        compact
-                        label='세부 문제 영역'
-                        disabled={!formState.problemAreaId}
-                        onChange={(nextValue) => {
-                          setFormState((current) => ({
-                            ...current,
-                            questions: current.questions.map((item, index) =>
-                              index === selectedQuestionIndex
-                                ? { ...item, problemAreaId: nextValue, problemAreaName: null }
-                                : item,
-                            ),
-                          }));
-                        }}
-                        options={buildProblemAreaOptions(
-                          selectedQuestion.problemAreaId,
-                          selectedQuestion.problemAreaName,
-                        )}
-                        placeholder='세부 영역 선택'
-                        value={selectedQuestion.problemAreaId}
-                      />
-                    </div>
-
-                    <div className={styles['cellStack']}>
-                      <span className={styles['cellPrimary']}>문항 미디어</span>
-                      <span className={styles['cellSecondary']}>
-                        이미지 또는 짧은 영상을 선택하면 저장 시 S3에 업로드됩니다.
-                      </span>
-                      <AdminFileDropZone
-                        accept='image/*,video/*'
-                        id={`problem-question-media-${String(selectedQuestionIndex)}`}
-                        label='문항 미디어 파일'
-                        name={`problem-question-media-${String(selectedQuestionIndex)}`}
-                        onFilesSelected={(files) => {
-                          const file = files[0];
-
-                          setFormState((current) => ({
-                            ...current,
-                            questions: current.questions.map((item, index) =>
-                              index === selectedQuestionIndex
-                                ? {
-                                    ...item,
-                                    mediaAssetId: null,
-                                    mediaFile: file,
-                                    mediaPreviewUrl: URL.createObjectURL(file),
-                                    mediaType: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
-                                    mediaUrl: '',
-                                  }
-                                : item,
-                            ),
-                          }));
-                        }}
-                        onClear={
-                          selectedQuestion.mediaFile
-                            ? () => {
+                            setFormState((current) => ({
+                              ...current,
+                              questions: current.questions.map((item, index) =>
+                                index === selectedQuestionIndex
+                                  ? {
+                                      ...item,
+                                      mediaAssetId: null,
+                                      mediaFile: file,
+                                      mediaPreviewUrl: URL.createObjectURL(file),
+                                      mediaType: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
+                                      mediaUrl: '',
+                                    }
+                                  : item,
+                              ),
+                            }));
+                          }}
+                          onClear={
+                            selectedQuestion.mediaFile
+                              ? () => {
+                                  setFormState((current) => ({
+                                    ...current,
+                                    questions: current.questions.map((item, index) =>
+                                      index === selectedQuestionIndex
+                                        ? {
+                                            ...item,
+                                            mediaFile: null,
+                                            mediaPreviewUrl: '',
+                                            mediaType:
+                                              item.mediaAssetId || item.mediaUrl
+                                                ? item.mediaType
+                                                : null,
+                                          }
+                                        : item,
+                                    ),
+                                  }));
+                                }
+                              : undefined
+                          }
+                          buttonLabel={
+                            selectedQuestion.mediaFile ||
+                            selectedQuestion.mediaAssetId ||
+                            selectedQuestion.mediaUrl
+                              ? '파일 변경'
+                              : '파일 선택'
+                          }
+                          selectedLabel={
+                            selectedQuestion.mediaFile?.name ??
+                            (selectedQuestion.mediaAssetId || selectedQuestion.mediaUrl
+                              ? '업로드된 미디어'
+                              : undefined)
+                          }
+                          selectedMeta={
+                            selectedQuestion.mediaFile
+                              ? formatFileSizeLabel(selectedQuestion.mediaFile.size)
+                              : null
+                          }
+                        />
+                        <div className={styles['curriculumStatGrid']}>
+                          <div className={styles['curriculumStatCard']}>
+                            <span className={styles['curriculumStatLabel']}>현재 상태</span>
+                            <strong className={styles['curriculumStatValue']}>
+                              {selectedQuestion.mediaFile
+                                ? '업로드 대기'
+                                : selectedQuestion.mediaAssetId || selectedQuestion.mediaUrl
+                                  ? '업로드 완료'
+                                  : '파일 미선택'}
+                            </strong>
+                          </div>
+                        </div>
+                        {selectedQuestion.mediaType &&
+                        (selectedQuestion.mediaPreviewUrl || selectedQuestion.mediaUrl)
+                          ? renderQuestionMediaPreview(
+                              selectedQuestion.mediaType,
+                              selectedQuestion.mediaPreviewUrl || selectedQuestion.mediaUrl,
+                              `${String(selectedQuestionIndex + 1)}번 문항 미디어 미리보기`,
+                            )
+                          : null}
+                        {selectedQuestion.mediaType || selectedQuestion.mediaUrl ? (
+                          <div className={styles['actionRow']}>
+                            <Button
+                              onClick={() => {
                                 setFormState((current) => ({
                                   ...current,
                                   questions: current.questions.map((item, index) =>
                                     index === selectedQuestionIndex
                                       ? {
                                           ...item,
+                                          mediaAssetId: null,
                                           mediaFile: null,
                                           mediaPreviewUrl: '',
-                                          mediaType:
-                                            item.mediaAssetId || item.mediaUrl
-                                              ? item.mediaType
-                                              : null,
+                                          mediaType: null,
+                                          mediaUrl: '',
                                         }
                                       : item,
                                   ),
                                 }));
-                              }
-                            : undefined
-                        }
-                        buttonLabel={
-                          selectedQuestion.mediaFile ||
-                          selectedQuestion.mediaAssetId ||
-                          selectedQuestion.mediaUrl
-                            ? '파일 변경'
-                            : '파일 선택'
-                        }
-                        selectedLabel={
-                          selectedQuestion.mediaFile?.name ??
-                          (selectedQuestion.mediaAssetId || selectedQuestion.mediaUrl
-                            ? '업로드된 미디어'
-                            : undefined)
-                        }
-                        selectedMeta={
-                          selectedQuestion.mediaFile
-                            ? formatFileSizeLabel(selectedQuestion.mediaFile.size)
-                            : null
-                        }
-                      />
-                      <div className={styles['curriculumStatGrid']}>
-                        <div className={styles['curriculumStatCard']}>
-                          <span className={styles['curriculumStatLabel']}>현재 상태</span>
-                          <strong className={styles['curriculumStatValue']}>
-                            {selectedQuestion.mediaFile
-                              ? '업로드 대기'
-                              : selectedQuestion.mediaAssetId || selectedQuestion.mediaUrl
-                                ? '업로드 완료'
-                                : '파일 미선택'}
-                          </strong>
-                        </div>
+                              }}
+                              size='sm'
+                              type='button'
+                              variant='secondary'
+                            >
+                              미디어 제거
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
-                      {selectedQuestion.mediaType &&
-                      (selectedQuestion.mediaPreviewUrl || selectedQuestion.mediaUrl)
-                        ? renderQuestionMediaPreview(
-                            selectedQuestion.mediaType,
-                            selectedQuestion.mediaPreviewUrl || selectedQuestion.mediaUrl,
-                            `${String(selectedQuestionIndex + 1)}번 문항 미디어 미리보기`,
-                          )
-                        : null}
-                      {selectedQuestion.mediaType || selectedQuestion.mediaUrl ? (
-                        <div className={styles['actionRow']}>
+
+                      <TextAreaField
+                        label='해설'
+                        name={`problem-question-explanation-${String(selectedQuestionIndex)}`}
+                        onChange={(event) => {
+                          setFormState((current) => ({
+                            ...current,
+                            questions: current.questions.map((item, index) =>
+                              index === selectedQuestionIndex
+                                ? { ...item, explanation: event.target.value }
+                                : item,
+                            ),
+                          }));
+                        }}
+                        rows={3}
+                        value={selectedQuestion.explanation}
+                      />
+
+                      <div className={styles['panel']}>
+                        <div className={styles['panelToolbar']}>
+                          <div>
+                            <h5 className={styles['cellPrimary']}>보기</h5>
+                            <p className={styles['metaText']}>정답 보기에는 체크를 남겨 주세요.</p>
+                          </div>
                           <Button
                             onClick={() => {
                               setFormState((current) => ({
@@ -1270,11 +1559,7 @@ const ProblemEditor = ({
                                   index === selectedQuestionIndex
                                     ? {
                                         ...item,
-                                        mediaAssetId: null,
-                                        mediaFile: null,
-                                        mediaPreviewUrl: '',
-                                        mediaType: null,
-                                        mediaUrl: '',
+                                        options: [...item.options, createEmptyOption(false)],
                                       }
                                     : item,
                                 ),
@@ -1284,212 +1569,170 @@ const ProblemEditor = ({
                             type='button'
                             variant='secondary'
                           >
-                            미디어 제거
+                            보기 추가
                           </Button>
                         </div>
-                      ) : null}
-                    </div>
 
-                    <TextAreaField
-                      label='해설'
-                      name={`problem-question-explanation-${String(selectedQuestionIndex)}`}
-                      onChange={(event) => {
-                        setFormState((current) => ({
-                          ...current,
-                          questions: current.questions.map((item, index) =>
-                            index === selectedQuestionIndex
-                              ? { ...item, explanation: event.target.value }
-                              : item,
-                          ),
-                        }));
-                      }}
-                      rows={3}
-                      value={selectedQuestion.explanation}
-                    />
-
-                    <div className={styles['panel']}>
-                      <div className={styles['panelToolbar']}>
-                        <div>
-                          <h5 className={styles['cellPrimary']}>보기</h5>
-                          <p className={styles['metaText']}>정답 보기에는 체크를 남겨 주세요.</p>
-                        </div>
-                        <Button
-                          onClick={() => {
-                            setFormState((current) => ({
-                              ...current,
-                              questions: current.questions.map((item, index) =>
-                                index === selectedQuestionIndex
-                                  ? {
-                                      ...item,
-                                      options: [...item.options, createEmptyOption(false)],
-                                    }
-                                  : item,
-                              ),
-                            }));
-                          }}
-                          size='sm'
-                          type='button'
-                          variant='secondary'
-                        >
-                          보기 추가
-                        </Button>
-                      </div>
-
-                      <div className={styles['stackListCompact']}>
-                        {selectedQuestion.options.map((option, optionIndex) => (
-                          <article
-                            className={styles['stackItem']}
-                            key={`option-${String(selectedQuestionIndex)}-${String(optionIndex)}`}
-                          >
-                            <div className={styles['panelToolbar']}>
-                              <strong className={styles['cellPrimary']}>
-                                {formatQuizOptionLabel(optionIndex)}
-                              </strong>
-                              <div className={styles['actionRow']}>
-                                <Button
-                                  disabled={optionIndex === 0}
-                                  onClick={() => {
-                                    setFormState((current) => ({
-                                      ...current,
-                                      questions: current.questions.map((item, index) =>
-                                        index === selectedQuestionIndex
-                                          ? {
-                                              ...item,
-                                              options: moveItem(item.options, optionIndex, 'up'),
-                                            }
-                                          : item,
-                                      ),
-                                    }));
-                                  }}
-                                  size='sm'
-                                  type='button'
-                                  variant='secondary'
-                                >
-                                  위로
-                                </Button>
-                                <Button
-                                  disabled={optionIndex === selectedQuestion.options.length - 1}
-                                  onClick={() => {
-                                    setFormState((current) => ({
-                                      ...current,
-                                      questions: current.questions.map((item, index) =>
-                                        index === selectedQuestionIndex
-                                          ? {
-                                              ...item,
-                                              options: moveItem(item.options, optionIndex, 'down'),
-                                            }
-                                          : item,
-                                      ),
-                                    }));
-                                  }}
-                                  size='sm'
-                                  type='button'
-                                  variant='secondary'
-                                >
-                                  아래로
-                                </Button>
-                                <Button
-                                  disabled={selectedQuestion.options.length <= 2}
-                                  onClick={() => {
-                                    setFormState((current) => ({
-                                      ...current,
-                                      questions: current.questions.map((item, index) =>
-                                        index === selectedQuestionIndex
-                                          ? {
-                                              ...item,
-                                              options: item.options.filter(
-                                                (_, currentOptionIndex) =>
-                                                  currentOptionIndex !== optionIndex,
-                                              ),
-                                            }
-                                          : item,
-                                      ),
-                                    }));
-                                  }}
-                                  size='sm'
-                                  type='button'
-                                  variant='danger'
-                                >
-                                  보기 삭제
-                                </Button>
-                              </div>
-                            </div>
-
-                            <TextField
-                              label='보기 내용'
-                              name={`problem-option-text-${String(selectedQuestionIndex)}-${String(optionIndex)}`}
-                              onChange={(event) => {
-                                setFormState((current) => ({
-                                  ...current,
-                                  questions: current.questions.map((item, index) =>
-                                    index === selectedQuestionIndex
-                                      ? {
-                                          ...item,
-                                          options: item.options.map(
-                                            (currentOption, currentOptionIndex) =>
-                                              currentOptionIndex === optionIndex
-                                                ? {
-                                                    ...currentOption,
-                                                    optionText: event.target.value,
-                                                  }
-                                                : currentOption,
-                                          ),
-                                        }
-                                      : item,
-                                  ),
-                                }));
-                              }}
-                              value={option.optionText}
-                            />
-
-                            <label
-                              className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}
+                        <div className={styles['stackListCompact']}>
+                          {selectedQuestion.options.map((option, optionIndex) => (
+                            <article
+                              className={styles['stackItem']}
+                              key={`option-${String(selectedQuestionIndex)}-${String(optionIndex)}`}
                             >
-                              <input
-                                checked={option.correct}
-                                onChange={(event) => {
-                                  const checked = event.target.checked;
+                              <div className={styles['panelToolbar']}>
+                                <strong className={styles['cellPrimary']}>
+                                  {formatQuizOptionLabel(optionIndex)}
+                                </strong>
+                                <div className={styles['actionRow']}>
+                                  <Button
+                                    disabled={optionIndex === 0}
+                                    onClick={() => {
+                                      setFormState((current) => ({
+                                        ...current,
+                                        questions: current.questions.map((item, index) =>
+                                          index === selectedQuestionIndex
+                                            ? {
+                                                ...item,
+                                                options: moveItem(item.options, optionIndex, 'up'),
+                                              }
+                                            : item,
+                                        ),
+                                      }));
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    위로
+                                  </Button>
+                                  <Button
+                                    disabled={optionIndex === selectedQuestion.options.length - 1}
+                                    onClick={() => {
+                                      setFormState((current) => ({
+                                        ...current,
+                                        questions: current.questions.map((item, index) =>
+                                          index === selectedQuestionIndex
+                                            ? {
+                                                ...item,
+                                                options: moveItem(
+                                                  item.options,
+                                                  optionIndex,
+                                                  'down',
+                                                ),
+                                              }
+                                            : item,
+                                        ),
+                                      }));
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='secondary'
+                                  >
+                                    아래로
+                                  </Button>
+                                  <Button
+                                    disabled={selectedQuestion.options.length <= 2}
+                                    onClick={() => {
+                                      setFormState((current) => ({
+                                        ...current,
+                                        questions: current.questions.map((item, index) =>
+                                          index === selectedQuestionIndex
+                                            ? {
+                                                ...item,
+                                                options: item.options.filter(
+                                                  (_, currentOptionIndex) =>
+                                                    currentOptionIndex !== optionIndex,
+                                                ),
+                                              }
+                                            : item,
+                                        ),
+                                      }));
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                    variant='danger'
+                                  >
+                                    보기 삭제
+                                  </Button>
+                                </div>
+                              </div>
 
+                              <TextField
+                                label='보기 내용'
+                                name={`problem-option-text-${String(selectedQuestionIndex)}-${String(optionIndex)}`}
+                                onChange={(event) => {
                                   setFormState((current) => ({
                                     ...current,
-                                    questions: current.questions.map((item, index) => {
-                                      if (index !== selectedQuestionIndex) {
-                                        return item;
-                                      }
-
-                                      return {
-                                        ...item,
-                                        options: item.options.map(
-                                          (currentOption, currentOptionIndex) => {
-                                            if (item.questionType !== 'MULTIPLE' && checked) {
-                                              return {
-                                                ...currentOption,
-                                                correct: currentOptionIndex === optionIndex,
-                                              };
-                                            }
-
-                                            return currentOptionIndex === optionIndex
-                                              ? { ...currentOption, correct: checked }
-                                              : currentOption;
-                                          },
-                                        ),
-                                      };
-                                    }),
+                                    questions: current.questions.map((item, index) =>
+                                      index === selectedQuestionIndex
+                                        ? {
+                                            ...item,
+                                            options: item.options.map(
+                                              (currentOption, currentOptionIndex) =>
+                                                currentOptionIndex === optionIndex
+                                                  ? {
+                                                      ...currentOption,
+                                                      optionText: event.target.value,
+                                                    }
+                                                  : currentOption,
+                                            ),
+                                          }
+                                        : item,
+                                    ),
                                   }));
                                 }}
-                                type='checkbox'
+                                value={option.optionText}
                               />
-                              <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
-                                {option.correct ? <img alt='' src={checkIconSrc} /> : null}
-                              </span>
-                              <span>정답 보기</span>
-                            </label>
-                          </article>
-                        ))}
+
+                              <label
+                                className={`${styles['checkboxRow']} ${styles['noticeCheckboxRow']}`}
+                              >
+                                <input
+                                  checked={option.correct}
+                                  onChange={(event) => {
+                                    const checked = event.target.checked;
+
+                                    setFormState((current) => ({
+                                      ...current,
+                                      questions: current.questions.map((item, index) => {
+                                        if (index !== selectedQuestionIndex) {
+                                          return item;
+                                        }
+
+                                        return {
+                                          ...item,
+                                          options: item.options.map(
+                                            (currentOption, currentOptionIndex) => {
+                                              if (item.questionType !== 'MULTIPLE' && checked) {
+                                                return {
+                                                  ...currentOption,
+                                                  correct: currentOptionIndex === optionIndex,
+                                                };
+                                              }
+
+                                              return currentOptionIndex === optionIndex
+                                                ? { ...currentOption, correct: checked }
+                                                : currentOption;
+                                            },
+                                          ),
+                                        };
+                                      }),
+                                    }));
+                                  }}
+                                  type='checkbox'
+                                />
+                                <span className={styles['noticeCheckboxBox']} aria-hidden='true'>
+                                  {option.correct ? <img alt='' src={checkIconSrc} /> : null}
+                                </span>
+                                <span>정답 보기</span>
+                              </label>
+                            </article>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             ) : (
               <p className={styles['helperText']}>편집할 문항을 선택해 주세요.</p>

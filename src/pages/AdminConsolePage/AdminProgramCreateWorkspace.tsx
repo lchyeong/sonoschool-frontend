@@ -1725,7 +1725,7 @@ const AdminProgramCreateWorkspace = ({
       ...options,
       {
         disabled: true,
-        label: `${selectedArea?.name ?? String(selectedProblemAreaId)} (${isOutsideRoot ? '대표 영역 불일치' : '미사용'})`,
+        label: `${selectedArea?.name ?? String(selectedProblemAreaId)} (${isOutsideRoot ? '문제영역 카테고리 불일치' : '미사용'})`,
         value: String(selectedProblemAreaId),
       },
     ];
@@ -1763,6 +1763,14 @@ const AdminProgramCreateWorkspace = ({
   const [expandedSectionKeys, setExpandedSectionKeys] = useState<string[]>([]);
   const [expandedLectureKeys, setExpandedLectureKeys] = useState<string[]>([]);
   const [collapsedProblemQuestionKeys, setCollapsedProblemQuestionKeys] = useState<string[]>([]);
+  const [bulkProblemAreaLectureKey, setBulkProblemAreaLectureKey] = useState<string | null>(null);
+  const [
+    bulkProblemAreaQuestionIndexesByLectureKey,
+    setBulkProblemAreaQuestionIndexesByLectureKey,
+  ] = useState<Record<string, number[]>>({});
+  const [bulkProblemAreaValueByLectureKey, setBulkProblemAreaValueByLectureKey] = useState<
+    Record<string, string>
+  >({});
   const [draggedProblemQuestion, setDraggedProblemQuestion] = useState<{
     lectureKey: string;
     questionIndex: number;
@@ -2935,7 +2943,7 @@ const AdminProgramCreateWorkspace = ({
       if (
         hasSelectedQuestionArea &&
         !window.confirm(
-          '대표 문제 영역을 변경하면 문항에 선택된 세부 문제 영역이 모두 미선택으로 변경됩니다. 계속하시겠습니까?',
+          '문제영역 카테고리를 변경하면 문항에 선택된 문제영역이 모두 미선택으로 변경됩니다. 계속하시겠습니까?',
         )
       ) {
         return problem;
@@ -3184,6 +3192,93 @@ const AdminProgramCreateWorkspace = ({
     });
   };
 
+  const enterBulkProblemAreaMode = (lectureKey: string) => {
+    setBulkProblemAreaLectureKey(lectureKey);
+    setBulkProblemAreaQuestionIndexesByLectureKey((current) => ({
+      ...current,
+      [lectureKey]: [],
+    }));
+    setBulkProblemAreaValueByLectureKey((current) => ({
+      ...current,
+      [lectureKey]: '',
+    }));
+    setAllProblemQuestionsCollapsed(lectureKey, true);
+  };
+
+  const cancelBulkProblemAreaMode = (lectureKey: string) => {
+    setBulkProblemAreaLectureKey((current) => (current === lectureKey ? null : current));
+    setBulkProblemAreaQuestionIndexesByLectureKey((current) => {
+      const next = { ...current };
+      delete next[lectureKey];
+      return next;
+    });
+    setBulkProblemAreaValueByLectureKey((current) => {
+      const next = { ...current };
+      delete next[lectureKey];
+      return next;
+    });
+  };
+
+  const setBulkProblemAreaSelectedQuestions = (lectureKey: string, questionIndexes: number[]) => {
+    setBulkProblemAreaQuestionIndexesByLectureKey((current) => ({
+      ...current,
+      [lectureKey]: questionIndexes,
+    }));
+  };
+
+  const toggleBulkProblemAreaQuestion = (lectureKey: string, questionIndex: number) => {
+    setBulkProblemAreaQuestionIndexesByLectureKey((current) => {
+      const currentIndexes = current[lectureKey] ?? [];
+      const nextIndexes = currentIndexes.includes(questionIndex)
+        ? currentIndexes.filter((index) => index !== questionIndex)
+        : [...currentIndexes, questionIndex].sort((left, right) => left - right);
+
+      return {
+        ...current,
+        [lectureKey]: nextIndexes,
+      };
+    });
+  };
+
+  const applyBulkProblemArea = (lectureKey: string) => {
+    const problem =
+      currentPayloadRef.current?.problems.find((item) => item.lectureKey === lectureKey) ?? null;
+    const targetProblemAreaId = Number(bulkProblemAreaValueByLectureKey[lectureKey] ?? '');
+    const selectedQuestionIndexes = (bulkProblemAreaQuestionIndexesByLectureKey[lectureKey] ?? [])
+      .filter((index) => problem && index >= 0 && index < problem.questions.length)
+      .sort((left, right) => left - right);
+
+    if (!problem?.problemAreaId) {
+      showToast({ message: '문제영역 카테고리를 먼저 선택해 주세요.', variant: 'error' });
+      return;
+    }
+
+    if (!selectedQuestionIndexes.length) {
+      showToast({ message: '변경할 문항을 선택해 주세요.', variant: 'error' });
+      return;
+    }
+
+    if (!Number.isFinite(targetProblemAreaId) || targetProblemAreaId <= 0) {
+      showToast({ message: '적용할 문제영역을 선택해 주세요.', variant: 'error' });
+      return;
+    }
+
+    const selectedQuestionIndexSet = new Set(selectedQuestionIndexes);
+    upsertProblem(lectureKey, (current) => ({
+      ...current,
+      questions: current.questions.map((question, questionIndex) =>
+        selectedQuestionIndexSet.has(questionIndex)
+          ? { ...question, problemAreaId: targetProblemAreaId }
+          : question,
+      ),
+    }));
+    setBulkProblemAreaSelectedQuestions(lectureKey, []);
+    showToast({
+      message: `선택한 문항 ${String(selectedQuestionIndexes.length)}개의 문제영역을 변경했습니다.`,
+      variant: 'success',
+    });
+  };
+
   const updateProblemOption = (
     lectureKey: string,
     questionIndex: number,
@@ -3247,6 +3342,17 @@ const AdminProgramCreateWorkspace = ({
           collapsedProblemQuestionKeys.includes(`${lectureKey}:${String(questionIndex)}`),
         )
       : false;
+    const isBulkProblemAreaMode = bulkProblemAreaLectureKey === lectureKey;
+    const bulkProblemAreaValue = bulkProblemAreaValueByLectureKey[lectureKey] ?? '';
+    const bulkProblemAreaSelectedQuestionIndexes = problem
+      ? (bulkProblemAreaQuestionIndexesByLectureKey[lectureKey] ?? []).filter(
+          (questionIndex) => questionIndex >= 0 && questionIndex < problem.questions.length,
+        )
+      : [];
+    const bulkProblemAreaSelectedQuestionIndexSet = new Set(bulkProblemAreaSelectedQuestionIndexes);
+    const allBulkProblemAreaQuestionsSelected =
+      Boolean(problem?.questions.length) &&
+      bulkProblemAreaSelectedQuestionIndexes.length === problem?.questions.length;
 
     return (
       <div className={styles['lectureWorkspaceSection']}>
@@ -3270,19 +3376,111 @@ const AdminProgramCreateWorkspace = ({
               <div>
                 <h5 className={styles['panelTitle']}>문제 문항</h5>
                 <p className={styles['metaText']}>
-                  접은 상태에서 오른쪽 이동 핸들을 드래그하면 문항 순서를 바꿀 수 있습니다.
+                  {isBulkProblemAreaMode
+                    ? '체크한 문항의 문제영역을 한 번에 변경합니다.'
+                    : '접은 상태에서 오른쪽 이동 핸들을 드래그하면 문항 순서를 바꿀 수 있습니다.'}
                 </p>
               </div>
-              <Button
-                onClick={() => {
-                  setAllProblemQuestionsCollapsed(lectureKey, !allProblemQuestionsCollapsed);
-                }}
-                type='button'
-                variant='secondary'
-              >
-                {allProblemQuestionsCollapsed ? '문제 모두 펼치기' : '문제 모두 접기'}
-              </Button>
+              <div className={styles['actionRow']}>
+                {!isBulkProblemAreaMode ? (
+                  <>
+                    <Button
+                      onClick={() => {
+                        setAllProblemQuestionsCollapsed(lectureKey, !allProblemQuestionsCollapsed);
+                      }}
+                      type='button'
+                      variant='secondary'
+                    >
+                      {allProblemQuestionsCollapsed ? '문제 모두 펼치기' : '문제 모두 접기'}
+                    </Button>
+                    <Button
+                      disabled={!problem.problemAreaId}
+                      onClick={() => {
+                        enterBulkProblemAreaMode(lectureKey);
+                      }}
+                      type='button'
+                      variant='secondary'
+                    >
+                      영역 일괄 변경
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      cancelBulkProblemAreaMode(lectureKey);
+                    }}
+                    type='button'
+                    variant='secondary'
+                  >
+                    일괄 변경 취소
+                  </Button>
+                )}
+              </div>
             </div>
+            {isBulkProblemAreaMode ? (
+              <div className={styles['bulkProblemAreaBar']}>
+                <div className={styles['bulkProblemAreaInfo']}>
+                  <strong>선택 {String(bulkProblemAreaSelectedQuestionIndexes.length)}개</strong>
+                  <span>선택한 문항에 적용할 문제영역을 고르세요.</span>
+                </div>
+                <div className={styles['bulkProblemAreaControls']}>
+                  <Button
+                    onClick={() => {
+                      setBulkProblemAreaSelectedQuestions(
+                        lectureKey,
+                        Array.from({ length: problem.questions.length }, (_, index) => index),
+                      );
+                    }}
+                    size='sm'
+                    type='button'
+                    variant='secondary'
+                  >
+                    {allBulkProblemAreaQuestionsSelected ? '전체 선택됨' : '전체 선택'}
+                  </Button>
+                  <Button
+                    disabled={!bulkProblemAreaSelectedQuestionIndexes.length}
+                    onClick={() => {
+                      setBulkProblemAreaSelectedQuestions(lectureKey, []);
+                    }}
+                    size='sm'
+                    type='button'
+                    variant='secondary'
+                  >
+                    선택 해제
+                  </Button>
+                  <AdminDropdownField
+                    className={styles['bulkProblemAreaSelect']}
+                    compact
+                    disabled={!problem.problemAreaId}
+                    label='변경할 문제영역'
+                    onChange={(nextValue) => {
+                      setBulkProblemAreaValueByLectureKey((current) => ({
+                        ...current,
+                        [lectureKey]: nextValue,
+                      }));
+                    }}
+                    options={buildProblemAreaOptions(
+                      problem.problemAreaId,
+                      bulkProblemAreaValue ? Number(bulkProblemAreaValue) : null,
+                    )}
+                    placeholder='문제영역 선택'
+                    value={bulkProblemAreaValue}
+                  />
+                  <Button
+                    disabled={
+                      !bulkProblemAreaSelectedQuestionIndexes.length || !bulkProblemAreaValue
+                    }
+                    onClick={() => {
+                      applyBulkProblemArea(lectureKey);
+                    }}
+                    size='sm'
+                    type='button'
+                  >
+                    선택 문항에 적용
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             {problem.questions.map((question, questionIndex) => {
               const uploadKey = `${lectureKey}:${String(questionIndex)}`;
               const pendingQuestionMediaSelection =
@@ -3296,7 +3494,15 @@ const AdminProgramCreateWorkspace = ({
                   question.mediaAssetId || question.mediaVideoId ? '업로드 완료' : '파일 미선택',
                   question.mediaUploadErrorMessage,
                 );
-              const questionCollapsed = collapsedProblemQuestionKeys.includes(uploadKey);
+              const questionCollapsed =
+                isBulkProblemAreaMode || collapsedProblemQuestionKeys.includes(uploadKey);
+              const isBulkProblemAreaQuestionSelected =
+                bulkProblemAreaSelectedQuestionIndexSet.has(questionIndex);
+              const currentQuestionProblemAreaLabel =
+                question.problemAreaId === null
+                  ? '미선택'
+                  : (problemAreas.find((area) => area.id === question.problemAreaId)?.name ??
+                    String(question.problemAreaId));
               const cancelPendingQuestionMediaSelection = () => {
                 if (!pendingQuestionMediaSelection) {
                   return;
@@ -3345,7 +3551,29 @@ const AdminProgramCreateWorkspace = ({
                     handleProblemQuestionDragEnd();
                   }}
                 >
-                  <div className={styles['panelToolbar']}>
+                  <div
+                    className={classNames(
+                      styles['panelToolbar'],
+                      isBulkProblemAreaMode ? styles['problemQuestionBulkToolbar'] : null,
+                    )}
+                  >
+                    {isBulkProblemAreaMode ? (
+                      <label className={styles['bulkProblemAreaCheckbox']}>
+                        <input
+                          aria-label={`문제 ${String(questionIndex + 1)} 선택`}
+                          checked={isBulkProblemAreaQuestionSelected}
+                          onChange={() => {
+                            toggleBulkProblemAreaQuestion(lectureKey, questionIndex);
+                          }}
+                          type='checkbox'
+                        />
+                        <span aria-hidden='true' className={styles['bulkProblemAreaCheckboxBox']}>
+                          {isBulkProblemAreaQuestionSelected ? (
+                            <img alt='' src={checkIconSrc} />
+                          ) : null}
+                        </span>
+                      </label>
+                    ) : null}
                     <div className={styles['problemQuestionSummaryBlock']}>
                       <div className={styles['problemQuestionTitleStack']}>
                         <h6 className={styles['panelTitle']}>문제 {String(questionIndex + 1)}</h6>
@@ -3361,57 +3589,68 @@ const AdminProgramCreateWorkspace = ({
                           {summarizeProblemQuestionText(question.questionText)}
                         </p>
                       ) : null}
-                    </div>
-                    <div className={styles['problemQuestionToolbarActions']}>
-                      {questionCollapsed ? (
-                        <div className={styles['problemQuestionOrderControls']}>
-                          <button
-                            aria-label={`${String(questionIndex + 1)}번 문제 드래그 이동`}
-                            className={classNames(
-                              styles['problemQuestionOrderButton'],
-                              styles['problemQuestionDragHandle'],
-                            )}
-                            draggable
-                            onDragEnd={handleProblemQuestionDragEnd}
-                            onDragStart={(event) => {
-                              handleProblemQuestionDragStart(event, lectureKey, questionIndex);
-                            }}
-                            title='드래그해서 문제 순서 변경'
-                            type='button'
-                          >
-                            <span
-                              className={styles['problemQuestionGripIcon']}
-                              aria-hidden='true'
-                            />
-                          </button>
+                      {isBulkProblemAreaMode ? (
+                        <div
+                          className={styles['problemQuestionCurrentArea']}
+                          title={`현재 문제영역: ${currentQuestionProblemAreaLabel}`}
+                        >
+                          <span>현재 문제영역</span>
+                          <strong>{currentQuestionProblemAreaLabel}</strong>
                         </div>
                       ) : null}
-                      <Button
-                        onClick={() => {
-                          toggleProblemQuestionCollapsed(lectureKey, questionIndex);
-                        }}
-                        type='button'
-                        variant='secondary'
-                      >
-                        {questionCollapsed ? '문제 펼치기' : '문제 접기'}
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          removeProblemQuestion(lectureKey, questionIndex);
-                        }}
-                        type='button'
-                        variant='danger'
-                      >
-                        문제 삭제
-                      </Button>
                     </div>
+                    {!isBulkProblemAreaMode ? (
+                      <div className={styles['problemQuestionToolbarActions']}>
+                        {questionCollapsed ? (
+                          <div className={styles['problemQuestionOrderControls']}>
+                            <button
+                              aria-label={`${String(questionIndex + 1)}번 문제 드래그 이동`}
+                              className={classNames(
+                                styles['problemQuestionOrderButton'],
+                                styles['problemQuestionDragHandle'],
+                              )}
+                              draggable
+                              onDragEnd={handleProblemQuestionDragEnd}
+                              onDragStart={(event) => {
+                                handleProblemQuestionDragStart(event, lectureKey, questionIndex);
+                              }}
+                              title='드래그해서 문제 순서 변경'
+                              type='button'
+                            >
+                              <span
+                                className={styles['problemQuestionGripIcon']}
+                                aria-hidden='true'
+                              />
+                            </button>
+                          </div>
+                        ) : null}
+                        <Button
+                          onClick={() => {
+                            toggleProblemQuestionCollapsed(lectureKey, questionIndex);
+                          }}
+                          type='button'
+                          variant='secondary'
+                        >
+                          {questionCollapsed ? '문제 펼치기' : '문제 접기'}
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            removeProblemQuestion(lectureKey, questionIndex);
+                          }}
+                          type='button'
+                          variant='danger'
+                        >
+                          문제 삭제
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
 
                   {!questionCollapsed ? (
                     <div className={styles['problemQuestionBody']}>
                       <div className={styles['problemQuestionSectionBlock']}>
                         <div className={styles['problemQuestionSectionHeader']}>
-                          <strong>세부 문제 영역</strong>
+                          <strong>문제영역</strong>
                           <span>문제가 속한 영역을 선택합니다.</span>
                         </div>
                         <div
@@ -3420,7 +3659,7 @@ const AdminProgramCreateWorkspace = ({
                           <AdminDropdownField
                             className={styles['problemQuestionFieldWithoutLabel']}
                             compact
-                            label='세부 문제 영역'
+                            label='문제영역'
                             onChange={(nextValue) => {
                               updateProblemQuestion(lectureKey, questionIndex, (current) => ({
                                 ...current,
@@ -3431,7 +3670,7 @@ const AdminProgramCreateWorkspace = ({
                               problem?.problemAreaId,
                               question.problemAreaId,
                             )}
-                            placeholder='세부 영역 선택'
+                            placeholder='문제영역 선택'
                             value={
                               question.problemAreaId === null ? '' : String(question.problemAreaId)
                             }
@@ -3701,17 +3940,19 @@ const AdminProgramCreateWorkspace = ({
               );
             })}
 
-            <div className={styles['actionRow']}>
-              <Button
-                onClick={() => {
-                  addProblemQuestion(lectureKey);
-                }}
-                type='button'
-                variant='primary'
-              >
-                문제 추가
-              </Button>
-            </div>
+            {!isBulkProblemAreaMode ? (
+              <div className={styles['actionRow']}>
+                <Button
+                  onClick={() => {
+                    addProblemQuestion(lectureKey);
+                  }}
+                  type='button'
+                  variant='primary'
+                >
+                  문제 추가
+                </Button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className={styles['actionRow']}>
@@ -5044,7 +5285,7 @@ const AdminProgramCreateWorkspace = ({
       if (lectureProblem && lectureProblem.problemAreaId === null) {
         issues.push({
           focusKey: `curriculum-lecture-${lecture.key}`,
-          message: `${lectureLabel}: 대표 문제 영역을 선택해 주세요.`,
+          message: `${lectureLabel}: 문제영역 카테고리를 선택해 주세요.`,
         });
       }
       lectureProblem?.questions.forEach((question, questionIndex) => {
@@ -5053,7 +5294,7 @@ const AdminProgramCreateWorkspace = ({
         if (question.problemAreaId === null) {
           issues.push({
             focusKey: `curriculum-${lecture.key}:${String(questionIndex)}:problemArea`,
-            message: `${lectureLabel} / ${questionLabel}: 세부 문제 영역을 선택해 주세요.`,
+            message: `${lectureLabel} / ${questionLabel}: 문제영역을 선택해 주세요.`,
           });
         }
         if (!question.questionText.trim()) {
@@ -6367,7 +6608,7 @@ const AdminProgramCreateWorkspace = ({
                                             {supportsProblem ? (
                                               <AdminDropdownField
                                                 className={styles['problemRootAreaField']}
-                                                label='대표 문제 영역'
+                                                label='문제영역 카테고리'
                                                 onChange={(nextValue) => {
                                                   updateProblemRootArea(
                                                     lecture.key,
@@ -6377,7 +6618,7 @@ const AdminProgramCreateWorkspace = ({
                                                 options={buildRootProblemAreaOptions(
                                                   lectureQuiz?.problemAreaId ?? null,
                                                 )}
-                                                placeholder='대표 영역 선택'
+                                                placeholder='문제영역 카테고리 선택'
                                                 value={
                                                   lectureQuiz?.problemAreaId
                                                     ? String(lectureQuiz.problemAreaId)

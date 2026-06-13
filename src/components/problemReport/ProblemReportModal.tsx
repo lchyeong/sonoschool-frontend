@@ -275,7 +275,7 @@ const openProblemReportPrintWindow = (report: StudentProblemAttemptReport): void
           <h2>전체 결과</h2>
           <div class="tableBox">
             <table class="overall">
-              <thead><tr><th>문항</th><th>결과</th><th>문제 영역</th></tr></thead>
+              <thead><tr><th>문항</th><th>결과</th><th>문제영역</th></tr></thead>
               <tbody>${questionRows}</tbody>
             </table>
           </div>
@@ -423,7 +423,7 @@ const ProblemReportModal = ({ onClose, report }: ProblemReportModalProps) => {
                 <tr>
                   <th scope='col'>문항</th>
                   <th scope='col'>결과</th>
-                  <th scope='col'>문제 영역</th>
+                  <th scope='col'>문제영역</th>
                 </tr>
               </thead>
               <tbody>
