@@ -153,6 +153,26 @@
   font-weight: var(--font-weight-bold);
 }
 
+.wrongAnswerShareGrid div {
+  gap: 0;
+  padding: 0;
+}
+
+.wrongAnswerShareGrid dt,
+.wrongAnswerShareGrid dd {
+  width: 100%;
+  padding: 17px 16px;
+  text-align: center;
+}
+
+.wrongAnswerShareGrid dt {
+  border-bottom: 1px solid #d1d5db;
+}
+
+.wrongAnswerShareGrid dd {
+  padding-bottom: 20px;
+}
+
 .verdictBox {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

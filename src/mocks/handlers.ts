@@ -1162,6 +1162,7 @@ export const handlers = [
             totalCount: 1,
             correctCount: 1,
             wrongCount: 0,
+            wrongAnswerShareRate: 0,
           },
         ],
         questionResults: [

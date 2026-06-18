@@ -92,6 +92,8 @@ export interface StudentProblemAreaStat {
   totalCount: number;
   correctCount: number;
   wrongCount: number;
+  /** 해당 영역 오답 수 / 전체 오답 수 * 100 */
+  wrongAnswerShareRate?: number;
 }
 
 export interface StudentProblemAttemptReport {

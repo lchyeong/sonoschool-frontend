@@ -1739,14 +1739,18 @@
 }
 .reviewModalPanel {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(100%, 600px);
-  max-height: min(90vh, 620px);
+  max-height: min(calc(100vh - 32px), 620px);
+  max-height: min(calc(100dvh - 32px), 620px);
   overflow: hidden;
   border: 0;
   border-radius: 28px;
   box-shadow: 0 24px 48px rgba(17, 24, 39, 0.18);
 }
 .reviewModalHeader {
+  flex: 0 0 auto;
   justify-content: flex-start;
   padding: 34px 68px 0 34px;
 }
@@ -1781,6 +1785,10 @@
   -webkit-mask: var(--mypage-menu-icon) center / contain no-repeat;
 }
 .reviewModalBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 18px 34px 34px;
 }
 .certificateProfileModalPanel {
@@ -3971,6 +3979,15 @@
   }
   .reviewActionRow {
     flex-direction: column;
+  }
+  .reviewSubmitButton {
+    order: 1;
+  }
+  .reviewDeleteButton {
+    order: 2;
+  }
+  .reviewCancelButton {
+    order: 3;
   }
   .reviewCancelButton,
   .reviewDeleteButton,

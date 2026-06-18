@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import iconPrinter from '@/assets/icons/lucide_printer.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
-import type { StudentProblemAttemptReport } from '@/types/studentProblems';
+import type { StudentProblemAreaStat, StudentProblemAttemptReport } from '@/types/studentProblems';
 
 import styles from './ProblemReportModal.module.scss';
 import { resolveProblemTargetScore } from './problemReportUtils';
@@ -21,6 +21,14 @@ const printerIconStyle: ProblemReportIconStyle = {
   '--problem-report-icon': `url("${iconPrinter}")`,
 };
 
+const WRONG_ANSWER_SHARE_COLUMN_COUNT = 3;
+
+interface ProblemWrongAnswerShareSummaryItem {
+  problemAreaId: number;
+  problemAreaName: string;
+  wrongAnswerShareRate: number;
+}
+
 const escapeReportText = (value: string | number | null | undefined): string => {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -33,6 +41,106 @@ const escapeReportText = (value: string | number | null | undefined): string => 
 const formatReportDate = (value: string): string => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('ko-KR');
+};
+
+const formatWrongAnswerShareRate = (value: number): string => {
+  if (!Number.isFinite(value)) {
+    return '0';
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+};
+
+const resolveWrongAnswerShareRate = (
+  area: StudentProblemAreaStat,
+  totalWrongCount: number,
+): number | null => {
+  if (typeof area.wrongAnswerShareRate === 'number' && Number.isFinite(area.wrongAnswerShareRate)) {
+    return area.wrongAnswerShareRate;
+  }
+
+  if (totalWrongCount <= 0) {
+    return null;
+  }
+
+  return Math.round((area.wrongCount / totalWrongCount) * 100);
+};
+
+const getWrongAnswerShareSummaryItems = (
+  areaStats: readonly StudentProblemAreaStat[],
+  totalWrongCount: number,
+): ProblemWrongAnswerShareSummaryItem[] => {
+  return areaStats
+    .map((area) => {
+      const wrongAnswerShareRate = resolveWrongAnswerShareRate(area, totalWrongCount);
+
+      return {
+        problemAreaId: area.problemAreaId,
+        problemAreaName: area.problemAreaName,
+        wrongAnswerShareRate,
+        wrongCount: area.wrongCount,
+      };
+    })
+    .filter(
+      (
+        area,
+      ): area is ProblemWrongAnswerShareSummaryItem & {
+        wrongAnswerShareRate: number;
+        wrongCount: number;
+      } => area.wrongCount > 0 && area.wrongAnswerShareRate !== null,
+    )
+    .map(({ problemAreaId, problemAreaName, wrongAnswerShareRate }) => ({
+      problemAreaId,
+      problemAreaName,
+      wrongAnswerShareRate,
+    }));
+};
+
+const getWrongAnswerSharePlaceholderCount = (itemCount: number): number => {
+  if (itemCount <= 0) {
+    return 0;
+  }
+
+  return (
+    (WRONG_ANSWER_SHARE_COLUMN_COUNT - (itemCount % WRONG_ANSWER_SHARE_COLUMN_COUNT)) %
+    WRONG_ANSWER_SHARE_COLUMN_COUNT
+  );
+};
+
+const renderWrongAnswerSharePrintSection = (
+  wrongAnswerShareSummaryItems: readonly ProblemWrongAnswerShareSummaryItem[],
+): string => {
+  if (!wrongAnswerShareSummaryItems.length) {
+    return '';
+  }
+
+  const placeholderCount = getWrongAnswerSharePlaceholderCount(wrongAnswerShareSummaryItems.length);
+  const rateCells = wrongAnswerShareSummaryItems
+    .map(
+      (area) => `
+        <div>
+          <span>${escapeReportText(area.problemAreaName)}</span>
+          <strong>${formatWrongAnswerShareRate(area.wrongAnswerShareRate)}%</strong>
+        </div>
+      `,
+    )
+    .join('');
+  const placeholderCells = Array.from(
+    { length: placeholderCount },
+    () => `
+      <div class="wrongAnswerSharePlaceholder" aria-hidden="true">
+        <span>&nbsp;</span>
+        <strong>&nbsp;</strong>
+      </div>
+    `,
+  ).join('');
+
+  return `
+    <section class="section">
+      <h2>문제 영역별 오답 비율</h2>
+      <div class="summary wrongAnswerShareSummary">${rateCells}${placeholderCells}</div>
+    </section>
+  `;
 };
 
 const openProblemReportPrintWindow = (report: StudentProblemAttemptReport): void => {
@@ -51,6 +159,9 @@ const openProblemReportPrintWindow = (report: StudentProblemAttemptReport): void
       `,
     )
     .join('');
+  const wrongAnswerShareSection = renderWrongAnswerSharePrintSection(
+    getWrongAnswerShareSummaryItems(report.areaStats, report.wrongCount),
+  );
   const questionRows = report.questionResults
     .map(
       (result, index) => `
@@ -170,6 +281,23 @@ const openProblemReportPrintWindow = (report: StudentProblemAttemptReport): void
             font-size: 21px;
             font-weight: 800;
           }
+          .wrongAnswerShareSummary div {
+            gap: 0;
+            padding: 0;
+          }
+          .wrongAnswerShareSummary span,
+          .wrongAnswerShareSummary strong {
+            display: block;
+            width: 100%;
+            padding: 17px 16px;
+            text-align: center;
+          }
+          .wrongAnswerShareSummary span {
+            border-bottom: 1px solid #d1d5db;
+          }
+          .wrongAnswerShareSummary strong {
+            padding-bottom: 20px;
+          }
           .verdict {
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -261,6 +389,8 @@ const openProblemReportPrintWindow = (report: StudentProblemAttemptReport): void
           </div>
         </section>
 
+        ${wrongAnswerShareSection}
+
         <section class="section">
           <h2>오답 분석</h2>
           <div class="tableBox">
@@ -309,6 +439,13 @@ const ProblemReportModal = ({ onClose, report }: ProblemReportModalProps) => {
     report.passScore,
     report.passCorrectCount,
     report.totalQuestionCount,
+  );
+  const wrongAnswerShareSummaryItems = getWrongAnswerShareSummaryItems(
+    report.areaStats,
+    report.wrongCount,
+  );
+  const wrongAnswerSharePlaceholderCount = getWrongAnswerSharePlaceholderCount(
+    wrongAnswerShareSummaryItems.length,
   );
 
   return (
@@ -384,6 +521,26 @@ const ProblemReportModal = ({ onClose, report }: ProblemReportModalProps) => {
             </dl>
           </div>
         </section>
+
+        {wrongAnswerShareSummaryItems.length ? (
+          <section aria-label='문제 영역별 오답 비율' className={styles['section']}>
+            <h3 className={styles['sectionTitle']}>문제 영역별 오답 비율</h3>
+            <dl className={`${styles['metricGrid']} ${styles['wrongAnswerShareGrid']}`}>
+              {wrongAnswerShareSummaryItems.map((area) => (
+                <div key={area.problemAreaId}>
+                  <dt>{area.problemAreaName}</dt>
+                  <dd>{formatWrongAnswerShareRate(area.wrongAnswerShareRate)}%</dd>
+                </div>
+              ))}
+              {Array.from({ length: wrongAnswerSharePlaceholderCount }, (_, index) => (
+                <div aria-hidden='true' key={`wrong-answer-share-placeholder-${String(index)}`}>
+                  <dt>&nbsp;</dt>
+                  <dd>&nbsp;</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
 
         <section className={styles['section']}>
           <h3 className={styles['sectionTitle']}>오답 분석</h3>
