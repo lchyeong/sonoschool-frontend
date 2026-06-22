@@ -70,7 +70,7 @@ const createDetailData = (
   reviews: [
     {
       id: 'review-1',
-      authorLoginId: 'stude***',
+      authorLoginId: 's*******',
       rating: 5,
       content: '좋아요',
       dateLabel: '2026.04.01',

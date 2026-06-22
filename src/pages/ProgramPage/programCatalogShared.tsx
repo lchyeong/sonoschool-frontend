@@ -12,6 +12,10 @@ import type {
   ProgramStat,
 } from '@/types/programCatalog';
 import { classNames } from '@/utils/classNames';
+import {
+  resolveProgramCatalogStatus,
+  shouldMuteProgramThumbnail,
+} from '@/utils/programCatalogStatus';
 import { getProgramImageCropStyle } from '@/utils/programImageCrop';
 
 import styles from './programCatalogShared.module.scss';
@@ -68,24 +72,8 @@ const buildArchiveMetaTags = (item: ProgramLectureCard) => {
   return Array.from(new Set(sourceTags.map((tag) => tag.trim()).filter(Boolean))).slice(0, 3);
 };
 
-const isLectureSoldOut = (item: ProgramLectureCard) => {
-  if (item.remainingSeatsCount !== undefined) {
-    return item.remainingSeatsCount <= 0;
-  }
-
-  if (!item.remainingSeatsLabel) {
-    return false;
-  }
-
-  return item.remainingSeatsLabel.includes('0명');
-};
-
 const resolveLectureCatalogStatus = (item: ProgramLectureCard): ProgramCatalogStatus => {
-  if (item.catalogStatus) {
-    return item.catalogStatus;
-  }
-
-  return isLectureSoldOut(item) ? 'FULL' : 'OPEN';
+  return resolveProgramCatalogStatus(item);
 };
 
 const resolveAvailability = (item: ProgramLectureCard): { label: string; value: string } | null => {
@@ -386,6 +374,7 @@ export const ProgramLectureCardItem = ({
 }: ProgramLectureCardItemProps) => {
   const availability = resolveAvailability(item);
   const metaTags = buildProgramMetaTags(item);
+  const shouldMuteThumbnail = shouldMuteProgramThumbnail(item);
   const thumbnailCropStyle = getProgramImageCropStyle({
     offsetX: item.thumbnailCropOffsetX,
     offsetY: item.thumbnailCropOffsetY,
@@ -399,7 +388,10 @@ export const ProgramLectureCardItem = ({
       <div className={styles['lectureImageFrame']}>
         <img
           alt={item.thumbnailAlt}
-          className={styles['lectureImage']}
+          className={classNames(
+            styles['lectureImage'],
+            shouldMuteThumbnail && styles['lectureImageMuted'],
+          )}
           src={item.thumbnailSrc}
           style={thumbnailCropStyle}
         />
@@ -467,10 +459,12 @@ export const ProgramArchiveLectureCardItem = ({
   onAddToCart,
   onSubscribeAlert,
 }: ProgramArchiveLectureCardItemProps) => {
+  const catalogStatus = resolveLectureCatalogStatus(item);
   const archiveStatusLabel = resolveArchiveStatusLabel(item);
   const metaTags = buildArchiveMetaTags(item);
   const hasDiscount = hasArchiveDiscount(item);
   const salePriceLabel = item.discountedPriceLabel ?? item.priceLabel;
+  const shouldMuteThumbnail = shouldMuteProgramThumbnail(catalogStatus);
   const thumbnailCropStyle = getProgramImageCropStyle({
     offsetX: item.thumbnailCropOffsetX,
     offsetY: item.thumbnailCropOffsetY,
@@ -484,7 +478,10 @@ export const ProgramArchiveLectureCardItem = ({
       <div className={styles['archiveLectureImageFrame']}>
         <img
           alt={item.thumbnailAlt}
-          className={styles['archiveLectureImage']}
+          className={classNames(
+            styles['archiveLectureImage'],
+            shouldMuteThumbnail && styles['archiveLectureImageMuted'],
+          )}
           src={item.thumbnailSrc}
           style={thumbnailCropStyle}
         />
@@ -495,7 +492,7 @@ export const ProgramArchiveLectureCardItem = ({
           <p
             className={classNames(
               styles['archiveLectureStatus'],
-              resolveLectureCatalogStatus(item) !== 'OPEN' && styles['archiveLectureStatusMuted'],
+              catalogStatus !== 'OPEN' && styles['archiveLectureStatusMuted'],
             )}
           >
             {archiveStatusLabel}

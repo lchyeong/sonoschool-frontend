@@ -1,5 +1,4 @@
 const MASK_CHARACTER = '*';
-const MASKED_TRAILING_CHARACTER_COUNT = 3;
 const FALLBACK_REVIEW_AUTHOR_LABEL = '작성자';
 
 export const maskReviewAuthorLoginId = (loginId: string | null | undefined): string => {
@@ -10,15 +9,7 @@ export const maskReviewAuthorLoginId = (loginId: string | null | undefined): str
   }
 
   const loginIdCharacters = Array.from(normalizedLoginId);
-  const visibleCharacterCount = Math.max(
-    loginIdCharacters.length - MASKED_TRAILING_CHARACTER_COUNT,
-    0,
-  );
+  const [visibleCharacter, ...maskedCharacters] = loginIdCharacters;
 
-  return [
-    ...loginIdCharacters.slice(0, visibleCharacterCount),
-    ...Array.from({
-      length: Math.min(MASKED_TRAILING_CHARACTER_COUNT, loginIdCharacters.length),
-    }).map(() => MASK_CHARACTER),
-  ].join('');
+  return [visibleCharacter, ...maskedCharacters.map(() => MASK_CHARACTER)].join('');
 };

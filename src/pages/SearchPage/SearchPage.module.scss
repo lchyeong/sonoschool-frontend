@@ -110,6 +110,10 @@
     object-fit: cover;
   }
 
+  &ImageMuted {
+    filter: grayscale(100%);
+  }
+
   &Body {
     display: grid;
     gap: var(--space-3);

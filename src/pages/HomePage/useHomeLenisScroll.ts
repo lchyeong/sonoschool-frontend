@@ -19,6 +19,8 @@ export const useHomeLenisScroll = () => {
       duration: 1.6,
       gestureOrientation: 'vertical',
       infinite: false,
+      // Home content can grow after initial mount; keep the scroll limit based on live dimensions.
+      naiveDimensions: true,
       orientation: 'vertical',
       smoothWheel: true,
       syncTouch: true,

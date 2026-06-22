@@ -12,6 +12,30 @@ import { classNames } from '@/utils/classNames';
 
 import styles from './RootLayout.module.scss';
 
+const fullBleedRouteKeys = new Set<AppRouteKey>([
+  'home',
+  'learningLesson',
+  'mypage',
+  'notices',
+  'noticeDetail',
+  'programs',
+  'program',
+  'programSection',
+  'programCatalogDeep',
+  'qna',
+  'resources',
+]);
+
+const headerlessRouteKeys = new Set<AppRouteKey>(['learningLesson']);
+
+const quickMenuExcludedRouteKeys = new Set<AppRouteKey>([
+  'login',
+  'mypage',
+  'learningPlayer',
+  'learningLesson',
+  'myEnrollmentPracticum',
+]);
+
 const ScrollToTopOnPathChange = () => {
   const location = useLocation();
 
@@ -32,29 +56,19 @@ const ScrollToTopOnPathChange = () => {
 
 const RootLayout = () => {
   const matches = useMatches() as Array<{ handle?: AppRouteHandle }>;
-  const fullBleedRouteKeys = new Set<AppRouteKey>([
-    'home',
-    'learningLesson',
-    'mypage',
-    'notices',
-    'noticeDetail',
-    'programs',
-    'program',
-    'programSection',
-    'programCatalogDeep',
-    'qna',
-    'resources',
-  ]);
-  const headerlessRouteKeys = new Set<AppRouteKey>(['learningLesson']);
-  const isFullBleed = matches.some((match) => {
-    return Boolean(match.handle && fullBleedRouteKeys.has(match.handle.routeKey));
-  });
-  const isHeaderless = matches.some((match) => {
-    return Boolean(match.handle && headerlessRouteKeys.has(match.handle.routeKey));
-  });
+  const hasAppRouteMatch = matches.some((match) => Boolean(match.handle));
+  const hasMatchedRouteKey = (routeKeys: ReadonlySet<AppRouteKey>) => {
+    return matches.some((match) => {
+      return Boolean(match.handle && routeKeys.has(match.handle.routeKey));
+    });
+  };
+  const isFullBleed = hasMatchedRouteKey(fullBleedRouteKeys);
+  const isHeaderless = hasMatchedRouteKey(headerlessRouteKeys);
   const isHomeRoute = matches.some((match) => {
     return Boolean(match.handle && match.handle.routeKey === 'home');
   });
+  const shouldRenderQuickMenu =
+    hasAppRouteMatch && !isHeaderless && !hasMatchedRouteKey(quickMenuExcludedRouteKeys);
 
   return (
     <div className={styles['layout']}>
@@ -73,7 +87,7 @@ const RootLayout = () => {
 
       {!isHeaderless ? <CommonFooter /> : null}
       {isHomeRoute ? <GlobalNoticePopup /> : null}
-      {isHomeRoute ? <QuickMenu /> : null}
+      {shouldRenderQuickMenu ? <QuickMenu /> : null}
     </div>
   );
 };

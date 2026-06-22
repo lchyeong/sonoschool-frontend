@@ -19,10 +19,43 @@ import { fetchHomeHistoryTimeline } from '@/api/homeHistoryTimeline';
 import { fetchProgramPage, fetchProgramsOverview } from '@/api/programCatalog';
 import { fetchProgramSearchIndex } from '@/api/programSearch';
 import { fetchSiteNavigation } from '@/api/siteNavigation';
+import { mockProgramFallbackThumbnailSrc } from '@/mocks/data/mockProgramAssets';
+import {
+  getMockProgramSearchLectureItems,
+  getMockProgramsOverview,
+} from '@/mocks/data/programCatalog';
 
 describe('program data API fallback', () => {
   beforeEach(() => {
     httpGetMock.mockReset();
+  });
+
+  it('includes closed mock programs and unified temporary thumbnails for visual testing', () => {
+    const overview = getMockProgramsOverview();
+    const searchItems = getMockProgramSearchLectureItems();
+
+    expect(
+      overview.featuredLectures.find((lecture) => lecture.id === 'doctor-course-cardiology'),
+    ).toMatchObject({
+      catalogStatus: 'FULL',
+      remainingSeatsCount: 0,
+      remainingSeatsLabel: '정원 마감',
+    });
+    expect(
+      overview.featuredLectures.find(
+        (lecture) => lecture.id === 'general-course-abdomen-basic-2026-mar-apr',
+      ),
+    ).toMatchObject({
+      catalogStatus: 'ENDED',
+    });
+    expect(
+      searchItems.find((item) => item.id === 'general-course-abdomen-basic-2026-may-jun'),
+    ).toMatchObject({
+      catalogStatus: 'CLOSED',
+    });
+    expect(searchItems.find((item) => item.id === 'online-course-spi-exam-prep')).toMatchObject({
+      thumbnailSrc: mockProgramFallbackThumbnailSrc,
+    });
   });
 
   it('keeps rejecting when the programs overview API fails', async () => {
@@ -432,7 +465,7 @@ describe('program data API fallback', () => {
     });
 
     await expect(fetchProgramPage('/programs/test-course')).resolves.toMatchObject({
-      reviews: [{ authorLoginId: 'studen***' }, { authorLoginId: 'sono2***' }],
+      reviews: [{ authorLoginId: 's********' }, { authorLoginId: 's*******' }],
     });
   });
 
@@ -514,6 +547,7 @@ describe('program data API fallback', () => {
     await expect(fetchProgramSearchIndex()).resolves.toMatchObject({
       items: [
         {
+          catalogStatus: 'OPEN',
           thumbnailSrc: 'https://media.newzest.xyz/assets/programs/thumbnails/Frame_511.png',
         },
       ],

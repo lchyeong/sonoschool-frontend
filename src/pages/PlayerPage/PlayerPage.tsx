@@ -4586,6 +4586,8 @@ const PlayerPage = () => {
                                           <Link
                                             className={classNames(
                                               styles['lessonLink'],
+                                              lesson.deliveryType === 'problem' &&
+                                                styles['lessonLinkProblem'],
                                               isCurrent && styles['lessonLinkCurrent'],
                                               isLocked && styles['lessonLinkLocked'],
                                             )}
@@ -5026,6 +5028,8 @@ const PlayerPage = () => {
                                       <Link
                                         className={classNames(
                                           styles['lessonLink'],
+                                          lesson.deliveryType === 'problem' &&
+                                            styles['lessonLinkProblem'],
                                           isCurrent && styles['lessonLinkCurrent'],
                                         )}
                                         key={item.id}

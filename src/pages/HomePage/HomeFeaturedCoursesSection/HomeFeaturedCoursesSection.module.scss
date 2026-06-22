@@ -200,6 +200,10 @@
   object-fit: cover;
 }
 
+.courseImageMuted {
+  filter: grayscale(100%);
+}
+
 .courseImageSkeleton {
   background: var(--color-gray-100);
 }

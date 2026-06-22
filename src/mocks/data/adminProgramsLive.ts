@@ -7,6 +7,8 @@ import type {
 } from '@/types/adminProgramsLive';
 import type { HomeHeroSlidesResponse } from '@/types/homeHeroSlides';
 
+import { mockProgramFallbackThumbnailSrc } from './mockProgramAssets';
+
 type AdminProgramStateItem = AdminProgramDetail;
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -408,7 +410,7 @@ const toDetail = (program: AdminProgramStateItem): AdminProgramDetail =>
 
 const resolveMockThumbnailPreviewUrl = (thumbnailUrl: string | null): string | null => {
   if (!thumbnailUrl) {
-    return null;
+    return mockProgramFallbackThumbnailSrc;
   }
 
   if (!thumbnailUrl.startsWith('s3://mock-bucket/assets/programs/thumbnails/')) {
@@ -570,7 +572,7 @@ export const getMockHomeHeroSlides = (): HomeHeroSlidesResponse => {
       thumbnailSrc:
         program.thumbnailPreviewUrl ??
         resolveMockThumbnailPreviewUrl(program.thumbnailUrl) ??
-        '/SRDMS_OG.png',
+        mockProgramFallbackThumbnailSrc,
       title: program.title,
       type: 'lecture' as const,
     }));

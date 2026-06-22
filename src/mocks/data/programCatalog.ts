@@ -44,16 +44,20 @@ import type {
   ProgramLectureCard,
   ProgramPageResponse,
   ProgramReviewItem,
+  ProgramCatalogStatus,
   ProgramsOverviewResponse,
   ProgramStat,
 } from '@/types/programCatalog';
 import type { ProgramSearchIndexResponse } from '@/types/programSearch';
 import type { SiteNavigationItem } from '@/types/siteNavigation';
+import { resolveProgramCatalogStatus } from '@/utils/programCatalogStatus';
 import {
   deriveCurriculumLessonDurationLabel,
   deriveCurriculumSectionDurationLabel,
   deriveProgramDisplayText,
 } from '@/utils/programMetadata';
+
+import { mockProgramFallbackThumbnailSrc } from './mockProgramAssets';
 
 type ProgramVisibility = 'hidden' | 'public';
 
@@ -79,6 +83,7 @@ interface ProgramCatalogCollectionSeed extends ProgramCatalogBaseSeed {
 interface ProgramCatalogLectureSeed extends ProgramCatalogBaseSeed {
   kind: 'lecture';
   curriculumTrack?: ProgramCurriculumTrack | undefined;
+  catalogStatus?: ProgramCatalogStatus | undefined;
   discountRateLabel?: string | undefined;
   discountedPriceLabel?: string | undefined;
   difficultyLabel: string;
@@ -133,6 +138,7 @@ interface ProgramCatalogCollectionNode extends ProgramCatalogBaseNode {
 
 interface ProgramCatalogLectureNode extends ProgramCatalogBaseNode {
   curriculumTrack: ProgramCurriculumTrack;
+  catalogStatus?: ProgramCatalogStatus | undefined;
   discountRateLabel: string;
   discountedPriceLabel: string;
   kind: 'lecture';
@@ -966,8 +972,8 @@ const programSeedImagePool = [
   homeLecture3Src,
   homeLecture4Src,
   homeLecture5Src,
-  '/SRDMS_OG.png',
-  '/example.png',
+  mockProgramFallbackThumbnailSrc,
+  mockProgramFallbackThumbnailSrc,
 ];
 
 const getProgramSeedImageSrc = (imageIndex: number): string => {
@@ -983,6 +989,9 @@ interface ProgramLectureSeedFactoryInput {
   id: string;
   imageIndex: number;
   label: string;
+  catalogStatus?: ProgramCatalogStatus | undefined;
+  remainingSeatsCount?: number | undefined;
+  remainingSeatsLabel?: string | undefined;
   scheduleLabel?: string | undefined;
   slug: string;
   tags: string[];
@@ -999,6 +1008,9 @@ const createLectureSeed = ({
   id,
   imageIndex,
   label,
+  catalogStatus,
+  remainingSeatsCount,
+  remainingSeatsLabel,
   scheduleLabel,
   slug,
   tags,
@@ -1008,6 +1020,7 @@ const createLectureSeed = ({
   return {
     coverImageAlt: `${label} 대표 이미지`,
     coverImageSrc: getProgramSeedImageSrc(imageIndex),
+    ...(catalogStatus ? { catalogStatus } : {}),
     description,
     difficultyLabel,
     durationLabel,
@@ -1016,6 +1029,8 @@ const createLectureSeed = ({
     id,
     kind: 'lecture',
     label,
+    ...(remainingSeatsCount !== undefined ? { remainingSeatsCount } : {}),
+    ...(remainingSeatsLabel ? { remainingSeatsLabel } : {}),
     ...(scheduleLabel ? { scheduleLabel } : {}),
     slug,
     tags,
@@ -1284,6 +1299,7 @@ const generalCourseAbdomenBasicSeed = createCollectionSeed({
       id: 'general-course-abdomen-basic-2026-mar-apr',
       imageIndex: 0,
       label: '복부 Basic 스캔 6주',
+      catalogStatus: 'ENDED',
       scheduleLabel: '2026.03 - 2026.04 진행',
       slug: '2026-mar-apr',
       tags: ['복부', '기초', '6주'],
@@ -1298,6 +1314,7 @@ const generalCourseAbdomenBasicSeed = createCollectionSeed({
       id: 'general-course-abdomen-basic-2026-may-jun',
       imageIndex: 1,
       label: '복부 Basic 스캔 6주',
+      catalogStatus: 'CLOSED',
       scheduleLabel: '2026.05 - 2026.06 진행',
       slug: '2026-may-jun',
       tags: ['복부', '기초', '6주'],
@@ -1964,6 +1981,9 @@ const programCatalogSeeds: ProgramCatalogNodeSeed[] = [
         id: 'doctor-course-cardiology',
         kind: 'lecture',
         label: '심장과정',
+        catalogStatus: 'FULL',
+        remainingSeatsCount: 0,
+        remainingSeatsLabel: '정원 마감',
         slug: 'cardiology',
         tags: ['심장', '판독', '워크숍'],
         tuitionLabel: '수강 문의 후 일정 안내',
@@ -2013,7 +2033,7 @@ const programCatalogSeeds: ProgramCatalogNodeSeed[] = [
       doctorCoursePocusSeed,
       {
         coverImageAlt: '의사과정 복부 패키지 대표 이미지',
-        coverImageSrc: '/example.png',
+        coverImageSrc: mockProgramFallbackThumbnailSrc,
         description: '복부 이론 동영상과 현장 실습을 함께 묶은 패키지 과정입니다.',
         difficultyLabel: '입문-중급',
         durationLabel: '온라인 + 현장 실습',
@@ -2027,7 +2047,7 @@ const programCatalogSeeds: ProgramCatalogNodeSeed[] = [
       },
       {
         coverImageAlt: '의사과정 두경부 패키지 대표 이미지',
-        coverImageSrc: '/SRDMS_OG.png',
+        coverImageSrc: mockProgramFallbackThumbnailSrc,
         description: '두경부 이론 학습과 Hands-on 실습을 결합한 패키지 과정입니다.',
         difficultyLabel: '입문-중급',
         durationLabel: '온라인 + 현장 실습',
@@ -2288,7 +2308,7 @@ const programCatalogSeeds: ProgramCatalogNodeSeed[] = [
           },
           {
             coverImageAlt: '복부 이론 강좌 고급 대표 이미지',
-            coverImageSrc: '/SRDMS_OG.png',
+            coverImageSrc: mockProgramFallbackThumbnailSrc,
             description: 'ARDMS 대비에 필요한 복부 이론을 고급 수준으로 정리합니다.',
             difficultyLabel: '고급',
             durationLabel: '온라인 4주',
@@ -2317,7 +2337,7 @@ const programCatalogSeeds: ProgramCatalogNodeSeed[] = [
       ...additionalOnlineCourseCategorySeeds,
       {
         coverImageAlt: '온라인과정 SPI 시험 대비 대표 이미지',
-        coverImageSrc: '/example.png',
+        coverImageSrc: mockProgramFallbackThumbnailSrc,
         description: 'SPI 시험 대비를 위한 온라인 특강 과정입니다.',
         difficultyLabel: '입문-중급',
         durationLabel: '온라인 2주',
@@ -2507,6 +2527,7 @@ const hydrateProgramCatalogNode = (
     to,
     tuitionLabel: seed.tuitionLabel,
     visibility,
+    catalogStatus: seed.catalogStatus,
   };
 };
 
@@ -3171,7 +3192,7 @@ const createProgramMenuCollectionSeed = (
   return {
     children: [],
     coverImageAlt: `${payload.label} 대표 이미지`,
-    coverImageSrc: '/SRDMS_OG.png',
+    coverImageSrc: mockProgramFallbackThumbnailSrc,
     curatorNote: `${payload.label} 메뉴를 통해 연결되는 교육과정 구성을 관리합니다.`,
     description: payload.description,
     id: createProgramMenuId(),
@@ -3342,6 +3363,7 @@ const toProgramLectureCard = (lecture: ProgramCatalogLectureNode): ProgramLectur
     formatLabel: lecture.formatLabel,
     hashtagLabels: lecture.hashtagLabels,
     id: lecture.id,
+    catalogStatus: resolveProgramCatalogStatus(lecture),
     originalPriceLabel: lecture.originalPriceLabel,
     priceLabel: lecture.priceLabel,
     remainingSeatsCount: lecture.remainingSeatsCount,
@@ -3437,6 +3459,7 @@ const buildProgramPageResponse = (siteKey: string, path: string): ProgramPageRes
         { label: matchedNode.label, to: matchedNode.to },
       ]),
       categoryLabel,
+      catalogStatus: resolveProgramCatalogStatus(matchedNode),
       curriculumTrack: matchedNode.curriculumTrack,
       description: matchedNode.description,
       difficultyLabel: matchedNode.difficultyLabel,
@@ -5206,6 +5229,7 @@ export const getMockProgramSearchLectureItems = (
 
     return {
       categoryLabel,
+      catalogStatus: resolveProgramCatalogStatus(lecture),
       description: lecture.description,
       id: lecture.id,
       scope: 'lecture' as const,

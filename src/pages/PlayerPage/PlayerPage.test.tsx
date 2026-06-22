@@ -754,6 +754,10 @@ const originalCanPlayType = Object.getOwnPropertyDescriptor(
 )?.value as HTMLMediaElement['canPlayType'];
 const originalPlay = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'play')
   ?.value as HTMLMediaElement['play'];
+const originalScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(
+  window.HTMLElement.prototype,
+  'scrollIntoView',
+);
 
 beforeEach(() => {
   const practicumReservation = testPracticumOverview.lectures[0].currentReservations[0];
@@ -811,6 +815,15 @@ afterEach(() => {
   loaderRequests.length = 0;
   HTMLMediaElement.prototype.canPlayType = originalCanPlayType;
   HTMLMediaElement.prototype.play = originalPlay;
+  if (originalScrollIntoViewDescriptor) {
+    Object.defineProperty(
+      window.HTMLElement.prototype,
+      'scrollIntoView',
+      originalScrollIntoViewDescriptor,
+    );
+  } else {
+    delete (window.HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+  }
 });
 
 describe('PlayerPage', () => {
@@ -939,6 +952,31 @@ describe('PlayerPage', () => {
 
     expect(videoElement?.currentTime).toBe(120);
     expect(timelineSlider).toHaveValue('120');
+  });
+
+  it('keeps the playlist position unchanged after clicking a lesson', async () => {
+    const scrollIntoViewMock = vi.fn();
+    const problemLectureSnapshot = createProblemLectureSnapshot();
+
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+    fetchMyLearningPlayerSnapshotMock.mockResolvedValue(problemLectureSnapshot);
+    fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
+
+    renderPlayerPage('/mypage/learning/101/lesson/enrollment-101-lesson-1');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 1강' }),
+    ).toBeInTheDocument();
+
+    scrollIntoViewMock.mockClear();
+
+    fireEvent.click(screen.getByRole('link', { name: /복부초음파 기초 2강 문제풀이/ }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 2강 문제풀이' }),
+    ).toBeInTheDocument();
+
+    expect(scrollIntoViewMock).not.toHaveBeenCalled();
   });
 
   it('auto-hides player controls while playing and restores them on hover or pause', async () => {

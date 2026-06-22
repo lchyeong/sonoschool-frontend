@@ -13,6 +13,7 @@ const publicImageSchema = z
   .min(1)
   .transform((value) => sanitizeRequiredPublicAssetUrl(value, DEFAULT_PROGRAM_IMAGE));
 
+const catalogStatusSchema = z.enum(['OPEN', 'SCHEDULED', 'STARTED', 'CLOSED', 'ENDED', 'FULL']);
 const optionalPublicImageSchema = z.string().min(1).nullable().optional();
 const optionalCropValueSchema = z.number().nullable().optional();
 
@@ -36,6 +37,7 @@ const programSearchItemSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   categoryLabel: z.string().min(1),
+  catalogStatus: catalogStatusSchema.optional(),
   thumbnailSrc: publicImageSchema,
   thumbnailAlt: z.string().min(1),
   thumbnailCropOffsetX: optionalCropValueSchema,
@@ -61,7 +63,7 @@ const backendProgramSearchItemSchema = z.object({
   thumbnailCropOffsetY: optionalCropValueSchema,
   thumbnailCropZoom: optionalCropValueSchema,
   instructorName: z.string().nullable().optional(),
-  catalogStatus: z.string().min(1),
+  catalogStatus: catalogStatusSchema,
   detailPath: z.string().min(1),
 });
 
@@ -96,6 +98,7 @@ export const fetchProgramSearchIndex = async (): Promise<ProgramSearchIndexRespo
       title: item.title,
       description: item.description?.trim() || `${item.categoryName} 강의`,
       categoryLabel: item.categoryName,
+      catalogStatus: item.catalogStatus,
       thumbnailSrc: resolvePreferredProgramImageSrc(item.thumbnailPreviewUrl, item.thumbnailUrl),
       thumbnailAlt: `${item.title} 썸네일`,
       thumbnailCropOffsetX: item.thumbnailCropOffsetX,

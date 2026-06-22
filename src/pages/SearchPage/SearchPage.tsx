@@ -11,6 +11,8 @@ import {
   type SearchScope,
 } from '@/search/programSearchShared';
 import type { ProgramSearchItem } from '@/types/programSearch';
+import { classNames } from '@/utils/classNames';
+import { shouldMuteProgramThumbnail } from '@/utils/programCatalogStatus';
 import { getProgramImageCropStyle } from '@/utils/programImageCrop';
 
 import styles from './SearchPage.module.scss';
@@ -102,6 +104,7 @@ const SearchPage = () => {
         <section aria-label='검색 결과 목록' className={styles['resultsGrid']}>
           {filteredItems.length > 0 ? (
             filteredItems.map((item) => {
+              const shouldMuteThumbnail = shouldMuteProgramThumbnail(item.catalogStatus);
               const thumbnailCropStyle = getProgramImageCropStyle({
                 offsetX: item.thumbnailCropOffsetX,
                 offsetY: item.thumbnailCropOffsetY,
@@ -113,7 +116,10 @@ const SearchPage = () => {
                   <div className={styles['cardImageFrame']}>
                     <img
                       alt={item.thumbnailAlt}
-                      className={styles['cardImage']}
+                      className={classNames(
+                        styles['cardImage'],
+                        shouldMuteThumbnail && styles['cardImageMuted'],
+                      )}
                       src={item.thumbnailSrc}
                       style={thumbnailCropStyle}
                     />

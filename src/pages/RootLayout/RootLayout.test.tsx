@@ -3,7 +3,15 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { Link, RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createAppRouteHandle, type AppRouteKey } from '@/routes/routeRegistry';
+
 import RootLayout from './RootLayout';
+
+interface RootLayoutRouteFixture {
+  initialEntry: string;
+  path: string;
+  routeKey?: AppRouteKey;
+}
 
 const createTestQueryClient = () => {
   return new QueryClient({
@@ -18,44 +26,96 @@ const createTestQueryClient = () => {
   });
 };
 
+const setWindowScrollY = (scrollY: number) => {
+  Object.defineProperty(window, 'scrollY', {
+    configurable: true,
+    value: scrollY,
+    writable: true,
+  });
+};
+
+const renderRootLayoutRoute = ({ initialEntry, path, routeKey }: RootLayoutRouteFixture) => {
+  const queryClient = createTestQueryClient();
+  const router = createMemoryRouter(
+    [
+      {
+        children: [
+          {
+            element: <RootLayout />,
+            path: '/',
+            children: [
+              {
+                element: <div>테스트 화면</div>,
+                handle: routeKey ? createAppRouteHandle(routeKey) : undefined,
+                path,
+              },
+            ],
+          },
+        ],
+        path: '/',
+      },
+    ],
+    { initialEntries: [initialEntry] },
+  );
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+};
+
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
+  setWindowScrollY(0);
 });
 
 describe('RootLayout', () => {
-  it('does not render the quick menu on non-home pages', () => {
-    const queryClient = createTestQueryClient();
-    const router = createMemoryRouter(
-      [
-        {
-          children: [
-            {
-              element: <RootLayout />,
-              path: '/',
-              children: [
-                {
-                  element: <div>교육과정 화면</div>,
-                  handle: { access: 'public', routeKey: 'programs' },
-                  path: 'programs',
-                },
-              ],
-            },
-          ],
-          path: '/',
-        },
-      ],
-      { initialEntries: ['/programs'] },
-    );
+  it('renders the quick menu on common-header pages outside home', () => {
+    setWindowScrollY(120);
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
+    renderRootLayoutRoute({
+      initialEntry: '/programs',
+      path: 'programs',
+      routeKey: 'programs',
+    });
 
-    expect(screen.queryByRole('complementary', { name: '빠른 메뉴' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '페이지 상단으로 이동' })).not.toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: '빠른 메뉴' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '페이지 상단으로 이동' })).toBeInTheDocument();
   });
+
+  it.each([
+    { initialEntry: '/login', path: 'login', routeKey: 'login' },
+    { initialEntry: '/mypage', path: 'mypage', routeKey: 'mypage' },
+    {
+      initialEntry: '/mypage/learning/101',
+      path: 'mypage/learning/:enrollmentId',
+      routeKey: 'learningPlayer',
+    },
+    {
+      initialEntry: '/mypage/learning/101/lesson/lesson-1',
+      path: 'mypage/learning/:enrollmentId/lesson/:lessonId',
+      routeKey: 'learningLesson',
+    },
+    {
+      initialEntry: '/mypage/enrollments/101/practicum',
+      path: 'mypage/enrollments/:enrollmentId/practicum',
+      routeKey: 'myEnrollmentPracticum',
+    },
+  ] satisfies RootLayoutRouteFixture[])(
+    'does not render the quick menu on $routeKey routes',
+    (fixture) => {
+      setWindowScrollY(120);
+
+      renderRootLayoutRoute(fixture);
+
+      expect(screen.queryByRole('complementary', { name: '빠른 메뉴' })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: '페이지 상단으로 이동' }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it('resets window scroll to top when pathname changes', async () => {
     const scrollToSpy = vi.fn();

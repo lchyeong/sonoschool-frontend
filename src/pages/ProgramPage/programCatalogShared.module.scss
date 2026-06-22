@@ -229,6 +229,11 @@
   object-fit: cover;
 }
 
+.lectureImageMuted,
+.archiveLectureImageMuted {
+  filter: grayscale(100%);
+}
+
 .archiveLectureImage {
   transition: transform 220ms ease;
 }

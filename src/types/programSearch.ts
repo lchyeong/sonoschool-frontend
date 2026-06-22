@@ -1,4 +1,5 @@
 import type { SearchScope } from '@/search/programSearchShared';
+import type { ProgramCatalogStatus } from '@/types/programCatalog';
 
 export type { SearchScope, SearchScopeOption } from '@/search/programSearchShared';
 
@@ -9,6 +10,7 @@ export interface ProgramSearchItem {
   title: string;
   description: string;
   categoryLabel: string;
+  catalogStatus?: ProgramCatalogStatus | undefined;
   tags?: string[] | undefined;
   thumbnailSrc: string;
   thumbnailAlt: string;

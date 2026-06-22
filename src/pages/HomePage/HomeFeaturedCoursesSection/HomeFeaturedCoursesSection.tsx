@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 
 import Pagination from '@/components/ui/Pagination/Pagination';
 import { useProgramLectureCatalogQuery } from '@/query/useProgramLectureCatalogQuery';
+import { classNames } from '@/utils/classNames';
+import { shouldMuteProgramThumbnail } from '@/utils/programCatalogStatus';
 import { getProgramImageCropStyle } from '@/utils/programImageCrop';
 
 import styles from './HomeFeaturedCoursesSection.module.scss';
@@ -59,6 +61,7 @@ const HomeFeaturedCoursesSection = () => {
   };
 
   const renderCourseCard = (course: (typeof courses)[number]) => {
+    const shouldMuteThumbnail = shouldMuteProgramThumbnail(course);
     const thumbnailCropStyle = getProgramImageCropStyle({
       offsetX: course.thumbnailCropOffsetX,
       offsetY: course.thumbnailCropOffsetY,
@@ -71,7 +74,10 @@ const HomeFeaturedCoursesSection = () => {
           <div className={styles['courseImageFrame']}>
             <img
               alt={course.thumbnailAlt}
-              className={styles['courseImage']}
+              className={classNames(
+                styles['courseImage'],
+                shouldMuteThumbnail && styles['courseImageMuted'],
+              )}
               loading='lazy'
               src={course.thumbnailSrc}
               style={thumbnailCropStyle}
