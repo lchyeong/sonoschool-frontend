@@ -48,6 +48,7 @@ const buildAddToCartPayload = (lecture: ProgramLectureCard): AddToCartPayload =>
   const payablePriceAmount = parsePriceAmount(lecture.discountedPriceLabel ?? lecture.priceLabel);
 
   return {
+    durationLabel: lecture.durationLabel,
     instructorName: '장은희',
     originalPrice: originalPriceAmount,
     payablePrice: payablePriceAmount,

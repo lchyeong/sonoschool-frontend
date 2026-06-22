@@ -98,6 +98,7 @@ const buildAddToCartPayload = (
   const sourcePath = data.breadcrumbItems.at(-1)?.to ?? routePaths.programs;
 
   return {
+    durationLabel: data.durationLabel,
     instructorName: data.instructor.name,
     originalPrice: originalPriceAmount,
     payablePrice: discountedPriceAmount,

@@ -13,6 +13,7 @@ const initialCartItems: CartItem[] = [
   {
     addedAt: '2026-03-22T00:00:00Z',
     detailPath: '/programs/doctor-course/pocus/fast/2026-mar-apr',
+    durationLabel: '결제일로부터 60일',
     id: 55,
     instructorName: '장은희',
     originalPrice: 150000,
@@ -131,6 +132,7 @@ describe('CartPage', () => {
 
     expect(lectureLink).toHaveAttribute('href', '/programs/doctor-course/pocus/fast/2026-mar-apr');
     expect(thumbnail).toHaveAttribute('src');
+    expect(screen.getByText('결제일로부터 60일')).toBeInTheDocument();
     expect(screen.getByText('150,000원')).toBeInTheDocument();
     expect(screen.getByText('- 25,000원 (17%)')).toBeInTheDocument();
   });

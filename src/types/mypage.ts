@@ -7,6 +7,7 @@ export type RefundStatus = 'REFUND_REQUESTED' | 'REFUNDED' | 'CANCELLED';
 export type ProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID' | 'PROBLEM_SOLVING';
 
 export interface AddToCartPayload {
+  durationLabel?: string | null;
   instructorName: string | null;
   originalPrice: number;
   payablePrice: number;
@@ -230,6 +231,7 @@ export interface CartItem {
   payablePrice: number;
   saleStartAt: string | null;
   saleEndAt: string | null;
+  durationLabel?: string | null;
   addedAt: string;
 }
 

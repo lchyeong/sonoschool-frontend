@@ -77,7 +77,17 @@ const formatCheckoutDate = (value: string | null) => {
   return `${String(year)}.${month}.${day}`;
 };
 
-const getCoursePeriodLabel = (saleStartAt: string | null, saleEndAt: string | null) => {
+const getCoursePeriodLabel = (
+  durationLabel: string | null | undefined,
+  saleStartAt: string | null,
+  saleEndAt: string | null,
+) => {
+  const normalizedDurationLabel = durationLabel?.trim();
+
+  if (normalizedDurationLabel) {
+    return normalizedDurationLabel;
+  }
+
   const start = formatCheckoutDate(saleStartAt);
   const end = formatCheckoutDate(saleEndAt);
 
@@ -888,7 +898,13 @@ const CheckoutPage = () => {
                             <strong className={styles['itemTitle']}>{item.title}</strong>
                             <p className={styles['itemMeta']}>
                               <span>수강기간</span>
-                              <span>{getCoursePeriodLabel(item.saleStartAt, item.saleEndAt)}</span>
+                              <span>
+                                {getCoursePeriodLabel(
+                                  item.durationLabel,
+                                  item.saleStartAt,
+                                  item.saleEndAt,
+                                )}
+                              </span>
                             </p>
                           </div>
                           <div className={styles['itemPriceBlock']}>

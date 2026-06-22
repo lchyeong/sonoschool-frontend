@@ -85,6 +85,7 @@ const toGuestCartItem = (payload: AddToCartPayload, nextId: number): CartItem =>
   return {
     addedAt: new Date().toISOString(),
     detailPath: payload.sourcePath,
+    durationLabel: payload.durationLabel ?? null,
     id: nextId,
     instructorName: payload.instructorName,
     originalPrice: payload.originalPrice,

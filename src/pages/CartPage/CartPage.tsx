@@ -41,7 +41,17 @@ const formatCartDate = (value: string | null) => {
   return `${String(year)}.${month}.${day}`;
 };
 
-const getCoursePeriodLabel = (saleStartAt: string | null, saleEndAt: string | null) => {
+const getCoursePeriodLabel = (
+  durationLabel: string | null | undefined,
+  saleStartAt: string | null,
+  saleEndAt: string | null,
+) => {
+  const normalizedDurationLabel = durationLabel?.trim();
+
+  if (normalizedDurationLabel) {
+    return normalizedDurationLabel;
+  }
+
   const start = formatCartDate(saleStartAt);
   const end = formatCartDate(saleEndAt);
 
@@ -49,7 +59,7 @@ const getCoursePeriodLabel = (saleStartAt: string | null, saleEndAt: string | nu
     return `${start}~${end}`;
   }
 
-  return '상시수강';
+  return '상시 수강';
 };
 
 const getDiscountRate = (originalPrice: number, payablePrice: number) => {
@@ -239,7 +249,13 @@ const CartPage = () => {
                           </Link>
                           <p className={styles['itemMeta']}>
                             <span>수강기간</span>
-                            <span>{getCoursePeriodLabel(item.saleStartAt, item.saleEndAt)}</span>
+                            <span>
+                              {getCoursePeriodLabel(
+                                item.durationLabel,
+                                item.saleStartAt,
+                                item.saleEndAt,
+                              )}
+                            </span>
                           </p>
                         </div>
                         <button

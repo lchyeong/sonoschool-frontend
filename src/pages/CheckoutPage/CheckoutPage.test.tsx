@@ -15,6 +15,7 @@ const testCart: CartSummary = {
     {
       addedAt: '2026-03-22T00:00:00Z',
       detailPath: '/programs/pocus-workshop',
+      durationLabel: '결제일로부터 60일',
       id: 55,
       instructorName: '장은희',
       originalPrice: 150000,
@@ -158,6 +159,7 @@ describe('CheckoutPage', () => {
 
     expect(await screen.findByRole('heading', { name: '결제' })).toBeInTheDocument();
     expect(await screen.findByText('선택 상품 수')).toBeInTheDocument();
+    expect(screen.getByText('결제일로부터 60일')).toBeInTheDocument();
     expect(screen.getByText('9개')).toBeInTheDocument();
     expect(screen.getByText('1,301,000원')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '결제 수단' })).not.toBeInTheDocument();
