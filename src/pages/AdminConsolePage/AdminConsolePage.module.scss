@@ -4147,14 +4147,59 @@
 }
 
 .programEnrollmentSearchField {
-  display: block;
+  display: flex;
+  align-items: center;
   width: min(100%, 320px);
+  min-height: 36px;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  background: #ffffff;
 }
 
 .programEnrollmentSearchInput {
+  min-width: 0;
+  flex: 1;
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 10px 0 12px;
+  border: 0;
   font-size: var(--font-size-sm);
+  outline: 0;
+}
+
+.programEnrollmentSearchField:focus-within {
+  outline: 2px solid var(--color-brand-lighten-35);
+  outline-offset: 0;
+  border-color: var(--admin-border-strong);
+}
+
+.programEnrollmentSearchButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  margin-right: 2px;
+  padding: 0;
+  border: 0;
+  background: var(--color-brand-main);
+  cursor: pointer;
+}
+
+.programEnrollmentSearchButton:hover,
+.programEnrollmentSearchButton:focus-visible {
+  background: var(--color-brand-darken-10);
+}
+
+.programEnrollmentSearchButton:focus-visible {
+  outline: 2px solid var(--color-brand-lighten-35);
+  outline-offset: 2px;
+}
+
+.programEnrollmentSearchIcon {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .programEnrollmentTableToolbar + .tableWrap {
@@ -4542,27 +4587,46 @@
 
 .table.programEnrollmentDetailLectureTable th:nth-child(1),
 .table.programEnrollmentDetailLectureTable td:nth-child(1) {
-  width: 34%;
+  width: 28%;
 }
 
 .table.programEnrollmentDetailLectureTable th:nth-child(2),
 .table.programEnrollmentDetailLectureTable td:nth-child(2) {
-  width: 10%;
+  width: 8%;
 }
 
 .table.programEnrollmentDetailLectureTable th:nth-child(3),
 .table.programEnrollmentDetailLectureTable td:nth-child(3) {
-  width: 10%;
+  width: 8%;
 }
 
 .table.programEnrollmentDetailLectureTable th:nth-child(4),
 .table.programEnrollmentDetailLectureTable td:nth-child(4) {
-  width: 23%;
+  width: 26%;
 }
 
 .table.programEnrollmentDetailLectureTable th:nth-child(5),
 .table.programEnrollmentDetailLectureTable td:nth-child(5) {
-  width: 23%;
+  width: 15%;
+}
+
+.table.programEnrollmentDetailLectureTable th:nth-child(6),
+.table.programEnrollmentDetailLectureTable td:nth-child(6) {
+  width: 15%;
+}
+
+.table.programEnrollmentDetailLectureTable td:nth-child(4) {
+  white-space: normal;
+}
+
+.programEnrollmentScheduleStack {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.programEnrollmentScheduleStack + .programEnrollmentScheduleStack {
+  margin-top: 6px;
 }
 
 .table tbody tr:last-child td {

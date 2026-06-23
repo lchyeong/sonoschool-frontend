@@ -1,10 +1,11 @@
 import { Fragment, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
 import { fetchAdminUserDetail } from '@/api/adminUsers';
+import searchIconSrc from '@/assets/icons/search.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
 import { useAdminProgramEnrollmentsQuery } from '@/query/useAdminProgramOperationsQuery';
@@ -31,6 +32,12 @@ const EMPTY_PROGRAMS: AdminProgramListItem[] = [];
 const EMPTY_ENROLLMENTS: AdminProgramEnrollmentItem[] = [];
 const PROGRAMS_PAGE_SIZE = 10;
 const ENROLLMENTS_PAGE_SIZE = 10;
+const HIDDEN_ENROLLMENT_PAYMENT_STATUSES = new Set<AdminProgramEnrollmentItem['paymentStatus']>([
+  'APPROVED_PENDING_FULFILLMENT',
+  'FAILED',
+  'PENDING',
+  'REGISTERED',
+]);
 
 const programTypeLabel: Record<AdminProgramListItem['programType'], string> = {
   HYBRID: '실습예약 프로그램',
@@ -46,6 +53,24 @@ const catalogStatusLabel: Record<AdminProgramListItem['catalogStatus'], string> 
   OPEN: '판매중',
   SCHEDULED: '판매 예정',
   STARTED: '개강됨',
+};
+
+const practicumScheduleStatusLabel: Partial<Record<string, string>> = {
+  ACTIVE: '예약중',
+  COMPLETED: '완료',
+  NO_SHOW: '불참',
+};
+
+const offlineAttendanceStatusLabel: Partial<Record<string, string>> = {
+  ABSENT: '결석',
+  PRESENT: '출석',
+  UNCHECKED: '미체크',
+};
+
+const offlineAttendanceStatusClassName: Partial<Record<string, string>> = {
+  ABSENT: 'statusTextDanger',
+  PRESENT: 'statusTextSuccess',
+  UNCHECKED: 'statusTextMuted',
 };
 
 const toNumberOrNull = (value: string | null): number | null => {
@@ -124,6 +149,45 @@ const resolveUserDetailPaymentStatusLabel = (status: string): string => {
   return paymentStatusTextMap[status] ?? userDetailPaymentStatusTextMap[status] ?? status;
 };
 
+const formatTime = (value: string | null): string => {
+  if (!value) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    hour: '2-digit',
+    hour12: false,
+    minute: '2-digit',
+  }).format(new Date(value));
+};
+
+const formatScheduleWindow = (startAt: string | null, endAt: string | null): string => {
+  if (!startAt && !endAt) {
+    return '-';
+  }
+
+  if (!startAt) {
+    return formatTime(endAt);
+  }
+
+  return `${formatDateTime(startAt)} ~ ${formatTime(endAt)}`;
+};
+
+const getPrimaryOfflineSchedule = (
+  schedules: NonNullable<AdminUserDetailLectureItem['schedules']>,
+) => {
+  const offlineSchedules = schedules.filter((schedule) => schedule.scheduleKind === 'OFFLINE');
+
+  if (!offlineSchedules.length) {
+    return null;
+  }
+
+  return (
+    offlineSchedules.find((schedule) => schedule.status && schedule.status !== 'UNCHECKED') ??
+    offlineSchedules[0]
+  );
+};
+
 const getProgramEnrollmentCount = (program: AdminProgramListItem | null): number => {
   if (!program) {
     return 0;
@@ -135,7 +199,7 @@ const getProgramEnrollmentCount = (program: AdminProgramListItem | null): number
 const formatProgramStudentCount = (program: AdminProgramListItem): string => {
   const activeEnrollmentCount = getProgramEnrollmentCount(program);
 
-  return `수강생 ${String(activeEnrollmentCount)}명`;
+  return `${String(activeEnrollmentCount)}명`;
 };
 
 const AdminProgramEnrollmentsSection = () => {
@@ -223,6 +287,12 @@ const AdminProgramEnrollmentsSection = () => {
     setSearchParams({}, { replace: true });
   };
 
+  const handleProgramSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCurrentPageIndex(0);
+    setSearchParams({}, { replace: true });
+  };
+
   return (
     <section className={styles['workspace']}>
       <section className={styles['panelWide']}>
@@ -249,9 +319,13 @@ const AdminProgramEnrollmentsSection = () => {
         {!programsQuery.isPending && !programsQuery.isError ? (
           <>
             <div className={styles['programEnrollmentTableToolbar']}>
-              <label className={styles['programEnrollmentSearchField']}>
-                <span className={styles['srOnly']}>프로그램 검색</span>
+              <form
+                aria-label='프로그램 검색'
+                className={styles['programEnrollmentSearchField']}
+                onSubmit={handleProgramSearchSubmit}
+              >
                 <input
+                  aria-label='프로그램명 검색'
                   className={`${styles['searchInput']} ${styles['programEnrollmentSearchInput']}`}
                   onChange={(event) => {
                     handleProgramSearchChange(event.target.value);
@@ -260,7 +334,19 @@ const AdminProgramEnrollmentsSection = () => {
                   type='search'
                   value={programSearchKeyword}
                 />
-              </label>
+                <button
+                  aria-label='프로그램 검색'
+                  className={styles['programEnrollmentSearchButton']}
+                  type='submit'
+                >
+                  <img
+                    alt=''
+                    aria-hidden='true'
+                    className={styles['programEnrollmentSearchIcon']}
+                    src={searchIconSrc}
+                  />
+                </button>
+              </form>
             </div>
             <ProgramBoardTable
               emptyMessage={
@@ -380,7 +466,9 @@ const ProgramEnrollmentDropdown = ({
     null,
   );
   const visibleEnrollments = useMemo(() => {
-    return enrollments.filter((item) => item.paymentStatus !== 'REGISTERED');
+    return enrollments.filter(
+      (item) => !HIDDEN_ENROLLMENT_PAYMENT_STATUSES.has(item.paymentStatus),
+    );
   }, [enrollments]);
   const totalEnrollmentPages = Math.max(
     1,
@@ -768,6 +856,7 @@ const ProgramEnrollmentDetailContent = ({
                 <th scope='col'>강의</th>
                 <th scope='col'>형태</th>
                 <th scope='col'>진도율</th>
+                <th scope='col'>일정/예약</th>
                 <th scope='col'>학습 기록</th>
                 <th scope='col'>문제 결과</th>
               </tr>
@@ -779,7 +868,7 @@ const ProgramEnrollmentDetailContent = ({
                 ))
               ) : (
                 <tr>
-                  <td className={styles['emptyTableCell']} colSpan={5}>
+                  <td className={styles['emptyTableCell']} colSpan={6}>
                     등록된 강의가 없습니다.
                   </td>
                 </tr>
@@ -825,6 +914,9 @@ const ProgramEnrollmentDetailLectureRow = ({
       <td>{lectureTypeLabel[lecture.lectureType] ?? lecture.lectureType}</td>
       <td>{String(lecture.progressRate)}%</td>
       <td>
+        <ProgramEnrollmentLectureScheduleCell lecture={lecture} />
+      </td>
+      <td>
         <div className={styles['cellStack']}>
           <span className={styles['cellSecondary']}>
             {formatDurationMinutes(lecture.watchedSeconds)} /{' '}
@@ -842,6 +934,65 @@ const ProgramEnrollmentDetailLectureRow = ({
         </div>
       </td>
     </tr>
+  );
+};
+
+const ProgramEnrollmentLectureScheduleCell = ({
+  lecture,
+}: {
+  lecture: AdminUserDetailLectureItem;
+}) => {
+  const schedules = lecture.schedules ?? [];
+  const practicumSchedules = schedules.filter((schedule) => schedule.scheduleKind === 'PRACTICUM');
+  const offlineSchedule = getPrimaryOfflineSchedule(schedules);
+
+  if (!schedules.length) {
+    return <span className={styles['cellSecondary']}>-</span>;
+  }
+
+  if (offlineSchedule) {
+    const attendanceStatus = offlineSchedule.status ?? 'UNCHECKED';
+    const attendanceStatusClassName =
+      offlineAttendanceStatusClassName[attendanceStatus] ?? 'statusTextMuted';
+
+    return (
+      <div className={styles['programEnrollmentScheduleStack']}>
+        <span className={styles['cellPrimary']}>
+          {formatScheduleWindow(offlineSchedule.startAt, offlineSchedule.endAt)}
+        </span>
+        <span className={`${styles['statusText']} ${styles[attendanceStatusClassName]}`}>
+          {offlineAttendanceStatusLabel[attendanceStatus] ?? attendanceStatus}
+          {offlineSchedule.location ? ` · ${offlineSchedule.location}` : ''}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles['cellStack']}>
+      {practicumSchedules.map((schedule) => {
+        const scheduleKey = `${schedule.scheduleKind}-${String(
+          schedule.reservationId ?? schedule.offlineScheduleRuleId,
+        )}-${schedule.startAt ?? 'none'}`;
+
+        const capacityLabel =
+          schedule.maxCapacity === null
+            ? `${String(schedule.reservedCount ?? 0)}명 예약`
+            : `${String(schedule.reservedCount ?? 0)} / ${String(schedule.maxCapacity)}명`;
+
+        return (
+          <div className={styles['programEnrollmentScheduleStack']} key={scheduleKey}>
+            <span className={styles['cellPrimary']}>
+              실습 {formatScheduleWindow(schedule.startAt, schedule.endAt)}
+            </span>
+            <span className={styles['cellSecondary']}>
+              {practicumScheduleStatusLabel[schedule.status ?? ''] ?? schedule.status ?? '예약'} ·{' '}
+              {capacityLabel}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 };
 

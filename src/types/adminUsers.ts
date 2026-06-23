@@ -78,6 +78,23 @@ export interface AdminUserDetailProblemItem {
   title: string;
 }
 
+export interface AdminUserDetailLectureScheduleItem {
+  absentCount: number | null;
+  activeEnrollmentCount: number | null;
+  endAt: string | null;
+  location: string | null;
+  maxCapacity: number | null;
+  offlineScheduleRuleId: number | null;
+  presentCount: number | null;
+  reservationId: number | null;
+  reservedAt: string | null;
+  reservedCount: number | null;
+  scheduleKind: 'OFFLINE' | 'PRACTICUM';
+  startAt: string | null;
+  status: string | null;
+  uncheckedCount: number | null;
+}
+
 export interface AdminUserDetailLectureItem {
   completed: boolean;
   completedAt: string | null;
@@ -89,6 +106,7 @@ export interface AdminUserDetailLectureItem {
   lectureType: string;
   progressRate: number;
   problem: AdminUserDetailProblemItem | null;
+  schedules?: AdminUserDetailLectureScheduleItem[];
   sectionId: number;
   sectionSortOrder: number;
   sectionTitle: string;
