@@ -6,6 +6,7 @@ import AdminNoticesSection from './AdminNoticesSection';
 import AdminPopupsSection from './AdminPopupsSection';
 import AdminPracticumSection from './AdminPracticumSection';
 import AdminProblemAreasSection from './AdminProblemAreasSection';
+import AdminProgramEnrollmentsSection from './AdminProgramEnrollmentsSection';
 import AdminProgramListSection from './AdminProgramListSection';
 import AdminProgramMenuSection from './AdminProgramMenuSection';
 import AdminProgramReservationsSection from './AdminProgramReservationsSection';
@@ -38,6 +39,7 @@ const AdminConsolePage = ({ section }: AdminConsolePageProps) => {
       {section === 'programMenus' ? <AdminProgramMenuSection /> : null}
       {section === 'problemAreas' ? <AdminProblemAreasSection /> : null}
       {section === 'programs' ? <AdminProgramListSection /> : null}
+      {section === 'programEnrollments' ? <AdminProgramEnrollmentsSection /> : null}
       {section === 'payments' ? <AdminPaymentsSection /> : null}
     </div>
   );

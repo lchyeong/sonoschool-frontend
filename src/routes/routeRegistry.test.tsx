@@ -64,6 +64,9 @@ describe('appRouteRegistry', () => {
     expect(routePaths.adminProgramDuplicate('program-1')).toBe(
       '/admin/programs/program-1/duplicate',
     );
+    expect(routePaths.adminProgramEnrollments).toBe(
+      appRouteRegistry.routes.adminProgramEnrollments.absolutePath,
+    );
     expect(routePaths.adminProgramMenus).toBe(
       appRouteRegistry.routes.adminProgramMenus.absolutePath,
     );
@@ -207,6 +210,10 @@ describe('appRouteRegistry', () => {
     });
     expect(getRouteHandle('admin/programs')).toEqual({
       routeKey: 'adminPrograms',
+      access: 'admin',
+    });
+    expect(getRouteHandle('admin/program-enrollments')).toEqual({
+      routeKey: 'adminProgramEnrollments',
       access: 'admin',
     });
     expect(getRouteHandle('admin/programs/new')).toEqual({

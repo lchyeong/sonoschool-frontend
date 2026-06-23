@@ -551,7 +551,6 @@ const CurriculumWeekRow = ({
         }, 0),
       )
     : null;
-
   return (
     <article className={styles['curriculumWeekRow']}>
       <button className={styles['curriculumWeekButton']} onClick={onToggle} type='button'>
@@ -734,21 +733,27 @@ export const ProgramPageDetailMainContent = ({
   visiblePreviewReviewIds,
 }: ProgramPageDetailMainContentProps) => {
   const curriculumTrack = data.curriculumTrack;
+  const visibleCurriculumSections = curriculumTrack.sections.filter((section) => {
+    return section.lessons.length > 0;
+  });
   const hasReviews = sortedReviews.length > 0;
-  const curriculumSectionCount = curriculumTrack.sections.length;
-  const curriculumLessonCount = curriculumTrack.sections.reduce((total, section) => {
+  const curriculumSectionCount = visibleCurriculumSections.length;
+  const curriculumLessonCount = visibleCurriculumSections.reduce((total, section) => {
     return total + section.lessons.length;
   }, 0);
-  const showCurriculumDurationLabels = shouldShowCurriculumDurationLabels(curriculumTrack.sections);
+  const showCurriculumDurationLabels =
+    shouldShowCurriculumDurationLabels(visibleCurriculumSections);
   const curriculumTotalDurationLabel = showCurriculumDurationLabels
-    ? formatDurationLabel(getCurriculumTotalDurationMinutes(curriculumTrack.sections), '총')
+    ? formatDurationLabel(getCurriculumTotalDurationMinutes(visibleCurriculumSections), '총')
     : null;
   const curriculumSummaryLabels = [
     `${String(curriculumSectionCount)}개 섹션`,
-    `${String(curriculumLessonCount)}개 학습 콘텐츠`,
+    curriculumLessonCount > 0
+      ? `${String(curriculumLessonCount)}개 학습 콘텐츠`
+      : '0개 학습 콘텐츠',
     ...(curriculumTotalDurationLabel ? [curriculumTotalDurationLabel] : []),
   ];
-  const curriculumRowKeys = curriculumTrack.sections.map((_, sectionIndex) => {
+  const curriculumRowKeys = visibleCurriculumSections.map((_, sectionIndex) => {
     return `${curriculumTrack.id}-${String(sectionIndex)}`;
   });
   const hasCurriculumSections = curriculumRowKeys.length > 0;
@@ -1020,9 +1025,9 @@ export const ProgramPageDetailMainContent = ({
                     ) : null}
                   </div>
 
-                  {curriculumTrack.sections.length > 0 ? (
+                  {visibleCurriculumSections.length > 0 ? (
                     <div className={styles['curriculumWeekList']}>
-                      {curriculumTrack.sections.map((section, sectionIndex) => {
+                      {visibleCurriculumSections.map((section, sectionIndex) => {
                         const rowKey = `${curriculumTrack.id}-${String(sectionIndex)}`;
 
                         return (

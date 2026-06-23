@@ -2636,6 +2636,22 @@
   white-space: nowrap;
 }
 
+.cellInlineGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.cellInlineGroup .cellPrimary,
+.cellInlineGroup .cellSecondary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .itemTitle {
   margin: 0;
   color: var(--color-text-primary);
@@ -4115,6 +4131,438 @@
 .table.programEnrollmentTable th:nth-child(6),
 .table.programEnrollmentTable td:nth-child(6) {
   width: 22%;
+}
+
+.table.programEnrollmentProgramTable {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.programEnrollmentTableToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: var(--space-2);
+}
+
+.programEnrollmentSearchField {
+  display: block;
+  width: min(100%, 320px);
+}
+
+.programEnrollmentSearchInput {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: var(--font-size-sm);
+}
+
+.programEnrollmentTableToolbar + .tableWrap {
+  margin-top: 0;
+}
+
+.programEnrollmentTotalText {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.table.programEnrollmentProgramTable th,
+.table.programEnrollmentProgramTable td {
+  padding: 8px 10px;
+  overflow: hidden;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table.programEnrollmentProgramTable th,
+.table.programStudentEnrollmentTable th {
+  letter-spacing: 0;
+}
+
+.table.programEnrollmentProgramTable th:nth-child(1),
+.table.programEnrollmentProgramTable td:nth-child(1) {
+  width: 5%;
+}
+
+.table.programEnrollmentProgramTable th:nth-child(2),
+.table.programEnrollmentProgramTable td:nth-child(2) {
+  width: 51%;
+}
+
+.table.programEnrollmentProgramTable th:nth-child(3),
+.table.programEnrollmentProgramTable td:nth-child(3) {
+  width: 18%;
+}
+
+.table.programEnrollmentProgramTable th:nth-child(4),
+.table.programEnrollmentProgramTable td:nth-child(4) {
+  width: 10%;
+}
+
+.table.programEnrollmentProgramTable th:nth-child(5),
+.table.programEnrollmentProgramTable td:nth-child(5) {
+  width: 11%;
+}
+
+.table.programEnrollmentProgramTable th:nth-child(6),
+.table.programEnrollmentProgramTable td:nth-child(6) {
+  width: 5%;
+}
+
+.statusText {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.statusTextSuccess {
+  color: #168574;
+}
+
+.statusTextWarning {
+  color: #b7791f;
+}
+
+.statusTextDanger {
+  color: #b91c1c;
+}
+
+.statusTextMuted {
+  color: var(--color-text-tertiary);
+}
+
+.clickableTableRow {
+  cursor: pointer;
+}
+
+.table tbody tr.clickableTableRow:focus-visible td {
+  outline: 2px solid #34b29f;
+  outline-offset: -2px;
+}
+
+.boardTitleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.boardTitleButton .cellPrimary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boardTitleButton .cellSecondary {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.boardTitleButton:hover .cellPrimary {
+  color: #168b7c;
+}
+
+.programEnrollmentToggleCell {
+  text-align: center;
+}
+
+.programEnrollmentChevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: var(--color-text-tertiary);
+  transform: rotate(0deg);
+  transition:
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.programEnrollmentChevronOpen {
+  color: #168b7c;
+  transform: rotate(180deg);
+}
+
+.table.programEnrollmentProgramTable .programEnrollmentDropdownRow > td {
+  padding: var(--space-2) var(--space-3) var(--space-3) var(--space-4);
+  overflow: visible;
+  background: color-mix(in srgb, var(--color-brand-main) 7%, #ffffff);
+  white-space: normal;
+}
+
+.programEnrollmentDropdown {
+  display: grid;
+  gap: var(--space-2);
+  margin-left: min(var(--space-5), 3vw);
+  padding: var(--space-3);
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--color-brand-main) 28%, #ffffff);
+  border-left: 4px solid #34b29f;
+  background: #f7fcfb;
+  white-space: normal;
+}
+
+.programEnrollmentDropdownHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-brand-main) 18%, #ffffff);
+}
+
+.programEnrollmentSummaryGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: 0;
+}
+
+.programEnrollmentSummaryText {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.programEnrollmentDropdown .tableWrap {
+  margin-top: 0;
+  border-color: color-mix(in srgb, var(--color-brand-main) 18%, #ffffff);
+  background: #ffffff;
+}
+
+.programEnrollmentDropdown .paginationBar {
+  padding: var(--space-2) 0 0;
+  border-top: 0;
+}
+
+.programEnrollmentDropdown .paginationNumbers {
+  gap: 4px;
+}
+
+.programEnrollmentDropdown .paginationButton,
+.programEnrollmentDropdown .paginationButtonActive {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: var(--font-size-xs);
+}
+
+.programEnrollmentDropdown .paginationArrowButton {
+  width: 30px;
+  height: 30px;
+  font-size: var(--font-size-xs);
+}
+
+.programEnrollmentDropdown .programStudentEnrollmentTable th {
+  background: color-mix(in srgb, var(--color-brand-main) 9%, #ffffff);
+}
+
+.programEnrollmentDropdown .programStudentEnrollmentTable tbody tr td {
+  background: #ffffff;
+}
+
+.programEnrollmentDropdown .programStudentEnrollmentTable tbody tr:nth-child(even) td {
+  background: #f9fbfb;
+}
+
+.programEnrollmentDropdown .programStudentEnrollmentTable tbody tr:hover td {
+  background: color-mix(in srgb, var(--color-brand-main) 7%, #ffffff);
+}
+
+.programEnrollmentStudentRow {
+  cursor: pointer;
+}
+
+.table tbody tr.programEnrollmentStudentRow:focus-visible td {
+  outline: 2px solid #34b29f;
+  outline-offset: -2px;
+}
+
+.table.programStudentEnrollmentTable {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.table.programStudentEnrollmentTable th,
+.table.programStudentEnrollmentTable td {
+  padding: 7px 9px;
+  overflow: hidden;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table.programStudentEnrollmentTable th:nth-child(1),
+.table.programStudentEnrollmentTable td:nth-child(1) {
+  width: 15%;
+}
+
+.table.programStudentEnrollmentTable th:nth-child(2),
+.table.programStudentEnrollmentTable td:nth-child(2) {
+  width: 16%;
+}
+
+.table.programStudentEnrollmentTable th:nth-child(3),
+.table.programStudentEnrollmentTable td:nth-child(3) {
+  width: 13%;
+}
+
+.table.programStudentEnrollmentTable th:nth-child(4),
+.table.programStudentEnrollmentTable td:nth-child(4) {
+  width: 10%;
+}
+
+.table.programStudentEnrollmentTable th:nth-child(5),
+.table.programStudentEnrollmentTable td:nth-child(5) {
+  width: 11%;
+}
+
+.table.programStudentEnrollmentTable th:nth-child(6),
+.table.programStudentEnrollmentTable td:nth-child(6) {
+  width: 14%;
+}
+
+.table.programStudentEnrollmentTable th:nth-child(7),
+.table.programStudentEnrollmentTable td:nth-child(7) {
+  width: 21%;
+}
+
+.programEnrollmentDetailModalPanel {
+  width: min(100%, 72rem);
+  max-height: min(90vh, 54rem);
+  border-radius: 12px;
+}
+
+.programEnrollmentDetailModalBody {
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.programEnrollmentDetailContent {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.programEnrollmentDetailMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.programEnrollmentDetailMetrics > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--admin-border) 82%, #ffffff);
+  background: #ffffff;
+}
+
+.programEnrollmentDetailMetrics span {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+}
+
+.programEnrollmentDetailMetrics strong {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.programEnrollmentDetailMetrics small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.programEnrollmentDetailSection {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.programEnrollmentDetailSectionTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+}
+
+.programEnrollmentDetailTableWrap {
+  margin-top: 0;
+  border: 1px solid color-mix(in srgb, var(--admin-border) 82%, #ffffff);
+  background: #ffffff;
+}
+
+.table.programEnrollmentDetailLectureTable {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.table.programEnrollmentDetailLectureTable th,
+.table.programEnrollmentDetailLectureTable td {
+  padding: 8px 10px;
+  overflow: hidden;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table.programEnrollmentDetailLectureTable th {
+  letter-spacing: 0;
+}
+
+.table.programEnrollmentDetailLectureTable th:nth-child(1),
+.table.programEnrollmentDetailLectureTable td:nth-child(1) {
+  width: 34%;
+}
+
+.table.programEnrollmentDetailLectureTable th:nth-child(2),
+.table.programEnrollmentDetailLectureTable td:nth-child(2) {
+  width: 10%;
+}
+
+.table.programEnrollmentDetailLectureTable th:nth-child(3),
+.table.programEnrollmentDetailLectureTable td:nth-child(3) {
+  width: 10%;
+}
+
+.table.programEnrollmentDetailLectureTable th:nth-child(4),
+.table.programEnrollmentDetailLectureTable td:nth-child(4) {
+  width: 23%;
+}
+
+.table.programEnrollmentDetailLectureTable th:nth-child(5),
+.table.programEnrollmentDetailLectureTable td:nth-child(5) {
+  width: 23%;
 }
 
 .table tbody tr:last-child td {
@@ -6591,5 +7039,19 @@
 
   .quizDetailSelection {
     justify-content: flex-start;
+  }
+
+  .programEnrollmentDetailMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width <= 640px) {
+  .programEnrollmentDetailModalBody {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+
+  .programEnrollmentDetailMetrics {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

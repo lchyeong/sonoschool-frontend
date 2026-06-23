@@ -487,6 +487,69 @@ describe('ProgramPageDetailMainContent', () => {
     expect(screen.queryByText('총 210분')).toBeNull();
   });
 
+  it('강의가 없는 커리큘럼 섹션은 상세 페이지에 렌더링하지 않는다', () => {
+    const sectionRefHandlers = {
+      'course-curriculum': vi.fn(),
+      'course-faq': vi.fn(),
+      'course-introduction': vi.fn(),
+      'course-qna': vi.fn(),
+      'course-reviews': vi.fn(),
+    };
+
+    render(
+      <MemoryRouter>
+        <ProgramPageDetailMainContent
+          activeSectionId='course-curriculum'
+          data={createDetailData({
+            curriculumTrack: {
+              id: 'track-1',
+              sections: [
+                {
+                  id: 'section-1',
+                  title: '상복부 초음파 기초',
+                  description: '상복부 주요 장기별 검사 주제를 안내합니다.',
+                  durationLabel: '0강',
+                  lessons: [],
+                },
+              ],
+              summaryItems: [],
+              summaryKind: 'disc',
+            },
+          })}
+          handleReviewCarouselScroll={vi.fn()}
+          handleTabClick={vi.fn()}
+          isQnaTabOpen={false}
+          openCurriculumRows={{ 'track-1-0': true }}
+          openFaqId={null}
+          reviewCarouselRef={createRef<HTMLDivElement>()}
+          reviewSortOrder='recommended'
+          sectionRefHandlers={sectionRefHandlers}
+          setAllCurriculumRowsOpen={vi.fn()}
+          setOpenFaqId={vi.fn()}
+          setReviewSortOrder={vi.fn()}
+          sortedReviews={createDetailData().reviews}
+          toggleCurriculumRow={vi.fn()}
+          visiblePreviewReviewIds={[]}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByRole('button', {
+        name: /섹션 1\. 상복부 초음파 기초/,
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('주제 안내')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('상복부 주요 장기별 검사 주제를 안내합니다.'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText((_, node) => node?.textContent === '0개 섹션')).toBeInTheDocument();
+    expect(
+      screen.getByText((_, node) => node?.textContent === '0개 학습 콘텐츠'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('강의 구성이 준비 중입니다.')).toBeInTheDocument();
+  });
+
   it('후기가 없으면 상단 후기 프리뷰 섹션을 렌더링하지 않는다', () => {
     const sectionRefHandlers = {
       'course-curriculum': vi.fn(),

@@ -5,6 +5,7 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { env } from '@/config/env';
+import { getMockAdminProgramDetailLive } from '@/mocks/data/adminProgramsLive';
 import { server } from '@/mocks/server';
 import { adminAuthRouteTree, adminConsoleRouteTree, appRouteTree } from '@/routes/router';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
@@ -96,6 +97,10 @@ describe('router layouts', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: '관리자 메뉴' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '팝업' })).toHaveAttribute('href', '/admin/popups');
+    expect(screen.getByRole('link', { name: '프로그램 수강생 관리' })).toHaveAttribute(
+      'href',
+      '/admin/program-enrollments',
+    );
     expect(screen.queryByRole('img', { name: env.appName })).not.toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: '푸터 메뉴' })).not.toBeInTheDocument();
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
@@ -144,6 +149,16 @@ describe('router layouts', () => {
 
     const queryClient = createTestQueryClient();
     server.use(
+      http.get('*/api/v1/admin/programs/:programId', ({ params }) => {
+        const programId = Number(params['programId']);
+        const programDetail = getMockAdminProgramDetailLive(programId);
+
+        if (!programDetail) {
+          return HttpResponse.json({ message: 'Program not found' }, { status: 404 });
+        }
+
+        return HttpResponse.json({ data: programDetail });
+      }),
       http.get('*/api/v1/admin/programs/:programId/enrollments', () => {
         return HttpResponse.json({ data: [] });
       }),
@@ -159,12 +174,102 @@ describe('router layouts', () => {
     );
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 수정' }),
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }, { timeout: 3000 }),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /프로그램 관리/i })).toHaveAttribute(
       'aria-current',
       'page',
     );
+  });
+
+  it('renders the program enrollment management route with selected program students', async () => {
+    useAdminAuthStore.setState({
+      accessToken: 'admin-token',
+      adminDisplayName: '소노스쿨 운영 관리자',
+      expiresAt: ACTIVE_SESSION_EXPIRES_AT,
+      isAuthenticated: true,
+      loginId: 'admin',
+      role: 'ROLE_ADMIN',
+      tokenType: 'Bearer',
+    });
+
+    const queryClient = createTestQueryClient();
+    server.use(
+      http.get('*/api/v1/admin/programs', () => {
+        return HttpResponse.json({
+          data: {
+            content: [
+              {
+                activeEnrollmentCount: 1,
+                catalogStatus: 'OPEN',
+                categoryId: 11,
+                categoryName: '일반과정',
+                currentStudents: 1,
+                featured: false,
+                full: false,
+                id: 2001,
+                level: 'BEGINNER',
+                maxStudents: null,
+                price: 100000,
+                programType: 'ONLINE',
+                published: true,
+                saleEndAt: null,
+                salePrice: null,
+                saleStartAt: null,
+                slug: 'abdomen-basic',
+                thumbnailUrl: null,
+                title: '복부초음파 기초',
+              },
+            ],
+          },
+        });
+      }),
+      http.get('*/api/v1/admin/programs/2001/enrollments', () => {
+        return HttpResponse.json({
+          data: [
+            {
+              cancelledAt: null,
+              cancelReason: null,
+              canCancelEnrollment: true,
+              canCancelPayment: true,
+              enrolledAt: '2026-04-01T09:00:00Z',
+              enrollmentId: 101,
+              enrollmentStatus: 'ACTIVE',
+              expireAt: '2026-06-30T14:59:59Z',
+              loginId: 'student01',
+              paidAt: '2026-03-28T02:30:00Z',
+              paymentId: 501,
+              paymentStatus: 'COMPLETED',
+              phoneNumber: '010-1234-5678',
+              userId: 77,
+              userName: '김소노',
+            },
+          ],
+        });
+      }),
+    );
+    const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
+      initialEntries: ['/admin/program-enrollments?programId=2001'],
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수강생 관리' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '프로그램 수강생 관리' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(await screen.findByText('김소노')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '아이디' })).toBeInTheDocument();
+    expect(screen.getByText('student01')).toBeInTheDocument();
+    expect(screen.getByText('010-1234-5678')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '결제일' })).toBeInTheDocument();
   });
 
   it('keeps the notice navigation active on nested admin notice create routes', async () => {

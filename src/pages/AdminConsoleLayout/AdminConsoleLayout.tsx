@@ -44,6 +44,10 @@ const adminNavigationItems = [
     to: routePaths.adminPrograms,
   },
   {
+    label: '프로그램 수강생 관리',
+    to: routePaths.adminProgramEnrollments,
+  },
+  {
     label: '프로그램 카테고리 관리',
     to: routePaths.adminProgramMenus,
   },

@@ -194,6 +194,12 @@ const appLeafRouteDefinitions = {
     routePath: 'admin/programs',
     absolutePath: '/admin/programs',
   }),
+  adminProgramEnrollments: defineStaticRoute({
+    key: 'adminProgramEnrollments',
+    access: 'admin',
+    routePath: 'admin/program-enrollments',
+    absolutePath: '/admin/program-enrollments',
+  }),
   adminProgramCreate: defineStaticRoute({
     key: 'adminProgramCreate',
     access: 'admin',
@@ -448,6 +454,7 @@ const appChildRouteKeys = [
   'adminProgramReservations',
   'adminReviews',
   'adminPrograms',
+  'adminProgramEnrollments',
   'adminProgramCreate',
   'adminProgramCreateCurriculum',
   'adminProgramCreateProblems',
@@ -521,6 +528,7 @@ export const routePaths = {
   adminProgramReservations: routes.adminProgramReservations.absolutePath,
   adminReviews: routes.adminReviews.absolutePath,
   adminPrograms: routes.adminPrograms.absolutePath,
+  adminProgramEnrollments: routes.adminProgramEnrollments.absolutePath,
   adminProgramCreate: routes.adminProgramCreate.absolutePath,
   adminProgramCreateCurriculum: routes.adminProgramCreateCurriculum.absolutePath,
   adminProgramCreateProblems: routes.adminProgramCreateProblems.absolutePath,
