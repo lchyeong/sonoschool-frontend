@@ -1203,6 +1203,73 @@ describe('AdminConsolePage', () => {
     });
   });
 
+  it('labels cancelled and future program enrollments without showing them as active', async () => {
+    server.use(
+      http.get('*/api/v1/admin/programs/2003/enrollments', () => {
+        return HttpResponse.json({
+          data: [
+            {
+              cancelledAt: '2026-06-20T09:00:00Z',
+              cancelReason: '관리자 취소',
+              canCancelEnrollment: false,
+              canCancelPayment: false,
+              enrolledAt: '2026-06-10T09:00:00Z',
+              enrollmentId: 7101,
+              enrollmentStatus: 'ACTIVE',
+              expireAt: '2026-09-10T09:00:00Z',
+              loginId: 'cancelled01',
+              paidAt: '2026-06-10T09:00:00Z',
+              paymentId: 71001,
+              paymentStatus: 'CANCELLED',
+              phoneNumber: '010-1111-2222',
+              userId: 201,
+              userName: '취소회원',
+            },
+            {
+              cancelledAt: null,
+              cancelReason: null,
+              canCancelEnrollment: false,
+              canCancelPayment: true,
+              enrolledAt: '2999-07-07T00:00:00Z',
+              enrollmentId: 7102,
+              enrollmentStatus: 'ACTIVE',
+              expireAt: '2999-10-15T00:00:00Z',
+              loginId: 'future01',
+              paidAt: '2026-06-24T09:00:00Z',
+              paymentId: 71002,
+              paymentStatus: 'COMPLETED',
+              phoneNumber: '010-3333-4444',
+              userId: 202,
+              userName: '예정회원',
+            },
+          ],
+        });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/program-enrollments?programId=2003', {
+      skipProgramEditorApis: true,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수강생 관리' }),
+    ).toBeInTheDocument();
+
+    const cancelledRow = (await screen.findByText('취소회원')).closest('tr');
+    const futureRow = (await screen.findByText('예정회원')).closest('tr');
+
+    if (
+      !(cancelledRow instanceof HTMLTableRowElement) ||
+      !(futureRow instanceof HTMLTableRowElement)
+    ) {
+      throw new Error('Expected program enrollment rows.');
+    }
+
+    expect(within(cancelledRow).getByText('결제취소')).toBeInTheDocument();
+    expect(within(cancelledRow).queryByText('수강중')).not.toBeInTheDocument();
+    expect(within(futureRow).getByText('수강예정')).toBeInTheDocument();
+  });
+
   it('renders the dedicated practicum management section', async () => {
     renderAdminConsoleRoute('/admin/practicum');
 

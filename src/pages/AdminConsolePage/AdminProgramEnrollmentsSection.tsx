@@ -106,6 +106,16 @@ const resolvePaymentStatusLabel = (status: AdminProgramEnrollmentItem['paymentSt
   return paymentStatusLabels[status];
 };
 
+const getTimeOrNull = (value: string | null): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const time = new Date(value).getTime();
+
+  return Number.isNaN(time) ? null : time;
+};
+
 const resolveCatalogStatusTextClassName = (
   status: AdminProgramListItem['catalogStatus'],
 ): string => {
@@ -130,6 +140,60 @@ const resolveEnrollmentStatusTextClassName = (status: string): string => {
   }
 
   return `${styles['statusText']} ${styles['statusTextMuted']}`;
+};
+
+const resolveProgramEnrollmentLifecycleStatus = (
+  item: AdminProgramEnrollmentItem,
+): { label: string; className: string; detail: string } => {
+  if (item.paymentStatus === 'CANCELLED') {
+    return {
+      label: '결제취소',
+      className: `${styles['statusText']} ${styles['statusTextDanger']}`,
+      detail: item.cancelledAt ? `취소일 ${formatDate(item.cancelledAt)}` : '결제 취소',
+    };
+  }
+
+  if (item.enrollmentStatus === 'CANCELLED') {
+    return {
+      label: '수강취소',
+      className: `${styles['statusText']} ${styles['statusTextDanger']}`,
+      detail: '수강권 취소',
+    };
+  }
+
+  const now = Date.now();
+  const enrolledAt = getTimeOrNull(item.enrolledAt);
+  const expireAt = getTimeOrNull(item.expireAt);
+
+  if (item.enrollmentStatus === 'EXPIRED' || (expireAt !== null && expireAt <= now)) {
+    return {
+      label: '만료',
+      className: `${styles['statusText']} ${styles['statusTextMuted']}`,
+      detail: `만료 ${formatDate(item.expireAt)}`,
+    };
+  }
+
+  if (item.enrollmentStatus === 'ACTIVE' && enrolledAt !== null && enrolledAt > now) {
+    return {
+      label: '수강예정',
+      className: `${styles['statusText']} ${styles['statusTextWarning']}`,
+      detail: `${formatDate(item.enrolledAt)} 시작`,
+    };
+  }
+
+  if (item.enrollmentStatus === 'ACTIVE') {
+    return {
+      label: '수강중',
+      className: `${styles['statusText']} ${styles['statusTextSuccess']}`,
+      detail: item.expireAt ? `만료 ${formatDate(item.expireAt)}` : '수강중',
+    };
+  }
+
+  return {
+    label: resolveEnrollmentStatusLabel(item.enrollmentStatus),
+    className: resolveEnrollmentStatusTextClassName(item.enrollmentStatus),
+    detail: resolveEnrollmentStatusLabel(item.enrollmentStatus),
+  };
 };
 
 const resolvePaymentStatusTextClassName = (
@@ -675,50 +739,52 @@ const ProgramEnrollmentTable = ({
         </thead>
         <tbody>
           {items.length ? (
-            items.map((item) => (
-              <tr
-                aria-label={`${item.userName} 수강 상세 보기`}
-                className={styles['programEnrollmentStudentRow']}
-                key={item.enrollmentId}
-                onClick={() => {
-                  onOpenDetail(item);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') {
-                    return;
-                  }
+            items.map((item) => {
+              const lifecycleStatus = resolveProgramEnrollmentLifecycleStatus(item);
 
-                  event.preventDefault();
-                  onOpenDetail(item);
-                }}
-                role='button'
-                tabIndex={0}
-              >
-                <td>
-                  <strong className={styles['cellPrimary']}>{item.userName}</strong>
-                </td>
-                <td>
-                  <span className={styles['cellSecondary']}>{item.loginId}</span>
-                </td>
-                <td>{item.phoneNumber || '-'}</td>
-                <td>
-                  <span className={resolveEnrollmentStatusTextClassName(item.enrollmentStatus)}>
-                    {resolveEnrollmentStatusLabel(item.enrollmentStatus)}
-                  </span>
-                </td>
-                <td>
-                  <span className={resolvePaymentStatusTextClassName(item.paymentStatus)}>
-                    {resolvePaymentStatusLabel(item.paymentStatus)}
-                  </span>
-                </td>
-                <td>{formatDate(item.paidAt)}</td>
-                <td>
-                  <span className={`${styles['cellSecondary']} ${styles['cellNoWrap']}`}>
-                    {formatDate(item.enrolledAt)} ~ {formatDate(item.expireAt)}
-                  </span>
-                </td>
-              </tr>
-            ))
+              return (
+                <tr
+                  aria-label={`${item.userName} 수강 상세 보기`}
+                  className={styles['programEnrollmentStudentRow']}
+                  key={item.enrollmentId}
+                  onClick={() => {
+                    onOpenDetail(item);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    onOpenDetail(item);
+                  }}
+                  role='button'
+                  tabIndex={0}
+                >
+                  <td>
+                    <strong className={styles['cellPrimary']}>{item.userName}</strong>
+                  </td>
+                  <td>
+                    <span className={styles['cellSecondary']}>{item.loginId}</span>
+                  </td>
+                  <td>{item.phoneNumber || '-'}</td>
+                  <td>
+                    <span className={lifecycleStatus.className}>{lifecycleStatus.label}</span>
+                  </td>
+                  <td>
+                    <span className={resolvePaymentStatusTextClassName(item.paymentStatus)}>
+                      {resolvePaymentStatusLabel(item.paymentStatus)}
+                    </span>
+                  </td>
+                  <td>{formatDate(item.paidAt)}</td>
+                  <td>
+                    <span className={`${styles['cellSecondary']} ${styles['cellNoWrap']}`}>
+                      {formatDate(item.enrolledAt)} ~ {formatDate(item.expireAt)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td className={styles['emptyTableCell']} colSpan={7}>
@@ -907,6 +973,7 @@ const ProgramEnrollmentDetailContent = ({
     enrollment.current &&
     enrollment.enrollmentStatus === 'ACTIVE';
   const canCancelPayment = enrollmentItem.canCancelPayment && enrollmentItem.paymentId !== null;
+  const lifecycleStatus = resolveProgramEnrollmentLifecycleStatus(enrollmentItem);
 
   return (
     <div className={styles['programEnrollmentDetailContent']}>
@@ -953,10 +1020,8 @@ const ProgramEnrollmentDetailContent = ({
         </div>
         <div>
           <span>상태</span>
-          <strong>{enrollment.current ? '수강중' : '과거 이력'}</strong>
-          <small>
-            {enrollmentStatusLabel[enrollment.enrollmentStatus] ?? enrollment.enrollmentStatus}
-          </small>
+          <strong>{lifecycleStatus.label}</strong>
+          <small>{lifecycleStatus.detail}</small>
         </div>
       </section>
 
