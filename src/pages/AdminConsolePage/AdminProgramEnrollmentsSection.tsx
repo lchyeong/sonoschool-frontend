@@ -4,12 +4,14 @@ import type { FormEvent, ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
+import { cancelAdminPayment } from '@/api/adminPayments';
 import { cancelAdminEnrollment } from '@/api/adminProgramOperations';
 import { fetchAdminUserDetail } from '@/api/adminUsers';
 import searchIconSrc from '@/assets/icons/search.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
+import { adminPaymentDetailQueryKey, adminPaymentsQueryKey } from '@/query/useAdminPaymentsQuery';
 import {
   adminProgramEnrollmentsQueryKey,
   useAdminProgramEnrollmentsQuery,
@@ -746,6 +748,36 @@ const ProgramEnrollmentDetailModal = ({
     queryKey: ['adminUserDetail', enrollmentItem.userId],
     staleTime: 15 * 1000,
   });
+  const cancelPaymentMutation = useMutation({
+    mutationFn: ({ paymentId, reason }: { paymentId: number; reason: string }) =>
+      cancelAdminPayment(paymentId, { reason }),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '결제 취소 처리에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        detailQuery.refetch(),
+        queryClient.invalidateQueries({
+          queryKey: adminProgramEnrollmentsQueryKey(selectedProgram.id),
+        }),
+        queryClient.invalidateQueries({ queryKey: ['adminUsers'] }),
+        queryClient.invalidateQueries({ queryKey: ['adminEnrollments'] }),
+        queryClient.invalidateQueries({ queryKey: adminProgramsLiveQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: adminPaymentsQueryKey() }),
+        queryClient.invalidateQueries({
+          queryKey: adminPaymentDetailQueryKey(variables.paymentId),
+        }),
+      ]);
+      showToast({
+        message: '결제 취소를 반영했습니다.',
+        variant: 'success',
+      });
+      onClose();
+    },
+  });
   const cancelEnrollmentMutation = useMutation({
     mutationFn: ({ enrollmentId, reason }: { enrollmentId: number; reason: string }) =>
       cancelAdminEnrollment(enrollmentId, { reason }),
@@ -791,6 +823,22 @@ const ProgramEnrollmentDetailModal = ({
       reason: reason.trim(),
     });
   };
+  const handleCancelPayment = () => {
+    const paymentId = enrollmentItem.paymentId;
+    if (paymentId === null) {
+      return;
+    }
+
+    const reason = window.prompt('결제 취소 사유를 입력해 주세요.');
+    if (!reason?.trim()) {
+      return;
+    }
+
+    cancelPaymentMutation.mutate({
+      paymentId,
+      reason: reason.trim(),
+    });
+  };
 
   return (
     <Modal
@@ -815,9 +863,11 @@ const ProgramEnrollmentDetailModal = ({
         enrollmentDetail ? (
           <ProgramEnrollmentDetailContent
             cancelEnrollmentLoading={cancelEnrollmentMutation.isPending}
+            cancelPaymentLoading={cancelPaymentMutation.isPending}
             enrollment={enrollmentDetail}
             enrollmentItem={enrollmentItem}
             onCancelEnrollment={handleCancelEnrollment}
+            onCancelPayment={handleCancelPayment}
           />
         ) : (
           <p className={styles['helperText']}>해당 프로그램의 수강 상세가 없습니다.</p>
@@ -829,14 +879,18 @@ const ProgramEnrollmentDetailModal = ({
 
 const ProgramEnrollmentDetailContent = ({
   cancelEnrollmentLoading,
+  cancelPaymentLoading,
   enrollment,
   enrollmentItem,
   onCancelEnrollment,
+  onCancelPayment,
 }: {
   cancelEnrollmentLoading: boolean;
+  cancelPaymentLoading: boolean;
   enrollment: AdminUserDetailEnrollmentItem;
   enrollmentItem: AdminProgramEnrollmentItem;
   onCancelEnrollment: () => void;
+  onCancelPayment: () => void;
 }) => {
   const paymentAmount = enrollment.payment
     ? formatCurrency(enrollment.payment.approvedAmount ?? enrollment.payment.amount)
@@ -848,6 +902,11 @@ const ProgramEnrollmentDetailContent = ({
         formatDate(enrollment.payment.paidAt ?? enrollment.payment.requestedAt),
       ].join(' · ')
     : '결제 정보 없음';
+  const canCancelEnrollment =
+    enrollmentItem.canCancelEnrollment &&
+    enrollment.current &&
+    enrollment.enrollmentStatus === 'ACTIVE';
+  const canCancelPayment = enrollmentItem.canCancelPayment && enrollmentItem.paymentId !== null;
 
   return (
     <div className={styles['programEnrollmentDetailContent']}>
@@ -901,20 +960,31 @@ const ProgramEnrollmentDetailContent = ({
         </div>
       </section>
 
-      {enrollmentItem.canCancelEnrollment &&
-      enrollment.current &&
-      enrollment.enrollmentStatus === 'ACTIVE' ? (
+      {canCancelEnrollment || canCancelPayment ? (
         <section className={styles['programEnrollmentDetailSection']}>
           <div className={styles['actionRow']}>
-            <Button
-              disabled={cancelEnrollmentLoading}
-              onClick={onCancelEnrollment}
-              size='sm'
-              type='button'
-              variant='danger'
-            >
-              {cancelEnrollmentLoading ? '회수 중...' : '수강권 회수'}
-            </Button>
+            {canCancelEnrollment ? (
+              <Button
+                disabled={cancelEnrollmentLoading || cancelPaymentLoading}
+                onClick={onCancelEnrollment}
+                size='sm'
+                type='button'
+                variant='danger'
+              >
+                {cancelEnrollmentLoading ? '회수 중...' : '수강권 회수'}
+              </Button>
+            ) : null}
+            {canCancelPayment ? (
+              <Button
+                disabled={cancelEnrollmentLoading || cancelPaymentLoading}
+                onClick={onCancelPayment}
+                size='sm'
+                type='button'
+                variant='danger'
+              >
+                {cancelPaymentLoading ? '취소 처리 중...' : '결제 취소'}
+              </Button>
+            ) : null}
           </div>
         </section>
       ) : null}

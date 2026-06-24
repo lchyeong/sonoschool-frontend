@@ -1136,6 +1136,73 @@ describe('AdminConsolePage', () => {
     });
   });
 
+  it('cancels a payment from the program enrollment detail modal', async () => {
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('프로그램 상세 결제 취소');
+    const cancelRequests: Array<{ paymentId: string; reason: unknown }> = [];
+
+    server.use(
+      http.get('*/api/v1/admin/programs/2003/enrollments', () => {
+        return HttpResponse.json({
+          data: [
+            {
+              cancelledAt: null,
+              cancelReason: null,
+              canCancelEnrollment: true,
+              canCancelPayment: true,
+              enrolledAt: '2026-03-08T09:00:00Z',
+              enrollmentId: 7002,
+              enrollmentStatus: 'ACTIVE',
+              expireAt: null,
+              loginId: 'minji01',
+              paidAt: '2026-03-08T09:00:00Z',
+              paymentId: 70002,
+              paymentStatus: 'COMPLETED',
+              phoneNumber: '010-1111-2222',
+              userId: 101,
+              userName: '김민지',
+            },
+          ],
+        });
+      }),
+      http.post('*/api/v1/admin/payments/:paymentId/cancel', async ({ params, request }) => {
+        const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+
+        cancelRequests.push({
+          paymentId: String(params['paymentId']),
+          reason: body['reason'],
+        });
+
+        return HttpResponse.json({ data: {} });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/program-enrollments?programId=2003', {
+      skipProgramEditorApis: true,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수강생 관리' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: '김민지 수강 상세 보기' }));
+
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(await within(dialog).findByRole('button', { name: '결제 취소' }));
+
+    await waitFor(() => {
+      expect(promptSpy).toHaveBeenCalledWith('결제 취소 사유를 입력해 주세요.');
+      expect(cancelRequests).toContainEqual({
+        paymentId: '70002',
+        reason: '프로그램 상세 결제 취소',
+      });
+      expect(
+        useToastStore
+          .getState()
+          .toasts.some((toast) => toast.message === '결제 취소를 반영했습니다.'),
+      ).toBe(true);
+    });
+  });
+
   it('renders the dedicated practicum management section', async () => {
     renderAdminConsoleRoute('/admin/practicum');
 
