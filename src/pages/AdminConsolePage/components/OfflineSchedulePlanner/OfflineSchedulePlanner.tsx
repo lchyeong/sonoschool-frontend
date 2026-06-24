@@ -82,6 +82,22 @@ const parseDateValue = (value: string): Date => {
 
 const toTimeValue = (hour: number): string => `${String(hour).padStart(2, '0')}:00`;
 
+const normalizeTimeValue = (value: string): string => {
+  const trimmed = value.trim();
+  const match = /^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/.exec(trimmed);
+  if (!match) {
+    return trimmed;
+  }
+
+  return `${match[1].padStart(2, '0')}:${match[2]}`;
+};
+
+const normalizeSchedule = (schedule: OfflineSchedulePlannerItem): OfflineSchedulePlannerItem => ({
+  ...schedule,
+  endTime: normalizeTimeValue(schedule.endTime),
+  startTime: normalizeTimeValue(schedule.startTime),
+});
+
 const parseTimeHour = (timeValue: string): number | null => {
   const hour = Number(timeValue.split(':')[0]);
   return Number.isInteger(hour) ? hour : null;
@@ -336,7 +352,7 @@ const OfflineSchedulePlanner = ({
     queryFn: () => fetchAdminPracticumOperatingHours(schedules[0]?.date),
     queryKey: ['adminPracticumOperatingHours', schedules[0]?.date ?? ''],
   });
-  const schedule = schedules[0] ?? EMPTY_SCHEDULE;
+  const schedule = useMemo(() => normalizeSchedule(schedules[0] ?? EMPTY_SCHEDULE), [schedules]);
   const operatingHours = useMemo(() => operatingHoursQuery.data ?? [], [operatingHoursQuery.data]);
   const selectedOperatingHour = useMemo(
     () => resolveOperatingHour(schedule.date, operatingHours),

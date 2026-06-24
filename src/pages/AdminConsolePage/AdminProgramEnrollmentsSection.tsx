@@ -1,15 +1,24 @@
 import { Fragment, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
+import { cancelAdminEnrollment } from '@/api/adminProgramOperations';
 import { fetchAdminUserDetail } from '@/api/adminUsers';
 import searchIconSrc from '@/assets/icons/search.svg';
 import Modal from '@/components/overlay/Modal/Modal';
+import Button from '@/components/ui/Button/Button';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
-import { useAdminProgramEnrollmentsQuery } from '@/query/useAdminProgramOperationsQuery';
-import { useAdminProgramsLiveQuery } from '@/query/useAdminProgramsLiveQuery';
+import {
+  adminProgramEnrollmentsQueryKey,
+  useAdminProgramEnrollmentsQuery,
+} from '@/query/useAdminProgramOperationsQuery';
+import {
+  adminProgramsLiveQueryKey,
+  useAdminProgramsLiveQuery,
+} from '@/query/useAdminProgramsLiveQuery';
+import { useToastStore } from '@/stores/useToastStore';
 import type { AdminProgramEnrollmentItem } from '@/types/adminProgramOperations';
 import type { AdminProgramListItem } from '@/types/adminProgramsLive';
 import type { AdminUserDetailEnrollmentItem, AdminUserDetailLectureItem } from '@/types/adminUsers';
@@ -730,10 +739,38 @@ const ProgramEnrollmentDetailModal = ({
   onClose: () => void;
   selectedProgram: AdminProgramListItem;
 }) => {
+  const queryClient = useQueryClient();
+  const showToast = useToastStore((state) => state.showToast);
   const detailQuery = useQuery({
     queryFn: () => fetchAdminUserDetail(enrollmentItem.userId),
     queryKey: ['adminUserDetail', enrollmentItem.userId],
     staleTime: 15 * 1000,
+  });
+  const cancelEnrollmentMutation = useMutation({
+    mutationFn: ({ enrollmentId, reason }: { enrollmentId: number; reason: string }) =>
+      cancelAdminEnrollment(enrollmentId, { reason }),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '수강권 회수에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        detailQuery.refetch(),
+        queryClient.invalidateQueries({
+          queryKey: adminProgramEnrollmentsQueryKey(selectedProgram.id),
+        }),
+        queryClient.invalidateQueries({ queryKey: ['adminUsers'] }),
+        queryClient.invalidateQueries({ queryKey: ['adminEnrollments'] }),
+        queryClient.invalidateQueries({ queryKey: adminProgramsLiveQueryKey() }),
+      ]);
+      showToast({
+        message: '수강권을 회수했습니다.',
+        variant: 'success',
+      });
+      onClose();
+    },
   });
   const enrollmentDetail =
     detailQuery.data?.enrollments.find(
@@ -743,6 +780,17 @@ const ProgramEnrollmentDetailModal = ({
       return enrollment.programId === selectedProgram.id;
     }) ??
     null;
+  const handleCancelEnrollment = () => {
+    const reason = window.prompt('수강권 회수 사유를 입력해 주세요.');
+    if (!reason?.trim()) {
+      return;
+    }
+
+    cancelEnrollmentMutation.mutate({
+      enrollmentId: enrollmentItem.enrollmentId,
+      reason: reason.trim(),
+    });
+  };
 
   return (
     <Modal
@@ -766,8 +814,10 @@ const ProgramEnrollmentDetailModal = ({
       {!detailQuery.isPending && !detailQuery.isError ? (
         enrollmentDetail ? (
           <ProgramEnrollmentDetailContent
+            cancelEnrollmentLoading={cancelEnrollmentMutation.isPending}
             enrollment={enrollmentDetail}
             enrollmentItem={enrollmentItem}
+            onCancelEnrollment={handleCancelEnrollment}
           />
         ) : (
           <p className={styles['helperText']}>해당 프로그램의 수강 상세가 없습니다.</p>
@@ -778,11 +828,15 @@ const ProgramEnrollmentDetailModal = ({
 };
 
 const ProgramEnrollmentDetailContent = ({
+  cancelEnrollmentLoading,
   enrollment,
   enrollmentItem,
+  onCancelEnrollment,
 }: {
+  cancelEnrollmentLoading: boolean;
   enrollment: AdminUserDetailEnrollmentItem;
   enrollmentItem: AdminProgramEnrollmentItem;
+  onCancelEnrollment: () => void;
 }) => {
   const paymentAmount = enrollment.payment
     ? formatCurrency(enrollment.payment.approvedAmount ?? enrollment.payment.amount)
@@ -846,6 +900,24 @@ const ProgramEnrollmentDetailContent = ({
           </small>
         </div>
       </section>
+
+      {enrollmentItem.canCancelEnrollment &&
+      enrollment.current &&
+      enrollment.enrollmentStatus === 'ACTIVE' ? (
+        <section className={styles['programEnrollmentDetailSection']}>
+          <div className={styles['actionRow']}>
+            <Button
+              disabled={cancelEnrollmentLoading}
+              onClick={onCancelEnrollment}
+              size='sm'
+              type='button'
+              variant='danger'
+            >
+              {cancelEnrollmentLoading ? '회수 중...' : '수강권 회수'}
+            </Button>
+          </div>
+        </section>
+      ) : null}
 
       <section className={styles['programEnrollmentDetailSection']}>
         <h3 className={styles['programEnrollmentDetailSectionTitle']}>강의별 학습 기록</h3>
