@@ -1146,7 +1146,9 @@ describe('AdminConsolePage', () => {
     expect(screen.getByRole('button', { name: '개인일정 추가' })).toBeInTheDocument();
   });
 
-  it('applies operating hour changes only to checked weekdays', async () => {
+  it('defaults operating hour changes to the selected date weekday only', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 5, 16, 9, 0, 0));
     const operatingHourPayloads: Record<string, unknown>[] = [];
 
     server.use(
@@ -1170,10 +1172,11 @@ describe('AdminConsolePage', () => {
 
     const mondayButton = screen.getByRole('button', { name: '월요일' });
     const sundayButton = screen.getByRole('button', { name: '일요일' });
+    const tuesdayButton = screen.getByRole('button', { name: '화요일' });
     expect(mondayButton).toHaveAttribute('data-selected', 'false');
     expect(sundayButton).toHaveAttribute('data-selected', 'false');
+    expect(tuesdayButton).toHaveAttribute('data-selected', 'true');
 
-    fireEvent.click(mondayButton);
     fireEvent.click(screen.getByRole('button', { name: '운영시간 변경' }));
 
     await waitFor(() => {
@@ -1183,7 +1186,7 @@ describe('AdminConsolePage', () => {
       hours: [
         {
           enabled: true,
-          weekday: 'MONDAY',
+          weekday: 'TUESDAY',
         },
       ],
     });

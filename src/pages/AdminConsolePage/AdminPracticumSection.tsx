@@ -969,12 +969,15 @@ const AdminPracticumSection = () => {
     return deriveOperationState(selectedDateItems, selectedDateOperatingHour);
   }, [selectedDateItems, selectedDateOperatingHour]);
 
+  const selectedDateOperationWeekday = getWeekdayKey(resolvedSelectedDate);
   const selectedOperationWeekdays =
-    operationDraft?.date === resolvedSelectedDate ? operationDraft.weekdays : [];
+    operationDraft?.date === resolvedSelectedDate
+      ? operationDraft.weekdays
+      : [selectedDateOperationWeekday];
   const primaryOperationWeekday =
     selectedOperationWeekdays.length > 0
       ? selectedOperationWeekdays[0]
-      : getWeekdayKey(resolvedSelectedDate);
+      : selectedDateOperationWeekday;
   const selectedOperationOperatingHour = useMemo(() => {
     return (
       operatingHoursQuery.data?.find(
