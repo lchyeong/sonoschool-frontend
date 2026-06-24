@@ -384,6 +384,9 @@
   .heading {
     font-size: 36px;
     line-height: 1.35;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: keep-all;
   }
 
   .description,
@@ -535,6 +538,9 @@
   .heading {
     font-size: clamp(28px, 7.2vw, 34px);
     line-height: 1.32;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: keep-all;
   }
 
   .description,
