@@ -969,19 +969,8 @@ const AdminPracticumSection = () => {
     return deriveOperationState(selectedDateItems, selectedDateOperatingHour);
   }, [selectedDateItems, selectedDateOperatingHour]);
 
-  const currentOperatingWeekdays = useMemo(() => {
-    const operatingWeekdaySet = new Set(
-      (operatingHoursQuery.data ?? []).filter((item) => item.enabled).map((item) => item.weekday),
-    );
-    return operatingWeekdayOptions
-      .map((option) => option.value)
-      .filter((weekday) => operatingWeekdaySet.has(weekday));
-  }, [operatingHoursQuery.data]);
-
   const selectedOperationWeekdays =
-    operationDraft?.date === resolvedSelectedDate
-      ? operationDraft.weekdays
-      : currentOperatingWeekdays;
+    operationDraft?.date === resolvedSelectedDate ? operationDraft.weekdays : [];
   const primaryOperationWeekday =
     selectedOperationWeekdays.length > 0
       ? selectedOperationWeekdays[0]
@@ -1503,25 +1492,16 @@ const AdminPracticumSection = () => {
     }) =>
       replaceAdminPracticumOperatingHours({
         effectiveFrom: resolvedSelectedDate,
-        hours: operatingWeekdayOptions.map((option) => {
-          const enabled = payload.weekdays.includes(option.value);
-          if (!enabled) {
-            return {
-              enabled,
-              location: null,
-              weekday: option.value,
-            };
-          }
-
-          return {
+        hours: operatingWeekdayOptions
+          .filter((option) => payload.weekdays.includes(option.value))
+          .map((option) => ({
             blockedHours: payload.blockedHours,
-            enabled,
+            enabled: true,
             location: null,
             openFromHour: payload.startHour,
             openToHour: payload.endHour,
             weekday: option.value,
-          };
-        }),
+          })),
       }),
     onMutate: () => {
       setOperationFeedback(null);
@@ -2111,10 +2091,10 @@ const AdminPracticumSection = () => {
 
                     <div className={styles['stackListCompact']}>
                       <p className={styles['helperText']}>
-                        선택한 요일의 기본 운영시간을 한 번에 바꿉니다.
+                        선택한 날짜부터 체크한 요일의 기본 운영시간을 변경합니다.
                       </p>
                       <p className={styles['helperText']}>
-                        해당 시간에 예약이 있으면 변경할 수 없습니다.
+                        선택하지 않은 요일은 유지되며, 해당 시간에 예약이 있으면 변경할 수 없습니다.
                       </p>
                     </div>
                   </div>

@@ -1146,6 +1146,49 @@ describe('AdminConsolePage', () => {
     expect(screen.getByRole('button', { name: '개인일정 추가' })).toBeInTheDocument();
   });
 
+  it('applies operating hour changes only to checked weekdays', async () => {
+    const operatingHourPayloads: Record<string, unknown>[] = [];
+
+    server.use(
+      http.put('*/api/v1/admin/practicum/operating-hours', async ({ request }) => {
+        const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+        operatingHourPayloads.push(body);
+
+        return HttpResponse.json({ data: [] });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/practicum');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '일정관리' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '운영시간 설정 변경' }));
+
+    expect(
+      await screen.findByText('선택한 날짜부터 체크한 요일의 기본 운영시간을 변경합니다.'),
+    ).toBeInTheDocument();
+
+    const mondayButton = screen.getByRole('button', { name: '월요일' });
+    const sundayButton = screen.getByRole('button', { name: '일요일' });
+    expect(mondayButton).toHaveAttribute('data-selected', 'false');
+    expect(sundayButton).toHaveAttribute('data-selected', 'false');
+
+    fireEvent.click(mondayButton);
+    fireEvent.click(screen.getByRole('button', { name: '운영시간 변경' }));
+
+    await waitFor(() => {
+      expect(operatingHourPayloads).toHaveLength(1);
+    });
+    expect(operatingHourPayloads[0]).toMatchObject({
+      hours: [
+        {
+          enabled: true,
+          weekday: 'MONDAY',
+        },
+      ],
+    });
+  });
+
   it('opens a detail modal when a practicum or admin schedule entry is clicked', async () => {
     renderAdminConsoleRoute('/admin/practicum');
 
