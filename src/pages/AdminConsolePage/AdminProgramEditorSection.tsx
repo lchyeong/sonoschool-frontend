@@ -47,6 +47,7 @@ import {
 } from '@/query/useAdminProgramsLiveQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
+import type { AdminProgramEnrollmentItem } from '@/types/adminProgramOperations';
 import type {
   AdminProgramAccessPolicy,
   AdminProgramDetail,
@@ -201,6 +202,45 @@ const formatDateTime = (value: string | null): string => {
     hour12: false,
     timeStyle: 'short',
   }).format(new Date(value));
+};
+
+const getTimeOrNull = (value: string | null): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const resolveProgramEnrollmentLifecycleStatus = (
+  item: AdminProgramEnrollmentItem,
+): { label: string; className: string } => {
+  if (item.paymentStatus === 'CANCELLED') {
+    return { label: '결제취소', className: styles['badgeDanger'] };
+  }
+
+  if (item.enrollmentStatus === 'CANCELLED') {
+    return { label: '수강취소', className: styles['badgeDanger'] };
+  }
+
+  const now = Date.now();
+  const enrolledAt = getTimeOrNull(item.enrolledAt);
+  const expireAt = getTimeOrNull(item.expireAt);
+
+  if (item.enrollmentStatus === 'EXPIRED' || (expireAt !== null && expireAt <= now)) {
+    return { label: '만료', className: styles['badge'] };
+  }
+
+  if (item.enrollmentStatus === 'ACTIVE' && enrolledAt !== null && enrolledAt > now) {
+    return { label: '수강예정', className: styles['badgeAccent'] };
+  }
+
+  if (item.enrollmentStatus === 'ACTIVE') {
+    return { label: '수강중', className: styles['badgeSuccess'] };
+  }
+
+  return { label: formatEnrollmentStatusLabel(item.enrollmentStatus), className: styles['badge'] };
 };
 
 const extractDatePart = (value: string): string => {
@@ -1793,7 +1833,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                   <section className={styles['panelWide']}>
                     <div className={styles['panelToolbar']}>
                       <div>
-                        <h2 className={styles['panelTitle']}>현재 수강생</h2>
+                        <h2 className={styles['panelTitle']}>수강생</h2>
                         <p className={styles['metaText']}>
                           전화 CS 후 결제 취소 또는 수강 취소를 바로 처리할 수 있습니다.
                         </p>
@@ -1820,14 +1860,14 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                     </div>
 
                     {programEnrollmentsQuery.isPending ? (
-                      <p className={styles['helperText']}>현재 수강생 목록을 불러오는 중입니다.</p>
+                      <p className={styles['helperText']}>수강생 목록을 불러오는 중입니다.</p>
                     ) : null}
 
                     {programEnrollmentsQuery.isError ? (
                       <p className={styles['helperText']}>
                         {programEnrollmentsQuery.error instanceof Error
                           ? programEnrollmentsQuery.error.message
-                          : '현재 수강생 목록을 불러오지 못했습니다.'}
+                          : '수강생 목록을 불러오지 못했습니다.'}
                       </p>
                     ) : null}
 
@@ -1848,91 +1888,96 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                               </tr>
                             </thead>
                             <tbody>
-                              {currentEnrollments.map((item) => (
-                                <tr key={item.enrollmentId}>
-                                  <td>
-                                    <div className={styles['cellStack']}>
-                                      <strong className={styles['cellPrimary']}>
-                                        {item.userName}
-                                      </strong>
-                                      <span className={styles['cellSecondary']}>
-                                        아이디 {item.loginId}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td>{item.phoneNumber}</td>
-                                  <td>
-                                    <span className={styles['badgeSuccess']}>
-                                      {formatEnrollmentStatusLabel(item.enrollmentStatus)}
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <div className={styles['cellStack']}>
-                                      {item.paymentId ? (
-                                        <>
-                                          <span className={styles['badgeAccent']}>
-                                            {item.paymentStatus
-                                              ? paymentStatusLabels[item.paymentStatus]
-                                              : '결제 정보 확인 필요'}
-                                          </span>
-                                          <span className={styles['cellSecondary']}>
-                                            결제 ID {String(item.paymentId)}
-                                          </span>
-                                        </>
-                                      ) : (
+                              {currentEnrollments.map((item) => {
+                                const lifecycleStatus =
+                                  resolveProgramEnrollmentLifecycleStatus(item);
+
+                                return (
+                                  <tr key={item.enrollmentId}>
+                                    <td>
+                                      <div className={styles['cellStack']}>
+                                        <strong className={styles['cellPrimary']}>
+                                          {item.userName}
+                                        </strong>
                                         <span className={styles['cellSecondary']}>
-                                          결제 정보 없음
+                                          아이디 {item.loginId}
                                         </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td>
-                                    <div className={styles['cellStack']}>
-                                      <span
-                                        className={`${styles['cellSecondary']} ${styles['cellNoWrap']}`}
-                                      >
-                                        {formatDateTime(item.enrolledAt)} ~{' '}
-                                        {formatDateTime(item.expireAt)}
+                                      </div>
+                                    </td>
+                                    <td>{item.phoneNumber}</td>
+                                    <td>
+                                      <span className={lifecycleStatus.className}>
+                                        {lifecycleStatus.label}
                                       </span>
-                                    </div>
-                                  </td>
-                                  <td>
-                                    <div className={styles['tableActionGroup']}>
-                                      {item.canCancelPayment && item.paymentId !== null ? (
-                                        <Button
-                                          disabled={cancelPaymentMutation.isPending}
-                                          onClick={() => {
-                                            handleCancelPayment(item.paymentId as number);
-                                          }}
-                                          size='sm'
-                                          type='button'
-                                          variant='danger'
+                                    </td>
+                                    <td>
+                                      <div className={styles['cellStack']}>
+                                        {item.paymentId ? (
+                                          <>
+                                            <span className={styles['badgeAccent']}>
+                                              {item.paymentStatus
+                                                ? paymentStatusLabels[item.paymentStatus]
+                                                : '결제 정보 확인 필요'}
+                                            </span>
+                                            <span className={styles['cellSecondary']}>
+                                              결제 ID {String(item.paymentId)}
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <span className={styles['cellSecondary']}>
+                                            결제 정보 없음
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <div className={styles['cellStack']}>
+                                        <span
+                                          className={`${styles['cellSecondary']} ${styles['cellNoWrap']}`}
                                         >
-                                          결제 취소
-                                        </Button>
-                                      ) : null}
-                                      {item.canCancelEnrollment ? (
-                                        <Button
-                                          disabled={cancelEnrollmentMutation.isPending}
-                                          onClick={() => {
-                                            handleCancelEnrollment(item.enrollmentId);
-                                          }}
-                                          size='sm'
-                                          type='button'
-                                          variant='danger'
-                                        >
-                                          수강 취소
-                                        </Button>
-                                      ) : null}
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
+                                          {formatDateTime(item.enrolledAt)} ~{' '}
+                                          {formatDateTime(item.expireAt)}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <div className={styles['tableActionGroup']}>
+                                        {item.canCancelPayment && item.paymentId !== null ? (
+                                          <Button
+                                            disabled={cancelPaymentMutation.isPending}
+                                            onClick={() => {
+                                              handleCancelPayment(item.paymentId as number);
+                                            }}
+                                            size='sm'
+                                            type='button'
+                                            variant='danger'
+                                          >
+                                            결제 취소
+                                          </Button>
+                                        ) : null}
+                                        {item.canCancelEnrollment ? (
+                                          <Button
+                                            disabled={cancelEnrollmentMutation.isPending}
+                                            onClick={() => {
+                                              handleCancelEnrollment(item.enrollmentId);
+                                            }}
+                                            size='sm'
+                                            type='button'
+                                            variant='danger'
+                                          >
+                                            수강 취소
+                                          </Button>
+                                        ) : null}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
                       ) : (
-                        <p className={styles['helperText']}>현재 수강 중인 회원이 없습니다.</p>
+                        <p className={styles['helperText']}>표시할 수강생이 없습니다.</p>
                       )
                     ) : null}
                   </section>
