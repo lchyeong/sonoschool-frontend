@@ -794,6 +794,44 @@ export const handlers = [
     createMockedMyEnrollmentReview(programId, body);
     return HttpResponse.json(createApiEnvelope(null), { status: 201 });
   }),
+  http.put('*/api/v1/admin/reviews/:reviewId', async ({ params, request }) => {
+    const reviewId = Number(params['reviewId']);
+    const body = (await request.json().catch(() => null)) as EnrollmentReviewPayload | null;
+
+    if (
+      !Number.isInteger(reviewId) ||
+      reviewId <= 0 ||
+      !body ||
+      !Number.isInteger(body.rating) ||
+      body.rating < 1 ||
+      body.rating > 5 ||
+      typeof body.content !== 'string' ||
+      body.content.trim().length === 0
+    ) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    try {
+      updateMockedMyEnrollmentReview(reviewId, body);
+    } catch {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(null), { status: 200 });
+  }),
+  http.delete('*/api/v1/admin/reviews/:reviewId', ({ params }) => {
+    const reviewId = Number(params['reviewId']);
+
+    if (!Number.isInteger(reviewId) || reviewId <= 0) {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    if (!deleteMockedMyEnrollmentReview(reviewId)) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.put('*/api/v1/reviews/:reviewId', async ({ params, request }) => {
     const reviewId = Number(params['reviewId']);
     const body = (await request.json().catch(() => null)) as EnrollmentReviewPayload | null;

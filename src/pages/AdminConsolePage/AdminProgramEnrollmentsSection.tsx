@@ -5,7 +5,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
 import { cancelAdminPayment } from '@/api/adminPayments';
-import { cancelAdminEnrollment } from '@/api/adminProgramOperations';
+import {
+  cancelAdminEnrollment,
+  deleteAdminProgramEnrollmentReview,
+  updateAdminProgramEnrollmentReview,
+} from '@/api/adminProgramOperations';
 import { fetchAdminUserDetail } from '@/api/adminUsers';
 import searchIconSrc from '@/assets/icons/search.svg';
 import Modal from '@/components/overlay/Modal/Modal';
@@ -537,14 +541,16 @@ const ProgramEnrollmentDropdown = ({
   selectedProgram: AdminProgramListItem;
 }) => {
   const [currentEnrollmentPageIndex, setCurrentEnrollmentPageIndex] = useState(0);
-  const [selectedEnrollment, setSelectedEnrollment] = useState<AdminProgramEnrollmentItem | null>(
-    null,
-  );
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
   const visibleEnrollments = useMemo(() => {
     return enrollments.filter(
       (item) => !HIDDEN_ENROLLMENT_PAYMENT_STATUSES.has(item.paymentStatus),
     );
   }, [enrollments]);
+  const selectedEnrollment =
+    selectedEnrollmentId === null
+      ? null
+      : (visibleEnrollments.find((item) => item.enrollmentId === selectedEnrollmentId) ?? null);
   const totalEnrollmentPages = Math.max(
     1,
     Math.ceil(visibleEnrollments.length / ENROLLMENTS_PAGE_SIZE),
@@ -581,7 +587,12 @@ const ProgramEnrollmentDropdown = ({
 
       {!isPending && !isError ? (
         <>
-          <ProgramEnrollmentTable items={pagedEnrollments} onOpenDetail={setSelectedEnrollment} />
+          <ProgramEnrollmentTable
+            items={pagedEnrollments}
+            onOpenDetail={(item) => {
+              setSelectedEnrollmentId(item.enrollmentId);
+            }}
+          />
           <ProgramPagination
             currentPageIndex={safeEnrollmentPageIndex}
             pageNumbers={enrollmentPageNumbers}
@@ -595,7 +606,7 @@ const ProgramEnrollmentDropdown = ({
         <ProgramEnrollmentDetailModal
           enrollmentItem={selectedEnrollment}
           onClose={() => {
-            setSelectedEnrollment(null);
+            setSelectedEnrollmentId(null);
           }}
           selectedProgram={selectedProgram}
         />
@@ -732,6 +743,7 @@ const ProgramEnrollmentTable = ({
             <th scope='col'>아이디</th>
             <th scope='col'>연락처</th>
             <th scope='col'>수강 상태</th>
+            <th scope='col'>수강평</th>
             <th scope='col'>결제</th>
             <th scope='col'>결제일</th>
             <th scope='col'>수강 기간</th>
@@ -772,6 +784,18 @@ const ProgramEnrollmentTable = ({
                     <span className={lifecycleStatus.className}>{lifecycleStatus.label}</span>
                   </td>
                   <td>
+                    <span
+                      aria-label={item.review ? '수강평 작성' : '수강평 미작성'}
+                      className={
+                        item.review
+                          ? `${styles['statusText']} ${styles['statusTextSuccess']}`
+                          : `${styles['statusText']} ${styles['statusTextMuted']}`
+                      }
+                    >
+                      {item.review ? 'O' : 'X'}
+                    </span>
+                  </td>
+                  <td>
                     <span className={resolvePaymentStatusTextClassName(item.paymentStatus)}>
                       {resolvePaymentStatusLabel(item.paymentStatus)}
                     </span>
@@ -787,7 +811,7 @@ const ProgramEnrollmentTable = ({
             })
           ) : (
             <tr>
-              <td className={styles['emptyTableCell']} colSpan={7}>
+              <td className={styles['emptyTableCell']} colSpan={8}>
                 표시할 수강생이 없습니다.
               </td>
             </tr>
@@ -870,6 +894,50 @@ const ProgramEnrollmentDetailModal = ({
       onClose();
     },
   });
+  const updateReviewMutation = useMutation({
+    mutationFn: ({
+      content,
+      rating,
+      reviewId,
+    }: {
+      content: string;
+      rating: number;
+      reviewId: number;
+    }) => updateAdminProgramEnrollmentReview(reviewId, { content, rating }),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '수강평 수정에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: adminProgramEnrollmentsQueryKey(selectedProgram.id),
+      });
+      showToast({
+        message: '수강평을 수정했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+  const deleteReviewMutation = useMutation({
+    mutationFn: (reviewId: number) => deleteAdminProgramEnrollmentReview(reviewId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '수강평 삭제에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: adminProgramEnrollmentsQueryKey(selectedProgram.id),
+      });
+      showToast({
+        message: '수강평을 삭제했습니다.',
+        variant: 'success',
+      });
+    },
+  });
   const enrollmentDetail =
     detailQuery.data?.enrollments.find(
       (enrollment) => enrollment.enrollmentId === enrollmentItem.enrollmentId,
@@ -932,8 +1000,19 @@ const ProgramEnrollmentDetailModal = ({
             cancelPaymentLoading={cancelPaymentMutation.isPending}
             enrollment={enrollmentDetail}
             enrollmentItem={enrollmentItem}
+            key={`${String(enrollmentItem.enrollmentId)}-${String(enrollmentItem.review?.id ?? 'none')}-${String(
+              enrollmentItem.review?.rating ?? '',
+            )}-${enrollmentItem.review?.content ?? ''}`}
             onCancelEnrollment={handleCancelEnrollment}
             onCancelPayment={handleCancelPayment}
+            onDeleteReview={(reviewId) => {
+              deleteReviewMutation.mutate(reviewId);
+            }}
+            onUpdateReview={(reviewId, payload) => {
+              updateReviewMutation.mutate({ reviewId, ...payload });
+            }}
+            reviewDeleteLoading={deleteReviewMutation.isPending}
+            reviewUpdateLoading={updateReviewMutation.isPending}
           />
         ) : (
           <p className={styles['helperText']}>해당 프로그램의 수강 상세가 없습니다.</p>
@@ -950,6 +1029,10 @@ const ProgramEnrollmentDetailContent = ({
   enrollmentItem,
   onCancelEnrollment,
   onCancelPayment,
+  onDeleteReview,
+  onUpdateReview,
+  reviewDeleteLoading,
+  reviewUpdateLoading,
 }: {
   cancelEnrollmentLoading: boolean;
   cancelPaymentLoading: boolean;
@@ -957,7 +1040,16 @@ const ProgramEnrollmentDetailContent = ({
   enrollmentItem: AdminProgramEnrollmentItem;
   onCancelEnrollment: () => void;
   onCancelPayment: () => void;
+  onDeleteReview: (reviewId: number) => void;
+  onUpdateReview: (reviewId: number, payload: { content: string; rating: number }) => void;
+  reviewDeleteLoading: boolean;
+  reviewUpdateLoading: boolean;
 }) => {
+  const review = enrollmentItem.review;
+  const [isReviewEditing, setIsReviewEditing] = useState(false);
+  const [reviewRating, setReviewRating] = useState(String(review?.rating ?? 5));
+  const [reviewContent, setReviewContent] = useState(review?.content ?? '');
+  const [reviewFormError, setReviewFormError] = useState<string | null>(null);
   const paymentAmount = enrollment.payment
     ? formatCurrency(enrollment.payment.approvedAmount ?? enrollment.payment.amount)
     : '-';
@@ -974,6 +1066,43 @@ const ProgramEnrollmentDetailContent = ({
     enrollment.enrollmentStatus === 'ACTIVE';
   const canCancelPayment = enrollmentItem.canCancelPayment && enrollmentItem.paymentId !== null;
   const lifecycleStatus = resolveProgramEnrollmentLifecycleStatus(enrollmentItem);
+
+  const handleReviewSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!review) {
+      return;
+    }
+
+    const nextContent = reviewContent.trim();
+    const nextRating = Number(reviewRating);
+
+    if (!Number.isInteger(nextRating) || nextRating < 1 || nextRating > 5) {
+      setReviewFormError('별점은 1점부터 5점까지 선택해 주세요.');
+      return;
+    }
+
+    if (!nextContent) {
+      setReviewFormError('수강평 내용을 입력해 주세요.');
+      return;
+    }
+
+    setReviewFormError(null);
+    setIsReviewEditing(false);
+    onUpdateReview(review.id, { content: nextContent, rating: nextRating });
+  };
+
+  const handleReviewDelete = () => {
+    if (!review) {
+      return;
+    }
+
+    if (!window.confirm('수강평을 삭제하면 복구할 수 없습니다.\n계속하시겠습니까?')) {
+      return;
+    }
+
+    onDeleteReview(review.id);
+  };
 
   return (
     <div className={styles['programEnrollmentDetailContent']}>
@@ -1023,6 +1152,11 @@ const ProgramEnrollmentDetailContent = ({
           <strong>{lifecycleStatus.label}</strong>
           <small>{lifecycleStatus.detail}</small>
         </div>
+        <div>
+          <span>수강평</span>
+          <strong>{review ? 'O' : 'X'}</strong>
+          <small>{review ? `별점 ${String(review.rating)}점` : '작성 없음'}</small>
+        </div>
       </section>
 
       {canCancelEnrollment || canCancelPayment ? (
@@ -1054,7 +1188,118 @@ const ProgramEnrollmentDetailContent = ({
         </section>
       ) : null}
 
-      <section className={styles['programEnrollmentDetailSection']}>
+      <section
+        className={`${styles['programEnrollmentDetailSection']} ${styles['programEnrollmentReviewSection']}`}
+      >
+        <div className={styles['programEnrollmentReviewHeader']}>
+          <h3 className={styles['programEnrollmentDetailSectionTitle']}>수강평</h3>
+          {review ? (
+            <div className={styles['tableActionGroup']}>
+              <button
+                className={styles['tableActionButton']}
+                disabled={reviewDeleteLoading || reviewUpdateLoading}
+                onClick={() => {
+                  setIsReviewEditing(true);
+                }}
+                type='button'
+              >
+                수강평 수정
+              </button>
+              <button
+                className={styles['tableActionButtonDanger']}
+                disabled={reviewDeleteLoading || reviewUpdateLoading}
+                onClick={handleReviewDelete}
+                type='button'
+              >
+                {reviewDeleteLoading ? '삭제 중...' : '수강평 삭제'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {review ? (
+          isReviewEditing ? (
+            <form className={styles['programEnrollmentReviewForm']} onSubmit={handleReviewSubmit}>
+              <label className={styles['field']}>
+                <span className={styles['fieldLabel']}>별점</span>
+                <span className={styles['selectWrap']}>
+                  <select
+                    aria-label='수강평 별점'
+                    className={styles['select']}
+                    disabled={reviewDeleteLoading || reviewUpdateLoading}
+                    onChange={(event) => {
+                      setReviewRating(event.target.value);
+                    }}
+                    value={reviewRating}
+                  >
+                    {[5, 4, 3, 2, 1].map((rating) => (
+                      <option key={rating} value={String(rating)}>
+                        {String(rating)}점
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+              <label className={styles['field']}>
+                <span className={styles['fieldLabel']}>내용</span>
+                <textarea
+                  aria-label='수강평 내용'
+                  className={styles['textarea']}
+                  disabled={reviewDeleteLoading || reviewUpdateLoading}
+                  onChange={(event) => {
+                    setReviewContent(event.target.value);
+                  }}
+                  rows={5}
+                  value={reviewContent}
+                />
+              </label>
+              {reviewFormError ? (
+                <p className={styles['fieldErrorText']}>{reviewFormError}</p>
+              ) : null}
+              <div className={styles['actionRow']}>
+                <Button
+                  disabled={reviewDeleteLoading || reviewUpdateLoading}
+                  size='sm'
+                  type='submit'
+                >
+                  {reviewUpdateLoading ? '저장 중...' : '수강평 저장'}
+                </Button>
+                <Button
+                  disabled={reviewDeleteLoading || reviewUpdateLoading}
+                  onClick={() => {
+                    setIsReviewEditing(false);
+                    setReviewRating(String(review.rating));
+                    setReviewContent(review.content);
+                    setReviewFormError(null);
+                  }}
+                  size='sm'
+                  type='button'
+                  variant='secondary'
+                >
+                  취소
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className={styles['programEnrollmentReviewCard']}>
+              <div className={styles['programEnrollmentReviewMeta']}>
+                <strong>별점 {String(review.rating)}점</strong>
+                <span>
+                  작성 {formatDateTime(review.createdAt)}
+                  {review.updatedAt ? ` · 수정 ${formatDateTime(review.updatedAt)}` : ''}
+                </span>
+              </div>
+              <p>{review.content}</p>
+            </div>
+          )
+        ) : (
+          <p className={styles['helperText']}>작성된 수강평이 없습니다.</p>
+        )}
+      </section>
+
+      <section
+        className={`${styles['programEnrollmentDetailSection']} ${styles['programEnrollmentLectureSection']}`}
+      >
         <h3 className={styles['programEnrollmentDetailSectionTitle']}>강의별 학습 기록</h3>
         <div className={`${styles['tableWrap']} ${styles['programEnrollmentDetailTableWrap']}`}>
           <table className={`${styles['table']} ${styles['programEnrollmentDetailLectureTable']}`}>

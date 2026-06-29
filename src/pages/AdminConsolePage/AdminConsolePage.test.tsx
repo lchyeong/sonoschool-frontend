@@ -1203,6 +1203,103 @@ describe('AdminConsolePage', () => {
     });
   });
 
+  it('shows and manages a review from the program enrollment detail modal', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const updateRequests: Array<{ body: unknown; reviewId: string }> = [];
+    const deleteRequests: string[] = [];
+
+    server.use(
+      http.get('*/api/v1/admin/programs/2003/enrollments', () => {
+        return HttpResponse.json({
+          data: [
+            {
+              cancelledAt: null,
+              cancelReason: null,
+              canCancelEnrollment: true,
+              canCancelPayment: false,
+              enrolledAt: '2026-03-08T09:00:00Z',
+              enrollmentId: 7002,
+              enrollmentStatus: 'ACTIVE',
+              expireAt: null,
+              loginId: 'minji01',
+              paidAt: '2026-03-08T09:00:00Z',
+              paymentId: 70002,
+              paymentStatus: 'COMPLETED',
+              phoneNumber: '010-1111-2222',
+              review: {
+                content: '수강생이 작성한 수강평입니다.',
+                createdAt: '2026-03-10T09:00:00Z',
+                id: 9001,
+                rating: 5,
+                updatedAt: '2026-03-10T09:00:00Z',
+              },
+              userId: 101,
+              userName: '김민지',
+            },
+          ],
+        });
+      }),
+      http.put('*/api/v1/admin/reviews/:reviewId', async ({ params, request }) => {
+        updateRequests.push({
+          body: await request.json(),
+          reviewId: String(params['reviewId']),
+        });
+
+        return HttpResponse.json({ data: null });
+      }),
+      http.delete('*/api/v1/admin/reviews/:reviewId', ({ params }) => {
+        deleteRequests.push(String(params['reviewId']));
+
+        return HttpResponse.json({ data: null });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/program-enrollments?programId=2003', {
+      skipProgramEditorApis: true,
+    });
+
+    expect(await screen.findByLabelText('수강평 작성')).toHaveTextContent('O');
+
+    fireEvent.click(await screen.findByRole('button', { name: '김민지 수강 상세 보기' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('수강생이 작성한 수강평입니다.')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '수강평 수정' }));
+    fireEvent.change(within(dialog).getByLabelText('수강평 별점'), {
+      target: { value: '4' },
+    });
+    fireEvent.change(within(dialog).getByLabelText('수강평 내용'), {
+      target: { value: '관리자가 수정한 수강평입니다.' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: '수강평 저장' }));
+
+    await waitFor(() => {
+      expect(updateRequests).toContainEqual({
+        body: {
+          content: '관리자가 수정한 수강평입니다.',
+          rating: 4,
+        },
+        reviewId: '9001',
+      });
+      expect(
+        useToastStore.getState().toasts.some((toast) => toast.message === '수강평을 수정했습니다.'),
+      ).toBe(true);
+    });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '수강평 삭제' }));
+
+    await waitFor(() => {
+      expect(confirmSpy).toHaveBeenCalledWith(
+        '수강평을 삭제하면 복구할 수 없습니다.\n계속하시겠습니까?',
+      );
+      expect(deleteRequests).toContain('9001');
+      expect(
+        useToastStore.getState().toasts.some((toast) => toast.message === '수강평을 삭제했습니다.'),
+      ).toBe(true);
+    });
+  });
+
   it('labels cancelled and future program enrollments without showing them as active', async () => {
     server.use(
       http.get('*/api/v1/admin/programs/2003/enrollments', () => {

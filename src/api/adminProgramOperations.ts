@@ -1,6 +1,9 @@
 import axiosInstance from '@/api/axiosInstance';
 import { toApiError } from '@/api/errors';
-import type { AdminProgramEnrollmentItem } from '@/types/adminProgramOperations';
+import type {
+  AdminProgramEnrollmentItem,
+  AdminProgramEnrollmentReviewUpdatePayload,
+} from '@/types/adminProgramOperations';
 import type { AdminProgramDetail } from '@/types/adminProgramsLive';
 import type { ApiEnvelope } from '@/types/auth';
 
@@ -29,6 +32,29 @@ export const cancelAdminEnrollment = async (
     await axiosInstance.post(`/api/v1/admin/enrollments/${String(enrollmentId)}/cancel`, payload);
   } catch (error: unknown) {
     throw toApiError(error, '수강 취소 처리에 실패했습니다.');
+  }
+};
+
+export const updateAdminProgramEnrollmentReview = async (
+  reviewId: number,
+  payload: AdminProgramEnrollmentReviewUpdatePayload,
+): Promise<void> => {
+  try {
+    await axiosInstance.put(`/api/v1/admin/reviews/${String(reviewId)}`, payload);
+  } catch (error: unknown) {
+    throw toApiError(error, '수강평 수정에 실패했습니다.', {
+      preferFallbackUserMessage: true,
+    });
+  }
+};
+
+export const deleteAdminProgramEnrollmentReview = async (reviewId: number): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/api/v1/admin/reviews/${String(reviewId)}`);
+  } catch (error: unknown) {
+    throw toApiError(error, '수강평 삭제에 실패했습니다.', {
+      preferFallbackUserMessage: true,
+    });
   }
 };
 
