@@ -1,0 +1,251 @@
+.smsModalPanel {
+  width: min(calc(100vw - 32px), 740px);
+  max-height: min(92vh, 662px);
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgb(17 24 39 / 18%);
+}
+
+.smsModalHeader {
+  padding: clamp(30px, 5vw, 40px) clamp(24px, 5vw, 40px) clamp(20px, 3vw, 24px);
+}
+
+.smsModalTitle {
+  color: #111827;
+  font-size: clamp(32px, 5vw, 40px);
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.smsModalCloseButton {
+  width: 30px;
+  height: 30px;
+  border-radius: 0;
+  background: transparent;
+  color: #111827;
+
+  &:hover,
+  &:focus-visible {
+    background: transparent;
+    color: #111827;
+  }
+}
+
+.smsModalCloseIcon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  background: currentcolor;
+  mask: var(--sms-modal-close-icon) center / contain no-repeat;
+  -webkit-mask: var(--sms-modal-close-icon) center / contain no-repeat;
+}
+
+.smsModalBody {
+  padding: 0 clamp(24px, 5vw, 40px) clamp(30px, 5vw, 40px) !important;
+}
+
+.smsModalForm {
+  display: grid;
+}
+
+.smsModalDescription {
+  margin: 0;
+  color: #111827;
+  font-size: clamp(15px, 2.4vw, 18px);
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+  letter-spacing: 0;
+
+  & + & {
+    margin-top: 10px;
+  }
+}
+
+.challengeSummary {
+  margin: 0;
+  color: rgb(64 69 82);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.challengeHint {
+  margin: -6px 0 0;
+  color: rgb(104 111 124);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.smsModalCodeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: clamp(28px, 5vw, 37px);
+}
+
+.smsModalCodeLabel {
+  color: #111827;
+  font-size: clamp(16px, 2.4vw, 18px);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+.smsModalTimerGroup {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: #34b29f;
+  font-size: clamp(16px, 2.4vw, 18px);
+  font-weight: var(--font-weight-regular);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.smsModalTimerIconSlot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 19px;
+  width: 19px;
+  height: 23px;
+  margin-right: 4px;
+}
+
+.smsModalTimerIcon {
+  display: block;
+  width: 19px;
+  height: 19px;
+}
+
+.smsModalTimerText {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 60px;
+  width: 60px;
+  height: 23px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.smsModalDivider {
+  flex: 0 0 1px;
+  width: 1px;
+  height: 16px;
+  margin: 0 clamp(10px, 2vw, 13px);
+  background: #d1d5db;
+}
+
+.smsModalResendButton {
+  padding: 0;
+  border: 0;
+  color: #34b29f;
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  background: transparent;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.smsModalCodeGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(8px, 2.5vw, 18px);
+  margin-top: 18px;
+}
+
+.smsModalCodeInput {
+  width: 100%;
+  aspect-ratio: 0.95;
+  border: 2px solid #d1d5db;
+  border-radius: 12px;
+  color: #111827;
+  font-size: clamp(26px, 5vw, 34px);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+  text-align: center;
+  background: #ffffff;
+  outline: none;
+
+  &:focus {
+    border-color: #34b29f;
+  }
+}
+
+.smsModalCodeInputFilled {
+  border-color: #34b29f;
+}
+
+.smsModalCodeInputError {
+  border-color: #dd383e;
+}
+
+.smsModalError {
+  min-height: 23px;
+  margin: 12px 0 0;
+  color: #dd383e;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.smsModalErrorHidden {
+  visibility: hidden;
+}
+
+.smsModalSubmitButton,
+.smsModalResetButton {
+  width: 100%;
+  height: clamp(58px, 9vw, 75px);
+  border-radius: 14px;
+  font-size: clamp(20px, 3.5vw, 24px);
+  font-weight: var(--font-weight-bold);
+}
+
+.smsModalSubmitButton {
+  margin-top: 18px;
+}
+
+.smsModalResetButton {
+  margin-top: 16px;
+  border-color: #d1d5db;
+  color: #374151;
+  background: #ffffff;
+
+  &:hover,
+  &:focus-visible {
+    border-color: #c6ccd5;
+    color: #374151;
+    background: #ffffff;
+  }
+}
+
+.smsModalSecondaryAction {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 36px;
+  color: #4b5563;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+@media (width < 768px) {
+  .smsModalPanel {
+    max-height: 92vh;
+    border-radius: 18px;
+  }
+
+  .smsModalCodeHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .smsModalCodeInput {
+    min-height: 58px;
+  }
+}

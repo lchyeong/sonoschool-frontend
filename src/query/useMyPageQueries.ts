@@ -20,8 +20,8 @@ export const myProfileQueryKey = ['mypage', 'profile'] as const;
 export const myEnrollmentsQueryKey = ['mypage', 'enrollments'] as const;
 export const myEnrollmentDetailQueryKey = (enrollmentId: number | null) =>
   ['mypage', 'enrollmentDetail', enrollmentId] as const;
-export const myLearningPlayerQueryKey = (enrollmentId: number | null) =>
-  ['mypage', 'learningPlayer', enrollmentId] as const;
+export const myLearningPlayerQueryKey = (enrollmentId: number | null, playbackDeviceId?: string) =>
+  ['mypage', 'learningPlayer', enrollmentId, playbackDeviceId ?? null] as const;
 export const myEnrollmentPracticumQueryKey = (enrollmentId: number | null) =>
   ['mypage', 'enrollmentPracticum', enrollmentId] as const;
 export const myCartQueryKey = (scope: 'authenticated' | 'guest') =>
@@ -75,12 +75,16 @@ export const useMyEnrollmentDetailQuery = (enrollmentId: number | null, enabled 
   });
 };
 
-export const useMyLearningPlayerSnapshotQuery = (enrollmentId: number | null, enabled = true) => {
+export const useMyLearningPlayerSnapshotQuery = (
+  enrollmentId: number | null,
+  playbackDeviceId?: string,
+  enabled = true,
+) => {
   return useQuery({
     enabled: enabled && enrollmentId !== null,
     gcTime: 10 * 60 * 1000,
-    queryFn: () => fetchMyLearningPlayerSnapshot(enrollmentId as number),
-    queryKey: myLearningPlayerQueryKey(enrollmentId),
+    queryFn: () => fetchMyLearningPlayerSnapshot(enrollmentId as number, playbackDeviceId),
+    queryKey: myLearningPlayerQueryKey(enrollmentId, playbackDeviceId),
     staleTime: 60 * 1000,
   });
 };

@@ -22,6 +22,10 @@ import type {
   MyQuestionItem,
   MyQuestionPage,
   MyQuestionScope,
+  PlaybackSmsChallenge,
+  PlaybackSmsStatus,
+  PlaybackSmsVerifyPayload,
+  PlaybackSmsVerifyResponse,
   ProtectedLectureStream,
   RefundHistory,
   UserPasswordChangePayload,
@@ -35,6 +39,7 @@ import type {
   LecturePracticum,
   PracticumReservation,
 } from '@/types/practicum';
+import { getOrCreatePlaybackDeviceId } from '@/utils/playbackDeviceId';
 import { isUnsafeStorageAssetUrl, sanitizePublicAssetUrl } from '@/utils/publicAssetUrl';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
@@ -483,10 +488,16 @@ export const deleteMyEnrollmentReview = async (reviewId: number): Promise<void> 
 
 export const fetchMyLearningPlayerSnapshot = async (
   enrollmentId: number,
+  deviceId = getOrCreatePlaybackDeviceId(),
 ): Promise<LearningPlayerSnapshot> => {
   try {
     const response = await axiosInstance.get<ApiEnvelope<LearningPlayerSnapshot>>(
       `/api/v1/my/enrollments/${String(enrollmentId)}/player`,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+        },
+      },
     );
     return normalizeLearningPlayerSnapshot(unwrapApiEnvelope(response.data));
   } catch (error: unknown) {
@@ -523,6 +534,107 @@ export const fetchLectureStream = async (
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '보호된 스트리밍 주소를 불러오지 못했습니다.');
+  }
+};
+
+export const sendEnrollmentPlaybackSms = async (
+  enrollmentId: number,
+  deviceId: string,
+): Promise<PlaybackSmsChallenge> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<PlaybackSmsChallenge>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/playback-sms/send`,
+      null,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+        },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '인증번호 발송에 실패했습니다.');
+  }
+};
+
+export const fetchEnrollmentPlaybackSmsStatus = async (
+  enrollmentId: number,
+  deviceId: string,
+): Promise<PlaybackSmsStatus> => {
+  try {
+    const response = await axiosInstance.get<ApiEnvelope<PlaybackSmsStatus>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/playback-sms/status`,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+        },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '문자 인증 상태를 확인하지 못했습니다.');
+  }
+};
+
+export const verifyEnrollmentPlaybackSms = async (
+  enrollmentId: number,
+  deviceId: string,
+  payload: PlaybackSmsVerifyPayload,
+): Promise<PlaybackSmsVerifyResponse> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<PlaybackSmsVerifyResponse>>(
+      `/api/v1/my/enrollments/${String(enrollmentId)}/playback-sms/verify`,
+      payload,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+        },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '문자 인증 확인에 실패했습니다.');
+  }
+};
+
+export const sendLecturePlaybackSms = async (
+  lectureId: number,
+  deviceId: string,
+): Promise<PlaybackSmsChallenge> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<PlaybackSmsChallenge>>(
+      `/api/v1/lectures/${String(lectureId)}/playback-sms/send`,
+      null,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+        },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '인증번호 발송에 실패했습니다.');
+  }
+};
+
+export const verifyLecturePlaybackSms = async (
+  lectureId: number,
+  deviceId: string,
+  payload: PlaybackSmsVerifyPayload,
+): Promise<PlaybackSmsVerifyResponse> => {
+  try {
+    const response = await axiosInstance.post<ApiEnvelope<PlaybackSmsVerifyResponse>>(
+      `/api/v1/lectures/${String(lectureId)}/playback-sms/verify`,
+      payload,
+      {
+        headers: {
+          'X-Playback-Device-Id': deviceId,
+        },
+      },
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '문자 인증 확인에 실패했습니다.');
   }
 };
 

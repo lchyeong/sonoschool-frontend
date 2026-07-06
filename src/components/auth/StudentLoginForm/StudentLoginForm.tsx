@@ -1,12 +1,5 @@
-import type {
-  ChangeEvent,
-  CSSProperties,
-  FormEvent,
-  KeyboardEvent,
-  ReactNode,
-  RefObject,
-} from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, CSSProperties, FormEvent, ReactNode, RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
@@ -14,11 +7,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { loginStudent, verifyStudentLoginSms } from '@/api/auth';
 import { ApiError } from '@/api/errors';
-import clockIconSrc from '@/assets/icons/lucide_clock_sono.svg';
 import eyeOffIconSrc from '@/assets/icons/lucide_eye-off.svg';
 import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
-import closeIconSrc from '@/assets/icons/lucide_x.svg';
-import Modal from '@/components/overlay/Modal/Modal';
+import SmsVerificationModal from '@/components/auth/SmsVerificationModal/SmsVerificationModal';
 import Button from '@/components/ui/Button/Button';
 import { TextField } from '@/components/ui/TextField/TextField';
 import { myCartQueryKey } from '@/query/useMyPageQueries';
@@ -93,13 +84,6 @@ const getRemainingSeconds = (expiresAt: string | null): number => {
 
   const remainingMilliseconds = new Date(expiresAt).getTime() - Date.now();
   return remainingMilliseconds > 0 ? Math.ceil(remainingMilliseconds / 1000) : 0;
-};
-
-const formatRemainingTimeLabel = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
 };
 
 const isStudentLoginChallenge = (value: unknown): value is StudentLoginChallenge => {
@@ -184,10 +168,7 @@ const StudentLoginForm = ({
 }: StudentLoginFormProps) => {
   const internalLoginIdInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
-  const codeInputRef = useRef<HTMLInputElement | null>(null);
-  const codeBoxRefs = useRef<Array<HTMLInputElement | null>>([]);
   const authDeviceIdRef = useRef<string | null>(null);
-  const initialLoginIdRef = useRef((initialValues?.loginId ?? '').trim());
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -202,15 +183,10 @@ const StudentLoginForm = ({
   const [verificationCode, setVerificationCode] = useState('');
   const [loginChallenge, setLoginChallenge] = useState<StudentLoginChallenge | null>(null);
   const [loginChallengeOrigin, setLoginChallengeOrigin] = useState<LoginChallengeOrigin>('issued');
-  const [challengeCountdownSeconds, setChallengeCountdownSeconds] = useState(0);
   const [rememberLoginId, setRememberLoginId] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const isPageVariant = variant === 'page';
-  const codeDigits = useMemo(
-    () => Array.from({ length: SMS_CODE_LENGTH }, (_, index) => verificationCode[index] ?? ''),
-    [verificationCode],
-  );
 
   const getAuthDeviceId = () => {
     if (!authDeviceIdRef.current) {
@@ -279,14 +255,10 @@ const StudentLoginForm = ({
           setLoginChallenge(storedChallenge);
           setLoginChallengeOrigin('restored');
           setVerificationCode('');
-          setChallengeCountdownSeconds(getRemainingSeconds(storedChallenge.challengeExpiresAt));
           showToast({
             message: '이미 발송된 인증번호가 아직 유효합니다. 문자함을 확인해 주세요.',
             variant: 'info',
           });
-          window.setTimeout(() => {
-            codeBoxRefs.current[0]?.focus();
-          }, 0);
           return;
         }
       }
@@ -319,7 +291,6 @@ const StudentLoginForm = ({
         setLoginChallenge(session);
         setLoginChallengeOrigin(isStoredChallengeReused ? 'restored' : 'issued');
         setVerificationCode('');
-        setChallengeCountdownSeconds(getRemainingSeconds(session.challengeExpiresAt));
         saveLoginSmsChallenge(session, authDeviceId);
         showToast({
           message: isStoredChallengeReused
@@ -327,9 +298,6 @@ const StudentLoginForm = ({
             : `${session.maskedPhoneNumber} 번호로 인증번호를 보냈습니다.`,
           variant: isStoredChallengeReused ? 'info' : 'success',
         });
-        window.setTimeout(() => {
-          codeBoxRefs.current[0]?.focus();
-        }, 0);
         return;
       }
 
@@ -353,56 +321,13 @@ const StudentLoginForm = ({
       setLoginChallenge(null);
       setLoginChallengeOrigin('issued');
       setVerificationCode('');
-      setChallengeCountdownSeconds(0);
       await finalizeAuthenticatedLogin(session);
     },
   });
 
   useEffect(() => {
-    const storedChallenge = readStoredLoginSmsChallenge(getAuthDeviceId());
-    if (!storedChallenge) {
-      return;
-    }
-
-    const currentLoginId = initialLoginIdRef.current;
-    if (currentLoginId && currentLoginId !== storedChallenge.loginId) {
-      clearStoredLoginSmsChallenge();
-      return;
-    }
-
-    setLoginChallenge(storedChallenge);
-    setLoginChallengeOrigin('restored');
-    setVerificationCode('');
-    setChallengeCountdownSeconds(getRemainingSeconds(storedChallenge.challengeExpiresAt));
-    setFormValues((current) => ({
-      ...current,
-      loginId: storedChallenge.loginId,
-    }));
-    window.setTimeout(() => {
-      codeBoxRefs.current[0]?.focus();
-    }, 0);
+    clearStoredLoginSmsChallenge();
   }, []);
-
-  useEffect(() => {
-    if (!loginChallenge || challengeCountdownSeconds === 0) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setChallengeCountdownSeconds((current) => {
-        if (current <= 1) {
-          window.clearInterval(intervalId);
-          return 0;
-        }
-
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [challengeCountdownSeconds, loginChallenge]);
 
   const handleFieldChange =
     (fieldName: keyof LoginFormValues) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -433,24 +358,7 @@ const StudentLoginForm = ({
     setAuthErrorMessage(null);
 
     if (loginChallenge) {
-      const trimmedCode = verificationCode.trim();
-      if (!trimmedCode) {
-        setFormErrors((current) => ({
-          ...current,
-          code: '인증번호를 확인해주세요.',
-        }));
-        codeInputRef.current?.focus();
-        return;
-      }
-
-      setFormErrors((current) => ({
-        ...current,
-        code: '',
-      }));
-      verifyMutation.mutate({
-        challengeToken: loginChallenge.challengeToken,
-        code: trimmedCode,
-      });
+      handleSmsConfirm(verificationCode);
       return;
     }
 
@@ -482,62 +390,38 @@ const StudentLoginForm = ({
     });
   };
 
-  const handleSmsSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.stopPropagation();
-    handleSubmit(event);
-  };
-
-  const handleCodeBoxChange = (index: number) => (event: ChangeEvent<HTMLInputElement>) => {
-    const nextDigits = event.target.value.replace(/\D/g, '').slice(0, SMS_CODE_LENGTH);
-    if (!nextDigits) {
-      const currentDigits = codeDigits.slice();
-      currentDigits[index] = '';
-      setVerificationCode(currentDigits.join('').slice(0, SMS_CODE_LENGTH));
-      return;
-    }
-
-    const currentDigits = codeDigits.slice();
-    nextDigits.split('').forEach((digit, digitIndex) => {
-      const targetIndex = index + digitIndex;
-      if (targetIndex < SMS_CODE_LENGTH) {
-        currentDigits[targetIndex] = digit;
-      }
-    });
-
-    const nextCode = currentDigits.join('').slice(0, SMS_CODE_LENGTH);
-    const nextFocusIndex = Math.min(index + nextDigits.length, SMS_CODE_LENGTH - 1);
-    setVerificationCode(nextCode);
+  const handleSmsCodeChange = (code: string) => {
+    setVerificationCode(code);
     setFormErrors((current) => ({
       ...current,
       code: '',
     }));
-    window.setTimeout(() => {
-      codeBoxRefs.current[nextFocusIndex]?.focus();
-    }, 0);
   };
 
-  const handleCodeBoxKeyDown = (index: number) => (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Backspace' && !codeDigits[index] && index > 0) {
-      event.preventDefault();
-      codeBoxRefs.current[index - 1]?.focus();
+  const handleSmsConfirm = (code: string) => {
+    const trimmedCode = code.trim();
+    if (trimmedCode.length !== SMS_CODE_LENGTH || !loginChallenge) {
+      setFormErrors((current) => ({
+        ...current,
+        code: '인증번호를 확인해주세요.',
+      }));
+      return;
     }
 
-    if (event.key === 'ArrowLeft' && index > 0) {
-      event.preventDefault();
-      codeBoxRefs.current[index - 1]?.focus();
-    }
-
-    if (event.key === 'ArrowRight' && index < SMS_CODE_LENGTH - 1) {
-      event.preventDefault();
-      codeBoxRefs.current[index + 1]?.focus();
-    }
+    setFormErrors((current) => ({
+      ...current,
+      code: '',
+    }));
+    verifyMutation.mutate({
+      challengeToken: loginChallenge.challengeToken,
+      code: trimmedCode,
+    });
   };
 
   const resetLoginChallenge = () => {
     setLoginChallenge(null);
     setLoginChallengeOrigin('issued');
     setVerificationCode('');
-    setChallengeCountdownSeconds(0);
     setFormErrors((current) => ({
       ...current,
       code: '',
@@ -545,10 +429,6 @@ const StudentLoginForm = ({
   };
 
   const handleResendChallenge = () => {
-    if (challengeCountdownSeconds > 0) {
-      return;
-    }
-
     clearStoredLoginSmsChallenge();
     setLoginChallengeOrigin('issued');
     setVerificationCode('');
@@ -559,7 +439,6 @@ const StudentLoginForm = ({
 
     if (!formValues.password.trim()) {
       setLoginChallenge(null);
-      setChallengeCountdownSeconds(0);
       setFormErrors((current) => ({
         ...current,
         password: '인증번호를 다시 받으려면 비밀번호를 입력해주세요.',
@@ -575,7 +454,6 @@ const StudentLoginForm = ({
   };
 
   const isLoginChallengeRestored = loginChallengeOrigin === 'restored';
-  const isChallengeActive = loginChallenge !== null && challengeCountdownSeconds > 0;
 
   return (
     <form
@@ -685,119 +563,33 @@ const StudentLoginForm = ({
       </div>
 
       {loginChallenge ? (
-        <Modal
-          bodyClassName={styles['smsModalBody']}
-          closeButtonClassName={styles['smsModalCloseButton']}
-          closeButtonContent={
-            <span
-              aria-hidden='true'
-              className={styles['smsModalCloseIcon']}
-              style={{ '--login-eye-icon': `url("${closeIconSrc}")` } as LoginEyeIconStyle}
-            />
-          }
-          headerClassName={styles['smsModalHeader']}
-          onClose={resetLoginChallenge}
-          panelClassName={styles['smsModalPanel']}
-          title='로그인'
-          titleClassName={styles['smsModalTitle']}
-        >
-          <form className={styles['smsModalForm']} noValidate onSubmit={handleSmsSubmit}>
-            <p className={styles['smsModalDescription']}>
+        <SmsVerificationModal
+          activeHint='화면을 닫아도 남은 시간 동안 같은 인증번호를 입력할 수 있습니다.'
+          challengeExpiresAt={loginChallenge.challengeExpiresAt}
+          code={verificationCode}
+          description={
+            <>
               새 환경 로그인으로 확인되어 {loginChallenge.maskedPhoneNumber} 번호로 문자 인증이
               필요합니다.
-            </p>
-            <p className={styles['challengeSummary']}>
-              {isLoginChallengeRestored
-                ? '이미 발송된 인증번호가 아직 유효합니다.'
-                : '문자로 전송된 6자리 인증번호를 입력해 주세요.'}
-            </p>
-            <p className={styles['challengeHint']}>
-              {isChallengeActive
-                ? '화면을 닫아도 남은 시간 동안 같은 인증번호를 입력할 수 있습니다.'
-                : '인증 시간이 만료되었습니다. 다시 전송해 주세요.'}
-            </p>
-            <div className={styles['smsModalCodeHeader']}>
-              <label className={styles['smsModalCodeLabel']} htmlFor='login_sms_code_0'>
-                인증번호
-              </label>
-              <div className={styles['smsModalTimerGroup']}>
-                <span aria-hidden='true' className={styles['smsModalTimerIconSlot']}>
-                  <img alt='' className={styles['smsModalTimerIcon']} src={clockIconSrc} />
-                </span>
-                <span className={styles['smsModalTimerText']}>
-                  {formatRemainingTimeLabel(challengeCountdownSeconds)}
-                </span>
-                <span aria-hidden='true' className={styles['smsModalDivider']} />
-                <button
-                  className={styles['smsModalResendButton']}
-                  disabled={loginMutation.isPending || challengeCountdownSeconds > 0}
-                  onClick={handleResendChallenge}
-                  type='button'
-                >
-                  {challengeCountdownSeconds > 0 ? '재전송 대기' : '재전송'}
-                </button>
-              </div>
-            </div>
-            <div className={styles['smsModalCodeGrid']}>
-              {codeDigits.map((digit, index) => (
-                <input
-                  autoComplete={index === 0 ? 'one-time-code' : 'off'}
-                  className={classNames(
-                    styles['smsModalCodeInput'],
-                    digit && styles['smsModalCodeInputFilled'],
-                    formErrors.code && styles['smsModalCodeInputError'],
-                  )}
-                  id={`login_sms_code_${String(index)}`}
-                  inputMode='numeric'
-                  key={index}
-                  maxLength={1}
-                  onChange={handleCodeBoxChange(index)}
-                  onKeyDown={handleCodeBoxKeyDown(index)}
-                  ref={(element) => {
-                    codeBoxRefs.current[index] = element;
-                    if (index === 0) {
-                      codeInputRef.current = element;
-                    }
-                  }}
-                  type='text'
-                  value={digit}
-                />
-              ))}
-            </div>
-            <p
-              aria-hidden={!formErrors.code}
-              className={classNames(
-                styles['smsModalError'],
-                !formErrors.code && styles['smsModalErrorHidden'],
-              )}
-              role={formErrors.code ? 'alert' : undefined}
-            >
-              {formErrors.code ?? '인증번호를 확인해주세요.'}
-            </p>
-            <Button
-              className={styles['smsModalSubmitButton']}
-              disabled={
-                verifyMutation.isPending ||
-                verificationCode.length !== SMS_CODE_LENGTH ||
-                challengeCountdownSeconds === 0
-              }
-              type='submit'
-            >
-              {verifyMutation.isPending ? '확인 중...' : '문자 인증 확인'}
-            </Button>
-            <Button
-              className={styles['smsModalResetButton']}
-              onClick={resetLoginChallenge}
-              type='button'
-              variant='secondary'
-            >
-              다시 입력
-            </Button>
-            {secondaryAction ? (
-              <div className={styles['smsModalSecondaryAction']}>{secondaryAction}</div>
-            ) : null}
-          </form>
-        </Modal>
+            </>
+          }
+          errorMessage={formErrors.code ?? null}
+          expiredHint='인증 시간이 만료되었습니다. 다시 전송해 주세요.'
+          isResending={loginMutation.isPending}
+          isSubmitting={verifyMutation.isPending}
+          onClose={resetLoginChallenge}
+          onCodeChange={handleSmsCodeChange}
+          onResend={handleResendChallenge}
+          onSubmit={handleSmsConfirm}
+          key={loginChallenge.challengeToken}
+          secondaryAction={secondaryAction}
+          summary={
+            isLoginChallengeRestored
+              ? '이미 발송된 인증번호가 아직 유효합니다.'
+              : '문자로 전송된 6자리 인증번호를 입력해 주세요.'
+          }
+          title='로그인'
+        />
       ) : null}
     </form>
   );

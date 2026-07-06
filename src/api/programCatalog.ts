@@ -19,6 +19,7 @@ const publicImageSchema = z
 
 const optionalPublicImageSchema = z.string().min(1).nullable().optional();
 const optionalCropValueSchema = z.number().nullable().optional();
+const optionalDateTimeSchema = z.string().min(1).nullable().optional();
 
 const resolvePreferredProgramImageSrc = (...values: Array<string | null | undefined>): string => {
   const sanitizedValues = values
@@ -73,6 +74,11 @@ const lectureCardSchema = z
     thumbnailCropOffsetX: optionalCropValueSchema,
     thumbnailCropOffsetY: optionalCropValueSchema,
     thumbnailCropZoom: optionalCropValueSchema,
+    saleStartAt: optionalDateTimeSchema,
+    saleEndAt: optionalDateTimeSchema,
+    learningStartAt: optionalDateTimeSchema,
+    learningEndAt: optionalDateTimeSchema,
+    createdAt: optionalDateTimeSchema,
     thumbnailPreviewUrl: optionalPublicImageSchema,
     thumbnailSrc: optionalPublicImageSchema,
     thumbnailUrl: optionalPublicImageSchema,

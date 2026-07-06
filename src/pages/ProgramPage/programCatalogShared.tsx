@@ -135,12 +135,16 @@ const buildDurationText = (durationLabel: string) => {
   return `운영기간 ${durationLabel}`;
 };
 
+const hasArchiveRecruitmentPeriod = (item: ProgramLectureCard) => {
+  return Boolean(item.saleStartAt || item.saleEndAt || !item.scheduleLabel.includes('상시'));
+};
+
 const resolveArchiveStatusLabel = (item: ProgramLectureCard) => {
   const catalogStatus = resolveLectureCatalogStatus(item);
 
   switch (catalogStatus) {
     case 'OPEN':
-      return '신청가능';
+      return hasArchiveRecruitmentPeriod(item) ? '모집 중' : '상시 모집 중';
     case 'FULL':
       return '정원마감';
     case 'SCHEDULED':

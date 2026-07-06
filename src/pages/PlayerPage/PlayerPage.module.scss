@@ -3545,6 +3545,156 @@
   color: #ffffff;
 }
 
+.resourceDownloadModalCancelButton:disabled,
+.resourceDownloadModalConfirmButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.playbackSmsModal {
+  width: min(520px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 0;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.playbackSmsModalBody {
+  padding: 0 34px 34px;
+}
+
+.playbackSmsModalContent {
+  display: grid;
+  gap: 22px;
+  padding-top: 33px;
+}
+
+.playbackSmsModalDescription,
+.playbackSmsModalHint,
+.playbackSmsModalError {
+  margin: 0;
+  font-size: 17px;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: 1.55;
+}
+
+.playbackSmsModalDescription {
+  color: #374151;
+}
+
+.playbackSmsModalHint {
+  padding: 18px 20px;
+  border-radius: 10px;
+  background: #f3f8f7;
+  color: #2f6f66;
+}
+
+.playbackSmsCodeField {
+  display: grid;
+  gap: 10px;
+  color: #111827;
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.playbackSmsCodeField input {
+  width: 100%;
+  min-height: 58px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 0 16px;
+  color: #111827;
+  font: inherit;
+  font-size: 22px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-normal);
+}
+
+.playbackSmsCodeField input:focus {
+  border-color: #34b29f;
+  outline: 3px solid rgb(52 178 159 / 18%);
+}
+
+.playbackSmsModalError {
+  color: #dc2626;
+}
+
+.playbackSmsModalActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.playbackSmsModalActions:has(.playbackSmsResendButton) {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.25fr);
+}
+
+.playbackSmsResendButton {
+  min-height: 70px;
+  border: 1px solid #34b29f;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #238f80;
+  cursor: pointer;
+  font: inherit;
+  font-size: 24px;
+  font-weight: var(--font-weight-semibold);
+  line-height: normal;
+}
+
+.playbackSmsResendButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+@media (width < 560px) {
+  .playbackSmsModal {
+    border-radius: 20px;
+  }
+
+  .playbackSmsModal .resourceDownloadModalHeader {
+    padding: 72px 20px 22px;
+  }
+
+  .playbackSmsModal .resourceDownloadModalHeader::after {
+    right: 20px;
+    left: 20px;
+  }
+
+  .playbackSmsModal .resourceDownloadModalClose {
+    top: 24px;
+    right: 20px;
+  }
+
+  .playbackSmsModal .resourceDownloadModalTitle {
+    font-size: 24px;
+  }
+
+  .playbackSmsModalBody {
+    padding: 0 20px 24px;
+  }
+
+  .playbackSmsModalContent {
+    gap: 16px;
+    padding-top: 24px;
+  }
+
+  .playbackSmsModalActions,
+  .playbackSmsModalActions:has(.playbackSmsResendButton) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .playbackSmsModalActions .resourceDownloadModalCancelButton,
+  .playbackSmsModalActions .resourceDownloadModalConfirmButton,
+  .playbackSmsResendButton {
+    min-height: 54px;
+    font-size: 18px;
+  }
+}
+
 .quizFlaggedModalLayer {
   position: absolute;
   z-index: 4;
@@ -4502,6 +4652,30 @@
   font-size: 13px;
   font-weight: var(--font-weight-semibold);
   text-align: center;
+}
+
+.quizVideoOverlayStack {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.quizVideoOverlayButton {
+  min-height: 34px;
+  border: 1px solid #34b29f;
+  border-radius: 8px;
+  background: #34b29f;
+  padding: 0 14px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.quizVideoOverlayButton:focus-visible {
+  outline: 2px solid rgb(255 255 255 / 88%);
+  outline-offset: 2px;
 }
 
 .quizOptionContent {

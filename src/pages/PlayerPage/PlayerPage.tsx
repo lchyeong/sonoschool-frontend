@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Hls from 'hls.js/light';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
+import { ApiError } from '@/api/errors';
 import {
   cancelMyLecturePracticum,
   fetchLectureStream,
@@ -19,8 +20,10 @@ import {
   reserveMyLecturePracticum,
   refreshLectureStreamCookies,
   saveLectureProgress,
+  sendEnrollmentPlaybackSms,
   sendLectureProgressBeacon,
   updateMyOfflineScheduleAbsence,
+  verifyEnrollmentPlaybackSms,
 } from '@/api/mypage';
 import { downloadProgramResourceFile } from '@/api/resources';
 import {
@@ -48,6 +51,7 @@ import iconVolume from '@/assets/icons/lucide_volume-2.svg';
 import iconPracticumClose from '@/assets/icons/lucide_x.svg';
 import iconCurrentLessonIndicator from '@/assets/icons/player-current-indicator.svg';
 import iconResultPassCheck from '@/assets/icons/player-result-pass-check.svg';
+import SmsVerificationModal from '@/components/auth/SmsVerificationModal/SmsVerificationModal';
 import Modal from '@/components/overlay/Modal/Modal';
 import ProblemReportModal from '@/components/problemReport/ProblemReportModal';
 import { resolveProblemTargetScore } from '@/components/problemReport/problemReportUtils';
@@ -65,6 +69,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import type {
   LearningPlayerLessonProgress,
   LearningPlayerResourceAttachment,
+  PlaybackSmsChallenge,
   ProtectedLectureStream,
 } from '@/types/mypage';
 import type { PracticumReservation, PracticumSlot } from '@/types/practicum';
@@ -221,11 +226,16 @@ const resolvePlaybackCookieRefreshDelayMs = (expiresAt: number): number => {
   return Math.max(minimumDelayMs, expiresAt * 1000 - Date.now() - refreshBeforeExpiryMs);
 };
 
+const isPlaybackSmsRequiredError = (error: unknown): boolean => {
+  return error instanceof ApiError && error.code === 'AUTH_400_SMS_REQUIRED';
+};
+
 interface QuizProtectedVideoProps {
   alt: string;
   className: string;
   deviceId: string;
   lectureId: number;
+  onPlaybackSmsRequired: () => void;
   videoId: number;
 }
 
@@ -234,6 +244,7 @@ const QuizProtectedVideo = ({
   className,
   deviceId,
   lectureId,
+  onPlaybackSmsRequired,
   videoId,
 }: QuizProtectedVideoProps) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -252,6 +263,7 @@ const QuizProtectedVideo = ({
   const watermarkCompactText = watermarkText ? `${watermarkText} · ${watermarkTimestamp}` : '';
   const watermarkPosition =
     PLAYBACK_WATERMARK_POSITIONS[watermarkPositionIndex % PLAYBACK_WATERMARK_POSITIONS.length];
+  const requiresPlaybackSms = isPlaybackSmsRequiredError(streamQuery.error);
 
   useEffect(() => {
     const syncTimer = window.setTimeout(() => {
@@ -382,7 +394,24 @@ const QuizProtectedVideo = ({
         <div className={styles['quizVideoOverlay']}>영상 준비 중</div>
       ) : null}
       {streamQuery.isError ? (
-        <div className={styles['quizVideoOverlay']}>영상을 불러오지 못했습니다.</div>
+        <div className={styles['quizVideoOverlay']}>
+          {requiresPlaybackSms ? (
+            <div className={styles['quizVideoOverlayStack']}>
+              <span>문자 인증 후 영상을 재생할 수 있습니다.</span>
+              <button
+                className={styles['quizVideoOverlayButton']}
+                onClick={() => {
+                  onPlaybackSmsRequired();
+                }}
+                type='button'
+              >
+                문자 인증
+              </button>
+            </div>
+          ) : (
+            '영상을 불러오지 못했습니다.'
+          )}
+        </div>
       ) : null}
       {watermarkCompactText ? (
         <>
@@ -406,6 +435,13 @@ const QuizProtectedVideo = ({
   );
 };
 
+interface PlaybackSmsModalState {
+  challenge: PlaybackSmsChallenge;
+  code: string;
+  enrollmentId: number;
+  errorMessage: string | null;
+}
+
 const PlayerPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -415,8 +451,10 @@ const PlayerPage = () => {
   const params = useParams<{ enrollmentId: string; lessonId: string }>();
   const resolvedEnrollmentId = Number(params.enrollmentId ?? '');
   const isValidEnrollmentId = Number.isInteger(resolvedEnrollmentId) && resolvedEnrollmentId > 0;
+  const playbackDeviceId = useMemo(() => getOrCreatePlaybackDeviceId(), []);
   const playerSnapshotQuery = useMyLearningPlayerSnapshotQuery(
     isValidEnrollmentId ? resolvedEnrollmentId : null,
+    playbackDeviceId,
     isValidEnrollmentId,
   );
   const snapshot = playerSnapshotQuery.data;
@@ -432,7 +470,6 @@ const PlayerPage = () => {
     () => flattenPlayerItems(snapshot?.curriculumTrack.sections ?? []),
     [snapshot?.curriculumTrack.sections],
   );
-  const playbackDeviceId = useMemo(() => getOrCreatePlaybackDeviceId(), []);
   const completedStatusStyle = useMemo<LessonStatusStyle>(() => {
     return {
       '--lesson-check-icon': `url(${iconCheck})`,
@@ -442,6 +479,8 @@ const PlayerPage = () => {
   const [playbackErrorsByLessonId, setPlaybackErrorsByLessonId] = useState<
     Record<string, string | undefined>
   >({});
+  const playbackSmsAutoRequestedRef = useRef(false);
+  const [playbackSmsModal, setPlaybackSmsModal] = useState<PlaybackSmsModalState | null>(null);
   const [playbackRate, setPlaybackRate] = useState<(typeof PLAYBACK_SPEED_OPTIONS)[number]>(1);
   const [qualityOptions, setQualityOptions] = useState<QualityOption[]>(DEFAULT_QUALITY_OPTIONS);
   const [selectedQualityLevel, setSelectedQualityLevel] = useState<number | 'auto'>('auto');
@@ -802,7 +841,7 @@ const PlayerPage = () => {
       releaseQuizSessionStartLock();
       quizSessionDirtyRef.current = false;
       void queryClient.invalidateQueries({
-        queryKey: myLearningPlayerQueryKey(resolvedEnrollmentId),
+        queryKey: myLearningPlayerQueryKey(resolvedEnrollmentId, playbackDeviceId),
       });
       queryClient.setQueryData<StudentProblem | null>(
         ['student-problem', selectedLectureId],
@@ -915,7 +954,7 @@ const PlayerPage = () => {
     },
     onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({
-        queryKey: myLearningPlayerQueryKey(resolvedEnrollmentId),
+        queryKey: myLearningPlayerQueryKey(resolvedEnrollmentId, playbackDeviceId),
       });
       showToast({
         message: variables.absent
@@ -925,12 +964,136 @@ const PlayerPage = () => {
       });
     },
   });
+  const sendPlaybackSmsMutation = useMutation({
+    mutationFn: (enrollmentId: number) => sendEnrollmentPlaybackSms(enrollmentId, playbackDeviceId),
+    onError: (error: unknown, enrollmentId) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : '인증번호 발송에 실패했습니다. 다시 시도해 주세요.';
+      setPlaybackSmsModal((current) =>
+        current?.enrollmentId === enrollmentId ? { ...current, errorMessage: message } : current,
+      );
+      showToast({
+        message,
+        variant: 'error',
+      });
+    },
+    onMutate: (enrollmentId) => {
+      setPlaybackSmsModal((current) =>
+        current?.enrollmentId === enrollmentId
+          ? {
+              ...current,
+              code: '',
+              errorMessage: null,
+            }
+          : current,
+      );
+    },
+    onSuccess: (challenge, enrollmentId) => {
+      setPlaybackSmsModal({
+        challenge,
+        code: '',
+        enrollmentId,
+        errorMessage: null,
+      });
+      showToast({
+        message: `${challenge.maskedPhoneNumber} 번호로 인증번호를 보냈습니다.`,
+        variant: 'success',
+      });
+    },
+  });
+  const requestPlaybackSmsChallenge = useCallback(
+    (enrollmentId: number) => {
+      if (sendPlaybackSmsMutation.isPending) {
+        return;
+      }
+
+      sendPlaybackSmsMutation.mutate(enrollmentId);
+    },
+    [sendPlaybackSmsMutation],
+  );
+  const verifyPlaybackSmsMutation = useMutation({
+    mutationFn: ({
+      challengeToken,
+      code,
+      enrollmentId,
+    }: {
+      challengeToken: string;
+      code: string;
+      enrollmentId: number;
+    }) =>
+      verifyEnrollmentPlaybackSms(enrollmentId, playbackDeviceId, {
+        challengeToken,
+        code,
+      }),
+    onError: (error: unknown, variables) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : '문자 인증 확인에 실패했습니다. 다시 시도해 주세요.';
+      setPlaybackSmsModal((current) =>
+        current?.enrollmentId === variables.enrollmentId
+          ? {
+              ...current,
+              errorMessage: message,
+            }
+          : current,
+      );
+    },
+    onSuccess: async (_response, variables) => {
+      setPlaybackSmsModal(null);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: myLearningPlayerQueryKey(variables.enrollmentId, playbackDeviceId),
+        }),
+        queryClient.invalidateQueries({ queryKey: ['lecture-stream'] }),
+        queryClient.invalidateQueries({ queryKey: ['problem-video-stream'] }),
+      ]);
+      showToast({
+        message: '문자 인증이 완료되었습니다.',
+        variant: 'success',
+      });
+      void playerSnapshotQuery.refetch();
+      void lectureStreamQuery.refetch();
+    },
+  });
+  const handlePlaybackSmsCodeChange = (code: string) => {
+    setPlaybackSmsModal((current) =>
+      current
+        ? {
+            ...current,
+            code,
+            errorMessage: null,
+          }
+        : current,
+    );
+  };
+  const handleSendPlaybackSms = () => {
+    if (!playbackSmsModal || sendPlaybackSmsMutation.isPending) {
+      return;
+    }
+    sendPlaybackSmsMutation.mutate(playbackSmsModal.enrollmentId);
+  };
+  const handleVerifyPlaybackSms = (code: string) => {
+    if (!playbackSmsModal || verifyPlaybackSmsMutation.isPending) {
+      return;
+    }
+
+    verifyPlaybackSmsMutation.mutate({
+      challengeToken: playbackSmsModal.challenge.challengeToken,
+      code,
+      enrollmentId: playbackSmsModal.enrollmentId,
+    });
+  };
   const streamLoading = lectureStreamQuery.isLoading;
-  const streamErrorMessage = lectureStreamQuery.isError
-    ? lectureStreamQuery.error instanceof Error
-      ? lectureStreamQuery.error.message
-      : '보호된 스트리밍 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
-    : null;
+  const requiresPlaybackSms = isPlaybackSmsRequiredError(lectureStreamQuery.error);
+  const streamErrorMessage =
+    lectureStreamQuery.isError && !requiresPlaybackSms
+      ? lectureStreamQuery.error instanceof Error
+        ? lectureStreamQuery.error.message
+        : '보호된 스트리밍 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      : null;
   const playerError =
     (selectedLesson ? playbackErrorsByLessonId[selectedLesson.id] : null) || streamErrorMessage;
   const selectedQualityLabel =
@@ -2005,13 +2168,40 @@ const PlayerPage = () => {
   ]);
 
   const isLoading = playerSnapshotQuery.isLoading;
-  const hasError = playerSnapshotQuery.isError;
+  const requiresPlayerSms = isPlaybackSmsRequiredError(playerSnapshotQuery.error);
+  const hasError = playerSnapshotQuery.isError && !requiresPlayerSms;
   const errorMessage =
     playerSnapshotQuery.error instanceof Error
       ? playerSnapshotQuery.error.message
       : '온라인 수강 정보를 불러오지 못했습니다.';
   const isPlaybackBlocked =
     !enrollmentState || !enrollmentState.active || lessons.length === 0 || !selectedItem;
+
+  useEffect(() => {
+    if (!requiresPlayerSms) {
+      playbackSmsAutoRequestedRef.current = false;
+      return;
+    }
+
+    if (
+      !isValidEnrollmentId ||
+      playbackSmsAutoRequestedRef.current ||
+      playbackSmsModal ||
+      sendPlaybackSmsMutation.isPending
+    ) {
+      return;
+    }
+
+    playbackSmsAutoRequestedRef.current = true;
+    requestPlaybackSmsChallenge(resolvedEnrollmentId);
+  }, [
+    isValidEnrollmentId,
+    playbackSmsModal,
+    requestPlaybackSmsChallenge,
+    requiresPlayerSms,
+    resolvedEnrollmentId,
+    sendPlaybackSmsMutation.isPending,
+  ]);
 
   const applyPlaybackRate = (nextPlaybackRate: (typeof PLAYBACK_SPEED_OPTIONS)[number]) => {
     setPlaybackRate(nextPlaybackRate);
@@ -2321,6 +2511,9 @@ const PlayerPage = () => {
             className={className}
             deviceId={playbackDeviceId}
             lectureId={selectedLectureId}
+            onPlaybackSmsRequired={() => {
+              requestPlaybackSmsChallenge(resolvedEnrollmentId);
+            }}
             videoId={mediaVideoId}
           />
         );
@@ -2792,6 +2985,40 @@ const PlayerPage = () => {
     );
   };
 
+  const renderPlaybackSmsModal = () => {
+    if (!playbackSmsModal) {
+      return null;
+    }
+
+    return (
+      <SmsVerificationModal
+        activeHint='화면을 닫아도 남은 시간 동안 같은 인증번호를 입력할 수 있습니다.'
+        challengeExpiresAt={playbackSmsModal.challenge.challengeExpiresAt}
+        code={playbackSmsModal.code}
+        description={
+          <>
+            수강 플레이어 이용 전 본인 확인을 위해 {playbackSmsModal.challenge.maskedPhoneNumber}{' '}
+            번호로 문자 인증이 필요합니다.
+          </>
+        }
+        errorMessage={playbackSmsModal.errorMessage}
+        expiredHint='인증 시간이 만료되었습니다. 다시 전송해 주세요.'
+        isResending={sendPlaybackSmsMutation.isPending}
+        isSubmitting={verifyPlaybackSmsMutation.isPending}
+        key={playbackSmsModal.challenge.challengeToken}
+        onClose={() => {
+          setPlaybackSmsModal(null);
+        }}
+        onCodeChange={handlePlaybackSmsCodeChange}
+        onResend={handleSendPlaybackSms}
+        onSubmit={handleVerifyPlaybackSms}
+        resetLabel='취소'
+        summary='문자로 전송된 6자리 인증번호를 입력해 주세요.'
+        title='문자 인증'
+      />
+    );
+  };
+
   const renderQuizFlaggedModal = () => {
     if (!isQuizFlaggedModalOpen || !flaggedQuizQuestions.length) {
       return null;
@@ -3119,7 +3346,10 @@ const PlayerPage = () => {
     }) => downloadProgramResourceFile(programId, documentId, fileName),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: myLearningPlayerQueryKey(isValidEnrollmentId ? resolvedEnrollmentId : null),
+        queryKey: myLearningPlayerQueryKey(
+          isValidEnrollmentId ? resolvedEnrollmentId : null,
+          playbackDeviceId,
+        ),
       });
     },
     onError: (error: unknown) => {
@@ -3635,8 +3865,11 @@ const PlayerPage = () => {
         {isValidEnrollmentId && hasError ? (
           <p className={styles['errorText']}>{errorMessage}</p>
         ) : null}
+        {isValidEnrollmentId && requiresPlayerSms ? (
+          <p className={styles['message']}>수강 플레이어 문자 인증을 준비하는 중입니다.</p>
+        ) : null}
 
-        {isValidEnrollmentId && !isLoading && !hasError ? (
+        {isValidEnrollmentId && !isLoading && !hasError && !requiresPlayerSms ? (
           !isPlaybackBlocked ? (
             <div className={styles['layout']}>
               <section className={styles['viewerColumn']}>
@@ -3823,6 +4056,27 @@ const PlayerPage = () => {
                                 <p className={styles['overlayTitle']}>
                                   재생할 강의를 찾을 수 없습니다.
                                 </p>
+                              </div>
+                            ) : null}
+
+                            {requiresPlaybackSms && activeLectureId !== null ? (
+                              <div className={styles['playerOverlay']} data-state='notice'>
+                                <div className={styles['playerOverlayCopy']}>
+                                  <p className={styles['overlayTitle']}>문자 인증이 필요합니다.</p>
+                                  <p className={styles['overlayDescription']}>
+                                    수강권 확인이 완료되었습니다. 문자 인증 후 플레이어를 이용할 수
+                                    있습니다.
+                                  </p>
+                                  <Button
+                                    onClick={() => {
+                                      requestPlaybackSmsChallenge(resolvedEnrollmentId);
+                                    }}
+                                    size='sm'
+                                    type='button'
+                                  >
+                                    문자 인증
+                                  </Button>
+                                </div>
                               </div>
                             ) : null}
 
@@ -5108,6 +5362,7 @@ const PlayerPage = () => {
       {renderPracticumReservationModal()}
       {renderProblemReportModal()}
       {renderResourceDownloadModal()}
+      {renderPlaybackSmsModal()}
     </div>
   );
 };

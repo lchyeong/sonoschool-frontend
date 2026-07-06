@@ -215,6 +215,27 @@ export interface ProtectedLectureStream {
   playbackSessionToken: string;
 }
 
+export interface PlaybackSmsChallenge {
+  challengeToken: string;
+  maskedPhoneNumber: string;
+  challengeExpiresAt: string;
+}
+
+export interface PlaybackSmsStatus {
+  verified: boolean;
+  verifiedUntil: string | null;
+}
+
+export interface PlaybackSmsVerifyPayload {
+  challengeToken: string;
+  code: string;
+}
+
+export interface PlaybackSmsVerifyResponse {
+  verified: boolean;
+  verifiedUntil: string;
+}
+
 export interface CartItem {
   id: number;
   programId: number;

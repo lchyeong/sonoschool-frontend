@@ -7,11 +7,11 @@ import LearningPage from '@/pages/LearningPage/LearningPage';
 import type { LearningPlayerSnapshot } from '@/types/mypage';
 
 const fetchMyLearningPlayerSnapshotMock =
-  vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>();
+  vi.fn<(enrollmentId: number, deviceId?: string) => Promise<LearningPlayerSnapshot>>();
 
 vi.mock('@/api/mypage', () => ({
-  fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
-    fetchMyLearningPlayerSnapshotMock(enrollmentId),
+  fetchMyLearningPlayerSnapshot: (enrollmentId: number, deviceId?: string) =>
+    fetchMyLearningPlayerSnapshotMock(enrollmentId, deviceId),
 }));
 
 const createTestQueryClient = () => {

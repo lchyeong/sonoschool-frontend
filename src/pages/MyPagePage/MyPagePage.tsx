@@ -11,10 +11,13 @@ import {
   createMyCertificateProfile,
   createMyEnrollmentReview,
   deleteMyEnrollmentReview,
+  fetchEnrollmentPlaybackSmsStatus,
   fetchLearningStartNotice,
   fetchMyCertificateProfile,
+  sendEnrollmentPlaybackSms,
   updateMyEnrollmentReview,
   updateMyProfile,
+  verifyEnrollmentPlaybackSms,
   verifyMyProfilePassword,
 } from '@/api/mypage';
 import { cancelPayment } from '@/api/payments';
@@ -46,6 +49,7 @@ import mypageLogOutIconSrc from '@/assets/icons/mypage-menu-log-out.svg';
 import mypageReceiptTextIconSrc from '@/assets/icons/mypage-menu-receipt-text.svg';
 import mypageSquarePenIconSrc from '@/assets/icons/mypage-menu-square-pen.svg';
 import mypageUserIconSrc from '@/assets/icons/mypage-menu-user.svg';
+import SmsVerificationModal from '@/components/auth/SmsVerificationModal/SmsVerificationModal';
 import Modal from '@/components/overlay/Modal/Modal';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
@@ -73,6 +77,7 @@ import type {
   LearningStartNotice,
   MyQuestionAnsweredFilter,
   MyQuestionScope,
+  PlaybackSmsChallenge,
 } from '@/types/mypage';
 import {
   formatPaymentMethodLabel,
@@ -81,6 +86,7 @@ import {
   type PaymentStatus,
 } from '@/types/payment';
 import { classNames } from '@/utils/classNames';
+import { getOrCreatePlaybackDeviceId } from '@/utils/playbackDeviceId';
 
 import ProfilePasswordChangeSection from './components/ProfilePasswordChangeSection';
 import ProfilePhoneChangeSection from './components/ProfilePhoneChangeSection';
@@ -108,6 +114,13 @@ interface CertificatePreviewState {
 interface LearningStartNoticeModalState {
   enrollment: EnrollmentSummary;
   notice: LearningStartNotice;
+}
+
+interface PlaybackSmsModalState {
+  challenge: PlaybackSmsChallenge;
+  code: string;
+  enrollment: EnrollmentSummary;
+  errorMessage: string | null;
 }
 
 interface CertificateSvgAssets {
@@ -657,9 +670,14 @@ const MyPagePage = () => {
     useState<ProfileConsentModalType | null>(null);
   const [learningStartNoticeModal, setLearningStartNoticeModal] =
     useState<LearningStartNoticeModalState | null>(null);
+  const [playbackSmsModal, setPlaybackSmsModal] = useState<PlaybackSmsModalState | null>(null);
   const [checkingLearningStartEnrollmentId, setCheckingLearningStartEnrollmentId] = useState<
     number | null
   >(null);
+  const [sendingPlaybackSmsEnrollmentId, setSendingPlaybackSmsEnrollmentId] = useState<
+    number | null
+  >(null);
+  const playbackDeviceId = useMemo(() => getOrCreatePlaybackDeviceId(), []);
 
   const profileQuery = useMyProfileQuery();
   const enrollmentsQuery = useMyEnrollmentsQuery();
@@ -1221,6 +1239,113 @@ const MyPagePage = () => {
     },
   });
 
+  const sendPlaybackSmsMutation = useMutation({
+    mutationFn: (enrollment: EnrollmentSummary) =>
+      sendEnrollmentPlaybackSms(enrollment.id, playbackDeviceId),
+    onError: (error: unknown) => {
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : '인증번호 발송에 실패했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    },
+    onMutate: (enrollment) => {
+      setSendingPlaybackSmsEnrollmentId(enrollment.id);
+      setPlaybackSmsModal((current) =>
+        current?.enrollment.id === enrollment.id
+          ? {
+              ...current,
+              code: '',
+              errorMessage: null,
+            }
+          : current,
+      );
+    },
+    onSettled: () => {
+      setSendingPlaybackSmsEnrollmentId(null);
+    },
+    onSuccess: (challenge, enrollment) => {
+      setPlaybackSmsModal({
+        challenge,
+        code: '',
+        enrollment,
+        errorMessage: null,
+      });
+      showToast({
+        message: `${challenge.maskedPhoneNumber} 번호로 인증번호를 보냈습니다.`,
+        variant: 'success',
+      });
+    },
+  });
+
+  const verifyPlaybackSmsMutation = useMutation({
+    mutationFn: ({
+      challengeToken,
+      code,
+      enrollment,
+    }: {
+      challengeToken: string;
+      code: string;
+      enrollment: EnrollmentSummary;
+    }) =>
+      verifyEnrollmentPlaybackSms(enrollment.id, playbackDeviceId, {
+        challengeToken,
+        code,
+      }),
+    onError: (error: unknown, variables) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : '문자 인증 확인에 실패했습니다. 다시 시도해 주세요.';
+      setPlaybackSmsModal((current) =>
+        current?.enrollment.id === variables.enrollment.id
+          ? {
+              ...current,
+              errorMessage: message,
+            }
+          : current,
+      );
+    },
+    onSuccess: (_response, variables) => {
+      setPlaybackSmsModal(null);
+      void navigate(routePaths.learningPlayer(String(variables.enrollment.id)));
+    },
+  });
+
+  const startPlaybackSmsVerification = async (enrollment: EnrollmentSummary) => {
+    if (sendPlaybackSmsMutation.isPending || sendingPlaybackSmsEnrollmentId !== null) {
+      return;
+    }
+
+    setSendingPlaybackSmsEnrollmentId(enrollment.id);
+    let delegatedToSmsSend = false;
+
+    try {
+      const status = await fetchEnrollmentPlaybackSmsStatus(enrollment.id, playbackDeviceId);
+      if (status.verified) {
+        void navigate(routePaths.learningPlayer(String(enrollment.id)));
+        return;
+      }
+
+      delegatedToSmsSend = true;
+      sendPlaybackSmsMutation.mutate(enrollment);
+    } catch (error: unknown) {
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : '문자 인증 상태를 확인하지 못했습니다. 다시 시도해 주세요.',
+        variant: 'error',
+      });
+    } finally {
+      if (!delegatedToSmsSend) {
+        setSendingPlaybackSmsEnrollmentId(null);
+      }
+    }
+  };
+
   const acceptLearningStartNoticeMutation = useMutation({
     mutationFn: (enrollmentId: number) => acceptLearningStartNotice(enrollmentId),
     onError: (error: unknown) => {
@@ -1233,9 +1358,14 @@ const MyPagePage = () => {
       });
     },
     onSuccess: async (_notice, enrollmentId) => {
+      const targetEnrollment =
+        learningStartNoticeModal?.enrollment ??
+        allEnrollments.find((enrollment) => enrollment.id === enrollmentId);
       setLearningStartNoticeModal(null);
       await queryClient.invalidateQueries({ queryKey: myEnrollmentsQueryKey });
-      void navigate(routePaths.learningPlayer(String(enrollmentId)));
+      if (targetEnrollment) {
+        void startPlaybackSmsVerification(targetEnrollment);
+      }
     },
   });
 
@@ -1354,7 +1484,7 @@ const MyPagePage = () => {
         return;
       }
 
-      void navigate(routePaths.learningPlayer(String(enrollment.id)));
+      void startPlaybackSmsVerification(enrollment);
     } catch (error: unknown) {
       showToast({
         message:
@@ -1698,13 +1828,17 @@ const MyPagePage = () => {
                             <>
                               <button
                                 className={styles['learningActionLink']}
-                                disabled={checkingLearningStartEnrollmentId === enrollment.id}
+                                disabled={
+                                  checkingLearningStartEnrollmentId === enrollment.id ||
+                                  sendingPlaybackSmsEnrollmentId === enrollment.id
+                                }
                                 onClick={() => {
                                   void handleLearningActionClick(enrollment);
                                 }}
                                 type='button'
                               >
-                                {checkingLearningStartEnrollmentId === enrollment.id
+                                {checkingLearningStartEnrollmentId === enrollment.id ||
+                                sendingPlaybackSmsEnrollmentId === enrollment.id
                                   ? '확인 중'
                                   : learningActionLabel}
                               </button>
@@ -2465,6 +2599,72 @@ const MyPagePage = () => {
       default:
         return null;
     }
+  };
+
+  const handlePlaybackSmsCodeChange = (code: string) => {
+    setPlaybackSmsModal((current) =>
+      current
+        ? {
+            ...current,
+            code,
+            errorMessage: null,
+          }
+        : current,
+    );
+  };
+
+  const handlePlaybackSmsSubmit = (code: string) => {
+    if (!playbackSmsModal) {
+      return;
+    }
+
+    verifyPlaybackSmsMutation.mutate({
+      challengeToken: playbackSmsModal.challenge.challengeToken,
+      code,
+      enrollment: playbackSmsModal.enrollment,
+    });
+  };
+
+  const handlePlaybackSmsResend = () => {
+    if (!playbackSmsModal) {
+      return;
+    }
+
+    void startPlaybackSmsVerification(playbackSmsModal.enrollment);
+  };
+
+  const renderPlaybackSmsModal = () => {
+    if (!playbackSmsModal) {
+      return null;
+    }
+
+    return (
+      <SmsVerificationModal
+        activeHint='화면을 닫아도 남은 시간 동안 같은 인증번호를 입력할 수 있습니다.'
+        challengeExpiresAt={playbackSmsModal.challenge.challengeExpiresAt}
+        code={playbackSmsModal.code}
+        description={
+          <>
+            수강 플레이어 이용 전 본인 확인을 위해 {playbackSmsModal.challenge.maskedPhoneNumber}{' '}
+            번호로 문자 인증이 필요합니다.
+          </>
+        }
+        errorMessage={playbackSmsModal.errorMessage}
+        expiredHint='인증 시간이 만료되었습니다. 다시 전송해 주세요.'
+        isResending={sendPlaybackSmsMutation.isPending}
+        isSubmitting={verifyPlaybackSmsMutation.isPending}
+        key={playbackSmsModal.challenge.challengeToken}
+        onClose={() => {
+          setPlaybackSmsModal(null);
+        }}
+        onCodeChange={handlePlaybackSmsCodeChange}
+        onResend={handlePlaybackSmsResend}
+        onSubmit={handlePlaybackSmsSubmit}
+        resetLabel='취소'
+        summary='문자로 전송된 6자리 인증번호를 입력해 주세요.'
+        title='문자 인증'
+      />
+    );
   };
 
   const renderLearningStartNoticeModal = () => {
@@ -3274,6 +3474,7 @@ const MyPagePage = () => {
       {renderCertificatePreviewModal()}
       {renderPaymentDetailModal()}
       {renderLearningStartNoticeModal()}
+      {renderPlaybackSmsModal()}
       {renderProfilePasswordModal()}
       {renderProfileConsentModal()}
     </section>

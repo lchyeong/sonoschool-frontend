@@ -111,6 +111,10 @@ const resolveFriendlyApiErrorMessage = (
     return '인증번호 요청 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.';
   }
 
+  if (code === 'AUTH_400_SMS_REQUIRED') {
+    return '영상 재생 전 문자 인증이 필요합니다.';
+  }
+
   if (code === 'VIDEO_502_WORKER_DISPATCH') {
     return '영상 인코딩 서버에 연결하지 못했습니다. 인코딩 워커 실행 상태를 확인한 뒤 다시 시도해 주세요.';
   }

@@ -102,6 +102,8 @@ interface ProgramPageDetailSidebarProps {
   totalPriceLabel: ProgramPageDetailViewModel['totalPriceLabel'];
 }
 
+const FULL_REVIEW_BATCH_SIZE = 5;
+
 const curriculumDeliveryTypeLabelMap: Record<
   ProgramCurriculumSection['lessons'][number]['deliveryType'],
   string
@@ -737,6 +739,10 @@ export const ProgramPageDetailMainContent = ({
     return section.lessons.length > 0;
   });
   const hasReviews = sortedReviews.length > 0;
+  const reviewResetKey = data.programId ?? data.breadcrumbItems.at(-1)?.to ?? data.title;
+  const [visibleFullReviewCount, setVisibleFullReviewCount] = useState(FULL_REVIEW_BATCH_SIZE);
+  const visibleFullReviews = sortedReviews.slice(0, visibleFullReviewCount);
+  const hasMoreFullReviews = visibleFullReviewCount < sortedReviews.length;
   const curriculumSectionCount = visibleCurriculumSections.length;
   const curriculumLessonCount = visibleCurriculumSections.reduce((total, section) => {
     return total + section.lessons.length;
@@ -768,6 +774,12 @@ export const ProgramPageDetailMainContent = ({
       setSelectedOfflineLesson(null);
     });
   }, [data.programId]);
+
+  useEffect(() => {
+    startTransition(() => {
+      setVisibleFullReviewCount(FULL_REVIEW_BATCH_SIZE);
+    });
+  }, [reviewResetKey, reviewSortOrder, sortedReviews.length]);
 
   return (
     <>
@@ -1102,13 +1114,21 @@ export const ProgramPageDetailMainContent = ({
               </div>
 
               <div className={styles['fullReviewList']}>
-                {sortedReviews.map((review) => {
+                {visibleFullReviews.map((review) => {
                   return <FullReviewCard key={review.id} review={review} />;
                 })}
               </div>
 
-              {hasReviews ? (
-                <button className={styles['moreReviewButton']} type='button'>
+              {hasMoreFullReviews ? (
+                <button
+                  className={styles['moreReviewButton']}
+                  onClick={() => {
+                    setVisibleFullReviewCount((currentCount) => {
+                      return Math.min(currentCount + FULL_REVIEW_BATCH_SIZE, sortedReviews.length);
+                    });
+                  }}
+                  type='button'
+                >
                   수강평 더보기
                 </button>
               ) : null}

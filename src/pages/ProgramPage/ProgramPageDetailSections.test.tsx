@@ -88,6 +88,19 @@ const createDetailData = (
   ...overrides,
 });
 
+const createReviewItems = (count: number): ProgramDetailPageResponse['reviews'] =>
+  Array.from({ length: count }, (_, index) => {
+    const reviewNumber = index + 1;
+
+    return {
+      id: `review-${String(reviewNumber)}`,
+      authorLoginId: `s${String(reviewNumber).padStart(2, '0')}*****`,
+      rating: 5,
+      content: `수강평 ${String(reviewNumber)}`,
+      dateLabel: `2026.04.${String(reviewNumber).padStart(2, '0')}`,
+    };
+  });
+
 describe('ProgramPageDetailSidebar', () => {
   it('할인이 없으면 할인 문구를 렌더링하지 않는다', () => {
     render(
@@ -300,6 +313,56 @@ describe('ProgramPageDetailMainContent', () => {
         return element?.textContent === '전체 4개';
       }),
     ).toBeInTheDocument();
+  });
+
+  it('전체 수강평 목록을 5개씩 더 보여준다', () => {
+    const reviews = createReviewItems(7);
+    const sectionRefHandlers = {
+      'course-curriculum': vi.fn(),
+      'course-faq': vi.fn(),
+      'course-introduction': vi.fn(),
+      'course-qna': vi.fn(),
+      'course-reviews': vi.fn(),
+    };
+
+    render(
+      <MemoryRouter>
+        <ProgramPageDetailMainContent
+          activeSectionId='course-reviews'
+          data={createDetailData({ reviewCount: reviews.length, reviews })}
+          handleReviewCarouselScroll={vi.fn()}
+          handleTabClick={vi.fn()}
+          isQnaTabOpen={false}
+          openCurriculumRows={{}}
+          openFaqId={null}
+          reviewCarouselRef={createRef<HTMLDivElement>()}
+          reviewSortOrder='recommended'
+          sectionRefHandlers={sectionRefHandlers}
+          setAllCurriculumRowsOpen={vi.fn()}
+          setOpenFaqId={vi.fn()}
+          setReviewSortOrder={vi.fn()}
+          sortedReviews={reviews}
+          toggleCurriculumRow={vi.fn()}
+          visiblePreviewReviewIds={[]}
+        />
+      </MemoryRouter>,
+    );
+
+    const reviewsSection = screen.getByRole('heading', { name: '수강평' }).closest('section');
+
+    expect(reviewsSection).not.toBeNull();
+    expect(within(reviewsSection as HTMLElement).getByText('수강평 5')).toBeInTheDocument();
+    expect(within(reviewsSection as HTMLElement).queryByText('수강평 6')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(reviewsSection as HTMLElement).getByRole('button', { name: '수강평 더보기' }),
+    );
+
+    expect(within(reviewsSection as HTMLElement).getByText('수강평 6')).toBeInTheDocument();
+    expect(within(reviewsSection as HTMLElement).getByText('수강평 7')).toBeInTheDocument();
+    expect(
+      within(reviewsSection as HTMLElement).queryByRole('button', { name: '수강평 더보기' }),
+    ).not.toBeInTheDocument();
   });
 
   it('온라인 및 문제풀이 커리큘럼에는 섹션 헤더와 강의 행에 시간을 렌더링한다', () => {

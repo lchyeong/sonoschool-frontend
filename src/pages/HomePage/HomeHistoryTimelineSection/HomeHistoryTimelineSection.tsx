@@ -11,7 +11,7 @@ const certifications = [
     label: 'RDMS',
   },
   { label: 'RDCS : ECHO' },
-  { label: 'RVT : VASTULAR' },
+  { label: 'RVT : VASCULAR' },
   { label: 'CSRT 임상초음파사(상복부)' },
   { label: 'CSRT 임상초음파사(심장)' },
 ] as const;

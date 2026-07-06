@@ -70,6 +70,27 @@ describe('API errors', () => {
     );
   });
 
+  it('maps playback SMS required errors into a player-specific message', () => {
+    const apiError = toApiError(
+      {
+        isAxiosError: true,
+        message: 'Request failed with status code 400',
+        response: {
+          data: {
+            code: 'AUTH_400_SMS_REQUIRED',
+            message: 'SMS verification is required.',
+          },
+          status: 400,
+        },
+      },
+      '보호된 스트리밍 주소를 불러오지 못했습니다.',
+    );
+
+    expect(apiError.code).toBe('AUTH_400_SMS_REQUIRED');
+    expect(apiError.status).toBe(400);
+    expect(apiError.userMessage).toBe('영상 재생 전 문자 인증이 필요합니다.');
+  });
+
   it('maps video worker dispatch failures into an admin-friendly message', () => {
     const apiError = toApiError(
       {

@@ -214,8 +214,8 @@ const appRouteLazies: Record<AppRouteKey, AppRouteLazy> = {
     return <MyPagePage />;
   }),
   learningPlayer: createLazyRoute(async () => {
-    const { default: LearningPage } = await import('@/pages/LearningPage/LearningPage');
-    return <LearningPage />;
+    const { default: PlayerPage } = await import('@/pages/PlayerPage/PlayerPage');
+    return <PlayerPage />;
   }),
   learningLesson: createLazyRoute(async () => {
     const { default: PlayerPage } = await import('@/pages/PlayerPage/PlayerPage');

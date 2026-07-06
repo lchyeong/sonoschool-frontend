@@ -351,6 +351,7 @@
 .previewReviewTrack {
   display: flex;
   gap: 12px;
+  align-items: flex-start;
   overflow-x: auto;
   scrollbar-width: none;
 
@@ -363,6 +364,8 @@
   display: grid;
   flex: 0 0 348px;
   gap: 12px;
+  align-content: flex-start;
+  align-items: flex-start;
   width: 348px;
   min-height: 237px;
   padding: 24px;

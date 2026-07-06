@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ApiError } from '@/api/errors';
 import PlayerPage from '@/pages/PlayerPage/PlayerPage';
 import { clearStudentSession, setStudentSession } from '@/stores/useAuthStore';
 import type {
@@ -42,10 +43,12 @@ const {
   refreshProblemVideoStreamCookiesMock,
   saveStudentProblemSessionMock,
   saveLectureProgressMock,
+  sendEnrollmentPlaybackSmsMock,
   sendLectureProgressBeaconMock,
   startStudentProblemSessionMock,
   submitStudentProblemMock,
   updateMyOfflineScheduleAbsenceMock,
+  verifyEnrollmentPlaybackSmsMock,
   testState,
 } = vi.hoisted(() => ({
   createdHlsConfigs: [] as Array<Record<string, unknown>>,
@@ -74,7 +77,7 @@ const {
   fetchMyEnrollmentPracticumOverviewMock:
     vi.fn<(enrollmentId: number) => Promise<EnrollmentPracticumOverview>>(),
   fetchMyLearningPlayerSnapshotMock:
-    vi.fn<(enrollmentId: number) => Promise<LearningPlayerSnapshot>>(),
+    vi.fn<(enrollmentId: number, deviceId?: string) => Promise<LearningPlayerSnapshot>>(),
   fetchProgramQnaMock:
     vi.fn<
       (
@@ -122,6 +125,16 @@ const {
         watchedSeconds: number,
       ) => Promise<LectureProgressSaveResponse>
     >(),
+  sendEnrollmentPlaybackSmsMock: vi.fn<
+    (
+      enrollmentId: number,
+      deviceId: string,
+    ) => Promise<{
+      challengeExpiresAt: string;
+      challengeToken: string;
+      maskedPhoneNumber: string;
+    }>
+  >(),
   sendLectureProgressBeaconMock:
     vi.fn<(enrollmentId: number, lectureId: number, watchedSeconds: number) => boolean>(),
   startStudentProblemSessionMock: vi.fn<(problemId: number) => Promise<StudentProblemSession>>(),
@@ -134,6 +147,14 @@ const {
     >(),
   updateMyOfflineScheduleAbsenceMock:
     vi.fn<(enrollmentId: number, ruleId: number, absent: boolean) => Promise<void>>(),
+  verifyEnrollmentPlaybackSmsMock:
+    vi.fn<
+      (
+        enrollmentId: number,
+        deviceId: string,
+        payload: { challengeToken: string; code: string },
+      ) => Promise<{ verified: boolean; verifiedUntil: string }>
+    >(),
   testState: {
     isHlsSupported: true,
   },
@@ -191,18 +212,25 @@ vi.mock('@/api/mypage', () => ({
     fetchLectureStreamMock(lectureId, deviceId),
   fetchMyEnrollmentPracticumOverview: (enrollmentId: number) =>
     fetchMyEnrollmentPracticumOverviewMock(enrollmentId),
-  fetchMyLearningPlayerSnapshot: (enrollmentId: number) =>
-    fetchMyLearningPlayerSnapshotMock(enrollmentId),
+  fetchMyLearningPlayerSnapshot: (enrollmentId: number, deviceId?: string) =>
+    fetchMyLearningPlayerSnapshotMock(enrollmentId, deviceId),
   moveMyLecturePracticum: (enrollmentId: number, reservationId: number, startAt: string) =>
     moveMyLecturePracticumMock(enrollmentId, reservationId, startAt),
   reserveMyLecturePracticum: (enrollmentId: number, startAt: string, lectureId?: number) =>
     reserveMyLecturePracticumMock(enrollmentId, startAt, lectureId),
   saveLectureProgress: (enrollmentId: number, lectureId: number, watchedSeconds: number) =>
     saveLectureProgressMock(enrollmentId, lectureId, watchedSeconds),
+  sendEnrollmentPlaybackSms: (enrollmentId: number, deviceId: string) =>
+    sendEnrollmentPlaybackSmsMock(enrollmentId, deviceId),
   sendLectureProgressBeacon: (enrollmentId: number, lectureId: number, watchedSeconds: number) =>
     sendLectureProgressBeaconMock(enrollmentId, lectureId, watchedSeconds),
   updateMyOfflineScheduleAbsence: (enrollmentId: number, ruleId: number, absent: boolean) =>
     updateMyOfflineScheduleAbsenceMock(enrollmentId, ruleId, absent),
+  verifyEnrollmentPlaybackSms: (
+    enrollmentId: number,
+    deviceId: string,
+    payload: { challengeToken: string; code: string },
+  ) => verifyEnrollmentPlaybackSmsMock(enrollmentId, deviceId, payload),
 }));
 
 vi.mock('@/api/studentProblems', () => ({
@@ -803,6 +831,15 @@ beforeEach(() => {
     score: 100,
     submittedAt: '2026-03-10T12:00:00Z',
   });
+  sendEnrollmentPlaybackSmsMock.mockResolvedValue({
+    challengeExpiresAt: new Date(Date.now() + 180_000).toISOString(),
+    challengeToken: 'playback-challenge-token',
+    maskedPhoneNumber: '010-****-2222',
+  });
+  verifyEnrollmentPlaybackSmsMock.mockResolvedValue({
+    verified: true,
+    verifiedUntil: '2026-03-11T12:00:00Z',
+  });
 });
 
 afterEach(() => {
@@ -908,6 +945,46 @@ describe('PlayerPage', () => {
     expect(screen.queryByRole('button', { name: /다음/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '재생 설정' })).toBeInTheDocument();
     expect(screen.getByText(/운영기간/)).toBeInTheDocument();
+  });
+
+  it('requests playback SMS verification before loading the player snapshot', async () => {
+    fetchMyLearningPlayerSnapshotMock
+      .mockRejectedValueOnce(
+        new ApiError({
+          code: 'AUTH_400_SMS_REQUIRED',
+          status: 400,
+          userMessage: '수강 플레이어 이용 전 문자 인증이 필요합니다.',
+        }),
+      )
+      .mockResolvedValue(testSnapshot);
+    fetchLectureStreamMock.mockResolvedValue(testStreamResponse);
+
+    renderPlayerPage();
+
+    expect(
+      await screen.findByText('수강 플레이어 문자 인증을 준비하는 중입니다.'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(sendEnrollmentPlaybackSmsMock).toHaveBeenCalledWith(101, 'test-device-id');
+    });
+    expect(await screen.findByRole('dialog', { name: '문자 인증' })).toBeInTheDocument();
+    expect(screen.getByText(/수강 플레이어 이용 전 본인 확인/)).toBeInTheDocument();
+
+    fireEvent.change(await screen.findByLabelText('인증번호'), {
+      target: { value: '123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '문자 인증 확인' }));
+
+    await waitFor(() => {
+      expect(verifyEnrollmentPlaybackSmsMock).toHaveBeenCalledWith(101, 'test-device-id', {
+        challengeToken: 'playback-challenge-token',
+        code: '123456',
+      });
+    });
+    await waitFor(() => {
+      expect(fetchMyLearningPlayerSnapshotMock.mock.calls.length).toBeGreaterThan(1);
+    });
   });
 
   it('opens speed and quality setting panels independently', async () => {
@@ -1441,8 +1518,8 @@ describe('PlayerPage', () => {
       expect(startStudentProblemSessionMock).toHaveBeenCalledWith(301);
     });
     expect(await screen.findByAltText('1번 문항 미디어')).toBeInTheDocument();
-    expect(await screen.findByAltText('1번 문항 2번 보기 미디어')).toBeInTheDocument();
-    expect(screen.getByLabelText('5. 다섯 번째 보기')).toBeInTheDocument();
+    expect(await screen.findByAltText('1번 문항 B 보기 미디어')).toBeInTheDocument();
+    expect(screen.getByLabelText('E. 다섯 번째 보기')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 1, name: '복부초음파 기초 2강 문제풀이' }),
     ).toBeInTheDocument();
@@ -1462,7 +1539,7 @@ describe('PlayerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '프로그램 패널' }));
     expect(screen.getByRole('navigation', { name: '문제 문항 목록' })).toBeInTheDocument();
     expect(screen.getAllByText('복부초음파 기초 2강 문제풀이').length).toBeGreaterThan(0);
-    const correctOption = await screen.findByLabelText('2. 정답');
+    const correctOption = await screen.findByLabelText('B. 정답');
     fireEvent.click(correctOption);
     expect(correctOption).toBeChecked();
     const flagLaterButton = screen.getByRole('button', { name: '나중에 풀기' });
@@ -1687,6 +1764,9 @@ describe('PlayerPage', () => {
   });
 
   it('renders the practicum calendar and moves an existing reservation to another slot', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-05-12T00:00:00+09:00'));
+
     const practicumSnapshot: LearningPlayerSnapshot = {
       ...testSnapshot,
       curriculumTrack: {
@@ -1726,7 +1806,7 @@ describe('PlayerPage', () => {
     expect(screen.getAllByText('실습예약').length).toBeGreaterThan(0);
     expect(screen.getByText('2 / 3 완료')).toBeInTheDocument();
     expect(screen.getByText('67%')).toBeInTheDocument();
-    expect(screen.getByText(/예약 날짜/)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '2026년 5월' })).toBeInTheDocument();
     expect(screen.queryByText('이 강의는 영상 없이 제공되는 강의입니다.')).not.toBeInTheDocument();
     expect(document.querySelector('video')).toBeNull();
     expect(fetchLectureStreamMock).not.toHaveBeenCalled();
@@ -1735,8 +1815,6 @@ describe('PlayerPage', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText('일정 없음')).not.toBeInTheDocument();
     expect((await screen.findAllByText(/예약됨/)).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: '2026년 5월' })).toBeInTheDocument();
-
     fireEvent.click(screen.getByRole('button', { name: '2026년 5월' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '5월' })).toHaveAttribute('data-selected', 'true');
@@ -1834,6 +1912,7 @@ describe('PlayerPage', () => {
 
     expect(await screen.findAllByText('복부초음파 기초 2강 실습')).not.toHaveLength(0);
     expect(screen.queryByText('일정 없음')).not.toBeInTheDocument();
+    expect(await screen.findByText('11:00 - 12:00')).toBeInTheDocument();
 
     const noShowCalendarDay = screen
       .getAllByText('11:00 - 12:00')

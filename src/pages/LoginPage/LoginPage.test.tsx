@@ -75,7 +75,7 @@ describe('LoginPage', () => {
     expect(screen.getByRole('link', { name: '아이디/비밀번호 찾기' })).toBeInTheDocument();
   });
 
-  it('restores an active login SMS challenge after returning to the login page', async () => {
+  it('clears a stale login SMS challenge when returning to the login page', async () => {
     window.sessionStorage.setItem(
       LOGIN_SMS_CHALLENGE_STORAGE_KEY,
       JSON.stringify({
@@ -95,12 +95,9 @@ describe('LoginPage', () => {
     renderLoginPage();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('아이디')).toHaveValue('student01');
+      expect(window.sessionStorage.getItem(LOGIN_SMS_CHALLENGE_STORAGE_KEY)).toBeNull();
     });
-    expect(screen.getByText('이미 발송된 인증번호가 아직 유효합니다.')).toBeInTheDocument();
-    expect(
-      screen.getByText('화면을 닫아도 남은 시간 동안 같은 인증번호를 입력할 수 있습니다.'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '재전송 대기' })).toBeDisabled();
+    expect(screen.getByLabelText('아이디')).toHaveValue('');
+    expect(screen.queryByText('이미 발송된 인증번호가 아직 유효합니다.')).not.toBeInTheDocument();
   });
 });

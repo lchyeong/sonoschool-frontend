@@ -54,6 +54,11 @@ export interface ProgramLectureCard {
   thumbnailCropOffsetX?: number | null | undefined;
   thumbnailCropOffsetY?: number | null | undefined;
   thumbnailCropZoom?: number | null | undefined;
+  saleStartAt?: string | null | undefined;
+  saleEndAt?: string | null | undefined;
+  learningStartAt?: string | null | undefined;
+  learningEndAt?: string | null | undefined;
+  createdAt?: string | null | undefined;
 }
 
 export interface ProgramCollectionPageResponse {

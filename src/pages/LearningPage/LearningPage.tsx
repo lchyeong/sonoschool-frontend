@@ -5,6 +5,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { useMyLearningPlayerSnapshotQuery } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import sharedStyles from '@/styles/accountPage.module.scss';
+import { getOrCreatePlaybackDeviceId } from '@/utils/playbackDeviceId';
 
 import { flattenPlayerItems, getDefaultPlayerItemId } from './learningShared';
 
@@ -12,8 +13,10 @@ const LearningPage = () => {
   const params = useParams<{ enrollmentId: string }>();
   const resolvedEnrollmentId = Number(params.enrollmentId ?? '');
   const isValidEnrollmentId = Number.isInteger(resolvedEnrollmentId) && resolvedEnrollmentId > 0;
+  const playbackDeviceId = useMemo(() => getOrCreatePlaybackDeviceId(), []);
   const playerSnapshotQuery = useMyLearningPlayerSnapshotQuery(
     isValidEnrollmentId ? resolvedEnrollmentId : null,
+    playbackDeviceId,
     isValidEnrollmentId,
   );
   const playerItems = useMemo(

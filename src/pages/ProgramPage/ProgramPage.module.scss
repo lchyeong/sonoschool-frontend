@@ -123,6 +123,59 @@
   margin-top: 64px;
 }
 
+.archiveLectureTabs {
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+  overflow-x: auto;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.archiveLectureTab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 58px;
+  padding: 0 10px;
+  border: 0;
+  color: #4b5563;
+  font-family: Pretendard, var(--font-family-base);
+  font-size: 18px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: 1.3;
+  white-space: nowrap;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    opacity 160ms ease;
+
+  &::after {
+    position: absolute;
+    right: 0;
+    bottom: -2px;
+    left: 0;
+    height: 2px;
+    background: transparent;
+    content: '';
+  }
+
+  &:hover {
+    color: #111827;
+  }
+}
+
+.archiveLectureTab[data-active='true'] {
+  color: #34b29f;
+
+  &::after {
+    background: #5ccbc0;
+  }
+}
+
 .archiveLectureHeader,
 .stateActionRow {
   display: flex;
@@ -257,6 +310,16 @@
 
   .archiveLectureGrid {
     grid-template-columns: minmax(0, min(100%, 452px));
+  }
+
+  .archiveLectureTabs {
+    gap: 18px;
+  }
+
+  .archiveLectureTab {
+    min-width: auto;
+    min-height: 52px;
+    font-size: 16px;
   }
 }
 

@@ -174,6 +174,7 @@ describe('ProgramPage', () => {
     expect(screen.queryByText('세부 과정')).toBeNull();
     expect(screen.queryByRole('link', { name: '내과과정' })).toBeNull();
     expect(screen.queryByRole('link', { name: '응급/POCUS과정' })).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: '전체' }));
     expect(getLectureCountText(17)).toBeInTheDocument();
   });
 
@@ -198,6 +199,12 @@ describe('ProgramPage', () => {
       'page',
     );
     expect(within(heading.closest('section') as HTMLElement).queryByText('복부과정')).toBeNull();
+    expect(screen.getByRole('tab', { name: '모집 중' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'false');
+    expect(getLectureCountText(1)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '전체' }));
+
     expect(getLectureCountText(3)).toBeInTheDocument();
     expect(screen.getByText('2026.03.01 - 2026.04.30 진행')).toBeInTheDocument();
     expect(screen.getByText('2026.05.01 - 2026.06.30 진행')).toBeInTheDocument();
