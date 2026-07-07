@@ -1,5 +1,5 @@
 export type ResourceScope = 'GLOBAL' | 'PROGRAM';
-export type ResourceVisibility = 'PUBLIC' | 'ENROLLED_ONLY';
+export type ResourceVisibility = 'PUBLIC' | 'ENROLLED_ONLY' | 'HIDDEN';
 
 export interface ResourceAttachmentItem {
   documentId: number;

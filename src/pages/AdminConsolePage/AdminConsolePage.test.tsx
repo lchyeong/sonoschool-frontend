@@ -2102,9 +2102,7 @@ describe('AdminConsolePage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: '새 자료 등록' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/프로그램 자료는 프로그램 등록\/수정 화면에서만 관리합니다\./),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/자료실에 게시할 전역 자료를 등록합니다\./)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
 
@@ -2118,5 +2116,27 @@ describe('AdminConsolePage', () => {
     expect(screen.getByLabelText('다운로드 파일명')).toHaveValue('resource-1.pdf');
     expect(screen.queryByLabelText('파일 주소')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('MIME 타입')).not.toBeInTheDocument();
+  });
+
+  it('paginates the resource library by ten global resources', async () => {
+    server.use(
+      http.get('*/api/v1/admin/resources', () => {
+        return HttpResponse.json({
+          data: createAdminResourceFixture(22),
+        });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/resources');
+
+    expect(await screen.findByText('자료 1')).toBeInTheDocument();
+    expect(screen.getByText('자료 19')).toBeInTheDocument();
+    expect(screen.queryByText('자료 21')).not.toBeInTheDocument();
+
+    const pagination = screen.getByRole('navigation', { name: '자료실 페이지 이동' });
+    fireEvent.click(within(pagination).getByRole('button', { name: '2' }));
+
+    expect(await screen.findByText('자료 21')).toBeInTheDocument();
+    expect(screen.queryByText('자료 1')).not.toBeInTheDocument();
   });
 });

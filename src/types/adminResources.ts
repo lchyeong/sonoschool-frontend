@@ -1,5 +1,5 @@
 export type AdminResourceScope = 'GLOBAL' | 'PROGRAM';
-export type AdminResourceVisibility = 'PUBLIC' | 'ENROLLED_ONLY';
+export type AdminResourceVisibility = 'PUBLIC' | 'ENROLLED_ONLY' | 'HIDDEN';
 
 export interface AdminResourceItem {
   createdAt: string;

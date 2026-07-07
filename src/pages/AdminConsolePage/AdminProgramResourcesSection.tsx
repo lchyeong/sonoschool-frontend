@@ -77,6 +77,7 @@ const createFormState = (document: AdminProgramDocument): ResourceFormState => (
 
 const visibilityLabelByValue: Record<AdminResourceVisibility, string> = {
   ENROLLED_ONLY: '수강생 전용',
+  HIDDEN: '숨김',
   PUBLIC: '전체 공개',
 };
 

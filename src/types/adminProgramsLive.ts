@@ -1,3 +1,5 @@
+import type { AdminResourceVisibility } from '@/types/adminResources';
+
 export type AdminProgramType = 'ONLINE' | 'OFFLINE' | 'HYBRID' | 'PROBLEM_SOLVING';
 export type AdminProgramLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 export type AdminProgramCatalogStatus =
@@ -96,7 +98,7 @@ export interface AdminProgramDocument {
   scope: 'GLOBAL' | 'PROGRAM';
   sortOrder: number;
   title: string;
-  visibility: 'PUBLIC' | 'ENROLLED_ONLY';
+  visibility: AdminResourceVisibility;
 }
 
 export interface AdminProgramDetail {

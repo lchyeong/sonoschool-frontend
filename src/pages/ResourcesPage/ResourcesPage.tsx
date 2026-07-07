@@ -7,7 +7,7 @@ import { routePaths } from '@/routes/routeRegistry';
 
 import styles from './ResourcesPage.module.scss';
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 const MAX_VISIBLE_PAGE_COUNT = 5;
 
 const formatDate = (value: string): string => {
@@ -41,7 +41,9 @@ const ResourcesPage = () => {
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
-  const resources = useMemo(() => resourcesQuery.data ?? [], [resourcesQuery.data]);
+  const resources = useMemo(() => {
+    return (resourcesQuery.data ?? []).filter((resource) => resource.visibility !== 'HIDDEN');
+  }, [resourcesQuery.data]);
 
   const filteredResources = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();

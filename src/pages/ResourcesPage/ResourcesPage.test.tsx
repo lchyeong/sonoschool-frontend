@@ -87,4 +87,99 @@ describe('ResourcesPage', () => {
 
     expect(screen.getByRole('link', { name: '설명 없는 자료' })).toBeInTheDocument();
   });
+
+  it('does not render hidden resources even if the API returns them', async () => {
+    server.use(
+      http.get('*/api/v1/resources', () => {
+        return HttpResponse.json({
+          data: [
+            {
+              attachments: [],
+              createdAt: '2026-03-04T09:00:00Z',
+              description: '게시 자료 설명',
+              id: 1,
+              programId: null,
+              programTitle: null,
+              publicSlug: 'visible-resource',
+              scope: 'GLOBAL',
+              title: '게시 자료',
+              visibility: 'PUBLIC',
+            },
+            {
+              attachments: [],
+              createdAt: '2026-03-05T09:00:00Z',
+              description: '숨김 자료 설명',
+              id: 2,
+              programId: null,
+              programTitle: null,
+              publicSlug: 'hidden-resource',
+              scope: 'GLOBAL',
+              title: '숨김 자료',
+              visibility: 'HIDDEN',
+            },
+          ],
+          timestamp: new Date().toISOString(),
+        });
+      }),
+    );
+
+    const queryClient = createTestQueryClient();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ResourcesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('link', { name: '게시 자료' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '숨김 자료' })).not.toBeInTheDocument();
+    expect(screen.getByText(/총/)).toHaveTextContent('총 1건의 자료');
+  });
+
+  it('paginates resources by ten items per page', async () => {
+    server.use(
+      http.get('*/api/v1/resources', () => {
+        return HttpResponse.json({
+          data: Array.from({ length: 11 }, (_, index) => {
+            const order = index + 1;
+
+            return {
+              attachments: [],
+              createdAt: `2026-05-${String(order).padStart(2, '0')}T09:00:00Z`,
+              description: `자료 설명 ${String(order)}`,
+              id: order,
+              programId: null,
+              programTitle: null,
+              publicSlug: `page-resource-${String(order)}`,
+              scope: 'GLOBAL',
+              title: `페이지 자료 ${String(order)}`,
+              visibility: 'PUBLIC',
+            };
+          }),
+          timestamp: new Date().toISOString(),
+        });
+      }),
+    );
+
+    const queryClient = createTestQueryClient();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ResourcesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('link', { name: '페이지 자료 1' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '페이지 자료 10' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '페이지 자료 11' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+
+    expect(await screen.findByRole('link', { name: '페이지 자료 11' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '페이지 자료 1' })).not.toBeInTheDocument();
+  });
 });

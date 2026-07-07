@@ -3,25 +3,40 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
-import { deleteAdminResource } from '@/api/adminResources';
+import { deleteAdminResource, updateAdminResource } from '@/api/adminResources';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
 import Pagination from '@/components/ui/Pagination/Pagination';
 import { adminResourcesQueryKey, useAdminResourcesQuery } from '@/query/useAdminResourcesQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
+import type { AdminResourceItem, AdminResourceVisibility } from '@/types/adminResources';
 
 import styles from './AdminConsolePage.module.scss';
 import { formatFileSizeLabel } from './adminConsolePageShared';
 
-const RESOURCES_PAGE_SIZE = 8;
+const RESOURCES_PAGE_SIZE = 10;
+
+const resourceVisibilityLabel: Record<AdminResourceVisibility, string> = {
+  ENROLLED_ONLY: '수강생 전용',
+  HIDDEN: '숨김',
+  PUBLIC: '게시중',
+};
 
 const formatDateTime = (value: string): string => {
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'medium',
-    hour12: false,
-    timeStyle: 'short',
-  }).format(new Date(value));
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${String(year)}.${month}.${day} ${hours}:${minutes}`;
 };
 
 const AdminResourcesSection = () => {
@@ -77,6 +92,43 @@ const AdminResourcesSection = () => {
     },
   });
 
+  const visibilityMutation = useMutation({
+    mutationFn: ({
+      resource,
+      visibility,
+    }: {
+      resource: AdminResourceItem;
+      visibility: AdminResourceVisibility;
+    }) =>
+      updateAdminResource(resource.id, {
+        description: resource.description,
+        fileName: resource.fileName,
+        lectureId: resource.lectureId,
+        mediaAssetId: null,
+        programId: resource.programId,
+        scope: resource.scope,
+        sortOrder: resource.sortOrder,
+        title: resource.title,
+        visibility,
+      }),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '자료 게시 상태를 변경하지 못했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_updatedResource, variables) => {
+      await refreshResources();
+      showToast({
+        message:
+          variables.visibility === 'HIDDEN'
+            ? '자료를 숨김 처리했습니다.'
+            : '자료를 게시 상태로 변경했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
   return (
     <section className={styles['workspace']}>
       <section className={styles['panelWide']}>
@@ -124,6 +176,7 @@ const AdminResourcesSection = () => {
                   <tr>
                     <th scope='col'>자료명</th>
                     <th scope='col'>파일</th>
+                    <th scope='col'>상태</th>
                     <th scope='col'>정렬</th>
                     <th scope='col'>등록일</th>
                     <th scope='col'>관리</th>
@@ -143,10 +196,35 @@ const AdminResourcesSection = () => {
                               </span>
                             </div>
                           </td>
+                          <td>
+                            <span
+                              className={
+                                resource.visibility === 'HIDDEN'
+                                  ? styles['badgeDanger']
+                                  : styles['badgeSuccess']
+                              }
+                            >
+                              {resourceVisibilityLabel[resource.visibility]}
+                            </span>
+                          </td>
                           <td>{resource.sortOrder}</td>
                           <td>{formatDateTime(resource.createdAt)}</td>
                           <td>
                             <div className={styles['tableActionGroup']}>
+                              <button
+                                className={styles['tableActionButton']}
+                                disabled={visibilityMutation.isPending}
+                                onClick={() => {
+                                  visibilityMutation.mutate({
+                                    resource,
+                                    visibility:
+                                      resource.visibility === 'HIDDEN' ? 'PUBLIC' : 'HIDDEN',
+                                  });
+                                }}
+                                type='button'
+                              >
+                                {resource.visibility === 'HIDDEN' ? '게시' : '숨김'}
+                              </button>
                               <button
                                 className={styles['tableActionButton']}
                                 onClick={() => {
@@ -180,7 +258,7 @@ const AdminResourcesSection = () => {
                     })
                   ) : (
                     <tr>
-                      <td className={styles['helperText']} colSpan={5}>
+                      <td className={styles['helperText']} colSpan={6}>
                         검색 조건에 맞는 자료가 없습니다.
                       </td>
                     </tr>

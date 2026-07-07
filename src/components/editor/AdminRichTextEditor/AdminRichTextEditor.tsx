@@ -5,7 +5,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   ReactNode,
 } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Extension } from '@tiptap/core';
 import Color from '@tiptap/extension-color';
@@ -62,6 +62,7 @@ interface TableInlineControlsState {
   rowDeleteTop: number;
   resizeLeft: number;
   resizeTop: number;
+  targetCellPosition: number | null;
   visible: boolean;
 }
 
@@ -119,6 +120,7 @@ const HIDDEN_TABLE_CONTROLS: TableInlineControlsState = {
   rowDeleteTop: 0,
   resizeLeft: 0,
   resizeTop: 0,
+  targetCellPosition: null,
   visible: false,
 };
 const HIDDEN_TABLE_ADD_PREVIEW: TableAddPreviewState = {
@@ -330,6 +332,124 @@ const AdminRichTextEditor = ({
     editor.commands.setContent(value, { emitUpdate: false });
   }, [editor, value]);
 
+  const hideTableControls = useCallback(() => {
+    setTableInlineControls((current) => {
+      return current.visible ? HIDDEN_TABLE_CONTROLS : current;
+    });
+  }, []);
+
+  const resolveTableCellPosition = useCallback(
+    (cell: Element) => {
+      if (!editor) {
+        return null;
+      }
+
+      try {
+        return editor.view.posAtDOM(cell, 0);
+      } catch {
+        return null;
+      }
+    },
+    [editor],
+  );
+
+  const updateTableInlineControlsFromCell = useCallback(
+    (baseElement: Element | null) => {
+      const editorFrame = editorFrameRef.current;
+
+      if (!editor || !editorFrame) {
+        hideTableControls();
+        return;
+      }
+
+      const cell = baseElement?.closest('td, th');
+      const table = cell?.closest('table');
+      const row = cell?.parentElement;
+
+      if (!cell || !table || !row || !editorFrame.contains(table)) {
+        hideTableControls();
+        return;
+      }
+
+      const targetCellPosition = resolveTableCellPosition(cell);
+      if (targetCellPosition === null) {
+        hideTableControls();
+        return;
+      }
+
+      const editorRect = editorFrame.getBoundingClientRect();
+      const tableRect = table.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      const nextControls = {
+        addColumnHeight: tableRect.height + 16,
+        addColumnLeft: tableRect.right - editorRect.left + editorFrame.scrollLeft + 12,
+        addColumnTop: tableRect.top - editorRect.top + editorFrame.scrollTop - 8,
+        addRowLeft: tableRect.left - editorRect.left + editorFrame.scrollLeft - 8,
+        addRowTop: tableRect.bottom - editorRect.top + editorFrame.scrollTop + 12,
+        addRowWidth: tableRect.width + 16,
+        columnDeleteLeft:
+          cellRect.left - editorRect.left + editorFrame.scrollLeft + cellRect.width / 2 - 32,
+        columnDeleteTop: tableRect.top - editorRect.top + editorFrame.scrollTop - 34,
+        moveLeft: tableRect.left - editorRect.left + editorFrame.scrollLeft - 14,
+        moveTop: tableRect.top - editorRect.top + editorFrame.scrollTop - 14,
+        rowDeleteLeft: tableRect.left - editorRect.left + editorFrame.scrollLeft - 34,
+        rowDeleteTop:
+          rowRect.top - editorRect.top + editorFrame.scrollTop + rowRect.height / 2 - 22,
+        resizeLeft: tableRect.right - editorRect.left + editorFrame.scrollLeft - 12,
+        resizeTop: tableRect.bottom - editorRect.top + editorFrame.scrollTop - 12,
+        targetCellPosition,
+        visible: true,
+      };
+
+      setTableInlineControls((current) => {
+        if (
+          current.visible === nextControls.visible &&
+          current.targetCellPosition === nextControls.targetCellPosition &&
+          Math.round(current.addColumnLeft) === Math.round(nextControls.addColumnLeft) &&
+          Math.round(current.addColumnHeight) === Math.round(nextControls.addColumnHeight) &&
+          Math.round(current.addColumnTop) === Math.round(nextControls.addColumnTop) &&
+          Math.round(current.addRowLeft) === Math.round(nextControls.addRowLeft) &&
+          Math.round(current.addRowTop) === Math.round(nextControls.addRowTop) &&
+          Math.round(current.addRowWidth) === Math.round(nextControls.addRowWidth) &&
+          Math.round(current.columnDeleteLeft) === Math.round(nextControls.columnDeleteLeft) &&
+          Math.round(current.columnDeleteTop) === Math.round(nextControls.columnDeleteTop) &&
+          Math.round(current.moveLeft) === Math.round(nextControls.moveLeft) &&
+          Math.round(current.moveTop) === Math.round(nextControls.moveTop) &&
+          Math.round(current.rowDeleteLeft) === Math.round(nextControls.rowDeleteLeft) &&
+          Math.round(current.rowDeleteTop) === Math.round(nextControls.rowDeleteTop) &&
+          Math.round(current.resizeLeft) === Math.round(nextControls.resizeLeft) &&
+          Math.round(current.resizeTop) === Math.round(nextControls.resizeTop)
+        ) {
+          return current;
+        }
+
+        return nextControls;
+      });
+    },
+    [editor, hideTableControls, resolveTableCellPosition],
+  );
+
+  const selectTableCellAtPosition = useCallback(
+    (cellPosition: number | null) => {
+      if (!editor || cellPosition === null) {
+        return false;
+      }
+
+      const targetPosition = Math.min(cellPosition + 1, editor.state.doc.content.size);
+      if (targetPosition < 0) {
+        return false;
+      }
+
+      const transaction = editor.state.tr.setSelection(
+        Selection.near(editor.state.doc.resolve(targetPosition)),
+      );
+      editor.view.dispatch(transaction);
+      return true;
+    },
+    [editor],
+  );
+
   useEffect(() => {
     if (!editor) {
       return;
@@ -337,83 +457,15 @@ const AdminRichTextEditor = ({
 
     let animationFrameId = 0;
 
-    const hideTableControls = () => {
-      setTableInlineControls((current) => {
-        return current.visible ? HIDDEN_TABLE_CONTROLS : current;
-      });
-    };
-
     const updateTableControls = () => {
       window.cancelAnimationFrame(animationFrameId);
       animationFrameId = window.requestAnimationFrame(() => {
-        const editorFrame = editorFrameRef.current;
-
-        if (!editorFrame || !editor.isActive('table')) {
-          hideTableControls();
-          return;
-        }
-
         const domAtPosition = editor.view.domAtPos(editor.state.selection.from);
         const baseElement =
           domAtPosition.node.nodeType === Node.ELEMENT_NODE
             ? (domAtPosition.node as Element)
             : domAtPosition.node.parentElement;
-        const cell = baseElement?.closest('td, th');
-        const table = cell?.closest('table');
-        const row = cell?.parentElement;
-
-        if (!cell || !table || !row) {
-          hideTableControls();
-          return;
-        }
-
-        const editorRect = editorFrame.getBoundingClientRect();
-        const tableRect = table.getBoundingClientRect();
-        const cellRect = cell.getBoundingClientRect();
-        const rowRect = row.getBoundingClientRect();
-        const nextControls = {
-          addColumnHeight: tableRect.height + 16,
-          addColumnLeft: tableRect.right - editorRect.left + editorFrame.scrollLeft + 12,
-          addColumnTop: tableRect.top - editorRect.top + editorFrame.scrollTop - 8,
-          addRowLeft: tableRect.left - editorRect.left + editorFrame.scrollLeft - 8,
-          addRowTop: tableRect.bottom - editorRect.top + editorFrame.scrollTop + 12,
-          addRowWidth: tableRect.width + 16,
-          columnDeleteLeft:
-            cellRect.left - editorRect.left + editorFrame.scrollLeft + cellRect.width / 2 - 32,
-          columnDeleteTop: tableRect.top - editorRect.top + editorFrame.scrollTop - 34,
-          moveLeft: tableRect.left - editorRect.left + editorFrame.scrollLeft - 14,
-          moveTop: tableRect.top - editorRect.top + editorFrame.scrollTop - 14,
-          rowDeleteLeft: tableRect.left - editorRect.left + editorFrame.scrollLeft - 34,
-          rowDeleteTop:
-            rowRect.top - editorRect.top + editorFrame.scrollTop + rowRect.height / 2 - 22,
-          resizeLeft: tableRect.right - editorRect.left + editorFrame.scrollLeft - 12,
-          resizeTop: tableRect.bottom - editorRect.top + editorFrame.scrollTop - 12,
-          visible: true,
-        };
-
-        setTableInlineControls((current) => {
-          if (
-            current.visible === nextControls.visible &&
-            Math.round(current.addColumnLeft) === Math.round(nextControls.addColumnLeft) &&
-            Math.round(current.addColumnHeight) === Math.round(nextControls.addColumnHeight) &&
-            Math.round(current.addColumnTop) === Math.round(nextControls.addColumnTop) &&
-            Math.round(current.addRowLeft) === Math.round(nextControls.addRowLeft) &&
-            Math.round(current.addRowTop) === Math.round(nextControls.addRowTop) &&
-            Math.round(current.addRowWidth) === Math.round(nextControls.addRowWidth) &&
-            Math.round(current.columnDeleteLeft) === Math.round(nextControls.columnDeleteLeft) &&
-            Math.round(current.columnDeleteTop) === Math.round(nextControls.columnDeleteTop) &&
-            Math.round(current.moveLeft) === Math.round(nextControls.moveLeft) &&
-            Math.round(current.moveTop) === Math.round(nextControls.moveTop) &&
-            Math.round(current.rowDeleteLeft) === Math.round(nextControls.rowDeleteLeft) &&
-            Math.round(current.rowDeleteTop) === Math.round(nextControls.rowDeleteTop) &&
-            Math.round(current.resizeLeft) === Math.round(nextControls.resizeLeft) &&
-            Math.round(current.resizeTop) === Math.round(nextControls.resizeTop)
-          ) {
-            return current;
-          }
-
-          return nextControls;
-        });
+        updateTableInlineControlsFromCell(baseElement);
       });
     };
 
@@ -432,7 +484,7 @@ const AdminRichTextEditor = ({
       window.removeEventListener('resize', updateTableControls);
       editorFrame?.removeEventListener('scroll', updateTableControls);
     };
-  }, [editor]);
+  }, [editor, updateTableInlineControlsFromCell]);
 
   const getSelectedTableElement = (): HTMLTableElement | null => {
     if (!editor) {
@@ -504,6 +556,10 @@ const AdminRichTextEditor = ({
 
   const moveSelectedTableToPosition = (targetPosition: number) => {
     if (!editor) {
+      return;
+    }
+
+    if (!selectTableCellAtPosition(tableInlineControls.targetCellPosition)) {
       return;
     }
 
@@ -653,6 +709,10 @@ const AdminRichTextEditor = ({
   const handleTableResizePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
 
+    if (!selectTableCellAtPosition(tableInlineControls.targetCellPosition)) {
+      return;
+    }
+
     const tableElement = getSelectedTableElement();
     if (!tableElement) {
       return;
@@ -759,6 +819,8 @@ const AdminRichTextEditor = ({
       scheduleTableAddPreviewHide();
       return;
     }
+
+    updateTableInlineControlsFromCell(cell);
 
     const tableRect = table.getBoundingClientRect();
     const rowCells = Array.from(row.children).filter((child) => {
@@ -1157,6 +1219,7 @@ const AdminRichTextEditor = ({
           onMouseLeave={() => {
             clearTableAddPreviewHideTimer();
             updateTableAddPreview(HIDDEN_TABLE_ADD_PREVIEW);
+            hideTableControls();
           }}
           onMouseMove={handleEditorMouseMove}
           ref={editorFrameRef}
@@ -1187,6 +1250,9 @@ const AdminRichTextEditor = ({
                   if (!window.confirm('선택한 열을 삭제할까요?')) {
                     return;
                   }
+                  if (!selectTableCellAtPosition(tableInlineControls.targetCellPosition)) {
+                    return;
+                  }
                   editor?.chain().focus().deleteColumn().run();
                 }}
                 onMouseDown={(event) => {
@@ -1207,6 +1273,9 @@ const AdminRichTextEditor = ({
                 onClick={(event) => {
                   event.preventDefault();
                   if (!window.confirm('선택한 행을 삭제할까요?')) {
+                    return;
+                  }
+                  if (!selectTableCellAtPosition(tableInlineControls.targetCellPosition)) {
                     return;
                   }
                   editor?.chain().focus().deleteRow().run();
@@ -1240,6 +1309,9 @@ const AdminRichTextEditor = ({
                   className={styles['tableEdgeAddButton']}
                   onClick={(event) => {
                     event.preventDefault();
+                    if (!selectTableCellAtPosition(tableInlineControls.targetCellPosition)) {
+                      return;
+                    }
                     editor?.chain().focus().addColumnAfter().run();
                   }}
                   onMouseDown={(event) => {
@@ -1269,6 +1341,9 @@ const AdminRichTextEditor = ({
                   className={styles['tableEdgeAddButton']}
                   onClick={(event) => {
                     event.preventDefault();
+                    if (!selectTableCellAtPosition(tableInlineControls.targetCellPosition)) {
+                      return;
+                    }
                     editor?.chain().focus().addRowAfter().run();
                   }}
                   onMouseDown={(event) => {

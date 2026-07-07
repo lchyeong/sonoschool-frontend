@@ -97,7 +97,8 @@ const ResourceDetailPage = () => {
       };
     }
 
-    const currentIndex = resourcesQuery.data.findIndex((item) => item.id === resource.id);
+    const visibleResources = resourcesQuery.data.filter((item) => item.visibility !== 'HIDDEN');
+    const currentIndex = visibleResources.findIndex((item) => item.id === resource.id);
 
     if (currentIndex < 0) {
       return {
@@ -107,8 +108,8 @@ const ResourceDetailPage = () => {
     }
 
     return {
-      next: resourcesQuery.data[currentIndex - 1] ?? null,
-      previous: resourcesQuery.data[currentIndex + 1] ?? null,
+      next: visibleResources[currentIndex - 1] ?? null,
+      previous: visibleResources[currentIndex + 1] ?? null,
     };
   }, [resource, resourcesQuery.data]);
 
@@ -181,7 +182,7 @@ const ResourceDetailPage = () => {
     );
   }
 
-  if (resourceQuery.isError || !resource) {
+  if (resourceQuery.isError || !resource || resource.visibility === 'HIDDEN') {
     return (
       <section className={styles['stateSection']}>
         <h1 className={styles['stateTitle']}>자료 상세를 불러오지 못했습니다.</h1>

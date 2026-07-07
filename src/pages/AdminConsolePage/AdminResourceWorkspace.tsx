@@ -15,7 +15,11 @@ import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { adminResourcesQueryKey, useAdminResourcesQuery } from '@/query/useAdminResourcesQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
-import type { AdminResourceItem, AdminResourceUpsertPayload } from '@/types/adminResources';
+import type {
+  AdminResourceItem,
+  AdminResourceUpsertPayload,
+  AdminResourceVisibility,
+} from '@/types/adminResources';
 
 import styles from './AdminConsolePage.module.scss';
 import {
@@ -43,7 +47,13 @@ interface ResourceFormState {
   originalFileName: string;
   sortOrder: string;
   title: string;
+  visibility: AdminResourceVisibility;
 }
+
+const globalResourceVisibilityOptions = [
+  { label: '게시', value: 'PUBLIC' },
+  { label: '숨김', value: 'HIDDEN' },
+] as const;
 
 const EMPTY_FORM: ResourceFormState = {
   description: '',
@@ -54,6 +64,7 @@ const EMPTY_FORM: ResourceFormState = {
   originalFileName: '',
   sortOrder: '0',
   title: '',
+  visibility: 'PUBLIC',
 };
 
 const createFormState = (resource?: AdminResourceItem | null): ResourceFormState => {
@@ -70,6 +81,7 @@ const createFormState = (resource?: AdminResourceItem | null): ResourceFormState
     originalFileName: resource.fileName,
     sortOrder: String(resource.sortOrder),
     title: resource.title,
+    visibility: resource.visibility,
   };
 };
 
@@ -154,7 +166,7 @@ const AdminResourceWorkspaceForm = ({
       scope: 'GLOBAL',
       sortOrder: Number(formState.sortOrder),
       title: formState.title.trim(),
-      visibility: 'PUBLIC',
+      visibility: formState.visibility,
     };
   };
 
@@ -362,8 +374,8 @@ const AdminResourceWorkspaceForm = ({
         <div className={styles['editorToolbar']}>
           <div className={styles['editorHeaderCompact']}>
             <p className={styles['metaText']}>
-              자료실에서는 전체 공개 자료만 등록합니다. 프로그램 자료는 프로그램 등록/수정
-              화면에서만 관리합니다.
+              자료실에 게시할 전역 자료를 등록합니다. 프로그램 자료는 프로그램 등록/수정 화면에서
+              관리합니다.
             </p>
           </div>
 
@@ -400,7 +412,7 @@ const AdminResourceWorkspaceForm = ({
           <div className={styles['metaNotice']}>
             <p className={styles['metaNoticeLabel']}>전체 공개 자료실 전용</p>
             <p className={styles['metaNoticeText']}>
-              이 화면에서 저장되는 자료는 `GLOBAL / PUBLIC`으로 고정됩니다.
+              게시 상태를 숨김으로 저장하면 사용자 자료실 목록과 상세에서 노출하지 않습니다.
             </p>
           </div>
 
@@ -414,6 +426,7 @@ const AdminResourceWorkspaceForm = ({
           />
 
           <TextAreaField
+            className={styles['resourceDescriptionTextarea']}
             label='설명'
             name='resourceDescription'
             onChange={(event) => {
@@ -421,6 +434,21 @@ const AdminResourceWorkspaceForm = ({
             }}
             value={formState.description}
           />
+
+          <div className={styles['compactFieldRow']}>
+            {globalResourceVisibilityOptions.map((option) => (
+              <label className={styles['checkboxField']} key={option.value}>
+                <input
+                  checked={formState.visibility === option.value}
+                  onChange={() => {
+                    setFormState((current) => ({ ...current, visibility: option.value }));
+                  }}
+                  type='radio'
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
 
           <section
             className={styles['noticeAttachmentPanel']}
