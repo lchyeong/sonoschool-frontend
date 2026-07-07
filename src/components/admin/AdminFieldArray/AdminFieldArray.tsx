@@ -30,29 +30,36 @@ const AdminFieldArray = <T,>({
           <p className={styles['label']}>{label}</p>
           {helperText ? <p className={styles['helperText']}>{helperText}</p> : null}
         </div>
-        <button className={styles['addButton']} onClick={onAdd} type='button'>
-          {addLabel}
-        </button>
+        {!items.length ? (
+          <button className={styles['addButton']} onClick={onAdd} type='button'>
+            {addLabel}
+          </button>
+        ) : null}
       </div>
 
       {items.length ? (
-        <div className={styles['rows']}>
-          {items.map((item, index) => (
-            <div className={styles['row']} key={index}>
-              <div className={styles['rowFields']}>{renderItem(item, index)}</div>
-              <button
-                aria-label={`${label} ${String(index + 1)} 삭제`}
-                className={styles['removeButton']}
-                onClick={() => {
-                  onRemove(index);
-                }}
-                type='button'
-              >
-                삭제
-              </button>
-            </div>
-          ))}
-        </div>
+        <>
+          <div className={styles['rows']}>
+            {items.map((item, index) => (
+              <div className={styles['row']} key={index}>
+                <div className={styles['rowFields']}>{renderItem(item, index)}</div>
+                <button
+                  aria-label={`${label} ${String(index + 1)} 삭제`}
+                  className={styles['removeButton']}
+                  onClick={() => {
+                    onRemove(index);
+                  }}
+                  type='button'
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </div>
+          <button className={styles['addButton']} onClick={onAdd} type='button'>
+            {addLabel}
+          </button>
+        </>
       ) : (
         <p className={styles['emptyState']}>{emptyMessage}</p>
       )}

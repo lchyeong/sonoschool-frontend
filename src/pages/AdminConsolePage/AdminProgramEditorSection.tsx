@@ -57,6 +57,11 @@ import type {
   AdminProgramUpsertPayload,
 } from '@/types/adminProgramsLive';
 import { paymentStatusLabels } from '@/types/payment';
+import {
+  formatIntegerInputValue,
+  isIntegerInputValue,
+  normalizeIntegerInputValue,
+} from '@/utils/integerInputFormat';
 
 import styles from './AdminConsolePage.module.scss';
 import {
@@ -154,7 +159,7 @@ const resolveDiscountPercent = (price: number | null, salePrice: number | null):
 };
 
 const resolveSalePriceFromPercent = (priceValue: string, percentValue: string): number | null => {
-  const normalizedPrice = priceValue.trim();
+  const normalizedPrice = normalizeIntegerInputValue(priceValue);
   const normalizedPercent = percentValue.trim();
 
   if (!normalizedPrice || !normalizedPercent) {
@@ -433,7 +438,7 @@ const buildFormStateFromDetail = (detail: AdminProgramDetail): AdminProgramFormS
     learningStartAt: toDateTimeLocal(detail.learningStartAt),
     level: detail.level ?? '',
     maxStudents: detail.maxStudents === null ? '' : String(detail.maxStudents),
-    price: String(detail.price),
+    price: formatIntegerInputValue(detail.price),
     programType: detail.programType,
     recommendedFor: [...detail.recommendedFor],
     saleEndAt: toDateTimeLocal(detail.saleEndAt),
@@ -526,7 +531,7 @@ const toProgramPayload = (formState: AdminProgramFormState): AdminProgramUpsertP
         : null,
     level: formState.level || null,
     maxStudents: formState.maxStudents.trim() ? Number(formState.maxStudents) : null,
-    price: Number(formState.price),
+    price: Number(normalizeIntegerInputValue(formState.price)),
     programType: formState.programType,
     recommendedFor: sanitizeStringList(formState.recommendedFor),
     saleEndAt: toIsoStringOrNull(formState.saleEndAt),
@@ -548,7 +553,7 @@ const validateFormState = (formState: AdminProgramFormState): string | null => {
   if (!formState.title.trim()) {
     return '프로그램명을 입력해 주세요.';
   }
-  if (!formState.price.trim() || Number(formState.price) < 0) {
+  if (!isIntegerInputValue(formState.price)) {
     return '가격을 올바르게 입력해 주세요.';
   }
   if (formState.discountPercent.trim()) {
@@ -1499,10 +1504,11 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
 
                   <div className={styles['inlineFieldGrid']}>
                     <TextField
+                      inputMode='numeric'
                       label='정가'
                       name='price'
                       onChange={(event) => {
-                        updateField('price', event.target.value);
+                        updateField('price', formatIntegerInputValue(event.target.value));
                       }}
                       value={formState.price}
                     />

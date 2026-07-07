@@ -21,6 +21,7 @@ import TableRow from '@tiptap/extension-table-row';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Underline from '@tiptap/extension-underline';
+import { Selection } from '@tiptap/pm/state';
 import { findTable } from '@tiptap/pm/tables';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -55,6 +56,8 @@ interface TableInlineControlsState {
   addRowWidth: number;
   columnDeleteLeft: number;
   columnDeleteTop: number;
+  moveLeft: number;
+  moveTop: number;
   rowDeleteLeft: number;
   rowDeleteTop: number;
   resizeLeft: number;
@@ -66,6 +69,12 @@ interface TableResizeDragState {
   startWidth: number;
   startWidths: number[];
   startX: number;
+}
+
+interface TableMoveDragState {
+  startX: number;
+  startY: number;
+  tablePosition: number;
 }
 
 interface TableAddPreviewState {
@@ -94,6 +103,7 @@ const DEFAULT_TEXT_COLOR = '#1f2937';
 const DEFAULT_HIGHLIGHT_COLOR = '#fff3bf';
 const TABLE_COLUMN_MIN_WIDTH = 96;
 const TABLE_EDGE_PREVIEW_SIZE = 96;
+const TABLE_MOVE_DRAG_THRESHOLD = 6;
 const HIDDEN_TABLE_CONTROLS: TableInlineControlsState = {
   addColumnHeight: 0,
   addColumnLeft: 0,
@@ -103,6 +113,8 @@ const HIDDEN_TABLE_CONTROLS: TableInlineControlsState = {
   addRowWidth: 0,
   columnDeleteLeft: 0,
   columnDeleteTop: 0,
+  moveLeft: 0,
+  moveTop: 0,
   rowDeleteLeft: 0,
   rowDeleteTop: 0,
   resizeLeft: 0,
@@ -253,6 +265,7 @@ const AdminRichTextEditor = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const editorFrameRef = useRef<HTMLDivElement | null>(null);
   const tableAddPreviewHideTimerRef = useRef<number | null>(null);
+  const tableMoveDragRef = useRef<TableMoveDragState | null>(null);
   const tableResizeDragRef = useRef<TableResizeDragState | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [tableInlineControls, setTableInlineControls] =
@@ -368,6 +381,8 @@ const AdminRichTextEditor = ({
           columnDeleteLeft:
             cellRect.left - editorRect.left + editorFrame.scrollLeft + cellRect.width / 2 - 32,
           columnDeleteTop: tableRect.top - editorRect.top + editorFrame.scrollTop - 34,
+          moveLeft: tableRect.left - editorRect.left + editorFrame.scrollLeft - 14,
+          moveTop: tableRect.top - editorRect.top + editorFrame.scrollTop - 14,
           rowDeleteLeft: tableRect.left - editorRect.left + editorFrame.scrollLeft - 34,
           rowDeleteTop:
             rowRect.top - editorRect.top + editorFrame.scrollTop + rowRect.height / 2 - 22,
@@ -387,6 +402,8 @@ const AdminRichTextEditor = ({
             Math.round(current.addRowWidth) === Math.round(nextControls.addRowWidth) &&
             Math.round(current.columnDeleteLeft) === Math.round(nextControls.columnDeleteLeft) &&
             Math.round(current.columnDeleteTop) === Math.round(nextControls.columnDeleteTop) &&
+            Math.round(current.moveLeft) === Math.round(nextControls.moveLeft) &&
+            Math.round(current.moveTop) === Math.round(nextControls.moveTop) &&
             Math.round(current.rowDeleteLeft) === Math.round(nextControls.rowDeleteLeft) &&
             Math.round(current.rowDeleteTop) === Math.round(nextControls.rowDeleteTop) &&
             Math.round(current.resizeLeft) === Math.round(nextControls.resizeLeft) &&
@@ -429,6 +446,90 @@ const AdminRichTextEditor = ({
         : domAtPosition.node.parentElement;
 
     return baseElement?.closest('table') ?? null;
+  };
+
+  const resolveTableMoveTargetPosition = (clientY: number, tablePosition: number) => {
+    if (!editor) {
+      return null;
+    }
+
+    const blockEntries: Array<{
+      from: number;
+      rect: DOMRect;
+    }> = [];
+
+    editor.state.doc.forEach((_node, offset) => {
+      const domNode = editor.view.nodeDOM(offset);
+      const element =
+        domNode instanceof HTMLElement
+          ? domNode
+          : domNode?.parentElement instanceof HTMLElement
+            ? domNode.parentElement
+            : null;
+
+      if (!element) {
+        return;
+      }
+
+      blockEntries.push({
+        from: offset,
+        rect: element.getBoundingClientRect(),
+      });
+    });
+
+    if (!blockEntries.length) {
+      return null;
+    }
+
+    const tableEntry = blockEntries.find((entry) => entry.from === tablePosition);
+    const movableEntries = blockEntries.filter((entry) => entry.from !== tablePosition);
+
+    if (!movableEntries.length) {
+      return null;
+    }
+
+    for (const entry of movableEntries) {
+      const midpointY = entry.rect.top + entry.rect.height / 2;
+      if (clientY < midpointY) {
+        return entry.from;
+      }
+    }
+
+    if (tableEntry && clientY < tableEntry.rect.bottom) {
+      return tablePosition;
+    }
+
+    return editor.state.doc.content.size;
+  };
+
+  const moveSelectedTableToPosition = (targetPosition: number) => {
+    if (!editor) {
+      return;
+    }
+
+    const tableInfo = findTable(editor.state.selection.$from);
+    if (!tableInfo) {
+      return;
+    }
+
+    const tableFrom = tableInfo.pos;
+    const tableTo = tableFrom + tableInfo.node.nodeSize;
+    if (targetPosition >= tableFrom && targetPosition <= tableTo) {
+      return;
+    }
+
+    const transaction = editor.state.tr.delete(tableFrom, tableTo);
+    const insertPosition =
+      targetPosition > tableFrom ? targetPosition - tableInfo.node.nodeSize : targetPosition;
+
+    if (insertPosition < 0 || insertPosition > transaction.doc.content.size) {
+      return;
+    }
+
+    transaction.insert(insertPosition, tableInfo.node);
+    transaction.setSelection(Selection.near(transaction.doc.resolve(insertPosition + 1)));
+    editor.view.dispatch(transaction.scrollIntoView());
+    editor.commands.focus();
   };
 
   const resolveTableColumnWidths = (tableElement: HTMLTableElement): number[] => {
@@ -484,6 +585,69 @@ const AdminRichTextEditor = ({
     }
 
     editor.view.dispatch(transaction);
+  };
+
+  const handleTableMovePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+
+    if (!editor) {
+      return;
+    }
+
+    const tableInfo = findTable(editor.state.selection.$from);
+    if (!tableInfo) {
+      return;
+    }
+
+    tableMoveDragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      tablePosition: tableInfo.pos,
+    };
+
+    const previousBodyCursor = document.body.style.cursor;
+    document.body.style.cursor = 'grabbing';
+
+    const resetTableMoveDrag = () => {
+      tableMoveDragRef.current = null;
+      document.body.style.cursor = previousBodyCursor;
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+    };
+
+    const handlePointerCancel = () => {
+      resetTableMoveDrag();
+    };
+
+    const handlePointerUp = (pointerEvent: PointerEvent) => {
+      const dragState = tableMoveDragRef.current;
+      resetTableMoveDrag();
+
+      if (!dragState) {
+        return;
+      }
+
+      const dragDistance = Math.hypot(
+        pointerEvent.clientX - dragState.startX,
+        pointerEvent.clientY - dragState.startY,
+      );
+
+      if (dragDistance < TABLE_MOVE_DRAG_THRESHOLD) {
+        return;
+      }
+
+      const targetPosition = resolveTableMoveTargetPosition(
+        pointerEvent.clientY,
+        dragState.tablePosition,
+      );
+
+      if (targetPosition !== null) {
+        moveSelectedTableToPosition(targetPosition);
+      }
+    };
+
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
   };
 
   const handleTableResizePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -999,6 +1163,22 @@ const AdminRichTextEditor = ({
         >
           {tableInlineControls.visible ? (
             <>
+              <button
+                aria-label='표 이동'
+                className={styles['tableMoveHandleButton']}
+                onClick={(event) => {
+                  event.preventDefault();
+                }}
+                onPointerDown={handleTableMovePointerDown}
+                style={{
+                  left: tableInlineControls.moveLeft,
+                  top: tableInlineControls.moveTop,
+                }}
+                title='표 이동: 드래그해서 위치 변경'
+                type='button'
+              >
+                <span aria-hidden='true' className={styles['tableMoveHandleIcon']} />
+              </button>
               <button
                 aria-label='선택한 열 삭제'
                 className={styles['tableColumnDeleteButton']}

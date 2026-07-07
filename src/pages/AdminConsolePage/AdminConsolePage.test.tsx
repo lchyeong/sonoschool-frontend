@@ -508,6 +508,20 @@ describe('AdminConsolePage', () => {
     expect(screen.getByRole('status')).toHaveTextContent('기본정보: 카테고리를 선택해 주세요.');
   });
 
+  it('formats the program registration price input with thousands separators', async () => {
+    renderAdminConsoleRoute('/admin/programs/new?draftId=91001');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('정가'), {
+      target: { value: '1234567' },
+    });
+
+    expect(screen.getByLabelText('정가')).toHaveValue('1,234,567');
+  });
+
   it('warns for missing recruitment and learning ranges on fixed-duration registration', async () => {
     const draftDetail = createAdminProgramDraftDetailFixture();
     draftDetail.payload.basicInfo.accessPolicy = 'FIXED_DURATION';

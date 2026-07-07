@@ -46,6 +46,10 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.addButton {
+  justify-self: start;
+}
+
 .rows {
   display: grid;
   gap: var(--space-3);

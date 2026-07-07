@@ -80,6 +80,7 @@ import type {
 } from '@/types/adminProgramsLive';
 import type { AdminVideoEncodingProfile, AdminVideoProcessingStage } from '@/types/adminVideo';
 import { classNames } from '@/utils/classNames';
+import { formatIntegerInputValue, normalizeIntegerInputValue } from '@/utils/integerInputFormat';
 import {
   buildCalendarCells,
   calendarWeekdays,
@@ -1325,7 +1326,7 @@ const DateRangePickerField = ({
 };
 
 const parseNonNegativeIntegerInput = (value: string, label: string) => {
-  const trimmed = value.trim();
+  const trimmed = normalizeIntegerInputValue(value);
   if (!trimmed) {
     return { errorMessage: undefined, value: null };
   }
@@ -2208,7 +2209,7 @@ const AdminProgramCreateWorkspace = ({
     setNumericInputValues({
       maxStudents:
         payload.basicInfo.maxStudents === null ? '' : String(payload.basicInfo.maxStudents),
-      price: payload.basicInfo.price === null ? '' : String(payload.basicInfo.price),
+      price: formatIntegerInputValue(payload.basicInfo.price),
     });
     setDiscountPercentInput(
       formatDiscountPercent(payload.basicInfo.price, payload.basicInfo.salePrice),
@@ -2488,8 +2489,9 @@ const AdminProgramCreateWorkspace = ({
     label: string,
     value: string,
   ) => {
-    setNumericInputValues((current) => ({ ...current, [field]: value }));
-    const parsed = parseNonNegativeIntegerInput(value, label);
+    const nextValue = field === 'price' ? formatIntegerInputValue(value) : value;
+    setNumericInputValues((current) => ({ ...current, [field]: nextValue }));
+    const parsed = parseNonNegativeIntegerInput(nextValue, label);
     setBasicInfoErrors((current) => ({ ...current, [field]: parsed.errorMessage }));
     if (!parsed.errorMessage) {
       updateBasicInfo(field, parsed.value);
