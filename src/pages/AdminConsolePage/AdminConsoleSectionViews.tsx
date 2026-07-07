@@ -1173,7 +1173,7 @@ export const AdminPaymentsSection = () => {
                     <p className={styles['replyLabel']}>결제 취소</p>
                     <div className={styles['replyComposer']}>
                       <p className={styles['paymentDetailNotice']}>
-                        결제 취소를 실행하면 KCP 취소 요청과 내부 수강 취소가 함께 진행됩니다.
+                        결제 취소를 실행하면 KCP 취소 요청과 내부 수강권 회수가 함께 진행됩니다.
                       </p>
                       <TextAreaField
                         className={styles['paymentCancelReasonField']}

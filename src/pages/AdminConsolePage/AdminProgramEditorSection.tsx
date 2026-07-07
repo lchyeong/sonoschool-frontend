@@ -919,7 +919,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       cancelAdminEnrollment(enrollmentId, { reason }),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '수강 취소 처리에 실패했습니다.',
+        message: error instanceof Error ? error.message : '수강권 회수에 실패했습니다.',
         variant: 'error',
       });
     },
@@ -928,7 +928,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
         await invalidateProgramOperationQueries(managedProgramId);
       }
       showToast({
-        message: '수강 취소를 반영했습니다.',
+        message: '수강권 회수를 반영했습니다.',
         variant: 'success',
       });
     },
@@ -1841,7 +1841,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                       <div>
                         <h2 className={styles['panelTitle']}>수강생</h2>
                         <p className={styles['metaText']}>
-                          전화 CS 후 결제 취소 또는 수강 취소를 바로 처리할 수 있습니다.
+                          전화 CS 후 결제 취소 또는 수강권 회수를 바로 처리할 수 있습니다.
                         </p>
                       </div>
                       <div className={styles['metaRow']}>
@@ -1971,7 +1971,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                                             type='button'
                                             variant='danger'
                                           >
-                                            수강 취소
+                                            수강권 회수
                                           </Button>
                                         ) : null}
                                       </div>

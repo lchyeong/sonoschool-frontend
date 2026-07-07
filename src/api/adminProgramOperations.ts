@@ -31,7 +31,7 @@ export const cancelAdminEnrollment = async (
   try {
     await axiosInstance.post(`/api/v1/admin/enrollments/${String(enrollmentId)}/cancel`, payload);
   } catch (error: unknown) {
-    throw toApiError(error, '수강 취소 처리에 실패했습니다.');
+    throw toApiError(error, '수강권 회수에 실패했습니다.');
   }
 };
 
