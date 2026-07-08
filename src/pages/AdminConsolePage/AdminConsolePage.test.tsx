@@ -168,6 +168,30 @@ const getClosestButton = (text: string): HTMLButtonElement => {
   return button;
 };
 
+const findMarch29CalendarDayButton = async () => {
+  const calendarDayButton = (await screen.findAllByRole('button')).find(
+    (button): button is HTMLButtonElement =>
+      button.textContent.includes('29') && /일정 \d+건/.test(button.textContent || ''),
+  );
+
+  if (!calendarDayButton) {
+    throw new Error('3월 29일 일정 버튼을 찾지 못했습니다.');
+  }
+
+  return calendarDayButton;
+};
+
+const openMarchPersonalScheduleDetail = async () => {
+  const calendarDayButton = await findMarch29CalendarDayButton();
+
+  fireEvent.click(calendarDayButton);
+
+  const overviewDialog = await screen.findByRole('dialog', { name: '일정관리 상세' });
+  fireEvent.click(await within(overviewDialog).findByRole('button', { name: /관리자 개인 일정/ }));
+
+  return screen.findByRole('heading', { name: '개인일정 상세' });
+};
+
 const createTestQueryClient = () => {
   return new QueryClient({
     defaultOptions: {
@@ -828,24 +852,37 @@ describe('AdminConsolePage', () => {
   });
 
   it('edits a program on the dedicated edit page and saves it', async () => {
+    const draftDetail = createAdminProgramDraftDetailFixture();
+    let savedPayload: unknown = null;
+
+    server.use(
+      http.put('*/api/v1/admin/program-drafts/:draftId', async ({ request }) => {
+        savedPayload = await request.json();
+        return HttpResponse.json({ data: { ...draftDetail, payload: savedPayload } });
+      }),
+    );
+
     renderAdminConsoleRoute('/admin/programs/2001/edit');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 수정' }),
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('수강생 12명')).toBeInTheDocument();
+    expect(screen.getByText('프로그램 #2001')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '기본정보' }));
+    expect(await screen.findByRole('heading', { name: '기본정보' })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('프로그램 소개'), {
       target: { value: '프로그램 소개 문구를 관리자에서 수정한 테스트입니다.' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
+    fireEvent.click(screen.getByRole('button', { name: '임시저장' }));
 
     await waitFor(() => {
-      expect(
-        useToastStore
-          .getState()
-          .toasts.some((toast) => toast.message === '프로그램을 수정했습니다.'),
-      ).toBe(true);
+      expect(savedPayload).toMatchObject({
+        basicInfo: {
+          description: '프로그램 소개 문구를 관리자에서 수정한 테스트입니다.',
+        },
+      });
     });
   });
 
@@ -853,20 +890,22 @@ describe('AdminConsolePage', () => {
     renderAdminConsoleRoute('/admin/programs/2002/edit');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'FAST 집중 실습 수정' }),
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('수강생 20/20명')).toBeInTheDocument();
+    expect(screen.getByText('프로그램 #2002')).toBeInTheDocument();
   });
 
-  it('renders the dedicated program resources workspace tab', async () => {
+  it('falls back legacy program resources route to the curriculum workspace tab', async () => {
     renderAdminConsoleRoute('/admin/programs/2001/resources');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 강의 구성' }),
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
     ).toBeInTheDocument();
-    expect(await screen.findByText('강의 자료')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '자료 등록' })).toBeInTheDocument();
-    expect(screen.getByText('등록된 강의 자료가 없습니다.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '강의 구성' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '강의 구성' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 
   it('moves from the notice list to dedicated create and edit pages', async () => {
@@ -1512,9 +1551,9 @@ describe('AdminConsolePage', () => {
       expect(screen.queryByRole('heading', { name: '실습 일정 상세' })).not.toBeInTheDocument();
     });
 
-    fireEvent.click(await screen.findByRole('button', { name: '관리자 개인 일정' }));
+    await openMarchPersonalScheduleDetail();
 
-    expect(await screen.findByRole('heading', { name: '개인일정 상세' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '개인일정 상세' })).toBeInTheDocument();
     expect(screen.getAllByText('관리자 개인 일정').length).toBeGreaterThan(0);
     expect(screen.getByText('일정시간')).toBeInTheDocument();
     expect(screen.getByText('일정내용')).toBeInTheDocument();
@@ -1534,22 +1573,14 @@ describe('AdminConsolePage', () => {
       target: { value: '2026-03' },
     });
 
-    const calendarDayButton = (await screen.findAllByRole('button')).find(
-      (button): button is HTMLButtonElement => /일정 \d+건/.test(button.textContent || ''),
-    );
-
-    expect(calendarDayButton).toBeDefined();
-
-    if (!calendarDayButton) {
-      throw new Error('일정 버튼을 찾지 못했습니다.');
-    }
+    const calendarDayButton = await findMarch29CalendarDayButton();
 
     fireEvent.click(calendarDayButton);
 
-    expect(await screen.findByRole('heading', { name: '일정관리 상세' })).toBeInTheDocument();
-    expect(screen.getByText('오프라인 강의')).toBeInTheDocument();
-    expect(screen.getByText('실습')).toBeInTheDocument();
-    expect(screen.getByText('개인일정')).toBeInTheDocument();
+    const overviewDialog = await screen.findByRole('dialog', { name: '일정관리 상세' });
+    expect(within(overviewDialog).getByText('오프라인 강의')).toBeInTheDocument();
+    expect(within(overviewDialog).getByText('실습')).toBeInTheDocument();
+    expect(within(overviewDialog).getByText('개인일정')).toBeInTheDocument();
   });
 
   it('supports moving between daily overview and detail modal with a back button', async () => {
@@ -1919,9 +1950,9 @@ describe('AdminConsolePage', () => {
       target: { value: '2026-03' },
     });
 
-    fireEvent.click(await screen.findByRole('button', { name: '관리자 개인 일정' }));
+    await openMarchPersonalScheduleDetail();
 
-    expect(await screen.findByRole('heading', { name: '개인일정 상세' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '개인일정 상세' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '일정변경' }));
 
@@ -1953,7 +1984,7 @@ describe('AdminConsolePage', () => {
     expect(screen.getByText('월말 정산 검토 및 팀 공지 정리')).toBeInTheDocument();
   });
 
-  it('renders the dedicated program problems workspace tab', async () => {
+  it('falls back legacy program problems route to the curriculum workspace tab', async () => {
     server.use(
       http.get('*/api/v1/admin/programs/2001/sections', () => {
         return HttpResponse.json({
@@ -2052,13 +2083,14 @@ describe('AdminConsolePage', () => {
     renderAdminConsoleRoute('/admin/programs/2001/problems?lectureId=9101');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '복부초음파 기초 강의 구성' }),
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
     ).toBeInTheDocument();
-    expect(await screen.findByText('강의별 문제 현황')).toBeInTheDocument();
-    expect(screen.queryByLabelText('강의 검색')).not.toBeInTheDocument();
-    expect(await screen.findAllByText('오리엔테이션')).toHaveLength(3);
-    expect(screen.queryByLabelText('문제 설명')).not.toBeInTheDocument();
-    expect(await screen.findByLabelText('합격 기준 문항 수')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '강의 구성' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '강의 구성' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.queryByText('강의별 문제 현황')).not.toBeInTheDocument();
   });
 
   it('renders the category management section without category code fields', async () => {
