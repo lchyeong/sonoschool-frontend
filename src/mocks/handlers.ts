@@ -1232,7 +1232,10 @@ export const handlers = [
       return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
     }
 
-    const payment = cancelMockAdminPayment(paymentId, reason.trim());
+    const cancelType = body['cancelType'] === 'PARTIAL' ? 'PARTIAL' : 'FULL';
+    const cancelAmount =
+      typeof body['cancelAmount'] === 'number' ? body['cancelAmount'] : undefined;
+    const payment = cancelMockAdminPayment(paymentId, reason.trim(), cancelType, cancelAmount);
 
     if (!payment) {
       return HttpResponse.json({ message: 'Payment cannot be cancelled' }, { status: 400 });

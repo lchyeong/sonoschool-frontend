@@ -11,9 +11,12 @@ export interface AdminPaymentListItem {
   status: PaymentStatus;
   amount: number;
   approvedAmount: number | null;
+  cancelledAmount: number;
+  remainingAmount: number | null;
   requestedAt: string;
   paidAt: string | null;
   cancelledAt: string | null;
+  lastCancelledAt: string | null;
   completedLectureCount: number;
   totalLectureCount: number;
   canCancel: boolean;
@@ -30,11 +33,14 @@ export interface AdminPaymentDetail {
   status: PaymentStatus;
   amount: number;
   approvedAmount: number | null;
+  cancelledAmount: number;
+  remainingAmount: number | null;
   requestedAt: string;
   registeredAt: string | null;
   paidAt: string | null;
   failedAt: string | null;
   cancelledAt: string | null;
+  lastCancelledAt: string | null;
   cancelReason: string | null;
   receiptUrl: string | null;
   completedLectureCount: number;

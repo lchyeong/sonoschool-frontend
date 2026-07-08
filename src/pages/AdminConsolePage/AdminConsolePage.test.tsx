@@ -1068,8 +1068,6 @@ describe('AdminConsolePage', () => {
   });
 
   it('revokes a manually granted enrollment from the member detail page', async () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('운영자 회수');
-
     renderAdminConsoleRoute('/admin/enrollments/101');
 
     expect(await screen.findByRole('heading', { level: 1, name: '회원 상세' })).toBeInTheDocument();
@@ -1077,8 +1075,13 @@ describe('AdminConsolePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /복부 실전 실습예약 마스터/ }));
     fireEvent.click(await screen.findByRole('button', { name: '수강권 회수' }));
 
+    const revokeDialog = await screen.findByRole('dialog', { name: '수강권 회수' });
+    fireEvent.change(within(revokeDialog).getByLabelText('회수 사유'), {
+      target: { value: '운영자 회수' },
+    });
+    fireEvent.click(within(revokeDialog).getByRole('button', { name: '수강권 회수' }));
+
     await waitFor(() => {
-      expect(promptSpy).toHaveBeenCalledWith('수강권 회수 사유를 입력해 주세요.');
       expect(
         useToastStore.getState().toasts.some((toast) => toast.message === '수강권을 회수했습니다.'),
       ).toBe(true);
@@ -1086,7 +1089,6 @@ describe('AdminConsolePage', () => {
   });
 
   it('revokes a manually granted enrollment from the program enrollment detail modal', async () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('프로그램 상세 회수');
     const cancelRequests: Array<{ enrollmentId: string; reason: unknown }> = [];
 
     server.use(
@@ -1138,8 +1140,13 @@ describe('AdminConsolePage', () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(await within(dialog).findByRole('button', { name: '수강권 회수' }));
 
+    const revokeDialog = await screen.findByRole('dialog', { name: '수강권 회수' });
+    fireEvent.change(within(revokeDialog).getByLabelText('회수 사유'), {
+      target: { value: '프로그램 상세 회수' },
+    });
+    fireEvent.click(within(revokeDialog).getByRole('button', { name: '수강권 회수' }));
+
     await waitFor(() => {
-      expect(promptSpy).toHaveBeenCalledWith('수강권 회수 사유를 입력해 주세요.');
       expect(cancelRequests).toContainEqual({
         enrollmentId: '7002',
         reason: '프로그램 상세 회수',
@@ -1151,8 +1158,12 @@ describe('AdminConsolePage', () => {
   });
 
   it('cancels a payment from the program enrollment detail modal', async () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('프로그램 상세 결제 취소');
-    const cancelRequests: Array<{ paymentId: string; reason: unknown }> = [];
+    const cancelRequests: Array<{
+      cancelAmount: unknown;
+      cancelType: unknown;
+      paymentId: string;
+      reason: unknown;
+    }> = [];
 
     server.use(
       http.get('*/api/v1/admin/programs/2003/enrollments', () => {
@@ -1178,10 +1189,41 @@ describe('AdminConsolePage', () => {
           ],
         });
       }),
+      http.get('*/api/v1/admin/payments/70002', () => {
+        return HttpResponse.json({
+          data: {
+            amount: 2200000,
+            approvedAmount: 2200000,
+            buyerDisplayName: '김민지',
+            buyerLoginId: 'minji01',
+            cancelledAmount: 0,
+            cancelledAt: null,
+            cancelReason: null,
+            canCancel: true,
+            completedLectureCount: 0,
+            failedAt: null,
+            lastCancelledAt: null,
+            orderName: '복부초음파 기초',
+            orderNumber: 'KCP-test-70002',
+            orderType: 'PROGRAM',
+            paidAt: '2026-03-08T09:00:00Z',
+            paymentId: 70002,
+            paymentMethod: 'CARD',
+            receiptUrl: null,
+            registeredAt: null,
+            remainingAmount: 2200000,
+            requestedAt: '2026-03-08T09:00:00Z',
+            status: 'COMPLETED',
+            totalLectureCount: 10,
+          },
+        });
+      }),
       http.post('*/api/v1/admin/payments/:paymentId/cancel', async ({ params, request }) => {
         const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 
         cancelRequests.push({
+          cancelAmount: body['cancelAmount'],
+          cancelType: body['cancelType'],
           paymentId: String(params['paymentId']),
           reason: body['reason'],
         });
@@ -1203,9 +1245,21 @@ describe('AdminConsolePage', () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(await within(dialog).findByRole('button', { name: '결제 취소' }));
 
+    await screen.findByLabelText('취소 사유');
+    const cancelDialog = await screen.findByRole('dialog', { name: '결제 취소' });
+    fireEvent.click(within(cancelDialog).getByRole('checkbox', { name: /부분 취소/ }));
+    expect(within(cancelDialog).getByRole('radio', { name: '100%' })).toBeInTheDocument();
+    fireEvent.click(within(cancelDialog).getByRole('radio', { name: '50%' }));
+    expect(within(cancelDialog).getByLabelText('부분취소 금액')).toHaveValue('1,100,000');
+    fireEvent.change(within(cancelDialog).getByLabelText('취소 사유'), {
+      target: { value: '프로그램 상세 결제 취소' },
+    });
+    fireEvent.click(within(cancelDialog).getByRole('button', { name: '결제 취소' }));
+
     await waitFor(() => {
-      expect(promptSpy).toHaveBeenCalledWith('결제 취소 사유를 입력해 주세요.');
       expect(cancelRequests).toContainEqual({
+        cancelAmount: 1100000,
+        cancelType: 'PARTIAL',
         paymentId: '70002',
         reason: '프로그램 상세 결제 취소',
       });

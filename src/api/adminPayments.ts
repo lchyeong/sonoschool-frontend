@@ -3,6 +3,14 @@ import { toApiError } from '@/api/errors';
 import type { AdminPaymentDetail, AdminPaymentListItem } from '@/types/adminPayment';
 import type { ApiEnvelope } from '@/types/auth';
 
+export type AdminPaymentCancelType = 'FULL' | 'PARTIAL';
+
+export interface AdminPaymentCancelPayload {
+  reason: string;
+  cancelType?: AdminPaymentCancelType;
+  cancelAmount?: number;
+}
+
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
@@ -44,7 +52,7 @@ export const fetchAdminPaymentDetail = async (paymentId: number): Promise<AdminP
 
 export const cancelAdminPayment = async (
   paymentId: number,
-  payload: { reason: string },
+  payload: AdminPaymentCancelPayload,
 ): Promise<AdminPaymentDetail> => {
   try {
     const response = await axiosInstance.post<ApiEnvelope<AdminPaymentDetail>>(

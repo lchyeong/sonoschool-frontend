@@ -19,6 +19,7 @@ import type { AdminProgramListItem } from '@/types/adminProgramsLive';
 import type { StudentProblemAttemptReport } from '@/types/studentProblems';
 
 import styles from './AdminConsolePage.module.scss';
+import { EnrollmentRevokeModal } from './AdminPaymentActionModals';
 import AdminUserDetailView from './AdminUserDetailView';
 import AdminUserProblemReportModal from './AdminUserProblemReportModal';
 
@@ -47,12 +48,22 @@ const AdminUserDetailSection = () => {
   const [problemReport, setProblemReport] = useState<StudentProblemAttemptReport | null>(null);
   const [grantModalOpen, setGrantModalOpen] = useState(false);
   const [selectedGrantProgramId, setSelectedGrantProgramId] = useState<string>('');
+  const [revokeEnrollmentId, setRevokeEnrollmentId] = useState<number | null>(null);
 
   const programsQuery = useAdminProgramsLiveQuery(isValidUserId);
 
   const currentProgramIds = useMemo(() => {
     return new Set(currentEnrollments.map((enrollment) => enrollment.programId));
   }, [currentEnrollments]);
+  const revokeEnrollmentTarget = useMemo(() => {
+    if (revokeEnrollmentId === null) {
+      return null;
+    }
+    return (
+      currentEnrollments.find((enrollment) => enrollment.enrollmentId === revokeEnrollmentId) ??
+      null
+    );
+  }, [currentEnrollments, revokeEnrollmentId]);
 
   const reportMutation = useMutation({
     mutationFn: fetchAdminProblemAttemptReport,
@@ -122,6 +133,7 @@ const AdminUserDetailSection = () => {
       });
     },
     onSuccess: async () => {
+      setRevokeEnrollmentId(null);
       await Promise.all([
         detailQuery.refetch(),
         queryClient.invalidateQueries({ queryKey: ['adminUsers'] }),
@@ -233,14 +245,7 @@ const AdminUserDetailSection = () => {
             });
           }}
           onCancelEnrollment={(enrollmentId) => {
-            const reason = window.prompt('수강권 회수 사유를 입력해 주세요.');
-            if (!reason?.trim()) {
-              return;
-            }
-            cancelEnrollmentMutation.mutate({
-              enrollmentId,
-              reason: reason.trim(),
-            });
+            setRevokeEnrollmentId(enrollmentId);
           }}
           onToggleEnrollment={handleToggleEnrollment}
           onToggleProblem={handleToggleProblem}
@@ -291,6 +296,22 @@ const AdminUserDetailSection = () => {
           selectedProgramId={selectedGrantProgramId}
           userName={detailQuery.data.name}
           onProgramChange={setSelectedGrantProgramId}
+        />
+      ) : null}
+      {revokeEnrollmentTarget ? (
+        <EnrollmentRevokeModal
+          description={revokeEnrollmentTarget.programTitle}
+          loading={cancelEnrollmentMutation.isPending}
+          onClose={() => {
+            setRevokeEnrollmentId(null);
+          }}
+          onSubmit={(reason) => {
+            cancelEnrollmentMutation.mutate({
+              enrollmentId: revokeEnrollmentTarget.enrollmentId,
+              reason,
+            });
+          }}
+          targetLabel={detailQuery.data?.name ?? '회원'}
         />
       ) : null}
     </section>

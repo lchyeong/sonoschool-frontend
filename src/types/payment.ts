@@ -5,6 +5,7 @@ export type PaymentStatus =
   | 'REGISTERED'
   | 'APPROVED_PENDING_FULFILLMENT'
   | 'COMPLETED'
+  | 'PARTIALLY_CANCELLED'
   | 'FAILED'
   | 'CANCELLED';
 export type CheckoutPaymentMethod = 'CARD' | 'FREE';
@@ -110,6 +111,7 @@ export const paymentStatusLabels: Record<PaymentStatus, string> = {
   CANCELLED: '결제 취소',
   APPROVED_PENDING_FULFILLMENT: '수강 등록 확인 중',
   COMPLETED: '결제 완료',
+  PARTIALLY_CANCELLED: '부분 취소',
   FAILED: '결제 실패',
   PENDING: '결제 대기',
   REGISTERED: '결제 접수',
@@ -142,6 +144,8 @@ export interface PaymentResult {
   amount: number;
   paymentMethod: PaymentMethodValue;
   approvedAmount: number | null;
+  cancelledAmount: number;
+  remainingAmount: number | null;
   receiptUrl: string | null;
   status: PaymentStatus;
   requestedAt: string;
@@ -149,6 +153,7 @@ export interface PaymentResult {
   paidAt: string | null;
   failedAt: string | null;
   cancelledAt: string | null;
+  lastCancelledAt: string | null;
   cancelReason: string | null;
   purchasedItems?: PaymentPurchasedItem[] | undefined;
 }

@@ -2759,6 +2759,261 @@
   min-height: 84px;
 }
 
+.adminActionModalBody {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.adminActionModalPanel {
+  width: min(100%, 30rem);
+  max-height: none;
+  overflow: visible;
+  border-radius: 12px;
+}
+
+.adminActionModalHeader {
+  padding: var(--space-4) var(--space-5) var(--space-2);
+}
+
+.adminActionModalContent {
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.adminActionTarget {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.adminActionTarget strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.4;
+}
+
+.adminActionTarget span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.adminActionSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.adminActionSummaryGrid > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--admin-border) 82%, #ffffff);
+  background: #ffffff;
+}
+
+.adminActionSummaryGrid dt,
+.adminActionSummaryGrid dd {
+  margin: 0;
+}
+
+.adminActionSummaryGrid dt {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.adminActionSummaryGrid dd {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.adminActionChoiceGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adminActionChoiceGroup legend {
+  grid-column: 1 / -1;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.adminActionChoice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: flex-start;
+  min-height: 0;
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--admin-border);
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.adminActionChoice[data-active='true'] {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface);
+}
+
+.adminActionChoiceText {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adminActionChoiceText strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.adminActionChoiceText small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.adminActionField {
+  min-width: 0;
+}
+
+.adminActionAmountField {
+  gap: 6px;
+}
+
+.adminActionAmountFieldError {
+  min-height: 0;
+  height: 0;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.adminActionAmountBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.adminActionQuickRow {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-start;
+  width: fit-content;
+  justify-self: start;
+}
+
+.adminActionQuickOption {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-width: 62px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--admin-border-strong);
+  background: var(--admin-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.adminActionQuickOption input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.adminActionQuickRadioBox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid #7a9ab1;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.adminActionQuickRadioBox::after {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--admin-border-strong);
+  content: '';
+  opacity: 0;
+}
+
+.adminActionQuickOption input:checked + .adminActionQuickRadioBox {
+  border-color: var(--admin-border-strong);
+}
+
+.adminActionQuickOption input:checked + .adminActionQuickRadioBox::after {
+  opacity: 1;
+}
+
+.adminActionQuickOption:has(input:checked) {
+  border-color: var(--admin-border-strong);
+  background: #ffffff;
+}
+
+.adminActionQuickOption:hover:not(:has(input:disabled)) {
+  background: var(--admin-border-strong);
+  color: #ffffff;
+}
+
+.adminActionQuickOption:hover:not(:has(input:disabled)) .adminActionQuickRadioBox {
+  border-color: #ffffff;
+}
+
+.adminActionQuickOption:hover:not(:has(input:disabled)) .adminActionQuickRadioBox::after {
+  background: #ffffff;
+}
+
+.adminActionQuickOption:has(input:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--color-brand-main) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.adminActionQuickOption:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.adminActionError {
+  margin: 0;
+  color: var(--color-danger, #b42318);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.adminActionFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .tableWrap {
   overflow: auto hidden;
   margin-top: var(--space-4);

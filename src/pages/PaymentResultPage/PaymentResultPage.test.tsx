@@ -20,6 +20,8 @@ const mockPaymentResult: PaymentResult = {
   amount: 120000,
   paymentMethod: 'CARD',
   approvedAmount: 120000,
+  cancelledAmount: 0,
+  remainingAmount: 120000,
   receiptUrl: 'https://example.com/receipt',
   status: 'COMPLETED',
   requestedAt: '2026-03-18T10:00:00Z',
@@ -27,6 +29,7 @@ const mockPaymentResult: PaymentResult = {
   paidAt: '2026-03-18T10:02:00Z',
   failedAt: null,
   cancelledAt: null,
+  lastCancelledAt: null,
   cancelReason: null,
 };
 

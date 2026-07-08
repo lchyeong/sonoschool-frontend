@@ -56,6 +56,7 @@ const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
     amount: pricing.totalPayablePrice,
     approvedAmount:
       seed.status === 'COMPLETED' ? pricing.totalPayablePrice : seed.status === 'FAILED' ? 0 : null,
+    cancelledAmount: seed.status === 'CANCELLED' ? pricing.totalPayablePrice : 0,
     cancelReason:
       seed.status === 'CANCELLED'
         ? (cancelledPaymentReasons.get(seed.id) ?? '사용자 요청 취소')
@@ -67,12 +68,14 @@ const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
     orderNumber: seed.orderNumber,
     orderType: 'CART_CHECKOUT',
     paidAt: seed.paidAt,
+    remainingAmount: seed.status === 'CANCELLED' ? 0 : pricing.totalPayablePrice,
     paymentMethod: seed.method,
     receiptUrl:
       seed.status === 'COMPLETED' ? `https://example.com/receipt/${String(seed.id)}` : null,
     registeredAt: seed.registeredAt,
     requestedAt: '2026-03-18T10:00:00Z',
     status: seed.status,
+    lastCancelledAt: seed.status === 'CANCELLED' ? '2026-03-18T10:20:00Z' : null,
     purchasedItems: pricing.selectedItems.map((item) => ({
       id: item.id,
       payablePrice: item.payablePrice,

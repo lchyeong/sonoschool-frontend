@@ -2,12 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { cancelAdminPayment } from '@/api/adminPayments';
+import { cancelAdminPayment, type AdminPaymentCancelType } from '@/api/adminPayments';
 import rightArrowIconSrc from '@/assets/icons/icon_arrow_right_50.png';
 import Modal from '@/components/overlay/Modal/Modal';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
-import { TextAreaField } from '@/components/ui/TextField/TextField';
 import {
   adminPaymentDetailQueryKey,
   adminPaymentsQueryKey,
@@ -26,6 +25,7 @@ import {
 
 import styles from './AdminConsolePage.module.scss';
 import { sectionContent, type AdminConsoleSection } from './adminConsolePageShared';
+import { AdminPaymentCancelModal } from './AdminPaymentActionModals';
 
 interface DeferredSectionProps {
   section: Extract<AdminConsoleSection, 'reviews'>;
@@ -71,6 +71,18 @@ const formatCurrency = (value: number): string => {
     maximumFractionDigits: 0,
     style: 'currency',
   }).format(value);
+};
+
+const resolveApprovedAmount = (payment: { approvedAmount: number | null; amount: number }) => {
+  return payment.approvedAmount ?? payment.amount;
+};
+
+const resolveNetPaidAmount = (payment: {
+  approvedAmount: number | null;
+  amount: number;
+  cancelledAmount?: number | null;
+}) => {
+  return Math.max(0, resolveApprovedAmount(payment) - (payment.cancelledAmount ?? 0));
 };
 
 const formatOrderTypeLabel = (value: string): string => {
@@ -177,6 +189,7 @@ const buildMonthlySalesPoints = (
   payments: Array<{
     approvedAmount: number | null;
     amount: number;
+    cancelledAmount?: number | null;
     paidAt: string | null;
     status: string;
   }>,
@@ -192,12 +205,16 @@ const buildMonthlySalesPoints = (
     );
     const nextMonth = new Date(pointDate.getFullYear(), pointDate.getMonth() + 1, 1);
     const amount = payments
-      .filter((payment) => payment.status === 'COMPLETED' && payment.paidAt)
+      .filter(
+        (payment) =>
+          (payment.status === 'COMPLETED' || payment.status === 'PARTIALLY_CANCELLED') &&
+          payment.paidAt,
+      )
       .filter((payment) => {
         const paidAt = new Date(payment.paidAt as string);
         return paidAt >= pointDate && paidAt < nextMonth;
       })
-      .reduce((sum, payment) => sum + (payment.approvedAmount ?? payment.amount), 0);
+      .reduce((sum, payment) => sum + resolveNetPaidAmount(payment), 0);
 
     return {
       amount,
@@ -212,6 +229,7 @@ const buildWeeklySalesPoints = (
   payments: Array<{
     approvedAmount: number | null;
     amount: number;
+    cancelledAmount?: number | null;
     paidAt: string | null;
     status: string;
   }>,
@@ -225,12 +243,16 @@ const buildWeeklySalesPoints = (
     nextWeek.setDate(pointDate.getDate() + 7);
 
     const amount = payments
-      .filter((payment) => payment.status === 'COMPLETED' && payment.paidAt)
+      .filter(
+        (payment) =>
+          (payment.status === 'COMPLETED' || payment.status === 'PARTIALLY_CANCELLED') &&
+          payment.paidAt,
+      )
       .filter((payment) => {
         const paidAt = new Date(payment.paidAt as string);
         return paidAt >= pointDate && paidAt < nextWeek;
       })
-      .reduce((sum, payment) => sum + (payment.approvedAmount ?? payment.amount), 0);
+      .reduce((sum, payment) => sum + resolveNetPaidAmount(payment), 0);
 
     return {
       amount,
@@ -443,15 +465,19 @@ export const AdminPaymentsSection = () => {
   const [datePickerMessage, setDatePickerMessage] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isPaymentDetailOpen, setIsPaymentDetailOpen] = useState(false);
+  const [isPaymentCancelOpen, setIsPaymentCancelOpen] = useState(false);
   const [leftCalendarMonth, setLeftCalendarMonth] = useState(() => addMonths(new Date(), -1));
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
-  const [cancelReason, setCancelReason] = useState('');
   const datePickerRef = useRef<HTMLDivElement | null>(null);
   const paymentItems = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
   const operationalPaymentItems = useMemo(() => {
     return paymentItems.filter((payment) => {
-      return payment.status === 'COMPLETED' || payment.status === 'CANCELLED';
+      return (
+        payment.status === 'COMPLETED' ||
+        payment.status === 'PARTIALLY_CANCELLED' ||
+        payment.status === 'CANCELLED'
+      );
     });
   }, [paymentItems]);
   const monthlySalesPoints = useMemo(() => buildMonthlySalesPoints(paymentItems), [paymentItems]);
@@ -477,7 +503,8 @@ export const AdminPaymentsSection = () => {
     const normalizedKeyword = searchKeyword.trim().toLowerCase();
 
     return operationalPaymentItems.filter((payment) => {
-      const referenceDate = payment.cancelledAt ?? payment.paidAt ?? payment.requestedAt;
+      const referenceDate =
+        payment.lastCancelledAt ?? payment.cancelledAt ?? payment.paidAt ?? payment.requestedAt;
       if (!matchesDateRange(referenceDate, requestedDateFrom, requestedDateTo)) {
         return false;
       }
@@ -505,15 +532,21 @@ export const AdminPaymentsSection = () => {
   const pageNumbers = useMemo(() => {
     return Array.from({ length: totalPages }, (_, index) => index);
   }, [totalPages]);
-  const detailQuery = useAdminPaymentDetailQuery(isPaymentDetailOpen ? selectedPaymentId : null);
+  const detailQuery = useAdminPaymentDetailQuery(
+    isPaymentDetailOpen || isPaymentCancelOpen ? selectedPaymentId : null,
+  );
 
   const paymentSummary = useMemo(() => {
     return {
-      cancelledCount: operationalPaymentItems.filter((item) => item.status === 'CANCELLED').length,
-      completedCount: operationalPaymentItems.filter((item) => item.status === 'COMPLETED').length,
+      cancelledCount: operationalPaymentItems.filter(
+        (item) => item.status === 'CANCELLED' || item.status === 'PARTIALLY_CANCELLED',
+      ).length,
+      completedCount: operationalPaymentItems.filter(
+        (item) => item.status === 'COMPLETED' || item.status === 'PARTIALLY_CANCELLED',
+      ).length,
       completedRevenue: operationalPaymentItems
-        .filter((item) => item.status === 'COMPLETED')
-        .reduce((sum, item) => sum + (item.approvedAmount ?? item.amount), 0),
+        .filter((item) => item.status === 'COMPLETED' || item.status === 'PARTIALLY_CANCELLED')
+        .reduce((sum, item) => sum + resolveNetPaidAmount(item), 0),
       totalCount: operationalPaymentItems.length,
     };
   }, [operationalPaymentItems]);
@@ -542,8 +575,22 @@ export const AdminPaymentsSection = () => {
   }, [isDatePickerOpen]);
 
   const cancelMutation = useMutation({
-    mutationFn: ({ paymentId, reason }: { paymentId: number; reason: string }) =>
-      cancelAdminPayment(paymentId, { reason }),
+    mutationFn: ({
+      amount,
+      paymentId,
+      reason,
+      type,
+    }: {
+      amount?: number;
+      paymentId: number;
+      reason: string;
+      type: AdminPaymentCancelType;
+    }) =>
+      cancelAdminPayment(paymentId, {
+        reason,
+        cancelType: type,
+        ...(type === 'PARTIAL' && amount !== undefined ? { cancelAmount: amount } : {}),
+      }),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '결제 취소 처리에 실패했습니다.',
@@ -551,7 +598,7 @@ export const AdminPaymentsSection = () => {
       });
     },
     onSuccess: async (_, variables) => {
-      setCancelReason('');
+      setIsPaymentCancelOpen(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: adminPaymentsQueryKey() }),
         queryClient.invalidateQueries({
@@ -565,22 +612,20 @@ export const AdminPaymentsSection = () => {
     },
   });
 
-  const handleCancel = () => {
+  const handleCancel = (payload: {
+    cancelAmount?: number;
+    cancelType?: AdminPaymentCancelType;
+    reason: string;
+  }) => {
     if (selectedPaymentId === null) {
-      return;
-    }
-
-    if (!cancelReason.trim()) {
-      showToast({
-        message: '취소 사유를 입력해 주세요.',
-        variant: 'error',
-      });
       return;
     }
 
     cancelMutation.mutate({
       paymentId: selectedPaymentId,
-      reason: cancelReason.trim(),
+      reason: payload.reason,
+      type: payload.cancelType ?? 'FULL',
+      ...(payload.cancelAmount !== undefined ? { amount: payload.cancelAmount } : {}),
     });
   };
 
@@ -645,13 +690,20 @@ export const AdminPaymentsSection = () => {
 
   const handleOpenPaymentDetail = (paymentId: number) => {
     setSelectedPaymentId(paymentId);
-    setCancelReason('');
     setIsPaymentDetailOpen(true);
+  };
+
+  const handleOpenPaymentCancel = (paymentId: number) => {
+    setSelectedPaymentId(paymentId);
+    setIsPaymentCancelOpen(true);
   };
 
   const handleClosePaymentDetail = () => {
     setIsPaymentDetailOpen(false);
-    setCancelReason('');
+  };
+
+  const handleClosePaymentCancel = () => {
+    setIsPaymentCancelOpen(false);
   };
 
   if (paymentsQuery.isPending) {
@@ -987,6 +1039,10 @@ export const AdminPaymentsSection = () => {
                       <button
                         className={styles['tableActionButton']}
                         onClick={() => {
+                          if (payment.canCancel) {
+                            handleOpenPaymentCancel(payment.paymentId);
+                            return;
+                          }
                           handleOpenPaymentDetail(payment.paymentId);
                         }}
                         type='button'
@@ -1114,15 +1170,36 @@ export const AdminPaymentsSection = () => {
                       </strong>
                     </div>
                     <div className={styles['paymentDetailField']}>
+                      <span className={styles['paymentDetailLabel']}>취소 누계</span>
+                      <strong className={styles['paymentDetailValue']}>
+                        {formatCurrency(selectedPayment.cancelledAmount)}
+                      </strong>
+                    </div>
+                    <div className={styles['paymentDetailField']}>
+                      <span className={styles['paymentDetailLabel']}>남은 결제 금액</span>
+                      <strong className={styles['paymentDetailValue']}>
+                        {formatCurrency(
+                          selectedPayment.remainingAmount ??
+                            resolveNetPaidAmount({
+                              amount: selectedPayment.amount,
+                              approvedAmount: selectedPayment.approvedAmount,
+                              cancelledAmount: selectedPayment.cancelledAmount,
+                            }),
+                        )}
+                      </strong>
+                    </div>
+                    <div className={styles['paymentDetailField']}>
                       <span className={styles['paymentDetailLabel']}>결제일</span>
                       <strong className={styles['paymentDetailValue']}>
                         {formatDateTime(selectedPayment.paidAt)}
                       </strong>
                     </div>
                     <div className={styles['paymentDetailField']}>
-                      <span className={styles['paymentDetailLabel']}>취소일</span>
+                      <span className={styles['paymentDetailLabel']}>최근 취소일</span>
                       <strong className={styles['paymentDetailValue']}>
-                        {formatDateTime(selectedPayment.cancelledAt)}
+                        {formatDateTime(
+                          selectedPayment.lastCancelledAt ?? selectedPayment.cancelledAt,
+                        )}
                       </strong>
                     </div>
                   </div>
@@ -1171,25 +1248,16 @@ export const AdminPaymentsSection = () => {
                 {selectedPayment.canCancel ? (
                   <section className={styles['paymentDetailSection']}>
                     <p className={styles['replyLabel']}>결제 취소</p>
-                    <div className={styles['replyComposer']}>
-                      <p className={styles['paymentDetailNotice']}>
-                        결제 취소를 실행하면 KCP 취소 요청과 내부 수강권 회수가 함께 진행됩니다.
-                      </p>
-                      <TextAreaField
-                        className={styles['paymentCancelReasonField']}
-                        label='취소 사유'
-                        name='cancelReason'
-                        onChange={(event) => {
-                          setCancelReason(event.target.value);
-                        }}
-                        value={cancelReason}
-                      />
+                    <div className={styles['actionRow']}>
                       <Button
                         disabled={cancelMutation.isPending}
-                        onClick={handleCancel}
+                        onClick={() => {
+                          handleOpenPaymentCancel(selectedPayment.paymentId);
+                        }}
                         type='button'
+                        variant='danger'
                       >
-                        {cancelMutation.isPending ? '취소 처리 중...' : '결제 취소 처리'}
+                        결제 취소
                       </Button>
                     </div>
                   </section>
@@ -1198,6 +1266,39 @@ export const AdminPaymentsSection = () => {
             ) : null}
           </div>
         </Modal>
+      ) : null}
+      {isPaymentCancelOpen ? (
+        selectedPayment ? (
+          <AdminPaymentCancelModal
+            approvedAmount={resolveApprovedAmount(selectedPayment)}
+            buyerLabel={`${selectedPayment.buyerDisplayName} · ${selectedPayment.buyerLoginId}`}
+            detailsLoading={detailQuery.isPending}
+            loading={cancelMutation.isPending}
+            onClose={handleClosePaymentCancel}
+            onSubmit={handleCancel}
+            paymentLabel={selectedPayment.orderName}
+            remainingAmount={
+              selectedPayment.remainingAmount ??
+              resolveNetPaidAmount({
+                amount: selectedPayment.amount,
+                approvedAmount: selectedPayment.approvedAmount,
+                cancelledAmount: selectedPayment.cancelledAmount,
+              })
+            }
+          />
+        ) : (
+          <Modal onClose={handleClosePaymentCancel} size='md' title='결제 취소'>
+            <div className={styles['adminActionModalBody']}>
+              <p className={styles['itemDescription']}>
+                {detailQuery.isError
+                  ? detailQuery.error instanceof Error
+                    ? detailQuery.error.message
+                    : '결제 상세를 불러오지 못했습니다.'
+                  : '결제 상세를 불러오는 중입니다.'}
+              </p>
+            </div>
+          </Modal>
+        )
       ) : null}
     </section>
   );

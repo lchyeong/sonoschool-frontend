@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { cancelAdminPayment } from '@/api/adminPayments';
+import { cancelAdminPayment, type AdminPaymentCancelPayload } from '@/api/adminPayments';
 import {
   createAdminProgramThumbnailUploadTarget,
   uploadAdminProgramThumbnailFile,
@@ -35,7 +35,11 @@ import {
   adminCategoriesTreeQueryKey,
   useAdminCategoriesTreeQuery,
 } from '@/query/useAdminCategoriesQuery';
-import { adminPaymentsQueryKey } from '@/query/useAdminPaymentsQuery';
+import {
+  adminPaymentDetailQueryKey,
+  adminPaymentsQueryKey,
+  useAdminPaymentDetailQuery,
+} from '@/query/useAdminPaymentsQuery';
 import {
   adminProgramEnrollmentsQueryKey,
   useAdminProgramEnrollmentsQuery,
@@ -69,6 +73,7 @@ import {
   formatFileSizeLabel,
   validateProgramThumbnailFile,
 } from './adminConsolePageShared';
+import { AdminPaymentCancelModal, EnrollmentRevokeModal } from './AdminPaymentActionModals';
 
 interface AdminProgramEditorSectionProps {
   mode: 'create' | 'duplicate' | 'edit';
@@ -752,7 +757,14 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
   const [uploadProgressModal, setUploadProgressModal] = useState<UploadProgressModalState | null>(
     null,
   );
-  const [memberActionReason, setMemberActionReason] = useState('사용자 요청 취소');
+  const [paymentCancelTarget, setPaymentCancelTarget] = useState<AdminProgramEnrollmentItem | null>(
+    null,
+  );
+  const [enrollmentRevokeTarget, setEnrollmentRevokeTarget] =
+    useState<AdminProgramEnrollmentItem | null>(null);
+  const paymentCancelDetailQuery = useAdminPaymentDetailQuery(
+    paymentCancelTarget?.paymentId ?? null,
+  );
 
   useEffect(() => {
     if (!detailQuery.data) {
@@ -895,18 +907,27 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
   });
 
   const cancelPaymentMutation = useMutation({
-    mutationFn: ({ paymentId, reason }: { paymentId: number; reason: string }) =>
-      cancelAdminPayment(paymentId, { reason }),
+    mutationFn: ({
+      payload,
+      paymentId,
+    }: {
+      payload: AdminPaymentCancelPayload;
+      paymentId: number;
+    }) => cancelAdminPayment(paymentId, payload),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '결제 취소 처리에 실패했습니다.',
         variant: 'error',
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
+      setPaymentCancelTarget(null);
       if (managedProgramId !== null) {
         await invalidateProgramOperationQueries(managedProgramId);
       }
+      await queryClient.invalidateQueries({
+        queryKey: adminPaymentDetailQueryKey(variables.paymentId),
+      });
       showToast({
         message: '결제 취소를 반영했습니다.',
         variant: 'success',
@@ -924,6 +945,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
       });
     },
     onSuccess: async () => {
+      setEnrollmentRevokeTarget(null);
       if (managedProgramId !== null) {
         await invalidateProgramOperationQueries(managedProgramId);
       }
@@ -1215,33 +1237,17 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
     saveMutation.mutate(toProgramPayload(formState));
   };
 
-  const handleCancelPayment = (paymentId: number) => {
-    if (!memberActionReason.trim()) {
-      showToast({
-        message: '취소 사유를 입력해 주세요.',
-        variant: 'error',
-      });
-      return;
-    }
-
+  const handleCancelPayment = (paymentId: number, payload: AdminPaymentCancelPayload) => {
     cancelPaymentMutation.mutate({
       paymentId,
-      reason: memberActionReason.trim(),
+      payload,
     });
   };
 
-  const handleCancelEnrollment = (enrollmentId: number) => {
-    if (!memberActionReason.trim()) {
-      showToast({
-        message: '취소 사유를 입력해 주세요.',
-        variant: 'error',
-      });
-      return;
-    }
-
+  const handleCancelEnrollment = (enrollmentId: number, reason: string) => {
     cancelEnrollmentMutation.mutate({
       enrollmentId,
-      reason: memberActionReason.trim(),
+      reason,
     });
   };
 
@@ -1851,20 +1857,6 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                       </div>
                     </div>
 
-                    <div className={styles['replyComposer']}>
-                      <p className={styles['helperText']}>
-                        회원별 취소 처리 전에 공통 취소 사유를 먼저 입력해 주세요.
-                      </p>
-                      <TextAreaField
-                        label='취소 사유'
-                        name='memberActionReason'
-                        onChange={(event) => {
-                          setMemberActionReason(event.target.value);
-                        }}
-                        value={memberActionReason}
-                      />
-                    </div>
-
                     {programEnrollmentsQuery.isPending ? (
                       <p className={styles['helperText']}>수강생 목록을 불러오는 중입니다.</p>
                     ) : null}
@@ -1952,7 +1944,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                                           <Button
                                             disabled={cancelPaymentMutation.isPending}
                                             onClick={() => {
-                                              handleCancelPayment(item.paymentId as number);
+                                              setPaymentCancelTarget(item);
                                             }}
                                             size='sm'
                                             type='button'
@@ -1965,7 +1957,7 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
                                           <Button
                                             disabled={cancelEnrollmentMutation.isPending}
                                             onClick={() => {
-                                              handleCancelEnrollment(item.enrollmentId);
+                                              setEnrollmentRevokeTarget(item);
                                             }}
                                             size='sm'
                                             type='button'
@@ -2070,6 +2062,67 @@ const AdminProgramEditorSection = ({ mode, view = 'details' }: AdminProgramEdito
           )}
         </div>
       </section>
+      {enrollmentRevokeTarget ? (
+        <EnrollmentRevokeModal
+          description={currentDetail?.title ?? undefined}
+          loading={cancelEnrollmentMutation.isPending}
+          onClose={() => {
+            setEnrollmentRevokeTarget(null);
+          }}
+          onSubmit={(reason) => {
+            handleCancelEnrollment(enrollmentRevokeTarget.enrollmentId, reason);
+          }}
+          targetLabel={`${enrollmentRevokeTarget.userName} · ${enrollmentRevokeTarget.loginId}`}
+        />
+      ) : null}
+      {paymentCancelTarget ? (
+        paymentCancelDetailQuery.data ? (
+          <AdminPaymentCancelModal
+            approvedAmount={
+              paymentCancelDetailQuery.data.approvedAmount ?? paymentCancelDetailQuery.data.amount
+            }
+            buyerLabel={`${paymentCancelDetailQuery.data.buyerDisplayName} · ${paymentCancelDetailQuery.data.buyerLoginId}`}
+            detailsLoading={paymentCancelDetailQuery.isPending}
+            loading={cancelPaymentMutation.isPending}
+            onClose={() => {
+              setPaymentCancelTarget(null);
+            }}
+            onSubmit={(payload) => {
+              if (paymentCancelTarget.paymentId !== null) {
+                handleCancelPayment(paymentCancelTarget.paymentId, payload);
+              }
+            }}
+            paymentLabel={paymentCancelDetailQuery.data.orderName}
+            remainingAmount={
+              paymentCancelDetailQuery.data.remainingAmount ??
+              Math.max(
+                0,
+                (paymentCancelDetailQuery.data.approvedAmount ??
+                  paymentCancelDetailQuery.data.amount) -
+                  paymentCancelDetailQuery.data.cancelledAmount,
+              )
+            }
+          />
+        ) : (
+          <Modal
+            onClose={() => {
+              setPaymentCancelTarget(null);
+            }}
+            size='md'
+            title='결제 취소'
+          >
+            <div className={styles['adminActionModalBody']}>
+              <p className={styles['itemDescription']}>
+                {paymentCancelDetailQuery.isError
+                  ? paymentCancelDetailQuery.error instanceof Error
+                    ? paymentCancelDetailQuery.error.message
+                    : '결제 상세를 불러오지 못했습니다.'
+                  : '결제 상세를 불러오는 중입니다.'}
+              </p>
+            </div>
+          </Modal>
+        )
+      ) : null}
     </section>
   );
 };

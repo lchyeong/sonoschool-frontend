@@ -4,7 +4,7 @@ import type { FormEvent, ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
-import { cancelAdminPayment } from '@/api/adminPayments';
+import { cancelAdminPayment, type AdminPaymentCancelPayload } from '@/api/adminPayments';
 import {
   cancelAdminEnrollment,
   deleteAdminProgramEnrollmentReview,
@@ -15,7 +15,11 @@ import searchIconSrc from '@/assets/icons/search.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
-import { adminPaymentDetailQueryKey, adminPaymentsQueryKey } from '@/query/useAdminPaymentsQuery';
+import {
+  adminPaymentDetailQueryKey,
+  adminPaymentsQueryKey,
+  useAdminPaymentDetailQuery,
+} from '@/query/useAdminPaymentsQuery';
 import {
   adminProgramEnrollmentsQueryKey,
   useAdminProgramEnrollmentsQuery,
@@ -31,6 +35,7 @@ import type { AdminUserDetailEnrollmentItem, AdminUserDetailLectureItem } from '
 import { formatPaymentMethodLabel, paymentStatusLabels } from '@/types/payment';
 
 import styles from './AdminConsolePage.module.scss';
+import { AdminPaymentCancelModal, EnrollmentRevokeModal } from './AdminPaymentActionModals';
 import {
   enrollmentStatusLabel,
   formatCurrency,
@@ -833,14 +838,24 @@ const ProgramEnrollmentDetailModal = ({
 }) => {
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
+  const [isPaymentCancelModalOpen, setIsPaymentCancelModalOpen] = useState(false);
+  const [isEnrollmentRevokeModalOpen, setIsEnrollmentRevokeModalOpen] = useState(false);
   const detailQuery = useQuery({
     queryFn: () => fetchAdminUserDetail(enrollmentItem.userId),
     queryKey: ['adminUserDetail', enrollmentItem.userId],
     staleTime: 15 * 1000,
   });
+  const paymentCancelDetailQuery = useAdminPaymentDetailQuery(
+    isPaymentCancelModalOpen ? enrollmentItem.paymentId : null,
+  );
   const cancelPaymentMutation = useMutation({
-    mutationFn: ({ paymentId, reason }: { paymentId: number; reason: string }) =>
-      cancelAdminPayment(paymentId, { reason }),
+    mutationFn: ({
+      payload,
+      paymentId,
+    }: {
+      payload: AdminPaymentCancelPayload;
+      paymentId: number;
+    }) => cancelAdminPayment(paymentId, payload),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '결제 취소 처리에 실패했습니다.',
@@ -848,6 +863,7 @@ const ProgramEnrollmentDetailModal = ({
       });
     },
     onSuccess: async (_, variables) => {
+      setIsPaymentCancelModalOpen(false);
       await Promise.all([
         detailQuery.refetch(),
         queryClient.invalidateQueries({
@@ -878,6 +894,7 @@ const ProgramEnrollmentDetailModal = ({
       });
     },
     onSuccess: async () => {
+      setIsEnrollmentRevokeModalOpen(false);
       await Promise.all([
         detailQuery.refetch(),
         queryClient.invalidateQueries({
@@ -946,31 +963,21 @@ const ProgramEnrollmentDetailModal = ({
       return enrollment.programId === selectedProgram.id;
     }) ??
     null;
-  const handleCancelEnrollment = () => {
-    const reason = window.prompt('수강권 회수 사유를 입력해 주세요.');
-    if (!reason?.trim()) {
-      return;
-    }
-
+  const handleCancelEnrollment = (reason: string) => {
     cancelEnrollmentMutation.mutate({
       enrollmentId: enrollmentItem.enrollmentId,
-      reason: reason.trim(),
+      reason,
     });
   };
-  const handleCancelPayment = () => {
+  const handleCancelPayment = (payload: AdminPaymentCancelPayload) => {
     const paymentId = enrollmentItem.paymentId;
     if (paymentId === null) {
       return;
     }
 
-    const reason = window.prompt('결제 취소 사유를 입력해 주세요.');
-    if (!reason?.trim()) {
-      return;
-    }
-
     cancelPaymentMutation.mutate({
       paymentId,
-      reason: reason.trim(),
+      payload,
     });
   };
 
@@ -1003,8 +1010,12 @@ const ProgramEnrollmentDetailModal = ({
             key={`${String(enrollmentItem.enrollmentId)}-${String(enrollmentItem.review?.id ?? 'none')}-${String(
               enrollmentItem.review?.rating ?? '',
             )}-${enrollmentItem.review?.content ?? ''}`}
-            onCancelEnrollment={handleCancelEnrollment}
-            onCancelPayment={handleCancelPayment}
+            onOpenCancelEnrollment={() => {
+              setIsEnrollmentRevokeModalOpen(true);
+            }}
+            onOpenCancelPayment={() => {
+              setIsPaymentCancelModalOpen(true);
+            }}
             onDeleteReview={(reviewId) => {
               deleteReviewMutation.mutate(reviewId);
             }}
@@ -1018,6 +1029,61 @@ const ProgramEnrollmentDetailModal = ({
           <p className={styles['helperText']}>해당 프로그램의 수강 상세가 없습니다.</p>
         )
       ) : null}
+      {isEnrollmentRevokeModalOpen ? (
+        <EnrollmentRevokeModal
+          description={selectedProgram.title}
+          loading={cancelEnrollmentMutation.isPending}
+          onClose={() => {
+            setIsEnrollmentRevokeModalOpen(false);
+          }}
+          onSubmit={handleCancelEnrollment}
+          targetLabel={`${enrollmentItem.userName} · ${enrollmentItem.loginId}`}
+        />
+      ) : null}
+      {isPaymentCancelModalOpen ? (
+        paymentCancelDetailQuery.data ? (
+          <AdminPaymentCancelModal
+            approvedAmount={
+              paymentCancelDetailQuery.data.approvedAmount ?? paymentCancelDetailQuery.data.amount
+            }
+            buyerLabel={`${paymentCancelDetailQuery.data.buyerDisplayName} · ${paymentCancelDetailQuery.data.buyerLoginId}`}
+            detailsLoading={paymentCancelDetailQuery.isPending}
+            loading={cancelPaymentMutation.isPending}
+            onClose={() => {
+              setIsPaymentCancelModalOpen(false);
+            }}
+            onSubmit={handleCancelPayment}
+            paymentLabel={paymentCancelDetailQuery.data.orderName}
+            remainingAmount={
+              paymentCancelDetailQuery.data.remainingAmount ??
+              Math.max(
+                0,
+                (paymentCancelDetailQuery.data.approvedAmount ??
+                  paymentCancelDetailQuery.data.amount) -
+                  paymentCancelDetailQuery.data.cancelledAmount,
+              )
+            }
+          />
+        ) : (
+          <Modal
+            onClose={() => {
+              setIsPaymentCancelModalOpen(false);
+            }}
+            size='md'
+            title='결제 취소'
+          >
+            <div className={styles['adminActionModalBody']}>
+              <p className={styles['itemDescription']}>
+                {paymentCancelDetailQuery.isError
+                  ? paymentCancelDetailQuery.error instanceof Error
+                    ? paymentCancelDetailQuery.error.message
+                    : '결제 상세를 불러오지 못했습니다.'
+                  : '결제 상세를 불러오는 중입니다.'}
+              </p>
+            </div>
+          </Modal>
+        )
+      ) : null}
     </Modal>
   );
 };
@@ -1027,9 +1093,9 @@ const ProgramEnrollmentDetailContent = ({
   cancelPaymentLoading,
   enrollment,
   enrollmentItem,
-  onCancelEnrollment,
-  onCancelPayment,
   onDeleteReview,
+  onOpenCancelEnrollment,
+  onOpenCancelPayment,
   onUpdateReview,
   reviewDeleteLoading,
   reviewUpdateLoading,
@@ -1038,9 +1104,9 @@ const ProgramEnrollmentDetailContent = ({
   cancelPaymentLoading: boolean;
   enrollment: AdminUserDetailEnrollmentItem;
   enrollmentItem: AdminProgramEnrollmentItem;
-  onCancelEnrollment: () => void;
-  onCancelPayment: () => void;
   onDeleteReview: (reviewId: number) => void;
+  onOpenCancelEnrollment: () => void;
+  onOpenCancelPayment: () => void;
   onUpdateReview: (reviewId: number, payload: { content: string; rating: number }) => void;
   reviewDeleteLoading: boolean;
   reviewUpdateLoading: boolean;
@@ -1165,7 +1231,7 @@ const ProgramEnrollmentDetailContent = ({
             {canCancelEnrollment ? (
               <Button
                 disabled={cancelEnrollmentLoading || cancelPaymentLoading}
-                onClick={onCancelEnrollment}
+                onClick={onOpenCancelEnrollment}
                 size='sm'
                 type='button'
                 variant='danger'
@@ -1176,7 +1242,7 @@ const ProgramEnrollmentDetailContent = ({
             {canCancelPayment ? (
               <Button
                 disabled={cancelEnrollmentLoading || cancelPaymentLoading}
-                onClick={onCancelPayment}
+                onClick={onOpenCancelPayment}
                 size='sm'
                 type='button'
                 variant='danger'
