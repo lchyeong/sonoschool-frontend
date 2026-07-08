@@ -221,9 +221,14 @@ const AdminResourcesSection = () => {
                                       resource.visibility === 'HIDDEN' ? 'PUBLIC' : 'HIDDEN',
                                   });
                                 }}
+                                title={
+                                  resource.visibility === 'HIDDEN'
+                                    ? '클릭하면 공개 처리합니다.'
+                                    : '클릭하면 숨김 처리합니다.'
+                                }
                                 type='button'
                               >
-                                {resource.visibility === 'HIDDEN' ? '게시' : '숨김'}
+                                {resource.visibility === 'HIDDEN' ? '숨김' : '공개'}
                               </button>
                               <button
                                 className={styles['tableActionButton']}

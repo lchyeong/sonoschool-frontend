@@ -41,7 +41,6 @@ import {
   updateMockNotice,
 } from '@/mocks/data/notices';
 import {
-  cancelMockPayment,
   getMockPaymentHistory,
   getMockPaymentResult,
   getMockPaymentResultByToken,
@@ -1036,27 +1035,15 @@ export const handlers = [
 
     return HttpResponse.json(createApiEnvelope(payment));
   }),
-  http.post('*/api/v1/payments/:paymentId/cancel', async ({ params, request }) => {
-    const paymentId = Number(params['paymentId']);
-    const body = await request.json().catch(() => null);
-
-    if (!Number.isInteger(paymentId) || paymentId <= 0 || !isRecord(body)) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const reason = body['reason'];
-
-    if (typeof reason !== 'string' || !reason.trim()) {
-      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
-    }
-
-    const payment = cancelMockPayment(paymentId, reason.trim());
-
-    if (!payment) {
-      return HttpResponse.json({ message: 'Payment cannot be cancelled' }, { status: 400 });
-    }
-
-    return HttpResponse.json(createApiEnvelope(payment));
+  http.post('*/api/v1/payments/:paymentId/cancel', () => {
+    return HttpResponse.json(
+      {
+        code: 'PAYMENT_400_USER_CANCEL_UNAVAILABLE',
+        message:
+          '결제 취소 접수는 운영 Q&A 게시판을 통해 도와드리고 있습니다. 비밀글로 남겨주시면 빠르게 확인해 응대드리겠습니다.',
+      },
+      { status: 400 },
+    );
   }),
   ...createAdminGetHandlers('/payments', () => {
     return HttpResponse.json(createApiEnvelope(getMockAdminPayments()));

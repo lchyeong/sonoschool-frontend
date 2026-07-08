@@ -57,10 +57,7 @@ const createPaymentScenario = (seed: PaymentScenarioSeed): PaymentResult => {
     approvedAmount:
       seed.status === 'COMPLETED' ? pricing.totalPayablePrice : seed.status === 'FAILED' ? 0 : null,
     cancelledAmount: seed.status === 'CANCELLED' ? pricing.totalPayablePrice : 0,
-    cancelReason:
-      seed.status === 'CANCELLED'
-        ? (cancelledPaymentReasons.get(seed.id) ?? '사용자 요청 취소')
-        : null,
+    cancelReason: seed.status === 'CANCELLED' ? '관리자 환불 처리' : null,
     cancelledAt: seed.status === 'CANCELLED' ? '2026-03-18T10:20:00Z' : null,
     failedAt: seed.status === 'FAILED' ? '2026-03-18T10:12:00Z' : null,
     id: seed.id,
@@ -119,8 +116,6 @@ const paymentScenarioSeeds: PaymentScenarioSeed[] = [
   },
 ];
 
-const cancelledPaymentReasons = new Map<number, string>();
-
 const getPaymentScenarios = (): PaymentResult[] => {
   return paymentScenarioSeeds.map(createPaymentScenario);
 };
@@ -167,19 +162,6 @@ export const getMockPaymentResult = (paymentId: number): PaymentResult | null =>
 export const getMockPaymentResultByToken = (token: string): PaymentResult | null => {
   const payment = getScenarioByToken(token);
   return payment ? cloneData(payment) : null;
-};
-
-export const cancelMockPayment = (paymentId: number, reason: string): PaymentResult | null => {
-  const seed = paymentScenarioSeeds.find((item) => item.id === paymentId);
-
-  if (!seed || seed.status !== 'COMPLETED') {
-    return null;
-  }
-
-  seed.status = 'CANCELLED';
-  cancelledPaymentReasons.set(paymentId, reason);
-
-  return cloneData(createPaymentScenario(seed));
 };
 
 export const createMockCheckoutRedirectPayload = (

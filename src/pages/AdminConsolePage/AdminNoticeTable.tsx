@@ -73,9 +73,10 @@ const AdminNoticeTable = ({
                       onClick={() => {
                         onUnpublish(notice.id);
                       }}
+                      title='클릭하면 숨김 처리합니다.'
                       type='button'
                     >
-                      중지
+                      공개
                     </button>
                   ) : (
                     <button
@@ -83,9 +84,10 @@ const AdminNoticeTable = ({
                       onClick={() => {
                         onPublish(notice.id);
                       }}
+                      title='클릭하면 공개 처리합니다.'
                       type='button'
                     >
-                      게시
+                      숨김
                     </button>
                   )}
                   <button

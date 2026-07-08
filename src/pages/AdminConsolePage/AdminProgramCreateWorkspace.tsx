@@ -6308,9 +6308,6 @@ const AdminProgramCreateWorkspace = ({
                       {getCurriculumGuideText(payload.basicInfo.programType ?? null)}
                     </p>
                   </div>
-                  <Button onClick={addSection} type='button' variant='primary'>
-                    섹션 추가
-                  </Button>
                 </div>
 
                 <div className={styles['stackList']}>
@@ -6412,54 +6409,6 @@ const AdminProgramCreateWorkspace = ({
                                 }}
                                 value={section.description ?? ''}
                               />
-                            </div>
-
-                            <div className={styles['curriculumSectionToolbar']}>
-                              <div
-                                className={styles['curriculumActionDropdown']}
-                                ref={
-                                  openLectureTypeMenuSectionKey === section.key
-                                    ? lectureTypeMenuRef
-                                    : undefined
-                                }
-                              >
-                                <button
-                                  aria-expanded={openLectureTypeMenuSectionKey === section.key}
-                                  aria-haspopup='menu'
-                                  className={styles['curriculumDropdownTrigger']}
-                                  onClick={() => {
-                                    setOpenLectureTypeMenuSectionKey((current) =>
-                                      current === section.key ? null : section.key,
-                                    );
-                                  }}
-                                  type='button'
-                                >
-                                  {addLectureTriggerLabel}
-                                </button>
-                                {openLectureTypeMenuSectionKey === section.key ? (
-                                  <div
-                                    aria-label='강의 유형 선택'
-                                    className={styles['curriculumDropdownMenu']}
-                                    role='menu'
-                                  >
-                                    {allowedLectureTypes.map((lectureType) => (
-                                      <button
-                                        className={styles['curriculumDropdownOption']}
-                                        key={lectureType}
-                                        onClick={() => {
-                                          addLecture(section.key, lectureType);
-                                        }}
-                                        role='menuitem'
-                                        type='button'
-                                      >
-                                        <span className={styles['curriculumDropdownOptionLabel']}>
-                                          {LECTURE_TYPE_LABELS[lectureType]}
-                                        </span>
-                                      </button>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </div>
                             </div>
 
                             <div className={styles['curriculumLectureList']}>
@@ -6922,11 +6871,64 @@ const AdminProgramCreateWorkspace = ({
                                 );
                               })}
                             </div>
+
+                            <div className={styles['curriculumSectionToolbar']}>
+                              <div
+                                className={styles['curriculumActionDropdown']}
+                                ref={
+                                  openLectureTypeMenuSectionKey === section.key
+                                    ? lectureTypeMenuRef
+                                    : undefined
+                                }
+                              >
+                                <button
+                                  aria-expanded={openLectureTypeMenuSectionKey === section.key}
+                                  aria-haspopup='menu'
+                                  className={styles['curriculumDropdownTrigger']}
+                                  onClick={() => {
+                                    setOpenLectureTypeMenuSectionKey((current) =>
+                                      current === section.key ? null : section.key,
+                                    );
+                                  }}
+                                  type='button'
+                                >
+                                  {addLectureTriggerLabel}
+                                </button>
+                                {openLectureTypeMenuSectionKey === section.key ? (
+                                  <div
+                                    aria-label='강의 유형 선택'
+                                    className={styles['curriculumDropdownMenu']}
+                                    role='menu'
+                                  >
+                                    {allowedLectureTypes.map((lectureType) => (
+                                      <button
+                                        className={styles['curriculumDropdownOption']}
+                                        key={lectureType}
+                                        onClick={() => {
+                                          addLecture(section.key, lectureType);
+                                        }}
+                                        role='menuitem'
+                                        type='button'
+                                      >
+                                        <span className={styles['curriculumDropdownOptionLabel']}>
+                                          {LECTURE_TYPE_LABELS[lectureType]}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
                           </div>
                         ) : null}
                       </article>
                     );
                   })}
+                </div>
+                <div className={styles['curriculumBottomActionRow']}>
+                  <Button onClick={addSection} type='button' variant='primary'>
+                    섹션 추가
+                  </Button>
                 </div>
               </section>
             ) : null}

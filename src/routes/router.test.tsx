@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -366,6 +366,37 @@ describe('router layouts', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: '마이페이지' }),
     ).toBeInTheDocument();
+  });
+
+  it('shows the refund request guide instead of cancelling payments from mypage', async () => {
+    useAuthStore.setState({
+      accessToken: 'token',
+      tokenType: 'Bearer',
+      expiresAt: ACTIVE_SESSION_EXPIRES_AT,
+      loginId: 'student01',
+      displayName: '길동',
+      role: 'ROLE_STUDENT',
+      isAuthenticated: true,
+    });
+
+    const queryClient = createTestQueryClient();
+    const router = createMemoryRouter([adminAuthRouteTree, adminConsoleRouteTree, appRouteTree], {
+      initialEntries: ['/mypage?view=payments'],
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click((await screen.findAllByRole('button', { name: '결제 취소' }))[0]);
+
+    expect(await screen.findByRole('dialog', { name: '환불 신청 안내' })).toBeInTheDocument();
+    expect(screen.getByText(/결제 취소 접수는 운영 Q&A 게시판을 통해/)).toBeInTheDocument();
+    expect(screen.getByText(/번거로우시겠지만 운영 Q&A 게시판에 비밀글로/)).toBeInTheDocument();
+    expect(screen.getByText(/환불 사유를 간략히 작성해 주시면/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Q&A로 이동' })).toBeInTheDocument();
   });
 
   it('renders the account recovery page for guest users', async () => {

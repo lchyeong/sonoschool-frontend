@@ -916,6 +916,20 @@ describe('AdminConsolePage', () => {
     ).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '새 공지 등록' })).toBeInTheDocument();
 
+    const publishedNoticeRow = (await screen.findByText('수강 신청 및 등록 절차 안내')).closest(
+      'tr',
+    );
+    const hiddenNoticeRow = (await screen.findByText('관리자 내부 초안 공지')).closest('tr');
+
+    expect(publishedNoticeRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(hiddenNoticeRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(
+      within(publishedNoticeRow as HTMLTableRowElement).getByRole('button', { name: '공개' }),
+    ).toBeInTheDocument();
+    expect(
+      within(hiddenNoticeRow as HTMLTableRowElement).getByRole('button', { name: '숨김' }),
+    ).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: '새 공지 등록' }));
 
     expect(await screen.findByRole('heading', { level: 1, name: '공지 작성' })).toBeInTheDocument();
@@ -2202,6 +2216,65 @@ describe('AdminConsolePage', () => {
     expect(screen.getByLabelText('다운로드 파일명')).toHaveValue('resource-1.pdf');
     expect(screen.queryByLabelText('파일 주소')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('MIME 타입')).not.toBeInTheDocument();
+  });
+
+  it('shows resource library visibility action buttons as the current visibility state', async () => {
+    server.use(
+      http.get('*/api/v1/admin/resources', () => {
+        return HttpResponse.json({
+          data: [
+            {
+              createdAt: '2026-03-27T09:00:00Z',
+              description: '공개 자료 설명',
+              fileName: 'public-resource.pdf',
+              fileSize: 2048,
+              fileUrl: 'https://example.com/public-resource.pdf',
+              id: 9101,
+              lectureId: null,
+              lectureTitle: null,
+              mimeType: 'application/pdf',
+              programId: null,
+              programTitle: null,
+              scope: 'GLOBAL',
+              sortOrder: 1,
+              title: '공개 자료',
+              visibility: 'PUBLIC',
+            },
+            {
+              createdAt: '2026-03-27T09:00:00Z',
+              description: '숨김 자료 설명',
+              fileName: 'hidden-resource.pdf',
+              fileSize: 4096,
+              fileUrl: 'https://example.com/hidden-resource.pdf',
+              id: 9102,
+              lectureId: null,
+              lectureTitle: null,
+              mimeType: 'application/pdf',
+              programId: null,
+              programTitle: null,
+              scope: 'GLOBAL',
+              sortOrder: 2,
+              title: '숨김 자료',
+              visibility: 'HIDDEN',
+            },
+          ],
+        });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/resources');
+
+    const publicResourceRow = (await screen.findByText('공개 자료')).closest('tr');
+    const hiddenResourceRow = (await screen.findByText('숨김 자료')).closest('tr');
+
+    expect(publicResourceRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(hiddenResourceRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(
+      within(publicResourceRow as HTMLTableRowElement).getByRole('button', { name: '공개' }),
+    ).toBeInTheDocument();
+    expect(
+      within(hiddenResourceRow as HTMLTableRowElement).getByRole('button', { name: '숨김' }),
+    ).toBeInTheDocument();
   });
 
   it('paginates the resource library by ten global resources', async () => {

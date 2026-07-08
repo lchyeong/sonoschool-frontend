@@ -163,6 +163,10 @@ const resolveFriendlyApiErrorMessage = (
     return '수강 시작 동의가 완료된 강의가 있어 결제 취소 및 환불이 제한됩니다.';
   }
 
+  if (code === 'PAYMENT_400_USER_CANCEL_UNAVAILABLE') {
+    return '결제 취소 접수는 운영 Q&A 게시판을 통해 도와드리고 있습니다. 비밀글로 남겨주시면 빠르게 확인해 응대드리겠습니다.';
+  }
+
   return serverMessage ?? fallbackUserMessage;
 };
 

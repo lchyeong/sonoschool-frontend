@@ -20,7 +20,6 @@ import {
   verifyEnrollmentPlaybackSms,
   verifyMyProfilePassword,
 } from '@/api/mypage';
-import { cancelPayment } from '@/api/payments';
 import certificateBorderInnerSrc from '@/assets/certificates/certificate-border-inner.svg';
 import certificateBorderMiddleSrc from '@/assets/certificates/certificate-border-middle.svg';
 import certificateBorderOuterSrc from '@/assets/certificates/certificate-border-outer.svg';
@@ -58,7 +57,6 @@ import privacyCollectionConsentText from '@/content/privacyCollectionConsent.ko-
 import {
   myEnrollmentDetailQueryKey,
   myEnrollmentsQueryKey,
-  myPaymentHistoryQueryKey,
   myProfileQueryKey,
   useMyEnrollmentDetailQuery,
   useMyEnrollmentsQuery,
@@ -472,7 +470,6 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EMAIL_ALREADY_EXISTS_ERROR_MESSAGE = '이미 사용 중인 이메일입니다.';
 const EMAIL_INVALID_ERROR_MESSAGE = '올바른 이메일 형식이 아닙니다.';
 const NICKNAME_ALREADY_EXISTS_ERROR_MESSAGE = '이미 사용 중인 닉네임입니다.';
-const DEFAULT_PAYMENT_CANCEL_REASON = '사용자 요청 취소';
 const REVIEW_RATING_LABELS: Record<number, string> = {
   1: '1점 - 아쉬워요',
   2: '2점 - 조금 아쉬워요',
@@ -660,6 +657,7 @@ const MyPagePage = () => {
     null,
   );
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
+  const [isRefundGuideModalOpen, setIsRefundGuideModalOpen] = useState(false);
   const [reviewFormDraft, setReviewFormDraft] = useState<ReviewFormDraftState>({
     enrollmentId: null,
     values: DEFAULT_REVIEW_FORM_VALUES,
@@ -830,6 +828,10 @@ const MyPagePage = () => {
 
   const openPaymentDetailModal = (paymentId: number) => {
     setSelectedPaymentId(paymentId);
+  };
+
+  const closeRefundGuideModal = () => {
+    setIsRefundGuideModalOpen(false);
   };
 
   const openReviewModal = (enrollmentId: number) => {
@@ -1212,30 +1214,6 @@ const MyPagePage = () => {
       if (targetEnrollmentId !== null) {
         openCertificatePreview(targetEnrollmentId, createdProfile);
       }
-    },
-  });
-
-  const cancelPaymentMutation = useMutation({
-    mutationFn: ({ paymentId }: { paymentId: number }) =>
-      cancelPayment(paymentId, { reason: DEFAULT_PAYMENT_CANCEL_REASON }),
-    onError: (error: unknown) => {
-      showToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : '결제 취소 처리에 실패했습니다. 다시 시도해 주세요.',
-        variant: 'error',
-      });
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: myPaymentHistoryQueryKey }),
-        queryClient.invalidateQueries({ queryKey: myEnrollmentsQueryKey }),
-      ]);
-      showToast({
-        message: '결제와 수강 내역을 취소했습니다.',
-        variant: 'success',
-      });
     },
   });
 
@@ -1962,9 +1940,6 @@ const MyPagePage = () => {
           <div className={styles['paymentList']}>
             {paginatedPayments.map((payment) => {
               const statusTone = payment.status === 'CANCELLED' ? 'cancelled' : 'completed';
-              const isCancelPending = cancelPaymentMutation.isPending
-                ? cancelPaymentMutation.variables.paymentId === payment.id
-                : false;
 
               return (
                 <article className={styles['paymentCard']} key={payment.id}>
@@ -2024,13 +1999,12 @@ const MyPagePage = () => {
                       {payment.status === 'COMPLETED' ? (
                         <button
                           className={styles['paymentCancelButton']}
-                          disabled={cancelPaymentMutation.isPending}
                           onClick={() => {
-                            cancelPaymentMutation.mutate({ paymentId: payment.id });
+                            setIsRefundGuideModalOpen(true);
                           }}
                           type='button'
                         >
-                          {isCancelPending ? '취소 중' : '결제 취소'}
+                          결제 취소
                         </button>
                       ) : null}
                     </div>
@@ -3401,6 +3375,63 @@ const MyPagePage = () => {
     );
   };
 
+  const renderRefundGuideModal = () => {
+    if (!isRefundGuideModalOpen) {
+      return null;
+    }
+
+    return (
+      <Modal
+        bodyClassName={styles['refundGuideModalBody']}
+        closeButtonClassName={styles['refundGuideModalCloseButton']}
+        closeButtonContent={
+          <span
+            aria-hidden='true'
+            className={styles['refundGuideModalCloseIcon']}
+            style={reviewCloseIconStyle}
+          />
+        }
+        closeButtonLabel='환불 신청 안내 모달 닫기'
+        headerClassName={styles['refundGuideModalHeader']}
+        onClose={closeRefundGuideModal}
+        panelClassName={styles['refundGuideModalPanel']}
+        title='환불 신청 안내'
+        titleClassName={styles['refundGuideModalTitle']}
+      >
+        <div className={styles['refundGuideContent']}>
+          <p className={styles['refundGuideIntro']}>
+            결제 취소 접수는 운영 Q&amp;A 게시판을 통해 도와드리고 있습니다.
+          </p>
+          <ul className={styles['refundGuideList']}>
+            <li>번거로우시겠지만 운영 Q&amp;A 게시판에 비밀글로 남겨 주세요.</li>
+            <li>환불 사유를 간략히 작성해 주시면 확인이 더 빠르게 진행됩니다.</li>
+            <li>담당자가 결제 내역과 수강 상태를 확인한 뒤 빠르게 응대드리겠습니다.</li>
+          </ul>
+        </div>
+
+        <div className={styles['refundGuideActionRow']}>
+          <button
+            className={styles['refundGuideSecondaryButton']}
+            onClick={closeRefundGuideModal}
+            type='button'
+          >
+            닫기
+          </button>
+          <button
+            className={styles['refundGuidePrimaryButton']}
+            onClick={() => {
+              closeRefundGuideModal();
+              void navigate(routePaths.qna);
+            }}
+            type='button'
+          >
+            Q&amp;A로 이동
+          </button>
+        </div>
+      </Modal>
+    );
+  };
+
   return (
     <section className={classNames(sharedStyles['page'], styles['page'])}>
       <div className={classNames(sharedStyles['shell'], styles['shell'])}>
@@ -3472,6 +3503,7 @@ const MyPagePage = () => {
       {renderReviewModal()}
       {renderCertificateProfileModal()}
       {renderCertificatePreviewModal()}
+      {renderRefundGuideModal()}
       {renderPaymentDetailModal()}
       {renderLearningStartNoticeModal()}
       {renderPlaybackSmsModal()}

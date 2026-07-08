@@ -2536,6 +2536,12 @@
   list-style: none;
 }
 
+.curriculumBottomActionRow {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: var(--space-3);
+}
+
 .stackItem {
   display: grid;
   gap: var(--space-2);
