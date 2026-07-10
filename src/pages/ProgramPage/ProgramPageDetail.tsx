@@ -134,8 +134,6 @@ const buildDefaultApplicationStatusLabel = (catalogStatus: ProgramCatalogStatus)
   switch (catalogStatus) {
     case 'OPEN':
       return '수강 가능';
-    case 'SCHEDULED':
-      return '모집 예정';
     case 'STARTED':
       return '과정 진행중';
     case 'CLOSED':
@@ -153,8 +151,6 @@ const isRemainingSeatsStatusLabel = (label: string) => {
 
 const buildAvailabilityActionLabel = (catalogStatus: ProgramCatalogStatus) => {
   switch (catalogStatus) {
-    case 'SCHEDULED':
-      return '모집 예정';
     case 'STARTED':
     case 'CLOSED':
       return '신청 마감';

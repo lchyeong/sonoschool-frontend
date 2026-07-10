@@ -51,17 +51,15 @@ describe('classifyProgramHubLecture', () => {
     expect(classifyProgramHubLecture(lecture, NOW_TIME)).toBe('closed');
   });
 
-  it('신청 시작 전이거나 SCHEDULED 상태인 강의는 모집 예정으로 분류한다', () => {
+  it('신청 시작 전이어도 OPEN 상태인 기간제 강의는 모집 중으로 분류한다', () => {
     const futureOpenLecture = createLecture({
       catalogStatus: 'OPEN',
       saleEndAt: '2026-08-31T23:59:59.000Z',
       saleStartAt: '2026-08-01T00:00:00.000Z',
       scheduleLabel: '2026.08.01 - 2026.08.31',
     });
-    const scheduledLecture = createLecture({ catalogStatus: 'SCHEDULED' });
 
-    expect(classifyProgramHubLecture(futureOpenLecture, NOW_TIME)).toBe('scheduled');
-    expect(classifyProgramHubLecture(scheduledLecture, NOW_TIME)).toBe('scheduled');
+    expect(classifyProgramHubLecture(futureOpenLecture, NOW_TIME)).toBe('recruiting');
   });
 
   it('날짜가 없는 OPEN 강의는 문구와 무관하게 상시 모집으로 분류한다', () => {
@@ -75,7 +73,7 @@ describe('classifyProgramHubLecture', () => {
     expect(classifyProgramHubLecture(lecture, NOW_TIME)).toBe('alwaysRecruiting');
   });
 
-  it('API 날짜가 없으면 일정 문구의 기간으로 예정·모집 중·마감을 판정한다', () => {
+  it('API 날짜가 없으면 일정 문구의 종료일로 모집 중·마감을 판정한다', () => {
     const lecture = createLecture({
       catalogStatus: 'OPEN',
       saleEndAt: null,
@@ -83,7 +81,7 @@ describe('classifyProgramHubLecture', () => {
       scheduleLabel: '2026.08.01 - 2026.08.31',
     });
 
-    expect(classifyProgramHubLecture(lecture, NOW_TIME)).toBe('scheduled');
+    expect(classifyProgramHubLecture(lecture, NOW_TIME)).toBe('recruiting');
     expect(classifyProgramHubLecture(lecture, Date.parse('2026-08-15T00:00:00.000Z'))).toBe(
       'recruiting',
     );
@@ -98,7 +96,6 @@ describe('classifyProgramHubLecture', () => {
       ENDED: 'closed',
       FULL: 'closed',
       OPEN: 'alwaysRecruiting',
-      SCHEDULED: 'scheduled',
       STARTED: 'closed',
     };
 

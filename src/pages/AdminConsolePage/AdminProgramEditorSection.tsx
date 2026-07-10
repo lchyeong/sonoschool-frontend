@@ -682,15 +682,11 @@ const accessPolicyLabel: Record<AdminProgramAccessPolicy, string> = {
   UNLIMITED: '무제한',
 };
 
-const catalogStatusLabel: Record<
-  'CLOSED' | 'ENDED' | 'FULL' | 'OPEN' | 'SCHEDULED' | 'STARTED',
-  string
-> = {
+const catalogStatusLabel: Record<'CLOSED' | 'ENDED' | 'FULL' | 'OPEN' | 'STARTED', string> = {
   CLOSED: '판매 종료',
   ENDED: '과정 종료',
   FULL: '정원 마감',
   OPEN: '판매중',
-  SCHEDULED: '판매 예정',
   STARTED: '개강됨',
 };
 

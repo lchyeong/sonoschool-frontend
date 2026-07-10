@@ -12,7 +12,6 @@ import { ProgramArchiveLectureCardItem, ProgramBreadcrumbs } from './programCata
 import {
   classifyProgramHubLecture,
   getProgramRecruitmentEndTime,
-  getProgramRecruitmentStartTime,
   parseProgramDateTime,
   type ProgramHubLectureCategory,
   type ProgramHubLectureTabKey,
@@ -43,7 +42,6 @@ const PROGRAM_HUB_LECTURE_TABS: Array<{
   { key: 'all', label: '전체' },
   { key: 'recruiting', label: '모집 중' },
   { key: 'alwaysRecruiting', label: '상시 모집 중' },
-  { key: 'scheduled', label: '모집 예정' },
   { key: 'closed', label: '신청 마감' },
 ];
 
@@ -62,10 +60,6 @@ const PROGRAM_HUB_EMPTY_MESSAGES: Record<
   alwaysRecruiting: {
     title: '현재 상시 모집 중인 과정이 없습니다.',
     description: '모집 중 탭에서 일정이 열린 과정을 확인해 주세요.',
-  },
-  scheduled: {
-    title: '현재 모집 예정인 과정이 없습니다.',
-    description: '모집 중 또는 상시 모집 중인 과정을 확인해 주세요.',
   },
   closed: {
     title: '현재 신청이 마감된 과정이 없습니다.',
@@ -109,18 +103,6 @@ const sortByLatestCreated = (left: IndexedProgramLecture, right: IndexedProgramL
   return createdDiff === 0 ? left.originalIndex - right.originalIndex : createdDiff;
 };
 
-const sortByRecruitmentStart = (
-  left: IndexedProgramLecture,
-  right: IndexedProgramLecture,
-): number => {
-  const startDiff = compareNullableTimeAscending(
-    getProgramRecruitmentStartTime(left.item),
-    getProgramRecruitmentStartTime(right.item),
-  );
-
-  return startDiff === 0 ? left.originalIndex - right.originalIndex : startDiff;
-};
-
 const filterLecturesByTab = (
   lectures: readonly ProgramLectureCard[],
   activeTab: ProgramHubLectureTabKey,
@@ -136,12 +118,7 @@ const filterLecturesByTab = (
     (lecture) => classifyProgramHubLecture(lecture.item, nowTime) === activeTab,
   );
 
-  const sortLectures =
-    activeTab === 'recruiting'
-      ? sortByRecruitmentDeadline
-      : activeTab === 'scheduled'
-        ? sortByRecruitmentStart
-        : sortByLatestCreated;
+  const sortLectures = activeTab === 'recruiting' ? sortByRecruitmentDeadline : sortByLatestCreated;
   const sortedLectures = [...filteredLectures].sort(sortLectures);
 
   return sortedLectures.map((lecture) => lecture.item);
@@ -151,12 +128,7 @@ const resolveDefaultLectureTab = (
   lectures: readonly ProgramLectureCard[],
   nowTime: number,
 ): ProgramHubLectureTabKey => {
-  const tabPriority: ProgramHubLectureCategory[] = [
-    'recruiting',
-    'alwaysRecruiting',
-    'scheduled',
-    'closed',
-  ];
+  const tabPriority: ProgramHubLectureCategory[] = ['recruiting', 'alwaysRecruiting', 'closed'];
 
   for (const tab of tabPriority) {
     if (lectures.some((lecture) => classifyProgramHubLecture(lecture, nowTime) === tab)) {

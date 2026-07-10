@@ -1033,7 +1033,10 @@ export const AdminPaymentsSection = () => {
                       payment.totalLectureCount,
                     )}
                   </td>
-                  <td>{formatCompactDateTime(payment.cancelledAt)}</td>
+                  <td>
+                    {formatCompactDateTime(payment.lastCancelledAt ?? payment.cancelledAt)}
+                    {payment.status === 'PARTIALLY_CANCELLED' ? ' (부분취소)' : null}
+                  </td>
                   <td>
                     <div className={styles['tableActionGroup']}>
                       <button

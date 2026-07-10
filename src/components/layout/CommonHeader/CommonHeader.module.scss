@@ -42,8 +42,8 @@
   @include m.lg {
     max-width: 1440px;
     min-height: 75px;
-    justify-content: center;
-    gap: 171px;
+    justify-content: space-between;
+    gap: clamp(20px, 1.75vw, 40px);
     padding: 10px 20px;
   }
 }
@@ -55,8 +55,9 @@
     min-width: 0;
 
     @include m.lg {
+      flex: 0 0 clamp(136px, 11.6vw, 167px);
       justify-self: start;
-      width: 167px;
+      width: clamp(136px, 11.6vw, 167px);
       height: 55px;
     }
   }
@@ -85,7 +86,8 @@
     height: 46px;
 
     @include m.lg {
-      width: 167px;
+      width: 100%;
+      max-width: 167px;
       height: 55px;
       object-fit: contain;
     }
@@ -94,7 +96,7 @@
 
 .desktopNav {
   --header-menu-font-family: 'Pretendard', var(--font-family-base);
-  --header-menu-font-size: 18px;
+  --header-menu-font-size: clamp(16px, 1.25vw, 18px);
   --header-menu-font-weight: var(--font-weight-normal);
   --header-menu-line-height: 1.3;
 
@@ -103,18 +105,18 @@
 
   @include m.lg {
     display: flex;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     align-items: center;
+    justify-content: center;
   }
 
   &List {
     display: flex;
     align-items: stretch;
     justify-content: center;
-    gap: 38px;
+    gap: clamp(12px, 1.2vw, 28px);
     min-width: 0;
-    width: max-content;
-    max-width: 100%;
+    width: 100%;
     height: 100%;
     color: var(--color-gray-900);
     font-family: var(--header-menu-font-family);
@@ -195,7 +197,7 @@
 
     @include m.lg {
       display: flex;
-      gap: var(--space-6);
+      gap: clamp(12px, 1.2vw, 24px);
     }
   }
 }
@@ -223,6 +225,7 @@
   }
 
   .logoArea {
+    flex: 0 1 auto;
     width: auto;
     height: auto;
   }
@@ -239,46 +242,6 @@
 
   .mobileUtilityArea {
     display: inline-flex;
-  }
-}
-
-@media (width >= 1200px) and (width < 1380px) {
-  .inner {
-    justify-content: space-between;
-    gap: 28px;
-    padding: 10px 20px;
-  }
-
-  .logoArea {
-    width: 170px;
-  }
-
-  .logoImage {
-    width: 136px;
-  }
-
-  .desktopNav {
-    flex: 1 1 auto;
-  }
-
-  .desktopNavList {
-    width: 100%;
-    gap: 22px;
-  }
-
-  .desktopNavLink,
-  .desktopNavTrigger {
-    font-size: 16px;
-  }
-
-  .desktopUtilityArea {
-    gap: 14px;
-  }
-
-  .desktopLoginLink {
-    width: auto;
-    padding: 10px 20px;
-    font-size: 16px;
   }
 }
 

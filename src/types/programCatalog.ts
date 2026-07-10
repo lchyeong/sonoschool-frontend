@@ -137,7 +137,7 @@ export interface ProgramInfoItem {
   value: string;
 }
 
-export type ProgramCatalogStatus = 'OPEN' | 'SCHEDULED' | 'STARTED' | 'CLOSED' | 'ENDED' | 'FULL';
+export type ProgramCatalogStatus = 'OPEN' | 'STARTED' | 'CLOSED' | 'ENDED' | 'FULL';
 
 export interface ProgramFaqItem {
   id: string;

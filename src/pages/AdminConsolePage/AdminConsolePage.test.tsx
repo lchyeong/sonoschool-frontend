@@ -311,6 +311,44 @@ describe('AdminConsolePage', () => {
     expect(screen.getAllByText('3/20강').length).toBeGreaterThan(0);
   });
 
+  it('shows the latest cancellation date with a partial cancellation marker', async () => {
+    server.use(
+      http.get('*/api/v1/admin/payments', () => {
+        return HttpResponse.json({
+          data: [
+            {
+              amount: 200000,
+              approvedAmount: 200000,
+              buyerDisplayName: '이찬형',
+              buyerLoginId: 'student01',
+              canCancel: true,
+              cancelledAmount: 100000,
+              cancelledAt: null,
+              completedLectureCount: 0,
+              lastCancelledAt: '2026-03-21T02:00:00Z',
+              orderName: '한달 완성 SPI',
+              orderNumber: 'ORD-PARTIAL',
+              orderType: 'CART_CHECKOUT',
+              paidAt: '2026-03-20T02:00:00Z',
+              paymentId: 174,
+              paymentMethod: 'CARD',
+              remainingAmount: 100000,
+              requestedAt: '2026-03-20T02:00:00Z',
+              status: 'PARTIALLY_CANCELLED',
+              totalLectureCount: 10,
+            },
+          ],
+        });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/payments');
+
+    expect(await screen.findByRole('heading', { level: 1, name: '결제 관리' })).toBeInTheDocument();
+    expect(await screen.findByText('한달 완성 SPI')).toBeInTheDocument();
+    expect(screen.getByText(/26\.03\.21.*부분취소/)).toBeInTheDocument();
+  });
+
   it('keeps the payment dashboard and table shell when the payment query returns no rows', async () => {
     server.use(
       http.get('*/api/v1/admin/payments', () => {

@@ -104,11 +104,6 @@ const resolveAvailability = (item: ProgramLectureCard): { label: string; value: 
         label: '모집 상태',
         value: '정원 마감',
       };
-    case 'SCHEDULED':
-      return {
-        label: '모집 상태',
-        value: '모집 예정',
-      };
     case 'STARTED':
       return {
         label: '모집 상태',
@@ -147,8 +142,6 @@ const resolveArchiveStatusLabel = (item: ProgramLectureCard) => {
       return hasArchiveRecruitmentPeriod(item) ? '모집 중' : '상시 모집 중';
     case 'FULL':
       return '정원마감';
-    case 'SCHEDULED':
-      return '모집예정';
     case 'STARTED':
       return '과정진행중';
     case 'CLOSED':

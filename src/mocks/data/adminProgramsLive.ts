@@ -345,12 +345,7 @@ const deriveCatalogStatus = (
     return 'FULL';
   }
 
-  const saleStartAt = program.saleStartAt ? Date.parse(program.saleStartAt) : null;
   const saleEndAt = program.saleEndAt ? Date.parse(program.saleEndAt) : null;
-
-  if (saleStartAt !== null && Number.isFinite(saleStartAt) && saleStartAt > now) {
-    return 'SCHEDULED';
-  }
 
   if (saleEndAt !== null && Number.isFinite(saleEndAt) && saleEndAt < now) {
     return 'CLOSED';

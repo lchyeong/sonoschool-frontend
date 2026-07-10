@@ -71,7 +71,6 @@ const catalogStatusLabel: Record<AdminProgramListItem['catalogStatus'], string> 
   ENDED: '과정 종료',
   FULL: '정원 마감',
   OPEN: '판매중',
-  SCHEDULED: '판매 예정',
   STARTED: '개강됨',
 };
 
@@ -132,7 +131,7 @@ const resolveCatalogStatusTextClassName = (
     return `${styles['statusText']} ${styles['statusTextSuccess']}`;
   }
 
-  if (status === 'FULL' || status === 'SCHEDULED' || status === 'STARTED') {
+  if (status === 'FULL' || status === 'STARTED') {
     return `${styles['statusText']} ${styles['statusTextWarning']}`;
   }
 

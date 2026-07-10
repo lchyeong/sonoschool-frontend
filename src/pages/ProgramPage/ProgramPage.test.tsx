@@ -296,11 +296,11 @@ describe('ProgramPage', () => {
         saleStartAt: null,
         scheduleLabel: '상시 모집',
       }),
-      createClassifiedLecture(baseLecture, 3, '모집 예정 강의', {
-        catalogStatus: 'SCHEDULED',
-        saleEndAt: null,
+      createClassifiedLecture(baseLecture, 3, '판매 시작일이 미래인 강의', {
+        catalogStatus: 'OPEN',
+        saleEndAt: futureTime,
         saleStartAt: futureTime,
-        scheduleLabel: '모집 예정',
+        scheduleLabel: '기간 모집',
       }),
       createClassifiedLecture(baseLecture, 4, '운영 종료된 신청 마감 강의', {
         catalogStatus: 'CLOSED',
@@ -341,15 +341,18 @@ describe('ProgramPage', () => {
       await screen.findByRole('heading', { level: 1, name: '복부 Basic 스캔 6주' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '모집 중' })).toHaveAttribute('aria-selected', 'true');
-    expect(getLectureCountText(1)).toBeInTheDocument();
+    expect(getLectureCountText(2)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '판매 시작일이 미래인 강의' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      '전체',
+      '모집 중',
+      '상시 모집 중',
+      '신청 마감',
+    ]);
 
     fireEvent.click(screen.getByRole('tab', { name: '상시 모집 중' }));
     expect(getLectureCountText(1)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '상시 모집 강의' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('tab', { name: '모집 예정' }));
-    expect(getLectureCountText(1)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '모집 예정 강의' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '신청 마감' }));
     expect(getLectureCountText(5)).toBeInTheDocument();

@@ -115,8 +115,8 @@
 
 .archiveLectureSection {
   display: grid;
-  gap: 24px;
-  margin-top: 100px;
+  gap: 0;
+  margin-top: 28px;
 }
 
 .archiveLectureSectionAfterFilters {
@@ -125,25 +125,31 @@
 
 .archiveLectureTabs {
   display: flex;
-  gap: 24px;
+  gap: 20px;
   align-items: stretch;
   overflow-x: auto;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid #d1d5db;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .archiveLectureTab {
   position: relative;
   display: inline-flex;
+  flex: 0 0 115px;
   align-items: center;
   justify-content: center;
-  min-width: 96px;
-  min-height: 58px;
-  padding: 0 10px;
+  min-width: 115px;
+  min-height: 66px;
+  padding: 20px;
   border: 0;
   color: #4b5563;
   font-family: Pretendard, var(--font-family-base);
-  font-size: 18px;
-  font-weight: var(--font-weight-bold);
+  font-size: 20px;
+  font-weight: var(--font-weight-medium);
   letter-spacing: var(--letter-spacing-normal);
   line-height: 1.3;
   white-space: nowrap;
@@ -172,7 +178,7 @@
   color: #34b29f;
 
   &::after {
-    background: #5ccbc0;
+    background: #34b29f;
   }
 }
 
@@ -183,6 +189,10 @@
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+}
+
+.archiveLectureHeader {
+  margin-top: 38px;
 }
 
 .archiveLectureLabel {
@@ -204,12 +214,14 @@
   grid-template-columns: repeat(3, minmax(0, 452px));
   justify-content: start;
   gap: 40px;
+  margin-top: 28px;
 }
 
 .archiveEmptyState {
   display: grid;
   justify-items: start;
   gap: 14px;
+  margin-top: 28px;
   max-width: 560px;
   padding: 32px;
   border: 1px solid rgba(17, 24, 39, 0.08);

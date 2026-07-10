@@ -10,9 +10,8 @@ describe('programCatalogStatus', () => {
     expect(shouldMuteProgramThumbnail('FULL')).toBe(true);
   });
 
-  it('keeps active and upcoming thumbnails in color', () => {
+  it('keeps active thumbnails in color', () => {
     expect(shouldMuteProgramThumbnail('OPEN')).toBe(false);
-    expect(shouldMuteProgramThumbnail('SCHEDULED')).toBe(false);
     expect(shouldMuteProgramThumbnail(undefined)).toBe(false);
     expect(shouldMuteProgramThumbnail(null)).toBe(false);
   });

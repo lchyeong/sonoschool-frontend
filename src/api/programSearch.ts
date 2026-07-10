@@ -13,7 +13,7 @@ const publicImageSchema = z
   .min(1)
   .transform((value) => sanitizeRequiredPublicAssetUrl(value, DEFAULT_PROGRAM_IMAGE));
 
-const catalogStatusSchema = z.enum(['OPEN', 'SCHEDULED', 'STARTED', 'CLOSED', 'ENDED', 'FULL']);
+const catalogStatusSchema = z.enum(['OPEN', 'STARTED', 'CLOSED', 'ENDED', 'FULL']);
 const optionalPublicImageSchema = z.string().min(1).nullable().optional();
 const optionalCropValueSchema = z.number().nullable().optional();
 

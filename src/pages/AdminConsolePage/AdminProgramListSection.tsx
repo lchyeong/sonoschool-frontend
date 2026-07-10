@@ -52,7 +52,6 @@ const catalogStatusLabel: Record<AdminProgramCatalogStatus, string> = {
   ENDED: '과정 종료',
   FULL: '정원 마감',
   OPEN: '판매중',
-  SCHEDULED: '판매 예정',
   STARTED: '개강됨',
 };
 
