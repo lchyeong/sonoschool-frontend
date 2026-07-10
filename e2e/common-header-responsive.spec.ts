@@ -20,10 +20,7 @@ const mockHeaderData = async (page: Page) => {
         items: [
           { id: 'doctor', label: '의사과정', to: '/programs/doctor-course' },
           { id: 'general', label: '일반과정', to: '/programs/general-course' },
-          { id: 'online', label: '온라인과정', to: '/programs/online-course' },
-          { id: 'workshop', label: '워크숍과정', to: '/programs/workshop' },
-          { id: 'certificate', label: '자격시험과정', to: '/programs/certificate' },
-          { id: 'hospital', label: '병원출강과정', to: '/programs/hospital' },
+          { id: 'online', label: 'ARDMS', to: '/programs/online-course' },
         ],
       }),
       contentType: 'application/json',
@@ -63,7 +60,7 @@ test('keeps the logo and login action inside the header across desktop widths', 
 
   await expect(logo).toBeVisible();
   await expect(login).toBeVisible();
-  await expect(navigationLinkLocator).toHaveCount(10);
+  await expect(navigationLinkLocator).toHaveCount(7);
 
   const navigationLinks = await navigationLinkLocator.all();
 
@@ -84,6 +81,13 @@ test('keeps the logo and login action inside the header across desktop widths', 
     const navigationLinkBoxes = await Promise.all(
       navigationLinks.map(async (link) => link.boundingBox()),
     );
+    const navigationGaps = navigationLinkBoxes.slice(1).map((linkBox, index) => {
+      const previousLinkBox = navigationLinkBoxes[index];
+
+      if (!linkBox || !previousLinkBox) return null;
+
+      return linkBox.x - (previousLinkBox.x + previousLinkBox.width);
+    });
 
     expect(headerBox).not.toBeNull();
     expect(logoBox).not.toBeNull();
@@ -105,6 +109,10 @@ test('keeps the logo and login action inside the header across desktop widths', 
     expect(
       areNavigationLinksContained,
       `${String(width)}px에서 데스크톱 메뉴가 내비게이션 영역을 벗어나면 안 됩니다.`,
+    ).toBe(true);
+    expect(
+      navigationGaps.every((gap) => gap !== null && Math.abs(gap - 38) <= 1),
+      `${String(width)}px에서 운영 메뉴 간격은 약 38px이어야 합니다.`,
     ).toBe(true);
   }
 });
