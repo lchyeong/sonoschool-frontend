@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -14,6 +14,7 @@ import {
   updateAdminPopupLive,
 } from '@/api/popups';
 import SectionTabs from '@/components/ui/SectionTabs/SectionTabs';
+import { MAX_VISIBLE_POPUP_COUNT } from '@/constants/popup';
 import {
   adminPopupsQueryKey,
   globalPopupsQueryKey,
@@ -47,6 +48,7 @@ const AdminPopupsSection = () => {
   const [formState, setFormState] = useState<PopupFormState>(createEmptyPopupForm());
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<PopupAdminTab>('list');
+  const publishInFlightRef = useRef(false);
 
   useEffect(() => {
     const previewObjectUrl = formState.imagePreviewObjectUrl;
@@ -59,19 +61,19 @@ const AdminPopupsSection = () => {
   }, [formState.imagePreviewObjectUrl]);
 
   const popups = useMemo(() => popupsQuery.data ?? [], [popupsQuery.data]);
-  const currentDisplayPopup = useMemo(() => {
-    return (
-      [...popups]
-        .filter((popup) => isPopupVisibleNow(popup))
-        .sort(comparePopupDisplayOrder)
-        .at(0) ?? null
-    );
+  const activePopups = useMemo(() => {
+    return [...popups].filter((popup) => isPopupVisibleNow(popup)).sort(comparePopupDisplayOrder);
   }, [popups]);
+  const displayedPopupIds = useMemo(
+    () => activePopups.slice(0, MAX_VISIBLE_POPUP_COUNT).map((popup) => popup.id),
+    [activePopups],
+  );
 
   const editingPopupId =
     editingPopupIdState !== null && popups.some((popup) => popup.id === editingPopupIdState)
       ? editingPopupIdState
       : null;
+  const editingPopup = popups.find((popup) => popup.id === editingPopupId) ?? null;
   const previewPopup = popups.find((popup) => popup.id === previewPopupId) ?? null;
 
   const refreshPopups = async () => {
@@ -79,14 +81,6 @@ const AdminPopupsSection = () => {
       queryClient.invalidateQueries({ queryKey: adminPopupsQueryKey() }),
       queryClient.invalidateQueries({ queryKey: globalPopupsQueryKey() }),
     ]);
-  };
-
-  const unpublishSiblingPopups = async (activePopupId: number) => {
-    await Promise.all(
-      popups
-        .filter((popup) => popup.id !== activePopupId && popup.published)
-        .map((popup) => unpublishAdminPopupLive(popup.id)),
-    );
   };
 
   const resetFormForCreate = (sortOrder = getNextPopupSortOrder(popups)) => {
@@ -103,9 +97,6 @@ const AdminPopupsSection = () => {
       });
     },
     onSuccess: async (popup) => {
-      if (popup.published) {
-        await unpublishSiblingPopups(popup.id);
-      }
       await refreshPopups();
       resetFormForCreate(popup.sortOrder + 1);
       showToast({
@@ -135,15 +126,15 @@ const AdminPopupsSection = () => {
   });
 
   const publishMutation = useMutation({
-    mutationFn: async (popupId: number) => {
-      await unpublishSiblingPopups(popupId);
-      return publishAdminPopupLive(popupId);
-    },
+    mutationFn: (popupId: number) => publishAdminPopupLive(popupId),
     onError: (error: unknown) => {
       showToast({
         message: error instanceof Error ? error.message : '팝업 노출 처리에 실패했습니다.',
         variant: 'error',
       });
+    },
+    onSettled: () => {
+      publishInFlightRef.current = false;
     },
     onSuccess: async () => {
       await refreshPopups();
@@ -255,6 +246,17 @@ const AdminPopupsSection = () => {
 
   const handleSubmit = async () => {
     const imageAlt = formState.imageAlt.trim();
+    const willAddActivePopup =
+      editingPopupId === null ||
+      Boolean(editingPopup?.published && !isPopupVisibleNow(editingPopup));
+
+    if (willAddActivePopup && activePopups.length >= MAX_VISIBLE_POPUP_COUNT) {
+      showToast({
+        message: `동시에 노출할 수 있는 팝업은 최대 ${String(MAX_VISIBLE_POPUP_COUNT)}개입니다.`,
+        variant: 'error',
+      });
+      return;
+    }
 
     if (formState.imageAssetId === null && formState.pendingImageFile === null) {
       showToast({ message: '팝업 이미지를 첨부해 주세요.', variant: 'error' });
@@ -306,6 +308,23 @@ const AdminPopupsSection = () => {
       payload,
       popupId: editingPopupId,
     });
+  };
+
+  const publishPopup = (popupId: number) => {
+    if (publishInFlightRef.current || publishMutation.isPending) {
+      return;
+    }
+
+    if (activePopups.length >= MAX_VISIBLE_POPUP_COUNT) {
+      showToast({
+        message: `동시에 노출할 수 있는 팝업은 최대 ${String(MAX_VISIBLE_POPUP_COUNT)}개입니다.`,
+        variant: 'error',
+      });
+      return;
+    }
+
+    publishInFlightRef.current = true;
+    publishMutation.mutate(popupId);
   };
 
   const popupTabs = [
@@ -373,7 +392,8 @@ const AdminPopupsSection = () => {
 
       {activeTab === 'list' ? (
         <AdminPopupTable
-          currentDisplayPopupId={currentDisplayPopup?.id ?? null}
+          displayedPopupIds={displayedPopupIds}
+          isPublishPending={publishMutation.isPending}
           onDelete={(popupId) => {
             if (!window.confirm('이 팝업을 삭제하시겠습니까?')) {
               return;
@@ -384,7 +404,7 @@ const AdminPopupsSection = () => {
           onEdit={startEdit}
           onPreview={setPreviewPopupId}
           onPublish={(popupId) => {
-            publishMutation.mutate(popupId);
+            publishPopup(popupId);
           }}
           onStartCreate={startCreate}
           onUnpublish={(popupId) => {
@@ -396,7 +416,7 @@ const AdminPopupsSection = () => {
 
       {previewPopup ? (
         <AdminPopupPreviewModal
-          currentDisplayPopupId={currentDisplayPopup?.id ?? null}
+          displayedPopupIds={displayedPopupIds}
           isPublishPending={publishMutation.isPending}
           isUnpublishPending={unpublishMutation.isPending}
           onClose={() => {
@@ -404,7 +424,7 @@ const AdminPopupsSection = () => {
           }}
           onEdit={startEdit}
           onPublish={(popupId) => {
-            publishMutation.mutate(popupId);
+            publishPopup(popupId);
           }}
           onUnpublish={(popupId) => {
             unpublishMutation.mutate(popupId);

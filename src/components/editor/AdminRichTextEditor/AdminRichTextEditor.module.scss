@@ -21,7 +21,7 @@
 }
 
 .shell {
-  overflow: hidden;
+  overflow: clip;
   border: 1px solid var(--color-brand-lighten-35);
   border-radius: var(--radius-lg);
   background: var(--color-bg-primary);
@@ -29,12 +29,16 @@
 }
 
 .toolbar {
+  position: sticky;
+  top: var(--admin-rich-text-toolbar-sticky-top, 0);
+  z-index: 25;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-3);
   border-bottom: 1px solid var(--color-brand-lighten-35);
   background: linear-gradient(180deg, #f8fafc 0%, #eef7f5 100%);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
 .toolbarGroup {
@@ -639,8 +643,96 @@
   display: block;
   max-width: 100%;
   height: auto;
-  margin: 1rem auto;
+  margin: 1rem 0;
   border-radius: var(--radius-md);
+}
+
+.editor :global(.ProseMirror [data-resize-container][data-node='image']) {
+  justify-content: flex-start;
+  max-width: 100%;
+  margin: 1rem 0;
+}
+
+.editor :global(.ProseMirror [data-resize-container][data-node='image'] [data-resize-wrapper]) {
+  max-width: 100%;
+  line-height: 0;
+  transition:
+    outline-color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.editor :global(.ProseMirror [data-resize-container][data-node='image'] img) {
+  max-width: 100%;
+  margin: 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.editor :global(.ProseMirror [data-resize-container][data-node='image'] img:active) {
+  cursor: grabbing;
+}
+
+.editor :global(.ProseMirror [data-resize-container][data-node='image'] [data-resize-handle]) {
+  z-index: 6;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: var(--color-brand-main);
+  cursor: nwse-resize;
+  opacity: 0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.28);
+  transition:
+    opacity 0.14s ease,
+    transform 0.14s ease;
+}
+
+.editor
+  :global(
+    .ProseMirror [data-resize-container][data-node='image'] [data-resize-handle='bottom-left']
+  ) {
+  cursor: nesw-resize;
+  transform: translate(-50%, 50%);
+}
+
+.editor
+  :global(
+    .ProseMirror [data-resize-container][data-node='image'] [data-resize-handle='bottom-right']
+  ) {
+  transform: translate(50%, 50%);
+}
+
+.editor :global(.ProseMirror [data-resize-container][data-node='image']:hover [data-resize-handle]),
+.editor
+  :global(
+    .ProseMirror
+      [data-resize-container][data-node='image'].ProseMirror-selectednode
+      [data-resize-handle]
+  ),
+.editor
+  :global(
+    .ProseMirror
+      [data-resize-container][data-node='image'][data-resize-state='true']
+      [data-resize-handle]
+  ) {
+  opacity: 1;
+}
+
+.editor
+  :global(
+    .ProseMirror
+      [data-resize-container][data-node='image'].ProseMirror-selectednode
+      [data-resize-wrapper]
+  ) {
+  outline: 2px solid var(--color-brand-main);
+  outline-offset: 3px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.editor :global(.ProseMirror [data-resize-container][data-node='image'] + p:last-child) {
+  min-height: 2.5rem;
+  padding-top: 0.35rem;
+  cursor: text;
 }
 /* stylelint-enable selector-class-pattern */
 

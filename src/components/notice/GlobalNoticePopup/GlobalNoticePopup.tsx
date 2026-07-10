@@ -1,14 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 
 import { createPortal } from 'react-dom';
 
+import { MAX_VISIBLE_POPUP_COUNT } from '@/constants/popup';
 import { useGlobalPopupsQuery } from '@/query/usePopupQueries';
 import type { PopupItem } from '@/types/popup';
 
 import styles from './GlobalNoticePopup.module.scss';
 
 const DISMISS_STORAGE_PREFIX = 'popup-banner-dismissed';
-const MAX_VISIBLE_POPUP_COUNT = 3;
+
+interface PreloadedPopupImage {
+  imageUrl: string;
+  naturalWidth: number | null;
+}
+
+type PopupPanelStyle = CSSProperties & {
+  '--popup-natural-width'?: string;
+};
+
+interface GlobalNoticePopupProps {
+  previewPopups?: PopupItem[];
+}
 
 const buildTodayLabel = (): string => {
   const now = new Date();
@@ -37,25 +51,32 @@ const dismissForToday = (popupId: number) => {
   window.localStorage.setItem(buildStorageKey(popupId), buildTodayLabel());
 };
 
-const GlobalNoticePopup = () => {
-  const popupsQuery = useGlobalPopupsQuery();
+const GlobalNoticePopup = ({ previewPopups }: GlobalNoticePopupProps = {}) => {
+  const isPreviewMode = previewPopups !== undefined;
+  const popupsQuery = useGlobalPopupsQuery(!isPreviewMode);
   const [closedPopupIds, setClosedPopupIds] = useState<number[]>([]);
   const [dismissSelection, setDismissSelection] = useState<{
     checked: boolean;
     popupId: number | null;
   }>({ checked: false, popupId: null });
-  const [preloadedImageUrls, setPreloadedImageUrls] = useState<string[]>([]);
+  const [preloadedImages, setPreloadedImages] = useState<PreloadedPopupImage[]>([]);
   const firstCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const visiblePopups = useMemo(() => {
-    const popups = popupsQuery.data ?? [];
+    const popups = previewPopups ?? popupsQuery.data ?? [];
 
     return popups
       .filter((popup) => {
-        return !closedPopupIds.includes(popup.id) && !hasDismissedToday(popup.id);
+        return (
+          !closedPopupIds.includes(popup.id) && (isPreviewMode || !hasDismissedToday(popup.id))
+        );
       })
       .slice(0, MAX_VISIBLE_POPUP_COUNT);
-  }, [closedPopupIds, popupsQuery.data]);
+  }, [closedPopupIds, isPreviewMode, popupsQuery.data, previewPopups]);
+
+  const preloadedImageByUrl = useMemo(() => {
+    return new Map(preloadedImages.map((image) => [image.imageUrl, image]));
+  }, [preloadedImages]);
 
   useEffect(() => {
     if (visiblePopups.length === 0) {
@@ -65,20 +86,23 @@ const GlobalNoticePopup = () => {
     let cancelled = false;
     const popupImageUrls = visiblePopups.map((popup) => popup.imageUrl);
     const preloadImage = (popupImageUrl: string) =>
-      new Promise<string>((resolve) => {
+      new Promise<PreloadedPopupImage>((resolve) => {
         const image = new Image();
         image.onload = () => {
-          resolve(popupImageUrl);
+          resolve({
+            imageUrl: popupImageUrl,
+            naturalWidth: image.naturalWidth > 0 ? image.naturalWidth : null,
+          });
         };
         image.onerror = () => {
-          resolve(popupImageUrl);
+          resolve({ imageUrl: popupImageUrl, naturalWidth: null });
         };
         image.src = popupImageUrl;
       });
 
-    void Promise.all(popupImageUrls.map(preloadImage)).then((loadedImageUrls) => {
+    void Promise.all(popupImageUrls.map(preloadImage)).then((loadedImages) => {
       if (!cancelled) {
-        setPreloadedImageUrls(loadedImageUrls);
+        setPreloadedImages(loadedImages);
       }
     });
 
@@ -92,7 +116,7 @@ const GlobalNoticePopup = () => {
 
     if (
       visiblePopups.length === 0 ||
-      visiblePopups.some((popup) => !preloadedImageUrls.includes(popup.imageUrl))
+      visiblePopups.some((popup) => !preloadedImageByUrl.has(popup.imageUrl))
     ) {
       return;
     }
@@ -113,13 +137,12 @@ const GlobalNoticePopup = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [preloadedImageUrls, visiblePopups]);
+  }, [preloadedImageByUrl, visiblePopups]);
 
   if (
-    popupsQuery.isPending ||
-    popupsQuery.isError ||
+    (!isPreviewMode && (popupsQuery.isPending || popupsQuery.isError)) ||
     visiblePopups.length === 0 ||
-    visiblePopups.some((popup) => !preloadedImageUrls.includes(popup.imageUrl))
+    visiblePopups.some((popup) => !preloadedImageByUrl.has(popup.imageUrl))
   ) {
     return null;
   }
@@ -127,7 +150,7 @@ const GlobalNoticePopup = () => {
   const closePopup = (popup: PopupItem) => {
     const shouldDismissForToday = dismissSelection.popupId === popup.id && dismissSelection.checked;
 
-    if (shouldDismissForToday) {
+    if (shouldDismissForToday && !isPreviewMode) {
       dismissForToday(popup.id);
     }
 
@@ -140,6 +163,10 @@ const GlobalNoticePopup = () => {
         {visiblePopups.map((popup, index) => {
           const isDismissForTodayChecked =
             dismissSelection.popupId === popup.id && dismissSelection.checked;
+          const naturalWidth = preloadedImageByUrl.get(popup.imageUrl)?.naturalWidth ?? null;
+          const panelStyle: PopupPanelStyle | undefined = naturalWidth
+            ? { '--popup-natural-width': `${String(naturalWidth)}px` }
+            : undefined;
           return (
             <section
               aria-label={popup.altText || '홈 팝업'}
@@ -147,6 +174,7 @@ const GlobalNoticePopup = () => {
               className={styles['panel']}
               key={popup.id}
               role='dialog'
+              style={panelStyle}
             >
               <div className={styles['imageWrap']}>
                 <img

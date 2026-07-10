@@ -10,6 +10,7 @@ import { adminConsoleRouteTree } from '@/routes/router';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AdminProgramDraftDetail } from '@/types/adminProgramDrafts';
+import type { PopupItem } from '@/types/popup';
 import type { QuestionItem } from '@/types/qna';
 
 const ACTIVE_SESSION_EXPIRES_AT = '2099-01-01T00:00:00Z';
@@ -961,6 +962,176 @@ describe('AdminConsolePage', () => {
     expect(screen.queryByText('노출 우선순위')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('팝업 제목')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('팝업 본문')).not.toBeInTheDocument();
+  });
+
+  it('shows popup management buttons as the current exposure state', async () => {
+    const popups: PopupItem[] = [
+      {
+        altText: '현재 노출 팝업',
+        createdAt: '2026-07-11T00:00:00Z',
+        id: 9301,
+        imageAssetId: 8301,
+        imageUrl: 'https://cdn.example.com/popups/visible-popup.webp',
+        published: true,
+        sortOrder: 0,
+        updatedAt: '2026-07-11T00:00:00Z',
+        visibleEndAt: null,
+        visibleStartAt: null,
+      },
+      {
+        altText: '중지 팝업',
+        createdAt: '2026-07-11T00:00:00Z',
+        id: 9302,
+        imageAssetId: 8302,
+        imageUrl: 'https://cdn.example.com/popups/stopped-popup.webp',
+        published: false,
+        sortOrder: 1,
+        updatedAt: '2026-07-11T00:00:00Z',
+        visibleEndAt: null,
+        visibleStartAt: null,
+      },
+    ];
+
+    server.use(
+      http.get('*/api/v1/admin/popups', () => {
+        return HttpResponse.json({ data: popups, timestamp: '2026-07-11T00:00:00Z' });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/popups');
+
+    const visiblePopupRow = (await screen.findByText('현재 노출 팝업')).closest('tr');
+    const stoppedPopupRow = screen.getByText('중지 팝업').closest('tr');
+    expect(visiblePopupRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(stoppedPopupRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(
+      within(visiblePopupRow as HTMLTableRowElement).getByRole('button', { name: '노출' }),
+    ).toHaveAttribute('title', '클릭하면 노출을 중지합니다.');
+    expect(
+      within(stoppedPopupRow as HTMLTableRowElement).getByRole('button', { name: '중지' }),
+    ).toHaveAttribute('title', '클릭하면 노출 처리합니다.');
+
+    fireEvent.click(
+      within(visiblePopupRow as HTMLTableRowElement).getByRole('button', { name: '보기' }),
+    );
+
+    const previewDialog = await screen.findByRole('dialog', { name: '현재 노출 팝업' });
+    expect(within(previewDialog).getByRole('button', { name: '노출' })).toHaveAttribute(
+      'title',
+      '클릭하면 노출을 중지합니다.',
+    );
+  });
+
+  it('publishes up to three popups together without unpublishing existing popups', async () => {
+    let publishRequestCount = 0;
+    let unpublishRequestCount = 0;
+    let popups: PopupItem[] = Array.from({ length: 4 }, (_, index) => ({
+      altText: `${['첫', '두', '세', '네'][index]} 번째 팝업`,
+      createdAt: '2026-07-11T00:00:00Z',
+      id: 9401 + index,
+      imageAssetId: 8401 + index,
+      imageUrl: `https://cdn.example.com/popups/admin-popup-${String(index + 1)}.webp`,
+      published: index < 2,
+      sortOrder: index,
+      updatedAt: '2026-07-11T00:00:00Z',
+      visibleEndAt: null,
+      visibleStartAt: null,
+    }));
+
+    server.use(
+      http.get('*/api/v1/admin/popups', () => {
+        return HttpResponse.json({ data: popups, timestamp: '2026-07-11T00:00:00Z' });
+      }),
+      http.post('*/api/v1/admin/popups/:popupId/publish', ({ params }) => {
+        publishRequestCount += 1;
+        const popupId = Number(params['popupId']);
+        popups = popups.map((popup) =>
+          popup.id === popupId ? { ...popup, published: true } : popup,
+        );
+        return HttpResponse.json({
+          data: popups.find((popup) => popup.id === popupId),
+          timestamp: '2026-07-11T00:00:00Z',
+        });
+      }),
+      http.post('*/api/v1/admin/popups/:popupId/unpublish', () => {
+        unpublishRequestCount += 1;
+        return HttpResponse.json({ data: null, timestamp: '2026-07-11T00:00:00Z' });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/popups');
+
+    expect((await screen.findAllByText('노출중')).length).toBe(2);
+    const thirdPopupRow = screen.getByText('세 번째 팝업').closest('tr');
+    const fourthPopupRow = screen.getByText('네 번째 팝업').closest('tr');
+    expect(thirdPopupRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(fourthPopupRow).toBeInstanceOf(HTMLTableRowElement);
+    fireEvent.click(
+      within(thirdPopupRow as HTMLTableRowElement).getByRole('button', { name: '중지' }),
+    );
+    fireEvent.click(
+      within(fourthPopupRow as HTMLTableRowElement).getByRole('button', { name: '중지' }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('노출중')).toHaveLength(3);
+    });
+    expect(publishRequestCount).toBe(1);
+    expect(unpublishRequestCount).toBe(0);
+
+    fireEvent.click(
+      within(fourthPopupRow as HTMLTableRowElement).getByRole('button', { name: '중지' }),
+    );
+
+    expect(publishRequestCount).toBe(1);
+    expect(
+      useToastStore
+        .getState()
+        .toasts.some((toast) => toast.message === '동시에 노출할 수 있는 팝업은 최대 3개입니다.'),
+    ).toBe(true);
+  });
+
+  it('does not activate a scheduled published popup through editing when three are active', async () => {
+    let updateRequestCount = 0;
+    const popups: PopupItem[] = Array.from({ length: 4 }, (_, index) => ({
+      altText: `수정 상한 팝업 ${String(index + 1)}`,
+      createdAt: '2026-07-11T00:00:00Z',
+      id: 9501 + index,
+      imageAssetId: 8501 + index,
+      imageUrl: `https://cdn.example.com/popups/edit-limit-popup-${String(index + 1)}.webp`,
+      published: true,
+      sortOrder: index,
+      updatedAt: '2026-07-11T00:00:00Z',
+      visibleEndAt: null,
+      visibleStartAt: index === 3 ? '2099-01-01T00:00:00Z' : null,
+    }));
+
+    server.use(
+      http.get('*/api/v1/admin/popups', () => {
+        return HttpResponse.json({ data: popups, timestamp: '2026-07-11T00:00:00Z' });
+      }),
+      http.put('*/api/v1/admin/popups/:popupId', () => {
+        updateRequestCount += 1;
+        return HttpResponse.json({ data: popups[3], timestamp: '2026-07-11T00:00:00Z' });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/popups');
+
+    expect((await screen.findAllByText('노출중')).length).toBe(3);
+    const scheduledPopupRow = screen.getByText('수정 상한 팝업 4').closest('tr');
+    expect(scheduledPopupRow).toBeInstanceOf(HTMLTableRowElement);
+    fireEvent.click(
+      within(scheduledPopupRow as HTMLTableRowElement).getByRole('button', { name: '수정' }),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: '팝업 수정' }));
+
+    expect(updateRequestCount).toBe(0);
+    expect(
+      useToastStore
+        .getState()
+        .toasts.some((toast) => toast.message === '동시에 노출할 수 있는 팝업은 최대 3개입니다.'),
+    ).toBe(true);
   });
 
   it('renders the qna management section with pending threads first', async () => {

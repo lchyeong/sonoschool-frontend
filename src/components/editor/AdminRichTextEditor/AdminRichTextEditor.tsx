@@ -11,7 +11,6 @@ import { Extension } from '@tiptap/core';
 import Color from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
 import Highlight from '@tiptap/extension-highlight';
-import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Table } from '@tiptap/extension-table';
@@ -23,13 +22,16 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import Underline from '@tiptap/extension-underline';
 import { Selection } from '@tiptap/pm/state';
 import { findTable } from '@tiptap/pm/tables';
-import { EditorContent, useEditor } from '@tiptap/react';
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 
 import { classNames } from '@/utils/classNames';
 import { extractTextFromHtml } from '@/utils/htmlContent';
 
 import styles from './AdminRichTextEditor.module.scss';
+import NoticeImage, { insertNoticeImage } from './NoticeImage';
+import PreventNestedTable from './PreventNestedTable';
+import TableAdjacentDelete from './TableAdjacentDelete';
 
 interface UploadedImage {
   alt?: string;
@@ -162,27 +164,6 @@ const FontSize = Extension.create({
   name: 'fontSize',
 });
 
-const NoticeImage = Image.extend({
-  addAttributes() {
-    return {
-      ...(this.parent?.() ?? {}),
-      storageUrl: {
-        default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute('data-storage-url'),
-        renderHTML: (attributes: { storageUrl?: string | null }) => {
-          if (!attributes.storageUrl) {
-            return {};
-          }
-
-          return {
-            'data-storage-url': attributes.storageUrl,
-          };
-        },
-      },
-    };
-  },
-});
-
 const resolveColorValue = (value: string | null | undefined, fallback: string): string => {
   if (!value || !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) {
     return fallback;
@@ -226,6 +207,9 @@ const ToolbarButton = ({
         wide && styles['toolbarButtonWide'],
       )}
       disabled={disabled}
+      onMouseDown={(event) => {
+        event.preventDefault();
+      }}
       onClick={onClick}
       title={label}
       type='button'
@@ -266,6 +250,7 @@ const AdminRichTextEditor = ({
 }: AdminRichTextEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const editorFrameRef = useRef<HTMLDivElement | null>(null);
+  const internalImageDragRef = useRef(false);
   const tableAddPreviewHideTimerRef = useRef<number | null>(null);
   const tableMoveDragRef = useRef<TableMoveDragState | null>(null);
   const tableResizeDragRef = useRef<TableResizeDragState | null>(null);
@@ -280,10 +265,18 @@ const AdminRichTextEditor = ({
     content: value,
     extensions: [
       StarterKit.configure({
+        dropcursor: {
+          color: '#34b29f',
+          width: 3,
+        },
         heading: {
           levels: [1, 2, 3],
         },
         link: false,
+        trailingNode: {
+          node: 'paragraph',
+          notAfter: ['paragraph'],
+        },
         underline: false,
       }),
       Placeholder.configure({
@@ -306,6 +299,13 @@ const AdminRichTextEditor = ({
       }),
       NoticeImage.configure({
         allowBase64: false,
+        resize: {
+          alwaysPreserveAspectRatio: true,
+          directions: ['bottom-left', 'bottom-right'],
+          enabled: true,
+          minHeight: 48,
+          minWidth: 80,
+        },
       }),
       Table.configure({
         resizable: true,
@@ -313,12 +313,19 @@ const AdminRichTextEditor = ({
       TableRow,
       TableHeader,
       TableCell,
+      TableAdjacentDelete,
+      PreventNestedTable,
     ],
     immediatelyRender: false,
     onUpdate: ({ editor: currentEditor }) => {
       onChange(currentEditor.getHTML());
     },
   });
+  const isSelectionInsideTable =
+    useEditorState({
+      editor,
+      selector: ({ editor: currentEditor }) => currentEditor?.isActive('table') ?? false,
+    }) ?? false;
 
   useEffect(() => {
     if (!editor) {
@@ -859,7 +866,7 @@ const AdminRichTextEditor = ({
     resolveEditorAttribute(highlightAttributes, 'color'),
     DEFAULT_HIGHLIGHT_COLOR,
   );
-
+  // OG 링크 미리보기와 새 링크 입력 패널은 보류하고 기존 prompt 방식을 유지합니다.
   const handleLinkClick = () => {
     if (!editor) {
       return;
@@ -906,18 +913,11 @@ const AdminRichTextEditor = ({
     try {
       for (const file of files) {
         const uploadedImage = await onImageUpload(file);
-        editor
-          .chain()
-          .focus()
-          .insertContent({
-            attrs: {
-              alt: uploadedImage.alt ?? file.name,
-              src: uploadedImage.url,
-              storageUrl: uploadedImage.storageUrl ?? null,
-            },
-            type: 'image',
-          })
-          .run();
+        insertNoticeImage(editor, {
+          alt: uploadedImage.alt ?? file.name,
+          src: uploadedImage.url,
+          storageUrl: uploadedImage.storageUrl ?? null,
+        });
       }
     } catch (error: unknown) {
       setUploadErrorMessage(
@@ -935,6 +935,10 @@ const AdminRichTextEditor = ({
   };
 
   const handleEditorDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (internalImageDragRef.current) {
+      return;
+    }
+
     const hasFile = Array.from(event.dataTransfer.items).some((item) => item.kind === 'file');
 
     if (!hasFile || !onImageUpload || isUploadingImage) {
@@ -946,6 +950,13 @@ const AdminRichTextEditor = ({
   };
 
   const handleEditorDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+    const isInternalImageMove = internalImageDragRef.current;
+    internalImageDragRef.current = false;
+
+    if (isInternalImageMove) {
+      return;
+    }
+
     const files = Array.from(event.dataTransfer.files);
 
     if (files.length === 0 || !onImageUpload || isUploadingImage) {
@@ -1197,13 +1208,14 @@ const AdminRichTextEditor = ({
               {isUploadingImage ? '업로드 중' : '이미지'}
             </ToolbarButton>
             <ToolbarButton
-              label='표 넣기'
+              disabled={isSelectionInsideTable}
+              label={isSelectionInsideTable ? '표 안에는 표를 넣을 수 없습니다' : '표 넣기'}
               onClick={() => {
-                editor
-                  ?.chain()
-                  .focus()
-                  .insertTable({ cols: 3, rows: 3, withHeaderRow: true })
-                  .run();
+                if (!editor || editor.isActive('table')) {
+                  return;
+                }
+
+                editor.chain().focus().insertTable({ cols: 3, rows: 3, withHeaderRow: true }).run();
               }}
               wide
             >
@@ -1214,7 +1226,16 @@ const AdminRichTextEditor = ({
 
         <div
           className={styles['editor']}
+          onDragEnd={() => {
+            internalImageDragRef.current = false;
+          }}
           onDragOver={handleEditorDragOver}
+          onDragStart={(event) => {
+            const target = event.target instanceof Element ? event.target : null;
+            internalImageDragRef.current = Boolean(
+              target?.closest('[data-resize-container][data-node="image"], img'),
+            );
+          }}
           onDrop={handleEditorDrop}
           onMouseLeave={() => {
             clearTableAddPreviewHideTimer();

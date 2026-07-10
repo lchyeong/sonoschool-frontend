@@ -3,10 +3,14 @@ import Button from '@/components/ui/Button/Button';
 import type { PopupItem } from '@/types/popup';
 
 import styles from './AdminConsolePage.module.scss';
-import { formatVisibilityWindow } from './adminPopupUtils';
+import {
+  formatVisibilityWindow,
+  getPopupManagementStatusLabel,
+  isPopupVisibleNow,
+} from './adminPopupUtils';
 
 interface AdminPopupPreviewModalProps {
-  currentDisplayPopupId: number | null;
+  displayedPopupIds: readonly number[];
   isPublishPending: boolean;
   isUnpublishPending: boolean;
   onClose: () => void;
@@ -17,7 +21,7 @@ interface AdminPopupPreviewModalProps {
 }
 
 const AdminPopupPreviewModal = ({
-  currentDisplayPopupId,
+  displayedPopupIds,
   isPublishPending,
   isUnpublishPending,
   onClose,
@@ -26,12 +30,23 @@ const AdminPopupPreviewModal = ({
   onUnpublish,
   popup,
 }: AdminPopupPreviewModalProps) => {
+  const isDisplayedPopup = displayedPopupIds.includes(popup.id);
+  const isOverDisplayLimit = isPopupVisibleNow(popup) && !isDisplayedPopup;
+
   return (
-    <Modal onClose={onClose} size='lg' title={popup.altText || '팝업 미리보기'}>
+    <Modal
+      onClose={onClose}
+      overlayClassName={styles['popupPreviewModalOverlay']}
+      panelClassName={styles['popupPreviewModalPanel']}
+      size='lg'
+      title={popup.altText || '팝업 미리보기'}
+    >
       <div className={styles['popupPreviewModalBody']}>
         <div className={styles['metaRow']}>
-          {currentDisplayPopupId === popup.id ? (
+          {isDisplayedPopup ? (
             <span className={styles['badgeSuccess']}>노출중</span>
+          ) : isOverDisplayLimit ? (
+            <span className={styles['badge']}>노출 한도 초과</span>
           ) : popup.published ? (
             <span className={styles['badge']}>예약/기간 외</span>
           ) : (
@@ -70,10 +85,11 @@ const AdminPopupPreviewModal = ({
                 onUnpublish(popup.id);
               }}
               size='sm'
+              title='클릭하면 노출을 중지합니다.'
               type='button'
               variant='secondary'
             >
-              중지
+              {getPopupManagementStatusLabel(popup)}
             </Button>
           ) : (
             <Button
@@ -82,9 +98,10 @@ const AdminPopupPreviewModal = ({
                 onPublish(popup.id);
               }}
               size='sm'
+              title='클릭하면 노출 처리합니다.'
               type='button'
             >
-              노출
+              {getPopupManagementStatusLabel(popup)}
             </Button>
           )}
         </div>

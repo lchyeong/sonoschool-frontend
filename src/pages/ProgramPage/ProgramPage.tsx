@@ -7,14 +7,19 @@ import { useProgramPageQuery } from '@/query/useProgramPageQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import type { ProgramLectureCard } from '@/types/programCatalog';
 import { classNames } from '@/utils/classNames';
-import { resolveProgramCatalogStatus } from '@/utils/programCatalogStatus';
 
 import { ProgramArchiveLectureCardItem, ProgramBreadcrumbs } from './programCatalogShared';
+import {
+  classifyProgramHubLecture,
+  getProgramRecruitmentEndTime,
+  getProgramRecruitmentStartTime,
+  parseProgramDateTime,
+  type ProgramHubLectureCategory,
+  type ProgramHubLectureTabKey,
+} from './programHubLectureClassification';
 import styles from './ProgramPage.module.scss';
 import ProgramPageDetail from './ProgramPageDetail';
 import { useProgramCatalogActions } from './useProgramCatalogActions';
-
-type ProgramHubLectureTabKey = 'all' | 'recruiting' | 'alwaysRecruiting' | 'closed';
 
 interface IndexedProgramLecture {
   item: ProgramLectureCard;
@@ -25,6 +30,7 @@ interface ProgramHubLectureTabState {
   activeTab: ProgramHubLectureTabKey;
   nowTime: number;
   pathname: string;
+  userSelected: boolean;
 }
 
 const DEFAULT_PROGRAM_HUB_LECTURE_TAB: ProgramHubLectureTabKey = 'recruiting';
@@ -37,6 +43,7 @@ const PROGRAM_HUB_LECTURE_TABS: Array<{
   { key: 'all', label: '전체' },
   { key: 'recruiting', label: '모집 중' },
   { key: 'alwaysRecruiting', label: '상시 모집 중' },
+  { key: 'scheduled', label: '모집 예정' },
   { key: 'closed', label: '신청 마감' },
 ];
 
@@ -56,108 +63,14 @@ const PROGRAM_HUB_EMPTY_MESSAGES: Record<
     title: '현재 상시 모집 중인 과정이 없습니다.',
     description: '모집 중 탭에서 일정이 열린 과정을 확인해 주세요.',
   },
+  scheduled: {
+    title: '현재 모집 예정인 과정이 없습니다.',
+    description: '모집 중 또는 상시 모집 중인 과정을 확인해 주세요.',
+  },
   closed: {
-    title: '현재 신청 마감된 진행 과정이 없습니다.',
+    title: '현재 신청이 마감된 과정이 없습니다.',
     description: '모집 중인 과정 또는 전체 과정을 확인해 주세요.',
   },
-};
-
-const parseDateTime = (value: string | null | undefined): number | null => {
-  if (!value) {
-    return null;
-  }
-
-  const time = new Date(value).getTime();
-
-  return Number.isNaN(time) ? null : time;
-};
-
-const parseScheduleLabelEndTime = (scheduleLabel: string): number | null => {
-  const matches = [...scheduleLabel.matchAll(/(\d{4})\.(\d{2})(?:\.(\d{2}))?/g)];
-  const lastMatch = matches.at(-1);
-
-  if (!lastMatch) {
-    return null;
-  }
-
-  const year = Number(lastMatch[1]);
-  const month = Number(lastMatch[2]);
-  const day = lastMatch[3] ? Number(lastMatch[3]) : new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const time = Date.UTC(year, month - 1, day, 23, 59, 59, 999);
-
-  return Number.isNaN(time) ? null : time;
-};
-
-const hasRecruitmentPeriod = (lecture: ProgramLectureCard): boolean => {
-  if (lecture.saleStartAt || lecture.saleEndAt) {
-    return true;
-  }
-
-  return (
-    !lecture.scheduleLabel.includes('상시') &&
-    parseScheduleLabelEndTime(lecture.scheduleLabel) !== null
-  );
-};
-
-const isAlwaysRecruitingLecture = (lecture: ProgramLectureCard): boolean => {
-  return (
-    resolveProgramCatalogStatus(lecture) === 'OPEN' &&
-    !lecture.saleStartAt &&
-    !lecture.saleEndAt &&
-    lecture.scheduleLabel.includes('상시')
-  );
-};
-
-const isRecruitingLecture = (lecture: ProgramLectureCard, nowTime: number): boolean => {
-  if (resolveProgramCatalogStatus(lecture) !== 'OPEN' || !hasRecruitmentPeriod(lecture)) {
-    return false;
-  }
-
-  const saleStartTime = parseDateTime(lecture.saleStartAt);
-  const saleEndTime = parseDateTime(lecture.saleEndAt);
-
-  if (saleStartTime !== null && nowTime < saleStartTime) {
-    return false;
-  }
-
-  if (saleEndTime !== null && nowTime > saleEndTime) {
-    return false;
-  }
-
-  return !isAlwaysRecruitingLecture(lecture);
-};
-
-const isLearningOngoing = (lecture: ProgramLectureCard, nowTime: number): boolean => {
-  const catalogStatus = resolveProgramCatalogStatus(lecture);
-  const learningStartTime = parseDateTime(lecture.learningStartAt);
-  const learningEndTime = parseDateTime(lecture.learningEndAt);
-
-  if (learningStartTime === null && learningEndTime === null) {
-    return catalogStatus === 'STARTED';
-  }
-
-  if (learningStartTime !== null && nowTime < learningStartTime) {
-    return false;
-  }
-
-  if (learningEndTime !== null && nowTime > learningEndTime) {
-    return false;
-  }
-
-  return true;
-};
-
-const isClosedOngoingLecture = (lecture: ProgramLectureCard, nowTime: number): boolean => {
-  const catalogStatus = resolveProgramCatalogStatus(lecture);
-
-  return (
-    (catalogStatus === 'CLOSED' || catalogStatus === 'STARTED') &&
-    isLearningOngoing(lecture, nowTime)
-  );
-};
-
-const getRecruitmentEndTime = (lecture: ProgramLectureCard): number | null => {
-  return parseDateTime(lecture.saleEndAt) ?? parseScheduleLabelEndTime(lecture.scheduleLabel);
 };
 
 const compareNullableTimeAscending = (left: number | null, right: number | null): number => {
@@ -181,19 +94,31 @@ const sortByRecruitmentDeadline = (
   right: IndexedProgramLecture,
 ): number => {
   const deadlineDiff = compareNullableTimeAscending(
-    getRecruitmentEndTime(left.item),
-    getRecruitmentEndTime(right.item),
+    getProgramRecruitmentEndTime(left.item),
+    getProgramRecruitmentEndTime(right.item),
   );
 
   return deadlineDiff === 0 ? left.originalIndex - right.originalIndex : deadlineDiff;
 };
 
 const sortByLatestCreated = (left: IndexedProgramLecture, right: IndexedProgramLecture): number => {
-  const leftCreatedTime = parseDateTime(left.item.createdAt);
-  const rightCreatedTime = parseDateTime(right.item.createdAt);
+  const leftCreatedTime = parseProgramDateTime(left.item.createdAt);
+  const rightCreatedTime = parseProgramDateTime(right.item.createdAt);
   const createdDiff = compareNullableTimeAscending(rightCreatedTime, leftCreatedTime);
 
   return createdDiff === 0 ? left.originalIndex - right.originalIndex : createdDiff;
+};
+
+const sortByRecruitmentStart = (
+  left: IndexedProgramLecture,
+  right: IndexedProgramLecture,
+): number => {
+  const startDiff = compareNullableTimeAscending(
+    getProgramRecruitmentStartTime(left.item),
+    getProgramRecruitmentStartTime(right.item),
+  );
+
+  return startDiff === 0 ? left.originalIndex - right.originalIndex : startDiff;
 };
 
 const filterLecturesByTab = (
@@ -207,23 +132,39 @@ const filterLecturesByTab = (
     return indexedLectures.map((lecture) => lecture.item);
   }
 
-  const filteredLectures = indexedLectures.filter((lecture) => {
-    if (activeTab === 'recruiting') {
-      return isRecruitingLecture(lecture.item, nowTime);
-    }
-
-    if (activeTab === 'alwaysRecruiting') {
-      return isAlwaysRecruitingLecture(lecture.item);
-    }
-
-    return isClosedOngoingLecture(lecture.item, nowTime);
-  });
-
-  const sortedLectures = [...filteredLectures].sort(
-    activeTab === 'recruiting' ? sortByRecruitmentDeadline : sortByLatestCreated,
+  const filteredLectures = indexedLectures.filter(
+    (lecture) => classifyProgramHubLecture(lecture.item, nowTime) === activeTab,
   );
 
+  const sortLectures =
+    activeTab === 'recruiting'
+      ? sortByRecruitmentDeadline
+      : activeTab === 'scheduled'
+        ? sortByRecruitmentStart
+        : sortByLatestCreated;
+  const sortedLectures = [...filteredLectures].sort(sortLectures);
+
   return sortedLectures.map((lecture) => lecture.item);
+};
+
+const resolveDefaultLectureTab = (
+  lectures: readonly ProgramLectureCard[],
+  nowTime: number,
+): ProgramHubLectureTabKey => {
+  const tabPriority: ProgramHubLectureCategory[] = [
+    'recruiting',
+    'alwaysRecruiting',
+    'scheduled',
+    'closed',
+  ];
+
+  for (const tab of tabPriority) {
+    if (lectures.some((lecture) => classifyProgramHubLecture(lecture, nowTime) === tab)) {
+      return tab;
+    }
+  }
+
+  return DEFAULT_PROGRAM_HUB_LECTURE_TAB;
 };
 
 const ProgramPage = () => {
@@ -235,15 +176,19 @@ const ProgramPage = () => {
     activeTab: DEFAULT_PROGRAM_HUB_LECTURE_TAB,
     nowTime: new Date().getTime(),
     pathname: location.pathname,
+    userSelected: false,
   }));
-  const activeLectureTab =
-    lectureTabState.pathname === location.pathname
-      ? lectureTabState.activeTab
-      : DEFAULT_PROGRAM_HUB_LECTURE_TAB;
   const lectureTabNowTime = lectureTabState.nowTime;
   const collectionLectures = useMemo(() => {
     return data?.pageKind === 'collection' ? data.lectures : EMPTY_PROGRAM_LECTURES;
   }, [data]);
+  const defaultLectureTab = useMemo(() => {
+    return resolveDefaultLectureTab(collectionLectures, lectureTabNowTime);
+  }, [collectionLectures, lectureTabNowTime]);
+  const activeLectureTab =
+    lectureTabState.pathname === location.pathname && lectureTabState.userSelected
+      ? lectureTabState.activeTab
+      : defaultLectureTab;
   const visibleLectures = useMemo(() => {
     return filterLecturesByTab(collectionLectures, activeLectureTab, lectureTabNowTime);
   }, [activeLectureTab, collectionLectures, lectureTabNowTime]);
@@ -349,6 +294,7 @@ const ProgramPage = () => {
                       activeTab: tab.key,
                       nowTime: new Date().getTime(),
                       pathname: location.pathname,
+                      userSelected: true,
                     });
                   }}
                   role='tab'

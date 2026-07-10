@@ -59,6 +59,10 @@ export const buildPopupLabelFromFilename = (filename: string): string => {
   return filename.replace(/\.[^.]+$/, '').trim() || '홈 팝업';
 };
 
+export const getPopupManagementStatusLabel = (popup: PopupItem): '노출' | '중지' => {
+  return popup.published ? '노출' : '중지';
+};
+
 export const formatVisibilityWindow = (popup: PopupItem): string => {
   if (!popup.visibleStartAt && !popup.visibleEndAt) {
     return '상시 노출';

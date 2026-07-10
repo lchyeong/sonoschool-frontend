@@ -5,8 +5,9 @@ import { fetchAdminPopups, fetchGlobalPopups } from '@/api/popups';
 export const globalPopupsQueryKey = () => ['globalPopups'] as const;
 export const adminPopupsQueryKey = () => ['adminPopups'] as const;
 
-export const useGlobalPopupsQuery = () => {
+export const useGlobalPopupsQuery = (enabled = true) => {
   return useQuery({
+    enabled,
     gcTime: 30 * 60 * 1000,
     queryFn: () => fetchGlobalPopups(),
     queryKey: globalPopupsQueryKey(),

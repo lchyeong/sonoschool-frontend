@@ -1419,8 +1419,11 @@ export const handlers = [
   http.get('*/api/v1/notices', () => {
     return HttpResponse.json(createApiEnvelope(getMockPublishedGlobalNotices()));
   }),
+  http.get('*/api/v1/popups/active', () => {
+    return HttpResponse.json(createApiEnvelope(getMockPublishedGlobalPopups().slice(0, 3)));
+  }),
   http.get('*/api/v1/popups', () => {
-    return HttpResponse.json(createApiEnvelope(getMockPublishedGlobalPopups()));
+    return HttpResponse.json(createApiEnvelope(getMockPublishedGlobalPopups().at(0) ?? null));
   }),
   http.get('*/api/v1/qna', () => {
     return HttpResponse.json(createApiEnvelope(getMockGlobalQuestions()));

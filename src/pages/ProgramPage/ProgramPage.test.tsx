@@ -1,13 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { getMockProgramPage } from '@/mocks/data/programCatalog';
+import { server } from '@/mocks/server';
 import CartPage from '@/pages/CartPage/CartPage';
 import CheckoutPage from '@/pages/CheckoutPage/CheckoutPage';
 import ProgramPage from '@/pages/ProgramPage/ProgramPage';
 import { clearStudentSession, setStudentSession } from '@/stores/useAuthStore';
 import { resetCartSelectionState } from '@/stores/useCartSelectionStore';
+import type { ProgramLectureCard } from '@/types/programCatalog';
 
 const createTestQueryClient = () => {
   return new QueryClient({
@@ -95,6 +99,36 @@ const getLectureCountText = (count: number) => {
   });
 };
 
+const createAlwaysRecruitingLecture = (baseLecture: ProgramLectureCard): ProgramLectureCard => {
+  return {
+    ...baseLecture,
+    catalogStatus: 'OPEN',
+    id: 'always-recruiting-only-lecture',
+    programId: 99001,
+    saleEndAt: null,
+    saleStartAt: null,
+    scheduleLabel: '온라인 상시 수강',
+    title: '상시 모집 테스트 과정',
+    to: '/programs/always-recruiting-only/detail',
+  };
+};
+
+const createClassifiedLecture = (
+  baseLecture: ProgramLectureCard,
+  id: number,
+  title: string,
+  overrides: Partial<ProgramLectureCard>,
+): ProgramLectureCard => {
+  return {
+    ...baseLecture,
+    ...overrides,
+    id: `classified-lecture-${String(id)}`,
+    programId: 99_000 + id,
+    title,
+    to: `/programs/classified-lecture-${String(id)}/detail`,
+  };
+};
+
 afterEach(() => {
   cleanup();
   clearStudentSession();
@@ -110,6 +144,7 @@ describe('ProgramPage', () => {
     expect(screen.getByText('SONO SCHOOL')).toBeInTheDocument();
     expect(screen.queryByText('세부 과정')).toBeNull();
     expect(screen.queryByRole('link', { name: '복부과정' })).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: '전체' }));
     expect(screen.getAllByRole('link', { name: '복부 Basic 스캔 6주' }).length).toBeGreaterThan(0);
   });
 
@@ -199,9 +234,6 @@ describe('ProgramPage', () => {
       'page',
     );
     expect(within(heading.closest('section') as HTMLElement).queryByText('복부과정')).toBeNull();
-    expect(screen.getByRole('tab', { name: '모집 중' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: '전체' })).toHaveAttribute('aria-selected', 'false');
-    expect(getLectureCountText(1)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '전체' }));
 
@@ -209,6 +241,126 @@ describe('ProgramPage', () => {
     expect(screen.getByText('2026.03.01 - 2026.04.30 진행')).toBeInTheDocument();
     expect(screen.getByText('2026.05.01 - 2026.06.30 진행')).toBeInTheDocument();
     expect(screen.getByText('2026.09.01 - 2026.10.31 진행')).toBeInTheDocument();
+  });
+
+  it('uses the always recruiting tab by default when there are no regular recruiting lectures', async () => {
+    const basePage = getMockProgramPage('/programs/general-course/abdomen/abdomen-basic-6-weeks');
+
+    if (!basePage || basePage.pageKind !== 'collection' || basePage.lectures.length === 0) {
+      throw new Error('Expected a collection page with lectures for the default tab test.');
+    }
+
+    server.use(
+      http.get('*/api/v1/program-pages/page', () => {
+        return HttpResponse.json({
+          ...basePage,
+          lectures: [createAlwaysRecruitingLecture(basePage.lectures[0])],
+        });
+      }),
+    );
+
+    renderProgramPage('/programs/general-course/abdomen/abdomen-basic-6-weeks');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '복부 Basic 스캔 6주' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '상시 모집 중' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('tab', { name: '모집 중' })).toHaveAttribute('aria-selected', 'false');
+    expect(getLectureCountText(1)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '상시 모집 테스트 과정' })).toBeInTheDocument();
+  });
+
+  it('assigns every lecture to exactly one recruitment-status tab', async () => {
+    const basePage = getMockProgramPage('/programs/general-course/abdomen/abdomen-basic-6-weeks');
+
+    if (!basePage || basePage.pageKind !== 'collection' || basePage.lectures.length === 0) {
+      throw new Error('Expected a collection page with lectures for the classification test.');
+    }
+
+    const baseLecture = basePage.lectures[0];
+    const pastTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const futureTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const lectures = [
+      createClassifiedLecture(baseLecture, 1, '기간 모집 강의', {
+        catalogStatus: 'OPEN',
+        saleEndAt: futureTime,
+        saleStartAt: pastTime,
+        scheduleLabel: '기간 모집',
+      }),
+      createClassifiedLecture(baseLecture, 2, '상시 모집 강의', {
+        catalogStatus: 'OPEN',
+        saleEndAt: null,
+        saleStartAt: null,
+        scheduleLabel: '상시 모집',
+      }),
+      createClassifiedLecture(baseLecture, 3, '모집 예정 강의', {
+        catalogStatus: 'SCHEDULED',
+        saleEndAt: null,
+        saleStartAt: futureTime,
+        scheduleLabel: '모집 예정',
+      }),
+      createClassifiedLecture(baseLecture, 4, '운영 종료된 신청 마감 강의', {
+        catalogStatus: 'CLOSED',
+        learningEndAt: pastTime,
+        saleEndAt: pastTime,
+      }),
+      createClassifiedLecture(baseLecture, 5, '진행 중인 신청 마감 강의', {
+        catalogStatus: 'STARTED',
+        learningEndAt: futureTime,
+        saleEndAt: pastTime,
+      }),
+      createClassifiedLecture(baseLecture, 6, '과정 종료 강의', {
+        catalogStatus: 'ENDED',
+        learningEndAt: pastTime,
+        saleEndAt: pastTime,
+      }),
+      createClassifiedLecture(baseLecture, 7, '정원 마감 강의', {
+        catalogStatus: 'FULL',
+        saleEndAt: null,
+        saleStartAt: null,
+      }),
+      createClassifiedLecture(baseLecture, 8, '종료일이 지난 OPEN 강의', {
+        catalogStatus: 'OPEN',
+        saleEndAt: pastTime,
+        saleStartAt: null,
+      }),
+    ];
+
+    server.use(
+      http.get('*/api/v1/program-pages/page', () => {
+        return HttpResponse.json({ ...basePage, lectures });
+      }),
+    );
+
+    renderProgramPage('/programs/general-course/abdomen/abdomen-basic-6-weeks');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '복부 Basic 스캔 6주' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '모집 중' })).toHaveAttribute('aria-selected', 'true');
+    expect(getLectureCountText(1)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '상시 모집 중' }));
+    expect(getLectureCountText(1)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '상시 모집 강의' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '모집 예정' }));
+    expect(getLectureCountText(1)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '모집 예정 강의' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '신청 마감' }));
+    expect(getLectureCountText(5)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '운영 종료된 신청 마감 강의' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '진행 중인 신청 마감 강의' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '과정 종료 강의' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '정원 마감 강의' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '종료일이 지난 OPEN 강의' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '전체' }));
+    expect(getLectureCountText(8)).toBeInTheDocument();
   });
 
   it('keeps single-lecture hubs as hub pages until the detail child is opened', async () => {

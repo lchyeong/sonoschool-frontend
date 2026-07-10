@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -58,7 +58,7 @@ describe('GlobalNoticePopup', () => {
     const popup = createPopup();
 
     server.use(
-      http.get('*/api/v1/popups', () => {
+      http.get('*/api/v1/popups/active', () => {
         return HttpResponse.json({
           data: [popup],
           timestamp: '2026-05-04T00:00:00Z',
@@ -90,7 +90,7 @@ describe('GlobalNoticePopup', () => {
     );
 
     server.use(
-      http.get('*/api/v1/popups', () => {
+      http.get('*/api/v1/popups/active', () => {
         return HttpResponse.json({
           data: popups,
           timestamp: '2026-05-04T00:00:00Z',
@@ -117,5 +117,65 @@ describe('GlobalNoticePopup', () => {
       popups[2].imageUrl,
     );
     expect(screen.queryByRole('img', { name: '커스텀 팝업 이미지 4' })).not.toBeInTheDocument();
+  });
+
+  it('shows the next popup after one of the first three is closed', async () => {
+    const popups = Array.from({ length: 4 }, (_, index) =>
+      createPopup({
+        altText: `순차 팝업 이미지 ${String(index + 1)}`,
+        id: 9200 + index,
+        imageAssetId: 7200 + index,
+        imageUrl: `https://cdn.example.com/popups/sequential-popup-${String(index + 1)}.webp`,
+        sortOrder: index,
+      }),
+    );
+
+    server.use(
+      http.get('*/api/v1/popups/active', () => {
+        return HttpResponse.json({
+          data: popups,
+          timestamp: '2026-05-04T00:00:00Z',
+        });
+      }),
+    );
+
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <GlobalNoticePopup />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('img', { name: '순차 팝업 이미지 1' })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: '닫기' })[0]);
+
+    expect(await screen.findByRole('img', { name: '순차 팝업 이미지 4' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: '순차 팝업 이미지 1' })).not.toBeInTheDocument();
+  });
+
+  it('falls back to the legacy single-popup endpoint during a rolling deployment', async () => {
+    const popup = createPopup({ id: 9301 });
+
+    server.use(
+      http.get('*/api/v1/popups/active', () => {
+        return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+      }),
+      http.get('*/api/v1/popups', () => {
+        return HttpResponse.json({
+          data: popup,
+          timestamp: '2026-05-04T00:00:00Z',
+        });
+      }),
+    );
+
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <GlobalNoticePopup />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('img', { name: popup.altText })).toHaveAttribute(
+      'src',
+      popup.imageUrl,
+    );
   });
 });

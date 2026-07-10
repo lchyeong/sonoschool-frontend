@@ -2,10 +2,15 @@ import Button from '@/components/ui/Button/Button';
 import type { PopupItem } from '@/types/popup';
 
 import styles from './AdminConsolePage.module.scss';
-import { formatVisibilityWindow } from './adminPopupUtils';
+import {
+  formatVisibilityWindow,
+  getPopupManagementStatusLabel,
+  isPopupVisibleNow,
+} from './adminPopupUtils';
 
 interface AdminPopupTableProps {
-  currentDisplayPopupId: number | null;
+  displayedPopupIds: readonly number[];
+  isPublishPending: boolean;
   onDelete: (popupId: number) => void;
   onEdit: (popup: PopupItem) => void;
   onPreview: (popupId: number) => void;
@@ -16,7 +21,8 @@ interface AdminPopupTableProps {
 }
 
 const AdminPopupTable = ({
-  currentDisplayPopupId,
+  displayedPopupIds,
+  isPublishPending,
   onDelete,
   onEdit,
   onPreview,
@@ -49,7 +55,8 @@ const AdminPopupTable = ({
             </thead>
             <tbody>
               {popups.map((popup) => {
-                const isCurrentDisplayPopup = currentDisplayPopupId === popup.id;
+                const isDisplayedPopup = displayedPopupIds.includes(popup.id);
+                const isOverDisplayLimit = isPopupVisibleNow(popup) && !isDisplayedPopup;
 
                 return (
                   <tr key={popup.id}>
@@ -59,8 +66,10 @@ const AdminPopupTable = ({
                           <span className={styles['cellPrimary']}>
                             {popup.altText || '홈 팝업'}
                           </span>
-                          {isCurrentDisplayPopup ? (
+                          {isDisplayedPopup ? (
                             <span className={styles['badgeSuccess']}>노출중</span>
+                          ) : isOverDisplayLimit ? (
+                            <span className={styles['badge']}>노출 한도 초과</span>
                           ) : popup.published ? (
                             <span className={styles['badge']}>예약/기간 외</span>
                           ) : (
@@ -98,19 +107,22 @@ const AdminPopupTable = ({
                             onClick={() => {
                               onUnpublish(popup.id);
                             }}
+                            title='클릭하면 노출을 중지합니다.'
                             type='button'
                           >
-                            중지
+                            {getPopupManagementStatusLabel(popup)}
                           </button>
                         ) : (
                           <button
                             className={styles['tableActionButton']}
+                            disabled={isPublishPending}
                             onClick={() => {
                               onPublish(popup.id);
                             }}
+                            title='클릭하면 노출 처리합니다.'
                             type='button'
                           >
-                            노출
+                            {getPopupManagementStatusLabel(popup)}
                           </button>
                         )}
                         <button

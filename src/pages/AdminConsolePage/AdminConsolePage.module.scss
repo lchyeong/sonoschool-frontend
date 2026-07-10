@@ -1962,13 +1962,37 @@
   object-fit: contain;
 }
 
+.popupPreviewModalOverlay.popupPreviewModalOverlay {
+  place-items: start;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.popupPreviewModalPanel.popupPreviewModalPanel {
+  width: max-content;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+}
+
 .popupPreviewModalBody {
   display: grid;
+  width: max-content;
+  max-width: none;
   gap: var(--space-4);
 }
 
+.popupPreviewModalBody .thumbnailPreview {
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+}
+
 .popupPreviewModalBody .thumbnailPreviewImage {
-  max-height: min(68vh, 720px);
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
 }
 
 .popupDateRangeField {

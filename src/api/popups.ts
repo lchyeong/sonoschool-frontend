@@ -1,5 +1,5 @@
 import axiosInstance from '@/api/axiosInstance';
-import { toApiError } from '@/api/errors';
+import { ApiError, toApiError } from '@/api/errors';
 import { http } from '@/api/http';
 import type { ApiEnvelope } from '@/types/auth';
 import type { AdminPopupCreatePayload, AdminPopupUpdatePayload, PopupItem } from '@/types/popup';
@@ -32,7 +32,17 @@ const normalizePopupUpdatePayload = (
 
 export const fetchGlobalPopups = async (): Promise<PopupItem[]> => {
   try {
-    const response = await http.get<PopupItem | PopupItem[] | null>('/api/v1/popups');
+    let response: PopupItem | PopupItem[] | null;
+
+    try {
+      response = await http.get<PopupItem[]>('/api/v1/popups/active');
+    } catch (error: unknown) {
+      if (!(error instanceof ApiError) || error.status !== 404) {
+        throw error;
+      }
+
+      response = await http.get<PopupItem | null>('/api/v1/popups');
+    }
 
     if (Array.isArray(response)) {
       return response.map(sanitizePopupItem).filter((popup) => popup.imageUrl);
@@ -45,6 +55,10 @@ export const fetchGlobalPopups = async (): Promise<PopupItem[]> => {
     const popup = sanitizePopupItem(response);
     return popup.imageUrl ? [popup] : [];
   } catch (error: unknown) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
     throw toApiError(error, '팝업 목록을 불러오지 못했습니다.');
   }
 };
