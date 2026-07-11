@@ -529,6 +529,8 @@ describe('ProgramPage', () => {
 
     const dialog = await screen.findByRole('dialog', { name: '예약 문의하기' });
 
+    expect(within(dialog).getByLabelText('이름')).toHaveValue('');
+
     fireEvent.change(within(dialog).getByLabelText('이름'), {
       target: { value: '비회원 신청자' },
     });
@@ -629,6 +631,37 @@ describe('ProgramPage', () => {
       screen.getByText('접수 순서와 운영 일정에 따라 안내까지 시간이 걸릴 수 있습니다.'),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('문의 내용')).not.toBeInTheDocument();
+  });
+
+  it('uses the authenticated member name as the reservation inquiry default name', async () => {
+    setStudentSession({
+      accessToken: 'test-token',
+      displayName: 'student01',
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      loginId: 'student01',
+      role: 'ROLE_STUDENT',
+      tokenType: 'Bearer',
+    });
+
+    renderProgramAndCartRoutes(
+      '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail',
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: '산과 1삼분기 스캔 4주' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(screen.getByRole('complementary')).getByRole('button', {
+        name: '예약하기',
+      }),
+    );
+
+    const dialog = await screen.findByRole('dialog', { name: '예약 문의하기' });
+
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText('이름')).toHaveValue('홍길동');
+    });
   });
 
   it('상세 가격 카드에서 신청 상태와 잔여석을 분리해서 보여준다', async () => {

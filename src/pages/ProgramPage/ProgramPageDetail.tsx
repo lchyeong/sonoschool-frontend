@@ -11,7 +11,12 @@ import {
 import closeIconSrc from '@/assets/icons/lucide_x.svg';
 import CartAddedModal from '@/components/cart/CartAddedModal/CartAddedModal';
 import Modal from '@/components/overlay/Modal/Modal';
-import { myCartQueryKey, useMyCartQuery, useMyEnrollmentsQuery } from '@/query/useMyPageQueries';
+import {
+  myCartQueryKey,
+  useMyCartQuery,
+  useMyEnrollmentsQuery,
+  useMyProfileQuery,
+} from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCartSelectionStore } from '@/stores/useCartSelectionStore';
@@ -186,10 +191,11 @@ const ProgramReservationInquiryModal = ({
   onClose,
   onSubmit,
 }: ProgramReservationInquiryModalProps) => {
-  const [applicantName, setApplicantName] = useState(defaultName);
+  const [editedApplicantName, setEditedApplicantName] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const applicantName = editedApplicantName ?? defaultName;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -240,7 +246,7 @@ const ProgramReservationInquiryModal = ({
             autoComplete='name'
             className={styles['reservationInput']}
             onChange={(event) => {
-              setApplicantName(event.target.value);
+              setEditedApplicantName(event.target.value);
             }}
             placeholder='이름을 입력해주세요.'
             value={applicantName}
@@ -316,6 +322,10 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   const cartScope = resolveCartQueryScope(isAuthenticated);
   const cartQuery = useMyCartQuery();
   const enrollmentsQuery = useMyEnrollmentsQuery(isAuthenticated && programId > 0);
+  const profileQuery = useMyProfileQuery(isAuthenticated && isReservationModalOpen);
+  const reservationDefaultName = isAuthenticated
+    ? profileQuery.data?.name.trim() || displayName
+    : '';
   const {
     activeSectionId,
     discountedPriceAmount,
@@ -629,7 +639,7 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
 
       {isReservationModalOpen ? (
         <ProgramReservationInquiryModal
-          defaultName={displayName}
+          defaultName={reservationDefaultName}
           isSubmitting={reservationInquiryMutation.isPending}
           onClose={() => {
             if (!reservationInquiryMutation.isPending) {

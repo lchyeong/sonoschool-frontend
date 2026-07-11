@@ -46,8 +46,9 @@ export const myQuestionsQueryKey = (params: {
     params.size,
   ] as const;
 
-export const useMyProfileQuery = () => {
+export const useMyProfileQuery = (enabled = true) => {
   return useQuery({
+    enabled,
     gcTime: 10 * 60 * 1000,
     queryFn: fetchMyProfile,
     queryKey: myProfileQueryKey,
