@@ -39,6 +39,22 @@ const formatDateTime = (value: string): string => {
   return `${String(year)}.${month}.${day} ${hours}:${minutes}`;
 };
 
+const getResourceAttachments = (resource: AdminResourceItem) => {
+  return Array.isArray(resource.attachments) && resource.attachments.length > 0
+    ? resource.attachments
+    : [
+        {
+          documentId: resource.id,
+          fileName: resource.fileName,
+          fileSize: resource.fileSize,
+          fileUrl: resource.fileUrl,
+          mimeType: resource.mimeType,
+          publicSlug: null,
+          sortOrder: resource.sortOrder,
+        },
+      ];
+};
+
 const AdminResourcesSection = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -101,6 +117,12 @@ const AdminResourcesSection = () => {
       visibility: AdminResourceVisibility;
     }) =>
       updateAdminResource(resource.id, {
+        attachments: getResourceAttachments(resource).map((attachment, index) => ({
+          documentId: attachment.documentId,
+          fileName: attachment.fileName,
+          mediaAssetId: null,
+          sortOrder: index,
+        })),
         description: resource.description,
         fileName: resource.fileName,
         lectureId: resource.lectureId,
@@ -185,14 +207,23 @@ const AdminResourcesSection = () => {
                 <tbody>
                   {pagedResources.length > 0 ? (
                     pagedResources.map((resource) => {
+                      const attachments = getResourceAttachments(resource);
+                      const firstAttachment = attachments[0];
                       return (
                         <tr key={resource.id}>
                           <td>{resource.title}</td>
                           <td>
                             <div className={styles['stackListCompact']}>
-                              <span>{resource.fileName}</span>
+                              <span>
+                                {firstAttachment.fileName}
+                                {attachments.length > 1
+                                  ? ` 외 ${String(attachments.length - 1)}개`
+                                  : ''}
+                              </span>
                               <span className={styles['metaText']}>
-                                {formatFileSizeLabel(resource.fileSize)}
+                                {attachments.length > 1
+                                  ? `첨부 ${String(attachments.length)}개`
+                                  : formatFileSizeLabel(firstAttachment.fileSize)}
                               </span>
                             </div>
                           </td>

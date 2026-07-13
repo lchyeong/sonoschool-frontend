@@ -57,6 +57,7 @@ interface AdminFileDropZoneProps {
   name?: string;
   onClear?: (() => void) | undefined;
   onFilesSelected: (files: File[]) => void;
+  selectedContent?: ReactNode;
   selectedLabel?: ReactNode;
   selectedMeta?: ReactNode;
 }
@@ -76,6 +77,7 @@ const AdminFileDropZone = ({
   name,
   onClear,
   onFilesSelected,
+  selectedContent,
   selectedLabel,
   selectedMeta,
 }: AdminFileDropZoneProps) => {
@@ -84,8 +86,10 @@ const AdminFileDropZone = ({
   const dragDepthRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasSelectedContent = selectedContent !== null && selectedContent !== undefined;
   const hasSelectedFile =
-    selectedLabel !== null && selectedLabel !== undefined && selectedLabel !== '';
+    hasSelectedContent ||
+    (selectedLabel !== null && selectedLabel !== undefined && selectedLabel !== '');
 
   const selectFiles = (files: File[]) => {
     if (files.length === 0) {
@@ -184,7 +188,9 @@ const AdminFileDropZone = ({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        {hasSelectedFile ? (
+        {hasSelectedContent ? (
+          <div className={styles['selectedContent']}>{selectedContent}</div>
+        ) : hasSelectedFile ? (
           <div className={styles['fileMetaRow']}>
             <span className={styles['fileName']}>{selectedLabel}</span>
             <span className={styles['fileMetaGroup']}>

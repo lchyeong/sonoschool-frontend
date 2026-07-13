@@ -22,9 +22,9 @@ import type { AdminResourceUpsertPayload, AdminResourceVisibility } from '@/type
 import styles from './AdminConsolePage.module.scss';
 import { formatFileSizeLabel } from './adminConsolePageShared';
 import {
-  RESOURCE_DOCUMENT_ACCEPT,
-  RESOURCE_DOCUMENT_POLICY_HINT,
-  validateResourceDocumentPolicy,
+  RESOURCE_DOCUMENT_WITH_IMAGE_ACCEPT,
+  RESOURCE_DOCUMENT_WITH_IMAGE_POLICY_HINT,
+  validateResourceDocumentWithImagePolicy,
 } from './resourceDocumentPolicy';
 
 interface AdminProgramResourcesSectionProps {
@@ -120,7 +120,7 @@ const validateForm = (formState: ResourceFormState): string | null => {
     return '정렬 순서를 숫자로 입력해 주세요.';
   }
 
-  return validateResourceDocumentPolicy({
+  return validateResourceDocumentWithImagePolicy({
     fileName: formState.fileName,
     fileSize: formState.fileSize,
     mimeType: formState.mimeType,
@@ -264,7 +264,7 @@ const AdminProgramResourcesSection = ({
       return;
     }
 
-    const validationMessage = validateResourceDocumentPolicy({
+    const validationMessage = validateResourceDocumentWithImagePolicy({
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type,
@@ -305,7 +305,7 @@ const AdminProgramResourcesSection = ({
       return;
     }
 
-    const validationMessage = validateResourceDocumentPolicy({
+    const validationMessage = validateResourceDocumentWithImagePolicy({
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type,
@@ -427,7 +427,7 @@ const AdminProgramResourcesSection = ({
           </div>
         </div>
 
-        <p className={styles['helperText']}>{RESOURCE_DOCUMENT_POLICY_HINT}</p>
+        <p className={styles['helperText']}>{RESOURCE_DOCUMENT_WITH_IMAGE_POLICY_HINT}</p>
 
         <div className={styles['stackList']}>
           {lectureOptions.map((lecture) => {
@@ -618,7 +618,7 @@ const AdminProgramResourcesSection = ({
                                   </>
                                 ) : null
                               }
-                              accept={RESOURCE_DOCUMENT_ACCEPT}
+                              accept={RESOURCE_DOCUMENT_WITH_IMAGE_ACCEPT}
                               buttonLabel={
                                 uploadingFormKey === editFormKey ? '업로드 중...' : '파일 변경'
                               }
@@ -813,7 +813,7 @@ const AdminProgramResourcesSection = ({
                             </>
                           ) : null
                         }
-                        accept={RESOURCE_DOCUMENT_ACCEPT}
+                        accept={RESOURCE_DOCUMENT_WITH_IMAGE_ACCEPT}
                         buttonLabel={
                           uploadingFormKey === createFormKey
                             ? '업로드 중...'

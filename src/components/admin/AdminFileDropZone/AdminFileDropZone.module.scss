@@ -154,6 +154,11 @@
   background: color-mix(in srgb, var(--color-brand-main) 4%, #ffffff);
 }
 
+.selectedContent {
+  width: 100%;
+  min-width: 0;
+}
+
 .fileName {
   min-width: 0;
   overflow: hidden;

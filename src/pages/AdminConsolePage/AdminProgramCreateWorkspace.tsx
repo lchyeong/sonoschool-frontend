@@ -99,7 +99,10 @@ import {
 } from './adminConsolePageShared';
 import OfflineSchedulePlanner from './components/OfflineSchedulePlanner/OfflineSchedulePlanner';
 import type { OfflineSchedulePlannerItem } from './components/OfflineSchedulePlanner/OfflineSchedulePlanner';
-import { RESOURCE_DOCUMENT_ACCEPT, validateResourceDocumentPolicy } from './resourceDocumentPolicy';
+import {
+  RESOURCE_DOCUMENT_WITH_IMAGE_ACCEPT,
+  validateResourceDocumentWithImagePolicy,
+} from './resourceDocumentPolicy';
 
 const TARGET_PART_SIZE_BYTES = 32 * 1024 * 1024;
 const VIDEO_PART_UPLOAD_CONCURRENCY = 4;
@@ -4065,7 +4068,7 @@ const AdminProgramCreateWorkspace = ({
                         </>
                       ) : null
                     }
-                    accept={RESOURCE_DOCUMENT_ACCEPT}
+                    accept={RESOURCE_DOCUMENT_WITH_IMAGE_ACCEPT}
                     buttonLabel={pendingSelection || resource.fileName ? '파일 변경' : '파일 선택'}
                     id={fileInputId}
                     label='첨부자료 파일'
@@ -4967,7 +4970,7 @@ const AdminProgramCreateWorkspace = ({
   };
 
   const handleLectureResourceSelection = (resourceKey: string, file: File) => {
-    const validationMessage = validateResourceDocumentPolicy({
+    const validationMessage = validateResourceDocumentWithImagePolicy({
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type,

@@ -16,6 +16,7 @@ import { adminResourcesQueryKey, useAdminResourcesQuery } from '@/query/useAdmin
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
 import type {
+  AdminResourceAttachmentItem,
   AdminResourceItem,
   AdminResourceUpsertPayload,
   AdminResourceVisibility,
@@ -23,9 +24,9 @@ import type {
 
 import styles from './AdminConsolePage.module.scss';
 import {
-  RESOURCE_DOCUMENT_ACCEPT,
-  RESOURCE_DOCUMENT_POLICY_HINT,
-  validateResourceDocumentPolicy,
+  RESOURCE_DOCUMENT_WITH_IMAGE_ACCEPT,
+  RESOURCE_DOCUMENT_WITH_IMAGE_POLICY_HINT,
+  validateResourceDocumentWithImagePolicy,
 } from './resourceDocumentPolicy';
 
 interface AdminResourceWorkspaceProps {
@@ -39,15 +40,22 @@ interface AdminResourceWorkspaceFormProps extends AdminResourceWorkspaceProps {
 }
 
 interface ResourceFormState {
+  attachments: ResourceAttachmentFormState[];
   description: string;
-  fileName: string;
-  fileSize: number;
-  mediaAssetId: number | null;
-  mimeType: string;
-  originalFileName: string;
   sortOrder: string;
   title: string;
   visibility: AdminResourceVisibility;
+}
+
+interface ResourceAttachmentFormState {
+  documentId: number | null;
+  fileName: string;
+  fileSize: number;
+  fileUrl: string;
+  key: string;
+  mediaAssetId: number | null;
+  mimeType: string;
+  sortOrder: number;
 }
 
 const globalResourceVisibilityOptions = [
@@ -56,15 +64,50 @@ const globalResourceVisibilityOptions = [
 ] as const;
 
 const EMPTY_FORM: ResourceFormState = {
+  attachments: [],
   description: '',
-  fileName: '',
-  fileSize: 0,
-  mediaAssetId: null,
-  mimeType: '',
-  originalFileName: '',
   sortOrder: '0',
   title: '',
   visibility: 'PUBLIC',
+};
+
+const createAttachmentKey = (): string => {
+  return `attachment-${String(Date.now())}-${String(Math.random())}`;
+};
+
+const toAttachmentFormState = (
+  attachment: AdminResourceAttachmentItem,
+): ResourceAttachmentFormState => {
+  return {
+    documentId: attachment.documentId,
+    fileName: attachment.fileName,
+    fileSize: attachment.fileSize,
+    fileUrl: attachment.fileUrl,
+    key: `document-${String(attachment.documentId)}`,
+    mediaAssetId: null,
+    mimeType: attachment.mimeType ?? '',
+    sortOrder: attachment.sortOrder,
+  };
+};
+
+const resolveResourceAttachments = (resource: AdminResourceItem): ResourceAttachmentFormState[] => {
+  const attachments = Array.isArray(resource.attachments) ? resource.attachments : [];
+  if (attachments.length > 0) {
+    return attachments.map(toAttachmentFormState);
+  }
+
+  return [
+    {
+      documentId: resource.id,
+      fileName: resource.fileName,
+      fileSize: resource.fileSize,
+      fileUrl: resource.fileUrl,
+      key: `document-${String(resource.id)}`,
+      mediaAssetId: null,
+      mimeType: resource.mimeType ?? '',
+      sortOrder: resource.sortOrder,
+    },
+  ];
 };
 
 const createFormState = (resource?: AdminResourceItem | null): ResourceFormState => {
@@ -73,12 +116,8 @@ const createFormState = (resource?: AdminResourceItem | null): ResourceFormState
   }
 
   return {
+    attachments: resolveResourceAttachments(resource),
     description: resource.description ?? '',
-    fileName: resource.fileName,
-    fileSize: resource.fileSize,
-    mediaAssetId: null,
-    mimeType: resource.mimeType ?? '',
-    originalFileName: resource.fileName,
     sortOrder: String(resource.sortOrder),
     title: resource.title,
     visibility: resource.visibility,
@@ -102,11 +141,7 @@ const validateForm = (formState: ResourceFormState): string | null => {
     return '자료 게시글 제목을 입력해 주세요.';
   }
 
-  if (!formState.fileName.trim()) {
-    return '다운로드 파일명을 입력해 주세요.';
-  }
-
-  if (formState.fileSize < 1) {
+  if (formState.attachments.length === 0) {
     return '자료 파일을 업로드해 주세요.';
   }
 
@@ -114,11 +149,18 @@ const validateForm = (formState: ResourceFormState): string | null => {
     return '정렬 순서를 숫자로 입력해 주세요.';
   }
 
-  return validateResourceDocumentPolicy({
-    fileName: formState.fileName,
-    fileSize: formState.fileSize,
-    mimeType: formState.mimeType,
-  });
+  const invalidAttachment = formState.attachments
+    .map((attachment) => ({
+      attachment,
+      message: validateResourceDocumentWithImagePolicy({
+        fileName: attachment.fileName,
+        fileSize: attachment.fileSize,
+        mimeType: attachment.mimeType,
+      }),
+    }))
+    .find((result) => result.message !== null);
+
+  return invalidAttachment?.message ?? null;
 };
 
 const AdminResourceWorkspaceForm = ({
@@ -131,13 +173,25 @@ const AdminResourceWorkspaceForm = ({
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.showToast);
   const [formState, setFormState] = useState<ResourceFormState>(initialFormState);
-  const [selectedResourceFile, setSelectedResourceFile] = useState<File | null>(null);
+  const [selectedResourceFiles, setSelectedResourceFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const hasUploadedFilePendingSave =
-    formState.mediaAssetId !== null && formState.mediaAssetId !== initialFormState.mediaAssetId;
+  const hasUploadedFilePendingSave = formState.attachments.some((attachment) => {
+    if (attachment.mediaAssetId === null) {
+      return false;
+    }
+
+    return !initialFormState.attachments.some(
+      (initialAttachment) => initialAttachment.mediaAssetId === attachment.mediaAssetId,
+    );
+  });
+  const totalAttachmentSize = formState.attachments.reduce(
+    (total, attachment) => total + attachment.fileSize,
+    0,
+  );
+  const totalSelectedFileSize = selectedResourceFiles.reduce((total, file) => total + file.size, 0);
 
   useEffect(() => {
-    const shouldWarnBeforeUnload = selectedResourceFile !== null || hasUploadedFilePendingSave;
+    const shouldWarnBeforeUnload = selectedResourceFiles.length > 0 || hasUploadedFilePendingSave;
     if (!shouldWarnBeforeUnload) {
       return;
     }
@@ -150,18 +204,27 @@ const AdminResourceWorkspaceForm = ({
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [hasUploadedFilePendingSave, selectedResourceFile]);
+  }, [hasUploadedFilePendingSave, selectedResourceFiles.length]);
 
   const refreshResources = async () => {
     await queryClient.invalidateQueries({ queryKey: adminResourcesQueryKey() });
   };
 
-  const buildPayload = (mediaAssetId: number | null): AdminResourceUpsertPayload => {
+  const buildPayload = (): AdminResourceUpsertPayload => {
+    const attachments = formState.attachments.map((attachment, index) => ({
+      documentId: attachment.documentId,
+      fileName: attachment.fileName.trim(),
+      mediaAssetId: attachment.mediaAssetId,
+      sortOrder: index,
+    }));
+    const representativeAttachment = attachments[0];
+
     return {
+      attachments,
       description: formState.description.trim() || null,
-      fileName: formState.fileName.trim(),
+      fileName: representativeAttachment.fileName,
       lectureId: null,
-      mediaAssetId,
+      mediaAssetId: representativeAttachment.mediaAssetId,
       programId: null,
       scope: 'GLOBAL',
       sortOrder: Number(formState.sortOrder),
@@ -170,67 +233,49 @@ const AdminResourceWorkspaceForm = ({
     };
   };
 
-  const handleResourceFileChange = (file: File | null) => {
-    if (!file) {
+  const handleResourceFileSelection = (files: File[]) => {
+    if (files.length === 0) {
       return;
     }
 
-    const validationMessage = validateResourceDocumentPolicy({
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: file.type,
-    });
+    const invalidFile = files
+      .map((file) => ({
+        file,
+        message: validateResourceDocumentWithImagePolicy({
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+        }),
+      }))
+      .find((result) => result.message !== null);
 
-    if (validationMessage) {
-      showToast({ message: validationMessage, variant: 'error' });
+    if (invalidFile) {
+      showToast({
+        message: invalidFile.message ?? '첨부할 수 없는 파일입니다.',
+        variant: 'error',
+      });
       return;
     }
 
-    setSelectedResourceFile(file);
+    setSelectedResourceFiles(files);
     setFormState((current) => {
-      const previousGeneratedTitle = current.originalFileName
-        ? getTitleFromFileName(current.originalFileName)
-        : '';
-      const shouldReplaceFileName =
-        !current.fileName.trim() || current.fileName === current.originalFileName;
-      const shouldReplaceTitle =
-        !current.title.trim() ||
-        (previousGeneratedTitle && current.title === previousGeneratedTitle);
-
       return {
         ...current,
-        fileName: shouldReplaceFileName ? file.name : current.fileName,
-        fileSize: file.size,
-        mediaAssetId: null,
-        mimeType: file.type || 'application/octet-stream',
-        originalFileName: file.name,
-        title: shouldReplaceTitle ? getTitleFromFileName(file.name) : current.title,
+        title: current.title.trim() ? current.title : getTitleFromFileName(files[0]?.name ?? ''),
       };
     });
   };
 
-  const clearSelectedResourceFile = () => {
-    setSelectedResourceFile(null);
-    setFormState((current) => {
-      const generatedTitle = current.originalFileName
-        ? getTitleFromFileName(current.originalFileName)
-        : '';
-      const nextTitle = current.title === generatedTitle ? initialFormState.title : current.title;
-
-      return {
-        ...current,
-        fileName: initialFormState.fileName,
-        fileSize: initialFormState.fileSize,
-        mediaAssetId: initialFormState.mediaAssetId,
-        mimeType: initialFormState.mimeType,
-        originalFileName: initialFormState.originalFileName,
-        title: nextTitle,
-      };
-    });
+  const clearSelectedResourceFiles = () => {
+    setSelectedResourceFiles([]);
   };
 
-  const uploadSelectedResourceFile = async () => {
-    if (!selectedResourceFile) {
+  const removeSelectedResourceFile = (targetIndex: number) => {
+    setSelectedResourceFiles((current) => current.filter((_, index) => index !== targetIndex));
+  };
+
+  const uploadSelectedResourceFiles = async () => {
+    if (selectedResourceFiles.length === 0) {
       showToast({
         message: '업로드할 자료 파일을 선택해 주세요.',
         variant: 'error',
@@ -240,17 +285,39 @@ const AdminResourceWorkspaceForm = ({
 
     setIsUploading(true);
     try {
-      const uploadTarget = await createAdminResourceUploadTarget({
-        contentType: selectedResourceFile.type || 'application/octet-stream',
-        fileSize: selectedResourceFile.size,
-        filename: selectedResourceFile.name,
-      });
-      await uploadAdminResourceFile(uploadTarget.uploadUrl, selectedResourceFile);
+      const uploadedAttachments = await Promise.all(
+        selectedResourceFiles.map(async (file) => {
+          const uploadTarget = await createAdminResourceUploadTarget({
+            contentType: file.type || 'application/octet-stream',
+            fileSize: file.size,
+            filename: file.name,
+          });
+          await uploadAdminResourceFile(uploadTarget.uploadUrl, file);
+
+          return {
+            documentId: null,
+            fileName: file.name,
+            fileSize: file.size,
+            fileUrl: uploadTarget.fileUrl,
+            key: `asset-${String(uploadTarget.assetId)}-${createAttachmentKey()}`,
+            mediaAssetId: uploadTarget.assetId,
+            mimeType: file.type || 'application/octet-stream',
+            sortOrder: 0,
+          } satisfies ResourceAttachmentFormState;
+        }),
+      );
+
       setFormState((current) => ({
         ...current,
-        mediaAssetId: uploadTarget.assetId,
+        attachments: [
+          ...current.attachments,
+          ...uploadedAttachments.map((attachment, index) => ({
+            ...attachment,
+            sortOrder: current.attachments.length + index,
+          })),
+        ],
       }));
-      setSelectedResourceFile(null);
+      setSelectedResourceFiles([]);
       showToast({ message: '자료 파일을 업로드했습니다.', variant: 'success' });
     } catch (error: unknown) {
       showToast({
@@ -260,6 +327,24 @@ const AdminResourceWorkspaceForm = ({
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const removeAttachment = (targetIndex: number) => {
+    if (formState.attachments.length <= 1) {
+      showToast({
+        message:
+          '자료 파일은 1개 이상 필요합니다. 자료 전체 삭제는 상단 삭제 버튼을 이용해 주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setFormState((current) => {
+      return {
+        ...current,
+        attachments: current.attachments.filter((_, index) => index !== targetIndex),
+      };
+    });
   };
 
   const createMutation = useMutation({
@@ -333,7 +418,7 @@ const AdminResourceWorkspaceForm = ({
       return;
     }
 
-    if (selectedResourceFile) {
+    if (selectedResourceFiles.length > 0) {
       showToast({
         message: '선택한 자료 파일은 업로드 시작을 먼저 눌러 주세요.',
         variant: 'error',
@@ -341,7 +426,7 @@ const AdminResourceWorkspaceForm = ({
       return;
     }
 
-    if (mode === 'create' && !formState.mediaAssetId) {
+    if (mode === 'create' && formState.attachments.length === 0) {
       showToast({
         message: '자료 파일을 선택한 뒤 업로드 시작을 눌러 주세요.',
         variant: 'error',
@@ -349,7 +434,7 @@ const AdminResourceWorkspaceForm = ({
       return;
     }
 
-    const payload = buildPayload(formState.mediaAssetId);
+    const payload = buildPayload();
 
     if (mode === 'create') {
       createMutation.mutate(payload);
@@ -467,12 +552,12 @@ const AdminResourceWorkspaceForm = ({
 
             <AdminFileDropZone
               actions={
-                selectedResourceFile ? (
+                selectedResourceFiles.length > 0 ? (
                   <>
                     <Button
                       disabled={isUploading}
                       onClick={() => {
-                        void uploadSelectedResourceFile();
+                        void uploadSelectedResourceFiles();
                       }}
                       type='button'
                       variant='secondary'
@@ -481,7 +566,7 @@ const AdminResourceWorkspaceForm = ({
                     </Button>
                     <Button
                       disabled={isUploading}
-                      onClick={clearSelectedResourceFile}
+                      onClick={clearSelectedResourceFiles}
                       type='button'
                       variant='secondary'
                     >
@@ -490,35 +575,88 @@ const AdminResourceWorkspaceForm = ({
                   </>
                 ) : null
               }
-              accept={RESOURCE_DOCUMENT_ACCEPT}
-              buttonLabel={
-                isUploading
-                  ? '업로드 중...'
-                  : formState.originalFileName
-                    ? '파일 변경'
-                    : '파일 선택'
-              }
+              accept={RESOURCE_DOCUMENT_WITH_IMAGE_ACCEPT}
+              buttonLabel={isUploading ? '업로드 중...' : '파일 선택'}
               disabled={isSubmitting}
               hint='선택한 파일은 업로드 시작을 누를 때 업로드됩니다.'
               label='자료 파일 업로드'
+              multiple
               onFilesSelected={(files) => {
-                handleResourceFileChange(files[0] ?? null);
+                handleResourceFileSelection(files);
               }}
-              onClear={selectedResourceFile ? clearSelectedResourceFile : undefined}
-              selectedLabel={formState.originalFileName || undefined}
-              selectedMeta={formState.fileSize > 0 ? formatFileSizeInMb(formState.fileSize) : null}
+              onClear={selectedResourceFiles.length > 0 ? clearSelectedResourceFiles : undefined}
+              selectedContent={
+                selectedResourceFiles.length > 0 ? (
+                  <ul className={styles['noticeAttachmentList']}>
+                    {selectedResourceFiles.map((file, index) => (
+                      <li
+                        className={styles['noticeAttachmentItem']}
+                        key={`${file.name}-${String(file.size)}-${String(file.lastModified)}-${String(index)}`}
+                      >
+                        <span className={styles['noticeAttachmentName']}>{file.name}</span>
+                        <span className={styles['noticeAttachmentSize']}>
+                          {formatFileSizeInMb(file.size)}
+                        </span>
+                        <Button
+                          disabled={isUploading}
+                          onClick={() => {
+                            removeSelectedResourceFile(index);
+                          }}
+                          size='sm'
+                          type='button'
+                          variant='secondary'
+                        >
+                          선택 삭제
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : undefined
+              }
+              selectedLabel={
+                selectedResourceFiles.length > 0
+                  ? '업로드 대기 파일'
+                  : formState.attachments.length > 0
+                    ? `등록된 자료 파일 ${String(formState.attachments.length)}개`
+                    : undefined
+              }
+              selectedMeta={
+                totalSelectedFileSize > 0
+                  ? formatFileSizeInMb(totalSelectedFileSize)
+                  : totalAttachmentSize > 0
+                    ? formatFileSizeInMb(totalAttachmentSize)
+                    : null
+              }
             />
+
+            {formState.attachments.length > 0 ? (
+              <ul className={styles['noticeAttachmentList']}>
+                {formState.attachments.map((attachment, index) => (
+                  <li className={styles['noticeAttachmentItem']} key={attachment.key}>
+                    <span className={styles['noticeAttachmentName']}>{attachment.fileName}</span>
+                    <span className={styles['noticeAttachmentSize']}>
+                      {formatFileSizeInMb(attachment.fileSize)}
+                    </span>
+                    <Button
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        removeAttachment(index);
+                      }}
+                      size='sm'
+                      type='button'
+                      variant='secondary'
+                    >
+                      삭제
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : selectedResourceFiles.length === 0 ? (
+              <p className={styles['noticeAttachmentEmpty']}>등록된 자료 파일이 없습니다.</p>
+            ) : null}
           </section>
 
           <div className={styles['compactFieldRow']}>
-            <TextField
-              label='다운로드 파일명'
-              name='resourceFileName'
-              onChange={(event) => {
-                setFormState((current) => ({ ...current, fileName: event.target.value }));
-              }}
-              value={formState.fileName}
-            />
             <TextField
               label='정렬 순서'
               name='resourceSortOrder'
@@ -529,7 +667,7 @@ const AdminResourceWorkspaceForm = ({
             />
           </div>
 
-          <p className={styles['helperText']}>{RESOURCE_DOCUMENT_POLICY_HINT}</p>
+          <p className={styles['helperText']}>{RESOURCE_DOCUMENT_WITH_IMAGE_POLICY_HINT}</p>
 
           <div className={styles['actionRow']}>
             <Button disabled={isSubmitting} onClick={handleSubmit} type='button'>
@@ -537,7 +675,7 @@ const AdminResourceWorkspaceForm = ({
             </Button>
             <Button
               onClick={() => {
-                setSelectedResourceFile(null);
+                setSelectedResourceFiles([]);
 
                 if (mode === 'edit' && editingResource) {
                   setFormState(createFormState(editingResource));
