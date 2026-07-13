@@ -13,7 +13,6 @@ import { useToastStore } from '@/stores/useToastStore';
 import type { AdminResourceItem, AdminResourceVisibility } from '@/types/adminResources';
 
 import styles from './AdminConsolePage.module.scss';
-import { formatFileSizeLabel } from './adminConsolePageShared';
 
 const RESOURCES_PAGE_SIZE = 10;
 
@@ -197,7 +196,6 @@ const AdminResourcesSection = () => {
                 <thead>
                   <tr>
                     <th scope='col'>자료명</th>
-                    <th scope='col'>파일</th>
                     <th scope='col'>상태</th>
                     <th scope='col'>정렬</th>
                     <th scope='col'>등록일</th>
@@ -206,95 +204,76 @@ const AdminResourcesSection = () => {
                 </thead>
                 <tbody>
                   {pagedResources.length > 0 ? (
-                    pagedResources.map((resource) => {
-                      const attachments = getResourceAttachments(resource);
-                      const firstAttachment = attachments[0];
-                      return (
-                        <tr key={resource.id}>
-                          <td>{resource.title}</td>
-                          <td>
-                            <div className={styles['stackListCompact']}>
-                              <span>
-                                {firstAttachment.fileName}
-                                {attachments.length > 1
-                                  ? ` 외 ${String(attachments.length - 1)}개`
-                                  : ''}
-                              </span>
-                              <span className={styles['metaText']}>
-                                {attachments.length > 1
-                                  ? `첨부 ${String(attachments.length)}개`
-                                  : formatFileSizeLabel(firstAttachment.fileSize)}
-                              </span>
-                            </div>
-                          </td>
-                          <td>
-                            <span
-                              className={
+                    pagedResources.map((resource) => (
+                      <tr key={resource.id}>
+                        <td>{resource.title}</td>
+                        <td>
+                          <span
+                            className={
+                              resource.visibility === 'HIDDEN'
+                                ? styles['badgeDanger']
+                                : styles['badgeSuccess']
+                            }
+                          >
+                            {resourceVisibilityLabel[resource.visibility]}
+                          </span>
+                        </td>
+                        <td>{resource.sortOrder}</td>
+                        <td>{formatDateTime(resource.createdAt)}</td>
+                        <td>
+                          <div className={styles['tableActionGroup']}>
+                            <button
+                              className={styles['tableActionButton']}
+                              disabled={visibilityMutation.isPending}
+                              onClick={() => {
+                                visibilityMutation.mutate({
+                                  resource,
+                                  visibility:
+                                    resource.visibility === 'HIDDEN' ? 'PUBLIC' : 'HIDDEN',
+                                });
+                              }}
+                              title={
                                 resource.visibility === 'HIDDEN'
-                                  ? styles['badgeDanger']
-                                  : styles['badgeSuccess']
+                                  ? '클릭하면 공개 처리합니다.'
+                                  : '클릭하면 숨김 처리합니다.'
                               }
+                              type='button'
                             >
-                              {resourceVisibilityLabel[resource.visibility]}
-                            </span>
-                          </td>
-                          <td>{resource.sortOrder}</td>
-                          <td>{formatDateTime(resource.createdAt)}</td>
-                          <td>
-                            <div className={styles['tableActionGroup']}>
-                              <button
-                                className={styles['tableActionButton']}
-                                disabled={visibilityMutation.isPending}
-                                onClick={() => {
-                                  visibilityMutation.mutate({
-                                    resource,
-                                    visibility:
-                                      resource.visibility === 'HIDDEN' ? 'PUBLIC' : 'HIDDEN',
-                                  });
-                                }}
-                                title={
-                                  resource.visibility === 'HIDDEN'
-                                    ? '클릭하면 공개 처리합니다.'
-                                    : '클릭하면 숨김 처리합니다.'
+                              {resource.visibility === 'HIDDEN' ? '숨김' : '공개'}
+                            </button>
+                            <button
+                              className={styles['tableActionButton']}
+                              onClick={() => {
+                                void navigate(routePaths.adminResourceEdit(String(resource.id)));
+                              }}
+                              type='button'
+                            >
+                              수정
+                            </button>
+                            <button
+                              className={styles['tableActionButtonDanger']}
+                              onClick={() => {
+                                if (
+                                  !window.confirm(
+                                    '자료를 삭제하면 되돌릴 수 없습니다. 계속하시겠습니까?',
+                                  )
+                                ) {
+                                  return;
                                 }
-                                type='button'
-                              >
-                                {resource.visibility === 'HIDDEN' ? '숨김' : '공개'}
-                              </button>
-                              <button
-                                className={styles['tableActionButton']}
-                                onClick={() => {
-                                  void navigate(routePaths.adminResourceEdit(String(resource.id)));
-                                }}
-                                type='button'
-                              >
-                                수정
-                              </button>
-                              <button
-                                className={styles['tableActionButtonDanger']}
-                                onClick={() => {
-                                  if (
-                                    !window.confirm(
-                                      '자료를 삭제하면 되돌릴 수 없습니다. 계속하시겠습니까?',
-                                    )
-                                  ) {
-                                    return;
-                                  }
 
-                                  deleteMutation.mutate(resource.id);
-                                }}
-                                type='button'
-                              >
-                                삭제
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
+                                deleteMutation.mutate(resource.id);
+                              }}
+                              type='button'
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   ) : (
                     <tr>
-                      <td className={styles['helperText']} colSpan={6}>
+                      <td className={styles['helperText']} colSpan={5}>
                         검색 조건에 맞는 자료가 없습니다.
                       </td>
                     </tr>
