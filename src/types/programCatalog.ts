@@ -46,6 +46,7 @@ export interface ProgramLectureCard {
   remainingSeatsCount?: number | undefined;
   remainingSeatsLabel?: string | undefined;
   catalogStatus?: ProgramCatalogStatus | undefined;
+  enrollmentAvailable?: boolean | undefined;
   hashtagLabels?: string[] | undefined;
   scheduleLabel: string;
   tags?: string[] | undefined;

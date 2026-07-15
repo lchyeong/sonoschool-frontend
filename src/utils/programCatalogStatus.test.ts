@@ -12,8 +12,17 @@ describe('programCatalogStatus', () => {
 
   it('keeps active thumbnails in color', () => {
     expect(shouldMuteProgramThumbnail('OPEN')).toBe(false);
+    expect(
+      shouldMuteProgramThumbnail({ catalogStatus: 'STARTED', enrollmentAvailable: true }),
+    ).toBe(false);
     expect(shouldMuteProgramThumbnail(undefined)).toBe(false);
     expect(shouldMuteProgramThumbnail(null)).toBe(false);
+  });
+
+  it('keeps started but unavailable thumbnails muted', () => {
+    expect(
+      shouldMuteProgramThumbnail({ catalogStatus: 'STARTED', enrollmentAvailable: false }),
+    ).toBe(true);
   });
 
   it('falls back to remaining seats only when catalog status is missing', () => {

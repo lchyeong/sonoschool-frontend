@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import AdminRichTextEditor from './AdminRichTextEditor';
@@ -22,6 +22,19 @@ describe('AdminRichTextEditor 링크 UI', () => {
 });
 
 describe('AdminRichTextEditor 표 삽입', () => {
+  it('표 삽입 시 첫 행을 헤더 셀로 만든다', async () => {
+    const onChange = vi.fn();
+    render(<AdminRichTextEditor onChange={onChange} value='<p>공지 본문</p>' />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '표 넣기' }));
+
+    await waitFor(() => {
+      const latestContent = onChange.mock.calls.at(-1)?.[0] as string | undefined;
+      expect(latestContent).toContain('<th');
+      expect(latestContent).toContain('<td');
+    });
+  });
+
   it('커서가 표 안에 있으면 중첩 표 삽입 버튼을 비활성화한다', async () => {
     render(
       <AdminRichTextEditor

@@ -8,7 +8,7 @@ import Modal from '@/components/overlay/Modal/Modal';
 import { useGlobalNoticesQuery, useNoticeDetailQuery } from '@/query/useNoticeQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import type { NoticeAttachmentItem, NoticeItem } from '@/types/notice';
-import { sanitizeRichTextHtml } from '@/utils/htmlContent';
+import { sanitizeRichTextHtmlForDisplay } from '@/utils/htmlContent';
 
 import styles from './NoticeDetailPage.module.scss';
 
@@ -70,7 +70,7 @@ const NoticeDetailPage = () => {
   const notice = noticeQuery.data;
   const [downloadTarget, setDownloadTarget] = useState<NoticeAttachmentItem | null>(null);
   const sanitizedContent = useMemo(() => {
-    return notice ? sanitizeRichTextHtml(notice.content) : '';
+    return notice ? sanitizeRichTextHtmlForDisplay(notice.content) : '';
   }, [notice]);
   const attachments = useMemo(() => getNoticeAttachments(notice), [notice]);
   const adjacentNotices = useMemo(() => {

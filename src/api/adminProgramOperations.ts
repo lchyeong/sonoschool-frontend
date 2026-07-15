@@ -4,7 +4,6 @@ import type {
   AdminProgramEnrollmentItem,
   AdminProgramEnrollmentReviewUpdatePayload,
 } from '@/types/adminProgramOperations';
-import type { AdminProgramDetail } from '@/types/adminProgramsLive';
 import type { ApiEnvelope } from '@/types/auth';
 
 const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
@@ -55,17 +54,5 @@ export const deleteAdminProgramEnrollmentReview = async (reviewId: number): Prom
     throw toApiError(error, '수강평 삭제에 실패했습니다.', {
       preferFallbackUserMessage: true,
     });
-  }
-};
-
-export const closeAdminProgram = async (programId: number): Promise<AdminProgramDetail> => {
-  try {
-    const response = await axiosInstance.post<ApiEnvelope<AdminProgramDetail>>(
-      `/api/v1/admin/programs/${String(programId)}/close`,
-      {},
-    );
-    return unwrapApiEnvelope(response.data);
-  } catch (error: unknown) {
-    throw toApiError(error, '프로그램 폐강 처리에 실패했습니다.');
   }
 };

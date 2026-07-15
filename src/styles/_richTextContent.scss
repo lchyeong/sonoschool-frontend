@@ -1,0 +1,96 @@
+@mixin content($editable: false) {
+  color: var(--rich-text-color, var(--color-text-primary, #111827));
+  font-size: var(--rich-text-font-size, var(--font-size-base, 16px));
+  font-weight: var(--rich-text-font-weight, 400);
+  line-height: var(--rich-text-line-height, 1.8);
+
+  :global(h1),
+  :global(h2),
+  :global(h3) {
+    margin: 1.2em 0 0.6em;
+    color: inherit;
+    font-weight: var(--rich-text-heading-weight, var(--font-weight-bold, 700));
+    line-height: 1.3;
+  }
+
+  :global(p),
+  :global(ul),
+  :global(ol),
+  :global(blockquote),
+  :global(table) {
+    margin: 0.75em 0;
+  }
+
+  :global(ul),
+  :global(ol) {
+    padding-left: 1.4rem;
+  }
+
+  :global(a) {
+    color: var(--rich-text-link-color, var(--color-brand-main, #34b29f));
+    font-weight: var(--font-weight-medium, 500);
+    text-decoration: none;
+  }
+
+  :global(blockquote) {
+    padding-left: 1rem;
+    border-left: 3px solid rgba(52, 178, 159, 0.35);
+    color: var(--rich-text-secondary-color, var(--color-text-secondary, #6b7280));
+  }
+
+  :global(table) {
+    width: max-content;
+    max-width: none;
+    border-collapse: collapse;
+    table-layout: auto;
+    font: inherit;
+    line-height: inherit;
+    box-shadow: 0 0 0 1px rgba(52, 178, 159, 0.08);
+  }
+
+  :global(table[data-rich-text-column-widths='true']) {
+    table-layout: fixed;
+  }
+
+  :global(td),
+  :global(th) {
+    min-width: 96px;
+    padding: 0.75rem;
+    border: 1px solid var(--rich-text-table-border-color, var(--color-border, #d1d5db));
+    color: inherit;
+    vertical-align: top;
+
+    @if $editable {
+      position: relative;
+      cursor: text;
+    }
+  }
+
+  :global(th) {
+    background: #f8fafc;
+    font-weight: var(--rich-text-heading-weight, var(--font-weight-bold, 700));
+  }
+
+  :global(strong),
+  :global(b) {
+    font-weight: var(--rich-text-heading-weight, var(--font-weight-bold, 700));
+  }
+
+  :global(mark) {
+    padding: 0 0.08em;
+  }
+
+  :global(img) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1rem 0;
+    border-radius: var(--radius-md, 8px);
+  }
+
+  @if not $editable {
+    :global(p:empty::before) {
+      content: '\00a0';
+    }
+  }
+}

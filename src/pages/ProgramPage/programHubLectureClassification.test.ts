@@ -40,6 +40,18 @@ describe('classifyProgramHubLecture', () => {
     },
   );
 
+  it('개강 후에도 모집 기간인 강의는 모집 중으로 분류한다', () => {
+    const lecture = createLecture({
+      catalogStatus: 'STARTED',
+      enrollmentAvailable: true,
+      learningEndAt: '2026-08-31T23:59:59.000Z',
+      saleEndAt: '2026-08-15T23:59:59.000Z',
+      saleStartAt: '2026-07-01T00:00:00.000Z',
+    });
+
+    expect(classifyProgramHubLecture(lecture, NOW_TIME)).toBe('recruiting');
+  });
+
   it('신청 종료일이 지난 OPEN 강의도 신청 마감으로 보정한다', () => {
     const lecture = createLecture({
       catalogStatus: 'OPEN',

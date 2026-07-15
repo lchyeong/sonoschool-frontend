@@ -1419,6 +1419,36 @@ const buildBasicInfoInputValidationIssues = (
     });
   }
 
+  if (basicInfo.programType === 'OFFLINE' && basicInfo.accessPolicy === 'FIXED_DURATION') {
+    const saleStartTime = Date.parse(basicInfo.saleStartAt ?? '');
+    const saleEndTime = Date.parse(basicInfo.saleEndAt ?? '');
+    const learningStartTime = Date.parse(basicInfo.learningStartAt ?? '');
+    const learningEndTime = Date.parse(basicInfo.learningEndAt ?? '');
+
+    if (
+      Number.isFinite(saleStartTime) &&
+      Number.isFinite(learningStartTime) &&
+      saleStartTime > learningStartTime
+    ) {
+      issues.push({
+        errorKey: 'recruitmentRange',
+        focusKey: 'basic-recruitment-range',
+        message: '모집 시작일은 수강 시작일보다 늦을 수 없습니다.',
+      });
+    }
+    if (
+      Number.isFinite(saleEndTime) &&
+      Number.isFinite(learningEndTime) &&
+      saleEndTime > learningEndTime
+    ) {
+      issues.push({
+        errorKey: 'recruitmentRange',
+        focusKey: 'basic-recruitment-range',
+        message: '모집 종료일은 수강 종료일보다 늦을 수 없습니다.',
+      });
+    }
+  }
+
   if (
     basicInfo.accessPolicy === 'ROLLING_DAYS' &&
     (basicInfo.accessDays === null || basicInfo.accessDays < 1)

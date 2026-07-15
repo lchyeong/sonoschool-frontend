@@ -2,6 +2,7 @@ import type { ProgramCatalogStatus } from '@/types/programCatalog';
 
 export interface ProgramCatalogStatusSource {
   catalogStatus?: ProgramCatalogStatus | null | undefined;
+  enrollmentAvailable?: boolean | null | undefined;
   remainingSeatsCount?: number | null | undefined;
   remainingSeatsLabel?: string | null | undefined;
 }
@@ -45,6 +46,10 @@ export const shouldMuteProgramThumbnail = (
   statusOrSource: ProgramCatalogStatus | ProgramCatalogStatusSource | null | undefined,
 ): boolean => {
   if (!statusOrSource) {
+    return false;
+  }
+
+  if (typeof statusOrSource !== 'string' && statusOrSource.enrollmentAvailable === true) {
     return false;
   }
 

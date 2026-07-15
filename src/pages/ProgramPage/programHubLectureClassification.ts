@@ -54,7 +54,7 @@ export const classifyProgramHubLecture = (
 ): ProgramHubLectureCategory => {
   const catalogStatus = resolveProgramCatalogStatus(lecture);
 
-  if (CLOSED_CATALOG_STATUSES.has(catalogStatus)) {
+  if (CLOSED_CATALOG_STATUSES.has(catalogStatus) && !lecture.enrollmentAvailable) {
     return 'closed';
   }
 

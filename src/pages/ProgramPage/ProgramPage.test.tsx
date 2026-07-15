@@ -327,6 +327,12 @@ describe('ProgramPage', () => {
         saleEndAt: pastTime,
         saleStartAt: null,
       }),
+      createClassifiedLecture(baseLecture, 9, '진행 중 모집 강의', {
+        catalogStatus: 'STARTED',
+        enrollmentAvailable: true,
+        learningEndAt: futureTime,
+        saleEndAt: futureTime,
+      }),
     ];
 
     server.use(
@@ -341,8 +347,14 @@ describe('ProgramPage', () => {
       await screen.findByRole('heading', { level: 1, name: '복부 Basic 스캔 6주' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '모집 중' })).toHaveAttribute('aria-selected', 'true');
-    expect(getLectureCountText(2)).toBeInTheDocument();
+    expect(getLectureCountText(3)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '판매 시작일이 미래인 강의' })).toBeInTheDocument();
+    const startedRecruitingCard = screen
+      .getByRole('link', { name: '진행 중 모집 강의' })
+      .closest('article');
+    expect(startedRecruitingCard?.querySelector('img')?.className).not.toMatch(
+      /archiveLectureImageMuted/,
+    );
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       '전체',
       '모집 중',
@@ -363,7 +375,7 @@ describe('ProgramPage', () => {
     expect(screen.getByRole('link', { name: '종료일이 지난 OPEN 강의' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '전체' }));
-    expect(getLectureCountText(8)).toBeInTheDocument();
+    expect(getLectureCountText(9)).toBeInTheDocument();
   });
 
   it('keeps single-lecture hubs as hub pages until the detail child is opened', async () => {
@@ -413,6 +425,31 @@ describe('ProgramPage', () => {
     expect(screen.getByRole('heading', { name: '자주하는 질문' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '예약하기' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: '장바구니 담기' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: '수강신청하기' }).length).toBeGreaterThan(0);
+  });
+
+  it('allows enrollment on a started program while its recruitment window remains open', async () => {
+    const path = '/programs/general-course/women-ultrasound/first-trimester-scan-4-weeks/detail';
+    const basePage = getMockProgramPage(path);
+
+    if (!basePage || basePage.pageKind !== 'detail') {
+      throw new Error('Expected a detail page for the started enrollment test.');
+    }
+
+    server.use(
+      http.get('*/api/v1/program-pages/page', () => {
+        return HttpResponse.json({
+          ...basePage,
+          applicationStatusLabel: '진행 중 · 모집 중',
+          catalogStatus: 'STARTED',
+          enrollmentAvailable: true,
+        });
+      }),
+    );
+
+    renderProgramPage(path);
+
+    expect(await screen.findByRole('heading', { name: basePage.title })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '수강신청하기' }).length).toBeGreaterThan(0);
   });
 

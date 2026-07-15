@@ -151,14 +151,7 @@ const Modal = ({
   };
 
   return createPortal(
-    <div
-      className={classNames(styles['overlay'], overlayClassName)}
-      onClick={(event) => {
-        if (event.target !== event.currentTarget) return;
-
-        onClose();
-      }}
-    >
+    <div className={classNames(styles['overlay'], overlayClassName)}>
       <div
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}

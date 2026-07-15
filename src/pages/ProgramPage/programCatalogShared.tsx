@@ -105,6 +105,14 @@ const resolveAvailability = (item: ProgramLectureCard): { label: string; value: 
         value: '정원 마감',
       };
     case 'STARTED':
+      if (item.enrollmentAvailable) {
+        return {
+          label: '수강 가능',
+          value: item.remainingSeatsLabel
+            ? `운영 중 · ${item.remainingSeatsLabel.replace(/^인원\s*/, '').trim()}`
+            : '운영 중 · 모집 중',
+        };
+      }
       return {
         label: '모집 상태',
         value: '운영 중',
@@ -143,7 +151,7 @@ const resolveArchiveStatusLabel = (item: ProgramLectureCard) => {
     case 'FULL':
       return '정원마감';
     case 'STARTED':
-      return '과정진행중';
+      return item.enrollmentAvailable ? '모집 중' : '과정진행중';
     case 'CLOSED':
       return '신청마감';
     case 'ENDED':
@@ -185,8 +193,9 @@ const ProgramCardAction = ({
   onSubscribeAlert?: ((item: ProgramLectureCard) => void) | undefined;
 }) => {
   const catalogStatus = resolveLectureCatalogStatus(item);
+  const enrollmentAvailable = item.enrollmentAvailable ?? catalogStatus === 'OPEN';
   const canAddToCart =
-    catalogStatus === 'OPEN' &&
+    enrollmentAvailable &&
     !isEnrollmentOwned &&
     Boolean(onAddToCart) &&
     typeof item.programId === 'number' &&
@@ -456,12 +465,11 @@ export const ProgramArchiveLectureCardItem = ({
   onAddToCart,
   onSubscribeAlert,
 }: ProgramArchiveLectureCardItemProps) => {
-  const catalogStatus = resolveLectureCatalogStatus(item);
   const archiveStatusLabel = resolveArchiveStatusLabel(item);
   const metaTags = buildArchiveMetaTags(item);
   const hasDiscount = hasArchiveDiscount(item);
   const salePriceLabel = item.discountedPriceLabel ?? item.priceLabel;
-  const shouldMuteThumbnail = shouldMuteProgramThumbnail(catalogStatus);
+  const shouldMuteThumbnail = shouldMuteProgramThumbnail(item);
   const thumbnailCropStyle = getProgramImageCropStyle({
     offsetX: item.thumbnailCropOffsetX,
     offsetY: item.thumbnailCropOffsetY,
@@ -489,7 +497,7 @@ export const ProgramArchiveLectureCardItem = ({
           <p
             className={classNames(
               styles['archiveLectureStatus'],
-              catalogStatus !== 'OPEN' && styles['archiveLectureStatusMuted'],
+              shouldMuteThumbnail && styles['archiveLectureStatusMuted'],
             )}
           >
             {archiveStatusLabel}

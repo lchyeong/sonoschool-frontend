@@ -154,7 +154,14 @@ const isRemainingSeatsStatusLabel = (label: string) => {
   return /(?:잔여석|인원|남음|\d+\s*명)/.test(label);
 };
 
-const buildAvailabilityActionLabel = (catalogStatus: ProgramCatalogStatus) => {
+const buildAvailabilityActionLabel = (
+  catalogStatus: ProgramCatalogStatus,
+  enrollmentAvailable: boolean,
+) => {
+  if (enrollmentAvailable) {
+    return '수강신청하기';
+  }
+
   switch (catalogStatus) {
     case 'STARTED':
     case 'CLOSED':
@@ -170,12 +177,14 @@ const buildAvailabilityActionLabel = (catalogStatus: ProgramCatalogStatus) => {
 
 const resolveProgramReservationAvailability = (data: ProgramDetailPageResponse) => {
   const catalogStatus = resolveCatalogStatus(data);
-  const enrollmentAvailable = catalogStatus === 'OPEN' && data.enrollmentAvailable !== false;
+  const enrollmentAvailable =
+    (catalogStatus === 'OPEN' || catalogStatus === 'STARTED') &&
+    (data.enrollmentAvailable ?? catalogStatus === 'OPEN');
 
   return {
     actionKind: enrollmentAvailable ? ('ENROLL' as const) : ('DISABLED' as const),
-    actionLabel: buildAvailabilityActionLabel(catalogStatus),
-    reservationInquiryAvailable: catalogStatus === 'OPEN',
+    actionLabel: buildAvailabilityActionLabel(catalogStatus, enrollmentAvailable),
+    reservationInquiryAvailable: enrollmentAvailable,
     statusLabel:
       data.applicationStatusLabel && !isRemainingSeatsStatusLabel(data.applicationStatusLabel)
         ? data.applicationStatusLabel

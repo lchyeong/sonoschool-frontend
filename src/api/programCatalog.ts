@@ -68,6 +68,7 @@ const lectureCardSchema = z
     remainingSeatsCount: z.number().int().nonnegative().optional(),
     remainingSeatsLabel: z.string().min(1).optional(),
     catalogStatus: z.enum(['OPEN', 'STARTED', 'CLOSED', 'ENDED', 'FULL']).optional(),
+    enrollmentAvailable: z.boolean().optional(),
     scheduleLabel: z.string().min(1),
     summary: z.string().min(1),
     thumbnailAlt: z.string().min(1),

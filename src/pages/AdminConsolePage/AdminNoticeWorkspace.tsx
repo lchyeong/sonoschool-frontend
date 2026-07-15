@@ -30,7 +30,7 @@ import type {
   AdminNoticeUpdatePayload,
   NoticeItem,
 } from '@/types/notice';
-import { hasRichTextContent } from '@/utils/htmlContent';
+import { hasRichTextContent, normalizeRichTextHtmlForStorage } from '@/utils/htmlContent';
 
 import styles from './AdminConsolePage.module.scss';
 import AdminNoticeAttachmentPanel from './AdminNoticeAttachmentPanel';
@@ -165,7 +165,7 @@ const AdminNoticeWorkspaceForm = ({
 
   const handleSubmit = () => {
     const title = formState.title.trim();
-    const content = formState.content.trim();
+    const content = normalizeRichTextHtmlForStorage(formState.content.trim());
 
     if (!title) {
       showToast({ message: '공지 제목을 입력해 주세요.', variant: 'error' });

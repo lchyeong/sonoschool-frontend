@@ -1,3 +1,5 @@
+@use '../../styles/richTextContent' as richText;
+
 .page {
   width: 100%;
   padding: 58px 20px 160px;
@@ -71,65 +73,14 @@
 }
 
 .richContent {
+  @include richText.content;
+
   width: min(100%, 1193px);
-  color: #111827;
-  font-size: 20px;
-  font-weight: 500;
-  line-height: 2;
-}
-
-.richContent :global(p),
-.richContent :global(ul),
-.richContent :global(ol),
-.richContent :global(blockquote),
-.richContent :global(table) {
-  margin: 0 0 20px;
-}
-
-.richContent :global(h1),
-.richContent :global(h2),
-.richContent :global(h3) {
-  margin: 32px 0 16px;
-  color: #34b29f;
-  font-weight: 700;
-  line-height: 2;
-}
-
-.richContent :global(ul),
-.richContent :global(ol) {
-  padding-left: 30px;
-}
-
-.richContent :global(a) {
-  color: #34b29f;
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.richContent :global(table) {
-  width: min(100%, 889px);
-  border-collapse: collapse;
-  font-size: 20px;
-  line-height: 1.3;
-  text-align: center;
-}
-
-.richContent :global(th) {
-  background: #f9fafc;
-  font-weight: 500;
-}
-
-.richContent :global(td),
-.richContent :global(th) {
-  padding: 14px 20px;
-  border: 1px solid #d1d5db;
-  color: #111827;
-}
-
-.richContent :global(img) {
-  display: block;
-  max-width: 100%;
-  height: auto;
+  overflow-x: auto;
+  --rich-text-color: #111827;
+  --rich-text-link-color: #34b29f;
+  --rich-text-secondary-color: #6b7280;
+  --rich-text-table-border-color: #d1d5db;
 }
 
 .attachmentPanel {

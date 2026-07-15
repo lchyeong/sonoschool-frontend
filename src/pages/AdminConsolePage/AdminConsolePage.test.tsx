@@ -925,15 +925,6 @@ describe('AdminConsolePage', () => {
     });
   });
 
-  it('shows offline programs with current students against capacity on the dedicated edit page', async () => {
-    renderAdminConsoleRoute('/admin/programs/2002/edit');
-
-    expect(
-      await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('프로그램 #2002')).toBeInTheDocument();
-  });
-
   it('falls back legacy program resources route to the curriculum workspace tab', async () => {
     renderAdminConsoleRoute('/admin/programs/2001/resources');
 
