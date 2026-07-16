@@ -93,6 +93,13 @@
   white-space: nowrap;
 }
 
+.toolbarButtonContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
 .toolbarButton:hover {
   border-color: var(--color-brand-lighten-25);
   background: #f8fffd;
@@ -127,10 +134,14 @@
 .toolbarSelect {
   height: 34px;
   min-width: 120px;
-  padding: 0 var(--space-3);
+  padding: 0 34px 0 var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--color-bg-primary);
+  background-color: var(--color-bg-primary);
+  background-image: url('../../../assets/icons/lucide_chevron-down.svg');
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px 14px;
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -187,8 +198,7 @@
   width: 18px;
 }
 
-.alignIcon span,
-.listIcon span {
+.alignIcon span {
   display: block;
   height: 2px;
   border-radius: 999px;
@@ -222,40 +232,10 @@
 }
 
 .listIcon {
-  position: relative;
-  display: grid;
-  gap: 4px;
-  width: 18px;
-  padding-left: 7px;
-}
-
-.listIcon::before {
-  position: absolute;
-  top: 1px;
-  left: 0;
-  width: 3px;
-  height: 3px;
-  border-radius: 999px;
-  background: currentcolor;
-  box-shadow:
-    0 6px 0 currentcolor,
-    0 12px 0 currentcolor;
-  content: '';
-}
-
-.listIcon[data-ordered='true']::before {
-  width: 4px;
-  height: 14px;
-  border-radius: 0;
-  background:
-    linear-gradient(currentcolor 0 0) 0 0 / 4px 2px no-repeat,
-    linear-gradient(currentcolor 0 0) 0 6px / 4px 2px no-repeat,
-    linear-gradient(currentcolor 0 0) 0 12px / 4px 2px no-repeat;
-  box-shadow: none;
-}
-
-.listIcon span {
-  width: 11px;
+  display: block;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
 }
 
 .editor {

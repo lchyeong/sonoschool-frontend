@@ -29,6 +29,12 @@ import { classNames } from '@/utils/classNames';
 import { extractTextFromHtml } from '@/utils/htmlContent';
 
 import styles from './AdminRichTextEditor.module.scss';
+import {
+  canIndentListItem,
+  canOutdentListItem,
+  indentListItem,
+  outdentListItem,
+} from './ListIndent';
 import NoticeImage, { insertNoticeImage } from './NoticeImage';
 import PreventNestedTable from './PreventNestedTable';
 import TableAdjacentDelete from './TableAdjacentDelete';
@@ -86,21 +92,17 @@ interface TableAddPreviewState {
 }
 
 const FONT_SIZE_OPTIONS = [
-  { label: '아주 작게', value: '12px' },
-  { label: '작게', value: '14px' },
-  { label: '본문', value: '16px' },
-  { label: '조금 크게', value: '18px' },
-  { label: '크게', value: '20px' },
-  { label: '소제목 크기', value: '24px' },
-  { label: '제목 크기', value: '28px' },
-  { label: '큰 제목 크기', value: '32px' },
+  { label: '12px', value: '12px' },
+  { label: '14px', value: '14px' },
+  { label: '18px', value: '18px' },
+  { label: '20px', value: '20px' },
+  { label: '24px', value: '24px' },
+  { label: '28px', value: '28px' },
+  { label: '32px', value: '32px' },
 ] as const;
 const FONT_FAMILY_OPTIONS = [
-  { label: '기본 글꼴', value: '' },
-  { label: '고딕체', value: 'Wanted Sans' },
-  { label: '깔끔한 고딕체', value: 'Pretendard' },
-  { label: '명조체', value: 'Georgia' },
-  { label: '고정폭 글꼴', value: 'monospace' },
+  { label: 'Wanted Sans', value: '' },
+  { label: '나눔명조', value: 'Nanum Myeongjo' },
 ] as const;
 const DEFAULT_TEXT_COLOR = '#1f2937';
 const DEFAULT_HIGHLIGHT_COLOR = '#fff3bf';
@@ -128,6 +130,12 @@ const HIDDEN_TABLE_CONTROLS: TableInlineControlsState = {
 const HIDDEN_TABLE_ADD_PREVIEW: TableAddPreviewState = {
   column: false,
   row: false,
+};
+const INACTIVE_LIST_TOOLBAR_STATE = {
+  bulletActive: false,
+  canIndent: false,
+  canOutdent: false,
+  orderedActive: false,
 };
 
 const isImageFile = (file: File): boolean => {
@@ -231,11 +239,37 @@ const TextAlignIcon = ({ align }: { align: 'center' | 'left' | 'right' }) => {
 
 const ListIcon = ({ ordered = false }: { ordered?: boolean }) => {
   return (
-    <span aria-hidden='true' className={styles['listIcon']} data-ordered={ordered}>
-      <span />
-      <span />
-      <span />
-    </span>
+    <svg
+      aria-hidden='true'
+      className={styles['listIcon']}
+      fill='none'
+      focusable='false'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='2'
+      viewBox='0 0 24 24'
+    >
+      {ordered ? (
+        <>
+          <path d='M10 6h11' />
+          <path d='M10 12h11' />
+          <path d='M10 18h11' />
+          <path d='M4 6h1V4' />
+          <path d='M4 10h2' />
+          <path d='M6 18H4c0-1 2-2 2-3s-1-1.5-2-1' />
+        </>
+      ) : (
+        <>
+          <path d='M8 6h13' />
+          <path d='M8 12h13' />
+          <path d='M8 18h13' />
+          <path d='M3 6h.01' />
+          <path d='M3 12h.01' />
+          <path d='M3 18h.01' />
+        </>
+      )}
+    </svg>
   );
 };
 
@@ -326,6 +360,16 @@ const AdminRichTextEditor = ({
       editor,
       selector: ({ editor: currentEditor }) => currentEditor?.isActive('table') ?? false,
     }) ?? false;
+  const listToolbarState =
+    useEditorState({
+      editor,
+      selector: ({ editor: currentEditor }) => ({
+        bulletActive: currentEditor?.isActive('bulletList') ?? false,
+        canIndent: canIndentListItem(currentEditor ?? null),
+        canOutdent: canOutdentListItem(currentEditor ?? null),
+        orderedActive: currentEditor?.isActive('orderedList') ?? false,
+      }),
+    }) ?? INACTIVE_LIST_TOOLBAR_STATE;
 
   useEffect(() => {
     if (!editor) {
@@ -1021,8 +1065,9 @@ const AdminRichTextEditor = ({
           </div>
 
           <div className={styles['toolbarGroup']}>
-            <span className={styles['toolbarGroupLabel']}>모양</span>
+            <span className={styles['toolbarGroupLabel']}>글꼴</span>
             <select
+              aria-label='글꼴'
               className={styles['toolbarSelect']}
               title='글꼴'
               onChange={(event) => {
@@ -1051,8 +1096,9 @@ const AdminRichTextEditor = ({
             </select>
 
             <select
+              aria-label='폰트 사이즈'
               className={styles['toolbarSelect']}
-              title='글자 크기'
+              title='폰트 사이즈'
               onChange={(event) => {
                 const nextFontSize = event.target.value;
 
@@ -1069,7 +1115,7 @@ const AdminRichTextEditor = ({
               }}
               value={currentFontSize}
             >
-              <option value=''>기본 크기</option>
+              <option value=''>16px</option>
               {FONT_SIZE_OPTIONS.map((option) => {
                 return (
                   <option key={option.value} value={option.value}>
@@ -1109,41 +1155,23 @@ const AdminRichTextEditor = ({
             <span className={styles['toolbarGroupLabel']}>문단</span>
             <ToolbarButton
               active={editor?.isActive('heading', { level: 1 }) ?? false}
-              label='큰 제목'
+              label='제목 1 · 큰 제목 (32px)'
               onClick={() => {
                 editor?.chain().focus().toggleHeading({ level: 1 }).run();
               }}
               wide
             >
-              큰 제목
+              제목 1
             </ToolbarButton>
             <ToolbarButton
               active={editor?.isActive('heading', { level: 2 }) ?? false}
-              label='중간 제목'
+              label='제목 2 · 중간 제목 (24px)'
               onClick={() => {
                 editor?.chain().focus().toggleHeading({ level: 2 }).run();
               }}
               wide
             >
-              중간 제목
-            </ToolbarButton>
-            <ToolbarButton
-              active={editor?.isActive('bulletList') ?? false}
-              label='글머리 목록'
-              onClick={() => {
-                editor?.chain().focus().toggleBulletList().run();
-              }}
-            >
-              <ListIcon />
-            </ToolbarButton>
-            <ToolbarButton
-              active={editor?.isActive('orderedList') ?? false}
-              label='번호 목록'
-              onClick={() => {
-                editor?.chain().focus().toggleOrderedList().run();
-              }}
-            >
-              <ListIcon ordered />
+              제목 2
             </ToolbarButton>
             <ToolbarButton
               active={editor?.isActive('blockquote') ?? false}
@@ -1153,6 +1181,56 @@ const AdminRichTextEditor = ({
               }}
             >
               인용
+            </ToolbarButton>
+          </div>
+
+          <div className={styles['toolbarGroup']}>
+            <span className={styles['toolbarGroupLabel']}>목록</span>
+            <ToolbarButton
+              active={listToolbarState.bulletActive}
+              label='글머리 목록'
+              onClick={() => {
+                editor?.chain().focus().toggleBulletList().run();
+              }}
+              wide
+            >
+              <span className={styles['toolbarButtonContent']}>
+                <ListIcon />
+                <span>글머리</span>
+              </span>
+            </ToolbarButton>
+            <ToolbarButton
+              active={listToolbarState.orderedActive}
+              label='번호 목록'
+              onClick={() => {
+                editor?.chain().focus().toggleOrderedList().run();
+              }}
+              wide
+            >
+              <span className={styles['toolbarButtonContent']}>
+                <ListIcon ordered />
+                <span>번호</span>
+              </span>
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!listToolbarState.canOutdent}
+              label='목록 내어쓰기'
+              onClick={() => {
+                outdentListItem(editor);
+              }}
+              wide
+            >
+              내어쓰기
+            </ToolbarButton>
+            <ToolbarButton
+              disabled={!listToolbarState.canIndent}
+              label='목록 들여쓰기'
+              onClick={() => {
+                indentListItem(editor);
+              }}
+              wide
+            >
+              들여쓰기
             </ToolbarButton>
           </div>
 

@@ -45,6 +45,15 @@ beforeAll(() => {
   }
 
   globalThis.ResizeObserver = TestResizeObserver;
+
+  Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => new DOMRect(),
+  });
+  Object.defineProperty(Range.prototype, 'getClientRects', {
+    configurable: true,
+    value: () => [],
+  });
   server.listen({ onUnhandledRequest: 'error' });
 });
 
