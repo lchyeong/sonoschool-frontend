@@ -262,7 +262,7 @@
   position: relative;
   min-height: 320px;
   padding: var(--space-4) 112px 84px calc(var(--space-4) + 34px);
-  overflow-x: auto;
+  overflow-x: clip;
 }
 
 .tableColumnDeleteButton,
@@ -549,7 +549,10 @@
 }
 
 .editor :global(.ProseMirror .tableWrapper) {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
 }
 
 .editor :global(.ProseMirror .selectedCell::after) {

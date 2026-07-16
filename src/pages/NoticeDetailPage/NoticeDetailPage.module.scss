@@ -76,7 +76,7 @@
   @include richText.content;
 
   width: min(100%, 1193px);
-  overflow-x: auto;
+  min-width: 0;
   --rich-text-color: #111827;
   --rich-text-link-color: #34b29f;
   --rich-text-secondary-color: #6b7280;

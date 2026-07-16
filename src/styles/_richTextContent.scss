@@ -52,6 +52,18 @@
     table-layout: fixed;
   }
 
+  :global([data-rich-text-table-scroll='true']) {
+    width: 100%;
+    max-width: 100%;
+    margin: 0.75em 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  :global([data-rich-text-table-scroll='true'] > table) {
+    margin: 0;
+  }
+
   :global(td),
   :global(th) {
     min-width: 96px;

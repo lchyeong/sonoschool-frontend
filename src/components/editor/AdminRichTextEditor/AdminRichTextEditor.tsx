@@ -481,7 +481,7 @@ const AdminRichTextEditor = ({
     editor.on('selectionUpdate', updateTableControls);
     editor.on('transaction', updateTableControls);
     window.addEventListener('resize', updateTableControls);
-    editorFrame?.addEventListener('scroll', updateTableControls);
+    editorFrame?.addEventListener('scroll', updateTableControls, true);
     updateTableControls();
 
     return () => {
@@ -489,7 +489,7 @@ const AdminRichTextEditor = ({
       editor.off('selectionUpdate', updateTableControls);
       editor.off('transaction', updateTableControls);
       window.removeEventListener('resize', updateTableControls);
-      editorFrame?.removeEventListener('scroll', updateTableControls);
+      editorFrame?.removeEventListener('scroll', updateTableControls, true);
     };
   }, [editor, updateTableInlineControlsFromCell]);
 

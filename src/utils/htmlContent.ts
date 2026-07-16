@@ -284,6 +284,20 @@ const applyEditorColumnWidths = (table: HTMLTableElement): void => {
   });
 };
 
+const wrapDisplayTable = (table: HTMLTableElement): void => {
+  if (table.parentElement?.hasAttribute('data-rich-text-table-scroll')) {
+    return;
+  }
+
+  const wrapper = table.ownerDocument.createElement('div');
+  wrapper.setAttribute('aria-label', '표 영역');
+  wrapper.setAttribute('data-rich-text-table-scroll', 'true');
+  wrapper.setAttribute('role', 'region');
+  wrapper.setAttribute('tabindex', '0');
+  table.replaceWith(wrapper);
+  wrapper.append(table);
+};
+
 export const normalizeRichTextHtmlForStorage = (html: string): string => {
   const document = parseHtml(html);
 
@@ -313,6 +327,7 @@ export const sanitizeRichTextHtmlForDisplay = (html: string): string => {
 
   document.body.querySelectorAll('table').forEach((table) => {
     applyEditorColumnWidths(table);
+    wrapDisplayTable(table);
   });
 
   return document.body.innerHTML;

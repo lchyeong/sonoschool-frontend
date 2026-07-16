@@ -39,6 +39,7 @@ describe('htmlContent rich text sanitizer', () => {
     `);
     const document = new DOMParser().parseFromString(displayHtml, 'text/html');
     const table = document.querySelector('table');
+    const tableScroll = document.querySelector('[data-rich-text-table-scroll="true"]');
 
     expect(table?.style.width).toBe('300px');
     expect(table?.style.minWidth).toBe('300px');
@@ -46,6 +47,10 @@ describe('htmlContent rich text sanitizer', () => {
     expect(table?.querySelectorAll('col')).toHaveLength(2);
     expect(table?.querySelector('col')?.style.width).toBe('120px');
     expect(table?.querySelector('td')?.style.width).toBe('120px');
+    expect(tableScroll?.getAttribute('aria-label')).toBe('표 영역');
+    expect(tableScroll?.getAttribute('role')).toBe('region');
+    expect(tableScroll?.getAttribute('tabindex')).toBe('0');
+    expect(tableScroll?.firstElementChild).toBe(table);
   });
 
   it('저장 전 colgroup 컬럼 폭을 셀 colwidth로 연결한다', () => {
