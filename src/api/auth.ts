@@ -24,6 +24,24 @@ const unwrapApiEnvelope = <T>(response: ApiEnvelope<T>): T => {
   return response.data;
 };
 
+const alignExpiryToClientClock = (
+  expiresAt: string,
+  serverTimestamp: string | null | undefined,
+): string => {
+  const expiresAtMilliseconds = Date.parse(expiresAt);
+  const serverTimestampMilliseconds = serverTimestamp ? Date.parse(serverTimestamp) : Number.NaN;
+
+  if (
+    Number.isNaN(expiresAtMilliseconds) ||
+    Number.isNaN(serverTimestampMilliseconds) ||
+    expiresAtMilliseconds <= serverTimestampMilliseconds
+  ) {
+    return expiresAt;
+  }
+
+  return new Date(Date.now() + (expiresAtMilliseconds - serverTimestampMilliseconds)).toISOString();
+};
+
 export const loginStudent = async (payload: LoginPayload): Promise<StudentLoginResult> => {
   const authDeviceId = getOrCreateAuthDeviceId();
   try {
@@ -137,7 +155,11 @@ export const sendSmsVerification = async (payload: SmsSendPayload): Promise<SmsS
         },
       },
     );
-    return unwrapApiEnvelope(response.data);
+    const smsResponse = unwrapApiEnvelope(response.data);
+    return {
+      ...smsResponse,
+      expiresAt: alignExpiryToClientClock(smsResponse.expiresAt, response.data.timestamp),
+    };
   } catch (error: unknown) {
     throw toApiError(error, '인증번호 발송에 실패했습니다.');
   }

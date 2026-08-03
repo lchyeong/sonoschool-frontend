@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { axiosPostMock } = vi.hoisted(() => {
   return {
@@ -32,6 +32,10 @@ import {
 describe('student auth API', () => {
   beforeEach(() => {
     axiosPostMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('sends the device header when logging in', async () => {
@@ -183,16 +187,18 @@ describe('student auth API', () => {
   });
 
   it('sends the device header when sending signup SMS', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-08-01T10:50:00.000Z'));
     axiosPostMock.mockResolvedValue({
       data: {
         data: {
           phoneNumber: '01012345678',
-          expiresAt: '2099-01-01T00:03:00Z',
+          expiresAt: '2026-08-01T10:39:00.000Z',
         },
+        timestamp: '2026-08-01T10:36:00.000Z',
       },
     });
 
-    await sendSmsVerification({ phoneNumber: '010-1234-5678' });
+    const result = await sendSmsVerification({ phoneNumber: '010-1234-5678' });
 
     expect(axiosPostMock).toHaveBeenCalledWith(
       '/api/v1/auth/sms/send',
@@ -203,6 +209,10 @@ describe('student auth API', () => {
         },
       },
     );
+    expect(result).toEqual({
+      phoneNumber: '01012345678',
+      expiresAt: '2026-08-01T10:53:00.000Z',
+    });
   });
 
   it('sends the device header when verifying signup SMS', async () => {

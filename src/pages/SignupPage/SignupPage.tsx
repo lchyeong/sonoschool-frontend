@@ -385,12 +385,21 @@ const SignupPage = () => {
         error instanceof ApiError && error.code === 'USER_400_PHONE'
           ? PHONE_ALREADY_EXISTS_ERROR_MESSAGE
           : null;
+      const shouldResetSmsVerification =
+        error instanceof ApiError &&
+        ['AUTH_400_SMS_EXPIRED', 'AUTH_429_SMS_ATTEMPTS'].includes(error.code ?? '');
 
       if (phoneNumberErrorMessage) {
         setFormErrors((current) => ({
           ...current,
           phoneNumber: [phoneNumberErrorMessage],
         }));
+      }
+
+      if (shouldResetSmsVerification) {
+        setSmsState(INITIAL_SMS_STATE);
+        setSmsCountdownSeconds(0);
+        clearStoredSignupSmsVerification();
       }
 
       showToast({
@@ -618,8 +627,6 @@ const SignupPage = () => {
 
     if (!formValues.smsCode.trim()) {
       nextErrors.smsCode = ['인증번호가 일치하지 않습니다.'];
-    } else if (isSmsExpired) {
-      nextErrors.smsCode = ['인증번호가 만료되었습니다. 다시 발송해주세요.'];
     }
 
     setFormErrors((current) => ({
@@ -1118,6 +1125,7 @@ const SignupPage = () => {
                   className={styles['smsButton']}
                   disabled={
                     sendSmsMutation.isPending ||
+                    verifySmsMutation.isPending ||
                     smsState.verifiedAt !== null ||
                     (isSmsCodeVisible && !isSmsExpired)
                   }
@@ -1192,8 +1200,8 @@ const SignupPage = () => {
                   className={styles['smsButton']}
                   disabled={
                     verifySmsMutation.isPending ||
+                    sendSmsMutation.isPending ||
                     !isSmsCodeVisible ||
-                    isSmsExpired ||
                     isPhoneVerified
                   }
                   onClick={handleVerifySms}
