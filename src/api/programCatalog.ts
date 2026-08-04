@@ -140,6 +140,7 @@ const qnaSummarySchema = z.object({
 const reviewItemSchema = z
   .object({
     authorLoginId: z.string().trim().min(1).optional(),
+    authorNickname: z.string().trim().min(1).nullable().optional(),
     authorName: z.string().min(1).optional(),
     content: z.string().min(1),
     dateLabel: z.string().min(1),
@@ -147,9 +148,9 @@ const reviewItemSchema = z
     loginId: z.string().trim().min(1).optional(),
     rating: z.number().min(1).max(5),
   })
-  .transform(({ authorLoginId, authorName: _authorName, loginId, ...review }) => ({
+  .transform(({ authorLoginId, authorName: _authorName, authorNickname, loginId, ...review }) => ({
     ...review,
-    authorLoginId: maskReviewAuthorLoginId(authorLoginId ?? loginId),
+    authorLoginId: maskReviewAuthorLoginId(authorNickname ?? authorLoginId ?? loginId),
   }));
 
 const curriculumScheduleItemSchema = z.object({

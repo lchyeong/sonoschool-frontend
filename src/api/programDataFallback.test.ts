@@ -387,7 +387,7 @@ describe('program data API fallback', () => {
     expect(page.recommendedFor).toHaveLength(9);
   });
 
-  it('masks review author login IDs from program page API responses', async () => {
+  it('prefers masked review author nicknames and falls back to masked login IDs', async () => {
     httpGetMock.mockResolvedValue({
       breadcrumbItems: [{ label: '교육과정', to: '/programs' }],
       categoryLabel: '일반과정',
@@ -445,6 +445,7 @@ describe('program data API fallback', () => {
       reviews: [
         {
           authorLoginId: 'student01',
+          authorNickname: '길벗',
           content: '좋아요',
           dateLabel: '2026.04.01',
           id: 'review-1',
@@ -465,7 +466,7 @@ describe('program data API fallback', () => {
     });
 
     await expect(fetchProgramPage('/programs/test-course')).resolves.toMatchObject({
-      reviews: [{ authorLoginId: 's********' }, { authorLoginId: 's*******' }],
+      reviews: [{ authorLoginId: '길*' }, { authorLoginId: 's*******' }],
     });
   });
 

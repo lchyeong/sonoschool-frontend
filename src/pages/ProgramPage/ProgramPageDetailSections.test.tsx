@@ -365,6 +365,84 @@ describe('ProgramPageDetailMainContent', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('긴 수강평은 상단과 전체 목록에서 각각 펼쳐 볼 수 있다', () => {
+    const longReviewContent =
+      '긴 수강평의 전체 내용을 확인할 수 있도록 여러 문장을 이어서 작성한 테스트 후기입니다.';
+    const baseReview = createDetailData().reviews.at(0);
+
+    if (!baseReview) {
+      throw new Error('테스트용 수강평이 필요합니다.');
+    }
+
+    const longReview = {
+      ...baseReview,
+      content: longReviewContent,
+    };
+    const sectionRefHandlers = {
+      'course-curriculum': vi.fn(),
+      'course-faq': vi.fn(),
+      'course-introduction': vi.fn(),
+      'course-qna': vi.fn(),
+      'course-reviews': vi.fn(),
+    };
+
+    render(
+      <MemoryRouter>
+        <ProgramPageDetailMainContent
+          activeSectionId='course-reviews'
+          data={createDetailData({ reviews: [longReview] })}
+          handleReviewCarouselScroll={vi.fn()}
+          handleTabClick={vi.fn()}
+          isQnaTabOpen={false}
+          openCurriculumRows={{}}
+          openFaqId={null}
+          reviewCarouselRef={createRef<HTMLDivElement>()}
+          reviewSortOrder='recommended'
+          sectionRefHandlers={sectionRefHandlers}
+          setAllCurriculumRowsOpen={vi.fn()}
+          setOpenFaqId={vi.fn()}
+          setReviewSortOrder={vi.fn()}
+          sortedReviews={[longReview]}
+          toggleCurriculumRow={vi.fn()}
+          visiblePreviewReviewIds={[longReview.id]}
+        />
+      </MemoryRouter>,
+    );
+
+    const reviewContentElements = screen.getAllByText(longReviewContent);
+    expect(reviewContentElements).toHaveLength(2);
+
+    reviewContentElements.forEach((contentElement) => {
+      Object.defineProperties(contentElement, {
+        clientHeight: { configurable: true, value: 100 },
+        scrollHeight: { configurable: true, value: 220 },
+      });
+    });
+    fireEvent(window, new Event('resize'));
+
+    const expandButtons = screen.getAllByRole('button', {
+      name: 's******* 수강평 내용 더보기',
+    });
+    expect(expandButtons).toHaveLength(2);
+
+    const firstExpandButton = expandButtons.at(0);
+
+    if (!firstExpandButton) {
+      throw new Error('상단 수강평 더보기 버튼이 필요합니다.');
+    }
+
+    fireEvent.click(firstExpandButton);
+
+    const collapseButton = screen.getByRole('button', {
+      name: 's******* 수강평 내용 접기',
+    });
+    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(collapseButton);
+
+    expect(screen.getAllByRole('button', { name: 's******* 수강평 내용 더보기' })).toHaveLength(2);
+  });
+
   it('온라인 및 문제풀이 커리큘럼에는 섹션 헤더와 강의 행에 시간을 렌더링한다', () => {
     const setAllCurriculumRowsOpen = vi.fn();
     const sectionRefHandlers = {

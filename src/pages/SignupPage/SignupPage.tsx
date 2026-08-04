@@ -21,6 +21,10 @@ import eyeIconSrc from '@/assets/icons/lucide_eye.svg';
 import LegalPolicyModal from '@/components/policy/LegalPolicyModal';
 import type { LegalPolicyType } from '@/components/policy/LegalPolicyModal';
 import Button from '@/components/ui/Button/Button';
+import {
+  MARKETING_CONSENT_DESCRIPTION,
+  OPTIONAL_MARKETING_CONSENT_LABEL,
+} from '@/constants/marketingConsent';
 import { myCartQueryKey } from '@/query/useMyPageQueries';
 import { routePaths } from '@/routes/routeRegistry';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -1239,10 +1243,22 @@ const SignupPage = () => {
             {registrationTerms.map((term: RegistrationTerm) => {
               const isChecked = acceptedTermKeys.includes(term.code);
               const policyType = resolveRegistrationTermPolicyType(term);
+              const isMarketingTerm = policyType === 'marketing';
 
               return (
-                <div className={styles['termRow']} key={term.code}>
-                  <label className={styles['checkboxRow']}>
+                <div
+                  className={classNames(
+                    styles['termRow'],
+                    isMarketingTerm && styles['termRowWithDescription'],
+                  )}
+                  key={term.code}
+                >
+                  <label
+                    className={classNames(
+                      styles['checkboxRow'],
+                      isMarketingTerm && styles['checkboxRowWithDescription'],
+                    )}
+                  >
                     <input
                       checked={isChecked}
                       name={term.code}
@@ -1252,8 +1268,17 @@ const SignupPage = () => {
                     <span aria-hidden='true' className={styles['checkboxBox']}>
                       {isChecked ? <img alt='' src={checkIconSrc} /> : null}
                     </span>
-                    <span>
-                      [{term.required ? '필수' : '선택'}] {term.title}
+                    <span className={styles['termCopy']}>
+                      <span>
+                        {isMarketingTerm
+                          ? OPTIONAL_MARKETING_CONSENT_LABEL
+                          : `[${term.required ? '필수' : '선택'}] ${term.title}`}
+                      </span>
+                      {isMarketingTerm ? (
+                        <span className={styles['termDescription']}>
+                          {MARKETING_CONSENT_DESCRIPTION}
+                        </span>
+                      ) : null}
                     </span>
                   </label>
                   {policyType ? (

@@ -296,6 +296,23 @@
   gap: 16px;
 }
 
+.termRowWithDescription,
+.checkboxRowWithDescription {
+  align-items: flex-start;
+}
+
+.termCopy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.termDescription {
+  color: #9ca3af;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .termViewButton {
   flex: 0 0 auto;
   padding: 6px 0;
@@ -454,5 +471,9 @@
 
   .termViewButton {
     font-size: 15px;
+  }
+
+  .termDescription {
+    font-size: 13px;
   }
 }

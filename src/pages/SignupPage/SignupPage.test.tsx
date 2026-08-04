@@ -132,3 +132,32 @@ describe('SignupPage SMS verification', () => {
     },
   );
 });
+
+describe('SignupPage registration terms', () => {
+  it('shows the marketing consent explanation below its display title', async () => {
+    fetchRegistrationTermsMock.mockResolvedValueOnce([
+      {
+        code: 'MARKETING',
+        contentUrl: '/terms/marketing',
+        required: false,
+        title: '마케팅 정보 수신 동의',
+        version: '2026-03-17',
+      },
+    ]);
+
+    renderSignupPage();
+
+    const displayTitle = await screen.findByText(
+      '[선택] 광고성 정보 수신 동의(교육 서비스 및 혜택 안내를 위한 정보 수신에 동의합니다.)',
+    );
+    const description = screen.getByText(
+      '※ 무료 강의, 세미나, 신규 교육과정, 이벤트 및 다양한 교육 정보를 제공해 드립니다.',
+    );
+
+    expect(displayTitle.parentElement).toContainElement(description);
+
+    fireEvent.click(screen.getByRole('button', { name: '보기' }));
+
+    expect(screen.getByRole('heading', { name: '광고성 정보 수신 동의' })).toBeInTheDocument();
+  });
+});

@@ -52,6 +52,10 @@ import SmsVerificationModal from '@/components/auth/SmsVerificationModal/SmsVeri
 import Modal from '@/components/overlay/Modal/Modal';
 import UnifiedSearchBar from '@/components/search/UnifiedSearchBar/UnifiedSearchBar';
 import Button from '@/components/ui/Button/Button';
+import {
+  MARKETING_CONSENT_DESCRIPTION,
+  OPTIONAL_MARKETING_CONSENT_LABEL,
+} from '@/constants/marketingConsent';
 import marketingConsentText from '@/content/marketingConsent.ko-KR.txt?raw';
 import privacyCollectionConsentText from '@/content/privacyCollectionConsent.ko-KR.txt?raw';
 import {
@@ -2490,8 +2494,18 @@ const MyPagePage = () => {
                 </button>
               </div>
 
-              <div className={styles['profileConsentDetailRow']}>
-                <label className={styles['profileConsentRow']}>
+              <div
+                className={classNames(
+                  styles['profileConsentDetailRow'],
+                  styles['profileConsentDetailRowWithDescription'],
+                )}
+              >
+                <label
+                  className={classNames(
+                    styles['profileConsentRow'],
+                    styles['profileConsentRowWithDescription'],
+                  )}
+                >
                   <input
                     checked={isOptionalPrivacyConsentAccepted}
                     className={styles['profileConsentInput']}
@@ -2504,12 +2518,16 @@ const MyPagePage = () => {
                     <span className={styles['profileConsentCheck']} />
                   </span>
                   <span className={styles['profileConsentText']}>
-                    <span className={styles['profileConsentOptional']}>선택</span>
-                    <span>광고성 정보 수신 동의</span>
+                    <span className={styles['profileConsentCopy']}>
+                      <span>{OPTIONAL_MARKETING_CONSENT_LABEL}</span>
+                      <span className={styles['profileConsentDescription']}>
+                        {MARKETING_CONSENT_DESCRIPTION}
+                      </span>
+                    </span>
                   </span>
                 </label>
                 <button
-                  aria-label='광고성 정보 수신 동의 보기'
+                  aria-label={`${OPTIONAL_MARKETING_CONSENT_LABEL} 보기`}
                   className={styles['profileConsentViewButton']}
                   onClick={() => {
                     setProfileConsentModalType('marketing');

@@ -1,4 +1,12 @@
-import { startTransition, useEffect, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { Link } from 'react-router-dom';
 
@@ -33,6 +41,12 @@ interface RatingStarsProps {
 interface ReviewPreviewCardProps {
   isDimmed?: boolean;
   review: ProgramReviewItem;
+}
+
+interface ExpandableReviewContentProps {
+  content: string;
+  reviewAuthorLoginId: string;
+  variant: 'full' | 'preview';
 }
 
 interface FullReviewCardProps {
@@ -444,6 +458,106 @@ const RatingStars = ({ inverse = false, rating }: RatingStarsProps) => {
   );
 };
 
+const ExpandableReviewContent = ({
+  content,
+  reviewAuthorLoginId,
+  variant,
+}: ExpandableReviewContentProps) => {
+  const contentId = useId();
+  const contentRef = useRef<HTMLParagraphElement | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  const measureCollapsedOverflow = useCallback(() => {
+    const contentElement = contentRef.current;
+
+    if (!contentElement || isExpanded) {
+      return;
+    }
+
+    const nextIsOverflowing = contentElement.scrollHeight - contentElement.clientHeight > 1;
+    setIsOverflowing((currentIsOverflowing) => {
+      return currentIsOverflowing === nextIsOverflowing ? currentIsOverflowing : nextIsOverflowing;
+    });
+  }, [isExpanded]);
+
+  useLayoutEffect(() => {
+    measureCollapsedOverflow();
+  }, [content, measureCollapsedOverflow]);
+
+  useEffect(() => {
+    window.addEventListener('resize', measureCollapsedOverflow);
+
+    const contentElement = contentRef.current;
+    const resizeObserver =
+      contentElement && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            measureCollapsedOverflow();
+          })
+        : null;
+
+    if (contentElement && resizeObserver) {
+      resizeObserver.observe(contentElement);
+    }
+
+    return () => {
+      window.removeEventListener('resize', measureCollapsedOverflow);
+      resizeObserver?.disconnect();
+    };
+  }, [measureCollapsedOverflow]);
+
+  const isToggleVisible = isOverflowing || isExpanded;
+  const contentClassName =
+    variant === 'preview' ? styles['reviewPreviewContent'] : styles['fullReviewContent'];
+  const collapsedContentClassName =
+    variant === 'preview'
+      ? styles['reviewPreviewContentCollapsed']
+      : styles['fullReviewContentCollapsed'];
+
+  return (
+    <div
+      className={classNames(
+        styles['reviewExpandableContent'],
+        variant === 'full' && styles['fullReviewExpandableContent'],
+      )}
+    >
+      <p
+        className={classNames(
+          contentClassName,
+          !isExpanded && styles['reviewContentCollapsed'],
+          !isExpanded && collapsedContentClassName,
+        )}
+        id={contentId}
+        ref={contentRef}
+      >
+        {content}
+      </p>
+
+      {isToggleVisible ? (
+        <button
+          aria-controls={contentId}
+          aria-expanded={isExpanded}
+          aria-label={`${reviewAuthorLoginId} 수강평 내용 ${isExpanded ? '접기' : '더보기'}`}
+          className={styles['reviewContentToggleButton']}
+          onClick={() => {
+            setIsExpanded((currentIsExpanded) => !currentIsExpanded);
+          }}
+          type='button'
+        >
+          <span>{isExpanded ? '접기' : '더보기'}</span>
+          <ChevronDownIcon
+            aria-hidden='true'
+            className={classNames(
+              styles['reviewContentToggleIcon'],
+              isExpanded && styles['reviewContentToggleIconOpen'],
+            )}
+          />
+        </button>
+      ) : null}
+    </div>
+  );
+};
+
 const ReviewPreviewCard = ({ isDimmed = false, review }: ReviewPreviewCardProps) => {
   return (
     <article
@@ -461,7 +575,11 @@ const ReviewPreviewCard = ({ isDimmed = false, review }: ReviewPreviewCardProps)
         <span className={styles['reviewMetaBadge']}>100% 수강 후 작성</span>
       </div>
 
-      <p className={styles['reviewPreviewContent']}>{review.content}</p>
+      <ExpandableReviewContent
+        content={review.content}
+        reviewAuthorLoginId={review.authorLoginId}
+        variant='preview'
+      />
     </article>
   );
 };
@@ -480,7 +598,11 @@ const FullReviewCard = ({ review }: FullReviewCardProps) => {
         <span className={styles['reviewMetaBadge']}>100% 수강 후 작성</span>
       </div>
 
-      <p className={styles['fullReviewContent']}>{review.content}</p>
+      <ExpandableReviewContent
+        content={review.content}
+        reviewAuthorLoginId={review.authorLoginId}
+        variant='full'
+      />
 
       <div className={styles['reviewReply']}>
         <div className={styles['reviewReplyHeader']}>

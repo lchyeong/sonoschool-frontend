@@ -12,7 +12,7 @@ export type LegalPolicyType = 'marketing' | 'privacy' | 'privacyCollection' | 'r
 const policyContent: Record<LegalPolicyType, { text: string; title: string }> = {
   marketing: {
     text: marketingConsentText,
-    title: '마케팅 정보 수신 동의',
+    title: '광고성 정보 수신 동의',
   },
   privacy: {
     text: privacyPolicyText,
