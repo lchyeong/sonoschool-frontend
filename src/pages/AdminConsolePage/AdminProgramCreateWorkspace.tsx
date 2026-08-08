@@ -139,6 +139,54 @@ interface CreateWorkspaceSnapshot {
   payload: AdminProgramDraftPayload;
 }
 
+interface WorkspacePayloadResolution {
+  lastSavedAt: string | null;
+  lastSavedPayload: string;
+  payload: AdminProgramDraftPayload;
+}
+
+type StructuredInfoField = 'learningOutcomes' | 'summaryItems';
+type StructuredInfoItemKey = keyof AdminProgramSummaryFormItem;
+
+const STRUCTURED_INFO_FIELD_LABELS: Record<StructuredInfoField, string> = {
+  learningOutcomes: '학습 성과',
+  summaryItems: '핵심 포인트',
+};
+
+const buildStructuredInfoFocusKey = (
+  field: StructuredInfoField,
+  index: number,
+  key: StructuredInfoItemKey,
+): string => `basic-${field}-${String(index)}-${key}`;
+
+const buildStructuredInfoFinalizeIssues = (
+  basicInfo: AdminProgramDraftPayload['basicInfo'],
+): DraftValidationIssue[] => {
+  const fields: StructuredInfoField[] = ['summaryItems', 'learningOutcomes'];
+
+  return fields.flatMap((field) =>
+    basicInfo[field].flatMap((item, index) => {
+      const itemLabel = `${STRUCTURED_INFO_FIELD_LABELS[field]} ${String(index + 1)}`;
+      const issues: DraftValidationIssue[] = [];
+
+      if (!item.label.trim()) {
+        issues.push({
+          focusKey: buildStructuredInfoFocusKey(field, index, 'label'),
+          message: `${itemLabel}: 제목을 입력해 주세요.`,
+        });
+      }
+      if (!item.value.trim()) {
+        issues.push({
+          focusKey: buildStructuredInfoFocusKey(field, index, 'value'),
+          message: `${itemLabel}: 설명을 입력해 주세요.`,
+        });
+      }
+
+      return issues;
+    }),
+  );
+};
+
 interface PendingLocalFile {
   file: File;
   sizeLabel: string;
@@ -535,15 +583,22 @@ const isValidDateRange = (startAt: string | null, endAt: string | null): boolean
 const normalizeDraftBasicInfo = (
   basicInfo: AdminProgramDraftPayload['basicInfo'] | null | undefined,
 ): AdminProgramDraftPayload['basicInfo'] => {
+  const normalizeSummaryItems = (
+    items: AdminProgramSummaryFormItem[] | null | undefined,
+  ): AdminProgramSummaryFormItem[] =>
+    asDraftArray(items).map((item) => ({
+      label: typeof item?.label === 'string' ? item.label : '',
+      value: typeof item?.value === 'string' ? item.value : '',
+    }));
   const safeBasicInfo = {
     ...createEmptyBasicInfo(),
     ...basicInfo,
     checklists: asDraftArray(basicInfo?.checklists),
     faqs: asDraftArray(basicInfo?.faqs),
-    learningOutcomes: asDraftArray(basicInfo?.learningOutcomes),
+    learningOutcomes: normalizeSummaryItems(basicInfo?.learningOutcomes),
     learningPoints: asDraftArray(basicInfo?.learningPoints),
     recommendedFor: asDraftArray(basicInfo?.recommendedFor),
-    summaryItems: asDraftArray(basicInfo?.summaryItems),
+    summaryItems: normalizeSummaryItems(basicInfo?.summaryItems),
   };
   const thumbnailCrop = normalizeAdminImageCrop({
     offsetX: safeBasicInfo.thumbnailCropOffsetX ?? DEFAULT_ADMIN_IMAGE_CROP.offsetX,
@@ -1673,6 +1728,73 @@ const normalizePayloadFromDetail = (detail: AdminProgramDraftDetail): AdminProgr
   };
 };
 
+const serializeDraftPayloadForComparison = (payload: AdminProgramDraftPayload): string =>
+  JSON.stringify(payload, (_key, value: unknown) => {
+    if (value === null || Array.isArray(value) || typeof value !== 'object') {
+      return value;
+    }
+
+    return Object.fromEntries(
+      Object.entries(value).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey)),
+    );
+  });
+
+const areDraftPayloadsEqual = (
+  left: AdminProgramDraftPayload,
+  right: AdminProgramDraftPayload,
+): boolean =>
+  serializeDraftPayloadForComparison(left) === serializeDraftPayloadForComparison(right);
+
+const resolveWorkspacePayload = (
+  detail: AdminProgramDraftDetail,
+  snapshot: CreateWorkspaceSnapshot | null,
+): WorkspacePayloadResolution => {
+  const serverPayload = normalizePayloadFromDetail(detail);
+  const serverSerializedPayload = JSON.stringify(serverPayload);
+  const serverResolution: WorkspacePayloadResolution = {
+    lastSavedAt: detail.updatedAt,
+    lastSavedPayload: serverSerializedPayload,
+    payload: serverPayload,
+  };
+
+  if (!snapshot || !snapshot.payload || typeof snapshot.lastSavedPayload !== 'string') {
+    return serverResolution;
+  }
+
+  let snapshotSavedPayload: AdminProgramDraftPayload;
+  try {
+    snapshotSavedPayload = normalizeDraftPayloadShape(
+      JSON.parse(snapshot.lastSavedPayload) as AdminProgramDraftPayload,
+    );
+  } catch {
+    return serverResolution;
+  }
+
+  const snapshotPayload = normalizeDraftPayloadShape(snapshot.payload);
+  if (areDraftPayloadsEqual(snapshotPayload, snapshotSavedPayload)) {
+    return serverResolution;
+  }
+
+  const currentServerBaseline = mergeServerUploadStateIntoSnapshot(
+    snapshotSavedPayload,
+    serverPayload,
+  );
+  if (!areDraftPayloadsEqual(currentServerBaseline, serverPayload)) {
+    return serverResolution;
+  }
+
+  const restoredPayload = mergeServerUploadStateIntoSnapshot(snapshotPayload, serverPayload);
+  if (areDraftPayloadsEqual(restoredPayload, serverPayload)) {
+    return serverResolution;
+  }
+
+  return {
+    lastSavedAt: detail.updatedAt,
+    lastSavedPayload: serverSerializedPayload,
+    payload: restoredPayload,
+  };
+};
+
 const AdminProgramCreateWorkspace = ({
   mode = 'create',
   view = 'details',
@@ -1881,20 +2003,20 @@ const AdminProgramCreateWorkspace = ({
       });
     },
     onSuccess: (detail) => {
-      const normalizedPayload = normalizePayloadFromDetail(detail);
-      const snapshot = loadCreateWorkspaceSnapshot(detail.id);
-      const nextPayload = snapshot
-        ? mergeServerUploadStateIntoSnapshot(
-            normalizeDraftPayloadShape(snapshot.payload),
-            normalizedPayload,
-          )
-        : normalizedPayload;
-      setPayload(nextPayload);
-      currentPayloadRef.current = nextPayload;
+      const resolvedPayload = resolveWorkspacePayload(
+        detail,
+        loadCreateWorkspaceSnapshot(detail.id),
+      );
+      setPayload(resolvedPayload.payload);
+      currentPayloadRef.current = resolvedPayload.payload;
       initializedDraftIdRef.current = detail.id;
-      lastSavedPayloadRef.current = snapshot?.lastSavedPayload ?? JSON.stringify(normalizedPayload);
-      setLastSavedAt(snapshot?.lastSavedAt ?? detail.updatedAt);
-      setSaveState(JSON.stringify(nextPayload) === lastSavedPayloadRef.current ? 'saved' : 'dirty');
+      lastSavedPayloadRef.current = resolvedPayload.lastSavedPayload;
+      setLastSavedAt(resolvedPayload.lastSavedAt);
+      setSaveState(
+        JSON.stringify(resolvedPayload.payload) === resolvedPayload.lastSavedPayload
+          ? 'saved'
+          : 'dirty',
+      );
       setSearchParams({ draftId: String(detail.id) });
     },
   });
@@ -2198,20 +2320,17 @@ const AdminProgramCreateWorkspace = ({
       return;
     }
 
-    const normalizedPayload = normalizePayloadFromDetail(detail);
-    const snapshot = loadCreateWorkspaceSnapshot(detail.id);
-    const nextPayload = snapshot
-      ? mergeServerUploadStateIntoSnapshot(
-          normalizeDraftPayloadShape(snapshot.payload),
-          normalizedPayload,
-        )
-      : normalizedPayload;
-    setPayload(nextPayload);
-    currentPayloadRef.current = nextPayload;
+    const resolvedPayload = resolveWorkspacePayload(detail, loadCreateWorkspaceSnapshot(detail.id));
+    setPayload(resolvedPayload.payload);
+    currentPayloadRef.current = resolvedPayload.payload;
     initializedDraftIdRef.current = detail.id;
-    lastSavedPayloadRef.current = snapshot?.lastSavedPayload ?? JSON.stringify(normalizedPayload);
-    setLastSavedAt(snapshot?.lastSavedAt ?? detail.updatedAt);
-    setSaveState(JSON.stringify(nextPayload) === lastSavedPayloadRef.current ? 'saved' : 'dirty');
+    lastSavedPayloadRef.current = resolvedPayload.lastSavedPayload;
+    setLastSavedAt(resolvedPayload.lastSavedAt);
+    setSaveState(
+      JSON.stringify(resolvedPayload.payload) === resolvedPayload.lastSavedPayload
+        ? 'saved'
+        : 'dirty',
+    );
   }, [createDraftMutation.data, detailQuery.data]);
 
   useEffect(() => {
@@ -5226,6 +5345,7 @@ const AdminProgramCreateWorkspace = ({
     numericInputValues,
     discountPercentInput,
   );
+  const structuredInfoIssues = buildStructuredInfoFinalizeIssues(payload.basicInfo);
   const curriculumSectionIssues = payload.sections.flatMap((section) => {
     const sectionLabel = section.title?.trim() || '미제목 섹션';
     return section.title?.trim()
@@ -5386,6 +5506,7 @@ const AdminProgramCreateWorkspace = ({
   const allFinalizeIssues = [
     ...basicInfoInputIssues,
     ...basicInfoIssues,
+    ...structuredInfoIssues,
     ...curriculumSectionIssues,
     ...blockingFinalizeIssues,
   ];
@@ -6175,6 +6296,11 @@ const AdminProgramCreateWorkspace = ({
                     renderItem={(item, index) => (
                       <div className={styles['summaryPointFieldGroup']}>
                         <TextField
+                          data-draft-focus-key={buildStructuredInfoFocusKey(
+                            'summaryItems',
+                            index,
+                            'label',
+                          )}
                           label='핵심 포인트 제목'
                           name={`draft-summary-label-${String(index)}`}
                           onChange={(event) => {
@@ -6188,6 +6314,11 @@ const AdminProgramCreateWorkspace = ({
                           value={item.label}
                         />
                         <TextAreaField
+                          data-draft-focus-key={buildStructuredInfoFocusKey(
+                            'summaryItems',
+                            index,
+                            'value',
+                          )}
                           label='핵심 포인트 설명'
                           name={`draft-summary-value-${String(index)}`}
                           onChange={(event) => {
@@ -6220,6 +6351,11 @@ const AdminProgramCreateWorkspace = ({
                     renderItem={(item, index) => (
                       <div className={styles['summaryPointFieldGroup']}>
                         <TextField
+                          data-draft-focus-key={buildStructuredInfoFocusKey(
+                            'learningOutcomes',
+                            index,
+                            'label',
+                          )}
                           label='학습 성과 제목'
                           name={`draft-learning-outcome-label-${String(index)}`}
                           onChange={(event) => {
@@ -6233,6 +6369,11 @@ const AdminProgramCreateWorkspace = ({
                           value={item.label}
                         />
                         <TextAreaField
+                          data-draft-focus-key={buildStructuredInfoFocusKey(
+                            'learningOutcomes',
+                            index,
+                            'value',
+                          )}
                           label='학습 성과 설명'
                           name={`draft-learning-outcome-value-${String(index)}`}
                           onChange={(event) => {

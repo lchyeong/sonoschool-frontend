@@ -100,6 +100,36 @@ const createAdminProgramDraftDetailFixture = (): AdminProgramDraftDetail => {
   };
 };
 
+const createValidAdminProgramDraftDetailFixture = (): AdminProgramDraftDetail => {
+  const draftDetail = createAdminProgramDraftDetailFixture();
+  draftDetail.finalProgramId = 2001;
+  draftDetail.payload.basicInfo.categoryId = 1101;
+  draftDetail.payload.basicInfo.price = 100000;
+  draftDetail.payload.basicInfo.title = '구조화 정보 검증 과정';
+  draftDetail.payload.sections[0].title = '기본 섹션';
+  draftDetail.payload.sections[0].lectures[0].title = '기본 강의';
+  return draftDetail;
+};
+
+const cloneDraftPayload = (
+  payload: AdminProgramDraftDetail['payload'],
+): AdminProgramDraftDetail['payload'] =>
+  JSON.parse(JSON.stringify(payload)) as AdminProgramDraftDetail['payload'];
+
+const saveCreateWorkspaceSnapshot = (
+  draftId: number,
+  snapshot: {
+    lastSavedAt: string | null;
+    lastSavedPayload: string;
+    payload: AdminProgramDraftDetail['payload'];
+  },
+) => {
+  window.sessionStorage.setItem(
+    `admin-program-create-workspace:${String(draftId)}`,
+    JSON.stringify(snapshot),
+  );
+};
+
 const mockProgramDraftApis = (draftDetail = createAdminProgramDraftDetailFixture()) => {
   server.use(
     http.get('*/api/v1/admin/program-drafts', () => {
@@ -924,6 +954,299 @@ describe('AdminConsolePage', () => {
       });
     });
   });
+
+  it('prefers the server draft over a clean browser snapshot', async () => {
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.learningOutcomes = [
+      { label: '서버 최신 성과', value: '서버 최신 설명' },
+    ];
+    const snapshotPayload = cloneDraftPayload(draftDetail.payload);
+    snapshotPayload.basicInfo.learningOutcomes = [
+      { label: '브라우저 이전 성과', value: '브라우저 이전 설명' },
+    ];
+    saveCreateWorkspaceSnapshot(draftDetail.id, {
+      lastSavedAt: draftDetail.updatedAt,
+      lastSavedPayload: JSON.stringify(snapshotPayload),
+      payload: snapshotPayload,
+    });
+
+    renderAdminConsoleRoute('/admin/programs/2001/edit', { draftDetail });
+
+    expect(await screen.findByLabelText('학습 성과 제목')).toHaveValue('서버 최신 성과');
+    expect(screen.getByLabelText('학습 성과 설명')).toHaveValue('서버 최신 설명');
+  });
+
+  it('restores an unsaved browser snapshot based on the current server revision', async () => {
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.learningOutcomes = [
+      { label: '서버 저장 성과', value: '서버 저장 설명' },
+    ];
+    const lastSavedPayload = cloneDraftPayload(draftDetail.payload);
+    const snapshotPayload = cloneDraftPayload(lastSavedPayload);
+    snapshotPayload.basicInfo.learningOutcomes = [
+      { label: '로컬 미저장 성과', value: '로컬 미저장 설명' },
+    ];
+    saveCreateWorkspaceSnapshot(draftDetail.id, {
+      lastSavedAt: draftDetail.updatedAt,
+      lastSavedPayload: JSON.stringify(lastSavedPayload),
+      payload: snapshotPayload,
+    });
+
+    renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', { draftDetail });
+
+    expect(await screen.findByLabelText('학습 성과 제목')).toHaveValue('로컬 미저장 성과');
+    expect(screen.getByLabelText('학습 성과 설명')).toHaveValue('로컬 미저장 설명');
+  });
+
+  it('rebases unsaved browser changes over newer managed upload state', async () => {
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    draftDetail.updatedAt = '2026-03-27T09:05:00Z';
+    draftDetail.payload.basicInfo.learningOutcomes = [
+      { label: '서버 저장 성과', value: '서버 저장 설명' },
+    ];
+    draftDetail.payload.sections[0].lectures[0] = {
+      ...draftDetail.payload.sections[0].lectures[0],
+      durationSeconds: 120,
+      videoId: 7001,
+      videoUploadStatus: 'READY',
+    };
+    const lastSavedPayload = cloneDraftPayload(draftDetail.payload);
+    lastSavedPayload.sections[0].lectures[0] = {
+      ...lastSavedPayload.sections[0].lectures[0],
+      durationSeconds: null,
+      videoId: null,
+      videoUploadStatus: 'PROCESSING',
+    };
+    const snapshotPayload = cloneDraftPayload(lastSavedPayload);
+    snapshotPayload.basicInfo.learningOutcomes = [
+      { label: '로컬 미저장 성과', value: '로컬 미저장 설명' },
+    ];
+    saveCreateWorkspaceSnapshot(draftDetail.id, {
+      lastSavedAt: '2026-03-27T09:00:00Z',
+      lastSavedPayload: JSON.stringify(lastSavedPayload),
+      payload: snapshotPayload,
+    });
+
+    renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', { draftDetail });
+
+    expect(await screen.findByLabelText('학습 성과 제목')).toHaveValue('로컬 미저장 성과');
+    await waitFor(() => {
+      const storedSnapshot = JSON.parse(
+        window.sessionStorage.getItem('admin-program-create-workspace:91001') ?? '{}',
+      ) as {
+        payload?: AdminProgramDraftDetail['payload'];
+      };
+      expect(storedSnapshot.payload?.sections[0].lectures[0]).toMatchObject({
+        durationSeconds: 120,
+        videoId: 7001,
+        videoUploadStatus: 'READY',
+      });
+    });
+  });
+
+  it('does not restore an unsaved browser snapshot based on an older server revision', async () => {
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    draftDetail.updatedAt = '2026-03-27T09:00:00.922664Z';
+    draftDetail.payload.basicInfo.learningOutcomes = [
+      { label: '서버 최신 성과', value: '서버 최신 설명' },
+    ];
+    const lastSavedPayload = cloneDraftPayload(draftDetail.payload);
+    lastSavedPayload.basicInfo.learningOutcomes = [
+      { label: '서버 이전 성과', value: '서버 이전 설명' },
+    ];
+    const snapshotPayload = cloneDraftPayload(lastSavedPayload);
+    snapshotPayload.basicInfo.learningOutcomes = [
+      { label: '오래된 로컬 성과', value: '오래된 로컬 설명' },
+    ];
+    saveCreateWorkspaceSnapshot(draftDetail.id, {
+      lastSavedAt: '2026-03-27T09:00:00.922100Z',
+      lastSavedPayload: JSON.stringify(lastSavedPayload),
+      payload: snapshotPayload,
+    });
+
+    renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', { draftDetail });
+
+    expect(await screen.findByLabelText('학습 성과 제목')).toHaveValue('서버 최신 성과');
+    expect(screen.getByLabelText('학습 성과 설명')).toHaveValue('서버 최신 설명');
+  });
+
+  it('does not restore a browser snapshot whose saved baseline differs from the server', async () => {
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.learningOutcomes = [
+      { label: '서버 최신 성과', value: '서버 최신 설명' },
+    ];
+    const lastSavedPayload = cloneDraftPayload(draftDetail.payload);
+    lastSavedPayload.basicInfo.learningOutcomes = [
+      { label: '서버 이전 성과', value: '서버 이전 설명' },
+    ];
+    const snapshotPayload = cloneDraftPayload(lastSavedPayload);
+    snapshotPayload.basicInfo.learningOutcomes = [
+      { label: '로컬 미저장 성과', value: '로컬 미저장 설명' },
+    ];
+    saveCreateWorkspaceSnapshot(draftDetail.id, {
+      lastSavedAt: draftDetail.updatedAt,
+      lastSavedPayload: JSON.stringify(lastSavedPayload),
+      payload: snapshotPayload,
+    });
+
+    renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', { draftDetail });
+
+    expect(await screen.findByLabelText('학습 성과 제목')).toHaveValue('서버 최신 성과');
+    expect(screen.getByLabelText('학습 성과 설명')).toHaveValue('서버 최신 설명');
+  });
+
+  it('normalizes malformed structured items from a restorable browser snapshot', async () => {
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    const lastSavedPayload = cloneDraftPayload(draftDetail.payload);
+    const snapshotPayload = cloneDraftPayload(lastSavedPayload);
+    snapshotPayload.basicInfo.summaryItems = [
+      {},
+    ] as unknown as AdminProgramDraftDetail['payload']['basicInfo']['summaryItems'];
+    saveCreateWorkspaceSnapshot(draftDetail.id, {
+      lastSavedAt: draftDetail.updatedAt,
+      lastSavedPayload: JSON.stringify(lastSavedPayload),
+      payload: snapshotPayload,
+    });
+
+    renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', { draftDetail });
+
+    expect(await screen.findByLabelText('핵심 포인트 제목')).toHaveValue('');
+    expect(screen.getByLabelText('핵심 포인트 설명')).toHaveValue('');
+  });
+
+  it('maps edited summary items and learning outcomes to the draft save payload', async () => {
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.summaryItems = [{ label: '기존 제목', value: '기존 설명' }];
+    draftDetail.payload.basicInfo.learningOutcomes = [{ label: '기존 성과', value: '기존 내용' }];
+    let savedPayload: unknown = null;
+
+    server.use(
+      http.put('*/api/v1/admin/program-drafts/:draftId', async ({ request }) => {
+        savedPayload = await request.json();
+        return HttpResponse.json({ data: { ...draftDetail, payload: savedPayload } });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', { draftDetail });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('핵심 포인트 제목'), {
+      target: { value: '핵심 포인트 제목' },
+    });
+    fireEvent.change(screen.getByLabelText('핵심 포인트 설명'), {
+      target: { value: '핵심 포인트 설명' },
+    });
+    fireEvent.change(screen.getByLabelText('학습 성과 제목'), {
+      target: { value: '학습 성과 제목' },
+    });
+    fireEvent.change(screen.getByLabelText('학습 성과 설명'), {
+      target: { value: '학습 성과 설명' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '임시저장' }));
+
+    await waitFor(() => {
+      expect(savedPayload).toMatchObject({
+        basicInfo: {
+          learningOutcomes: [{ content: '학습 성과 설명', title: '학습 성과 제목' }],
+          summaryItems: [{ content: '핵심 포인트 설명', title: '핵심 포인트 제목' }],
+        },
+      });
+    });
+  });
+
+  it('allows incomplete structured information during temporary draft saves', async () => {
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    draftDetail.payload.basicInfo.summaryItems = [{ label: '   ', value: '임시 설명' }];
+    draftDetail.payload.basicInfo.learningOutcomes = [{ label: '임시 성과', value: '   ' }];
+    let savedPayload: unknown = null;
+
+    server.use(
+      http.put('*/api/v1/admin/program-drafts/:draftId', async ({ request }) => {
+        savedPayload = await request.json();
+        return HttpResponse.json({ data: { ...draftDetail, payload: savedPayload } });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', { draftDetail });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '임시저장' }));
+
+    await waitFor(() => {
+      expect(savedPayload).toMatchObject({
+        basicInfo: {
+          learningOutcomes: [{ content: '   ', title: '임시 성과' }],
+          summaryItems: [{ content: '임시 설명', title: '   ' }],
+        },
+      });
+    });
+  });
+
+  it.each([
+    {
+      field: 'summaryItems' as const,
+      fieldLabel: '핵심 포인트 제목',
+      invalidKey: 'label' as const,
+      message: '핵심 포인트 1: 제목을 입력해 주세요.',
+    },
+    {
+      field: 'summaryItems' as const,
+      fieldLabel: '핵심 포인트 설명',
+      invalidKey: 'value' as const,
+      message: '핵심 포인트 1: 설명을 입력해 주세요.',
+    },
+    {
+      field: 'learningOutcomes' as const,
+      fieldLabel: '학습 성과 제목',
+      invalidKey: 'label' as const,
+      message: '학습 성과 1: 제목을 입력해 주세요.',
+    },
+    {
+      field: 'learningOutcomes' as const,
+      fieldLabel: '학습 성과 설명',
+      invalidKey: 'value' as const,
+      message: '학습 성과 1: 설명을 입력해 주세요.',
+    },
+  ])(
+    'blocks finalization and focuses $fieldLabel when it is blank',
+    async ({ field, fieldLabel, invalidKey, message }) => {
+      const draftDetail = createValidAdminProgramDraftDetailFixture();
+      draftDetail.payload.basicInfo.summaryItems = [
+        { label: '핵심 포인트 제목', value: '핵심 포인트 설명' },
+      ];
+      draftDetail.payload.basicInfo.learningOutcomes = [
+        { label: '학습 성과 제목', value: '학습 성과 설명' },
+      ];
+      const currentItem = draftDetail.payload.basicInfo[field][0];
+      draftDetail.payload.basicInfo[field] = [{ ...currentItem, [invalidKey]: '   ' }];
+      let finalizeCount = 0;
+
+      server.use(
+        http.post('*/api/v1/admin/program-drafts/:draftId/finalize', () => {
+          finalizeCount += 1;
+          return HttpResponse.json({ data: { draftId: 91001, programId: 2001 } });
+        }),
+      );
+
+      renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', { draftDetail });
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '수정 완료' }));
+
+      expect(await screen.findByRole('status')).toHaveTextContent(message);
+      await waitFor(() => {
+        expect(screen.getByLabelText(fieldLabel)).toHaveFocus();
+      });
+      expect(finalizeCount).toBe(0);
+    },
+  );
 
   it('falls back legacy program resources route to the curriculum workspace tab', async () => {
     renderAdminConsoleRoute('/admin/programs/2001/resources');
