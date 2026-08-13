@@ -6,6 +6,7 @@ import { resetMockAdminPaymentsData } from '@/mocks/data/adminPayments';
 import { resetMockAdminProgramsLiveData } from '@/mocks/data/adminProgramsLive';
 import { resetMockMyPageData } from '@/mocks/data/mypage';
 import { resetMockProgramCatalogData } from '@/mocks/data/programCatalog';
+import { resetMockQnaData } from '@/mocks/data/qna';
 import { resetMockResourcesData } from '@/mocks/data/resources';
 import { resetMockStudentAuthState } from '@/mocks/data/studentAuth';
 import { server } from '@/mocks/server';
@@ -63,6 +64,7 @@ afterEach(() => {
   resetMockAdminProgramsLiveData();
   resetMockMyPageData();
   resetMockProgramCatalogData();
+  resetMockQnaData();
   resetMockResourcesData();
   resetMockStudentAuthState();
 });

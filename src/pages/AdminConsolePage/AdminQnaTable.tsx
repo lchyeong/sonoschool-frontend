@@ -1,44 +1,64 @@
 import { Fragment } from 'react';
 
 import Button from '@/components/ui/Button/Button';
-import type { QuestionItem, QuestionReplyItem } from '@/types/qna';
+import type { QuestionItem } from '@/types/qna';
 
 import styles from './AdminConsolePage.module.scss';
 import AdminQnaInlineDetail from './AdminQnaInlineDetail';
 import { buildQuestionLocationLabel, formatQnaDateTime } from './adminQnaUtils';
 
 interface AdminQnaTableProps {
-  editingReplyId: number | null;
+  editingQuestionId: number | null;
+  isDeletingQuestion: boolean;
   isDeletingReply: boolean;
   isReorderingNotice: boolean;
+  isSavingQuestion: boolean;
   isSavingReply: boolean;
   noticeQuestions: QuestionItem[];
-  onCancelEditReply: () => void;
+  onCancelEditQuestion: () => void;
+  onDeleteQuestion: (questionId: number) => void;
   onDeleteReply: (replyId: number) => void;
+  onQuestionContentChange: (value: string) => void;
+  onQuestionPrivateQuestionChange: (value: boolean) => void;
+  onQuestionTitleChange: (value: string) => void;
   onReplyContentChange: (value: string) => void;
   onReorderNotice: (questionId: number, direction: 'down' | 'up') => void;
-  onStartEditReply: (reply: QuestionReplyItem) => void;
+  onStartEditQuestion: (question: QuestionItem) => void;
+  onSubmitQuestion: (questionId: number) => void;
   onSubmitReply: (questionId: number) => void;
   onToggleQuestion: (questionId: number) => void;
   questions: QuestionItem[];
+  questionContent: string;
+  questionPrivateQuestion: boolean;
+  questionTitle: string;
   replyContent: string;
   selectedQuestionId: number | null;
 }
 
 const AdminQnaTable = ({
-  editingReplyId,
+  editingQuestionId,
+  isDeletingQuestion,
   isDeletingReply,
   isReorderingNotice,
+  isSavingQuestion,
   isSavingReply,
   noticeQuestions,
-  onCancelEditReply,
+  onCancelEditQuestion,
+  onDeleteQuestion,
   onDeleteReply,
+  onQuestionContentChange,
+  onQuestionPrivateQuestionChange,
+  onQuestionTitleChange,
   onReplyContentChange,
   onReorderNotice,
-  onStartEditReply,
+  onStartEditQuestion,
+  onSubmitQuestion,
   onSubmitReply,
   onToggleQuestion,
   questions,
+  questionContent,
+  questionPrivateQuestion,
+  questionTitle,
   replyContent,
   selectedQuestionId,
 }: AdminQnaTableProps) => {
@@ -147,16 +167,26 @@ const AdminQnaTable = ({
 
                   {isActive ? (
                     <AdminQnaInlineDetail
-                      editingReplyId={editingReplyId}
+                      editingQuestionId={editingQuestionId}
+                      isDeletingQuestion={isDeletingQuestion}
                       isDeletingReply={isDeletingReply}
+                      isSavingQuestion={isSavingQuestion}
                       isSavingReply={isSavingReply}
-                      onCancelEditReply={onCancelEditReply}
+                      onCancelEditQuestion={onCancelEditQuestion}
+                      onDeleteQuestion={onDeleteQuestion}
                       onDeleteReply={onDeleteReply}
+                      onQuestionContentChange={onQuestionContentChange}
+                      onQuestionPrivateQuestionChange={onQuestionPrivateQuestionChange}
+                      onQuestionTitleChange={onQuestionTitleChange}
                       onReplyContentChange={onReplyContentChange}
-                      onStartEditReply={onStartEditReply}
+                      onStartEditQuestion={onStartEditQuestion}
+                      onSubmitQuestion={onSubmitQuestion}
                       onSubmitReply={onSubmitReply}
                       primaryReply={primaryReply}
                       question={question}
+                      questionContent={questionContent}
+                      questionPrivateQuestion={questionPrivateQuestion}
+                      questionTitle={questionTitle}
                       replyContent={replyContent}
                     />
                   ) : null}

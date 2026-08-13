@@ -11,6 +11,7 @@ import {
   ProgramPageDetailMainContent,
   ProgramPageDetailSidebar,
 } from './ProgramPageDetailSections';
+import { buildHeroInfoPills } from './programPageDetailShared';
 
 afterEach(() => {
   cleanup();
@@ -735,6 +736,32 @@ describe('ProgramPageDetailMainContent', () => {
 });
 
 describe('ProgramPageDetailHero', () => {
+  it('난이도가 없으면 난이도 pill만 렌더링하지 않는다', () => {
+    const data = createDetailData({ difficultyLabel: undefined });
+
+    render(
+      <MemoryRouter>
+        <ProgramPageDetailHero data={data} heroInfoPills={buildHeroInfoPills(data)} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText('입문')).not.toBeInTheDocument();
+    expect(screen.getByText('온라인')).toBeInTheDocument();
+    expect(screen.getByText('상시 모집')).toBeInTheDocument();
+  });
+
+  it('난이도가 있으면 기존처럼 난이도 pill을 렌더링한다', () => {
+    const data = createDetailData({ difficultyLabel: '입문' });
+
+    render(
+      <MemoryRouter>
+        <ProgramPageDetailHero data={data} heroInfoPills={buildHeroInfoPills(data)} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('입문')).toBeInTheDocument();
+  });
+
   it('상세 히어로 배경에 API 대표 이미지를 사용한다', () => {
     const { container } = render(
       <MemoryRouter>

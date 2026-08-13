@@ -9,9 +9,9 @@ import {
   detailTabScrollOffsetPx,
   formatPriceLabel,
   getScrollBehavior,
+  resolveVisibleReviewPreviewIds,
   parsePriceAmount,
   reviewCarouselScrollAmountPx,
-  reviewPreviewVisibilityTolerancePx,
   sortProgramReviews,
   type DetailSectionId,
   type ReviewSortOrder,
@@ -111,6 +111,19 @@ export const useProgramPageDetailViewModel = (
     () => sortProgramReviews(data.reviews, reviewSortOrder),
     [data.reviews, reviewSortOrder],
   );
+  const resolvedVisiblePreviewReviewIds = useMemo(() => {
+    const reviewIdSet = new Set(sortedReviews.map((review) => review.id));
+    const matchingVisibleReviewIds = visiblePreviewReviewIds.filter((reviewId) =>
+      reviewIdSet.has(reviewId),
+    );
+
+    if (matchingVisibleReviewIds.length > 0) {
+      return matchingVisibleReviewIds;
+    }
+
+    const firstReview = sortedReviews.at(0);
+    return firstReview ? [firstReview.id] : [];
+  }, [sortedReviews, visiblePreviewReviewIds]);
 
   useEffect(() => {
     startTransition(() => {
@@ -216,25 +229,29 @@ export const useProgramPageDetailViewModel = (
 
     const syncVisiblePreviewReviews = () => {
       const reviewTrackRect = reviewTrackElement.getBoundingClientRect();
-      const nextVisiblePreviewReviewIds = Array.from(reviewTrackElement.children).flatMap(
-        (childElement) => {
-          if (!(childElement instanceof HTMLElement)) {
-            return [];
-          }
+      const reviewCardBounds = Array.from(reviewTrackElement.children).flatMap((childElement) => {
+        if (!(childElement instanceof HTMLElement)) {
+          return [];
+        }
 
-          const reviewId = childElement.dataset['reviewId'];
+        const reviewId = childElement.dataset['reviewId'];
 
-          if (!reviewId) {
-            return [];
-          }
+        if (!reviewId) {
+          return [];
+        }
 
-          const reviewCardRect = childElement.getBoundingClientRect();
-          const isFullyVisible =
-            reviewCardRect.left >= reviewTrackRect.left - reviewPreviewVisibilityTolerancePx &&
-            reviewCardRect.right <= reviewTrackRect.right + reviewPreviewVisibilityTolerancePx;
-
-          return isFullyVisible ? [reviewId] : [];
-        },
+        const reviewCardRect = childElement.getBoundingClientRect();
+        return [
+          {
+            left: reviewCardRect.left,
+            reviewId,
+            right: reviewCardRect.right,
+          },
+        ];
+      });
+      const nextVisiblePreviewReviewIds = resolveVisibleReviewPreviewIds(
+        { left: reviewTrackRect.left, right: reviewTrackRect.right },
+        reviewCardBounds,
       );
 
       setVisiblePreviewReviewIds((currentVisiblePreviewReviewIds) => {
@@ -362,6 +379,6 @@ export const useProgramPageDetailViewModel = (
     sortedReviews,
     toggleCurriculumRow,
     totalPriceLabel,
-    visiblePreviewReviewIds,
+    visiblePreviewReviewIds: resolvedVisiblePreviewReviewIds,
   };
 };

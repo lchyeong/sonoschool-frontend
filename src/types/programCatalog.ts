@@ -38,7 +38,7 @@ export interface ProgramLectureCard {
   categoryLabel: string;
   formatLabel: string;
   durationLabel: string;
-  difficultyLabel: string;
+  difficultyLabel?: string | undefined;
   priceLabel: string;
   originalPriceLabel?: string | undefined;
   discountRateLabel?: string | undefined;
@@ -175,7 +175,7 @@ export interface ProgramDetailPageResponse {
   categoryLabel: string;
   formatLabel: string;
   durationLabel: string;
-  difficultyLabel: string;
+  difficultyLabel?: string | undefined;
   tuitionLabel: string;
   originalPriceLabel: string;
   discountRateLabel: string;

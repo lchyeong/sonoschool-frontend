@@ -15,6 +15,52 @@ export const reviewPreviewVisibilityTolerancePx = 1;
 export type DetailSectionId = (typeof detailTabItems)[number]['id'];
 export type ReviewSortOrder = 'recommended' | 'latest';
 
+export interface HorizontalBounds {
+  left: number;
+  right: number;
+}
+
+export interface ReviewPreviewCardBounds extends HorizontalBounds {
+  reviewId: string;
+}
+
+export const resolveVisibleReviewPreviewIds = (
+  reviewTrackBounds: HorizontalBounds,
+  reviewCardBounds: readonly ReviewPreviewCardBounds[],
+): string[] => {
+  const fullyVisibleReviewIds = reviewCardBounds.flatMap((cardBounds) => {
+    const isFullyVisible =
+      cardBounds.left >= reviewTrackBounds.left - reviewPreviewVisibilityTolerancePx &&
+      cardBounds.right <= reviewTrackBounds.right + reviewPreviewVisibilityTolerancePx;
+
+    return isFullyVisible ? [cardBounds.reviewId] : [];
+  });
+
+  if (fullyVisibleReviewIds.length > 0) {
+    return fullyVisibleReviewIds;
+  }
+
+  const mostVisibleCard = reviewCardBounds.reduce<{
+    reviewId: string;
+    visibleWidth: number;
+  } | null>((currentMostVisibleCard, cardBounds) => {
+    const visibleLeft = Math.max(cardBounds.left, reviewTrackBounds.left);
+    const visibleRight = Math.min(cardBounds.right, reviewTrackBounds.right);
+    const visibleWidth = Math.max(0, visibleRight - visibleLeft);
+
+    if (
+      visibleWidth <= reviewPreviewVisibilityTolerancePx ||
+      (currentMostVisibleCard && currentMostVisibleCard.visibleWidth >= visibleWidth)
+    ) {
+      return currentMostVisibleCard;
+    }
+
+    return { reviewId: cardBounds.reviewId, visibleWidth };
+  }, null);
+
+  return mostVisibleCard ? [mostVisibleCard.reviewId] : [];
+};
+
 export const getScrollBehavior = (): ScrollBehavior => {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return 'auto';
@@ -46,8 +92,10 @@ export const buildAdminReplyExample = (review: ProgramReviewItem): string => {
 export const buildHeroInfoPills = (
   data: ProgramDetailPageResponse,
 ): Array<{ label: string; value: string }> => {
+  const difficultyLabel = data.difficultyLabel?.trim();
+
   return [
-    { label: '난이도', value: data.difficultyLabel },
+    ...(difficultyLabel ? [{ label: '난이도', value: difficultyLabel }] : []),
     { label: '과정 종류', value: data.formatLabel },
     { label: '모집기간', value: data.registrationPeriodLabel },
     ...(data.operationPeriodLabel ? [{ label: '운영기간', value: data.operationPeriodLabel }] : []),

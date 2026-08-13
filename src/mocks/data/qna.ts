@@ -120,10 +120,17 @@ const initialQuestions: QuestionItem[] = [
   },
 ];
 
-let questions = initialQuestions.map((question) => ({
-  ...question,
-  replies: question.replies.map((reply) => ({ ...reply })),
-}));
+const cloneInitialQuestions = (): QuestionItem[] =>
+  initialQuestions.map((question) => ({
+    ...question,
+    replies: question.replies.map((reply) => ({ ...reply })),
+  }));
+
+let questions = cloneInitialQuestions();
+
+export const resetMockQnaData = () => {
+  questions = cloneInitialQuestions();
+};
 
 const sortQuestions = (items: QuestionItem[]): QuestionItem[] => {
   return [...items].sort((left, right) => {
@@ -319,6 +326,10 @@ export const deleteMockGlobalQuestion = (questionId: number): boolean => {
   return true;
 };
 
+export const updateMockAdminQuestion = updateMockGlobalQuestion;
+
+export const deleteMockAdminQuestion = deleteMockGlobalQuestion;
+
 export const createMockAdminReply = (
   questionId: number,
   payload: QuestionReplyCreatePayload,
@@ -386,4 +397,35 @@ export const deleteMockAdminReply = (replyId: number): boolean => {
   });
 
   return deleted;
+};
+
+export const updateMockAdminReply = (
+  replyId: number,
+  payload: QuestionReplyCreatePayload,
+): QuestionReplyItem | null => {
+  const updatedAt = new Date().toISOString();
+  let updatedReply: QuestionReplyItem | null = null;
+
+  questions = questions.map((question) => {
+    const targetReply = question.replies.find((reply) => reply.id === replyId);
+
+    if (!targetReply) {
+      return question;
+    }
+
+    const nextReply: QuestionReplyItem = {
+      ...targetReply,
+      content: payload.content,
+      updatedAt,
+    };
+    updatedReply = nextReply;
+
+    return {
+      ...question,
+      replies: question.replies.map((reply) => (reply.id === replyId ? nextReply : reply)),
+      updatedAt,
+    };
+  });
+
+  return updatedReply;
 };

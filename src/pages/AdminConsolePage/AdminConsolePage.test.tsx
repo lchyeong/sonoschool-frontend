@@ -1569,17 +1569,123 @@ describe('AdminConsolePage', () => {
     server.resetHandlers();
   });
 
+  it('updates and deletes a question from the admin qna detail', async () => {
+    let updatedQuestionPayload: unknown = null;
+    let deletedQuestionId: string | null = null;
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    server.use(
+      http.put('*/api/v1/admin/qna/:questionId', async ({ params, request }) => {
+        updatedQuestionPayload = await request.json();
+        return HttpResponse.json({ data: { id: Number(params['questionId']) } });
+      }),
+      http.delete('*/api/v1/admin/qna/:questionId', ({ params }) => {
+        deletedQuestionId = String(params['questionId']);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/qna');
+
+    const questionTitle = '오프라인 핸즈온 과정 환불 기준이 궁금합니다.';
+    await screen.findByText(questionTitle);
+    fireEvent.click(getClosestButton(questionTitle));
+    fireEvent.click(await screen.findByRole('button', { name: '질문 수정' }));
+
+    fireEvent.change(screen.getByLabelText('질문 제목'), {
+      target: { value: '수정한 환불 문의' },
+    });
+    fireEvent.change(screen.getByLabelText('질문 내용'), {
+      target: { value: '수정한 환불 문의 내용입니다.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '질문 저장' }));
+
+    await waitFor(() => {
+      expect(updatedQuestionPayload).toEqual({
+        content: '수정한 환불 문의 내용입니다.',
+        privateQuestion: false,
+        title: '수정한 환불 문의',
+      });
+    });
+    expect(
+      useToastStore.getState().toasts.some((toast) => toast.message === '질문을 수정했습니다.'),
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: '질문 삭제' }));
+
+    await waitFor(() => {
+      expect(deletedQuestionId).toBe('3');
+    });
+    expect(confirmSpy).toHaveBeenCalledWith('이 질문을 삭제하시겠습니까?');
+    expect(
+      useToastStore.getState().toasts.some((toast) => toast.message === '질문을 삭제했습니다.'),
+    ).toBe(true);
+    confirmSpy.mockRestore();
+  });
+
+  it('updates an admin answer without deleting and recreating it', async () => {
+    let updatedReplyPayload: unknown = null;
+    let createReplyRequestCount = 0;
+    let deleteReplyRequestCount = 0;
+
+    server.use(
+      http.put('*/api/v1/admin/qna/replies/:replyId', async ({ params, request }) => {
+        updatedReplyPayload = {
+          content: await request.json(),
+          replyId: String(params['replyId']),
+        };
+        return HttpResponse.json({
+          data: {
+            content: '수정된 관리자 답변입니다.',
+            id: Number(params['replyId']),
+          },
+        });
+      }),
+      http.post('*/api/v1/admin/qna/:questionId/replies', () => {
+        createReplyRequestCount += 1;
+        return HttpResponse.json({ message: 'Unexpected reply create.' }, { status: 500 });
+      }),
+      http.delete('*/api/v1/admin/qna/replies/:replyId', () => {
+        deleteReplyRequestCount += 1;
+        return HttpResponse.json({ message: 'Unexpected reply delete.' }, { status: 500 });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/qna');
+
+    const questionTitle = '회원가입 후 본인인증 문자가 오지 않을 때는 어떻게 하나요?';
+    await screen.findByText(questionTitle);
+    fireEvent.click(getClosestButton(questionTitle));
+    expect(screen.queryByRole('button', { name: '답변 수정' })).not.toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText('답변 수정'), {
+      target: { value: '수정된 관리자 답변입니다.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '답변 저장' }));
+
+    await waitFor(() => {
+      expect(updatedReplyPayload).toEqual({
+        content: { content: '수정된 관리자 답변입니다.' },
+        replyId: '101',
+      });
+    });
+    expect(createReplyRequestCount).toBe(0);
+    expect(deleteReplyRequestCount).toBe(0);
+    expect(
+      useToastStore.getState().toasts.some((toast) => toast.message === '답변을 수정했습니다.'),
+    ).toBe(true);
+  });
+
   it('deletes an admin qna reply from the selected thread', async () => {
     renderAdminConsoleRoute('/admin/qna');
 
     await screen.findByText('회원가입 후 본인인증 문자가 오지 않을 때는 어떻게 하나요?');
 
     fireEvent.click(getClosestButton('회원가입 후 본인인증 문자가 오지 않을 때는 어떻게 하나요?'));
-    expect(
-      await screen.findByText(/통신사 스팸 차단과 번호 입력 형식을 먼저 확인해 주세요./),
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText('답변 수정')).toHaveValue(
+      '통신사 스팸 차단과 번호 입력 형식을 먼저 확인해 주세요. 문제가 계속되면 운영 Q&A나 고객문의로 남겨 주시면 수동 확인해 드립니다.',
+    );
 
-    fireEvent.click(screen.getAllByRole('button', { name: '삭제' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
 
     await waitFor(() => {
       expect(

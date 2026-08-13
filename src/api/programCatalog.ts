@@ -20,6 +20,12 @@ const publicImageSchema = z
 const optionalPublicImageSchema = z.string().min(1).nullable().optional();
 const optionalCropValueSchema = z.number().nullable().optional();
 const optionalDateTimeSchema = z.string().min(1).nullable().optional();
+const optionalDifficultyLabelSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .nullish()
+  .transform((value) => value ?? undefined);
 
 const resolvePreferredProgramImageSrc = (...values: Array<string | null | undefined>): string => {
   const sanitizedValues = values
@@ -56,7 +62,7 @@ const instructorSchema = z.object({
 const lectureCardSchema = z
   .object({
     categoryLabel: z.string().min(1),
-    difficultyLabel: z.string().min(1),
+    difficultyLabel: optionalDifficultyLabelSchema,
     durationLabel: z.string().min(1),
     formatLabel: z.string().min(1),
     id: z.string().min(1),
@@ -228,7 +234,7 @@ const programDetailPageResponseSchema = z.object({
   categoryLabel: z.string().min(1),
   curriculumTrack: curriculumTrackSchema,
   description: z.string().min(1),
-  difficultyLabel: z.string().min(1),
+  difficultyLabel: optionalDifficultyLabelSchema,
   discountRateLabel: z.string().min(1),
   discountedPriceLabel: z.string().min(1),
   durationLabel: z.string().min(1),

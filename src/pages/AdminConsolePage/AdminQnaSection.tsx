@@ -4,13 +4,17 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
   createAdminQuestionReply,
+  deleteAdminQuestion,
   deleteAdminQuestionReply,
   reorderAdminQuestionNotices,
+  updateAdminQuestion,
+  updateAdminQuestionReply,
 } from '@/api/qna';
 import Pagination from '@/components/ui/Pagination/Pagination';
 import { adminQuestionsQueryKey, useAdminQuestionsQuery } from '@/query/useQnaQueries';
 import { useToastStore } from '@/stores/useToastStore';
-import type { QuestionReplyItem } from '@/types/qna';
+import type { QuestionItem } from '@/types/qna';
+import { validateQnaQuestionDraft } from '@/utils/qna';
 
 import styles from './AdminConsolePage.module.scss';
 import AdminQnaFilterPanel from './AdminQnaFilterPanel';
@@ -33,7 +37,10 @@ const AdminQnaSection = () => {
   const [answeredFilter, setAnsweredFilter] = useState<AnsweredFilterValue>('ALL');
   const [keyword, setKeyword] = useState('');
   const [page, setPage] = useState(1);
-  const [editingReplyId, setEditingReplyId] = useState<number | null>(null);
+  const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
+  const [questionTitle, setQuestionTitle] = useState('');
+  const [questionContent, setQuestionContent] = useState('');
+  const [questionPrivateQuestion, setQuestionPrivateQuestion] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState('');
 
@@ -57,9 +64,19 @@ const AdminQnaSection = () => {
   }, [currentPage, questions]);
 
   const resetSelection = () => {
+    setEditingQuestionId(null);
+    setQuestionTitle('');
+    setQuestionContent('');
+    setQuestionPrivateQuestion(false);
     setSelectedQuestionId(null);
-    setEditingReplyId(null);
     setReplyContent('');
+  };
+
+  const refreshAdminQuestions = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: adminQuestionsQueryKey(),
+      refetchType: 'active',
+    });
   };
 
   const scopeFilterOptions = useMemo(
@@ -96,32 +113,93 @@ const AdminQnaSection = () => {
     mutationFn: async ({
       content,
       questionId,
-      replaceReplyId,
+      replyId,
     }: {
       content: string;
       questionId: number;
-      replaceReplyId?: number | undefined;
+      replyId?: number | undefined;
     }) => {
-      if (typeof replaceReplyId === 'number') {
-        await deleteAdminQuestionReply(replaceReplyId);
+      if (typeof replyId === 'number') {
+        return await updateAdminQuestionReply(replyId, { content });
       }
 
       return await createAdminQuestionReply(questionId, { content });
     },
+    onError: (error: unknown, variables) => {
+      showToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof variables.replyId === 'number'
+              ? '답변 수정에 실패했습니다.'
+              : '답변 등록에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (reply, variables) => {
+      setReplyContent(reply.content);
+      await refreshAdminQuestions();
+      showToast({
+        message:
+          typeof variables.replyId === 'number' ? '답변을 수정했습니다.' : '답변을 등록했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const updateQuestionMutation = useMutation({
+    mutationFn: ({
+      content,
+      privateQuestion,
+      questionId,
+      title,
+    }: {
+      content: string;
+      privateQuestion: boolean;
+      questionId: number;
+      title: string;
+    }) =>
+      updateAdminQuestion(questionId, {
+        content,
+        privateQuestion,
+        title,
+      }),
     onError: (error: unknown) => {
       showToast({
-        message: error instanceof Error ? error.message : '답변 등록에 실패했습니다.',
+        message: error instanceof Error ? error.message : '질문 수정에 실패했습니다.',
         variant: 'error',
       });
     },
     onSuccess: async () => {
-      setReplyContent('');
-      setEditingReplyId(null);
-      await queryClient.invalidateQueries({
-        queryKey: adminQuestionsQueryKey(),
-      });
+      setEditingQuestionId(null);
+      setQuestionTitle('');
+      setQuestionContent('');
+      setQuestionPrivateQuestion(false);
+      await refreshAdminQuestions();
       showToast({
-        message: '답변을 저장했습니다.',
+        message: '질문을 수정했습니다.',
+        variant: 'success',
+      });
+    },
+  });
+
+  const deleteQuestionMutation = useMutation({
+    mutationFn: (questionId: number) => deleteAdminQuestion(questionId),
+    onError: (error: unknown) => {
+      showToast({
+        message: error instanceof Error ? error.message : '질문 삭제에 실패했습니다.',
+        variant: 'error',
+      });
+    },
+    onSuccess: async (_, questionId) => {
+      setSelectedQuestionId((current) => (current === questionId ? null : current));
+      setEditingQuestionId((current) => (current === questionId ? null : current));
+      setQuestionTitle('');
+      setQuestionContent('');
+      setQuestionPrivateQuestion(false);
+      await refreshAdminQuestions();
+      showToast({
+        message: '질문을 삭제했습니다.',
         variant: 'success',
       });
     },
@@ -136,9 +214,8 @@ const AdminQnaSection = () => {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: adminQuestionsQueryKey(),
-      });
+      setReplyContent('');
+      await refreshAdminQuestions();
       showToast({
         message: '답변을 삭제했습니다.',
         variant: 'success',
@@ -196,24 +273,66 @@ const AdminQnaSection = () => {
     }
 
     const question = questions.find((item) => item.id === questionId);
-    const existingReplyId = question?.replies[0]?.id ?? null;
+    const primaryReply = question?.replies.at(0) ?? null;
 
     void replyMutation.mutateAsync({
       content: trimmed,
       questionId,
-      replaceReplyId: editingReplyId ?? existingReplyId ?? undefined,
+      replyId: primaryReply?.id ?? undefined,
     });
   };
 
   const handleToggleQuestion = (questionId: number) => {
     setSelectedQuestionId((current) => (current === questionId ? null : questionId));
-    setReplyContent('');
-    setEditingReplyId(null);
+    setEditingQuestionId(null);
+    setQuestionTitle('');
+    setQuestionContent('');
+    setQuestionPrivateQuestion(false);
+    const question = questions.find((item) => item.id === questionId);
+    setReplyContent(question?.replies.at(0)?.content ?? '');
   };
 
-  const handleStartEditReply = (reply: QuestionReplyItem) => {
-    setEditingReplyId(reply.id);
-    setReplyContent(reply.content);
+  const handleStartEditQuestion = (question: QuestionItem) => {
+    setEditingQuestionId(question.id);
+    setQuestionTitle(question.title);
+    setQuestionContent(question.content);
+    setQuestionPrivateQuestion(question.privateQuestion);
+  };
+
+  const handleCancelEditQuestion = () => {
+    setEditingQuestionId(null);
+    setQuestionTitle('');
+    setQuestionContent('');
+    setQuestionPrivateQuestion(false);
+  };
+
+  const handleSubmitQuestion = (questionId: number) => {
+    const title = questionTitle.trim();
+    const content = questionContent.trim();
+    const validationError = validateQnaQuestionDraft(title, content);
+
+    if (validationError) {
+      showToast({
+        message: validationError,
+        variant: 'error',
+      });
+      return;
+    }
+
+    void updateQuestionMutation.mutateAsync({
+      content,
+      privateQuestion: questionPrivateQuestion,
+      questionId,
+      title,
+    });
+  };
+
+  const handleDeleteQuestion = (questionId: number) => {
+    if (!window.confirm('이 질문을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    void deleteQuestionMutation.mutateAsync(questionId);
   };
 
   return (
@@ -248,26 +367,33 @@ const AdminQnaSection = () => {
         <div className={styles['qnaWorkspace']}>
           <section className={styles['qnaListPanel']}>
             <AdminQnaTable
-              editingReplyId={editingReplyId}
+              editingQuestionId={editingQuestionId}
+              isDeletingQuestion={deleteQuestionMutation.isPending}
               isDeletingReply={deleteReplyMutation.isPending}
               isReorderingNotice={reorderNoticeMutation.isPending}
+              isSavingQuestion={updateQuestionMutation.isPending}
               isSavingReply={replyMutation.isPending}
               noticeQuestions={noticeQuestions}
-              onCancelEditReply={() => {
-                setEditingReplyId(null);
-                setReplyContent('');
-              }}
+              onCancelEditQuestion={handleCancelEditQuestion}
+              onDeleteQuestion={handleDeleteQuestion}
               onDeleteReply={(replyId) => {
                 deleteReplyMutation.mutate(replyId);
               }}
+              onQuestionContentChange={setQuestionContent}
+              onQuestionPrivateQuestionChange={setQuestionPrivateQuestion}
+              onQuestionTitleChange={setQuestionTitle}
               onReplyContentChange={setReplyContent}
               onReorderNotice={(questionId, direction) => {
                 reorderNoticeMutation.mutate({ direction, questionId });
               }}
-              onStartEditReply={handleStartEditReply}
+              onStartEditQuestion={handleStartEditQuestion}
+              onSubmitQuestion={handleSubmitQuestion}
               onSubmitReply={handleSubmitReply}
               onToggleQuestion={handleToggleQuestion}
               questions={paginatedQuestions}
+              questionContent={questionContent}
+              questionPrivateQuestion={questionPrivateQuestion}
+              questionTitle={questionTitle}
               replyContent={replyContent}
               selectedQuestionId={selectedQuestionId}
             />

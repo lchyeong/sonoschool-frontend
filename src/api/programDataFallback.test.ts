@@ -115,7 +115,7 @@ describe('program data API fallback', () => {
       lectures: [
         {
           categoryLabel: '소아과정',
-          difficultyLabel: '입문',
+          difficultyLabel: null,
           durationLabel: '2026.05.01 - 2027.01.31',
           formatLabel: '오프라인 과정',
           id: 'program-1',
@@ -143,13 +143,14 @@ describe('program data API fallback', () => {
       ],
       lectures: [
         {
+          difficultyLabel: undefined,
           thumbnailSrc: 'https://media.newzest.xyz/assets/programs/program.png',
         },
       ],
     });
   });
 
-  it('accepts nullable curriculum lesson descriptions from deployed program page responses', async () => {
+  it('accepts missing difficulty labels and nullable curriculum descriptions', async () => {
     httpGetMock.mockResolvedValue({
       applicationStatusDescription: '지금 바로 장바구니 또는 결제로 이동할 수 있습니다.',
       applicationStatusLabel: '신청 가능',
@@ -191,7 +192,6 @@ describe('program data API fallback', () => {
         title: '최신 시험 완벽 대비 프로그램 커리큘럼',
       },
       description: 'SPI 최신 출제 경향을 반영한 실전 중심 강의입니다.',
-      difficultyLabel: '입문',
       discountRateLabel: '할인 없음',
       discountedPriceLabel: '200,000원',
       durationLabel: '상시 수강',

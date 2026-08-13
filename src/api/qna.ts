@@ -118,6 +118,29 @@ export const fetchAdminQuestions = async (
   }
 };
 
+export const updateAdminQuestion = async (
+  questionId: number,
+  payload: QuestionCreatePayload,
+): Promise<QuestionItem> => {
+  try {
+    const response = await axiosInstance.put<ApiEnvelope<QuestionItem>>(
+      `/api/v1/admin/qna/${String(questionId)}`,
+      normalizeQuestionPayload(payload),
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '관리자 질문을 수정하지 못했습니다.');
+  }
+};
+
+export const deleteAdminQuestion = async (questionId: number): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/api/v1/admin/qna/${String(questionId)}`);
+  } catch (error: unknown) {
+    throw toApiError(error, '관리자 질문을 삭제하지 못했습니다.');
+  }
+};
+
 export const createAdminQuestionReply = async (
   questionId: number,
   payload: QuestionReplyCreatePayload,
@@ -130,6 +153,21 @@ export const createAdminQuestionReply = async (
     return unwrapApiEnvelope(response.data);
   } catch (error: unknown) {
     throw toApiError(error, '관리자 답변 등록에 실패했습니다.');
+  }
+};
+
+export const updateAdminQuestionReply = async (
+  replyId: number,
+  payload: QuestionReplyCreatePayload,
+): Promise<QuestionReplyItem> => {
+  try {
+    const response = await axiosInstance.put<ApiEnvelope<QuestionReplyItem>>(
+      `/api/v1/admin/qna/replies/${String(replyId)}`,
+      payload,
+    );
+    return unwrapApiEnvelope(response.data);
+  } catch (error: unknown) {
+    throw toApiError(error, '관리자 답변을 수정하지 못했습니다.');
   }
 };
 

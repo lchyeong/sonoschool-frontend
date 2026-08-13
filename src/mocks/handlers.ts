@@ -75,11 +75,14 @@ import {
   createMockAdminReply,
   createMockAdminQuestionNotice,
   createMockGlobalQuestion,
+  deleteMockAdminQuestion,
   deleteMockAdminReply,
   deleteMockGlobalQuestion,
   getMockAdminQuestions,
   getMockGlobalQuestions,
   reorderMockAdminQuestionNotices,
+  updateMockAdminQuestion,
+  updateMockAdminReply,
   updateMockGlobalQuestion,
 } from '@/mocks/data/qna';
 import { getMockGlobalResourceByPublicSlug, getMockGlobalResources } from '@/mocks/data/resources';
@@ -1979,6 +1982,31 @@ export const handlers = [
 
     return new HttpResponse(null, { status: 204 });
   }),
+  http.put('*/api/v1/admin/qna/:questionId', async ({ params, request }) => {
+    const questionId = Number(params['questionId']);
+    const body = (await request.json().catch(() => null)) as QuestionCreatePayload | null;
+
+    if (!body || typeof body.title !== 'string' || typeof body.content !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const question = updateMockAdminQuestion(questionId, body);
+
+    if (!question) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(question));
+  }),
+  http.delete('*/api/v1/admin/qna/:questionId', ({ params }) => {
+    const questionId = Number(params['questionId']);
+
+    if (!deleteMockAdminQuestion(questionId)) {
+      return HttpResponse.json({ message: 'Not found.' }, { status: 404 });
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.post('*/api/v1/admin/qna/:questionId/replies', async ({ params, request }) => {
     const questionId = Number(params['questionId']);
     const body = (await request.json().catch(() => null)) as QuestionReplyCreatePayload | null;
@@ -1994,6 +2022,22 @@ export const handlers = [
     }
 
     return HttpResponse.json(createApiEnvelope(reply), { status: 201 });
+  }),
+  http.put('*/api/v1/admin/qna/replies/:replyId', async ({ params, request }) => {
+    const replyId = Number(params['replyId']);
+    const body = (await request.json().catch(() => null)) as QuestionReplyCreatePayload | null;
+
+    if (!body || typeof body.content !== 'string') {
+      return HttpResponse.json({ message: 'Bad request.' }, { status: 400 });
+    }
+
+    const reply = updateMockAdminReply(replyId, body);
+
+    if (!reply) {
+      return HttpResponse.json({ message: 'Reply not found.' }, { status: 404 });
+    }
+
+    return HttpResponse.json(createApiEnvelope(reply));
   }),
   http.delete('*/api/v1/admin/qna/replies/:replyId', ({ params }) => {
     const replyId = Number(params['replyId']);

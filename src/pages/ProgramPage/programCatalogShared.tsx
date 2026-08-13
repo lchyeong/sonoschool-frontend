@@ -63,7 +63,11 @@ interface ProgramEducatorCardProps {
 }
 
 const buildProgramMetaTags = (item: ProgramLectureCard) => {
-  return [item.difficultyLabel, item.formatLabel];
+  return [item.difficultyLabel, item.formatLabel].flatMap((tag) => {
+    const normalizedTag = tag?.trim();
+
+    return normalizedTag ? [normalizedTag] : [];
+  });
 };
 
 const buildArchiveMetaTags = (item: ProgramLectureCard) => {
