@@ -6,6 +6,7 @@ import type {
   AdminProgramCategoryTreeItem,
   AdminProgramDetail,
   AdminProgramListItem,
+  AdminProgramListSortMode,
   AdminProgramSummaryInfoItem,
   AdminProgramUpsertPayload,
 } from '@/types/adminProgramsLive';
@@ -96,12 +97,14 @@ export const fetchAdminProgramCategories = async (): Promise<AdminProgramCategor
   }
 };
 
-export const fetchAdminProgramsLive = async (): Promise<AdminProgramListItem[]> => {
+export const fetchAdminProgramsLive = async (
+  sortMode?: AdminProgramListSortMode,
+): Promise<AdminProgramListItem[]> => {
   try {
-    const response =
-      await axiosInstance.get<ApiEnvelope<PageResponse<AdminProgramListItem>>>(
-        '/api/v1/admin/programs',
-      );
+    const response = await axiosInstance.get<ApiEnvelope<PageResponse<AdminProgramListItem>>>(
+      '/api/v1/admin/programs',
+      sortMode ? { params: { sortMode } } : undefined,
+    );
     return asArray(unwrapApiEnvelope(response.data).content);
   } catch (error: unknown) {
     throw toApiError(error, '프로그램 목록을 불러오지 못했습니다.');

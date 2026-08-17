@@ -534,7 +534,10 @@ const ProgramPageDetail = ({ data }: ProgramPageDetailProps) => {
   };
 
   return (
-    <div className={styles['page']}>
+    <div
+      className={styles['page']}
+      data-quick-menu-mobile-offset={isQnaTabOpen ? undefined : 'true'}
+    >
       <ProgramPageDetailHero data={data} heroInfoPills={heroInfoPills} />
 
       <div className={styles['detailShell']}>

@@ -1,8 +1,9 @@
+import AdminRichTextEditor from '@/components/editor/AdminRichTextEditor/AdminRichTextEditor';
 import Button from '@/components/ui/Button/Button';
 import { TextAreaField, TextField } from '@/components/ui/TextField/TextField';
 import { QNA_CONTENT_MAX_LENGTH, QNA_TITLE_MAX_LENGTH } from '@/constants/qna';
 import type { QuestionItem, QuestionReplyItem } from '@/types/qna';
-import { sanitizeRichTextHtml } from '@/utils/htmlContent';
+import { hasRichTextContent, sanitizeRichTextHtml } from '@/utils/htmlContent';
 
 import styles from './AdminConsolePage.module.scss';
 import { formatQnaDateTime } from './adminQnaUtils';
@@ -14,14 +15,14 @@ interface AdminQnaInlineDetailProps {
   isSavingQuestion: boolean;
   isSavingReply: boolean;
   onCancelEditQuestion: () => void;
-  onDeleteQuestion: (questionId: number) => void;
+  onDeleteQuestion: (question: QuestionItem) => void;
   onDeleteReply: (replyId: number) => void;
   onQuestionContentChange: (value: string) => void;
   onQuestionPrivateQuestionChange: (value: boolean) => void;
   onQuestionTitleChange: (value: string) => void;
   onReplyContentChange: (value: string) => void;
   onStartEditQuestion: (question: QuestionItem) => void;
-  onSubmitQuestion: (questionId: number) => void;
+  onSubmitQuestion: (question: QuestionItem) => void;
   onSubmitReply: (questionId: number) => void;
   primaryReply: QuestionReplyItem | null;
   question: QuestionItem;
@@ -73,71 +74,75 @@ const AdminQnaInlineDetail = ({
                   {question.authorName} · {formatQnaDateTime(question.createdAt)}
                 </p>
               </div>
-              {!question.notice ? (
-                <div className={styles['qnaReplyActions']}>
-                  <button
-                    className={styles['tableActionButton']}
-                    disabled={isSavingQuestion || isDeletingQuestion}
-                    onClick={() => {
-                      onStartEditQuestion(question);
-                    }}
-                    type='button'
-                  >
-                    질문 수정
-                  </button>
-                  <button
-                    className={styles['tableActionButtonDanger']}
-                    disabled={isSavingQuestion || isDeletingQuestion}
-                    onClick={() => {
-                      onDeleteQuestion(question.id);
-                    }}
-                    type='button'
-                  >
-                    질문 삭제
-                  </button>
-                </div>
-              ) : null}
+              <div className={styles['qnaReplyActions']}>
+                <button
+                  className={styles['tableActionButton']}
+                  disabled={isSavingQuestion || isDeletingQuestion}
+                  onClick={() => {
+                    onStartEditQuestion(question);
+                  }}
+                  type='button'
+                >
+                  {question.notice ? '공지 수정' : '질문 수정'}
+                </button>
+                <button
+                  className={styles['tableActionButtonDanger']}
+                  disabled={isSavingQuestion || isDeletingQuestion}
+                  onClick={() => {
+                    onDeleteQuestion(question);
+                  }}
+                  type='button'
+                >
+                  {question.notice ? '공지 삭제' : '질문 삭제'}
+                </button>
+              </div>
             </div>
-            {question.notice ? (
-              <div
-                className={`${styles['qnaQuestionContent']} ${styles['qnaRichContent']}`}
-                dangerouslySetInnerHTML={{
-                  __html: sanitizeRichTextHtml(question.content),
-                }}
-              />
-            ) : isEditingQuestion ? (
+            {isEditingQuestion ? (
               <div className={styles['qnaReplyComposerInline']}>
                 <TextField
-                  label='질문 제목'
+                  label={question.notice ? '공지 제목' : '질문 제목'}
                   maxLength={QNA_TITLE_MAX_LENGTH}
                   name={`admin-qna-question-title-${String(question.id)}`}
                   onChange={(event) => {
                     onQuestionTitleChange(event.target.value);
                   }}
-                  placeholder='질문 제목을 입력해 주세요.'
+                  placeholder={
+                    question.notice ? '공지 제목을 입력해 주세요.' : '질문 제목을 입력해 주세요.'
+                  }
                   value={questionTitle}
                 />
-                <TextAreaField
-                  label='질문 내용'
-                  maxLength={QNA_CONTENT_MAX_LENGTH}
-                  name={`admin-qna-question-content-${String(question.id)}`}
-                  onChange={(event) => {
-                    onQuestionContentChange(event.target.value);
-                  }}
-                  placeholder='질문 내용을 입력해 주세요.'
-                  rows={5}
-                  value={questionContent}
-                />
-                <label className={styles['checkboxRow']}>
-                  <input
-                    checked={questionPrivateQuestion}
-                    onChange={(event) => {
-                      onQuestionPrivateQuestionChange(event.target.checked);
-                    }}
-                    type='checkbox'
+                {question.notice ? (
+                  <AdminRichTextEditor
+                    label='공지 내용'
+                    onChange={onQuestionContentChange}
+                    placeholder='공지 내용을 입력해 주세요.'
+                    value={questionContent}
                   />
-                  비밀글로 등록
-                </label>
+                ) : (
+                  <>
+                    <TextAreaField
+                      label='질문 내용'
+                      maxLength={QNA_CONTENT_MAX_LENGTH}
+                      name={`admin-qna-question-content-${String(question.id)}`}
+                      onChange={(event) => {
+                        onQuestionContentChange(event.target.value);
+                      }}
+                      placeholder='질문 내용을 입력해 주세요.'
+                      rows={5}
+                      value={questionContent}
+                    />
+                    <label className={styles['checkboxRow']}>
+                      <input
+                        checked={questionPrivateQuestion}
+                        onChange={(event) => {
+                          onQuestionPrivateQuestionChange(event.target.checked);
+                        }}
+                        type='checkbox'
+                      />
+                      비밀글로 등록
+                    </label>
+                  </>
+                )}
                 <div className={styles['qnaActionRow']}>
                   <Button
                     disabled={isSavingQuestion}
@@ -151,17 +156,26 @@ const AdminQnaInlineDetail = ({
                     disabled={
                       isSavingQuestion ||
                       questionTitle.trim().length === 0 ||
-                      questionContent.trim().length === 0
+                      (question.notice
+                        ? !hasRichTextContent(questionContent)
+                        : questionContent.trim().length === 0)
                     }
                     onClick={() => {
-                      onSubmitQuestion(question.id);
+                      onSubmitQuestion(question);
                     }}
                     type='button'
                   >
-                    {isSavingQuestion ? '저장 중...' : '질문 저장'}
+                    {isSavingQuestion ? '저장 중...' : question.notice ? '공지 저장' : '질문 저장'}
                   </Button>
                 </div>
               </div>
+            ) : question.notice ? (
+              <div
+                className={`${styles['qnaQuestionContent']} ${styles['qnaRichContent']}`}
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeRichTextHtml(question.content),
+                }}
+              />
             ) : (
               <p className={styles['qnaQuestionContent']}>{question.content}</p>
             )}

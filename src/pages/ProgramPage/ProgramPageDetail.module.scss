@@ -2163,7 +2163,7 @@
 
 @media (width < 1024px) {
   .page {
-    padding-bottom: 88px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
   }
 
   .contentLayout {
@@ -2182,7 +2182,7 @@
     z-index: 40;
     display: flex;
     gap: 8px;
-    padding: 16px;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
     border-top: 1px solid #e5e7eb;
     background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(10px);
@@ -2299,6 +2299,10 @@
   .reviewPreviewCard {
     flex-basis: min(100%, 420px);
     width: min(100%, 420px);
+  }
+
+  .reviewPreviewCardDimmed {
+    opacity: 1;
   }
 
   .carouselArrowButton {

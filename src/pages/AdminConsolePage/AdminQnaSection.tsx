@@ -11,9 +11,14 @@ import {
   updateAdminQuestionReply,
 } from '@/api/qna';
 import Pagination from '@/components/ui/Pagination/Pagination';
-import { adminQuestionsQueryKey, useAdminQuestionsQuery } from '@/query/useQnaQueries';
+import {
+  adminQuestionsQueryKey,
+  globalQuestionsQueryKey,
+  useAdminQuestionsQuery,
+} from '@/query/useQnaQueries';
 import { useToastStore } from '@/stores/useToastStore';
 import type { QuestionItem } from '@/types/qna';
+import { hasRichTextContent, normalizeRichTextHtmlForStorage } from '@/utils/htmlContent';
 import { validateQnaQuestionDraft } from '@/utils/qna';
 
 import styles from './AdminConsolePage.module.scss';
@@ -151,55 +156,71 @@ const AdminQnaSection = () => {
     mutationFn: ({
       content,
       privateQuestion,
-      questionId,
+      question,
       title,
     }: {
       content: string;
       privateQuestion: boolean;
-      questionId: number;
+      question: QuestionItem;
       title: string;
     }) =>
-      updateAdminQuestion(questionId, {
+      updateAdminQuestion(question.id, {
         content,
         privateQuestion,
         title,
       }),
-    onError: (error: unknown) => {
+    onError: (error: unknown, { question }) => {
       showToast({
-        message: error instanceof Error ? error.message : '질문 수정에 실패했습니다.',
+        message:
+          error instanceof Error
+            ? error.message
+            : question.notice
+              ? '공지 수정에 실패했습니다.'
+              : '질문 수정에 실패했습니다.',
         variant: 'error',
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_, { question }) => {
       setEditingQuestionId(null);
       setQuestionTitle('');
       setQuestionContent('');
       setQuestionPrivateQuestion(false);
-      await refreshAdminQuestions();
+      await Promise.all([
+        refreshAdminQuestions(),
+        queryClient.invalidateQueries({ queryKey: globalQuestionsQueryKey() }),
+      ]);
       showToast({
-        message: '질문을 수정했습니다.',
+        message: question.notice ? '공지를 수정했습니다.' : '질문을 수정했습니다.',
         variant: 'success',
       });
     },
   });
 
   const deleteQuestionMutation = useMutation({
-    mutationFn: (questionId: number) => deleteAdminQuestion(questionId),
-    onError: (error: unknown) => {
+    mutationFn: (question: QuestionItem) => deleteAdminQuestion(question.id),
+    onError: (error: unknown, question) => {
       showToast({
-        message: error instanceof Error ? error.message : '질문 삭제에 실패했습니다.',
+        message:
+          error instanceof Error
+            ? error.message
+            : question.notice
+              ? '공지 삭제에 실패했습니다.'
+              : '질문 삭제에 실패했습니다.',
         variant: 'error',
       });
     },
-    onSuccess: async (_, questionId) => {
-      setSelectedQuestionId((current) => (current === questionId ? null : current));
-      setEditingQuestionId((current) => (current === questionId ? null : current));
+    onSuccess: async (_, question) => {
+      setSelectedQuestionId((current) => (current === question.id ? null : current));
+      setEditingQuestionId((current) => (current === question.id ? null : current));
       setQuestionTitle('');
       setQuestionContent('');
       setQuestionPrivateQuestion(false);
-      await refreshAdminQuestions();
+      await Promise.all([
+        refreshAdminQuestions(),
+        queryClient.invalidateQueries({ queryKey: globalQuestionsQueryKey() }),
+      ]);
       showToast({
-        message: '질문을 삭제했습니다.',
+        message: question.notice ? '공지를 삭제했습니다.' : '질문을 삭제했습니다.',
         variant: 'success',
       });
     },
@@ -306,10 +327,15 @@ const AdminQnaSection = () => {
     setQuestionPrivateQuestion(false);
   };
 
-  const handleSubmitQuestion = (questionId: number) => {
+  const handleSubmitQuestion = (question: QuestionItem) => {
     const title = questionTitle.trim();
-    const content = questionContent.trim();
-    const validationError = validateQnaQuestionDraft(title, content);
+    const rawContent = questionContent.trim();
+    const content = question.notice ? normalizeRichTextHtmlForStorage(rawContent) : rawContent;
+    const validationError = question.notice
+      ? !title || !hasRichTextContent(content)
+        ? '공지 제목과 내용을 모두 입력해 주세요.'
+        : null
+      : validateQnaQuestionDraft(title, content);
 
     if (validationError) {
       showToast({
@@ -321,18 +347,22 @@ const AdminQnaSection = () => {
 
     void updateQuestionMutation.mutateAsync({
       content,
-      privateQuestion: questionPrivateQuestion,
-      questionId,
+      privateQuestion: question.notice ? false : questionPrivateQuestion,
+      question,
       title,
     });
   };
 
-  const handleDeleteQuestion = (questionId: number) => {
-    if (!window.confirm('이 질문을 삭제하시겠습니까?')) {
+  const handleDeleteQuestion = (question: QuestionItem) => {
+    const confirmMessage = question.notice
+      ? '이 공지를 삭제하시겠습니까?'
+      : '이 질문을 삭제하시겠습니까?';
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
-    void deleteQuestionMutation.mutateAsync(questionId);
+    void deleteQuestionMutation.mutateAsync(question);
   };
 
   return (

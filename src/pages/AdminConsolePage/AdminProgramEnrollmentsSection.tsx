@@ -15,6 +15,7 @@ import searchIconSrc from '@/assets/icons/search.svg';
 import Modal from '@/components/overlay/Modal/Modal';
 import Button from '@/components/ui/Button/Button';
 import ChevronDownIcon from '@/components/ui/icons/ChevronDownIcon';
+import { useAdminCategoriesTreeQuery } from '@/query/useAdminCategoriesQuery';
 import {
   adminPaymentDetailQueryKey,
   adminPaymentsQueryKey,
@@ -29,6 +30,7 @@ import {
   useAdminProgramsLiveQuery,
 } from '@/query/useAdminProgramsLiveQuery';
 import { useToastStore } from '@/stores/useToastStore';
+import type { AdminCategoryTreeItem } from '@/types/adminCategories';
 import type { AdminProgramEnrollmentItem } from '@/types/adminProgramOperations';
 import type { AdminProgramListItem } from '@/types/adminProgramsLive';
 import type { AdminUserDetailEnrollmentItem, AdminUserDetailLectureItem } from '@/types/adminUsers';
@@ -282,7 +284,33 @@ const getProgramEnrollmentCount = (program: AdminProgramListItem | null): number
 const formatProgramStudentCount = (program: AdminProgramListItem): string => {
   const activeEnrollmentCount = getProgramEnrollmentCount(program);
 
-  return `${String(activeEnrollmentCount)}명`;
+  if (program.maxStudents === null) {
+    return `${String(activeEnrollmentCount)} / 무제한`;
+  }
+
+  return `${String(activeEnrollmentCount)} / ${String(program.maxStudents)} 명`;
+};
+
+const buildCategoryPathById = (
+  items: readonly AdminCategoryTreeItem[],
+): ReadonlyMap<number, string> => {
+  const pathById = new Map<number, string>();
+
+  const visit = (
+    currentItems: readonly AdminCategoryTreeItem[],
+    parentNames: readonly string[],
+  ): void => {
+    currentItems.forEach((item) => {
+      const pathNames = [...parentNames, item.name];
+
+      pathById.set(item.id, pathNames.join(' > '));
+      visit(item.children, pathNames);
+    });
+  };
+
+  visit(items, []);
+
+  return pathById;
 };
 
 const AdminProgramEnrollmentsSection = () => {
@@ -290,8 +318,13 @@ const AdminProgramEnrollmentsSection = () => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [programSearchKeyword, setProgramSearchKeyword] = useState('');
   const requestedProgramId = toNumberOrNull(searchParams.get('programId'));
-  const programsQuery = useAdminProgramsLiveQuery();
+  const programsQuery = useAdminProgramsLiveQuery(true, 'ENROLLMENT_MANAGEMENT');
+  const categoriesQuery = useAdminCategoriesTreeQuery();
   const programs = programsQuery.data ?? EMPTY_PROGRAMS;
+  const categoryPathById = useMemo(
+    () => buildCategoryPathById(categoriesQuery.data ?? []),
+    [categoriesQuery.data],
+  );
   const filteredPrograms = useMemo(() => {
     const normalizedKeyword = programSearchKeyword.trim().toLowerCase();
 
@@ -302,7 +335,7 @@ const AdminProgramEnrollmentsSection = () => {
     return programs.filter((program) => {
       return [
         program.title,
-        program.categoryName,
+        categoryPathById.get(program.categoryId) ?? program.categoryName,
         programTypeLabel[program.programType],
         catalogStatusLabel[program.catalogStatus],
       ]
@@ -310,7 +343,7 @@ const AdminProgramEnrollmentsSection = () => {
         .toLowerCase()
         .includes(normalizedKeyword);
     });
-  }, [programSearchKeyword, programs]);
+  }, [categoryPathById, programSearchKeyword, programs]);
   const totalProgramPages = Math.max(1, Math.ceil(filteredPrograms.length / PROGRAMS_PAGE_SIZE));
   const requestedProgramPageIndex = useMemo(() => {
     if (requestedProgramId === null) {
@@ -432,6 +465,7 @@ const AdminProgramEnrollmentsSection = () => {
               </form>
             </div>
             <ProgramBoardTable
+              categoryPathById={categoryPathById}
               emptyMessage={
                 programSearchKeyword.trim()
                   ? '검색 결과가 없습니다.'
@@ -455,7 +489,6 @@ const AdminProgramEnrollmentsSection = () => {
               }
               items={pagedPrograms}
               onSelect={handleProgramSelect}
-              pageOffset={safeCurrentPageIndex * PROGRAMS_PAGE_SIZE}
               selectedProgramId={selectedProgramId}
             />
             <ProgramPagination
@@ -620,18 +653,18 @@ const ProgramEnrollmentDropdown = ({
 };
 
 const ProgramBoardTable = ({
+  categoryPathById,
   emptyMessage,
   expandedContent,
   items,
   onSelect,
-  pageOffset,
   selectedProgramId,
 }: {
+  categoryPathById: ReadonlyMap<number, string>;
   emptyMessage: string;
   expandedContent: ReactNode;
   items: AdminProgramListItem[];
   onSelect: (programId: number) => void;
-  pageOffset: number;
   selectedProgramId: number | null;
 }) => {
   return (
@@ -639,11 +672,11 @@ const ProgramBoardTable = ({
       <table className={`${styles['table']} ${styles['programEnrollmentProgramTable']}`}>
         <thead>
           <tr>
-            <th scope='col'>번호</th>
             <th scope='col'>프로그램명</th>
+            <th scope='col'>카테고리</th>
+            <th scope='col'>수강생</th>
             <th scope='col'>유형</th>
             <th scope='col'>판매 상태</th>
-            <th scope='col'>수강생</th>
             <th scope='col'>
               <span className={styles['srOnly']}>펼침</span>
             </th>
@@ -651,8 +684,9 @@ const ProgramBoardTable = ({
         </thead>
         <tbody>
           {items.length ? (
-            items.map((program, index) => {
+            items.map((program) => {
               const isSelected = program.id === selectedProgramId;
+              const dropdownId = `program-enrollment-dropdown-${String(program.id)}`;
 
               return (
                 <Fragment key={program.id}>
@@ -677,7 +711,6 @@ const ProgramBoardTable = ({
                     }}
                     tabIndex={0}
                   >
-                    <td>{String(pageOffset + index + 1)}</td>
                     <td>
                       <button
                         className={styles['boardTitleButton']}
@@ -690,28 +723,38 @@ const ProgramBoardTable = ({
                         <span className={styles['cellPrimary']}>{program.title}</span>
                       </button>
                     </td>
+                    <td className={styles['programEnrollmentCategoryPath']}>
+                      {categoryPathById.get(program.categoryId) ?? program.categoryName}
+                    </td>
+                    <td>{formatProgramStudentCount(program)}</td>
                     <td>{programTypeLabel[program.programType]}</td>
                     <td>
                       <span className={resolveCatalogStatusTextClassName(program.catalogStatus)}>
                         {catalogStatusLabel[program.catalogStatus]}
                       </span>
                     </td>
-                    <td>{formatProgramStudentCount(program)}</td>
                     <td className={styles['programEnrollmentToggleCell']}>
-                      <span
-                        aria-hidden='true'
+                      <button
+                        aria-controls={dropdownId}
+                        aria-expanded={isSelected}
+                        aria-label={`${program.title} 수강생 목록 ${isSelected ? '접기' : '펼치기'}`}
                         className={
                           isSelected
                             ? `${styles['programEnrollmentChevron']} ${styles['programEnrollmentChevronOpen']}`
                             : styles['programEnrollmentChevron']
                         }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSelect(program.id);
+                        }}
+                        type='button'
                       >
                         <ChevronDownIcon />
-                      </span>
+                      </button>
                     </td>
                   </tr>
                   {isSelected && expandedContent ? (
-                    <tr className={styles['programEnrollmentDropdownRow']}>
+                    <tr className={styles['programEnrollmentDropdownRow']} id={dropdownId}>
                       <td colSpan={6}>{expandedContent}</td>
                     </tr>
                   ) : null}

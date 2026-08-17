@@ -5,18 +5,20 @@ import {
   fetchAdminProgramDetailLive,
   fetchAdminProgramsLive,
 } from '@/api/adminProgramsLive';
+import type { AdminProgramListSortMode } from '@/types/adminProgramsLive';
 
-export const adminProgramsLiveQueryKey = () => ['adminProgramsLive'] as const;
+export const adminProgramsLiveQueryKey = (sortMode?: AdminProgramListSortMode) =>
+  sortMode ? (['adminProgramsLive', sortMode] as const) : (['adminProgramsLive'] as const);
 export const adminProgramCategoriesQueryKey = () => ['adminProgramCategories'] as const;
 export const adminProgramDetailLiveQueryKey = (programId: number | null) =>
   ['adminProgramDetailLive', programId] as const;
 
-export const useAdminProgramsLiveQuery = (enabled = true) => {
+export const useAdminProgramsLiveQuery = (enabled = true, sortMode?: AdminProgramListSortMode) => {
   return useQuery({
     enabled,
     gcTime: 5 * 60 * 1000,
-    queryFn: () => fetchAdminProgramsLive(),
-    queryKey: adminProgramsLiveQueryKey(),
+    queryFn: () => fetchAdminProgramsLive(sortMode),
+    queryKey: adminProgramsLiveQueryKey(sortMode),
     staleTime: 30 * 1000,
   });
 };

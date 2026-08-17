@@ -4,49 +4,48 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import QuickMenu from './QuickMenu';
 
-const setWindowScrollY = (scrollY: number) => {
-  Object.defineProperty(window, 'scrollY', {
-    configurable: true,
-    value: scrollY,
-    writable: true,
-  });
-};
-
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  setWindowScrollY(0);
 });
 
 describe('QuickMenu', () => {
-  it('hides quick menu actions at the top of the page', () => {
-    setWindowScrollY(0);
-
+  it('shows the quick menu expanded without requiring page scroll', () => {
     render(
       <MemoryRouter>
         <QuickMenu />
       </MemoryRouter>,
     );
 
-    expect(screen.queryByRole('complementary', { name: '빠른 메뉴' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '빠른 메뉴 열기' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '페이지 상단으로 이동' })).not.toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: '빠른 메뉴' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '빠른 메뉴 닫기' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: '페이지 상단으로 이동' })).toBeInTheDocument();
   });
 
   it('toggles the quick menu actions', () => {
-    setWindowScrollY(120);
-
     render(
       <MemoryRouter>
         <QuickMenu />
       </MemoryRouter>,
     );
 
-    const toggleButton = screen.getByRole('button', { name: '빠른 메뉴 열기' });
+    const toggleButton = screen.getByRole('button', { name: '빠른 메뉴 닫기' });
 
-    expect(toggleButton).toHaveAttribute('aria-expanded', 'false');
+    expect(toggleButton).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(toggleButton);
+
+    expect(screen.getByRole('button', { name: '빠른 메뉴 열기' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('link', { name: '카톡채널' })).not.toBeInTheDocument();
+    expect(document.querySelector('[inert]')).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: '빠른 메뉴 열기' }));
 
     expect(screen.getByRole('button', { name: '빠른 메뉴 닫기' })).toHaveAttribute(
       'aria-expanded',
@@ -58,19 +57,19 @@ describe('QuickMenu', () => {
     );
     expect(screen.getByRole('link', { name: '카톡채널' })).toHaveAttribute('target', '_blank');
     expect(screen.getByRole('link', { name: '카톡채널' })).toHaveAttribute('rel', 'noreferrer');
-    expect(screen.getByRole('link', { name: '블로그' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '카페' })).toHaveAttribute(
       'href',
-      'https://blog.naver.com/sonoschool',
+      'https://cafe.naver.com/sonoschool1',
     );
-    expect(screen.getByRole('link', { name: '위치안내' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '오픈채팅' })).toHaveAttribute(
       'href',
-      '/#home-location',
+      'https://open.kakao.com/o/p1EtBkwi',
     );
+    expect(screen.getByRole('link', { name: '오픈채팅' })).toHaveAttribute('target', '_blank');
+    expect(screen.getByRole('link', { name: '오픈채팅' })).toHaveAttribute('rel', 'noreferrer');
   });
 
   it('keeps the top button separate from the quick menu toggle', () => {
-    setWindowScrollY(120);
-
     const scrollToSpy = vi.fn();
 
     Object.defineProperty(window, 'scrollTo', {
@@ -85,7 +84,6 @@ describe('QuickMenu', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '빠른 메뉴 열기' }));
     fireEvent.click(screen.getByRole('button', { name: '페이지 상단으로 이동' }));
 
     expect(scrollToSpy).toHaveBeenCalledWith({

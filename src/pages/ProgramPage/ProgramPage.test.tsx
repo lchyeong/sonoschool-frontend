@@ -397,7 +397,10 @@ describe('ProgramPage', () => {
   it('renders a cohort lecture detail page on its direct child path', async () => {
     renderProgramPage('/programs/general-course/abdomen/abdomen-basic-6-weeks/2026-mar-apr');
 
-    expect(await screen.findByRole('heading', { name: '복부 Basic 스캔 6주' })).toBeInTheDocument();
+    const detailHeading = await screen.findByRole('heading', { name: '복부 Basic 스캔 6주' });
+
+    expect(detailHeading).toBeInTheDocument();
+    expect(detailHeading.closest('[data-quick-menu-mobile-offset="true"]')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '먼저 경험한 수강생들 후기' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '커리큘럼' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Q&A' })).toBeInTheDocument();

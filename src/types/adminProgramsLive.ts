@@ -6,6 +6,7 @@ export type AdminProgramCatalogStatus = 'OPEN' | 'STARTED' | 'CLOSED' | 'ENDED' 
 export type AdminProgramAccessPolicy = 'FIXED_DURATION' | 'ROLLING_DAYS' | 'UNLIMITED';
 export type AdminProgramTagType = 'FEATURE' | 'FORMAT' | 'LEVEL' | 'TARGET' | 'TOPIC';
 export type AdminProgramOperationStatus = 'NORMAL' | 'CLOSURE_CONFIRMED';
+export type AdminProgramListSortMode = 'ENROLLMENT_MANAGEMENT';
 
 export interface AdminProgramCategoryTreeItem {
   id: number;

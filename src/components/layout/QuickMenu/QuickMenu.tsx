@@ -1,13 +1,12 @@
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
 import quickMenuArrowUpIconSrc from '@/assets/icons/quick-menu-arrow-up.svg';
-import quickMenuBlogIconSrc from '@/assets/icons/quick-menu-blog.svg';
+import quickMenuCafeIconSrc from '@/assets/icons/quick-menu-cafe.svg';
 import quickMenuKakaoChannelIconSrc from '@/assets/icons/quick-menu-kakao-channel.svg';
 import quickMenuLightningIconSrc from '@/assets/icons/quick-menu-lightning.svg';
 import quickMenuLocationIconSrc from '@/assets/icons/quick-menu-location.svg';
-import { routePaths } from '@/routes/routeRegistry';
 import { classNames } from '@/utils/classNames';
 
 import styles from './QuickMenu.module.scss';
@@ -26,26 +25,16 @@ const quickMenuLinks: QuickMenuLinkItem[] = [
     label: '카톡채널',
   },
   {
-    href: 'https://blog.naver.com/sonoschool',
-    iconSrc: quickMenuBlogIconSrc,
-    label: '블로그',
+    href: 'https://cafe.naver.com/sonoschool1',
+    iconSrc: quickMenuCafeIconSrc,
+    label: '카페',
   },
   {
+    href: 'https://open.kakao.com/o/p1EtBkwi',
     iconSrc: quickMenuLocationIconSrc,
-    label: '위치안내',
-    to: routePaths.homeLocation,
+    label: '오픈채팅',
   },
 ];
-
-const QUICK_MENU_VISIBLE_SCROLL_Y = 80;
-
-const getIsQuickMenuVisible = () => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  return window.scrollY > QUICK_MENU_VISIBLE_SCROLL_Y;
-};
 
 const scrollToPageTop = () => {
   try {
@@ -60,28 +49,8 @@ const scrollToPageTop = () => {
 };
 
 const QuickMenu = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isVisible, setIsVisible] = useState(getIsQuickMenuVisible);
+  const [isOpen, setIsOpen] = useState(true);
   const menuId = useId();
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const nextIsVisible = getIsQuickMenuVisible();
-
-      setIsVisible(nextIsVisible);
-
-      if (!nextIsVisible) {
-        setIsOpen(false);
-      }
-    };
-
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
 
   const toggleMenu = () => {
     setIsOpen((currentIsOpen) => !currentIsOpen);
@@ -93,13 +62,14 @@ const QuickMenu = () => {
 
   return (
     <aside
-      aria-hidden={!isVisible}
       aria-label='빠른 메뉴'
-      className={classNames(styles['quickMenu'], isVisible && styles['quickMenuVisible'])}
+      className={classNames(styles['quickMenu'], styles['quickMenuVisible'])}
     >
       <div
+        aria-hidden={!isOpen}
         className={classNames(styles['menuPanel'], isOpen && styles['menuPanelOpen'])}
         id={menuId}
+        inert={!isOpen}
       >
         <ul className={styles['menuList']}>
           {quickMenuLinks.map((item) => {

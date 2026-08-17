@@ -4534,32 +4534,39 @@
 
 .table.programEnrollmentProgramTable th:nth-child(1),
 .table.programEnrollmentProgramTable td:nth-child(1) {
-  width: 5%;
+  width: 38%;
 }
 
 .table.programEnrollmentProgramTable th:nth-child(2),
 .table.programEnrollmentProgramTable td:nth-child(2) {
-  width: 51%;
+  width: 17%;
 }
 
 .table.programEnrollmentProgramTable th:nth-child(3),
 .table.programEnrollmentProgramTable td:nth-child(3) {
-  width: 18%;
+  width: 13%;
 }
 
 .table.programEnrollmentProgramTable th:nth-child(4),
 .table.programEnrollmentProgramTable td:nth-child(4) {
-  width: 10%;
+  width: 17%;
 }
 
 .table.programEnrollmentProgramTable th:nth-child(5),
 .table.programEnrollmentProgramTable td:nth-child(5) {
-  width: 11%;
+  width: 10%;
 }
 
 .table.programEnrollmentProgramTable th:nth-child(6),
 .table.programEnrollmentProgramTable td:nth-child(6) {
   width: 5%;
+}
+
+.table.programEnrollmentProgramTable td.programEnrollmentCategoryPath {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .statusText {
@@ -4635,11 +4642,20 @@
   justify-content: center;
   width: 22px;
   height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-text-tertiary);
+  cursor: pointer;
   transform: rotate(0deg);
   transition:
     color 120ms ease,
     transform 120ms ease;
+}
+
+.programEnrollmentChevron:focus-visible {
+  outline: 2px solid #34b29f;
+  outline-offset: 2px;
 }
 
 .programEnrollmentChevronOpen {

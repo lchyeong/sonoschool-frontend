@@ -29,7 +29,7 @@ const footerNavigationItems: readonly FooterNavigationItem[] = [
   { label: '공지사항', to: routePaths.notices, width: 62 },
   { label: 'Q&A', to: routePaths.qna, width: 38 },
   { label: '자료실', to: routePaths.resources, width: 46 },
-  { label: '네이버블로그', href: 'https://blog.naver.com/sonoschool', width: 92 },
+  { label: '네이버카페', href: 'https://cafe.naver.com/sonoschool1', width: 92 },
 ] as const;
 
 const footerInformationLines: readonly (readonly FooterInfoItem[])[] = [

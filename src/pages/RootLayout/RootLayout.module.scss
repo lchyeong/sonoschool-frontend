@@ -5,6 +5,12 @@
   min-height: 100vh;
 }
 
+@media (width < 1024px) {
+  .layout:has([data-quick-menu-mobile-offset='true']) {
+    --quick-menu-bottom: calc(98px + env(safe-area-inset-bottom));
+  }
+}
+
 .main {
   flex: 1;
   width: 100%;

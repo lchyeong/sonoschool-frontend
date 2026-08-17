@@ -25,9 +25,9 @@ describe('CommonFooter', () => {
 
     expect(screen.getByRole('link', { name: '소노스쿨' })).toHaveAttribute('href', '/');
     expect(screen.queryByRole('link', { name: '교육후기' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '네이버블로그' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '네이버카페' })).toHaveAttribute(
       'href',
-      'https://blog.naver.com/sonoschool',
+      'https://cafe.naver.com/sonoschool1',
     );
     expect(screen.getByText('139-17-02906')).toBeInTheDocument();
     expect(screen.getByText('010-3859-8070(문자만 가능)')).toBeInTheDocument();

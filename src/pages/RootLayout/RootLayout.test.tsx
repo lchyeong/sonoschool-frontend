@@ -26,14 +26,6 @@ const createTestQueryClient = () => {
   });
 };
 
-const setWindowScrollY = (scrollY: number) => {
-  Object.defineProperty(window, 'scrollY', {
-    configurable: true,
-    value: scrollY,
-    writable: true,
-  });
-};
-
 const renderRootLayoutRoute = ({ initialEntry, path, routeKey }: RootLayoutRouteFixture) => {
   const queryClient = createTestQueryClient();
   const router = createMemoryRouter(
@@ -68,13 +60,10 @@ const renderRootLayoutRoute = ({ initialEntry, path, routeKey }: RootLayoutRoute
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  setWindowScrollY(0);
 });
 
 describe('RootLayout', () => {
-  it('renders the quick menu on common-header pages outside home', () => {
-    setWindowScrollY(120);
-
+  it('renders the expanded quick menu without scrolling on common-header pages outside home', () => {
     renderRootLayoutRoute({
       initialEntry: '/programs',
       path: 'programs',
@@ -82,6 +71,10 @@ describe('RootLayout', () => {
     });
 
     expect(screen.getByRole('complementary', { name: '빠른 메뉴' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '빠른 메뉴 닫기' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.getByRole('button', { name: '페이지 상단으로 이동' })).toBeInTheDocument();
   });
 
@@ -106,8 +99,6 @@ describe('RootLayout', () => {
   ] satisfies RootLayoutRouteFixture[])(
     'does not render the quick menu on $routeKey routes',
     (fixture) => {
-      setWindowScrollY(120);
-
       renderRootLayoutRoute(fixture);
 
       expect(screen.queryByRole('complementary', { name: '빠른 메뉴' })).not.toBeInTheDocument();

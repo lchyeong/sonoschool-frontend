@@ -1,7 +1,7 @@
 .quickMenu {
   position: fixed;
   right: clamp(18px, 3.34vw, 64px);
-  bottom: clamp(18px, 3.34vw, 64px);
+  bottom: var(--quick-menu-bottom, clamp(18px, 3.34vw, 64px));
   z-index: var(--z-index-fixed);
   display: flex;
   flex-direction: column;
@@ -184,6 +184,43 @@
 @media (width <= 767px) {
   .quickMenu {
     right: 16px;
-    bottom: 18px;
+    bottom: var(--quick-menu-bottom, max(18px, env(safe-area-inset-bottom)));
+  }
+}
+
+@media (width < 1024px) and (height <= 600px) {
+  .menuPanelOpen {
+    height: 190px;
+  }
+
+  .menuList {
+    padding-top: 14px;
+  }
+
+  .menuItem + .menuItem {
+    margin-top: 6px;
+  }
+
+  .quickMenuButton,
+  .topButton {
+    width: 54px;
+    height: 54px;
+  }
+
+  .quickMenuButton {
+    margin-top: -27px;
+  }
+
+  .quickMenuLabel {
+    font-size: 12px;
+  }
+
+  .topButton {
+    margin-top: 6px;
+  }
+
+  .topIcon {
+    width: 24px;
+    height: 24px;
   }
 }

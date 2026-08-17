@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { server } from '@/mocks/server';
 import AdminConsolePage from '@/pages/AdminConsolePage/AdminConsolePage';
+import { globalQuestionsQueryKey } from '@/query/useQnaQueries';
 import { adminConsoleRouteTree } from '@/routes/router';
 import { useAdminAuthStore } from '@/stores/useAdminAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -278,11 +279,13 @@ const renderAdminConsoleRoute = (
     initialEntries: [initialEntry],
   });
 
-  return render(
+  const renderResult = render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+
+  return { ...renderResult, queryClient };
 };
 
 afterEach(() => {
@@ -1569,6 +1572,152 @@ describe('AdminConsolePage', () => {
     server.resetHandlers();
   });
 
+  it('updates a qna notice from the admin qna detail', async () => {
+    let qnaNotices: QuestionItem[] = [
+      {
+        answered: false,
+        authorName: '소노스쿨 운영팀',
+        authorType: 'ADMIN',
+        content: '<p>수정 전 공지 내용</p>',
+        createdAt: '2026-03-20T00:00:00Z',
+        id: 9051,
+        mine: true,
+        notice: true,
+        noticeSortOrder: 0,
+        privateQuestion: false,
+        programId: null,
+        programTitle: null,
+        replies: [],
+        replyCount: 0,
+        scope: 'GLOBAL',
+        title: '수정 전 공지',
+        updatedAt: '2026-03-20T00:00:00Z',
+      },
+    ];
+    let updatedNoticePayload: unknown = null;
+
+    server.use(
+      http.get('*/api/v1/admin/qna', () => {
+        return HttpResponse.json({ data: qnaNotices });
+      }),
+      http.put('*/api/v1/admin/qna/:questionId', async ({ params, request }) => {
+        updatedNoticePayload = await request.json();
+        const questionId = Number(params['questionId']);
+        const payload = updatedNoticePayload as {
+          content: string;
+          privateQuestion: boolean;
+          title: string;
+        };
+
+        qnaNotices = qnaNotices.map((notice) =>
+          notice.id === questionId
+            ? {
+                ...notice,
+                ...payload,
+                updatedAt: '2026-08-16T00:00:00Z',
+              }
+            : notice,
+        );
+
+        return HttpResponse.json({
+          data: qnaNotices.find((notice) => notice.id === questionId),
+        });
+      }),
+    );
+
+    const { queryClient } = renderAdminConsoleRoute('/admin/qna');
+    queryClient.setQueryData(globalQuestionsQueryKey(), qnaNotices);
+
+    await screen.findByText('수정 전 공지');
+    fireEvent.click(getClosestButton('수정 전 공지'));
+    fireEvent.click(await screen.findByRole('button', { name: '공지 수정' }));
+
+    expect(screen.getByLabelText('공지 제목')).toHaveValue('수정 전 공지');
+    expect(await screen.findByText('수정 전 공지 내용')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('공지 제목'), {
+      target: { value: '수정된 공지' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '제목 1 · 큰 제목 (32px)' }));
+    await waitFor(() => {
+      expect(screen.getByText('수정 전 공지 내용').tagName).toBe('H1');
+    });
+    fireEvent.click(screen.getByRole('button', { name: '공지 저장' }));
+
+    await waitFor(() => {
+      expect(updatedNoticePayload).toEqual({
+        content: '<h1>수정 전 공지 내용</h1><p></p>',
+        privateQuestion: false,
+        title: '수정된 공지',
+      });
+    });
+    expect(
+      useToastStore.getState().toasts.some((toast) => toast.message === '공지를 수정했습니다.'),
+    ).toBe(true);
+    await waitFor(() => {
+      expect(screen.getAllByText('수정된 공지').length).toBeGreaterThan(0);
+      expect(queryClient.getQueryState(globalQuestionsQueryKey())?.isInvalidated).toBe(true);
+    });
+  });
+
+  it('deletes a qna notice from the admin qna detail', async () => {
+    let qnaNotices: QuestionItem[] = [
+      {
+        answered: false,
+        authorName: '소노스쿨 운영팀',
+        authorType: 'ADMIN',
+        content: '<p>삭제할 공지 내용</p>',
+        createdAt: '2026-03-20T00:00:00Z',
+        id: 9101,
+        mine: true,
+        notice: true,
+        noticeSortOrder: 0,
+        privateQuestion: false,
+        programId: null,
+        programTitle: null,
+        replies: [],
+        replyCount: 0,
+        scope: 'GLOBAL',
+        title: '삭제할 공지',
+        updatedAt: '2026-03-20T00:00:00Z',
+      },
+    ];
+    let deletedNoticeId: string | null = null;
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    server.use(
+      http.get('*/api/v1/admin/qna', () => {
+        return HttpResponse.json({ data: qnaNotices });
+      }),
+      http.delete('*/api/v1/admin/qna/:questionId', ({ params }) => {
+        deletedNoticeId = String(params['questionId']);
+        qnaNotices = qnaNotices.filter((notice) => String(notice.id) !== deletedNoticeId);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { queryClient } = renderAdminConsoleRoute('/admin/qna');
+    queryClient.setQueryData(globalQuestionsQueryKey(), qnaNotices);
+
+    await screen.findByText('삭제할 공지');
+    fireEvent.click(getClosestButton('삭제할 공지'));
+
+    expect(screen.queryByRole('button', { name: '질문 수정' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: '공지 삭제' }));
+
+    await waitFor(() => {
+      expect(deletedNoticeId).toBe('9101');
+    });
+    expect(confirmSpy).toHaveBeenCalledWith('이 공지를 삭제하시겠습니까?');
+    expect(
+      useToastStore.getState().toasts.some((toast) => toast.message === '공지를 삭제했습니다.'),
+    ).toBe(true);
+    await waitFor(() => {
+      expect(screen.queryByText('삭제할 공지')).not.toBeInTheDocument();
+      expect(queryClient.getQueryState(globalQuestionsQueryKey())?.isInvalidated).toBe(true);
+    });
+    confirmSpy.mockRestore();
+  });
+
   it('updates and deletes a question from the admin qna detail', async () => {
     let updatedQuestionPayload: unknown = null;
     let deletedQuestionId: string | null = null;
@@ -1768,6 +1917,152 @@ describe('AdminConsolePage', () => {
         useToastStore.getState().toasts.some((toast) => toast.message === '수강권을 회수했습니다.'),
       ).toBe(true);
     });
+  });
+
+  it('renders the requested program enrollment fields and uses the enrollment sort mode', async () => {
+    let requestedSortMode: string | null = null;
+
+    server.use(
+      http.get('*/api/v1/admin/programs', ({ request }) => {
+        requestedSortMode = new URL(request.url).searchParams.get('sortMode');
+
+        return HttpResponse.json({
+          data: {
+            content: [
+              {
+                activeEnrollmentCount: 3,
+                catalogStatus: 'OPEN',
+                categoryId: 103,
+                categoryName: '소아내분비',
+                currentStudents: 7,
+                featured: false,
+                full: false,
+                id: 8101,
+                level: 'BEGINNER',
+                maxStudents: 8,
+                price: 220000,
+                programType: 'OFFLINE',
+                published: true,
+                saleEndAt: null,
+                salePrice: null,
+                saleStartAt: null,
+                slug: 'enrollment-table-fixed',
+                thumbnailUrl: null,
+                title: '정원제 수강생 관리',
+              },
+              {
+                activeEnrollmentCount: 5,
+                catalogStatus: 'CLOSED',
+                categoryId: 3,
+                categoryName: '응급/POCUS과정',
+                currentStudents: 5,
+                featured: false,
+                full: false,
+                id: 8102,
+                level: 'INTERMEDIATE',
+                maxStudents: null,
+                price: 180000,
+                programType: 'ONLINE',
+                published: false,
+                saleEndAt: '2026-03-01T00:00:00Z',
+                salePrice: null,
+                saleStartAt: null,
+                slug: 'enrollment-table-unlimited',
+                thumbnailUrl: null,
+                title: '무제한 수강생 관리',
+              },
+            ],
+          },
+        });
+      }),
+      http.get('*/api/v1/admin/categories/tree', () => {
+        return HttpResponse.json({
+          data: [
+            {
+              active: true,
+              children: [
+                {
+                  active: false,
+                  children: [
+                    {
+                      active: true,
+                      children: [],
+                      depth: 3,
+                      id: 103,
+                      name: '소아내분비',
+                      slug: 'pediatric-endocrinology',
+                      sortOrder: 0,
+                    },
+                  ],
+                  depth: 2,
+                  id: 102,
+                  name: '소아내과',
+                  slug: 'pediatrics',
+                  sortOrder: 0,
+                },
+              ],
+              depth: 1,
+              id: 101,
+              name: '의사과정',
+              slug: 'doctor-course',
+              sortOrder: 0,
+            },
+          ],
+          timestamp: '2026-08-16T00:00:00Z',
+        });
+      }),
+      http.get('*/api/v1/admin/programs/:programId/enrollments', () => {
+        return HttpResponse.json({ data: [] });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/program-enrollments', {
+      skipProgramEditorApis: true,
+    });
+
+    const programTitle = await screen.findByText('정원제 수강생 관리');
+    const programRow = programTitle.closest('tr');
+    const programTable = programRow?.closest('table');
+
+    expect(programRow).toBeInstanceOf(HTMLTableRowElement);
+    expect(programTable).toBeInstanceOf(HTMLTableElement);
+    expect(
+      within(programTable as HTMLTableElement)
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent.trim()),
+    ).toEqual(['프로그램명', '카테고리', '수강생', '유형', '판매 상태', '펼침']);
+    expect(
+      await within(programRow as HTMLTableRowElement).findByText(
+        '의사과정 > 소아내과 > 소아내분비',
+      ),
+    ).toBeInTheDocument();
+    expect(within(programRow as HTMLTableRowElement).getByText('3 / 8 명')).toBeInTheDocument();
+    expect(within(programRow as HTMLTableRowElement).getByText('오프라인')).toBeInTheDocument();
+    expect(within(programRow as HTMLTableRowElement).getByText('판매중')).toBeInTheDocument();
+    expect(screen.getByText('5 / 무제한')).toBeInTheDocument();
+    expect(screen.getByText('응급/POCUS과정')).toBeInTheDocument();
+    expect(requestedSortMode).toBe('ENROLLMENT_MANAGEMENT');
+
+    fireEvent.change(screen.getByRole('searchbox', { name: '프로그램명 검색' }), {
+      target: { value: '소아내과' },
+    });
+    expect(screen.getByText('정원제 수강생 관리')).toBeInTheDocument();
+    expect(screen.queryByText('무제한 수강생 관리')).not.toBeInTheDocument();
+
+    const dropdownButton = within(programRow as HTMLTableRowElement).getByRole('button', {
+      name: '정원제 수강생 관리 수강생 목록 펼치기',
+    });
+
+    expect(dropdownButton).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(dropdownButton);
+
+    expect(await screen.findByText('회원 리스트')).toBeInTheDocument();
+    expect(await screen.findByText('표시할 수강생이 없습니다.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: '정원제 수강생 관리 수강생 목록 접기',
+      }),
+    ).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('revokes a manually granted enrollment from the program enrollment detail modal', async () => {

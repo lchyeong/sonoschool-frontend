@@ -16,7 +16,7 @@ interface AdminQnaTableProps {
   isSavingReply: boolean;
   noticeQuestions: QuestionItem[];
   onCancelEditQuestion: () => void;
-  onDeleteQuestion: (questionId: number) => void;
+  onDeleteQuestion: (question: QuestionItem) => void;
   onDeleteReply: (replyId: number) => void;
   onQuestionContentChange: (value: string) => void;
   onQuestionPrivateQuestionChange: (value: boolean) => void;
@@ -24,7 +24,7 @@ interface AdminQnaTableProps {
   onReplyContentChange: (value: string) => void;
   onReorderNotice: (questionId: number, direction: 'down' | 'up') => void;
   onStartEditQuestion: (question: QuestionItem) => void;
-  onSubmitQuestion: (questionId: number) => void;
+  onSubmitQuestion: (question: QuestionItem) => void;
   onSubmitReply: (questionId: number) => void;
   onToggleQuestion: (questionId: number) => void;
   questions: QuestionItem[];
