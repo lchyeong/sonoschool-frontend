@@ -56,13 +56,13 @@ const catalogStatusLabel: Record<AdminProgramCatalogStatus, string> = {
 };
 
 const formatStudentCountLabel = (item: AdminProgramListItem): string => {
-  const activeEnrollmentCount = item.activeEnrollmentCount ?? item.currentStudents;
+  const confirmedEnrollmentCount = item.currentStudents;
 
   if (item.programType === 'OFFLINE' && item.maxStudents !== null) {
-    return `${String(activeEnrollmentCount)} / ${String(item.maxStudents)}`;
+    return `${String(confirmedEnrollmentCount)} / ${String(item.maxStudents)}`;
   }
 
-  return `${String(activeEnrollmentCount)}명`;
+  return `${String(confirmedEnrollmentCount)}명`;
 };
 
 const formatCurrency = (value: number): string => {
@@ -135,6 +135,12 @@ const typeOptions = [
 const confirmProgramDelete = (): boolean => {
   return window.confirm(
     '프로그램을 삭제하면 되돌릴 수 없습니다.\n커리큘럼, 결제/수강 등록 이력, 리뷰 또는 공지사항이 연결된 프로그램은 삭제가 실패할 수 있습니다.\n계속하시겠습니까?',
+  );
+};
+
+const confirmEndedProgramEdit = (): boolean => {
+  return window.confirm(
+    "종료된 프로그램의 수강 기간을 연장하면 기존 만료 수강권이 다시 활성화될 수 있습니다.\n새 기수 모집은 '새 기수로 복제'를 이용해 주세요.\n기존 프로그램을 수정하시겠습니까?",
   );
 };
 
@@ -461,7 +467,7 @@ const AdminProgramListSection = () => {
                     <th scope='col'>카테고리</th>
                     <th scope='col'>형태</th>
                     <th scope='col'>가격</th>
-                    <th scope='col'>수강생</th>
+                    <th scope='col'>확정 수강생</th>
                     <th scope='col'>판매 상태</th>
                     <th className={styles['programFeatureHeader']} scope='col'>
                       메인 슬라이드
@@ -541,6 +547,11 @@ const AdminProgramListSection = () => {
                                 {salePeriodLabel}
                               </span>
                             ) : null}
+                            {item.catalogStatus === 'ENDED' ? (
+                              <span className={styles['cellSecondary']}>
+                                새 모집은 ‘새 기수로 복제’를 이용해 주세요.
+                              </span>
+                            ) : null}
                           </div>
                         </td>
                         <td>
@@ -570,8 +581,16 @@ const AdminProgramListSection = () => {
                             <button
                               className={styles['tableActionButton']}
                               onClick={() => {
+                                if (item.catalogStatus === 'ENDED' && !confirmEndedProgramEdit()) {
+                                  return;
+                                }
                                 void navigate(routePaths.adminProgramEdit(String(item.id)));
                               }}
+                              title={
+                                item.catalogStatus === 'ENDED'
+                                  ? '기존 기수의 기간을 연장하면 만료 수강생이 다시 활성화됩니다.'
+                                  : undefined
+                              }
                               type='button'
                             >
                               수정
@@ -581,9 +600,14 @@ const AdminProgramListSection = () => {
                               onClick={() => {
                                 void navigate(routePaths.adminProgramDuplicate(String(item.id)));
                               }}
+                              title={
+                                item.catalogStatus === 'ENDED'
+                                  ? '새 기수 모집은 기존 프로그램을 복제해 시작하세요.'
+                                  : '기존 프로그램을 복제합니다.'
+                              }
                               type='button'
                             >
-                              복제
+                              {item.catalogStatus === 'ENDED' ? '새 기수로 복제' : '복제'}
                             </button>
                             {item.published ? (
                               <button

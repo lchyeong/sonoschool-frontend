@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -54,6 +54,7 @@ const EMPTY_PROGRAMS: AdminProgramListItem[] = [];
 const EMPTY_ENROLLMENTS: AdminProgramEnrollmentItem[] = [];
 const PROGRAMS_PAGE_SIZE = 10;
 const ENROLLMENTS_PAGE_SIZE = 10;
+const MAX_LIFECYCLE_TIMER_DELAY_MS = 2_147_483_647;
 const HIDDEN_ENROLLMENT_PAYMENT_STATUSES = new Set<AdminProgramEnrollmentItem['paymentStatus']>([
   'APPROVED_PENDING_FULFILLMENT',
   'FAILED',
@@ -152,10 +153,41 @@ const resolveEnrollmentStatusTextClassName = (status: string): string => {
   return `${styles['statusText']} ${styles['statusTextMuted']}`;
 };
 
+type ProgramEnrollmentLifecycleKind = 'ACTIVE' | 'CANCELLED' | 'EXPIRED' | 'OTHER' | 'SCHEDULED';
+
+const resolveProgramEnrollmentLifecycleKind = (
+  item: AdminProgramEnrollmentItem,
+  now: number,
+): ProgramEnrollmentLifecycleKind => {
+  if (item.paymentStatus === 'CANCELLED' || item.enrollmentStatus === 'CANCELLED') {
+    return 'CANCELLED';
+  }
+
+  const enrolledAt = getTimeOrNull(item.enrolledAt);
+  const expireAt = getTimeOrNull(item.expireAt);
+
+  if (item.enrollmentStatus === 'EXPIRED' || (expireAt !== null && expireAt <= now)) {
+    return 'EXPIRED';
+  }
+
+  if (item.enrollmentStatus === 'ACTIVE' && enrolledAt !== null && enrolledAt > now) {
+    return 'SCHEDULED';
+  }
+
+  if (item.enrollmentStatus === 'ACTIVE') {
+    return 'ACTIVE';
+  }
+
+  return 'OTHER';
+};
+
 const resolveProgramEnrollmentLifecycleStatus = (
   item: AdminProgramEnrollmentItem,
+  now = Date.now(),
 ): { label: string; className: string; detail: string } => {
-  if (item.paymentStatus === 'CANCELLED') {
+  const lifecycleKind = resolveProgramEnrollmentLifecycleKind(item, now);
+
+  if (lifecycleKind === 'CANCELLED' && item.paymentStatus === 'CANCELLED') {
     return {
       label: '결제취소',
       className: `${styles['statusText']} ${styles['statusTextDanger']}`,
@@ -163,7 +195,7 @@ const resolveProgramEnrollmentLifecycleStatus = (
     };
   }
 
-  if (item.enrollmentStatus === 'CANCELLED') {
+  if (lifecycleKind === 'CANCELLED') {
     return {
       label: '수강취소',
       className: `${styles['statusText']} ${styles['statusTextDanger']}`,
@@ -171,11 +203,7 @@ const resolveProgramEnrollmentLifecycleStatus = (
     };
   }
 
-  const now = Date.now();
-  const enrolledAt = getTimeOrNull(item.enrolledAt);
-  const expireAt = getTimeOrNull(item.expireAt);
-
-  if (item.enrollmentStatus === 'EXPIRED' || (expireAt !== null && expireAt <= now)) {
+  if (lifecycleKind === 'EXPIRED') {
     return {
       label: '만료',
       className: `${styles['statusText']} ${styles['statusTextMuted']}`,
@@ -183,7 +211,7 @@ const resolveProgramEnrollmentLifecycleStatus = (
     };
   }
 
-  if (item.enrollmentStatus === 'ACTIVE' && enrolledAt !== null && enrolledAt > now) {
+  if (lifecycleKind === 'SCHEDULED') {
     return {
       label: '수강예정',
       className: `${styles['statusText']} ${styles['statusTextWarning']}`,
@@ -191,7 +219,7 @@ const resolveProgramEnrollmentLifecycleStatus = (
     };
   }
 
-  if (item.enrollmentStatus === 'ACTIVE') {
+  if (lifecycleKind === 'ACTIVE') {
     return {
       label: '수강중',
       className: `${styles['statusText']} ${styles['statusTextSuccess']}`,
@@ -278,17 +306,75 @@ const getProgramEnrollmentCount = (program: AdminProgramListItem | null): number
     return 0;
   }
 
-  return program.activeEnrollmentCount ?? program.currentStudents;
+  return program.currentStudents;
 };
 
 const formatProgramStudentCount = (program: AdminProgramListItem): string => {
-  const activeEnrollmentCount = getProgramEnrollmentCount(program);
+  const confirmedEnrollmentCount = getProgramEnrollmentCount(program);
 
   if (program.maxStudents === null) {
-    return `${String(activeEnrollmentCount)} / 무제한`;
+    return `${String(confirmedEnrollmentCount)} / 무제한`;
   }
 
-  return `${String(activeEnrollmentCount)} / ${String(program.maxStudents)} 명`;
+  return `${String(confirmedEnrollmentCount)} / ${String(program.maxStudents)} 명`;
+};
+
+const summarizeProgramEnrollments = (items: readonly AdminProgramEnrollmentItem[], now: number) => {
+  return items.reduce(
+    (summary, item) => {
+      const lifecycleKind = resolveProgramEnrollmentLifecycleKind(item, now);
+
+      if (lifecycleKind === 'CANCELLED') {
+        summary.cancelled += 1;
+        return summary;
+      }
+
+      if (lifecycleKind === 'EXPIRED') {
+        summary.confirmed += 1;
+        summary.expired += 1;
+        return summary;
+      }
+
+      if (lifecycleKind === 'ACTIVE' || lifecycleKind === 'SCHEDULED') {
+        summary.confirmed += 1;
+        summary.validOrScheduled += 1;
+      }
+
+      return summary;
+    },
+    { cancelled: 0, confirmed: 0, expired: 0, validOrScheduled: 0 },
+  );
+};
+
+const useProgramEnrollmentLifecycleNow = (items: readonly AdminProgramEnrollmentItem[]): number => {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const nextBoundary = items
+      .flatMap((item) => [getTimeOrNull(item.enrolledAt), getTimeOrNull(item.expireAt)])
+      .filter((value): value is number => value !== null && value > now)
+      .reduce<number | null>((earliest, value) => {
+        return earliest === null || value < earliest ? value : earliest;
+      }, null);
+
+    if (nextBoundary === null) {
+      return undefined;
+    }
+
+    const delay = Math.min(
+      Math.max(nextBoundary - Date.now() + 1, 0),
+      MAX_LIFECYCLE_TIMER_DELAY_MS,
+    );
+    const timerId = window.setTimeout(() => {
+      setNow(Date.now());
+    }, delay);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [items, now]);
+
+  return now;
 };
 
 const buildCategoryPathById = (
@@ -584,6 +670,8 @@ const ProgramEnrollmentDropdown = ({
       (item) => !HIDDEN_ENROLLMENT_PAYMENT_STATUSES.has(item.paymentStatus),
     );
   }, [enrollments]);
+  const lifecycleNow = useProgramEnrollmentLifecycleNow(visibleEnrollments);
+  const enrollmentSummary = summarizeProgramEnrollments(visibleEnrollments, lifecycleNow);
   const selectedEnrollment =
     selectedEnrollmentId === null
       ? null
@@ -614,7 +702,16 @@ const ProgramEnrollmentDropdown = ({
         </div>
         <div className={styles['programEnrollmentSummaryGroup']}>
           <span className={styles['programEnrollmentSummaryText']}>
-            전체 {String(visibleEnrollments.length)}명
+            확정 {String(enrollmentSummary.confirmed)}명
+          </span>
+          <span className={styles['programEnrollmentSummaryText']}>
+            진행·예정 {String(enrollmentSummary.validOrScheduled)}명
+          </span>
+          <span className={styles['programEnrollmentSummaryText']}>
+            만료 {String(enrollmentSummary.expired)}명
+          </span>
+          <span className={styles['programEnrollmentSummaryText']}>
+            취소 {String(enrollmentSummary.cancelled)}명
           </span>
         </div>
       </div>
@@ -626,6 +723,7 @@ const ProgramEnrollmentDropdown = ({
         <>
           <ProgramEnrollmentTable
             items={pagedEnrollments}
+            lifecycleNow={lifecycleNow}
             onOpenDetail={(item) => {
               setSelectedEnrollmentId(item.enrollmentId);
             }}
@@ -674,7 +772,7 @@ const ProgramBoardTable = ({
           <tr>
             <th scope='col'>프로그램명</th>
             <th scope='col'>카테고리</th>
-            <th scope='col'>수강생</th>
+            <th scope='col'>확정 수강생</th>
             <th scope='col'>유형</th>
             <th scope='col'>판매 상태</th>
             <th scope='col'>
@@ -776,9 +874,11 @@ const ProgramBoardTable = ({
 
 const ProgramEnrollmentTable = ({
   items,
+  lifecycleNow,
   onOpenDetail,
 }: {
   items: AdminProgramEnrollmentItem[];
+  lifecycleNow: number;
   onOpenDetail: (item: AdminProgramEnrollmentItem) => void;
 }) => {
   return (
@@ -799,7 +899,7 @@ const ProgramEnrollmentTable = ({
         <tbody>
           {items.length ? (
             items.map((item) => {
-              const lifecycleStatus = resolveProgramEnrollmentLifecycleStatus(item);
+              const lifecycleStatus = resolveProgramEnrollmentLifecycleStatus(item, lifecycleNow);
 
               return (
                 <tr

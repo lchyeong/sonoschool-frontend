@@ -56,7 +56,11 @@ import {
   adminProgramDraftsQueryKey,
   useAdminProgramDraftDetailQuery,
 } from '@/query/useAdminProgramDraftsQuery';
-import { adminProgramsLiveQueryKey } from '@/query/useAdminProgramsLiveQuery';
+import { useAdminProgramEnrollmentsQuery } from '@/query/useAdminProgramOperationsQuery';
+import {
+  adminProgramsLiveQueryKey,
+  useAdminProgramDetailLiveQuery,
+} from '@/query/useAdminProgramsLiveQuery';
 import { routePaths } from '@/routes/routeRegistry';
 import { useToastStore } from '@/stores/useToastStore';
 import type { AdminLectureType } from '@/types/adminCurriculum';
@@ -73,8 +77,10 @@ import type {
   AdminProgramDraftResource,
   AdminProgramDraftSection,
 } from '@/types/adminProgramDrafts';
+import type { AdminProgramEnrollmentItem } from '@/types/adminProgramOperations';
 import type {
   AdminProgramAccessPolicy,
+  AdminProgramDetail,
   AdminProgramLevel,
   AdminProgramType,
 } from '@/types/adminProgramsLive';
@@ -1518,6 +1524,99 @@ const buildBasicInfoInputValidationIssues = (
   return issues;
 };
 
+const buildDuplicatePeriodValidationIssues = (
+  basicInfo: AdminProgramDraftPayload['basicInfo'],
+  mode: AdminProgramCreateWorkspaceProps['mode'],
+  now: number,
+): DraftValidationIssue[] => {
+  if (mode !== 'duplicate') {
+    return [];
+  }
+
+  const issues: DraftValidationIssue[] = [];
+  const saleEndTime = Date.parse(basicInfo.saleEndAt ?? '');
+  const learningEndTime = Date.parse(basicInfo.learningEndAt ?? '');
+
+  if (Number.isFinite(saleEndTime) && saleEndTime <= now) {
+    issues.push({
+      errorKey: 'recruitmentRange',
+      focusKey: 'basic-recruitment-range',
+      message: '새 기수 복제본의 모집 종료일은 현재 이후로 설정해 주세요.',
+    });
+  }
+
+  if (Number.isFinite(learningEndTime) && learningEndTime <= now) {
+    issues.push({
+      errorKey: 'learningRange',
+      focusKey: 'basic-learning-range',
+      message: '새 기수 복제본의 수강 종료일은 현재 이후로 설정해 주세요.',
+    });
+  }
+
+  return issues;
+};
+
+interface FixedDurationExtensionContext {
+  previousLearningEndTime: number;
+}
+
+const resolveFixedDurationExtensionContext = (
+  originalProgram: AdminProgramDetail,
+  finalBasicInfo: AdminProgramDraftPayload['basicInfo'],
+  now: number,
+): FixedDurationExtensionContext | null => {
+  if (
+    originalProgram.accessPolicy !== 'FIXED_DURATION' ||
+    finalBasicInfo.accessPolicy !== 'FIXED_DURATION'
+  ) {
+    return null;
+  }
+
+  const previousLearningEndTime = Date.parse(originalProgram.learningEndAt ?? '');
+  const nextLearningEndTime = Date.parse(finalBasicInfo.learningEndAt ?? '');
+
+  if (
+    !Number.isFinite(previousLearningEndTime) ||
+    !Number.isFinite(nextLearningEndTime) ||
+    nextLearningEndTime <= previousLearningEndTime ||
+    nextLearningEndTime <= now
+  ) {
+    return null;
+  }
+
+  if (originalProgram.operationStatus === 'CLOSURE_CONFIRMED') {
+    const nextSaleEndTime = Date.parse(finalBasicInfo.saleEndAt ?? '');
+    if (
+      finalBasicInfo.programType !== 'OFFLINE' ||
+      !Number.isFinite(nextSaleEndTime) ||
+      nextSaleEndTime <= now
+    ) {
+      return null;
+    }
+  }
+
+  return { previousLearningEndTime };
+};
+
+const countEnrollmentsReactivatedByFixedDurationExtension = (
+  enrollments: readonly AdminProgramEnrollmentItem[],
+  previousLearningEndTime: number,
+  now: number,
+): number => {
+  return enrollments.filter((enrollment) => {
+    if (enrollment.enrollmentStatus !== 'ACTIVE' && enrollment.enrollmentStatus !== 'EXPIRED') {
+      return false;
+    }
+
+    const expireAt = Date.parse(enrollment.expireAt ?? '');
+    if (!Number.isFinite(expireAt) || expireAt !== previousLearningEndTime) {
+      return false;
+    }
+
+    return enrollment.enrollmentStatus === 'EXPIRED' || expireAt <= now;
+  }).length;
+};
+
 const formatDateTime = (value: string | null | undefined): string => {
   if (!value) {
     return '아직 저장되지 않음';
@@ -1820,6 +1919,11 @@ const AdminProgramCreateWorkspace = ({
       ? requestedDuplicateSourceProgramId
       : null;
   const detailQuery = useAdminProgramDraftDetailQuery(draftId, draftId !== null);
+  const originalProgramQuery = useAdminProgramDetailLiveQuery(editProgramId, mode === 'edit');
+  const originalProgramEnrollmentsQuery = useAdminProgramEnrollmentsQuery(
+    editProgramId,
+    mode === 'edit',
+  );
   const categoriesQuery = useAdminCategoriesTreeQuery(true);
   const problemAreasQuery = useAdminProblemAreasQuery(false);
   const problemAreas = useMemo(() => problemAreasQuery.data ?? [], [problemAreasQuery.data]);
@@ -5345,6 +5449,11 @@ const AdminProgramCreateWorkspace = ({
     numericInputValues,
     discountPercentInput,
   );
+  const duplicatePeriodIssues = buildDuplicatePeriodValidationIssues(
+    payload.basicInfo,
+    mode,
+    Date.now(),
+  );
   const structuredInfoIssues = buildStructuredInfoFinalizeIssues(payload.basicInfo);
   const curriculumSectionIssues = payload.sections.flatMap((section) => {
     const sectionLabel = section.title?.trim() || '미제목 섹션';
@@ -5505,12 +5614,12 @@ const AdminProgramCreateWorkspace = ({
   );
   const allFinalizeIssues = [
     ...basicInfoInputIssues,
+    ...duplicatePeriodIssues,
     ...basicInfoIssues,
     ...structuredInfoIssues,
     ...curriculumSectionIssues,
     ...blockingFinalizeIssues,
   ];
-  const focusableFinalizeIssue = allFinalizeIssues.find((issue) => issue.focusKey);
   const blockingUploadMessages = allFinalizeIssues
     .filter((issue) => !issue.focusKey)
     .map((issue) => issue.message);
@@ -5778,12 +5887,29 @@ const AdminProgramCreateWorkspace = ({
             <Button
               disabled={finalizeMutation.isPending || discardMutation.isPending}
               onClick={(event) => {
-                applyBasicInfoValidationErrors([...basicInfoInputIssues, ...basicInfoIssues]);
-                if (focusableFinalizeIssue?.focusKey) {
-                  focusDraftField(focusableFinalizeIssue.focusKey);
-                  showDraftFocusHint(focusableFinalizeIssue.message, event);
+                const duplicatePeriodIssuesAtSubmit = buildDuplicatePeriodValidationIssues(
+                  payload.basicInfo,
+                  mode,
+                  Date.now(),
+                );
+                const focusableFinalizeIssueAtSubmit = [
+                  ...basicInfoInputIssues,
+                  ...duplicatePeriodIssuesAtSubmit,
+                  ...basicInfoIssues,
+                  ...structuredInfoIssues,
+                  ...curriculumSectionIssues,
+                  ...blockingFinalizeIssues,
+                ].find((issue) => issue.focusKey);
+                applyBasicInfoValidationErrors([
+                  ...basicInfoInputIssues,
+                  ...duplicatePeriodIssuesAtSubmit,
+                  ...basicInfoIssues,
+                ]);
+                if (focusableFinalizeIssueAtSubmit?.focusKey) {
+                  focusDraftField(focusableFinalizeIssueAtSubmit.focusKey);
+                  showDraftFocusHint(focusableFinalizeIssueAtSubmit.message, event);
                   showToast({
-                    message: focusableFinalizeIssue.message,
+                    message: focusableFinalizeIssueAtSubmit.message,
                     variant: 'error',
                   });
                   return;
@@ -5796,6 +5922,64 @@ const AdminProgramCreateWorkspace = ({
                     variant: 'error',
                   });
                   return;
+                }
+                if (mode === 'edit' && editProgramId !== null) {
+                  const workspaceDetail = detailQuery.data ?? createDraftMutation.data;
+                  if (workspaceDetail?.finalProgramId !== editProgramId) {
+                    showToast({
+                      message:
+                        '현재 수정 초안이 이 프로그램과 연결되어 있지 않습니다. 프로그램 목록에서 수정을 다시 시작해 주세요.',
+                      variant: 'error',
+                    });
+                    return;
+                  }
+
+                  const originalProgram = originalProgramQuery.data;
+                  if (!originalProgram) {
+                    showToast({
+                      message: originalProgramQuery.isError
+                        ? '기존 프로그램의 수강 기간을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+                        : '기존 프로그램의 수강 기간을 확인하는 중입니다. 잠시 후 다시 시도해 주세요.',
+                      variant: 'error',
+                    });
+                    return;
+                  }
+
+                  const reactivationNow = Date.now();
+                  const extensionContext = resolveFixedDurationExtensionContext(
+                    originalProgram,
+                    payload.basicInfo,
+                    reactivationNow,
+                  );
+
+                  if (extensionContext) {
+                    const originalEnrollments = originalProgramEnrollmentsQuery.data;
+                    if (!originalEnrollments) {
+                      showToast({
+                        message: originalProgramEnrollmentsQuery.isError
+                          ? '기존 만료 수강권을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+                          : '기존 만료 수강권을 확인하는 중입니다. 잠시 후 다시 시도해 주세요.',
+                        variant: 'error',
+                      });
+                      return;
+                    }
+
+                    const reactivatedEnrollmentCount =
+                      countEnrollmentsReactivatedByFixedDurationExtension(
+                        originalEnrollments,
+                        extensionContext.previousLearningEndTime,
+                        reactivationNow,
+                      );
+
+                    if (
+                      reactivatedEnrollmentCount > 0 &&
+                      !window.confirm(
+                        `수강 종료일을 연장하면 기존 만료 수강권 ${String(reactivatedEnrollmentCount)}개가 새 종료일까지 다시 활성화됩니다.\n기존 수강생에게 수강 권한을 다시 부여하시겠습니까?`,
+                      )
+                    ) {
+                      return;
+                    }
+                  }
                 }
                 if (draftId !== null) {
                   finalizeMutation.mutate(draftId);

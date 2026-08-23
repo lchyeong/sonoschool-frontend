@@ -290,6 +290,7 @@ const renderAdminConsoleRoute = (
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   window.sessionStorage.clear();
   useAdminAuthStore.setState({
@@ -557,15 +558,139 @@ describe('AdminConsolePage', () => {
     expect(await screen.findByText('오리엔테이션')).toBeInTheDocument();
   });
 
+  it('blocks a new-cohort duplicate while its copied recruitment and learning periods have ended', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-20T12:00:00Z'));
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    draftDetail.finalProgramId = null;
+    draftDetail.payload.basicInfo.accessDays = 20;
+    draftDetail.payload.basicInfo.accessPolicy = 'FIXED_DURATION';
+    draftDetail.payload.basicInfo.learningEndAt = '2026-08-20T14:59:59Z';
+    draftDetail.payload.basicInfo.learningStartAt = '2026-08-02T00:00:00Z';
+    draftDetail.payload.basicInfo.programType = 'OFFLINE';
+    draftDetail.payload.basicInfo.saleEndAt = '2026-08-20T14:59:59Z';
+    draftDetail.payload.basicInfo.saleStartAt = '2026-08-01T00:00:00Z';
+    let finalized = false;
+
+    server.use(
+      http.post('*/api/v1/admin/program-drafts/:draftId/finalize', () => {
+        finalized = true;
+        return HttpResponse.json({ data: { programId: 3001 } });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/programs/2001/duplicate?draftId=91001', { draftDetail });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+
+    vi.setSystemTime(new Date('2026-08-21T00:00:00Z'));
+    fireEvent.click(screen.getByRole('button', { name: '등록 완료' }));
+
+    expect(
+      screen.getAllByText('새 기수 복제본의 모집 종료일은 현재 이후로 설정해 주세요.').length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('새 기수 복제본의 수강 종료일은 현재 이후로 설정해 주세요.').length,
+    ).toBeGreaterThan(0);
+    expect(finalized).toBe(false);
+    const recruitmentRangeButton = document.querySelector(
+      "[data-draft-focus-key='basic-recruitment-range'] button",
+    );
+    await waitFor(() => {
+      expect(document.activeElement).toBe(recruitmentRangeButton);
+    });
+  });
+
   it('shows the student column in the program list with offline capacity only for offline programs', async () => {
     renderAdminConsoleRoute('/admin/programs');
 
     expect(
       await screen.findByRole('heading', { level: 1, name: '프로그램 관리' }),
     ).toBeInTheDocument();
-    expect(await screen.findByRole('columnheader', { name: '수강생' })).toBeInTheDocument();
+    expect(await screen.findByRole('columnheader', { name: '확정 수강생' })).toBeInTheDocument();
     expect(await screen.findByText('12명')).toBeInTheDocument();
     expect(screen.getByText('20 / 20')).toBeInTheDocument();
+  });
+
+  it('warns before editing an ended program and guides new cohorts to duplication', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    let duplicateSourceProgramId: string | null = null;
+
+    server.use(
+      http.get('*/api/v1/admin/programs', () => {
+        return HttpResponse.json({
+          data: {
+            content: [
+              {
+                activeEnrollmentCount: 0,
+                catalogStatus: 'ENDED',
+                categoryId: 2,
+                categoryName: '내과과정',
+                currentStudents: 10,
+                deletable: false,
+                deleteBlockedReason: '수강 등록 이력이 있습니다.',
+                featured: false,
+                full: true,
+                id: 2098,
+                level: 'BEGINNER',
+                maxStudents: 10,
+                price: 10000,
+                programType: 'OFFLINE',
+                published: true,
+                saleEndAt: '2026-08-20T14:59:00Z',
+                salePrice: null,
+                saleStartAt: '2026-08-15T15:00:00Z',
+                slug: 'ended-offline-program',
+                thumbnailUrl: null,
+                title: '종료된 오프라인 과정',
+              },
+            ],
+          },
+        });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/programs');
+
+    const programRow = (await screen.findByText('종료된 오프라인 과정')).closest('tr');
+
+    if (!(programRow instanceof HTMLTableRowElement)) {
+      throw new Error('Expected ended program row.');
+    }
+
+    expect(within(programRow).getByText('10 / 10')).toBeInTheDocument();
+    expect(
+      within(programRow).getByText('새 모집은 ‘새 기수로 복제’를 이용해 주세요.'),
+    ).toBeInTheDocument();
+    expect(within(programRow).getByRole('button', { name: '새 기수로 복제' })).toHaveAttribute(
+      'title',
+      '새 기수 모집은 기존 프로그램을 복제해 시작하세요.',
+    );
+
+    fireEvent.click(within(programRow).getByRole('button', { name: '수정' }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "종료된 프로그램의 수강 기간을 연장하면 기존 만료 수강권이 다시 활성화될 수 있습니다.\n새 기수 모집은 '새 기수로 복제'를 이용해 주세요.\n기존 프로그램을 수정하시겠습니까?",
+    );
+    expect(screen.getByRole('heading', { level: 1, name: '프로그램 관리' })).toBeInTheDocument();
+
+    const duplicateDraft = createAdminProgramDraftDetailFixture();
+    duplicateDraft.payload.basicInfo.title = '종료된 오프라인 과정 복제본';
+    server.use(
+      http.post('*/api/v1/admin/program-drafts/duplicate-from-program/:programId', ({ params }) => {
+        duplicateSourceProgramId = String(params['programId']);
+        return HttpResponse.json({ data: duplicateDraft });
+      }),
+    );
+
+    fireEvent.click(within(programRow).getByRole('button', { name: '새 기수로 복제' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '새 프로그램 통합 등록' }),
+    ).toBeInTheDocument();
+    expect(duplicateSourceProgramId).toBe('2098');
   });
 
   it('keeps lecture type fixed and shows video duration as readonly in the create curriculum workspace', async () => {
@@ -957,6 +1082,158 @@ describe('AdminConsolePage', () => {
       });
     });
   });
+
+  it('warns before a resumed edit reactivates matching expired fixed-duration enrollments', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-21T00:00:00Z'));
+    const previousLearningEndAt = '2026-08-20T14:59:59Z';
+    const draftDetail = createValidAdminProgramDraftDetailFixture();
+    draftDetail.finalProgramId = 2001;
+    draftDetail.payload.basicInfo.accessDays = 61;
+    draftDetail.payload.basicInfo.accessPolicy = 'FIXED_DURATION';
+    draftDetail.payload.basicInfo.learningEndAt = '2026-09-30T14:59:59Z';
+    draftDetail.payload.basicInfo.learningStartAt = '2026-08-01T00:00:00Z';
+    draftDetail.payload.basicInfo.programType = 'OFFLINE';
+    draftDetail.payload.basicInfo.saleEndAt = '2026-09-01T14:59:59Z';
+    draftDetail.payload.basicInfo.saleStartAt = '2026-07-01T00:00:00Z';
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    let originalProgramRequested = false;
+    let originalEnrollmentsRequested = false;
+    let finalized = false;
+
+    server.use(
+      http.get('*/api/v1/admin/programs/2001', () => {
+        originalProgramRequested = true;
+        return HttpResponse.json({
+          data: {
+            accessDays: 20,
+            accessPolicy: 'FIXED_DURATION',
+            activeEnrollmentCount: 0,
+            catalogStatus: 'ENDED',
+            categoryId: 1101,
+            categoryName: '내과과정',
+            checklists: [],
+            currentStudents: 1,
+            description: null,
+            documents: [],
+            faqs: [],
+            featured: false,
+            full: false,
+            id: 2001,
+            learningEndAt: previousLearningEndAt,
+            learningOutcomes: [],
+            learningPoints: [],
+            learningStartAt: '2026-08-01T00:00:00Z',
+            level: 'BEGINNER',
+            maxStudents: 10,
+            operationStatus: 'NORMAL',
+            price: 100000,
+            programType: 'OFFLINE',
+            published: true,
+            recommendedFor: [],
+            saleEndAt: '2026-08-20T14:59:59Z',
+            salePrice: null,
+            saleStartAt: '2026-07-01T00:00:00Z',
+            slug: 'ended-fixed-duration',
+            summaryItems: [],
+            thumbnailUrl: null,
+            title: '종료된 지정 기간 과정',
+          },
+        });
+      }),
+      http.get('*/api/v1/admin/programs/2001/enrollments', () => {
+        originalEnrollmentsRequested = true;
+        return HttpResponse.json({
+          data: [
+            {
+              cancelledAt: null,
+              cancelReason: null,
+              canCancelEnrollment: false,
+              canCancelPayment: false,
+              enrolledAt: '2026-08-01T00:00:00Z',
+              enrollmentId: 7201,
+              enrollmentStatus: 'EXPIRED',
+              expireAt: previousLearningEndAt,
+              loginId: 'expired01',
+              paidAt: '2026-07-10T00:00:00Z',
+              paymentId: 72001,
+              paymentStatus: 'COMPLETED',
+              phoneNumber: '010-1111-2222',
+              userId: 301,
+              userName: '만료회원',
+            },
+          ],
+        });
+      }),
+      http.post('*/api/v1/admin/program-drafts/:draftId/finalize', () => {
+        finalized = true;
+        return HttpResponse.json({ data: { draftId: 91001, programId: 2001 } });
+      }),
+    );
+
+    renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', {
+      draftDetail,
+      skipProgramEditorApis: true,
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(originalProgramRequested).toBe(true);
+      expect(originalEnrollmentsRequested).toBe(true);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '수정 완료' }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      '수강 종료일을 연장하면 기존 만료 수강권 1개가 새 종료일까지 다시 활성화됩니다.\n기존 수강생에게 수강 권한을 다시 부여하시겠습니까?',
+    );
+    expect(finalized).toBe(false);
+
+    confirmSpy.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: '수정 완료' }));
+
+    await waitFor(() => {
+      expect(finalized).toBe(true);
+    });
+  });
+
+  it.each([null, 2002])(
+    'blocks edit finalization when the resumed draft is linked to %s instead of the route program',
+    async (finalProgramId) => {
+      const draftDetail = createValidAdminProgramDraftDetailFixture();
+      draftDetail.finalProgramId = finalProgramId;
+      let finalized = false;
+
+      server.use(
+        http.post('*/api/v1/admin/program-drafts/:draftId/finalize', () => {
+          finalized = true;
+          return HttpResponse.json({ data: { draftId: 91001, programId: 2001 } });
+        }),
+      );
+
+      renderAdminConsoleRoute('/admin/programs/2001/edit?draftId=91001', { draftDetail });
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: '프로그램 수정' }),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '수정 완료' }));
+
+      await waitFor(() => {
+        expect(
+          useToastStore
+            .getState()
+            .toasts.some(
+              (toast) =>
+                toast.message ===
+                '현재 수정 초안이 이 프로그램과 연결되어 있지 않습니다. 프로그램 목록에서 수정을 다시 시작해 주세요.',
+            ),
+        ).toBe(true);
+      });
+      expect(finalized).toBe(false);
+    },
+  );
 
   it('prefers the server draft over a clean browser snapshot', async () => {
     const draftDetail = createValidAdminProgramDraftDetailFixture();
@@ -2030,13 +2307,13 @@ describe('AdminConsolePage', () => {
       within(programTable as HTMLTableElement)
         .getAllByRole('columnheader')
         .map((header) => header.textContent.trim()),
-    ).toEqual(['프로그램명', '카테고리', '수강생', '유형', '판매 상태', '펼침']);
+    ).toEqual(['프로그램명', '카테고리', '확정 수강생', '유형', '판매 상태', '펼침']);
     expect(
       await within(programRow as HTMLTableRowElement).findByText(
         '의사과정 > 소아내과 > 소아내분비',
       ),
     ).toBeInTheDocument();
-    expect(within(programRow as HTMLTableRowElement).getByText('3 / 8 명')).toBeInTheDocument();
+    expect(within(programRow as HTMLTableRowElement).getByText('7 / 8 명')).toBeInTheDocument();
     expect(within(programRow as HTMLTableRowElement).getByText('오프라인')).toBeInTheDocument();
     expect(within(programRow as HTMLTableRowElement).getByText('판매중')).toBeInTheDocument();
     expect(screen.getByText('5 / 무제한')).toBeInTheDocument();
@@ -2384,6 +2661,23 @@ describe('AdminConsolePage', () => {
               userId: 202,
               userName: '예정회원',
             },
+            {
+              cancelledAt: null,
+              cancelReason: null,
+              canCancelEnrollment: false,
+              canCancelPayment: false,
+              enrolledAt: '2000-01-01T00:00:00Z',
+              enrollmentId: 7103,
+              enrollmentStatus: 'EXPIRED',
+              expireAt: '2000-02-01T00:00:00Z',
+              loginId: 'expired01',
+              paidAt: '2000-01-01T00:00:00Z',
+              paymentId: 71003,
+              paymentStatus: 'COMPLETED',
+              phoneNumber: '010-5555-6666',
+              userId: 203,
+              userName: '만료회원',
+            },
           ],
         });
       }),
@@ -2399,10 +2693,12 @@ describe('AdminConsolePage', () => {
 
     const cancelledRow = (await screen.findByText('취소회원')).closest('tr');
     const futureRow = (await screen.findByText('예정회원')).closest('tr');
+    const expiredRow = (await screen.findByText('만료회원')).closest('tr');
 
     if (
       !(cancelledRow instanceof HTMLTableRowElement) ||
-      !(futureRow instanceof HTMLTableRowElement)
+      !(futureRow instanceof HTMLTableRowElement) ||
+      !(expiredRow instanceof HTMLTableRowElement)
     ) {
       throw new Error('Expected program enrollment rows.');
     }
@@ -2410,6 +2706,11 @@ describe('AdminConsolePage', () => {
     expect(within(cancelledRow).getByText('결제취소')).toBeInTheDocument();
     expect(within(cancelledRow).queryByText('수강중')).not.toBeInTheDocument();
     expect(within(futureRow).getByText('수강예정')).toBeInTheDocument();
+    expect(within(expiredRow).getByText('만료')).toBeInTheDocument();
+    expect(screen.getByText('확정 2명')).toBeInTheDocument();
+    expect(screen.getByText('진행·예정 1명')).toBeInTheDocument();
+    expect(screen.getByText('만료 1명')).toBeInTheDocument();
+    expect(screen.getByText('취소 1명')).toBeInTheDocument();
   });
 
   it('renders the dedicated practicum management section', async () => {
@@ -3137,7 +3438,8 @@ describe('AdminConsolePage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: '수정' })[0]);
 
     expect(await screen.findByRole('heading', { level: 1, name: '자료 수정' })).toBeInTheDocument();
-    expect(screen.getByLabelText('다운로드 파일명')).toHaveValue('resource-1.pdf');
+    expect(screen.getByText('등록된 자료 파일 1개')).toBeInTheDocument();
+    expect(screen.getByText('resource-1.pdf')).toBeInTheDocument();
     expect(screen.queryByLabelText('파일 주소')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('MIME 타입')).not.toBeInTheDocument();
   });
